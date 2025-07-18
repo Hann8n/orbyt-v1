@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "orbyt",
-    "slug": "byte-app",
+    "name": "orbyt (Dev)",
+    "slug": "byte-app-dev",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/Icons/icon-prod.png",
+    "icon": "./src/assets/Icons/icon-dev.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bytesocial.byte-app",
+      "bundleIdentifier": "com.bytesocial.byte-app.dev",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "This app needs access to your camera to take photos and record videos",
@@ -28,10 +28,10 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/Icons/icon-prod.png",
+        "foregroundImage": "./src/assets/Icons/icon-dev.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.bytesocial.byteapp",
+      "package": "com.bytesocial.byteapp.dev",
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO"
