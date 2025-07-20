@@ -62,7 +62,21 @@ const ModerationDebug: React.FC<ModerationDebugProps> = ({ visible, onClose }) =
           author: { did: 'did:test:user5' },
           contentWarnings: ['adult content'],
         }
+      },
+      {
+        post: {
+          uri: 'test://post/6',
+          author: { did: 'did:test:user6' },
+          record: { text: 'This is a completely normal post with no adult content' },
+        }
+      },
+      {
+        post: {
+        uri: 'test://post/7',
+        author: { did: 'did:test:user7' },
+        contentWarnings: ['nsfw content'],
       }
+    }
     ];
 
     // Test both individual and batch moderation
@@ -172,6 +186,77 @@ const ModerationDebug: React.FC<ModerationDebugProps> = ({ visible, onClose }) =
             }}
           >
             <Text style={styles.actionButtonText}>Sync Settings</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: '#FF6B6B' }]}
+            onPress={async () => {
+              // Test adult-only mode
+              const settings = await ModerationService.getModerationSettings();
+              settings.adultContentOnlyMode = true;
+              await ModerationService.saveModerationSettings(settings);
+              
+              // Run tests with adult-only mode enabled
+              const testPosts = [
+                {
+                  post: {
+                    uri: 'test://adult-only/1',
+                    author: { did: 'did:test:user1' },
+                    labels: [{ val: 'porn', src: 'test-labeler' }],
+                  }
+                },
+                {
+                  post: {
+                    uri: 'test://adult-only/2',
+                    author: { did: 'did:test:user2' },
+                    record: { text: 'This is a normal post' },
+                  }
+                },
+                {
+                  post: {
+                    uri: 'test://adult-only/3',
+                    author: { did: 'did:test:user3' },
+                    contentWarnings: ['nsfw content'],
+                  }
+                },
+                {
+                  post: {
+                    uri: 'test://adult-only/4',
+                    author: { did: 'did:test:user4' },
+                    record: { text: 'This is a completely normal post' },
+                  }
+                }
+              ];
+              
+              const result = await ModerationService.batchModeratePosts(testPosts);
+              console.log('Adult-only mode test results:', result);
+              
+              // Show results in alert
+              const filteredCount = result.stats.filtered;
+              const allowedCount = result.stats.allowed;
+              const totalCount = result.stats.total;
+              
+              Alert.alert(
+                'Adult-Only Mode Test Results', 
+                `Total posts: ${totalCount}\nFiltered (non-adult): ${filteredCount}\nAllowed (adult): ${allowedCount}\n\nCheck console for detailed results.`
+              );
+              
+              // Reset to normal mode
+              settings.adultContentOnlyMode = false;
+              await ModerationService.saveModerationSettings(settings);
+            }}
+          >
+            <Text style={styles.actionButtonText}>Test Adult-Only Mode</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
+            onPress={async () => {
+              await ModerationService.debugAPICalls();
+              Alert.alert('Success', 'API debug calls completed. Check console for detailed logs.');
+            }}
+          >
+            <Text style={styles.actionButtonText}>Debug API Calls</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

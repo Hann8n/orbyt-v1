@@ -1796,6 +1796,75 @@ class AtprotoService {
       return { generator: null, posts: [], cursor: null };
     }
   }
+
+  /**
+   * Get user's moderation preferences from Bluesky
+   * @returns Promise with moderation preferences
+   */
+  static async getModerationPreferences(): Promise<any> {
+    await this.ensureSession();
+    try {
+      const response = await this.agent.api.app.bsky.actor.getPreferences();
+      console.log('Raw Bluesky API response for preferences:', JSON.stringify(response.data, null, 2));
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching moderation preferences:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update user's moderation preferences on Bluesky
+   * @param preferences - Full preferences object to update
+   * @returns Promise indicating success
+   */
+  static async updateModerationPreferences(preferences: any): Promise<boolean> {
+    await this.ensureSession();
+    try {
+      console.log('Updating preferences with:', JSON.stringify(preferences, null, 2));
+      await this.agent.api.app.bsky.actor.putPreferences(preferences);
+      return true;
+    } catch (error: any) {
+      console.error('Error updating moderation preferences:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get user's blocked users list from Bluesky
+   * @returns Promise with blocked users
+   */
+  static async getBlockedUsersFromAPI(): Promise<string[]> {
+    await this.ensureSession();
+    try {
+      const response = await this.agent.api.app.bsky.graph.getBlocks({
+        limit: 100
+      });
+      console.log('Raw Bluesky API response for blocked users:', JSON.stringify(response.data, null, 2));
+      return response.data.blocks?.map((block: any) => block.did) || [];
+    } catch (error: any) {
+      console.error('Error fetching blocked users:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get user's muted users list from Bluesky
+   * @returns Promise with muted users
+   */
+  static async getMutedUsersFromAPI(): Promise<string[]> {
+    await this.ensureSession();
+    try {
+      const response = await this.agent.api.app.bsky.graph.getMutes({
+        limit: 100
+      });
+      console.log('Raw Bluesky API response for muted users:', JSON.stringify(response.data, null, 2));
+      return response.data.mutes?.map((mute: any) => mute.did) || [];
+    } catch (error: any) {
+      console.error('Error fetching muted users:', error);
+      return [];
+    }
+  }
 }
 
 // Use a named export to ensure TypeScript picks up the type correctly

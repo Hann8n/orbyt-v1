@@ -13,7 +13,7 @@ The moderation system is designed to filter content efficiently at the data laye
 ### Core Components
 
 #### ModerationService
-The main service that handles all moderation logic:
+The main service that handles all moderation logic and syncs with Bluesky's API:
 
 ```typescript
 // Key interfaces
@@ -28,6 +28,7 @@ interface ModerationSettings {
   showContentWarnings: boolean;
   autoExpandContentWarnings: boolean;
   adultContentEnabled: boolean;
+  adultContentOnlyMode: boolean; // NEW: Show only adult content, filter out everything else
   labels: Record<string, LabelPreference>;
   labelers: Array<{did: string, labels: Record<string, LabelPreference>}>;
   mutedWords: string[];
@@ -45,17 +46,28 @@ interface ModerationDecision {
 
 #### Key Methods
 
+- `getModerationSettings()`: **Fetches settings from Bluesky API**
+- `saveModerationSettings(settings)`: **Saves settings to Bluesky API**
+- `getBlockedUsers()`: **Fetches blocked users from Bluesky API**
+- `getMutedUsers()`: **Fetches muted users from Bluesky API**
 - `moderatePost(post, context)`: Individual post moderation
 - `batchModeratePosts(posts, context)`: **Batch moderation for multiple posts** (used in fetch functions)
+- `syncModerationSettings()`: **Syncs all settings from Bluesky API**
 - `getModerationStats()`: Get moderation statistics
 - `testModeration()`: Run moderation tests
 
 ### Integration Points
 
 #### AtprotoService.tsx
-Content filtering happens at the API fetch level:
+Content filtering happens at the API fetch level, and moderation settings are fetched from Bluesky's API:
 
 ```typescript
+// New API methods for moderation preferences
+static async getModerationPreferences(): Promise<any>
+static async updateModerationPreferences(preferences): Promise<boolean>
+static async getBlockedUsersFromAPI(): Promise<string[]>
+static async getMutedUsersFromAPI(): Promise<string[]>
+
 // In AtprotoService feed methods (getFeed, getAuthorFeed, etc.)
 // Apply content moderation at fetch level to reduce downstream compute
 if (feedData.length > 0) {
@@ -69,6 +81,26 @@ Moderation settings are accessible through the Settings screen:
 - **Moderation Settings**: Links to Bluesky's moderation settings
 - **Test Moderation (Debug)**: Opens debug interface for testing
 
+## API Integration
+
+### Bluesky API Integration
+The moderation system now integrates directly with Bluesky's API for real-time settings:
+
+#### Moderation Preferences
+- **Fetched from**: `app.bsky.actor.getPreferences()`
+- **Updated via**: `app.bsky.actor.putPreferences()`
+- **Includes**: Adult content settings, label preferences, labeler configurations
+
+#### User Lists
+- **Blocked users**: Fetched from `app.bsky.graph.getBlocks()`
+- **Muted users**: Fetched from `app.bsky.graph.getMutes()`
+- **Real-time sync**: No local caching, always fresh from API
+
+#### Benefits
+- **Consistency**: Settings are always in sync with Bluesky web app
+- **Real-time**: Changes made in other apps are immediately reflected
+- **Reliability**: No local storage conflicts or sync issues
+
 ## Moderation Sources
 
 ### 1. Labels
@@ -78,8 +110,8 @@ Content can be labeled by various sources:
 - **Platform labels**: Applied by Bluesky's moderation team
 
 ### 2. User Actions
-- **Blocked users**: Users the current user has blocked
-- **Muted users**: Users the current user has muted
+- **Blocked users**: Users the current user has blocked (from API)
+- **Muted users**: Users the current user has muted (from API)
 - **Muted words**: Keyword-based filtering
 - **Hidden posts**: Individual posts the user has hidden
 
@@ -154,12 +186,19 @@ const stats = batchResult.stats;
 
 ### Settings Management
 ```typescript
-// Get current settings
+// Get current settings from Bluesky API
 const settings = await ModerationService.getModerationSettings();
 
-// Update settings
+// Update settings (saves to Bluesky API)
 settings.hideAdultContent = false;
 await ModerationService.saveModerationSettings(settings);
+
+// Enable adult-only mode
+settings.adultContentOnlyMode = true;
+await ModerationService.saveModerationSettings(settings);
+
+// Sync all settings from API
+await ModerationService.syncModerationSettings();
 ```
 
 ## Testing
@@ -189,6 +228,14 @@ The system uses conservative default settings that prioritize content safety:
 - Sensitive content: Hidden
 - Blocked users: Hidden
 - Muted users: Hidden
+
+### Adult Content Only Mode
+A special filtering mode that shows only adult content and filters out everything else:
+- **Purpose**: For users who want to see only adult/NSFW content
+- **Behavior**: Filters out posts that don't have adult labels or content warnings
+- **Labels**: Recognizes `porn`, `sexual`, `nudity` labels as adult content
+- **Warnings**: Recognizes content warnings containing `adult`, `nsfw`, `nudity`, `sexual`
+- **Usage**: Enable in Moderation Settings → General Settings → Adult Content Only Mode
 
 ### Customization
 Users can customize settings through:
@@ -234,30 +281,38 @@ Users can customize settings through:
 ### Common Issues
 
 1. **Content not being filtered**
-   - Check moderation settings
-   - Verify label preferences
-   - Review debug logs
+   - Check moderation settings from API
+   - Verify label preferences are synced
+   - Review debug logs for API errors
 
 2. **Performance issues**
    - Ensure moderation is happening at feed level
    - Check for excessive debug logging
-   - Verify async operations
+   - Verify API calls are not timing out
 
 3. **Settings not saving**
-   - Check AsyncStorage permissions
-   - Verify data format
-   - Review error logs
+   - Check network connectivity
+   - Verify API authentication
+   - Review API error logs
+   - Ensure Bluesky service is available
 
 ### Debug Commands
 ```typescript
 // Enable debug mode (development only)
 ModerationService.DEBUG_MODE = true;
 
+// Sync settings from Bluesky API
+await ModerationService.syncModerationSettings();
+
 // Run comprehensive tests
 await ModerationService.testModeration();
 
 // Get detailed statistics
 const stats = await ModerationService.getModerationStats();
+
+// Test API connectivity
+const preferences = await AtprotoService.getModerationPreferences();
+console.log('API preferences:', preferences);
 ```
 
 ## References

@@ -39,9 +39,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
   const logoutFunction = onLogout || logoutFromContext;
   const [settings, setSettings] = useState<ModerationSettings | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const insets = useSafeAreaInsets();
 
@@ -89,6 +86,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
     showContentWarnings: true,
     autoExpandContentWarnings: false,
     adultContentEnabled: false,
+    adultContentOnlyMode: false, // NEW: Adult content only mode
   });
 
   useEffect(() => {
@@ -111,7 +109,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
     try {
       setLoading(true);
       const currentSettings = await ModerationService.getModerationSettings();
-      console.log('Loaded settings:', currentSettings);
       setSettings(currentSettings);
       
       // Update general settings
@@ -126,6 +123,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
         showContentWarnings: currentSettings.showContentWarnings,
         autoExpandContentWarnings: currentSettings.autoExpandContentWarnings,
         adultContentEnabled: currentSettings.adultContentEnabled,
+        adultContentOnlyMode: currentSettings.adultContentOnlyMode || false,
       });
 
       // Update content options with current label preferences
@@ -135,7 +133,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
       }));
       
       setContentOptions(updatedContentOptions);
-      console.log('Updated content options:', updatedContentOptions);
     } catch (error) {
       console.error('Error loading moderation settings:', error);
       Alert.alert('Error', 'Failed to load moderation settings');
@@ -144,49 +141,61 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
     }
   };
 
-  const saveSettings = async () => {
+
+
+  const updateContentPreference = async (contentId: string, preference: LabelPreference) => {
+    // Update the content options state
+    const updatedContentOptions = contentOptions.map(option => 
+      option.id === contentId ? { ...option, preference } : option
+    );
+    setContentOptions(updatedContentOptions);
+    
+    // Auto-save the changes
     try {
-      setSaving(true);
-      
-      if (!settings) return;
-
-      // Update settings with current values
-      const updatedSettings: ModerationSettings = {
-        ...settings,
-        ...generalSettings,
-        labels: {
-          ...settings.labels,
-          ...Object.fromEntries(contentOptions.map(option => [option.id, option.preference]))
-        }
-      };
-
-      console.log('Saving settings:', updatedSettings);
-      await ModerationService.saveModerationSettings(updatedSettings);
-      setSettings(updatedSettings);
-      setSaved(true);
-      setHasChanges(false);
+      if (settings) {
+        const updatedSettings: ModerationSettings = {
+          ...settings,
+          labels: {
+            ...settings.labels,
+            [contentId]: preference
+          }
+        };
+        
+        await ModerationService.saveModerationSettings(updatedSettings);
+        setSettings(updatedSettings);
+      }
     } catch (error) {
-      console.error('Error saving moderation settings:', error);
-      Alert.alert('Error', 'Failed to save moderation settings');
-    } finally {
-      setSaving(false);
+      console.error('Error auto-saving content preference:', error);
     }
   };
 
-  const updateContentPreference = (contentId: string, preference: LabelPreference) => {
-    console.log('Updating content preference:', contentId, preference);
-    setContentOptions(prev => prev.map(option => 
-      option.id === contentId ? { ...option, preference } : option
-    ));
-    setHasChanges(true);
-    setSaved(false);
-  };
-
-  const updateGeneralSetting = (key: keyof typeof generalSettings, value: boolean) => {
-    console.log('Updating general setting:', key, value);
+  const updateGeneralSetting = async (key: keyof typeof generalSettings, value: boolean) => {
+    // Prevent enabling sensitive content - only allow disabling
+    if (key === 'adultContentEnabled' && value === true) {
+      Alert.alert(
+        'Cannot Enable Sensitive Content',
+        'Sensitive content can only be disabled from this app. To enable it, please use the Bluesky web app or official Bluesky app.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     setGeneralSettings(prev => ({ ...prev, [key]: value }));
-    setHasChanges(true);
-    setSaved(false);
+    
+    // Auto-save the changes
+    try {
+      if (settings) {
+        const updatedSettings: ModerationSettings = {
+          ...settings,
+          [key]: value
+        };
+        
+        await ModerationService.saveModerationSettings(updatedSettings);
+        setSettings(updatedSettings);
+      }
+    } catch (error) {
+      console.error('Error auto-saving general setting:', error);
+    }
   };
 
   const getPreferenceIcon = (preference: LabelPreference) => {
@@ -257,22 +266,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Content Moderation</Text>
         </View>
-        <TouchableOpacity 
-          style={[
-            styles.saveButton,
-            (!hasChanges || saved) && styles.saveButtonDisabled
-          ]}
-          onPress={saveSettings}
-          disabled={saving || !hasChanges || saved}
-          activeOpacity={0.7}
-        >
-          <Text style={[
-            styles.saveButtonText, 
-            (saving || !hasChanges || saved) && styles.saveButtonTextDisabled
-          ]}>
-            {saving ? 'Saving...' : saved ? 'Saved' : 'Save'}
-          </Text>
-        </TouchableOpacity>
       </View>
 
       {/* Content */}
@@ -343,26 +336,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                 <View style={styles.settingItem}>
                   <View style={styles.settingItemLeft}>
                     <View style={styles.iconContainer}>
-                      <Icon name="contact" size={20} color="#fff" />
-                    </View>
-                    <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingItemText}>Enable Adult Content</Text>
-                      <Text style={styles.settingItemDescription}>
-                        Allow adult and sexual content to be displayed
-                      </Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={generalSettings.adultContentEnabled}
-                    onValueChange={(value) => updateGeneralSetting('adultContentEnabled', value)}
-                    trackColor={{ false: '#333', true: '#4CAF50' }}
-                    thumbColor={generalSettings.adultContentEnabled ? '#fff' : '#666'}
-                  />
-                </View>
-
-                <View style={styles.settingItem}>
-                  <View style={styles.settingItemLeft}>
-                    <View style={styles.iconContainer}>
                       <Icon name="user-x" size={20} color="#fff" />
                     </View>
                     <View style={styles.settingTextContainer}>
@@ -409,6 +382,52 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                 Choose how to handle different types of content
               </Text>
               <View style={styles.sectionContent}>
+                <View style={styles.settingItem}>
+                  <View style={styles.settingItemLeft}>
+                    <View style={styles.iconContainer}>
+                      <Icon name="contact" size={20} color="#fff" />
+                    </View>
+                    <View style={styles.settingTextContainer}>
+                      <Text style={styles.settingItemText}>Sensitive Content</Text>
+                      <Text style={styles.settingItemDescription}>
+                        {generalSettings.adultContentEnabled 
+                          ? 'Allow sensitive content (adult, sexual, nudity, graphic) to be displayed'
+                          : 'Sensitive content is disabled. Use Bluesky web app to enable.'
+                        }
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={generalSettings.adultContentEnabled}
+                    onValueChange={(value) => updateGeneralSetting('adultContentEnabled', value)}
+                    trackColor={{ false: '#333', true: '#4CAF50' }}
+                    thumbColor={generalSettings.adultContentEnabled ? '#fff' : '#666'}
+                    disabled={!generalSettings.adultContentEnabled} // Disable when off
+                    style={!generalSettings.adultContentEnabled ? { opacity: 0.5 } : undefined}
+                  />
+                </View>
+
+                {generalSettings.adultContentEnabled && (
+                  <View style={styles.settingItem}>
+                    <View style={styles.settingItemLeft}>
+                      <View style={styles.iconContainer}>
+                        <Icon name="cocktail" size={20} color="#fff" />
+                      </View>
+                      <View style={styles.settingTextContainer}>
+                        <Text style={styles.settingItemText}>RULE 34</Text>
+                        <Text style={styles.settingItemDescription}>
+                          Show only sensitive content
+                        </Text>
+                      </View>
+                    </View>
+                    <Switch
+                      value={generalSettings.adultContentOnlyMode}
+                      onValueChange={(value) => updateGeneralSetting('adultContentOnlyMode', value)}
+                      trackColor={{ false: '#333', true: '#FF6B6B' }}
+                      thumbColor={generalSettings.adultContentOnlyMode ? '#fff' : '#666'}
+                    />
+                  </View>
+                )}
                 {contentOptions.map((option, index) => {
                   const isAdultContent = ['porn', 'sexual', 'nudity'].includes(option.id);
                   const isDisabled = isAdultContent && !generalSettings.adultContentEnabled;
@@ -578,27 +597,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
   },
-  saveButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#1C1C1E',
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
-  },
-  saveButtonTextDisabled: {
-    opacity: 0.5,
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-    backgroundColor: '#333',
-  },
+
   content: {
     flex: 1,
   },

@@ -1,11 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import AtprotoService from './api/AtprotoService';
 import { ModerationSettings, LabelPreference, ModerationFilters, ModerationDecision, ModerationOpts, LabelDefinition } from './ModerationTypes';
 
 export class ModerationService {
-  private static readonly MODERATION_SETTINGS_KEY = 'moderation_settings';
-  private static readonly BLOCKED_USERS_KEY = 'blocked_users';
-  private static readonly MUTED_USERS_KEY = 'muted_users';
   private static readonly DEBUG_MODE = __DEV__;
   
   /**
@@ -41,20 +37,93 @@ export class ModerationService {
   }
   
   /**
-   * Get current moderation settings with Bluesky compatibility
+   * Get current moderation settings from Bluesky API
    */
   static async getModerationSettings(): Promise<ModerationSettings> {
     try {
-      const settingsStr = await AsyncStorage.getItem(this.MODERATION_SETTINGS_KEY);
-      if (settingsStr) {
-        const settings = JSON.parse(settingsStr);
+      this.debugLog('getModerationSettings', 'Fetching moderation settings from API');
+      
+      // Get preferences from Bluesky API
+      const apiPreferences = await AtprotoService.getModerationPreferences();
+      
+      if (apiPreferences) {
+        this.debugLog('getModerationSettings', 'Raw API response:', JSON.stringify(apiPreferences, null, 2));
+        this.debugLog('getModerationSettings', 'Successfully fetched API preferences', apiPreferences);
+        
+        // Extract adult content setting
+        const adultContentPref = apiPreferences.preferences?.find((pref: any) => 
+          pref.$type === 'app.bsky.actor.defs#adultContentPref'
+        );
+        const adultContentEnabled = adultContentPref?.enabled ?? false; // Use nullish coalescing to handle false values
+        
+        // Extract label preferences
+        const labelPrefs = apiPreferences.preferences?.filter((pref: any) => 
+          pref.$type === 'app.bsky.actor.defs#contentLabelPref'
+        ) || [];
+        
+        // Convert label preferences to our format
+        const labels: Record<string, LabelPreference> = {};
+        
+        labelPrefs.forEach((pref: any) => {
+          // Map Bluesky visibility to our LabelPreference
+          let preference: LabelPreference = 'warn';
+          switch (pref.visibility) {
+            case 'hide':
+              preference = 'hide';
+              break;
+            case 'warn':
+              preference = 'warn';
+              break;
+            case 'ignore':
+              preference = 'ignore';
+              break;
+            default:
+              preference = 'warn';
+          }
+          labels[pref.label] = preference;
+        });
+        
+        // Convert API preferences to our ModerationSettings format
+        const settings: ModerationSettings = {
+          hideSensitiveContent: true,
+          hideAdultContent: true,
+          hideViolence: true,
+          hideSpam: true,
+          hideMisleading: true,
+          hideBlockedUsers: true,
+          hideMutedUsers: true,
+          showContentWarnings: true,
+          autoExpandContentWarnings: false,
+          adultContentEnabled: adultContentEnabled,
+          adultContentOnlyMode: false,
+          labels: {
+            // Default labels if not set in API
+            'porn': labels.porn || 'hide',
+            'sexual': labels.sexual || 'warn',
+            'nudity': labels.nudity || 'warn',
+            'violence': labels.violence || 'warn',
+            'gore': labels.gore || 'hide',
+            'spam': labels.spam || 'hide',
+            'misleading': labels.misleading || 'warn',
+            'hate': labels.hate || 'hide',
+            'intolerant': labels.intolerant || 'warn',
+            'impersonation': labels.impersonation || 'hide',
+            'scam': labels.scam || 'hide',
+            // Add any additional labels from API
+            ...labels
+          },
+          labelers: apiPreferences.labelers || [],
+          mutedWords: [],
+          hiddenPosts: [],
+        };
+        
         return settings;
       }
     } catch (error) {
-      this.debugLog('getModerationSettings', 'Error loading settings', error);
+      this.debugLog('getModerationSettings', 'Error fetching settings from API', error);
     }
     
-    // Return default settings compatible with Bluesky
+    // Return default settings if API call fails
     const defaultSettings: ModerationSettings = {
       hideSensitiveContent: true,
       hideAdultContent: true,
@@ -66,6 +135,7 @@ export class ModerationService {
       showContentWarnings: true,
       autoExpandContentWarnings: false,
       adultContentEnabled: false,
+      adultContentOnlyMode: false,
       labels: {
         'porn': 'hide',
         'sexual': 'warn',
@@ -88,75 +158,86 @@ export class ModerationService {
   }
   
   /**
-   * Save moderation settings
+   * Save moderation settings to Bluesky API
    */
   static async saveModerationSettings(settings: ModerationSettings): Promise<void> {
     try {
-      this.debugLog('saveModerationSettings', 'Saving settings', settings);
-      await AsyncStorage.setItem(this.MODERATION_SETTINGS_KEY, JSON.stringify(settings));
-      this.debugLog('saveModerationSettings', 'Settings saved successfully');
+      this.debugLog('saveModerationSettings', 'Saving settings to API', settings);
+      
+      // Get current preferences first to preserve other settings
+      const currentPreferences = await AtprotoService.getModerationPreferences();
+      if (!currentPreferences) {
+        throw new Error('Failed to get current preferences');
+      }
+      
+      // Convert our settings to Bluesky API format
+      const updatedPreferences = {
+        preferences: [
+          // Update adult content preference
+          {
+            $type: 'app.bsky.actor.defs#adultContentPref',
+            enabled: settings.adultContentEnabled
+          },
+          // Update label preferences
+          ...Object.entries(settings.labels).map(([label, preference]) => ({
+            $type: 'app.bsky.actor.defs#contentLabelPref',
+            label,
+            visibility: preference // 'hide', 'warn', or 'ignore'
+          })),
+          // Keep other preferences unchanged
+          ...currentPreferences.preferences.filter((pref: any) => 
+            pref.$type !== 'app.bsky.actor.defs#adultContentPref' &&
+            pref.$type !== 'app.bsky.actor.defs#contentLabelPref'
+          )
+        ]
+      };
+      
+      this.debugLog('saveModerationSettings', 'Saving preferences to API:', JSON.stringify(updatedPreferences, null, 2));
+      const success = await AtprotoService.updateModerationPreferences(updatedPreferences);
+      
+      if (success) {
+        this.debugLog('saveModerationSettings', 'Settings saved successfully to API');
+      } else {
+        this.debugLog('saveModerationSettings', 'Failed to save settings to API');
+        throw new Error('Failed to save settings to API');
+      }
     } catch (error) {
-      this.debugLog('saveModerationSettings', 'Error saving settings', error);
+      this.debugLog('saveModerationSettings', 'Error saving settings to API', error);
+      throw error;
     }
   }
   
   /**
-   * Get cached blocked users
+   * Get blocked users from Bluesky API
    */
   static async getBlockedUsers(): Promise<Set<string>> {
     try {
-      const blockedStr = await AsyncStorage.getItem(this.BLOCKED_USERS_KEY);
-      if (blockedStr) {
-        const blockedUsers = new Set(JSON.parse(blockedStr) as string[]);
-        return blockedUsers;
-      }
+      this.debugLog('getBlockedUsers', 'Fetching blocked users from API');
+      const blockedUsers = await AtprotoService.getBlockedUsersFromAPI();
+      this.debugLog('getBlockedUsers', `Fetched ${blockedUsers.length} blocked users from API`);
+      return new Set(blockedUsers);
     } catch (error) {
-      this.debugLog('getBlockedUsers', 'Error loading blocked users', error);
+      this.debugLog('getBlockedUsers', 'Error fetching blocked users from API', error);
+      return new Set();
     }
-    return new Set();
   }
   
   /**
-   * Get cached muted users
+   * Get muted users from Bluesky API
    */
   static async getMutedUsers(): Promise<Set<string>> {
     try {
-      const mutedStr = await AsyncStorage.getItem(this.MUTED_USERS_KEY);
-      if (mutedStr) {
-        const mutedUsers = new Set(JSON.parse(mutedStr) as string[]);
-        return mutedUsers;
-      }
+      this.debugLog('getMutedUsers', 'Fetching muted users from API');
+      const mutedUsers = await AtprotoService.getMutedUsersFromAPI();
+      this.debugLog('getMutedUsers', `Fetched ${mutedUsers.length} muted users from API`);
+      return new Set(mutedUsers);
     } catch (error) {
-      this.debugLog('getMutedUsers', 'Error loading muted users', error);
-    }
-    return new Set();
-  }
-  
-  /**
-   * Cache blocked users
-   */
-  static async cacheBlockedUsers(userDids: string[]): Promise<void> {
-    try {
-      this.debugLog('cacheBlockedUsers', `Caching ${userDids.length} blocked users`);
-      await AsyncStorage.setItem(this.BLOCKED_USERS_KEY, JSON.stringify(userDids));
-      this.debugLog('cacheBlockedUsers', 'Blocked users cached successfully');
-    } catch (error) {
-      this.debugLog('cacheBlockedUsers', 'Error caching blocked users', error);
+      this.debugLog('getMutedUsers', 'Error fetching muted users from API', error);
+      return new Set();
     }
   }
   
-  /**
-   * Cache muted users
-   */
-  static async cacheMutedUsers(userDids: string[]): Promise<void> {
-    try {
-      this.debugLog('cacheMutedUsers', `Caching ${userDids.length} muted users`);
-      await AsyncStorage.setItem(this.MUTED_USERS_KEY, JSON.stringify(userDids));
-      this.debugLog('cacheMutedUsers', 'Muted users cached successfully');
-    } catch (error) {
-      this.debugLog('cacheMutedUsers', 'Error caching muted users', error);
-    }
-  }
+
   
   /**
    * Moderate a post using Bluesky-compatible logic
@@ -206,6 +287,31 @@ export class ModerationService {
         decision.filter = true;
         decision.reason = 'Adult content is disabled';
         decision.source = 'adult_content_disabled';
+        return decision;
+      }
+    }
+
+    // NEW: Check if adult-only mode is enabled - filter out non-adult content
+    if (settings.adultContentOnlyMode) {
+      const labels = post.post.labels || [];
+      const contentWarnings = post.post.contentWarnings || [];
+      
+      // Check if post has adult labels or content warnings
+      const hasAdultLabels = labels.some((label: any) => 
+        ['porn', 'sexual', 'nudity'].includes(label.val?.toLowerCase() || '')
+      );
+      
+      const hasAdultContentWarnings = contentWarnings.some((warning: string) => 
+        ['adult', 'nsfw', 'nudity', 'sexual'].some(keyword => 
+          warning.toLowerCase().includes(keyword)
+        )
+      );
+      
+      // If post doesn't have adult content, filter it out
+      if (!hasAdultLabels && !hasAdultContentWarnings) {
+        decision.filter = true;
+        decision.reason = 'Non-adult content filtered in adult-only mode';
+        decision.source = 'adult_only_mode';
         return decision;
       }
     }
@@ -311,7 +417,7 @@ export class ModerationService {
 
   
   /**
-   * Sync moderation settings from Bluesky
+   * Sync moderation settings from Bluesky API
    */
   static async syncModerationSettings(): Promise<void> {
     try {
@@ -326,11 +432,23 @@ export class ModerationService {
       
       this.debugLog('syncModerationSettings', `Syncing settings for user ${currentUser.did}`);
       
-      // TODO: Implement actual Bluesky API calls to fetch user preferences
-      // This would involve calling Bluesky's moderation preferences endpoints
+      // Fetch moderation preferences from API
+      const apiPreferences = await AtprotoService.getModerationPreferences();
+      if (apiPreferences) {
+        this.debugLog('syncModerationSettings', 'Successfully synced moderation preferences from API', apiPreferences);
+      } else {
+        this.debugLog('syncModerationSettings', 'Failed to fetch moderation preferences from API');
+      }
       
-      // For now, we'll use local settings and log the sync attempt
-      this.debugLog('syncModerationSettings', 'Moderation settings sync completed (local only)');
+      // Fetch blocked and muted users from API
+      const [blockedUsers, mutedUsers] = await Promise.all([
+        AtprotoService.getBlockedUsersFromAPI(),
+        AtprotoService.getMutedUsersFromAPI()
+      ]);
+      
+      this.debugLog('syncModerationSettings', `Synced ${blockedUsers.length} blocked users and ${mutedUsers.length} muted users from API`);
+      
+      this.debugLog('syncModerationSettings', 'Moderation settings sync completed successfully');
       
     } catch (error) {
       this.debugLog('syncModerationSettings', 'Error syncing moderation settings', error);
@@ -446,6 +564,40 @@ export class ModerationService {
     this.debugLog('testModeration', 'Batch moderation stats:', batchResult.stats);
     
     this.debugLog('testModeration', 'Moderation tests completed');
+  }
+
+  /**
+   * Debug API calls and show raw responses
+   */
+  static async debugAPICalls(): Promise<void> {
+    this.debugLog('debugAPICalls', 'Starting API debug calls');
+    
+    try {
+      // Test moderation preferences
+      console.log('=== TESTING MODERATION PREFERENCES API ===');
+      const preferences = await AtprotoService.getModerationPreferences();
+      console.log('Moderation preferences result:', preferences);
+      
+      // Test blocked users
+      console.log('=== TESTING BLOCKED USERS API ===');
+      const blockedUsers = await AtprotoService.getBlockedUsersFromAPI();
+      console.log('Blocked users result:', blockedUsers);
+      
+      // Test muted users
+      console.log('=== TESTING MUTED USERS API ===');
+      const mutedUsers = await AtprotoService.getMutedUsersFromAPI();
+      console.log('Muted users result:', mutedUsers);
+      
+      // Test our processed settings
+      console.log('=== TESTING PROCESSED SETTINGS ===');
+      const settings = await this.getModerationSettings();
+      console.log('Processed settings result:', settings);
+      
+    } catch (error) {
+      console.error('Error in debug API calls:', error);
+    }
+    
+    this.debugLog('debugAPICalls', 'API debug calls completed');
   }
   
   /**
@@ -589,6 +741,31 @@ export class ModerationService {
         decision.filter = true;
         decision.reason = 'Adult content is disabled';
         decision.source = 'adult_content_disabled';
+        return decision;
+      }
+    }
+
+    // NEW: Check if adult-only mode is enabled - filter out non-adult content
+    if (settings.adultContentOnlyMode) {
+      const labels = post.post.labels || [];
+      const contentWarnings = post.post.contentWarnings || [];
+      
+      // Check if post has adult labels or content warnings
+      const hasAdultLabels = labels.some((label: any) => 
+        ['porn', 'sexual', 'nudity'].includes(label.val?.toLowerCase() || '')
+      );
+      
+      const hasAdultContentWarnings = contentWarnings.some((warning: string) => 
+        ['adult', 'nsfw', 'nudity', 'sexual'].some(keyword => 
+          warning.toLowerCase().includes(keyword)
+        )
+      );
+      
+      // If post doesn't have adult content, filter it out
+      if (!hasAdultLabels && !hasAdultContentWarnings) {
+        decision.filter = true;
+        decision.reason = 'Non-adult content filtered in adult-only mode';
+        decision.source = 'adult_only_mode';
         return decision;
       }
     }
