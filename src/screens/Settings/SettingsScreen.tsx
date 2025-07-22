@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   Platform,
+  Switch,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,15 +15,21 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList, useLogout } from '../../navigation/types';
 import Icon from '../../components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ModerationDebug from '../../components/features/moderation/ModerationDebug';
+import ListFeedDebugPanel from '../../components/features/feed/ListFeedDebugPanel';
 
 type SettingsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 type SettingsScreenRouteProp = RouteProp<RootStackParamList, 'Settings'>;
+
+declare let window: any;
 
 const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const route = useRoute<SettingsScreenRouteProp>();
   const onLogout = useLogout();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFeedDebugEnabled, setIsFeedDebugEnabled] = useState(!!(typeof window !== 'undefined' && (window as any).__LIST_FEED_DEBUG__));
+  const [isFeedFetcherDebugEnabled, setIsFeedFetcherDebugEnabled] = useState(!!(typeof globalThis !== 'undefined' && (globalThis as any).__FEED_FETCHER_DEBUG__));
   const insets = useSafeAreaInsets();
 
   const handleLogout = async () => {
@@ -57,6 +64,19 @@ const SettingsScreen: React.FC = () => {
 
   const handlePlaceholderAction = (action: string) => {
     Alert.alert('Coming Soon', `${action} will be available in a future update.`);
+  };
+
+  const handleToggleFeedDebug = (value: boolean) => {
+    setIsFeedDebugEnabled(value);
+    if (typeof window !== 'undefined') {
+      (window as any).__LIST_FEED_DEBUG__ = value;
+    }
+  };
+  const handleToggleFeedFetcherDebug = (value: boolean) => {
+    setIsFeedFetcherDebugEnabled(value);
+    if (typeof globalThis !== 'undefined') {
+      (globalThis as any).__FEED_FETCHER_DEBUG__ = value;
+    }
   };
 
   const settingsSections = [
@@ -209,6 +229,43 @@ const SettingsScreen: React.FC = () => {
             <Icon name="logout" size={20} color="#FE4359" />
             <Text style={styles.logoutButtonText}>Log Out</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Debug Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Debug</Text>
+          <View style={styles.sectionContent}>
+            {/* List Feed Debugger (switch) */}
+            <View style={[styles.settingItem, { justifyContent: 'space-between' }]}> 
+              <View style={styles.settingItemLeft}>
+                <View style={styles.iconContainer}>
+                  <Icon name="list" size={20} color="#fff" />
+                </View>
+                <Text style={styles.settingItemText}>List Feed Debugger</Text>
+              </View>
+              <Switch
+                value={isFeedDebugEnabled}
+                onValueChange={handleToggleFeedDebug}
+                thumbColor={isFeedDebugEnabled ? '#FE4359' : '#666'}
+                trackColor={{ false: '#333', true: '#FE4359' }}
+              />
+            </View>
+            {/* FeedFetcher Debugger (switch) */}
+            <View style={[styles.settingItem, { justifyContent: 'space-between', marginTop: 12 }]}> 
+              <View style={styles.settingItemLeft}>
+                <View style={styles.iconContainer}>
+                  <Icon name="zap" size={20} color="#fff" />
+                </View>
+                <Text style={styles.settingItemText}>FeedFetcher Debugger</Text>
+              </View>
+              <Switch
+                value={isFeedFetcherDebugEnabled}
+                onValueChange={handleToggleFeedFetcherDebug}
+                thumbColor={isFeedFetcherDebugEnabled ? '#FE4359' : '#666'}
+                trackColor={{ false: '#333', true: '#FE4359' }}
+              />
+            </View>
+          </View>
         </View>
       </ScrollView>
       

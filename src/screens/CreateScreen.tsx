@@ -172,7 +172,6 @@ const CreateScreen: React.FC = () => {
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        console.log('Selected gallery video:', asset);
         const videoFile: VideoFile = {
           path: asset.uri,
           duration: asset.duration ? (asset.duration > 1000 ? asset.duration / 1000 : asset.duration) : 0,
@@ -210,15 +209,6 @@ const CreateScreen: React.FC = () => {
         
         // Show video info alert for gallery videos
         try {
-          console.log('CreateScreen - ImagePicker Asset Info:', {
-            uri: asset.uri,
-            duration: asset.duration,
-            width: asset.width,
-            height: asset.height,
-            fileSize: asset.fileSize,
-            type: asset.type
-          });
-
           const videoInfo = await VideoProcessingService.getVideoInfo(asset.uri, {
             duration: asset.duration || undefined,
             width: asset.width || undefined,
@@ -232,7 +222,6 @@ const CreateScreen: React.FC = () => {
             [{ text: 'OK' }]
           );
         } catch (error) {
-          console.error('Error getting video info:', error);
         }
       }
     } catch (e) {
@@ -285,7 +274,6 @@ const CreateScreen: React.FC = () => {
         const segment = segments[0];
         // For a single segment, just pass it directly
         if (segment.sourceType === 'gallery') {
-          console.log('Pre-processing gallery video for posting...');
           try {
             const optimizedVideo = await VideoProcessingService.optimizeVideoForPosting(segment.video.path);
             // Ensure file:// prefix

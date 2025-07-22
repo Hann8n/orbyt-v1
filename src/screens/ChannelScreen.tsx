@@ -11,6 +11,7 @@ import AtprotoService from '../services/api/AtprotoService';
 import { queryKeys } from '../services/queryKeys';
 import ChannelHeader from '../components/layout/header/ChannelHeader';
 import FeedFetcher from '../components/features/feed/FeedFetcher';
+import MembersListView from '../components/features/feed/MembersListView';
 import { BRAND, TEXT } from '../utils/formatting/Colors';
 import EmptyFeed from '../components/features/feed/EmptyFeed';
 import { useChannel, useChannelColors, useChannelColorsMutation } from '../services/cache/ChannelCache';
@@ -46,8 +47,8 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
   const [activeTab, setActiveTab] = useState<'posts' | 'members'>('posts');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
-  // Use feed query for the active tab
-  const feedOption = activeTab === 'posts' ? (uri || '') : 'members';
+  // Use feed query only for posts tab
+  const feedOption = uri || '';
   const {
     feed,
     isProfileFeed,
@@ -60,7 +61,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
     isPaused,
     isError: isFeedError
   } = useFeedQuery(feedOption, undefined, {
-    enabled: !!uri,
+    enabled: !!uri && activeTab === 'posts',
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
@@ -163,16 +164,18 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([
-        refetchChannel(),
-        refetchFeed()
-      ]);
+      await refetchChannel();
+      
+      // Only refetch feed if we're on the posts tab
+      if (activeTab === 'posts') {
+        await refetchFeed();
+      }
     } catch (error) {
       console.error('Error during refresh:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchChannel, refetchFeed]);
+  }, [refetchChannel, refetchFeed, activeTab]);
 
   // Handle end reached for pagination
   const handleEndReached = useCallback(() => {
@@ -208,53 +211,68 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
     );
   }
 
+  // Render header component
+  const headerComponent = (
+    <View style={styles.headerContainer}>
+      <ChannelHeader
+        channel={channelHeaderData}
+        showBackButton={true}
+        onBackPress={handleBackPress}
+        onSubscribe={handleSubscribe}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      >
+        {channelData && (
+          <TabNavigation
+            tabs={tabOptions}
+            activeTab={activeTab}
+            onTabPress={(tabId) => setActiveTab(tabId as any)}
+            textColor={channelColors.textColor}
+            backgroundColor={channelColors.backgroundColor}
+            viewMode={viewMode}
+            // onViewModeChange={setViewMode} // Grid view button commented out
+            // showViewToggle={activeTab === 'posts'} // Grid view button commented out
+          />
+        )}
+      </ChannelHeader>
+    </View>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: channelColors.backgroundColor }]}>
-      <FeedFetcher
-        feedOption={feedOption}
-        userDid={undefined}
-        headerComponent={
-          <View style={styles.headerContainer}>
-            <ChannelHeader
-              channel={channelHeaderData}
-              showBackButton={true}
-              onBackPress={handleBackPress}
-              onSubscribe={handleSubscribe}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            >
-              {channelData && (
-                <TabNavigation
-                  tabs={tabOptions}
-                  activeTab={activeTab}
-                  onTabPress={(tabId) => setActiveTab(tabId as any)}
-                  textColor={channelColors.textColor}
-                  backgroundColor={channelColors.backgroundColor}
-                  viewMode={viewMode}
-                  onViewModeChange={setViewMode}
-                  showViewToggle={true}
-                />
-              )}
-            </ChannelHeader>
-          </View>
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={channelColors.textColor}
-          />
-        }
-        backgroundColor={channelColors.backgroundColor}
-        secondaryColor={channelColors.textColor}
-        isProfileLoading={isLoadingChannel && !channelData}
-        isRefreshing={refreshing}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        isVisible={true}
-        onPositionChange={handlePositionChange}
-        initialPosition={undefined}
-      />
+      {activeTab === 'posts' ? (
+        <FeedFetcher
+          feedOption={feedOption}
+          userDid={undefined}
+          headerComponent={headerComponent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={channelColors.textColor}
+            />
+          }
+          backgroundColor={channelColors.backgroundColor}
+          secondaryColor={channelColors.textColor}
+          isProfileLoading={isLoadingChannel && !channelData}
+          isRefreshing={refreshing}
+          viewMode={viewMode}
+          // onViewModeChange={setViewMode} // Grid view button commented out
+          isVisible={true}
+          onPositionChange={handlePositionChange}
+          initialPosition={undefined}
+        />
+      ) : (
+        <MembersListView
+          channelUri={uri || ''}
+          backgroundColor={channelColors.backgroundColor}
+          textColor={channelColors.textColor}
+          headerComponent={headerComponent}
+          isVisible={true}
+          onRefresh={onRefresh}
+          isRefreshing={refreshing}
+        />
+      )}
     </View>
   );
 };

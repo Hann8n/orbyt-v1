@@ -9,7 +9,6 @@ import ProfileFeedModal from '../screens/ProfileFeedModal';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import InsightsScreen from '../screens/InsightsScreen';
 import ModerationControlsScreen from '../screens/Settings/ModerationControlsScreen';
-import ModerationDebugScreen from '../screens/Settings/ModerationDebugScreen';
 import BlockedUsersScreen from '../screens/Settings/BlockedUsersScreen';
 import MutedUsersScreen from '../screens/Settings/MutedUsersScreen';
 import MutedWordsScreen from '../screens/Settings/MutedWordsScreen';
@@ -118,14 +117,6 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
         <Stack.Screen
           name="ModerationControls"
           component={ModerationControlsScreen}
-          options={{
-            animation: 'slide_from_right',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="ModerationDebug"
-          component={ModerationDebugScreen}
           options={{
             animation: 'slide_from_right',
             headerShown: false,

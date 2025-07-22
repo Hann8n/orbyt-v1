@@ -2,18 +2,6 @@ import AtprotoService from './api/AtprotoService';
 import { ModerationSettings, LabelPreference, ModerationFilters, ModerationDecision, ModerationOpts, LabelDefinition } from './ModerationTypes';
 
 export class ModerationService {
-  private static readonly DEBUG_MODE = __DEV__;
-  
-  /**
-   * Debug logging with context
-   */
-  private static debugLog(context: string, message: string, data?: any) {
-    if (this.DEBUG_MODE && (context.includes('error') || context.includes('warning'))) {
-      const timestamp = new Date().toISOString();
-      console.log(`[ModerationService:${context}] ${timestamp} - ${message}`, data || '');
-    }
-  }
-
   /**
    * Get user-friendly description for a label value
    */
@@ -41,14 +29,11 @@ export class ModerationService {
    */
   static async getModerationSettings(): Promise<ModerationSettings> {
     try {
-      this.debugLog('getModerationSettings', 'Fetching moderation settings from API');
       
       // Get preferences from Bluesky API
       const apiPreferences = await AtprotoService.getModerationPreferences();
       
       if (apiPreferences) {
-        this.debugLog('getModerationSettings', 'Raw API response:', JSON.stringify(apiPreferences, null, 2));
-        this.debugLog('getModerationSettings', 'Successfully fetched API preferences', apiPreferences);
         
         // Extract adult content setting
         const adultContentPref = apiPreferences.preferences?.find((pref: any) => 
@@ -120,7 +105,7 @@ export class ModerationService {
         return settings;
       }
     } catch (error) {
-      this.debugLog('getModerationSettings', 'Error fetching settings from API', error);
+      // Removed debugLog
     }
     
     // Return default settings if API call fails
@@ -162,7 +147,6 @@ export class ModerationService {
    */
   static async saveModerationSettings(settings: ModerationSettings): Promise<void> {
     try {
-      this.debugLog('saveModerationSettings', 'Saving settings to API', settings);
       
       // Get current preferences first to preserve other settings
       const currentPreferences = await AtprotoService.getModerationPreferences();
@@ -192,17 +176,16 @@ export class ModerationService {
         ]
       };
       
-      this.debugLog('saveModerationSettings', 'Saving preferences to API:', JSON.stringify(updatedPreferences, null, 2));
       const success = await AtprotoService.updateModerationPreferences(updatedPreferences);
       
       if (success) {
-        this.debugLog('saveModerationSettings', 'Settings saved successfully to API');
+        // Removed debugLog
       } else {
-        this.debugLog('saveModerationSettings', 'Failed to save settings to API');
+        // Removed debugLog
         throw new Error('Failed to save settings to API');
       }
     } catch (error) {
-      this.debugLog('saveModerationSettings', 'Error saving settings to API', error);
+      // Removed debugLog
       throw error;
     }
   }
@@ -212,12 +195,12 @@ export class ModerationService {
    */
   static async getBlockedUsers(): Promise<Set<string>> {
     try {
-      this.debugLog('getBlockedUsers', 'Fetching blocked users from API');
+      
       const blockedUsers = await AtprotoService.getBlockedUsersFromAPI();
-      this.debugLog('getBlockedUsers', `Fetched ${blockedUsers.length} blocked users from API`);
+      
       return new Set(blockedUsers);
     } catch (error) {
-      this.debugLog('getBlockedUsers', 'Error fetching blocked users from API', error);
+      // Removed debugLog
       return new Set();
     }
   }
@@ -227,12 +210,12 @@ export class ModerationService {
    */
   static async getMutedUsers(): Promise<Set<string>> {
     try {
-      this.debugLog('getMutedUsers', 'Fetching muted users from API');
+      
       const mutedUsers = await AtprotoService.getMutedUsersFromAPI();
-      this.debugLog('getMutedUsers', `Fetched ${mutedUsers.length} muted users from API`);
+      
       return new Set(mutedUsers);
     } catch (error) {
-      this.debugLog('getMutedUsers', 'Error fetching muted users from API', error);
+      // Removed debugLog
       return new Set();
     }
   }
@@ -328,36 +311,30 @@ export class ModerationService {
       
       switch (labelPreference) {
         case 'hide':
-          this.debugLog('moderatePost', `Filtering content with label ${labelValue}`);
           decision.filter = true;
           decision.reason = `Content labeled as ${labelValue}`;
           decision.source = labelerDid;
           return decision;
           
         case 'warn':
-          this.debugLog('moderatePost', `Blurring content with label ${labelValue}`);
           decision.blur = true;
           decision.informs.push(labelValue);
           break;
           
         case 'ignore':
-          this.debugLog('moderatePost', `Ignoring label ${labelValue}`);
           break;
       }
     }
     
     // Check content warnings
     const contentWarnings = post.post.contentWarnings || [];
-    this.debugLog('moderatePost', `Checking ${contentWarnings.length} content warnings`, contentWarnings);
     
     for (const warning of contentWarnings) {
       const warningText = warning.toLowerCase();
-      this.debugLog('moderatePost', `Processing content warning: ${warningText}`);
       
       // Apply content warning logic based on settings
       if (settings.hideSensitiveContent && 
           (warningText.includes('sensitive') || warningText.includes('nsfw'))) {
-        this.debugLog('moderatePost', 'Filtering sensitive content');
         decision.filter = true;
         decision.reason = 'Sensitive content';
         decision.source = 'content_warning';
@@ -366,7 +343,6 @@ export class ModerationService {
       
       if (settings.hideAdultContent && 
           (warningText.includes('adult') || warningText.includes('nsfw') || warningText.includes('nudity'))) {
-        this.debugLog('moderatePost', 'Filtering adult content');
         decision.filter = true;
         decision.reason = 'Adult content';
         decision.source = 'content_warning';
@@ -375,7 +351,6 @@ export class ModerationService {
       
       if (settings.hideViolence && 
           (warningText.includes('violence') || warningText.includes('gore'))) {
-        this.debugLog('moderatePost', 'Filtering violent content');
         decision.filter = true;
         decision.reason = 'Violent content';
         decision.source = 'content_warning';
@@ -386,11 +361,9 @@ export class ModerationService {
     // Check muted words
     if (settings.mutedWords.length > 0) {
       const postText = post.post.record?.text?.toLowerCase() || '';
-      this.debugLog('moderatePost', `Checking muted words against post text`);
       
       for (const mutedWord of settings.mutedWords) {
         if (postText.includes(mutedWord.toLowerCase())) {
-          this.debugLog('moderatePost', `Filtering content with muted word: ${mutedWord}`);
           decision.filter = true;
           decision.reason = `Contains muted word: ${mutedWord}`;
           decision.source = 'muted_word';
@@ -401,14 +374,12 @@ export class ModerationService {
     
     // Check if post is in hidden posts list
     if (settings.hiddenPosts.includes(post.post.uri)) {
-      this.debugLog('moderatePost', 'Filtering hidden post');
       decision.filter = true;
       decision.reason = 'Post is hidden';
       decision.source = 'user_hide';
       return decision;
     }
     
-    this.debugLog('moderatePost', 'Post passed moderation checks', decision);
     return decision;
   }
   
@@ -421,23 +392,19 @@ export class ModerationService {
    */
   static async syncModerationSettings(): Promise<void> {
     try {
-      this.debugLog('syncModerationSettings', 'Starting moderation settings sync');
       
       // Get current user
       const currentUser = await AtprotoService.getCurrentUser();
       if (!currentUser?.did) {
-        this.debugLog('syncModerationSettings', 'No current user found, skipping sync');
         return;
       }
-      
-      this.debugLog('syncModerationSettings', `Syncing settings for user ${currentUser.did}`);
       
       // Fetch moderation preferences from API
       const apiPreferences = await AtprotoService.getModerationPreferences();
       if (apiPreferences) {
-        this.debugLog('syncModerationSettings', 'Successfully synced moderation preferences from API', apiPreferences);
+        // Removed debugLog
       } else {
-        this.debugLog('syncModerationSettings', 'Failed to fetch moderation preferences from API');
+        // Removed debugLog
       }
       
       // Fetch blocked and muted users from API
@@ -446,12 +413,10 @@ export class ModerationService {
         AtprotoService.getMutedUsersFromAPI()
       ]);
       
-      this.debugLog('syncModerationSettings', `Synced ${blockedUsers.length} blocked users and ${mutedUsers.length} muted users from API`);
-      
-      this.debugLog('syncModerationSettings', 'Moderation settings sync completed successfully');
+      // Removed debugLog
       
     } catch (error) {
-      this.debugLog('syncModerationSettings', 'Error syncing moderation settings', error);
+      // Removed debugLog
     }
   }
   
@@ -460,27 +425,22 @@ export class ModerationService {
    */
   static async openBlueskyModerationSettings(): Promise<void> {
     try {
-      this.debugLog('openBlueskyModerationSettings', 'Opening Bluesky moderation settings');
       
       // Get current user to construct the settings URL
       const currentUser = await AtprotoService.getCurrentUser();
       if (currentUser?.did) {
         const settingsUrl = `https://bsky.app/settings/moderation`;
         
-        this.debugLog('openBlueskyModerationSettings', `Opening URL: ${settingsUrl}`);
-        
-        // For React Native, you would typically use Linking to open the URL
-        // This is a placeholder - you'll need to implement the actual URL opening
-        console.log('Opening Bluesky moderation settings:', settingsUrl);
+        // Removed debugLog
         
         // In a real implementation, you would use:
         // import { Linking } from 'react-native';
         // await Linking.openURL(settingsUrl);
       } else {
-        this.debugLog('openBlueskyModerationSettings', 'No current user found');
+        // Removed debugLog
       }
     } catch (error) {
-      this.debugLog('openBlueskyModerationSettings', 'Error opening Bluesky moderation settings', error);
+      // Removed debugLog
     }
   }
   
@@ -507,10 +467,9 @@ export class ModerationService {
         labelPreferences: settings.labels,
       };
       
-      this.debugLog('getModerationStats', 'Retrieved moderation statistics', stats);
       return stats;
     } catch (error) {
-      this.debugLog('getModerationStats', 'Error getting moderation stats', error);
+      // Removed debugLog
       return {
         blockedUsers: 0,
         mutedUsers: 0,
@@ -519,85 +478,6 @@ export class ModerationService {
         labelPreferences: {},
       };
     }
-  }
-  
-  /**
-   * Test moderation with sample content
-   */
-  static async testModeration(): Promise<void> {
-    this.debugLog('testModeration', 'Running moderation tests');
-    
-    const testPosts = [
-      {
-        post: {
-          uri: 'test://post/1',
-          author: { did: 'did:test:user1' },
-          labels: [{ val: 'porn', src: 'test-labeler' }],
-        }
-      },
-      {
-        post: {
-          uri: 'test://post/2',
-          author: { did: 'did:test:user2' },
-          contentWarnings: ['adult content'],
-        }
-      },
-      {
-        post: {
-          uri: 'test://post/3',
-          author: { did: 'did:test:user3' },
-          record: { text: 'This is a normal post' },
-        }
-      }
-    ];
-    
-    // Test individual moderation
-    this.debugLog('testModeration', 'Testing individual moderation...');
-    for (const testPost of testPosts) {
-      const decision = await this.moderatePost(testPost);
-      this.debugLog('testModeration', `Test post ${testPost.post.uri} decision:`, decision);
-    }
-    
-    // Test batch moderation
-    this.debugLog('testModeration', 'Testing batch moderation...');
-    const batchResult = await this.batchModeratePosts(testPosts);
-    this.debugLog('testModeration', 'Batch moderation stats:', batchResult.stats);
-    
-    this.debugLog('testModeration', 'Moderation tests completed');
-  }
-
-  /**
-   * Debug API calls and show raw responses
-   */
-  static async debugAPICalls(): Promise<void> {
-    this.debugLog('debugAPICalls', 'Starting API debug calls');
-    
-    try {
-      // Test moderation preferences
-      console.log('=== TESTING MODERATION PREFERENCES API ===');
-      const preferences = await AtprotoService.getModerationPreferences();
-      console.log('Moderation preferences result:', preferences);
-      
-      // Test blocked users
-      console.log('=== TESTING BLOCKED USERS API ===');
-      const blockedUsers = await AtprotoService.getBlockedUsersFromAPI();
-      console.log('Blocked users result:', blockedUsers);
-      
-      // Test muted users
-      console.log('=== TESTING MUTED USERS API ===');
-      const mutedUsers = await AtprotoService.getMutedUsersFromAPI();
-      console.log('Muted users result:', mutedUsers);
-      
-      // Test our processed settings
-      console.log('=== TESTING PROCESSED SETTINGS ===');
-      const settings = await this.getModerationSettings();
-      console.log('Processed settings result:', settings);
-      
-    } catch (error) {
-      console.error('Error in debug API calls:', error);
-    }
-    
-    this.debugLog('debugAPICalls', 'API debug calls completed');
   }
   
   /**

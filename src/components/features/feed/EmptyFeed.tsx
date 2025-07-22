@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList } from 'react-native';
 import Icon from '../../ui/Icon';
-import Colors, { TEXT, UI } from '../../../utils/formatting/Colors';
+import { Colors } from '../../ui/UI';
 import { useQuery } from '@tanstack/react-query';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar } from '../../ui/UI';
@@ -167,8 +167,8 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const displayMessage = message || defaultMessage;
   
   // Use profile colors if available, otherwise fall back to secondaryColor or default
-  const iconColor = profileColors ? profileColors.textColor : (secondaryColor || TEXT.SECONDARY);
-  const textColor = profileColors ? profileColors.textColor : (secondaryColor || TEXT.SECONDARY);
+  const iconColor = profileColors ? profileColors.textColor : (secondaryColor || Colors.TEXT.SECONDARY);
+  const textColor = profileColors ? profileColors.textColor : (secondaryColor || Colors.TEXT.SECONDARY);
 
   // Render suggested user item - matching ExploreScreen styling exactly
   const renderSuggestedUser = ({ item }: { item: SuggestedUser }) => {
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 0,
     borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
+    borderBottomColor: Colors.BORDER.PRIMARY,
   },
   profileImage: {
     width: 40,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.BORDER.PRIMARY,
   },
   profileContent: {
     flex: 1,

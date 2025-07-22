@@ -128,24 +128,9 @@ class VideoProcessingService {
         codec,
       };
 
-      // Log video information for debugging
-      console.log('Video Processing Service - Extracted Video Info:', {
-        path: videoPath,
-        size: `${(size / 1024 / 1024).toFixed(2)} MB`,
-        duration: `${duration}s (${this.formatDuration(duration)})`,
-        resolution: `${width}x${height}`,
-        qualityStandard,
-        aspectRatio,
-        bitrate: this.formatBitrate(bitrate),
-        frameRate: `${frameRate} fps`,
-        codec: codec.toUpperCase(),
-        source: assetInfo ? 'ImagePicker Asset' : 'Fallback Values',
-        qualityCalculation: `Shorter dimension: ${Math.min(width, height)}px → ${qualityStandard}`
-      });
-
+      // Removed debug log statement for production
       return videoInfo;
     } catch (error) {
-      console.error('Error getting video info:', error);
       throw error;
     }
   }
@@ -350,8 +335,6 @@ class VideoProcessingService {
     maxSizeBytes: number = MAX_FILE_SIZE
   ): Promise<ProcessedVideo> {
     try {
-      console.log('Starting variable compression for video:', videoPath);
-      
       // Get original video info
       const fileInfo = await FileSystem.getInfoAsync(videoPath);
       if (!fileInfo.exists) {
@@ -359,11 +342,9 @@ class VideoProcessingService {
       }
 
       const originalSize = fileInfo.size || 0;
-      console.log(`Original video size: ${(originalSize / 1024 / 1024).toFixed(2)} MB`);
 
       // If original is already under limit, return as-is
       if (originalSize <= maxSizeBytes) {
-        console.log('Video already under size limit, no compression needed');
         return {
           path: videoPath,
           duration: 10, // Default duration
@@ -378,7 +359,6 @@ class VideoProcessingService {
 
       // Try compression levels progressively
       for (const level of COMPRESSION_LEVELS) {
-        console.log(`Trying compression level: ${level.name} (${level.bitrate / 1000000} Mbps)`);
         
         const outputPath = `${tempDir}compressed_${level.name}.mp4`;
         
@@ -396,10 +376,8 @@ class VideoProcessingService {
 
           // Check file size
           const compressedSize = await this.getFileSize(outputPath);
-          console.log(`${level.name} compression result: ${(compressedSize / 1024 / 1024).toFixed(2)} MB`);
 
           if (compressedSize <= maxSizeBytes) {
-            console.log(`Successfully compressed to ${level.name} quality`);
             
             // Clean up temp directory
             await this.cleanupTempFiles(tempDir);
@@ -420,7 +398,6 @@ class VideoProcessingService {
       }
 
       // If all compression levels still exceed size limit, use the most compressed version
-      console.log('All compression levels exceed size limit, using minimal compression');
       const minimalPath = `${tempDir}compressed_minimal.mp4`;
       
       try {
@@ -434,7 +411,6 @@ class VideoProcessingService {
         });
 
         const finalSize = await this.getFileSize(minimalPath);
-        console.log(`Final compressed size: ${(finalSize / 1024 / 1024).toFixed(2)} MB`);
 
         // Clean up temp directory
         await this.cleanupTempFiles(tempDir);
@@ -477,8 +453,6 @@ class VideoProcessingService {
     }
 
     try {
-      console.log(`Starting to merge ${segments.length} video segments...`);
-      
       // Create temporary directory for processing
       const tempDir = `${FileSystem.cacheDirectory}video_merge_${Date.now()}/`;
       await FileSystem.makeDirectoryAsync(tempDir, { intermediates: true });
@@ -520,8 +494,6 @@ class VideoProcessingService {
       // Clean up temporary files
       await this.cleanupTempFiles(tempDir);
 
-      console.log('Video merge completed successfully');
-      
       // Ensure file:// prefix for local file
       const mergedPath = mergedVideoPath.startsWith('file://') ? mergedVideoPath : `file://${mergedVideoPath}`;
       return {
@@ -546,7 +518,6 @@ class VideoProcessingService {
     outputPath: string
   ): Promise<string> {
     try {
-      console.log(`Attempting to merge ${videoPaths.length} videos...`);
       
       if (videoPaths.length === 1) {
         // Single video - compress with size limit
@@ -594,7 +565,6 @@ class VideoProcessingService {
     outputPath: string
   ): Promise<string> {
     try {
-      console.log('Creating concatenated video...');
       
       // For a proper concatenated video, we need to:
       // 1. Ensure all videos have the same format and quality
@@ -640,9 +610,6 @@ class VideoProcessingService {
       
       await FileSystem.writeAsStringAsync(metadataPath, JSON.stringify(metadata, null, 2));
 
-      console.log(`Created concatenated video with ${processedVideos.length} segments`);
-      console.log('Note: This is a simplified concatenation. For true video merging, consider using FFmpeg or similar library.');
-      
       return outputPath;
 
     } catch (error) {
@@ -667,8 +634,6 @@ class VideoProcessingService {
    */
   static async optimizeVideoForPosting(videoPath: string): Promise<ProcessedVideo> {
     try {
-      console.log('Optimizing video for posting with size limit...');
-      
       // Use the new variable compression method
       return await this.compressVideoWithSizeLimit(videoPath, MAX_FILE_SIZE);
 

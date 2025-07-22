@@ -530,31 +530,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                 })}
               </View>
             </View>
-
-            {/* Debug Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Developer Options</Text>
-              <View style={styles.sectionContent}>
-                <TouchableOpacity
-                  style={styles.debugOption}
-                  onPress={() => navigation.navigate('ModerationDebug', { onLogout: logoutFunction })}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.settingItemLeft}>
-                    <View style={styles.iconContainer}>
-                      <Icon name="bug" size={20} color="#fff" />
-                    </View>
-                    <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingItemText}>Debug Moderation</Text>
-                      <Text style={styles.settingItemDescription}>
-                        Test moderation rules and view detailed logs
-                      </Text>
-                    </View>
-                  </View>
-                  <Icon name="chevron-right" size={20} color="#666" />
-                </TouchableOpacity>
-              </View>
-            </View>
           </>
         )}
       </ScrollView>

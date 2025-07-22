@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, StyleSheet, RefreshControl, Dimensions } from 'react-native';
+import { View, StyleSheet, RefreshControl, Dimensions, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ListFeedView from './ListFeedView';
 import EmptyFeed from './EmptyFeed';
 import { useFeedQuery } from '../../../hooks/useFeedQuery';
 import ProfileCache from '../../../services/cache/ProfileCache';
+import VideoPreloadManager from '../../../services/VideoPreloadManager';
+import ListFeedDebugPanel from './ListFeedDebugPanel';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -34,6 +36,34 @@ interface FeedFetcherProps {
   isRefreshing?: boolean;
 }
 
+// Add FeedFetcherDebugPanel component
+const FeedFetcherDebugPanel = ({
+  feed,
+  isFetchingNextPage,
+  hasNextPage,
+  isLoading,
+  isError,
+  cursorPosition,
+  preloadedVideos,
+  queueStats,
+  visibleIndex,
+  visibleVideo,
+  totalListLength,
+}: any) => (
+  <ListFeedDebugPanel title="FeedFetcher Debug Panel" style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
+    <Text style={{ color: '#fff', fontSize: 12 }}>isFetchingNextPage: {String(isFetchingNextPage)}</Text>
+    <Text style={{ color: '#fff', fontSize: 12 }}>hasNextPage: {String(hasNextPage)}</Text>
+    <Text style={{ color: '#fff', fontSize: 12 }}>isLoading: {String(isLoading)}</Text>
+    <Text style={{ color: '#fff', fontSize: 12 }}>isError: {String(isError)}</Text>
+    <Text style={{ color: '#fff', fontSize: 12 }}>cursorPosition: {cursorPosition}</Text>
+    <Text style={{ color: '#fff', fontSize: 12 }}>visibleIndex: {visibleIndex}</Text>
+    <Text style={{ color: '#fff', fontSize: 12 }}>visibleVideo: {visibleVideo}</Text>
+    <Text style={{ color: '#fff', fontSize: 12 }}>totalListLength: {totalListLength}</Text>
+    <Text style={{ color: '#fff', fontSize: 12 }}>Preloaded Videos: {preloadedVideos.length}</Text>
+    <Text style={{ color: '#fff', fontSize: 12 }}>Queue Stats: {JSON.stringify(queueStats)}</Text>
+  </ListFeedDebugPanel>
+);
+
 const FeedFetcher: React.FC<FeedFetcherProps> = ({
   feedOption,
   userDid,
@@ -54,6 +84,37 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const lastPrefetchedFeedLength = useRef(0);
+
+  // Debug state for cursor position, visible index, visible video
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [visibleIndex, setVisibleIndex] = useState(0);
+  const [visibleVideo, setVisibleVideo] = useState<string | null>(null);
+
+  // Handler to update position from ListFeedView
+  const handlePositionChange = useCallback((position: number) => {
+    setCursorPosition(position);
+    if (onPositionChange) onPositionChange(position);
+  }, [onPositionChange]);
+
+  // Handler to update visible index/video from ListFeedView
+  const handleVisibleChange = useCallback((index: number, video: string | null) => {
+    setVisibleIndex(index);
+    setVisibleVideo(video);
+  }, []);
+
+  // Get preloaded videos and queue stats from VideoPreloadManager
+  const [preloadedVideos, setPreloadedVideos] = useState<string[]>([]);
+  const [queueStats, setQueueStats] = useState<any>({});
+
+  useEffect(() => {
+    setPreloadedVideos(VideoPreloadManager.getPreloadedUris());
+    setQueueStats(VideoPreloadManager.getQueueStats());
+    const interval = setInterval(() => {
+      setPreloadedVideos(VideoPreloadManager.getPreloadedUris());
+      setQueueStats(VideoPreloadManager.getQueueStats());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Use the optimized feed query hook with maximum batch loading
   const {
@@ -145,6 +206,21 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
   // Use unified ListFeedView for all feed types
   return (
     <View style={{ flex: 1, backgroundColor: backgroundColor || '#000' }}>
+      {(typeof globalThis !== 'undefined' && (globalThis as any).__FEED_FETCHER_DEBUG__ === true) && (
+        <FeedFetcherDebugPanel
+          feed={feed}
+          isFetchingNextPage={isFetchingNextPage}
+          hasNextPage={hasNextPage}
+          isLoading={isLoading}
+          isError={isError}
+          cursorPosition={cursorPosition}
+          preloadedVideos={preloadedVideos}
+          queueStats={queueStats}
+          visibleIndex={visibleIndex}
+          visibleVideo={visibleVideo}
+          totalListLength={feed.length}
+        />
+      )}
       <ListFeedView
         key={`${feedOption}-${userDid || 'default'}`}
         feed={feed}
@@ -161,7 +237,7 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
         isError={isError}
         error={error}
         onRetry={handleRetry}
-        onPositionChange={onPositionChange}
+        onPositionChange={handlePositionChange}
         initialPosition={initialPosition}
         isVisible={isVisible}
         viewMode={viewMode}
@@ -169,6 +245,7 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
         onVerticalScroll={onVerticalScroll}
         isRefreshing={isRefreshing}
         isProfileLoading={isProfileLoading}
+        onVisibleChange={handleVisibleChange}
       />
     </View>
   );

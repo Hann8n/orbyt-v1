@@ -34,7 +34,6 @@ export interface MemoizedVideoItemProps {
   feedOption?: 'yourMix' | 'following' | 'discover';
   isVisible?: boolean;
   moderationDecision?: ModerationDecision;
-  shouldDisablePlayback?: boolean;
 }
 
 // Memoized video extraction to avoid repeated calculations
@@ -75,7 +74,6 @@ const VideoItem: React.FC<MemoizedVideoItemProps> = ({
   feedOption,
   isVisible = false,
   moderationDecision,
-  shouldDisablePlayback = false,
 }) => {
   const videoRef = useRef<VideoCardRef>(null) as React.RefObject<VideoCardRef>;
   const preloadAttempted = useRef(false);
@@ -182,7 +180,6 @@ const VideoItem: React.FC<MemoizedVideoItemProps> = ({
         onVideoStatus={handleVideoStatusChange}
         height={itemHeight}
         moderationDecision={moderationDecision}
-        shouldDisablePlayback={shouldDisablePlayback}
       />
       <View style={overlayContainerStyle}>
         <VideoOverlay 

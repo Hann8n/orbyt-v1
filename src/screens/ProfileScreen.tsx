@@ -312,8 +312,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                     textColor={profileColors.textColor}
                     backgroundColor={profileColors.backgroundColor}
                     viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                    showViewToggle={true}
+                    // onViewModeChange={setViewMode} // Grid view button commented out
+                    // showViewToggle={true} // Grid view button commented out
                   />
                 )}
               </ProfileHeader>
@@ -330,7 +330,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           secondaryColor={profileColors.textColor}
           isProfileLoading={isProfileLoading && !profileData}
           viewMode={viewMode}
-          onViewModeChange={setViewMode}
+          // onViewModeChange={setViewMode} // Grid view button commented out
         />
       )}
       

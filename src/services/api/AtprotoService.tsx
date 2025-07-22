@@ -454,7 +454,6 @@ class AtprotoService {
         { headers }
       );
       if (response.status === 501) {
-        console.warn("Service not implemented (HTTP 501). Returning empty logs.");
         return { logs: [], cursor: null };
       }
       if (!response.ok) {
@@ -463,7 +462,6 @@ class AtprotoService {
       const json = await response.json();
       return { logs: json.logs, cursor: json.cursor || null };
     } catch (error: any) {
-      console.error("Error fetching log:", error.message, error.stack);
       throw error;
     }
   }
@@ -617,8 +615,6 @@ class AtprotoService {
         throw new Error('Invalid video path');
       }
 
-      console.log('Uploading video directly to PDS...');
-      
       // Upload video directly to PDS
       const videoResponse = await fetch(videoPath);
       const videoBlob = await videoResponse.blob();
@@ -626,8 +622,6 @@ class AtprotoService {
       const { data } = await this.agent.com.atproto.repo.uploadBlob(videoBlob, {
         encoding: 'video/mp4'
       });
-      
-      console.log('Video upload successful, blob:', data.blob);
       
       // Get video aspect ratio
       const aspectRatio = await this.getVideoAspectRatio(videoPath);
@@ -1805,7 +1799,6 @@ class AtprotoService {
     await this.ensureSession();
     try {
       const response = await this.agent.api.app.bsky.actor.getPreferences();
-      console.log('Raw Bluesky API response for preferences:', JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error: any) {
       console.error('Error fetching moderation preferences:', error);
@@ -1821,7 +1814,6 @@ class AtprotoService {
   static async updateModerationPreferences(preferences: any): Promise<boolean> {
     await this.ensureSession();
     try {
-      console.log('Updating preferences with:', JSON.stringify(preferences, null, 2));
       await this.agent.api.app.bsky.actor.putPreferences(preferences);
       return true;
     } catch (error: any) {
@@ -1840,10 +1832,8 @@ class AtprotoService {
       const response = await this.agent.api.app.bsky.graph.getBlocks({
         limit: 100
       });
-      console.log('Raw Bluesky API response for blocked users:', JSON.stringify(response.data, null, 2));
       return response.data.blocks?.map((block: any) => block.did) || [];
     } catch (error: any) {
-      console.error('Error fetching blocked users:', error);
       return [];
     }
   }
@@ -1858,10 +1848,8 @@ class AtprotoService {
       const response = await this.agent.api.app.bsky.graph.getMutes({
         limit: 100
       });
-      console.log('Raw Bluesky API response for muted users:', JSON.stringify(response.data, null, 2));
       return response.data.mutes?.map((mute: any) => mute.did) || [];
     } catch (error: any) {
-      console.error('Error fetching muted users:', error);
       return [];
     }
   }

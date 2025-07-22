@@ -864,6 +864,7 @@ export default {
   Loading,
   Divider,
   Badge,
+  Avatar,
   hexToRGBA,
   isColorDark,
   getContrastRatio,

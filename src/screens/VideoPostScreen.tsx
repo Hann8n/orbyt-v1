@@ -180,8 +180,6 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
     
     setIsCompressing(true);
     try {
-      console.log('Starting video compression...');
-      
       // Compress the video
       const compressedVideo = await VideoProcessingService.compressVideoWithSizeLimit(video.path);
       setCompressedVideoPath(compressedVideo.path);
@@ -190,14 +188,11 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
       const stats = await VideoProcessingService.getCompressionStats(video.path, compressedVideo.path);
       setCompressionStats(stats);
       
-      console.log('Video compression completed:', stats);
-      
       // Update video size info
       const newSizeInfo = await VideoProcessingService.checkVideoSize(compressedVideo.path);
       setVideoSizeInfo(newSizeInfo);
       
     } catch (error) {
-      console.error('Error compressing video:', error);
       Alert.alert('Compression Error', 'Failed to compress video. Please try again.');
     } finally {
       setIsCompressing(false);
@@ -299,8 +294,6 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
       // Complete the progress
       setUploadProgress(100);
       
-      console.log('Video post created successfully:', result);
-      
       // Small delay to show completion
       await new Promise(resolve => setTimeout(resolve, 500));
       
@@ -313,9 +306,6 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
       });
       
     } catch (error: any) {
-      console.error('Error posting video:', error);
-      
-      // Show more detailed error message for debugging
       let errorMessage = error.message || 'Failed to post video. Please try again.';
       
       // Add additional context for common errors

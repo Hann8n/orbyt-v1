@@ -40,12 +40,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { queryKeys } from '../../../services/queryKeys';
-import { TEXT, UI, INTERACTIVE, BRAND } from '../../../utils/formatting/Colors';
+import { INTERACTIVE, BRAND } from '../../../utils/formatting/Colors';
 import ProfileCache, { profileKeys } from '../../../services/cache/ProfileCache';
 import VerificationBadge from '../verification/VerificationBadge';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate, { formatPostDate } from '../../ui/RelativeDate';
-import { Avatar, Icon, Colors } from '../../ui/UI';
+import UI from '../../ui/UI';
 import PopUpModal from '../../ui/PopUpModal';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView, NativeViewGestureHandler } from 'react-native-gesture-handler';
@@ -57,6 +57,7 @@ import { TouchableOpacity as BottomSheetTouchableOpacity } from '@gorhom/bottom-
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
 import { useUserSearchTrigger, UserSearchModal } from '../../ui/usersearch';
+import { useKeyboardState } from 'react-native-keyboard-controller';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -184,7 +185,7 @@ const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => (
     borderBottomColor: '#333',
     paddingHorizontal: 0,
   }}>
-    <Avatar
+    <UI.Avatar
       uri={like.actor.avatar}
       type="profile"
       size={40}
@@ -218,389 +219,8 @@ const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => (
   </View>
 ));
 
-const CommentSection: React.FC<CommentSectionProps> = ({
-  post,
-  onDismiss,
-  visible,
-  totalLikes = 0,
-  totalComments = 0,
-}) => {
-  const insets = useSafeAreaInsets();
-  const [newCommentText, setNewCommentText] = useState('');
-  const [activeTab, setActiveTab] = useState<'comments' | 'likes'>('comments');
-  const [likesQueryEnabled, setLikesQueryEnabled] = useState(false); // <-- add
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  // Only allow 95% height, never fullscreen
-  const snapPoints = useMemo(() => ['60%', '95%'], []);
-  // Fullscreen image state
-  const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
-  const horizontalListRef = useRef<RNFlatList>(null);
-  const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
-
-  // When tab is changed by tap, scroll horizontally
-  const handleTabPress = (tabId: string) => {
-    setActiveTab(tabId as 'comments' | 'likes');
-    const index = tabId === 'comments' ? 0 : 1;
-    horizontalListRef.current?.scrollToIndex({ index, animated: true });
-    if (tabId === 'likes') setLikesQueryEnabled(true); // <-- enable likes query
-  };
-
-  // When horizontal swipe, update tab
-  const handleHorizontalScroll = (event: any) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(offsetX / Dimensions.get('window').width);
-    // Update tab immediately as user swipes
-    setActiveTab(index === 0 ? 'comments' : 'likes');
-    if (index === 1) setLikesQueryEnabled(true); // <-- enable likes query
-  };
-
-  // Fetch comments and likes using react-query
-  // Comments infinite query
-  const {
-    data: commentsPages,
-    isLoading: commentsLoading,
-    fetchNextPage: fetchNextCommentsPage,
-    hasNextPage: hasNextCommentsPage,
-    isFetchingNextPage: isFetchingNextCommentsPage,
-    refetch: refetchComments,
-  } = useInfiniteQuery<{ comments: any[]; cursor: string | null }, Error>({
-    queryKey: queryKeys.comments.byPost(post.uri),
-    queryFn: ({ pageParam }) => AtprotoService.getComments(post.uri, pageParam as string | null),
-    getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
-    initialPageParam: null,
-    enabled: !!post.uri,
-  });
-  const comments = useMemo(
-    () => commentsPages?.pages.flatMap((page) => (page as { comments: any[] }).comments) ?? [],
-    [commentsPages]
-  );
-
-  // Likes infinite query
-  const {
-    data: likesPages,
-    isLoading: likesLoading,
-    fetchNextPage: fetchNextLikesPage,
-    hasNextPage: hasNextLikesPage,
-    isFetchingNextPage: isFetchingNextLikesPage,
-    refetch: refetchLikes,
-  } = useInfiniteQuery<{ likes: any[]; cursor: string | null }, Error>({
-    queryKey: queryKeys.likes.byPost(post.uri),
-    queryFn: ({ pageParam }) => AtprotoService.getLikes(post.uri, pageParam as string | null),
-    getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
-    initialPageParam: null,
-    enabled: !!post.uri && likesQueryEnabled, // <-- only enabled when likesQueryEnabled is true
-  });
-  const likes = useMemo(
-    () => likesPages?.pages.flatMap((page) => (page as { likes: any[] }).likes) ?? [],
-    [likesPages]
-  );
-
-  // Memoized renderers
-  const renderCommentItem = useCallback(({ item }: { item: Comment }) => (
-    <CommentItem comment={item} onDismiss={onDismiss} onImagePress={setFullscreenImageUri} />
-  ), [onDismiss]);
-  // Memoize LikeItem for performance
-  const MemoizedLikeItem = React.memo(LikeItem);
-  const renderLikeItem = useCallback(({ item }: { item: Like }) => (
-    <MemoizedLikeItem like={item} />
-  ), []);
-
-  // Memoized keyExtractors
-  const commentKeyExtractor = useCallback((item: Comment) => item.uri, []);
-  // Ensure a unique, stable key for likes (prefer like.uri, fallback to actor.did + createdAt)
-  const likeKeyExtractor = useCallback((item: Like) => {
-    if (item.uri) return item.uri;
-    if (item.actor && item.actor.did && item.createdAt) return `${item.actor.did}-${item.createdAt}`;
-    return Math.random().toString(36); // fallback (should not happen)
-  }, []);
-
-  // Close sheet handler
-  const handleClose = useCallback(() => {
-    if (onDismiss) onDismiss();
-    bottomSheetRef.current?.close();
-  }, [onDismiss]);
-
-  // Tab options for TabNavigation
-  const tabOptions: TabOption[] = [
-    { id: 'comments', label: totalComments > 0 ? `Comments (${formatNumber(totalComments)})` : 'Comments' },
-    { id: 'likes', label: totalLikes > 0 ? `Likes (${formatNumber(totalLikes)})` : 'Likes' },
-  ];
-
-  // Integrate @-mention user search
-  const {
-    inputProps: mentionInputProps,
-    userSearchModalProps,
-  } = useUserSearchTrigger({
-    value: newCommentText,
-    selection: inputSelection,
-    onChangeText: setNewCommentText,
-    onSelectionChange: (e) => setInputSelection(e.nativeEvent.selection),
-  });
-
-  if (!visible) return null;
-
-  return (
-    <>
-      <BottomSheet
-        ref={bottomSheetRef}
-        index={0} // open at 60%
-        snapPoints={snapPoints}
-        enablePanDownToClose
-        onClose={handleClose}
-        keyboardBehavior={"interactive"}
-        style={{ zIndex: 100 }}
-        backgroundStyle={{ backgroundColor: '#000', borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTopWidth: 0.5, borderTopColor: '#333' }}
-        handleIndicatorStyle={{ backgroundColor: '#666', width: 40, height: 5 }}
-        enableDynamicSizing={false}
-      >
-        {/* TabNavigation at the top left, matching header style */}
-        <View style={{ width: '100%', backgroundColor: '#000', paddingHorizontal: 10, paddingTop: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
-          <TabNavigation
-            tabs={tabOptions}
-            activeTab={activeTab}
-            onTabPress={handleTabPress as any}
-            textColor="#fff"
-            backgroundColor="transparent"
-            style={{ marginBottom: 0, paddingVertical: 0, marginTop: 0 }}
-            // @ts-ignore: Override tab text size via style
-            tabTextStyleOverride={{ fontSize: 18 }}
-          />
-          <RelativeDate
-            dateString={post.indexedAt}
-            style={{ color: '#888', fontSize: 15, marginLeft: 10 }}
-          />
-        </View>
-        {/* Horizontal swipeable content */}
-        <RNFlatList
-          ref={horizontalListRef}
-          data={[{ key: 'comments' }, { key: 'likes' }]}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          bounces={false}
-          decelerationRate="fast"
-          onScroll={handleHorizontalScroll}
-          scrollEventThrottle={16}
-          initialScrollIndex={activeTab === 'comments' ? 0 : 1}
-          getItemLayout={(_, index) => ({ length: Dimensions.get('window').width, offset: Dimensions.get('window').width * index, index })}
-          renderItem={({ item }) => (
-            <View style={{ width: Dimensions.get('window').width }}>
-              {item.key === 'comments' ? (
-                totalComments === 0 ? (
-                  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 220, paddingHorizontal: 24 }}>
-                    <Text style={{ color: '#aaa', fontSize: 17, textAlign: 'center', fontWeight: '500', fontFamily: 'Firma-SemiBold' }}>No comments yet</Text>
-                  </View>
-                ) : commentsLoading ? (
-                  <BottomSheetFlatList
-                    data={Array.from({ length: totalComments > 0 ? totalComments : 4 })}
-                    renderItem={() => (
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 12, paddingHorizontal: 0, borderBottomWidth: 0.5, borderBottomColor: '#333' }}>
-                        <ShimmerPlaceholder
-                          LinearGradient={LinearGradient}
-                          style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, borderWidth: 1, borderColor: '#333' }}
-                          shimmerColors={UI.SHIMMER}
-                        />
-                        <View style={{ flex: 1, justifyContent: 'center' }}>
-                          <ShimmerPlaceholder
-                            LinearGradient={LinearGradient}
-                            style={{ width: '60%', height: 14, borderRadius: 3, marginBottom: 0 }}
-                            shimmerColors={UI.SHIMMER}
-                          />
-                          <ShimmerPlaceholder
-                            LinearGradient={LinearGradient}
-                            style={{ width: '40%', height: 12, borderRadius: 3, marginBottom: 2 }}
-                            shimmerColors={UI.SHIMMER}
-                          />
-                          <ShimmerPlaceholder
-                            LinearGradient={LinearGradient}
-                            style={{ width: '90%', height: 15, borderRadius: 4, marginTop: 2, marginBottom: 4 }}
-                            shimmerColors={UI.SHIMMER}
-                          />
-                          <ShimmerPlaceholder
-                            LinearGradient={LinearGradient}
-                            style={{ width: '30%', height: 10, borderRadius: 2 }}
-                            shimmerColors={UI.SHIMMER}
-                          />
-                        </View>
-                        <View style={{ alignItems: 'center', justifyContent: 'center', marginLeft: 8, width: 32, alignSelf: 'flex-start' }}>
-                          <ShimmerPlaceholder
-                            LinearGradient={LinearGradient}
-                            style={{ width: 18, height: 18, borderRadius: 9 }}
-                            shimmerColors={UI.SHIMMER}
-                          />
-                        </View>
-                      </View>
-                    )}
-                    keyExtractor={(_, idx) => `shimmer-${idx}`}
-                    contentContainerStyle={{ paddingBottom: 8, backgroundColor: '#000', paddingHorizontal: 10 }}
-                  />
-                ) : (
-                  <BottomSheetVirtualizedList
-                    data={comments}
-                    keyExtractor={commentKeyExtractor}
-                    getItemCount={(data) => data.length}
-                    getItem={(data, index) => data[index]}
-                    renderItem={renderCommentItem}
-                    contentContainerStyle={{ paddingBottom: 8, backgroundColor: '#000', paddingHorizontal: 10 }}
-                    keyboardShouldPersistTaps="handled"
-                    onEndReached={() => {
-                      if (hasNextCommentsPage && !isFetchingNextCommentsPage) {
-                        fetchNextCommentsPage();
-                      }
-                    }}
-                    onEndReachedThreshold={0.5}
-                    initialNumToRender={8}
-                    maxToRenderPerBatch={8}
-                    windowSize={5}
-                    removeClippedSubviews={true}
-                  />
-                )
-              ) : (
-                totalLikes === 0 ? (
-                  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 220, paddingHorizontal: 24 }}>
-                    <Text style={{ color: '#aaa', fontSize: 17, textAlign: 'center', fontWeight: '500', fontFamily: 'Firma-SemiBold' }}>No likes yet</Text>
-                  </View>
-                ) : likesLoading ? (
-                  <BottomSheetFlatList
-                    data={Array.from({ length: totalLikes > 0 ? totalLikes : 4 })}
-                    renderItem={() => (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: '#333', paddingHorizontal: 0 }}>
-                        {/* Avatar shimmer */}
-                        <ShimmerPlaceholder
-                          LinearGradient={LinearGradient}
-                          style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, borderWidth: 1, borderColor: '#333' }}
-                          shimmerColors={UI.SHIMMER}
-                        />
-                        <View style={{ flex: 1, justifyContent: 'center' }}>
-                          {/* First text shimmer */}
-                          <ShimmerPlaceholder
-                            LinearGradient={LinearGradient}
-                            style={{ width: '40%', height: 16, borderRadius: 2, marginBottom: 4 }}
-                            shimmerColors={UI.SHIMMER}
-                          />
-                          {/* Second text shimmer */}
-                          <ShimmerPlaceholder
-                            LinearGradient={LinearGradient}
-                            style={{ width: '55%', height: 16, borderRadius: 2 }}
-                            shimmerColors={UI.SHIMMER}
-                          />
-                        </View>
-                      </View>
-                    )}
-                    keyExtractor={(_, idx) => `shimmer-like-${idx}`}
-                    contentContainerStyle={{ paddingBottom: 8, backgroundColor: '#000', paddingHorizontal: 10 }}
-                  />
-                ) : (
-                  <BottomSheetVirtualizedList
-                    data={likes}
-                    keyExtractor={likeKeyExtractor}
-                    getItemCount={(data) => data.length}
-                    getItem={(data, index) => data[index]}
-                    renderItem={renderLikeItem}
-                    contentContainerStyle={{ paddingBottom: 8, backgroundColor: '#000', paddingHorizontal: 10 }}
-                    onEndReached={() => {
-                      if (hasNextLikesPage && !isFetchingNextLikesPage) {
-                        fetchNextLikesPage();
-                      }
-                    }}
-                    onEndReachedThreshold={0.5}
-                    initialNumToRender={8}
-                    maxToRenderPerBatch={8}
-                    windowSize={5}
-                    removeClippedSubviews={true}
-                  />
-                )
-              )}
-            </View>
-          )}
-          keyExtractor={item => item.key}
-          style={{ flexGrow: 0 }}
-          extraData={{ commentsLoading, likesLoading, comments, likes, totalComments, totalLikes, activeTab }}
-        />
-        {/* Input only for comments tab, always at the bottom of the sheet and handled by BottomSheetTextInput */}
-        {activeTab === 'comments' && (
-          <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12), backgroundColor: '#000', borderTopColor: '#333' }]}> 
-            <BottomSheetTextInput
-              {...mentionInputProps}
-              style={[styles.input, { backgroundColor: '#1C1C1E', color: '#fff', borderColor: '#333' }]}
-              placeholder="Add a comment..."
-              placeholderTextColor="#888"
-              multiline
-            />
-            <TouchableOpacity style={styles.sendButton}>
-              <Icon name="arrow-up" size={20} color="#007AFF" />
-            </TouchableOpacity>
-            {/* User search modal for @-mention */}
-            <UserSearchModal {...userSearchModalProps} />
-          </View>
-        )}
-      </BottomSheet>
-      {/* Fullscreen image modal */}
-      <Modal
-        visible={!!fullscreenImageUri}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setFullscreenImageUri(null)}
-      >
-        <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }}
-          onPress={() => setFullscreenImageUri(null)}
-        >
-          {fullscreenImageUri && (
-            <>
-              <Image
-                source={{ uri: fullscreenImageUri }}
-                style={{ width: '95%', height: '80%', resizeMode: 'contain', borderRadius: 12 }}
-              />
-              {/* Alt text below image, if available */}
-              {/* Find alt text for the fullscreen image */}
-              {(() => {
-                // Search comments and likes for the image and get its alt text
-                let altText: string | undefined = undefined;
-                // Search comments for embed images or external
-                for (const comment of comments) {
-                  // Check for external embed
-                  const record = comment?.record || comment?.post?.record;
-                  const embed = record?.embed || comment?.embed || comment?.post?.embed;
-                  // Check for external image
-                  if (embed && typeof embed === 'object') {
-                    // app.bsky.embed.external
-                    if (embed.$type === 'app.bsky.embed.external' && embed.external && embed.external.uri === fullscreenImageUri) {
-                      altText = embed.external.description || embed.external.title || undefined;
-                      break;
-                    }
-                    // images array
-                    if (Array.isArray(embed.images)) {
-                      for (const img of embed.images) {
-                        if ((img.fullsize === fullscreenImageUri || img.thumb === fullscreenImageUri) && img.alt) {
-                          altText = img.alt;
-                          break;
-                        }
-                      }
-                    }
-                  }
-                  if (altText) break;
-                }
-                if (altText) {
-                  return (
-                    <Text style={{ color: '#ccc', fontSize: 15, marginTop: 16, textAlign: 'center', maxWidth: '90%' }}>{altText}</Text>
-                  );
-                }
-                return null;
-              })()}
-            </>
-          )}
-          <Pressable
-            style={{ position: 'absolute', top: 40, right: 24, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 8 }}
-            onPress={() => setFullscreenImageUri(null)}
-          >
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold' }}>✕</Text>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </>
-  );
-};
+// --- Memoized LikeItem outside the component to avoid re-creation ---
+const MemoizedLikeItem = React.memo(LikeItem);
 
 interface CommentItemProps {
   comment: Comment;
@@ -1004,7 +624,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
         ]}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1 }}>
             <TouchableOpacity onPress={handleAuthorAvatarPress}>
-              <Avatar
+              <UI.Avatar
                 uri={authorAvatar}
                 type="profile"
                 size={40}
@@ -1092,6 +712,667 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
   }
 );
 
+// --- Custom comparison for CommentItem ---
+function areEqualCommentItem(prevProps: CommentItemProps, nextProps: CommentItemProps) {
+  // Only re-render if the comment object or its key props change
+  return (
+    prevProps.comment === nextProps.comment &&
+    prevProps.onDismiss === nextProps.onDismiss &&
+    prevProps.onReplyPress === nextProps.onReplyPress &&
+    prevProps.rootUri === nextProps.rootUri &&
+    prevProps.rootCid === nextProps.rootCid &&
+    prevProps.level === nextProps.level &&
+    prevProps.onImagePress === nextProps.onImagePress
+  );
+}
+
+const MemoizedCommentItem = React.memo(CommentItem, areEqualCommentItem);
+
+const CommentSection: React.FC<CommentSectionProps> = ({
+  post,
+  onDismiss,
+  visible,
+  totalLikes = 0,
+  totalComments = 0,
+}) => {
+  const insets = useSafeAreaInsets();
+  const [newCommentText, setNewCommentText] = useState('');
+  const [activeTab, setActiveTab] = useState<'comments' | 'likes'>('comments');
+  const [likesQueryEnabled, setLikesQueryEnabled] = useState(false); // <-- add
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  // Only allow max height up to the top safe area (never fullscreen)
+  const maxHeight = useMemo(() => Dimensions.get('window').height - insets.top, [insets.top]);
+  const snapPoints = useMemo(() => ['60%', maxHeight], [maxHeight]);
+  // Fullscreen image state
+  const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
+  const horizontalListRef = useRef<RNFlatList>(null);
+  const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
+
+  // --- KeyboardController logic ---
+  const { height: keyboardHeight } = useKeyboardState();
+
+  // --- Add reply context state ---
+  const [replyContext, setReplyContext] = useState<{
+    authorName: string;
+    parentUri: string;
+    parentCid: string;
+    level: number;
+  } | null>(null);
+
+  // Ref for the input to focus on reply
+  const inputRef = useRef<any>(null);
+
+  // Handler for when a reply is triggered from a comment
+  const handleReplyPress = useCallback((comment: Comment) => {
+    // Use the same logic as in CommentItem's handleReplyPress
+    const properUri = comment?.uri || comment?.post?.uri;
+    const properCid = comment?.cid || comment?.post?.cid;
+    const authorName = comment?.post?.author?.displayName || comment?.author?.displayName || comment?.post?.author?.handle || comment?.author?.handle || 'Unknown';
+    if (properUri && properCid) {
+      setReplyContext({
+        authorName,
+        parentUri: properUri,
+        parentCid: properCid,
+        level: 1 // Not used for indent, but could be extended
+      });
+      // Focus the input after setting reply context
+      setTimeout(() => {
+        inputRef.current?.focus && inputRef.current.focus();
+      }, 0);
+    }
+  }, []);
+
+  // Handler to cancel reply
+  const handleCancelReply = useCallback(() => {
+    setReplyContext(null);
+  }, []);
+
+  // When tab is changed by tap, scroll horizontally
+  const handleTabPress = (tabId: string) => {
+    setActiveTab(tabId as 'comments' | 'likes');
+    const index = tabId === 'comments' ? 0 : 1;
+    horizontalListRef.current?.scrollToIndex({ index, animated: true });
+    if (tabId === 'likes') setLikesQueryEnabled(true); // <-- enable likes query
+  };
+
+  // When horizontal swipe, update tab
+  const handleHorizontalScroll = (event: any) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / Dimensions.get('window').width);
+    // Update tab immediately as user swipes
+    setActiveTab(index === 0 ? 'comments' : 'likes');
+    if (index === 1) setLikesQueryEnabled(true); // <-- enable likes query
+  };
+
+  // Fetch comments and likes using react-query
+  // Comments infinite query
+  const {
+    data: commentsPages,
+    isLoading: commentsLoading,
+    fetchNextPage: fetchNextCommentsPage,
+    hasNextPage: hasNextCommentsPage,
+    isFetchingNextPage: isFetchingNextCommentsPage,
+    refetch: refetchComments,
+  } = useInfiniteQuery<{ comments: any[]; cursor: string | null }, Error>({
+    queryKey: queryKeys.comments.byPost(post.uri),
+    queryFn: ({ pageParam }) => AtprotoService.getComments(post.uri, pageParam as string | null),
+    getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
+    initialPageParam: null,
+    enabled: !!post.uri,
+  });
+  const comments = useMemo(
+    () => commentsPages?.pages.flatMap((page) => (page as { comments: any[] }).comments) ?? [],
+    [commentsPages]
+  );
+
+  // Likes infinite query
+  const {
+    data: likesPages,
+    isLoading: likesLoading,
+    fetchNextPage: fetchNextLikesPage,
+    hasNextPage: hasNextLikesPage,
+    isFetchingNextPage: isFetchingNextLikesPage,
+    refetch: refetchLikes,
+  } = useInfiniteQuery<{ likes: any[]; cursor: string | null }, Error>({
+    queryKey: queryKeys.likes.byPost(post.uri),
+    queryFn: ({ pageParam }) => AtprotoService.getLikes(post.uri, pageParam as string | null),
+    getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
+    initialPageParam: null,
+    enabled: !!post.uri && likesQueryEnabled, // <-- only enabled when likesQueryEnabled is true
+  });
+  const likes = useMemo(
+    () => likesPages?.pages.flatMap((page) => (page as { likes: any[] }).likes) ?? [],
+    [likesPages]
+  );
+
+  // Memoized renderers
+  const renderCommentItem = useCallback(
+    ({ item }: { item: Comment }) => (
+      <MemoizedCommentItem
+        comment={item}
+        onDismiss={onDismiss}
+        onImagePress={setFullscreenImageUri}
+        onReplyPress={handleReplyPress}
+      />
+    ),
+    [onDismiss, handleReplyPress]
+  );
+  const renderLikeItem = useCallback(
+    ({ item }: { item: Like }) => <MemoizedLikeItem like={item} />,
+    []
+  );
+
+  // Memoized keyExtractors
+  const commentKeyExtractor = useCallback((item: Comment) => item.uri, []);
+  // Ensure a unique, stable key for likes (prefer like.uri, fallback to actor.did + createdAt)
+  const likeKeyExtractor = useCallback((item: Like) => {
+    if (item.uri) return item.uri;
+    if (item.actor && item.actor.did && item.createdAt) return `${item.actor.did}-${item.createdAt}`;
+    return Math.random().toString(36); // fallback (should not happen)
+  }, []);
+
+  // Close sheet handler
+  const handleClose = useCallback(() => {
+    if (onDismiss) onDismiss();
+    bottomSheetRef.current?.close();
+  }, [onDismiss]);
+
+  // Tab options for TabNavigation
+  const tabOptions: TabOption[] = [
+    { id: 'comments', label: totalComments > 0 ? `Comments (${formatNumber(totalComments)})` : 'Comments' },
+    { id: 'likes', label: totalLikes > 0 ? `Likes (${formatNumber(totalLikes)})` : 'Likes' },
+  ];
+
+  // Integrate @-mention user search
+  const {
+    inputProps: mentionInputProps,
+    userSearchModalProps,
+  } = useUserSearchTrigger({
+    value: newCommentText,
+    selection: inputSelection,
+    onChangeText: setNewCommentText,
+    onSelectionChange: (e) => setInputSelection(e.nativeEvent.selection),
+  });
+
+  // --- Add send handler for posting comments/replies ---
+  const queryClient = useQueryClient();
+  const [isPosting, setIsPosting] = useState(false);
+  const MAX_COMMENT_LENGTH = 300;
+  const charCount = newCommentText.length;
+  const showCharCount = charCount >= 150;
+  const handleSendComment = useCallback(async () => {
+    if (!newCommentText.trim() || isPosting) return;
+    setIsPosting(true);
+    try {
+      // If replying, use replyContext; else, post to root
+      const rootUri = post.uri;
+      const rootCid = post.cid || '';
+      let parentUri = rootUri;
+      let parentCid = rootCid;
+      if (replyContext) {
+        parentUri = replyContext.parentUri;
+        parentCid = replyContext.parentCid;
+      }
+      await AtprotoService.postComment(
+        newCommentText.trim(),
+        rootUri,
+        rootCid,
+        parentUri,
+        parentCid
+      );
+      setNewCommentText('');
+      setReplyContext(null);
+      // Refetch comments
+      queryClient.invalidateQueries({ queryKey: queryKeys.comments.byPost(post.uri) });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to post comment. Please try again.');
+    } finally {
+      setIsPosting(false);
+    }
+  }, [newCommentText, post, replyContext, isPosting, queryClient]);
+
+  if (!visible) return null;
+
+  return (
+    <>
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={0} // open at 60%
+        snapPoints={snapPoints}
+        enablePanDownToClose
+        onClose={handleClose}
+        keyboardBehavior="extend"
+        style={{ zIndex: 100 }}
+        backgroundStyle={{ backgroundColor: '#000', borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTopWidth: 0.5, borderTopColor: '#333' }}
+        handleIndicatorStyle={{ backgroundColor: '#666', width: 40, height: 5 }}
+        enableDynamicSizing={false}
+      >
+        {/* TabNavigation at the top left, matching header style */}
+        <View style={{ width: '100%', backgroundColor: '#000', paddingHorizontal: 10, paddingTop: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
+          <TabNavigation
+            tabs={tabOptions}
+            activeTab={activeTab}
+            onTabPress={handleTabPress as any}
+            textColor="#fff"
+            backgroundColor="transparent"
+            style={{ marginBottom: 0, paddingVertical: 0, marginTop: 0 }}
+            // @ts-ignore: Override tab text size via style
+            tabTextStyleOverride={{ fontSize: 18 }}
+          />
+          <RelativeDate
+            dateString={post.indexedAt}
+            style={{ color: '#888', fontSize: 15, marginLeft: 10 }}
+          />
+        </View>
+        {/* Horizontal swipeable content */}
+        <RNFlatList
+          ref={horizontalListRef}
+          data={[{ key: 'comments' }, { key: 'likes' }]}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          decelerationRate="fast"
+          onScroll={handleHorizontalScroll}
+          scrollEventThrottle={16}
+          initialScrollIndex={activeTab === 'comments' ? 0 : 1}
+          getItemLayout={(_, index) => ({ length: Dimensions.get('window').width, offset: Dimensions.get('window').width * index, index })}
+          renderItem={({ item }) => (
+            <View style={{ width: Dimensions.get('window').width }}>
+              {item.key === 'comments' ? (
+                totalComments === 0 ? (
+                  <View style={{ flex: 1, justifyContent: 'space-between', minHeight: 220, paddingHorizontal: 0 }}>
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+                      <Text style={{ color: '#aaa', fontSize: 17, textAlign: 'center', fontWeight: '500', fontFamily: 'Firma-SemiBold' }}>No comments yet</Text>
+                    </View>
+                    {/* Input only for comments tab, always at the bottom of the sheet and handled by BottomSheetTextInput */}
+                    {/* Show reply context indicator if replying, above the input container */}
+                    {replyContext && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#181818', paddingHorizontal: 16, paddingVertical: 6, borderTopLeftRadius: 8, borderTopRightRadius: 8, marginHorizontal: 0, marginTop: 0, marginBottom: 2 }}>
+                        <Text style={{ color: '#fff', fontSize: 13, marginRight: 8 }}>
+                          Replying to {replyContext.authorName}
+                        </Text>
+                        <TouchableOpacity onPress={handleCancelReply} style={{ padding: 2 }}>
+                          <Text style={{ color: '#007AFF', fontSize: 13 }}>Cancel</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    <View style={[
+                      styles.inputContainer,
+                      {
+                        paddingBottom: Math.max(insets.bottom, 12),
+                        backgroundColor: '#000',
+                        borderTopColor: '#333',
+                        alignItems: 'flex-start',
+                      },
+                    ]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', width: '100%' }}>
+                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#1C1C1E', borderRadius: 18, borderWidth: 1, borderColor: '#333', position: 'relative' }}>
+                          <BottomSheetTextInput
+                            {...mentionInputProps}
+                            style={[
+                              styles.input,
+                              {
+                                backgroundColor: 'transparent',
+                                color: '#fff',
+                                borderColor: 'transparent',
+                                flex: 1,
+                                borderTopRightRadius: 0,
+                                borderBottomRightRadius: 0,
+                                minHeight: 36,
+                                maxHeight: 100,
+                                paddingRight: 0,
+                              },
+                            ]}
+                            placeholder={replyContext ? `Reply to ${replyContext.authorName}...` : 'Add a comment...'}
+                            placeholderTextColor="#888"
+                            multiline
+                            value={newCommentText}
+                            onChangeText={setNewCommentText}
+                            editable={!isPosting}
+                            ref={inputRef}
+                            maxLength={MAX_COMMENT_LENGTH + 25} // allow a little overflow for warning
+                          />
+                          {/* Separator */}
+                          <View style={{ width: 1, backgroundColor: '#333', alignSelf: 'stretch', marginVertical: 6 }} />
+                          {/* Send button */}
+                          <TouchableOpacity
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 8,
+                              alignSelf: 'flex-start',
+                              justifyContent: 'center',
+                              borderTopRightRadius: 18,
+                              borderBottomRightRadius: 18,
+                            }}
+                            onPress={handleSendComment}
+                            disabled={isPosting || !newCommentText.trim() || charCount > MAX_COMMENT_LENGTH}
+                          >
+                            <UI.Icon name="arrow-up" size={22} color={isPosting || !newCommentText.trim() || charCount > MAX_COMMENT_LENGTH ? '#ccc' : '#fff'} />
+                          </TouchableOpacity>
+                          {/* Character count centered below send button */}
+                          {showCharCount && (
+                            <View
+                              style={{
+                                position: 'absolute',
+                                bottom: 6,
+                                right: 0,
+                                width: 22 + 2 * 10, // icon size + 2 * horizontal padding
+                                alignItems: 'center',
+                                pointerEvents: 'none',
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  color: (MAX_COMMENT_LENGTH - charCount) <= 0 ? '#FF4D4F' : '#888',
+                                  fontSize: 12,
+                                  textAlign: 'center',
+                                  marginTop: 4,
+                                }}
+                              >
+                                {MAX_COMMENT_LENGTH - charCount}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      {/* User search modal for @-mention */}
+                      <UserSearchModal {...userSearchModalProps} />
+                    </View>
+                  </View>
+                ) : commentsLoading ? (
+                  <BottomSheetFlatList
+                    data={Array.from({ length: totalComments > 0 ? totalComments : 4 })}
+                    renderItem={() => (
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 12, paddingHorizontal: 0, borderBottomWidth: 0.5, borderBottomColor: '#333' }}>
+                        <ShimmerPlaceholder
+                          LinearGradient={LinearGradient}
+                          style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, borderWidth: 1, borderColor: '#333' }}
+                          shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                        />
+                        <View style={{ flex: 1, justifyContent: 'center' }}>
+                          <ShimmerPlaceholder
+                            LinearGradient={LinearGradient}
+                            style={{ width: '60%', height: 14, borderRadius: 3, marginBottom: 0 }}
+                            shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                          />
+                          <ShimmerPlaceholder
+                            LinearGradient={LinearGradient}
+                            style={{ width: '40%', height: 12, borderRadius: 3, marginBottom: 2 }}
+                            shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                          />
+                          <ShimmerPlaceholder
+                            LinearGradient={LinearGradient}
+                            style={{ width: '90%', height: 15, borderRadius: 4, marginTop: 2, marginBottom: 4 }}
+                            shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                          />
+                          <ShimmerPlaceholder
+                            LinearGradient={LinearGradient}
+                            style={{ width: '30%', height: 10, borderRadius: 2 }}
+                            shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                          />
+                        </View>
+                        <View style={{ alignItems: 'center', justifyContent: 'center', marginLeft: 8, width: 32, alignSelf: 'flex-start' }}>
+                          <ShimmerPlaceholder
+                            LinearGradient={LinearGradient}
+                            style={{ width: 18, height: 18, borderRadius: 9 }}
+                            shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                          />
+                        </View>
+                      </View>
+                    )}
+                    keyExtractor={(_, idx) => `shimmer-${idx}`}
+                    contentContainerStyle={{ paddingBottom: 8, backgroundColor: '#000', paddingHorizontal: 10 }}
+                  />
+                ) : (
+                  <>
+                    <BottomSheetVirtualizedList
+                      data={comments}
+                      keyExtractor={commentKeyExtractor}
+                      getItemCount={(data) => data.length}
+                      getItem={(data, index) => data[index]}
+                      renderItem={renderCommentItem}
+                      contentContainerStyle={{ paddingBottom: 8, backgroundColor: '#000', paddingHorizontal: 10 }}
+                      keyboardShouldPersistTaps="handled"
+                      onEndReached={() => {
+                        if (hasNextCommentsPage && !isFetchingNextCommentsPage) {
+                          fetchNextCommentsPage();
+                        }
+                      }}
+                      onEndReachedThreshold={0.5}
+                      initialNumToRender={8}
+                      maxToRenderPerBatch={8}
+                      windowSize={5}
+                      removeClippedSubviews={true}
+                    />
+                    {/* Input only for comments tab, always at the bottom of the sheet and handled by BottomSheetTextInput */}
+                    {/* Show reply context indicator if replying, above the input container */}
+                    {replyContext && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#181818', paddingHorizontal: 16, paddingVertical: 6, borderTopLeftRadius: 8, borderTopRightRadius: 8, marginHorizontal: 0, marginTop: 0, marginBottom: 2 }}>
+                        <Text style={{ color: '#fff', fontSize: 13, marginRight: 8 }}>
+                          Replying to {replyContext.authorName}
+                        </Text>
+                        <TouchableOpacity onPress={handleCancelReply} style={{ padding: 2 }}>
+                          <Text style={{ color: '#007AFF', fontSize: 13 }}>Cancel</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    <View style={[
+                      styles.inputContainer,
+                      {
+                        paddingBottom: Math.max(insets.bottom, 12),
+                        backgroundColor: '#000',
+                        borderTopColor: '#333',
+                        alignItems: 'flex-start',
+                      },
+                    ]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', width: '100%' }}>
+                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#1C1C1E', borderRadius: 18, borderWidth: 1, borderColor: '#333', position: 'relative' }}>
+                          <BottomSheetTextInput
+                            {...mentionInputProps}
+                            style={[
+                              styles.input,
+                              {
+                                backgroundColor: 'transparent',
+                                color: '#fff',
+                                borderColor: 'transparent',
+                                flex: 1,
+                                borderTopRightRadius: 0,
+                                borderBottomRightRadius: 0,
+                                minHeight: 36,
+                                maxHeight: 100,
+                                paddingRight: 0,
+                              },
+                            ]}
+                            placeholder={replyContext ? `Reply to ${replyContext.authorName}...` : 'Add a comment...'}
+                            placeholderTextColor="#888"
+                            multiline
+                            value={newCommentText}
+                            onChangeText={setNewCommentText}
+                            editable={!isPosting}
+                            ref={inputRef}
+                            maxLength={MAX_COMMENT_LENGTH + 25} // allow a little overflow for warning
+                          />
+                          {/* Separator */}
+                          <View style={{ width: 1, backgroundColor: '#333', alignSelf: 'stretch', marginVertical: 6 }} />
+                          {/* Send button */}
+                          <TouchableOpacity
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 8,
+                              alignSelf: 'flex-start',
+                              justifyContent: 'center',
+                              borderTopRightRadius: 18,
+                              borderBottomRightRadius: 18,
+                            }}
+                            onPress={handleSendComment}
+                            disabled={isPosting || !newCommentText.trim() || charCount > MAX_COMMENT_LENGTH}
+                          >
+                            <UI.Icon name="arrow-up" size={22} color={isPosting || !newCommentText.trim() || charCount > MAX_COMMENT_LENGTH ? '#ccc' : '#fff'} />
+                          </TouchableOpacity>
+                          {/* Character count centered below send button */}
+                          {showCharCount && (
+                            <View
+                              style={{
+                                position: 'absolute',
+                                bottom: 6,
+                                right: 0,
+                                width: 22 + 2 * 10, // icon size + 2 * horizontal padding
+                                alignItems: 'center',
+                                pointerEvents: 'none',
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  color: (MAX_COMMENT_LENGTH - charCount) <= 0 ? '#FF4D4F' : '#888',
+                                  fontSize: 12,
+                                  textAlign: 'center',
+                                  marginTop: 4,
+                                }}
+                              >
+                                {MAX_COMMENT_LENGTH - charCount}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      {/* User search modal for @-mention */}
+                      <UserSearchModal {...userSearchModalProps} />
+                    </View>
+                  </>
+                )
+              ) : (
+                totalLikes === 0 ? (
+                  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 220, paddingHorizontal: 24 }}>
+                    <Text style={{ color: '#aaa', fontSize: 17, textAlign: 'center', fontWeight: '500', fontFamily: 'Firma-SemiBold' }}>No likes yet</Text>
+                  </View>
+                ) : likesLoading ? (
+                  <BottomSheetFlatList
+                    data={Array.from({ length: totalLikes > 0 ? totalLikes : 4 })}
+                    renderItem={() => (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: '#333', paddingHorizontal: 0 }}>
+                        {/* Avatar shimmer */}
+                        <ShimmerPlaceholder
+                          LinearGradient={LinearGradient}
+                          style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, borderWidth: 1, borderColor: '#333' }}
+                          shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                        />
+                        <View style={{ flex: 1, justifyContent: 'center' }}>
+                          {/* First text shimmer */}
+                          <ShimmerPlaceholder
+                            LinearGradient={LinearGradient}
+                            style={{ width: '40%', height: 16, borderRadius: 2, marginBottom: 4 }}
+                            shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                          />
+                          {/* Second text shimmer */}
+                          <ShimmerPlaceholder
+                            LinearGradient={LinearGradient}
+                            style={{ width: '55%', height: 16, borderRadius: 2 }}
+                            shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                          />
+                        </View>
+                      </View>
+                    )}
+                    keyExtractor={(_, idx) => `shimmer-like-${idx}`}
+                    contentContainerStyle={{ paddingBottom: 8, backgroundColor: '#000', paddingHorizontal: 10 }}
+                  />
+                ) : (
+                  <BottomSheetVirtualizedList
+                    data={likes}
+                    keyExtractor={likeKeyExtractor}
+                    getItemCount={(data) => data.length}
+                    getItem={(data, index) => data[index]}
+                    renderItem={renderLikeItem}
+                    contentContainerStyle={{ paddingBottom: 8, backgroundColor: '#000', paddingHorizontal: 10 }}
+                    onEndReached={() => {
+                      if (hasNextLikesPage && !isFetchingNextLikesPage) {
+                        fetchNextLikesPage();
+                      }
+                    }}
+                    onEndReachedThreshold={0.5}
+                    initialNumToRender={8}
+                    maxToRenderPerBatch={8}
+                    windowSize={5}
+                    removeClippedSubviews={true}
+                  />
+                )
+              )}
+            </View>
+          )}
+          keyExtractor={item => item.key}
+          style={{ flexGrow: 0 }}
+          extraData={{ commentsLoading, likesLoading, comments, likes, totalComments, totalLikes, activeTab }}
+        />
+        {/* Input only for comments tab, always at the bottom of the sheet and handled by BottomSheetTextInput */}
+        {/* REMOVE THIS BLOCK: {activeTab === 'comments' && ( ... ) } */}
+      </BottomSheet>
+      {/* Fullscreen image modal */}
+      <Modal
+        visible={!!fullscreenImageUri}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setFullscreenImageUri(null)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }}
+          onPress={() => setFullscreenImageUri(null)}
+        >
+          {fullscreenImageUri && (
+            <>
+              <Image
+                source={{ uri: fullscreenImageUri }}
+                style={{ width: '95%', height: '80%', resizeMode: 'contain', borderRadius: 12 }}
+              />
+              {/* Alt text below image, if available */}
+              {/* Find alt text for the fullscreen image */}
+              {(() => {
+                // Search comments and likes for the image and get its alt text
+                let altText: string | undefined = undefined;
+                // Search comments for embed images or external
+                for (const comment of comments) {
+                  // Check for external embed
+                  const record = comment?.record || comment?.post?.record;
+                  const embed = record?.embed || comment?.embed || comment?.post?.embed;
+                  // Check for external image
+                  if (embed && typeof embed === 'object') {
+                    // app.bsky.embed.external
+                    if (embed.$type === 'app.bsky.embed.external' && embed.external && embed.external.uri === fullscreenImageUri) {
+                      altText = embed.external.description || embed.external.title || undefined;
+                      break;
+                    }
+                    // images array
+                    if (Array.isArray(embed.images)) {
+                      for (const img of embed.images) {
+                        if ((img.fullsize === fullscreenImageUri || img.thumb === fullscreenImageUri) && img.alt) {
+                          altText = img.alt;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                  if (altText) break;
+                }
+                if (altText) {
+                  return (
+                    <Text style={{ color: '#ccc', fontSize: 15, marginTop: 16, textAlign: 'center', maxWidth: '90%' }}>{altText}</Text>
+                  );
+                }
+                return null;
+              })()}
+            </>
+          )}
+          <Pressable
+            style={{ position: 'absolute', top: 40, right: 24, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 8 }}
+            onPress={() => setFullscreenImageUri(null)}
+          >
+            <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold' }}>✕</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
+  );
+};
+
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
@@ -1117,23 +1398,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: Colors.BACKGROUND.PRIMARY,
+    backgroundColor: UI.Colors.BACKGROUND.PRIMARY,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.BORDER.PRIMARY,
+    borderTopColor: UI.Colors.BORDER.PRIMARY,
   },
   input: {
     flex: 1,
     minHeight: 36,
     maxHeight: 100,
     fontSize: 15,
-    backgroundColor: Colors.BACKGROUND.ITEM,
+    backgroundColor: UI.Colors.BACKGROUND.ITEM,
     borderRadius: 18,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginRight: 8,
-    color: Colors.TEXT.PRIMARY,
+    color: UI.Colors.TEXT.PRIMARY,
     borderWidth: 1,
-    borderColor: Colors.BORDER.PRIMARY,
+    borderColor: UI.Colors.BORDER.PRIMARY,
   },
   sendButton: {
     padding: 8,
@@ -1181,14 +1462,14 @@ const styles = StyleSheet.create({
   },
   commentThreadContainer: {
     marginBottom: 8,
-    backgroundColor: Colors.BACKGROUND.PRIMARY,
+    backgroundColor: UI.Colors.BACKGROUND.PRIMARY,
   },
   commentItemContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingVertical: 8,
     borderBottomWidth: 0.5,
-    borderBottomColor: Colors.BORDER.PRIMARY,
+    borderBottomColor: UI.Colors.BORDER.PRIMARY,
     paddingHorizontal: 0,
   },
   commentContentContainer: {
@@ -1238,7 +1519,7 @@ const styles = StyleSheet.create({
   },
   replyButtonText: {
     fontSize: 12,
-    color: Colors.TEXT.SECONDARY,
+    color: UI.Colors.TEXT.SECONDARY,
   },
   commentActionsContainer: {
     alignItems: 'center',
@@ -1262,7 +1543,7 @@ const styles = StyleSheet.create({
     height: 16,
   },
   likeCount: {
-    color: Colors.BRAND.SECONDARY,
+    color: UI.Colors.BRAND.SECONDARY,
     fontSize: 12.5,
     fontFamily: 'Firma-SemiBold',
     marginTop: 2,
@@ -1281,7 +1562,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   repliesToggleText: {
-    color: Colors.TEXT.SECONDARY,
+    color: UI.Colors.TEXT.SECONDARY,
     fontSize: 14,
     fontFamily: 'Firma-SemiBold',
     fontWeight: '600',

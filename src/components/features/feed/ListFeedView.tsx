@@ -1,3 +1,4 @@
+declare let window: any;
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Animated,
@@ -8,6 +9,7 @@ import {
   ActivityIndicator,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Text,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, SharedValue } from 'react-native-reanimated';
@@ -84,6 +86,7 @@ interface ListFeedViewProps {
   onVerticalScroll?: (scrollY: number) => void;
   isRefreshing?: boolean;
   isProfileLoading?: boolean;
+  onVisibleChange?: (index: number, video: string | null) => void;
 }
 
 // Constants for video preloading - optimized for faster visibility
@@ -125,6 +128,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   onVerticalScroll,
   isRefreshing = false,
   isProfileLoading = false,
+  onVisibleChange,
 }) => {
   const insets = useSafeAreaInsets();
   
@@ -210,12 +214,17 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     setVisibleVideo(newVisibleVideo);
     setVisibleIndex(newVisibleIndex);
 
+    // Notify parent if needed
+    if (typeof onVisibleChange === 'function') {
+      onVisibleChange(newVisibleIndex, newVisibleVideo);
+    }
+
     // Update visible range for preloading - keep it simple for fast scrolling
     const minIndex = Math.min(...viewableItems.map(item => item.index));
     const maxIndex = Math.max(...viewableItems.map(item => item.index));
     
     setVisibleRange({ min: minIndex, max: maxIndex });
-  }, []); // Remove dependencies for faster execution
+  }, [onVisibleChange]);
 
   // Memoize header layout handler
   const onHeaderLayout = useCallback((event: any) => {
@@ -238,7 +247,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     
     // Check if snapped to top for header feeds
     if (isHeaderFeed && headerHeight > 0) {
-      const isAtTop = y <= headerHeight + 10; // Small threshold for snapping detection
+      const isAtTop = y <= 64; // Larger target area for snapped to top
       setIsSnappedToTop(isAtTop);
     }
     
@@ -279,21 +288,21 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     const isActive = item.post.uri === visibleVideo;
     const shouldPreload = index >= visibleRange.min - CACHE_BUFFER && index <= visibleRange.max + CACHE_BUFFER;
     const shouldShowVideoOverlay = shouldShowOverlay(index);
-    const shouldDisablePlayback = (isHeaderFeed && isSnappedToTop) || (item.moderationDecision?.blur === true);
-      
+    // Fix: When isSnappedToTop is true, no video should be visible
+    const isItemVisible = !isSnappedToTop && (index === visibleIndex) && memoizedIsVisible;
+    
     const result = (
       <MemoizedVideoItem
         key={`${item.post.uri}-${index}`}
         post={item.post}
-        isPlaying={isActive && memoizedIsVisible && !shouldDisablePlayback}
+        isPlaying={isActive && isItemVisible}
         handleVideoStatus={handleVideoStatus}
         height={memoizedCardHeight}
         shouldPreload={shouldPreload}
         feedOption={memoizedFeedOption}
         scrollY={memoizedScrollYShared}
-        isVisible={shouldShowVideoOverlay && memoizedIsVisible}
+        isVisible={isItemVisible}
         moderationDecision={item.moderationDecision}
-        shouldDisablePlayback={shouldDisablePlayback}
       />
     );
     
@@ -312,7 +321,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     handleVideoStatus,
     shouldShowOverlay,
     isHeaderFeed,
-    isSnappedToTop
+    isSnappedToTop,
+    visibleIndex
   ]);
 
   /**
@@ -481,6 +491,20 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
   }, [feed.length, memoizedCardHeight, headerHeight, viewMode, onViewModeChange, isHeaderFeed]);
 
+  // Find shouldDisablePlayback for the visible video
+  let debugShouldDisablePlayback = false;
+  if (feed[visibleIndex]) {
+    debugShouldDisablePlayback = (isHeaderFeed && isSnappedToTop) || (feed[visibleIndex].moderationDecision?.blur === true);
+  }
+
+  // On mount and whenever isHeaderFeed or headerHeight changes, check if the initial scroll position is at the top (currentScrollOffset.current <= 24). If so, set isSnappedToTop to true. This ensures that the snapped-to-top state is correct on first render, preventing the first video from playing when the header is visible.
+  useEffect(() => {
+    // On mount or when header changes, if the initial scroll position is at the top, set isSnappedToTop to true
+    if (isHeaderFeed && headerHeight > 0 && currentScrollOffset.current <= 24) {
+      setIsSnappedToTop(true);
+    }
+  }, [isHeaderFeed, headerHeight]);
+
   // Render grid view if viewMode is 'grid'
   if (viewMode === 'grid') {
     return (
@@ -507,6 +531,43 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   // Render list view (default)
   return (
     <View style={{ flex: 1, backgroundColor: backgroundColor || '#000' }}>
+      {(typeof window !== 'undefined' && (window as any).__LIST_FEED_DEBUG__ === true) && (
+        <View style={{
+          position: 'absolute',
+          top: 40,
+          left: 10,
+          zIndex: 1000,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          padding: 10,
+          borderRadius: 8,
+          maxWidth: 320,
+        }}>
+          <Text style={{ color: '#fff', fontSize: 12 }}>scrollY: {Math.round(currentScrollOffset.current)}</Text>
+          <Text style={{ color: '#fff', fontSize: 12 }}>isHeaderFeed: {String(isHeaderFeed)}</Text>
+          <Text style={{ color: '#fff', fontSize: 12 }}>headerHeight: {headerHeight}</Text>
+          <Text style={{ color: '#fff', fontSize: 12 }}>isSnappedToTop: {String(isSnappedToTop)}</Text>
+          <Text style={{ color: '#fff', fontSize: 12 }}>visibleIndex: {visibleIndex}</Text>
+          <Text style={{ color: '#fff', fontSize: 12 }}>visibleVideo: {visibleVideo}</Text>
+          {/* Improved bug warning: Only show if isSnappedToTop is true AND the logic would render any video as visible */}
+          {isSnappedToTop && (
+            <Text style={{ color: 'red', fontSize: 12, fontWeight: 'bold' }}>
+              {(() => {
+                // Simulate the logic used in renderItem for all indices
+                let anyVisible = false;
+                for (let i = 0; i < feed.length; i++) {
+                  const isItemVisible = !isSnappedToTop && (i === visibleIndex) && memoizedIsVisible;
+                  if (isItemVisible) {
+                    anyVisible = true;
+                    break;
+                  }
+                }
+                return anyVisible ? 'BUG: isSnappedToTop && isVisible === true' : '';
+              })()}
+            </Text>
+          )}
+          <Text style={{ color: '#fff', fontSize: 12 }}>shouldDisablePlayback: {String(debugShouldDisablePlayback)}</Text>
+        </View>
+      )}
       <Animated.FlatList
         ref={flatListRef}
         key={`${feedOption}-${userDid || 'default'}-${isRefreshing ? 'refreshing' : 'normal'}`}
@@ -542,8 +603,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         CellRendererComponent={CellRenderer}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={{
-          itemVisiblePercentThreshold: 50, // Require 40% of video to be visible
-          minimumViewTime: 0, // Removed minimum view time for instant detection
+          itemVisiblePercentThreshold: 50, // Require 50% of video to be visible
+          minimumViewTime: 0, // No delay for instant detection
         }}
         getItemLayout={getItemLayout}
         ListEmptyComponent={
