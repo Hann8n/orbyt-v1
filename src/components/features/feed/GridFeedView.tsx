@@ -11,21 +11,25 @@ import {
   Platform
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../../navigation/types';
 import { FeedItem } from './ListFeedView';
 import EmptyFeed from './EmptyFeed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
 import VerificationBadge from '../verification/VerificationBadge';
-import { extractVideoUrl } from '../../../utils/helpers/video';
+import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
 import { Avatar } from '../../ui/UI';
 import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
+import { setCurrentFeed } from '../../../services/FeedStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Grid item spacing and column count
 const NUM_COLUMNS = 3;
-const ITEM_MARGIN = 1;
+// Ensure all dividers use the same thickness
+const ITEM_MARGIN = 1; // Set divider thickness to 1 for both directions
 const ITEM_WIDTH = (SCREEN_WIDTH - (ITEM_MARGIN * (NUM_COLUMNS - 1))) / NUM_COLUMNS;
 const ITEM_HEIGHT = ITEM_WIDTH * (16/9); // 9:16 aspect ratio
 
@@ -42,7 +46,7 @@ interface GridFeedViewProps {
   onEndReached?: () => void;
   isFetchingNextPage?: boolean;
   hasNextPage?: boolean;
-  onGridItemPress: (index: number) => void; // Callback for grid item tap
+  onGridItemPress?: (index: number) => void; // Callback for grid item tap
   isError?: boolean;
   error?: Error | null;
   onRetry?: () => void;
@@ -67,6 +71,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   onRetry,
 }) => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // Define common dimension logic (same as ListFeedView)
   const isSmallDevice = isSmallScreen() || isTablet();
@@ -130,6 +135,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   const renderGridItem = useCallback(({ item, index }: { item: FeedItem; index: number }) => {
     // Skip non-video posts
     const videoUrl = extractVideoUrl(item.post.embed);
+    const thumbnailUrl = extractVideoThumbnail(item.post.embed);
     if (!videoUrl) return null;
     
     // Check if it's a repost
@@ -137,7 +143,15 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
 
     // Handle press: use the callback provided by parent
     const handlePress = () => {
-      onGridItemPress(index);
+      setCurrentFeed(feed);
+      navigation.navigate('FeedModal', {
+        initialUri: item.post.uri,
+        initialIndex: index, // keep for fallback
+        feedOption,
+        userDid,
+        backgroundColor,
+        secondaryColor,
+      });
     };
 
     // Check if this item should be blurred due to moderation
@@ -145,15 +159,26 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
     
 
 
+    // Calculate if this is the last column or last row
+    const isLastColumn = (index + 1) % NUM_COLUMNS === 0;
+    const isLastRow = Math.floor(index / NUM_COLUMNS) === Math.floor((feed.length - 1) / NUM_COLUMNS);
+    const isFirstColumn = index % NUM_COLUMNS === 0;
+    const isFirstRow = index < NUM_COLUMNS;
     return (
       <TouchableOpacity
-        style={styles.gridItem}
+        style={[
+          styles.gridItem,
+          !isLastColumn && { marginRight: ITEM_MARGIN },
+          !isLastRow && { marginBottom: ITEM_MARGIN },
+          isFirstColumn && { marginLeft: ITEM_MARGIN },
+          isFirstRow && { marginTop: ITEM_MARGIN },
+        ]}
         activeOpacity={0.7}
         onPress={handlePress}
       >
         {/* Video preview - use video URL directly */}
         <Image
-          source={{ uri: videoUrl }}
+          source={{ uri: thumbnailUrl || videoUrl }}
           style={styles.thumbnail}
           resizeMode="cover"
           defaultSource={require('../../../assets/Vector_Normal_Grey.png')}
@@ -168,41 +193,10 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
           </View>
         )}
         
-        {/* Overlay with author info */}
-        <View style={styles.itemOverlay}>
-          {item.post.author && (
-            <View style={styles.authorRow}>
-              <Avatar
-                uri={item.post.author.avatar}
-                type="profile"
-                size={18}
-              />
-              <View style={{flexDirection: 'row', alignItems: 'center', flexShrink: 1}}>
-                <Text numberOfLines={1} style={[styles.authorName, {flexShrink: 1}]}>
-                  {item.post.author.displayName || item.post.author.handle}
-                </Text>
-                {item.post.author.handle && (
-                  <VerificationBadge 
-                    handle={item.post.author.handle} 
-                    size={12} 
-                    style={{marginLeft: 2}}
-                    textColor="#fff" // Match author name color
-                  />
-                )}
-              </View>
-            </View>
-          )}
-          
-          {/* Reposted by indicator */}
-          {isRepost && item.reason?.by && (
-            <View style={styles.repostIndicator}>
-              <Text style={styles.repostText}>↻ {item.reason.by.displayName || item.reason.by.handle}</Text>
-            </View>
-          )}
-        </View>
+        {/* Overlay with author info removed as requested */}
       </TouchableOpacity>
     );
-  }, [onGridItemPress, extractVideoUrl]);
+  }, [onGridItemPress, extractVideoUrl, feed]);
 
   // Handle end reached in background
   const handleEndReachedBackground = useCallback(() => {
@@ -222,6 +216,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   // Use FlatList to render the grid with appropriate numColumns
   return (
     <View style={[styles.container, { backgroundColor }]}>
+      <View style={styles.topDivider} />
       <FlatList
         key={`grid-${feedOption}-${userDid || 'default'}`}
         data={feed}
@@ -231,7 +226,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
         contentContainerStyle={[
           styles.listContent,
           feed.length === 0 && styles.emptyContentContainer,
-          { paddingBottom: bottomNavBarHeight + 20 } // Add safe area for nav bar
+          { paddingBottom: bottomNavBarHeight + 20, backgroundColor: '#000' } // Add safe area for nav bar and black background
         ]}
         columnWrapperStyle={styles.columnWrapper}
         showsVerticalScrollIndicator={false}
@@ -272,16 +267,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
             <View style={styles.footerLoader}>
               <ActivityIndicator size="small" color={secondaryColor} />
             </View>
-          ) : (!isFetchingNextPage && !isError && !hasNextPage && feed.length > 0 ? (
-            <EmptyFeed
-              type="end"
-              secondaryColor={secondaryColor}
-              profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
-              feedKey={`end-of-feed-${feedOption}-${userDid || 'default'}`}
-              viewableAreaHeight={120}
-              feedOption={feedOption}
-            />
-          ) : null)
+          ) : null
         }
         removeClippedSubviews={true}
         maxToRenderPerBatch={5}
@@ -301,25 +287,28 @@ const styles = StyleSheet.create({
   listContent: {
     flexGrow: 1,
     paddingBottom: 20,
+    paddingHorizontal: 0, // Remove extra horizontal padding
   },
   emptyContentContainer: {
     flex: 1,
   },
   columnWrapper: {
-    gap: ITEM_MARGIN,
     marginBottom: ITEM_MARGIN,
+    backgroundColor: '#000', // Ensure black gaps
   },
   gridItem: {
     width: ITEM_WIDTH,
     height: ITEM_HEIGHT,
-    backgroundColor: '#111',
     position: 'relative',
     overflow: 'hidden',
+    borderRadius: 0, // Square corners
+    backgroundColor: '#000', // Black background for divider effect
+    // All margins for dividers are set dynamically in renderGridItem
   },
   thumbnail: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#1c1c1c',
+    borderRadius: 0, // Square corners
   },
   itemOverlay: {
     position: 'absolute',
@@ -327,12 +316,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    // backgroundColor: 'rgba(0, 0, 0, 0.5)', // Remove the grey bar background
   },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)', // Add subtle background only behind author row
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
   authorAvatar: {
     width: 18,
@@ -386,6 +379,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     fontWeight: '600',
+  },
+  topDivider: {
+    width: '100%',
+    height: ITEM_MARGIN,
+    backgroundColor: '#000',
   },
 });
 

@@ -80,6 +80,7 @@ interface ListFeedViewProps {
   onPositionChange?: (position: number) => void;
   initialPosition?: number;
   initialIndex?: number;
+  initialUri?: string;
   isVisible?: boolean;
   viewMode?: 'list' | 'grid';
   onViewModeChange?: (mode: 'list' | 'grid') => void;
@@ -122,6 +123,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   onPositionChange,
   initialPosition,
   initialIndex,
+  initialUri,
   isVisible,
   viewMode,
   onViewModeChange,
@@ -304,6 +306,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         scrollY={memoizedScrollYShared}
         isVisible={isItemVisible}
         moderationDecision={item.moderationDecision}
+        isModal={isModal}
       />
     );
     
@@ -323,51 +326,22 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     shouldShowOverlay,
     isHeaderFeed,
     isSnappedToTop,
-    visibleIndex
+    visibleIndex,
+    isModal
   ]);
 
   /**
-   * Optimized video preloading logic - simplified for fast scrolling
+   * Global video preloading: prioritize the next N videos after the visible one
    */
   useEffect(() => {
-    if (feed.length === 0) return;
-
-    // Only preload the currently visible video during fast scrolling
-    const visibleItem = feed[visibleIndex];
-    if (!visibleItem || !visibleItem.post || !visibleItem.post.embed) return;
-
-    const videoUrl = extractVideoUrl(visibleItem.post.embed);
-    if (videoUrl) {
-      // High priority for currently visible video only
-      VideoPreloadManager.addToPreloadQueue(
-        videoUrl,
-        () => Promise.resolve(),
-        true, // High priority
-        visibleItem.post.author?.handle
-      );
+    if (feed.length === 0 || visibleIndex < 0 || visibleIndex >= feed.length) return;
+    // Build a list of all video URIs in order
+    const allUris = feed.map(item => item.post.uri);
+    const currentUri = feed[visibleIndex]?.post?.uri;
+    if (currentUri) {
+      VideoPreloadManager.prioritizeNextVideos(currentUri, allUris, 3);
     }
-  }, [feed, visibleIndex, visibleVideo]);
-
-  /**
-   * Individual video preloading for immediate visible items
-   */
-  useEffect(() => {
-    if (visibleVideo && feed.length > 0) {
-      const visibleItem = feed.find(item => item.post.uri === visibleVideo);
-      if (visibleItem) {
-        const videoUrl = extractVideoUrl(visibleItem.post.embed);
-        if (videoUrl) {
-          // Immediately prioritize the currently visible video
-          VideoPreloadManager.addToPreloadQueue(
-            videoUrl,
-            () => Promise.resolve(),
-            true, // High priority
-            visibleItem.post.author?.handle
-          );
-        }
-      }
-    }
-  }, [visibleVideo, feed]);
+  }, [feed, visibleIndex]);
 
   /**
    * Watch-history logic
@@ -506,6 +480,25 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
   }, [isHeaderFeed, headerHeight]);
 
+  // Set initial visible index and video on mount (for modal)
+  useEffect(() => {
+    let targetIndex = initialIndex;
+    if (isModal && initialUri && Array.isArray(displayFeed)) {
+      const foundIndex = displayFeed.findIndex((item: any) => item?.post?.uri === initialUri);
+      if (foundIndex !== -1) {
+        targetIndex = foundIndex;
+      }
+    }
+    if (isModal && typeof targetIndex === 'number' && targetIndex >= 0 && targetIndex < displayFeed.length) {
+      setVisibleIndex(targetIndex);
+      setVisibleVideo(displayFeed[targetIndex]?.post?.uri || null);
+      // Scroll to the correct index
+      if (flatListRef.current) {
+        flatListRef.current.scrollToIndex({ index: targetIndex, animated: false });
+      }
+    }
+  }, [isModal, initialIndex, initialUri, displayFeed.length]);
+
   // Listen for orientation/screen size changes and snap to visibleIndex
   useEffect(() => {
     const onChange = ({ window }: { window: ScaledSize }) => {
@@ -540,7 +533,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         onEndReached={onEndReached}
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
-        onGridItemPress={handleGridItemPress}
+        onGridItemPress={undefined}
         isError={isError}
         error={error}
         onRetry={onRetry}

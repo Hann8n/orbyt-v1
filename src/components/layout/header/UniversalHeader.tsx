@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image } fr
 import Icon from '../../ui/Icon';
 import { useNavigation } from '@react-navigation/native';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
+import { Avatar } from '../../ui/UI';
 
 // Types for the universal header system
 export interface HeaderAction {
@@ -212,34 +213,34 @@ const HeaderContentComponent = memo<{
 
   return (
     <View style={styles.contentContainer}>
-      {content.avatar && (
-        <TouchableOpacity
+      <TouchableOpacity
+        style={[
+          styles.avatar, 
+          { borderColor: textColor },
+          content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare
+        ]}
+        onPress={content.onAvatarPress}
+        activeOpacity={content.onAvatarPress ? 0.7 : 1}
+      >
+        <Avatar
+          uri={content.avatar}
+          type={content.avatarStyle === 'rounded-square' ? 'channel' : 'profile'}
+          size={80}
           style={[
-            styles.avatar, 
-            { borderColor: textColor },
-            content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare
+            styles.avatarImage,
+            content.avatarStyle === 'rounded-square' && styles.avatarImageRoundedSquare
           ]}
-          onPress={content.onAvatarPress}
-          activeOpacity={content.onAvatarPress ? 0.7 : 1}
-        >
-          <Image 
-            source={{ uri: content.avatar }}
-            style={[
-              styles.avatarImage,
-              content.avatarStyle === 'rounded-square' && styles.avatarImageRoundedSquare
-            ]}
-          />
-          {content.onAvatarPress && (
-            <View style={[
-              styles.editAvatarOverlay, 
-              { backgroundColor: hexToRGBA(textColor, 0.8) },
-              content.avatarStyle === 'rounded-square' && styles.editAvatarOverlayRoundedSquare
-            ]}>
-              <Icon name="camera" size={20} color={backgroundColor} />
-            </View>
-          )}
-        </TouchableOpacity>
-      )}
+        />
+        {content.onAvatarPress && (
+          <View style={[
+            styles.editAvatarOverlay, 
+            { backgroundColor: hexToRGBA(textColor, 0.8) },
+            content.avatarStyle === 'rounded-square' && styles.editAvatarOverlayRoundedSquare
+          ]}>
+            <Icon name="camera" size={20} color={backgroundColor} />
+          </View>
+        )}
+      </TouchableOpacity>
       
       <View style={styles.textContainer}>
         <TouchableOpacity

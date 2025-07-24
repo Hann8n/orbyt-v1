@@ -29,11 +29,14 @@ interface FeedFetcherProps {
   isProfileLoading?: boolean;
   onPositionChange?: (position: number) => void;
   initialPosition?: number;
+  initialIndex?: number;
+  initialUri?: string;
   isVisible?: boolean;
   viewMode?: 'list' | 'grid';
   onViewModeChange?: (mode: 'list' | 'grid') => void;
   onVerticalScroll?: (scrollY: number) => void;
   isRefreshing?: boolean;
+  isModal?: boolean;
 }
 
 // Add FeedFetcherDebugPanel component
@@ -76,11 +79,14 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
   isProfileLoading,
   onPositionChange,
   initialPosition,
+  initialIndex,
+  initialUri,
   isVisible = true,
   viewMode,
   onViewModeChange,
   onVerticalScroll,
   isRefreshing = false,
+  isModal = false,
 }) => {
   const insets = useSafeAreaInsets();
   const lastPrefetchedFeedLength = useRef(0);
@@ -239,6 +245,8 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
         onRetry={handleRetry}
         onPositionChange={handlePositionChange}
         initialPosition={initialPosition}
+        initialIndex={initialIndex}
+        initialUri={initialUri}
         isVisible={isVisible}
         viewMode={viewMode}
         onViewModeChange={onViewModeChange}
@@ -246,6 +254,7 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
         isRefreshing={isRefreshing}
         isProfileLoading={isProfileLoading}
         onVisibleChange={handleVisibleChange}
+        isModal={isModal}
       />
     </View>
   );

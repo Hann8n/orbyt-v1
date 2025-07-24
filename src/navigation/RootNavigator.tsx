@@ -5,7 +5,7 @@ import { AppState } from 'react-native';
 import BottomTabNavigator from './BottomTabNavigator';
 import VideoPostScreen from '../screens/VideoPostScreen';
 import VideoPreloadManager from '../services/VideoPreloadManager';
-import ProfileFeedModal from '../screens/ProfileFeedModal';
+import FeedModal from '../screens/FeedModal';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import InsightsScreen from '../screens/InsightsScreen';
 import ModerationControlsScreen from '../screens/Settings/ModerationControlsScreen';
@@ -89,8 +89,8 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
           }}
         />
         <Stack.Screen
-          name="ProfileFeedModal"
-          component={ProfileFeedModal}
+          name="FeedModal"
+          component={FeedModal}
           options={{
             presentation: 'transparentModal',
             animation: 'slide_from_bottom',

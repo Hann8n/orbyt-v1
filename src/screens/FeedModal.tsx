@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Platform, Dimensions } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { PanGestureHandler, State } from 'react-native-gesture-handler';
+import { PanGestureHandler } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -11,17 +11,19 @@ import Animated, {
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
-import ListFeedView from '../components/features/feed/ListFeedView';
+import FeedFetcher from '../components/features/feed/FeedFetcher';
 import Icon from '../components/ui/Icon';
+import { getCurrentFeed } from '../services/FeedStore';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const ProfileFeedModal: React.FC = () => {
+const FeedModal: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<any>();
   const {
-    feed,
-    initialIndex,
+    feed: feedFromParams,
+    initialIndex: initialIndexRaw,
+    initialUri,
     feedOption,
     userDid,
     backgroundColor,
@@ -36,7 +38,7 @@ const ProfileFeedModal: React.FC = () => {
 
   // Calculate initial scroll offset for the list
   // Each video card takes up the full screen height
-  const initialPosition = initialIndex * SCREEN_HEIGHT;
+  const initialPosition = initialIndexRaw * SCREEN_HEIGHT;
 
   // Dismiss modal
   const handleClose = () => {
@@ -64,10 +66,8 @@ const ProfileFeedModal: React.FC = () => {
       // Only allow horizontal swipes for dismiss
       if (Math.abs(event.translationX) > Math.abs(event.translationY)) {
         translateX.value = context.startX + event.translationX;
-        
         // Add some vertical movement for natural feel
         translateY.value = context.startY + event.translationY * 0.3;
-        
         // Scale and opacity based on horizontal movement
         const progress = Math.abs(event.translationX) / SCREEN_WIDTH;
         scale.value = interpolate(progress, [0, 1], [1, 0.8], Extrapolate.CLAMP);
@@ -77,7 +77,6 @@ const ProfileFeedModal: React.FC = () => {
     onEnd: (event) => {
       const shouldDismiss = Math.abs(event.translationX) > SCREEN_WIDTH * 0.4 || 
                            Math.abs(event.velocityX) > 500;
-      
       if (shouldDismiss) {
         animatedDismiss();
       } else {
@@ -105,33 +104,16 @@ const ProfileFeedModal: React.FC = () => {
   return (
     <PanGestureHandler onGestureEvent={gestureHandler}>
       <Animated.View style={[styles.container, animatedStyle]}>
-        {/* Close button */}
-        <TouchableOpacity style={styles.closeButton} onPress={handleClose} activeOpacity={0.7}>
-          <Icon name="x" size={32} color={secondaryColor || '#fff'} />
-        </TouchableOpacity>
-        
-        {/* Swipe indicator */}
-        <View style={styles.swipeIndicator}>
-          <View style={styles.swipeBar} />
-        </View>
-        
-        <ListFeedView
-          feed={feed}
+        {/* Removed grab bar/swipe indicator and X close button */}
+        <FeedFetcher
           feedOption={feedOption}
           userDid={userDid}
           backgroundColor={backgroundColor}
           secondaryColor={secondaryColor}
-          initialPosition={initialPosition}
-          initialIndex={initialIndex}
-          onEndReached={() => {}}
-          isFetchingNextPage={false}
-          isLoading={false}
-          isError={false}
-          error={null}
-          hasNextPage={false}
-          headerComponent={null}
-          onRetry={() => {}}
+          initialIndex={initialIndexRaw}
+          initialUri={initialUri}
           isVisible={true}
+          isProfileLoading={false}
           isModal={true}
         />
       </Animated.View>
@@ -153,6 +135,15 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 8,
   },
+  backButton: {
+    position: 'absolute',
+    top: 48,
+    left: 24,
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 24,
+    padding: 8,
+  },
   swipeIndicator: {
     position: 'absolute',
     top: 20,
@@ -169,4 +160,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ProfileFeedModal; 
+export default FeedModal; 

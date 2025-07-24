@@ -43,7 +43,6 @@
     "plugins": [
       "expo-font",
       "react-native-vision-camera",
-      "expo-video",
       [
         "expo-image-picker",
         {

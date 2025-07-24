@@ -176,15 +176,6 @@ class VideoPreloadManager {
   }
 
   /**
-   * Sets priority for certain URIs to be preloaded first
-   */
-  setPriorityUris(uris: string[]): void {
-    this.priorityUris.clear();
-    uris.forEach(uri => this.priorityUris.add(uri));
-    this.processQueue();
-  }
-
-  /**
    * Optimized queue processing
    */
   processQueue(): void {
@@ -561,6 +552,26 @@ class VideoPreloadManager {
     } catch (error) {
       console.error('[VideoPreloadManager] Error during initialization:', error);
     }
+  }
+
+  /**
+   * Set the current video and prioritize the next N videos for preloading.
+   * This is now the only supported way to set preloading priority.
+   * @param currentUri The URI of the currently playing video
+   * @param allUris The full list of video URIs in playback order
+   * @param lookahead How many videos ahead to prioritize (default: 3)
+   */
+  prioritizeNextVideos(currentUri: string, allUris: string[], lookahead: number = 3): void {
+    const currentIdx = allUris.indexOf(currentUri);
+    if (currentIdx === -1) return;
+    const nextUris = allUris.slice(currentIdx + 1, currentIdx + 1 + lookahead);
+    this.priorityUris.clear();
+    nextUris.forEach(uri => this.priorityUris.add(uri));
+    // Optionally, also mark current as priority for instant rebuffer
+    if (currentUri) {
+      this.priorityUris.add(currentUri);
+    }
+    this.processQueue();
   }
 }
 

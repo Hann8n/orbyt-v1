@@ -28,6 +28,7 @@ import VerificationBadge from '../components/features/verification/VerificationB
 import EmptyFeed from '../components/features/feed/EmptyFeed';
 import { queryKeys } from '../services/queryKeys';
 import { getBottomNavBarHeight } from '../utils/helpers/screenSize';
+import GridFeedView from '../components/features/feed/GridFeedView';
 
 interface Profile {
   did: string;
@@ -60,8 +61,8 @@ interface Channel {
 }
 
 interface SearchResult {
-  type: 'profile' | 'channel';
-  data: Profile | Channel;
+  type: 'profile' | 'channel' | 'video';
+  data: Profile | Channel | any; // 'any' for video post
   relevance: number;
 }
 
@@ -71,7 +72,14 @@ interface SectionHeader {
   key: string;
 }
 
-type ListItem = SearchResult | SectionHeader;
+// Add a new type for the video grid section
+interface VideoGridSection {
+  type: 'video-grid';
+  videos: any[];
+  key: string;
+}
+
+type ListItem = SearchResult | SectionHeader | VideoGridSection;
 
 
 
@@ -172,6 +180,34 @@ const SectionHeaderShimmer = () => (
   </View>
 );
 
+// Video shimmer skeleton component
+const VideoShimmer = () => (
+  <View style={styles.feedItem}>
+    <ShimmerPlaceholder
+      LinearGradient={LinearGradient}
+      style={[styles.feedImage, { borderWidth: 1, borderColor: UI.BORDER.PRIMARY }]}
+      shimmerColors={UI.SHIMMER}
+    />
+    <View style={styles.feedContent}>
+      <ShimmerPlaceholder
+        LinearGradient={LinearGradient}
+        style={{ width: 120, height: 16, marginBottom: 4, borderRadius: 3 }}
+        shimmerColors={UI.SHIMMER}
+      />
+      <ShimmerPlaceholder
+        LinearGradient={LinearGradient}
+        style={{ width: 80, height: 14, marginBottom: 4, borderRadius: 2 }}
+        shimmerColors={UI.SHIMMER}
+      />
+      <ShimmerPlaceholder
+        LinearGradient={LinearGradient}
+        style={{ width: 60, height: 12, borderRadius: 2 }}
+        shimmerColors={UI.SHIMMER}
+      />
+    </View>
+  </View>
+);
+
 const ExploreScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
@@ -210,17 +246,18 @@ const ExploreScreen: React.FC = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
 
-  // Unified search function that combines profiles and channels
+  // Unified search function that combines profiles, channels, and videos
   const performUnifiedSearch = useCallback(async (query: string, pageParam?: string | null) => {
     if (!query || query.trim() === '') {
       return { results: [], cursor: null };
     }
 
     try {
-      // Search for both profiles and channels in parallel
-      const [profilesResponse, channelsResponse] = await Promise.all([
+      // Search for profiles, channels, and videos in parallel
+      const [profilesResponse, channelsResponse, videosResponse] = await Promise.all([
         AtprotoService.searchProfilesPaginated(query, pageParam as string | null),
-        AtprotoService.searchPopularFeeds(query)
+        AtprotoService.searchPopularFeeds(query),
+        AtprotoService.searchVideosPaginated(pageParam as string | null)
       ]);
 
       // Process profiles
@@ -240,9 +277,20 @@ const ExploreScreen: React.FC = () => {
         relevance: calculateRelevance(channel, query, 'channel')
       }));
 
-      // Combine and sort by relevance
-      const allResults = [...processedProfiles, ...processedChannels]
-        .sort((a, b) => b.relevance - a.relevance);
+      // Process videos
+      const processedVideos = (videosResponse.videos || []).map(video => ({
+        type: 'video' as const,
+        data: video,
+        relevance: calculateRelevance(video, query, 'video')
+      }));
+
+      // Combine all results and sort by relevance
+      const allResults: ListItem[] = [
+        ...processedProfiles,
+        ...processedChannels,
+        ...processedVideos
+      ];
+      allResults.sort((a, b) => (b as SearchResult).relevance - (a as SearchResult).relevance);
 
       return {
         results: allResults,
@@ -255,7 +303,7 @@ const ExploreScreen: React.FC = () => {
   }, []);
 
   // Calculate relevance score for search results
-  const calculateRelevance = (item: any, query: string, type: 'profile' | 'channel'): number => {
+  const calculateRelevance = (item: any, query: string, type: 'profile' | 'channel' | 'video'): number => {
     const queryLower = query.toLowerCase();
     let score = 0;
 
@@ -265,12 +313,19 @@ const ExploreScreen: React.FC = () => {
       if (item.displayName?.toLowerCase().includes(queryLower)) score += 8;
       if (item.description?.toLowerCase().includes(queryLower)) score += 5;
       if (item.viewer?.followedBy) score += 3; // Boost followed profiles
-    } else {
+    } else if (type === 'channel') {
       // Channel relevance scoring
       if (item.displayName?.toLowerCase().includes(queryLower)) score += 10;
       if (item.description?.toLowerCase().includes(queryLower)) score += 8;
       if (item.creator?.handle?.toLowerCase().includes(queryLower)) score += 6;
       if (item.likeCount && item.likeCount > 100) score += 2; // Boost popular channels
+    } else if (type === 'video') {
+      // Video relevance scoring
+      if (item.text?.toLowerCase().includes(queryLower)) score += 10;
+      if (item.author?.displayName?.toLowerCase().includes(queryLower)) score += 6;
+      if (item.author?.handle?.toLowerCase().includes(queryLower)) score += 5;
+      if (item.labels && item.labels.some((l: any) => l.val?.toLowerCase().includes(queryLower))) score += 3;
+      if (item.likeCount && item.likeCount > 10) score += 2;
     }
 
     return score;
@@ -307,11 +362,11 @@ const ExploreScreen: React.FC = () => {
   useEffect(() => {
     if (searchResults.length > 0) {
       const profiles = searchResults
-        .filter(result => result.type === 'profile')
+        .filter((result): result is SearchResult => result.type === 'profile')
         .map(result => result.data as Profile);
       
       const channels = searchResults
-        .filter(result => result.type === 'channel')
+        .filter((result): result is SearchResult => result.type === 'channel')
         .map(result => result.data as Channel);
       
       if (profiles.length > 0) {
@@ -474,10 +529,9 @@ const ExploreScreen: React.FC = () => {
     [hasNextPage, isFetchingNextPage, fetchNextPage]
   );
 
-  // Create shimmer placeholders for loading state
-  const shimmerItems = useMemo(() => {
-    return Array(6).fill(0);
-  }, []);
+  // For shimmer loading, define a discriminated union type
+  const shimmerTypes = ['profile', 'channel', 'video'] as const;
+  type ShimmerType = typeof shimmerTypes[number];
 
   // Create shimmer items for suggested content with section headers
   const shimmerSuggestedItems = useMemo(() => {
@@ -509,109 +563,197 @@ const ExploreScreen: React.FC = () => {
     []
   );
 
+  // Type predicate for SearchResult
+  function isSearchResult(item: ListItem): item is SearchResult {
+    return (
+      typeof item === 'object' &&
+      'type' in item &&
+      item.type !== 'section-header' &&
+      'data' in item
+    );
+  }
+
   // Render each search result item
-  const renderSearchResult = useCallback(({ item }: { item: SearchResult }) => {
-    if (item.type === 'profile') {
-      const profile = item.data as Profile;
-      
-      // Safety check for profile data
-      if (!profile || !profile.handle) {
-        return null;
+  const renderSearchResult = useCallback(({ item }: { item: ListItem }) => {
+    if (isSearchResult(item)) {
+      const searchItem = item as SearchResult;
+      switch (searchItem.type) {
+        case 'profile': {
+          const profile = searchItem.data as Profile;
+          
+          // Safety check for profile data
+          if (!profile || !profile.handle) {
+            return null;
+          }
+          
+          const currentUserDid = ProfileCache.getCurrentUserDid();
+          const isCurrentUser = currentUserDid && profile.did && currentUserDid === profile.did;
+          
+          return (
+            <TouchableOpacity
+              style={styles.profileItem}
+              onPress={() => {
+                if (profile.handle) {
+                  const handle = profile.handle.trim();
+                  if (handle && handle.trim()) {
+                    queryClient.prefetchQuery({
+                      queryKey: profileKeys.detail(handle.trim()),
+                      queryFn: () => ProfileCache.getProfile(handle.trim()),
+                      staleTime: ProfileCache.cacheExpiry
+                    }).finally(() => {
+                      navigation.navigate('AuthorProfile', { handle: handle.trim() });
+                    });
+                  }
+                }
+              }}
+            >
+              <Avatar
+                uri={profile.avatar}
+                type="profile"
+                size={40}
+                style={styles.profileImage}
+              />
+              <View style={styles.profileContent}>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <Text style={styles.displayName}>
+                    {profile.displayName || profile.handle || 'Unknown user'}
+                  </Text>
+                  {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
+                    <VerificationBadge 
+                      handle={profile.handle.trim()} 
+                      size={12} 
+                      style={{marginLeft: 4}}
+                      textColor={TEXT.PRIMARY}
+                    />
+                  )}
+                </View>
+                <Text style={styles.handleText}>
+                  @{profile.handle || 'unknown'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        }
+        case 'channel': {
+          const channel = searchItem.data as Channel;
+          
+          // Safety check for channel data
+          if (!channel || !channel.uri) {
+            return null;
+          }
+          
+          return (
+            <TouchableOpacity
+              style={styles.channelItem}
+              onPress={() => {
+                if (channel.uri && channel.uri.trim()) {
+                  navigation.navigate('Channel', {
+                    uri: channel.uri.trim(),
+                    title: channel.displayName || 'Unknown Channel',
+                    description: channel.description || '',
+                    avatar: channel.avatar || '',
+                    creator: channel.creator || null, // Temporarily pass creator info
+                  });
+                }
+              }}
+            >
+              <Avatar
+                uri={channel.avatar}
+                type="channel"
+                size={40}
+                style={styles.channelImage}
+              />
+              <View style={styles.channelContent}>
+                <Text style={styles.channelName}>
+                  {channel.displayName || 'Unknown channel'}
+                </Text>
+                <Text style={styles.channelCreator}>
+                  by @{channel.creator?.handle || 'unknown'}
+                </Text>
+                {channel.likeCount && channel.likeCount > 0 && (
+                  <Text style={styles.channelStats}>
+                    {channel.likeCount} likes
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        }
+        case 'video': {
+          const video = searchItem.data;
+          const author = video.author || {};
+          const thumbnail = video.embed?.video?.thumb || video.embed?.media?.video?.thumb;
+          return (
+            <TouchableOpacity
+              style={styles.feedItem}
+              onPress={() => {
+                if (video.uri) {
+                  navigation.navigate('VideoPostScreen', { uri: video.uri });
+                }
+              }}
+            >
+              <Avatar
+                uri={thumbnail}
+                type={"channel"}
+                size={40}
+                style={styles.feedImage}
+              />
+              <View style={styles.feedContent}>
+                <Text style={styles.displayName} numberOfLines={1}>
+                  {video.text || 'Untitled video'}
+                </Text>
+                <Text style={styles.channelCreator} numberOfLines={1}>
+                  by @{author.handle || 'unknown'}
+                </Text>
+                {video.likeCount && (
+                  <Text style={styles.channelStats}>
+                    {video.likeCount} likes
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        }
       }
-      
-      const currentUserDid = ProfileCache.getCurrentUserDid();
-      const isCurrentUser = currentUserDid && profile.did && currentUserDid === profile.did;
-      
-      return (
-        <TouchableOpacity
-          style={styles.profileItem}
-          onPress={() => {
-            if (profile.handle) {
-              const handle = profile.handle.trim();
-              if (handle && handle.trim()) {
-                queryClient.prefetchQuery({
-                  queryKey: profileKeys.detail(handle.trim()),
-                  queryFn: () => ProfileCache.getProfile(handle.trim()),
-                  staleTime: ProfileCache.cacheExpiry
-                }).finally(() => {
-                  navigation.navigate('AuthorProfile', { handle: handle.trim() });
-                });
-              }
-            }
-          }}
-        >
-          <Avatar
-            uri={profile.avatar}
-            type="profile"
-            size={40}
-            style={styles.profileImage}
-          />
-          <View style={styles.profileContent}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Text style={styles.displayName}>
-                {profile.displayName || profile.handle || 'Unknown user'}
-              </Text>
-              {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
-                <VerificationBadge 
-                  handle={profile.handle.trim()} 
-                  size={12} 
-                  style={{marginLeft: 4}}
-                  textColor={TEXT.PRIMARY}
-                />
-              )}
-            </View>
-            <Text style={styles.handleText}>
-              @{profile.handle || 'unknown'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      );
-    } else {
-      const channel = item.data as Channel;
-      
-      // Safety check for channel data
-      if (!channel || !channel.uri) {
-        return null;
-      }
-      
-      return (
-        <TouchableOpacity
-          style={styles.channelItem}
-          onPress={() => {
-            if (channel.uri && channel.uri.trim()) {
-              navigation.navigate('Channel', {
-                uri: channel.uri.trim(),
-                title: channel.displayName || 'Unknown Channel',
-                description: channel.description || '',
-                avatar: channel.avatar || '',
-                creator: channel.creator || null, // Temporarily pass creator info
-              });
-            }
-          }}
-        >
-          <Avatar
-            uri={channel.avatar}
-            type="channel"
-            size={40}
-            style={styles.channelImage}
-          />
-          <View style={styles.channelContent}>
-            <Text style={styles.channelName}>
-              {channel.displayName || 'Unknown channel'}
-            </Text>
-            <Text style={styles.channelCreator}>
-              by @{channel.creator?.handle || 'unknown'}
-            </Text>
-            {channel.likeCount && channel.likeCount > 0 && (
-              <Text style={styles.channelStats}>
-                {channel.likeCount} likes
-              </Text>
-            )}
-          </View>
-        </TouchableOpacity>
-      );
     }
+    return null;
   }, [navigation, queryClient]);
+
+  // Render a video result item
+  const renderVideoResult = ({ video }: { video: any }) => {
+    const author = video.author || {};
+    const thumbnail = video.embed?.video?.thumb || video.embed?.media?.video?.thumb;
+    return (
+      <TouchableOpacity
+        style={styles.feedItem}
+        onPress={() => {
+          if (video.uri) {
+            navigation.navigate('VideoPostScreen', { uri: video.uri });
+          }
+        }}
+      >
+        <Avatar
+          uri={thumbnail}
+          type={"channel"} // fallback to channel for video avatar type
+          size={40}
+          style={styles.feedImage}
+        />
+        <View style={styles.feedContent}>
+          <Text style={styles.displayName} numberOfLines={1}>
+            {video.text || 'Untitled video'}
+          </Text>
+          <Text style={styles.channelCreator} numberOfLines={1}>
+            by @{author.handle || 'unknown'}
+          </Text>
+          {video.likeCount && (
+            <Text style={styles.channelStats}>
+              {video.likeCount} likes
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const isLoadingResults = isLoading || isFetching && !isFetchingNextPage;
 
@@ -768,12 +910,28 @@ const ExploreScreen: React.FC = () => {
       {/* Results List or Loading State */}
       {(searchResults.length > 0 || isLoadingResults || (searchQuery.length > 0 && debouncedQuery.length > 0)) && (
         <FlatList
-          data={isLoadingResults ? shimmerItems : searchResults}
-          keyExtractor={(item, index) => isLoadingResults ? `shimmer-${index}` : `${item.type}-${item.type === 'profile' ? (item.data as Profile).did : (item.data as Channel).uri}-${index}`}
-          renderItem={isLoadingResults ? ({ item, index }) => {
-            // Alternate between profile and channel shimmer for search results
-            return index % 2 === 0 ? <ProfileShimmer /> : <ChannelShimmer />;
-          } : renderSearchResult}
+          data={isLoadingResults ? (shimmerTypes as unknown as any[]) : searchResults}
+          keyExtractor={(item, index) => {
+            if (typeof item === 'string') return `shimmer-${index}`;
+            if (isSearchResult(item)) {
+              const searchResult = item as SearchResult;
+              if (searchResult.type === 'profile') return `profile-${(searchResult.data as Profile).did}-${index}`;
+              if (searchResult.type === 'channel') return `channel-${(searchResult.data as Channel).uri}-${index}`;
+              if (searchResult.type === 'video') return `video-${searchResult.data?.uri || index}`;
+            }
+            return `item-${index}`;
+          }}
+          renderItem={({ item }) => {
+            if (typeof item === 'string') {
+              if (item === 'profile') return <ProfileShimmer />;
+              if (item === 'channel') return <ChannelShimmer />;
+              return <VideoShimmer />;
+            }
+            if (isSearchResult(item)) {
+              return renderSearchResult({ item });
+            }
+            return null;
+          }}
           contentContainerStyle={[
             styles.listContainer, 
             { paddingTop: 70, paddingBottom: getBottomNavBarHeight(insets) },

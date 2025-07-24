@@ -230,8 +230,8 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
             textColor={channelColors.textColor}
             backgroundColor={channelColors.backgroundColor}
             viewMode={viewMode}
-            // onViewModeChange={setViewMode} // Grid view button commented out
-            // showViewToggle={activeTab === 'posts'} // Grid view button commented out
+            onViewModeChange={activeTab === 'posts' ? setViewMode : undefined}
+            showViewToggle={activeTab === 'posts'}
           />
         )}
       </ChannelHeader>
@@ -257,7 +257,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
           isProfileLoading={isLoadingChannel && !channelData}
           isRefreshing={refreshing}
           viewMode={viewMode}
-          // onViewModeChange={setViewMode} // Grid view button commented out
+          onViewModeChange={setViewMode}
           isVisible={true}
           onPositionChange={handlePositionChange}
           initialPosition={undefined}

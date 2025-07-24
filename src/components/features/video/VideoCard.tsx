@@ -5,6 +5,8 @@ import React, {
   useImperativeHandle,
   useEffect,
   useCallback,
+  useMemo,
+  memo, // <-- Add memo
 } from 'react';
 import {
   View,
@@ -17,7 +19,7 @@ import {
   AppState,
   Animated,
 } from 'react-native';
-import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
+import Video from 'react-native-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
@@ -73,12 +75,6 @@ export interface VideoCardRef {
   getPlayState: () => boolean;
 }
 
-type ExtendedVideoPlayer = VideoPlayer & {
-  _hasBeenDestroyed?: boolean;
-  onPlaybackStatusUpdate?: (status: any) => void;
-  seek: (position: number) => Promise<void>;
-};
-
 const getVideoEmbed = (embed: VideoEmbed): VideoEmbed | undefined => {
   if (
     embed?.$type === 'app.bsky.embed.recordWithMedia#view' &&
@@ -90,7 +86,7 @@ const getVideoEmbed = (embed: VideoEmbed): VideoEmbed | undefined => {
   return embed;
 };
 
-const CachedVideoCard = forwardRef<VideoCardRef, CachedVideoCardProps>(
+const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
   ({ post, isVisible, onVideoStatus, height, moderationDecision, shouldDisablePlayback = false }, ref) => {
     const [hasError, setHasError] = useState<boolean>(false);
     const [userPaused, setUserPaused] = useState<boolean>(false);
@@ -103,7 +99,7 @@ const CachedVideoCard = forwardRef<VideoCardRef, CachedVideoCardProps>(
     const [hasMarkedAsWatched, setHasMarkedAsWatched] = useState<boolean>(false);
     const [customDimLevel, setCustomDimLevel] = useState<number>(0);
     const wasPlayingBeforeBlur = useRef<boolean>(false);
-    const playerRef = useRef<ExtendedVideoPlayer | null>(null);
+    const playerRef = useRef<any>(null);
     const videoEmbed = getVideoEmbed(post.embed);
     const preloadCompleteRef = useRef(false);
     const insets = useSafeAreaInsets();
@@ -114,22 +110,20 @@ const CachedVideoCard = forwardRef<VideoCardRef, CachedVideoCardProps>(
     const navigationState = useNavigationState(state => state);
     const [showAnyway, setShowAnyway] = useState(false);
 
+    // Memoize computed values for display size
     const { width: screenWidth } = Dimensions.get('window');
     const containerHeight = height || Dimensions.get('window').height;
     const containerWidth = screenWidth;
-
-    const videoNativeRatio = videoEmbed?.aspectRatio
+    const videoNativeRatio = useMemo(() => videoEmbed?.aspectRatio
       ? videoEmbed.aspectRatio.width / videoEmbed.aspectRatio.height
-      : 9 / 16;
-
-    let displayWidth: number, displayHeight: number;
-    if (containerWidth / containerHeight > videoNativeRatio) {
-      displayHeight = containerHeight;
-      displayWidth = containerHeight * videoNativeRatio;
-    } else {
-      displayWidth = containerWidth;
-      displayHeight = containerWidth / videoNativeRatio;
-    }
+      : 9 / 16, [videoEmbed]);
+    const [displayWidth, displayHeight] = useMemo(() => {
+      if (containerWidth / containerHeight > videoNativeRatio) {
+        return [containerHeight * videoNativeRatio, containerHeight];
+      } else {
+        return [containerWidth, containerWidth / videoNativeRatio];
+      }
+    }, [containerWidth, containerHeight, videoNativeRatio]);
 
     const overlayOpacity = useRef(new Animated.Value(isVisible ? 0 : 0.5)).current;
 
@@ -172,203 +166,58 @@ const CachedVideoCard = forwardRef<VideoCardRef, CachedVideoCardProps>(
 
     const videoUrl = extractVideoUrl(videoEmbed);
 
-    const isValidPlayer = (player: ExtendedVideoPlayer | null): boolean => {
-      if (!player) return false;
-      return (
-        typeof player.play === 'function' &&
-        typeof player.pause === 'function' &&
-        !player._hasBeenDestroyed
-      );
-    };
-
-    const safePlay = (player: ExtendedVideoPlayer | null): Promise<void> => {
-      if (!isValidPlayer(player)) return Promise.resolve();
-      try {
-        const playPromise = player!.play() as unknown;
-        if (playPromise !== undefined && typeof (playPromise as any).then === 'function') {
-          return playPromise as Promise<void>;
-        }
-        return Promise.resolve();
-      } catch (err) {
-        console.warn('Safe play error:', err);
-        return Promise.resolve();
-      }
-    };
-
-    const safePause = (player: ExtendedVideoPlayer | null): void => {
-      if (!isValidPlayer(player)) return;
-      try {
-        player!.pause();
-      } catch (err) {
-        console.warn('Safe pause error:', err);
-      }
-    };
-
-    useEffect(() => {
-      if (!videoUrl) return;
-
-      const preloadVideo = async () => {
-        try {
-          await VideoPreloadManager.addToPreloadQueue(
-            videoUrl,
-            async () => {
-              // Remove delay for faster video loading
-              return Promise.resolve();
-            },
-            isVisible,
-            post.author?.handle
-          );
-
-          if (!preloadCompleteRef.current) {
-            preloadCompleteRef.current = true;
-            setIsPreloadReady(true);
-            
-            if (!videoStatusNotifiedRef.current) {
-              videoStatusNotifiedRef.current = true;
-              onVideoStatus?.(post.uri, 'preloaded');
-            }
-          }
-        } catch (err) {
-          console.warn('Failed to preload video:', err);
-          setIsPreloadReady(true);
-        }
-      };
-
-      preloadVideo();
-
-      const unsubscribe = VideoPreloadManager.subscribeToStatusUpdates(
-        videoUrl,
-        (status) => {
-          if (status === 'preloaded' && !preloadCompleteRef.current) {
-            preloadCompleteRef.current = true;
-            setIsPreloadReady(true);
-            
-            if (!videoStatusNotifiedRef.current) {
-              videoStatusNotifiedRef.current = true;
-              onVideoStatus?.(post.uri, 'preloaded');
-            }
-          }
-        }
-      );
-
-      return () => {
-        unsubscribe();
-      };
-    }, [videoUrl, post.uri, post.author?.handle, onVideoStatus, isVisible]);
-
-    const player = useVideoPlayer(videoUrl || '', (p: VideoPlayer) => {
-      const extendedPlayer = p as ExtendedVideoPlayer;
-      extendedPlayer.loop = true;
-      extendedPlayer.volume = 1.0;
-      extendedPlayer._hasBeenDestroyed = false;
-      playerRef.current = extendedPlayer;
-      extendedPlayer.onPlaybackStatusUpdate = (status) => {
-        if (status.isLoaded) {
-          if (status.durationMillis) {
-            setDuration(status.durationMillis);
-          }
-          if (status.durationMillis) {
-            const progressValue = status.positionMillis / status.durationMillis;
-            setProgress(progressValue);
-            setCurrentPosition(status.positionMillis);
-            if (isVisible && progressValue > 0.5 && !hasMarkedAsWatched) {
-              WatchHistory.addToWatchHistory(post.uri);
-              setHasMarkedAsWatched(true);
-            }
-          } else {
-            setProgress(0);
-            setCurrentPosition(0);
-          }
-        } else {
-          setProgress(0);
-          setCurrentPosition(0);
-        }
-      };
-
-      if (videoUrl) {
-        setIsPlayerValid(true);
-        setIsLoaded(true);
-        
-        if (!videoStatusNotifiedRef.current) {
-          videoStatusNotifiedRef.current = true;
-          onVideoStatus?.(post.uri, 'loaded');
-        }
-
-        // Simplified initial play logic for fast scrolling
-        if (isVisible && !userPaused) {
-          safePlay(extendedPlayer).catch((err) =>
-            console.warn('Initial play failed:', err)
-          );
-        }
-      }
-    });
+    // Preloading is now handled globally by ListFeedView via prioritizeNextVideos.
 
     useEffect(() => {
       // Pause video when blurred, resume if unblurred and conditions allow
       if (playerRef.current && isPlayerValid) {
         if (shouldBlur) {
-          safePause(playerRef.current);
+          setUserPaused(true);
         } else if (isVisible && !userPaused && !shouldDisablePlayback) {
-          safePlay(playerRef.current).catch((err) =>
-            console.warn('Unblur play error:', err)
-          );
+          setUserPaused(false);
         }
       }
     }, [shouldBlur, isVisible, userPaused, isPlayerValid, shouldDisablePlayback]);
 
     useEffect(() => {
-      if (!isScreenFocused && playerRef.current && isValidPlayer(playerRef.current)) {
+      if (!isScreenFocused && playerRef.current && isPlayerValid) {
         wasPlayingBeforeBlur.current = !userPaused && isVisible;
-        safePause(playerRef.current);
-      } else if (isScreenFocused && playerRef.current && isValidPlayer(playerRef.current)) {
+        setUserPaused(true);
+      } else if (isScreenFocused && playerRef.current && isPlayerValid) {
         const currentRoute = navigationState?.routes?.[navigationState.index];
         const isOnMainFeed = currentRoute?.name === 'Main' || 
                            (currentRoute?.state?.routes?.[currentRoute.state.index || 0]?.name === 'HomeScreen');
         
         if (wasPlayingBeforeBlur.current && !userPaused && isVisible && isOnMainFeed) {
-          safePlay(playerRef.current).catch((err) =>
-            console.warn('Resume play error:', err)
-          );
+          setUserPaused(false);
         }
       }
     }, [isScreenFocused, userPaused, isVisible, navigationState]);
 
     useImperativeHandle(ref, () => ({
       playPause: (shouldPlay: boolean) => {
-        if (!playerRef.current || !isValidPlayer(playerRef.current)) return;
-        if (shouldPlay) {
-          safePlay(playerRef.current).catch((err) =>
-            console.warn('Play error:', err)
-          );
-          setUserPaused(false);
-        } else {
-          safePause(playerRef.current);
-          setUserPaused(true);
-        }
+        setUserPaused(!shouldPlay);
       },
       unload: () => {
-        if (playerRef.current) {
-          playerRef.current._hasBeenDestroyed = true;
-          safePause(playerRef.current);
-          playerRef.current = null;
-        }
         setIsPlayerValid(false);
-        preloadCompleteRef.current = false;
+        setIsLoaded(false);
+        setProgress(0);
+        setDuration(0);
+        setCurrentPosition(0);
+        setUserPaused(false);
+        setCustomDimLevel(0);
+        setHasMarkedAsWatched(false);
+        setShowAnyway(false);
       },
       getProgress: () => progress,
       getDuration: () => duration,
       seek: async (fraction: number) => {
-        if (playerRef.current && isValidPlayer(playerRef.current) && duration > 0) {
+        if (playerRef.current && duration > 0) {
           const newPosition = Math.max(0, Math.min(fraction * duration, duration));
-          try {
-            await playerRef.current.seek(newPosition);
-            setProgress(fraction);
-            setCurrentPosition(newPosition);
-            return Promise.resolve();
-          } catch (err) {
-            console.warn('Seek error:', err);
-            return Promise.reject(err);
-          }
+          playerRef.current.seek(newPosition / 1000); // react-native-video expects seconds
+          setProgress(fraction);
+          setCurrentPosition(newPosition);
+          return Promise.resolve();
         }
         return Promise.resolve();
       },
@@ -376,30 +225,23 @@ const CachedVideoCard = forwardRef<VideoCardRef, CachedVideoCardProps>(
       setDimLevel: (level: number) => {
         setCustomDimLevel(level);
       },
-      // Add getPlayState for preview modal
       getPlayState: () => {
         return !userPaused;
       },
     }));
 
+    // Memoize handlers
     const handleToggle = useCallback((): void => {
-      if (!playerRef.current || !isValidPlayer(playerRef.current)) return;
-      if (userPaused) {
-        safePlay(playerRef.current).catch((err) =>
-          console.warn('Error during user play:', err)
-        );
-        setUserPaused(false);
-      } else {
-        safePause(playerRef.current);
-        setUserPaused(true);
-      }
-    }, [userPaused]);
+      setUserPaused((prev) => !prev);
+    }, []);
+    const handleBuffer = useCallback((bufferData: any) => {
+      // Optionally show buffering UI or send analytics
+      // Example: setBuffering(bufferData.isBuffering);
+    }, []);
 
     useEffect(() => {
       return () => {
         if (playerRef.current) {
-          playerRef.current._hasBeenDestroyed = true;
-          safePause(playerRef.current);
           playerRef.current = null;
         }
         setIsPlayerValid(false);
@@ -423,16 +265,14 @@ const CachedVideoCard = forwardRef<VideoCardRef, CachedVideoCardProps>(
           const isOnMainFeed = currentRoute?.name === 'Main' || 
                              (currentRoute?.state?.routes?.[currentRoute.state.index || 0]?.name === 'HomeScreen');
           
-          if (playerRef.current && isValidPlayer(playerRef.current) && 
+          if (playerRef.current && isPlayerValid && 
               wasPlayingBeforeBlur.current && !userPaused && isVisible && isOnMainFeed) {
-            safePlay(playerRef.current).catch((err) =>
-              console.warn('AppState resume error:', err)
-            );
+            setUserPaused(false);
           }
         } else if (previousState === 'active' && nextState !== 'active') {
-          if (playerRef.current && isValidPlayer(playerRef.current)) {
+          if (playerRef.current && isPlayerValid) {
             wasPlayingBeforeBlur.current = !userPaused && isVisible;
-            safePause(playerRef.current);
+            setUserPaused(true);
           }
         }
       });
@@ -452,13 +292,53 @@ const CachedVideoCard = forwardRef<VideoCardRef, CachedVideoCardProps>(
         ) : (
           <TouchableWithoutFeedback onPress={handleToggle}>
             <View style={[styles.videoContainer, { width: containerWidth, height: containerHeight }]}>
-              <VideoView
-                player={player}
+              <Video
+                ref={playerRef}
+                source={{ uri: videoUrl || '' }}
                 style={{ width: displayWidth, height: displayHeight }}
-                contentFit="contain"
-                allowsFullscreen
-                allowsPictureInPicture={false}
-                pointerEvents="none"
+                resizeMode="contain"
+                paused={userPaused || shouldBlur || shouldDisablePlayback || !isVisible}
+                repeat={true}
+                volume={1.0}
+                onLoad={status => {
+                  setIsLoaded(true);
+                  setIsPlayerValid(true);
+                  setDuration((status.duration ? status.duration * 1000 : 0));
+                  if (!videoStatusNotifiedRef.current) {
+                    videoStatusNotifiedRef.current = true;
+                    onVideoStatus?.(post.uri, 'loaded');
+                  }
+                }}
+                onProgress={status => {
+                  const positionMillis = status.currentTime * 1000;
+                  setCurrentPosition(positionMillis);
+                  if (duration > 0) {
+                    const progressValue = positionMillis / duration;
+                    setProgress(progressValue);
+                    if (isVisible && progressValue > 0.5 && !hasMarkedAsWatched) {
+                      WatchHistory.addToWatchHistory(post.uri);
+                      setHasMarkedAsWatched(true);
+                    }
+                  }
+                }}
+                onError={err => {
+                  setHasError(true);
+                  onVideoStatus?.(post.uri, 'invalid');
+                }}
+                onBuffer={handleBuffer} // Buffering feedback
+                bufferConfig={{
+                  minBufferMs: 15000, // 15s minimum buffer
+                  maxBufferMs: 50000, // 50s max buffer
+                  bufferForPlaybackMs: 2500, // 2.5s before playback
+                  bufferForPlaybackAfterRebufferMs: 5000, // 5s after rebuffer
+                }}
+                maxBitRate={1500000} // 1.5 Mbps cap for slow networks
+                muted={false}
+                controls={false}
+                playInBackground={false}
+                playWhenInactive={false}
+                ignoreSilentSwitch="ignore"
+                disableFocus={true}
               />
               <Animated.View style={[styles.dimOverlay, { opacity: overlayOpacity }]} />
               {isVisible && !isLoaded && (
@@ -475,10 +355,8 @@ const CachedVideoCard = forwardRef<VideoCardRef, CachedVideoCardProps>(
                   <TouchableWithoutFeedback onPress={() => {
                     setShowAnyway(true);
                     // Start playing the video when user chooses to show anyway
-                    if (playerRef.current && isValidPlayer(playerRef.current) && isVisible && !userPaused) {
-                      safePlay(playerRef.current).catch((err) =>
-                        console.warn('Show anyway play error:', err)
-                      );
+                    if (playerRef.current && isPlayerValid && isVisible && !userPaused) {
+                      setUserPaused(false);
                     }
                   }}>
                     <View style={styles.showAnywayButton}>
@@ -493,7 +371,7 @@ const CachedVideoCard = forwardRef<VideoCardRef, CachedVideoCardProps>(
       </View>
     );
   }
-);
+));
 
 const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
   ({ post, isVisible, onVideoStatus, shouldCache, height, moderationDecision, shouldDisablePlayback }, ref) => {

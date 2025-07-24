@@ -268,15 +268,13 @@ class AtprotoService {
       const embed = item?.post?.embed;
       if (!embed) continue;
       
-      // Fast video detection using optimized checks
+      // Only include posts where embed is of type 'app.bsky.embed.video' or 'app.bsky.embed.video#view'
       let hasVideo = false;
       
-      if (embed.$type?.includes('video')) {
+      if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
         hasVideo = true;
       } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-        hasVideo = Boolean(embed.media?.$type?.includes('video'));
-      } else if (embed.playlist || embed.media?.playlist) {
-        hasVideo = true;
+        hasVideo = Boolean(embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view');
       }
       
       if (hasVideo) {
@@ -1851,6 +1849,35 @@ class AtprotoService {
       return response.data.mutes?.map((mute: any) => mute.did) || [];
     } catch (error: any) {
       return [];
+    }
+  }
+
+  /**
+   * Paginated fetch for video posts (no search query supported)
+   * @param cursor - Pagination cursor
+   * @param limit - Number of results per page
+   * @returns Array of video post results and next cursor
+   */
+  static async searchVideosPaginated(cursor: string | null = null, limit: number = 20): Promise<{ videos: any[], cursor: string | null }> {
+    await this.ensureSession();
+    try {
+      let params: any = { limit };
+      if (cursor !== null && cursor !== undefined) params.cursor = cursor;
+      let response: any = await this.agent.api.app.bsky.feed.getTimeline(params);
+      let posts = response?.data?.feed || [];
+      // Normalize to post objects
+      posts = posts.map((item: any) => item.post ? item.post : item);
+      // Filter for video posts only
+      const videoPosts = this.filterVideoPostsEfficiently(posts.map((post: any) => ({ post })));
+      // Map back to just the post object
+      const videos = videoPosts.map((item: any) => item.post);
+      return {
+        videos,
+        cursor: response?.data?.cursor || null
+      };
+    } catch (error) {
+      console.error('Error searching videos:', error);
+      return { videos: [], cursor: null };
     }
   }
 }

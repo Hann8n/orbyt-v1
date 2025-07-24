@@ -3,6 +3,7 @@ export interface VideoEmbed {
   $type: string;
   playlist?: string | string[];
   media?: VideoEmbed;
+  thumbnail?: string; // Add this line for proper typing
 }
 
 // Simple cache for video extraction results
@@ -76,37 +77,6 @@ export function extractVideoEmbedAndUrl(post: any): { videoEmbed: any; videoUrl:
 }
 
 /**
- * Checks if an embed object contains video content.
- * @param options Object containing embed property
- * @returns true if the embed contains video content, false otherwise
- */
-export function hasVideoContent({ embed }: { embed: any }): boolean {
-  if (!embed) return false;
-  
-  // Check for recordWithMedia type with video content
-  if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-    return embed.media?.$type?.includes('video') || false;
-  }
-  
-  // Check for direct video embed types
-  if (embed.$type?.includes('video')) {
-    return true;
-  }
-  
-  // Check for video playlist
-  if (embed.playlist) {
-    return true;
-  }
-  
-  // Check for media property with video content
-  if (embed.media?.$type?.includes('video')) {
-    return true;
-  }
-  
-  return false;
-}
-
-/**
  * Debug function to test video URL extraction
  * @param embed The embed object to test
  * @returns Debug information about the embed
@@ -124,7 +94,7 @@ export function debugVideoExtraction(embed: any): {
   const hasMedia = !!embed?.media;
   const mediaType = embed?.media?.$type || null;
   const videoUrl = extractVideoUrl(embed);
-  const isVideo = hasVideoContent({ embed });
+  const isVideo = false; // No longer filtering here, rely on AtprotoService
   
   return {
     hasEmbed,
@@ -134,5 +104,25 @@ export function debugVideoExtraction(embed: any): {
     videoUrl,
     isVideo
   };
+}
+
+/**
+ * Extracts the video thumbnail URL from a post embed object.
+ * @param embed The embed object from a post
+ * @returns The thumbnail URL string, or null if not found
+ */
+export function extractVideoThumbnail(embed: any): string | null {
+  if (!embed) return null;
+  // Handle recordWithMedia wrapper
+  if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
+    const recordEmbed = embed as VideoEmbed;
+    if (recordEmbed.media?.$type && recordEmbed.media.$type.includes('video')) {
+      const videoEmbed = recordEmbed.media;
+      return videoEmbed.thumbnail || null;
+    }
+  } else if (embed.$type && embed.$type.includes('video')) {
+    return embed.thumbnail || null;
+  }
+  return null;
 }
 

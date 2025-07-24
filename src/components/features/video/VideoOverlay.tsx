@@ -89,6 +89,7 @@ interface VideoOverlayProps {
   scrollY: Animated.SharedValue<number>;
   prefetchProfile?: boolean;
   feedOption?: 'yourMix' | 'following' | 'discover';
+  isModal?: boolean;
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -115,7 +116,7 @@ const heartAnimationFrames: ImageSourcePropType[] = [
 ];
 
 // Optimized VideoOverlay component with reduced state and memoization
-const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, scrollY, prefetchProfile, feedOption }) => {
+const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, scrollY, prefetchProfile, feedOption, isModal }) => {
   const isTabletDevice = isTablet();
   const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
@@ -374,9 +375,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
       
       <Animated.View style={[
         styles.overlayContentContainer,
-        isSmallDevice && { 
-          bottom: bottomNavBarHeight,
-        }
+        isModal ? { bottom: 0 } : (isSmallDevice ? { bottom: bottomNavBarHeight } : {})
       ]}>
         <View style={styles.infoColumn}>
           {post.repostedBy && (

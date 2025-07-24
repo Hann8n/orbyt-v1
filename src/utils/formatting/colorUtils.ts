@@ -229,23 +229,23 @@ function getBestColor(result: ImageColorsResult): { backgroundColor: string, for
 
 function getSecondaryColor(result: ImageColorsResult): string {
   if (result.platform === "android") {
-    return result.vibrant || result.lightVibrant || result.average || '#FFFFFF';
+    return result.vibrant || result.lightVibrant || result.average || '#cfd6e8';
   } else if (result.platform === "ios") {
-    return result.secondary || result.detail || result.primary || '#FFFFFF';
+    return result.secondary || result.detail || result.primary || '#cfd6e8';
   } else {
-    return result.vibrant || result.lightVibrant || '#FFFFFF';
+    return result.vibrant || result.lightVibrant || '#cfd6e8';
   }
 }
 
 function ensureAccessibleColors(backgroundColor: string, foregroundColor: string): { backgroundColor: string, foregroundColor: string } {
   // Ensure the background has good contrast with white for status bar
-  if (!meetsContrastGuidelines(backgroundColor, '#FFFFFF')) {
-    backgroundColor = '#303030';
+  if (!meetsContrastGuidelines(backgroundColor, '#cfd6e8')) {
+    backgroundColor = '#cfd6e8';
   }
   
   // Ensure the foreground has good contrast with the background
   if (!meetsContrastGuidelines(backgroundColor, foregroundColor)) {
-    foregroundColor = isColorDark(backgroundColor) ? '#FFFFFF' : '#000000';
+    foregroundColor = isColorDark(backgroundColor) ? '#cfd6e8' : '#000000';
   }
   
   return { backgroundColor, foregroundColor };
@@ -263,7 +263,7 @@ export async function extractColorsFromImage(imageUrl: string) {
     }
 
     const result = await ImageColors.getColors(uri, {
-      fallback: Colors.BRAND.PRIMARY,
+      fallback: '#cfd6e8',
       cache: true,
       key: imageUrl,
     });
@@ -283,11 +283,11 @@ export async function extractColorsFromImage(imageUrl: string) {
   } catch (error) {
     console.error('Error extracting colors from image:', error);
     return {
-      backgroundColor: Colors.BRAND.PRIMARY,
-      foregroundColor: Colors.TEXT.PRIMARY,
-      textColor: Colors.TEXT.PRIMARY,
-      secondaryColor: Colors.TEXT.SECONDARY,
-      statusBarStyle: 'light' as const,
+      backgroundColor: '#cfd6e8',
+      foregroundColor: '#cfd6e8',
+      textColor: '#cfd6e8',
+      secondaryColor: '#cfd6e8',
+      statusBarStyle: 'dark' as const,
     };
   }
 }

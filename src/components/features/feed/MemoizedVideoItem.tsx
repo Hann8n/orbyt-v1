@@ -64,7 +64,7 @@ const useMemoizedStyles = (itemHeight: number, isSmallDevice: boolean) => {
   }), [itemHeight, isSmallDevice]);
 };
 
-const VideoItem: React.FC<MemoizedVideoItemProps> = ({
+const VideoItem: React.FC<MemoizedVideoItemProps & { isModal?: boolean }> = ({
   post,
   isPlaying = false,
   handleVideoStatus,
@@ -74,10 +74,9 @@ const VideoItem: React.FC<MemoizedVideoItemProps> = ({
   feedOption,
   isVisible = false,
   moderationDecision,
+  isModal = false,
 }) => {
   const videoRef = useRef<VideoCardRef>(null) as React.RefObject<VideoCardRef>;
-  const preloadAttempted = useRef(false);
-  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   // Create a local shared value if no external one is provided
   const localScrollY = useSharedValue(0);
@@ -104,49 +103,6 @@ const VideoItem: React.FC<MemoizedVideoItemProps> = ({
     }
   }, [handleVideoStatus]);
 
-  // Optimized preloading logic for fast scrolling
-  useEffect(() => {
-    if (!videoUrl || preloadAttempted.current) return;
-
-    preloadAttempted.current = true;
-    
-    const preloadVideo = async () => {
-      try {
-        if (isVisible && videoUrl) {
-          // Immediate high priority for visible videos
-          await VideoPreloadManager.addToPreloadQueue(
-            videoUrl,
-            () => Promise.resolve(),
-            true, // High priority
-            post.author?.handle
-          );
-        }
-        // Remove preloading for non-visible videos during fast scrolling to reduce overhead
-      } catch (err) {
-        console.warn('Preload error in MemoizedVideoItem:', err);
-      }
-    };
-    
-    // Execute preloading immediately
-    preloadVideo();
-    
-    unsubscribeRef.current = VideoPreloadManager.subscribeToStatusUpdates(
-      videoUrl,
-      (status) => {
-        if (status === 'preloaded' && handleVideoStatus) {
-          handleVideoStatus(post.uri, 'preloaded');
-        }
-      }
-    );
-    
-    return () => {
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-        unsubscribeRef.current = null;
-      }
-    };
-  }, [videoUrl, isVisible, post.uri, post.author?.handle, handleVideoStatus]);
-
   // Control video playback
   useEffect(() => {
     if (!videoRef.current) return;
@@ -163,9 +119,6 @@ const VideoItem: React.FC<MemoizedVideoItemProps> = ({
     return () => {
       if (videoRef.current?.unload) {
         videoRef.current.unload();
-      }
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
       }
     };
   }, []);
@@ -189,6 +142,7 @@ const VideoItem: React.FC<MemoizedVideoItemProps> = ({
           prefetchProfile={shouldPreload || isVisible}
           videoRef={videoRef as React.RefObject<VideoCardRef>}
           feedOption={feedOption}
+          isModal={isModal}
         />
       </View>
     </View>

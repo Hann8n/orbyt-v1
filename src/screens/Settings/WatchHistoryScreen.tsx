@@ -142,7 +142,7 @@ const WatchHistoryScreen: React.FC = () => {
   // Handle grid item press
   const handleGridItemPress = (index: number) => {
     // Navigate to ProfileFeedModal with the watch history feed
-    navigation.navigate('ProfileFeedModal', {
+    navigation.navigate('FeedModal', {
       feed: feedItems,
       initialIndex: index,
       feedOption: 'watchHistory',

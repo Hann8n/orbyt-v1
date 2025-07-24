@@ -445,19 +445,13 @@ export const Avatar: React.FC<AvatarProps> = ({
     );
   }
 
+  // Use default avatar image if no uri is provided
   return (
-    <View style={[baseStyle as ViewStyle, { 
-      justifyContent: 'center', 
-      alignItems: 'center',
-      backgroundColor: Colors.BORDER.PRIMARY,
-      overflow: 'hidden',
-    }, style]}>
-      <Icon
-        name={fallbackIcon || defaultFallbackIcon}
-        size={iconSize}
-        color={fallbackIconColor}
-      />
-    </View>
+    <Image
+      source={require('../../assets/Default-avatar.png')}
+      style={[baseStyle as ImageStyle, style as StyleProp<ImageStyle>]}
+      resizeMode="cover"
+    />
   );
 };
 

@@ -3,7 +3,6 @@ import { VideoFile } from 'react-native-vision-camera';
 import * as FileSystem from 'expo-file-system';
 import { VideoManager } from 'react-native-video-manager';
 import Compressor from 'react-native-compressor';
-import { VideoPlayer } from 'expo-video';
 
 export interface VideoSegment {
   startTime: number;

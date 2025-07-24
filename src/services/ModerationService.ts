@@ -1,6 +1,9 @@
 import AtprotoService from './api/AtprotoService';
 import { ModerationSettings, LabelPreference, ModerationFilters, ModerationDecision, ModerationOpts, LabelDefinition } from './ModerationTypes';
 
+// In-memory cache for moderation decisions
+const moderationCache = new Map<string, ModerationDecision>();
+
 export class ModerationService {
   /**
    * Get user-friendly description for a label value
@@ -220,14 +223,23 @@ export class ModerationService {
     }
   }
   
-
-  
   /**
-   * Moderate a post using Bluesky-compatible logic
+   * Clear the in-memory moderation cache (for manual reset or testing)
+   */
+  static clearModerationCache() {
+    moderationCache.clear();
+  }
+
+  /**
+   * Moderate a post using Bluesky-compatible logic, with in-memory caching
    */
   static async moderatePost(post: any, context: 'contentList' | 'contentView' | 'avatar' | 'banner' = 'contentList'): Promise<ModerationDecision> {
     if (!post || !post.post) {
       return { filter: false, blur: false, informs: [] };
+    }
+    const uri = post.post.uri;
+    if (moderationCache.has(uri)) {
+      return moderationCache.get(uri)!;
     }
     
     const settings = await this.getModerationSettings();
@@ -380,6 +392,7 @@ export class ModerationService {
       return decision;
     }
     
+    moderationCache.set(uri, decision);
     return decision;
   }
   
@@ -481,8 +494,7 @@ export class ModerationService {
   }
   
   /**
-   * Batch moderate multiple posts efficiently
-   * This reduces individual moderation calls and improves performance
+   * Batch moderate multiple posts efficiently, using the in-memory cache
    */
   static async batchModeratePosts(posts: any[], context: 'contentList' | 'contentView' | 'avatar' | 'banner' = 'contentList'): Promise<{
     filteredPosts: any[];
@@ -501,29 +513,28 @@ export class ModerationService {
         stats: { total: 0, filtered: 0, blurred: 0, allowed: 0 }
       };
     }
-    
     // Load settings and user lists once for the entire batch
     const settings = await this.getModerationSettings();
     const blockedUsers = await this.getBlockedUsers();
     const mutedUsers = await this.getMutedUsers();
-    
     const filteredPosts: any[] = [];
     const moderationDecisions = new Map<string, ModerationDecision>();
     let filteredCount = 0;
     let blurredCount = 0;
     let allowedCount = 0;
-    
     // Process posts in batches for better performance
     const BATCH_SIZE = 10;
     for (let i = 0; i < posts.length; i += BATCH_SIZE) {
       const batch = posts.slice(i, i + BATCH_SIZE);
-      
       // Process batch in parallel
       const batchPromises = batch.map(async (post) => {
         if (!post || !post.post) {
           return { post, decision: { filter: false, blur: false, informs: [] } };
         }
-        
+        const uri = post.post.uri;
+        if (moderationCache.has(uri)) {
+          return { post, decision: moderationCache.get(uri)! };
+        }
         const decision = await this.moderatePostWithCachedSettings(
           post, 
           context, 
@@ -531,19 +542,16 @@ export class ModerationService {
           blockedUsers, 
           mutedUsers
         );
-        
+        moderationCache.set(uri, decision);
         return { post, decision };
       });
-      
       const batchResults = await Promise.all(batchPromises);
-      
       // Process batch results
       for (const { post, decision } of batchResults) {
         const postUri = post?.post?.uri;
         if (postUri) {
           moderationDecisions.set(postUri, decision);
         }
-        
         if (decision.filter) {
           filteredCount++;
         } else if (decision.blur) {
@@ -555,14 +563,12 @@ export class ModerationService {
         }
       }
     }
-    
     const stats = {
       total: posts.length,
       filtered: filteredCount,
       blurred: blurredCount,
       allowed: allowedCount
     };
-    
     return {
       filteredPosts,
       moderationDecisions,

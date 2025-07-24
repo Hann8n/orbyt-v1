@@ -32,9 +32,10 @@ export type RootStackParamList = {
     video: CustomVideoFile;
     textOverlays?: TextOverlay[];
   };
-  ProfileFeedModal: {
-    feed: any[]; // FeedItem[] type, but import if needed
+  FeedModal: {
+    feed?: any[]; // FeedItem[] type, but import if needed
     initialIndex: number;
+    initialUri?: string;
     feedOption: string;
     userDid?: string;
     backgroundColor?: string;
