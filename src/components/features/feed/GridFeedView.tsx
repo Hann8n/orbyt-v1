@@ -24,14 +24,7 @@ import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../../utils/h
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import { setCurrentFeed } from '../../../services/FeedStore';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// Grid item spacing and column count
-const NUM_COLUMNS = 3;
-// Ensure all dividers use the same thickness
 const ITEM_MARGIN = 1; // Set divider thickness to 1 for both directions
-const ITEM_WIDTH = (SCREEN_WIDTH - (ITEM_MARGIN * (NUM_COLUMNS - 1))) / NUM_COLUMNS;
-const ITEM_HEIGHT = ITEM_WIDTH * (16/9); // 9:16 aspect ratio
 
 interface GridFeedViewProps {
   feed: FeedItem[];
@@ -56,7 +49,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   feed,
   headerComponent,
   refreshControl,
-  backgroundColor = '#000',
+  backgroundColor = 'transparent',
   secondaryColor = '#fff',
   isProfileLoading = false,
   isProfileFeed = false,
@@ -73,10 +66,20 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  // Define common dimension logic (same as ListFeedView)
-  const isSmallDevice = isSmallScreen() || isTablet();
+  // Responsive grid columns and item size
+  const screen = Dimensions.get('window');
+  let numColumns = 4;
+  if (isTablet()) {
+    numColumns = 6;
+  } else if (isSmallScreen()) {
+    numColumns = 3;
+  }
+  const itemWidth = (screen.width - (ITEM_MARGIN * (numColumns - 1))) / numColumns;
+  const itemHeight = itemWidth * (16 / 9);
+
+  // Restore bottomNavBarHeight and viewableAreaHeight for use in FlatList and EmptyFeed
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
-  const viewableAreaHeight = Dimensions.get('window').height - insets.top - bottomNavBarHeight;
+  const viewableAreaHeight = screen.height - insets.top - bottomNavBarHeight;
 
   /**
    * Reset state when feed option changes to ensure independent behavior
@@ -160,14 +163,15 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
 
 
     // Calculate if this is the last column or last row
-    const isLastColumn = (index + 1) % NUM_COLUMNS === 0;
-    const isLastRow = Math.floor(index / NUM_COLUMNS) === Math.floor((feed.length - 1) / NUM_COLUMNS);
-    const isFirstColumn = index % NUM_COLUMNS === 0;
-    const isFirstRow = index < NUM_COLUMNS;
+    const isLastColumn = (index + 1) % numColumns === 0;
+    const isLastRow = Math.floor(index / numColumns) === Math.floor((feed.length - 1) / numColumns);
+    const isFirstColumn = index % numColumns === 0;
+    const isFirstRow = index < numColumns;
     return (
       <TouchableOpacity
         style={[
           styles.gridItem,
+          { width: itemWidth, height: itemHeight },
           !isLastColumn && { marginRight: ITEM_MARGIN },
           !isLastRow && { marginBottom: ITEM_MARGIN },
           isFirstColumn && { marginLeft: ITEM_MARGIN },
@@ -196,7 +200,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
         {/* Overlay with author info removed as requested */}
       </TouchableOpacity>
     );
-  }, [onGridItemPress, extractVideoUrl, feed]);
+  }, [onGridItemPress, extractVideoUrl, feed, numColumns, itemWidth, itemHeight]);
 
   // Handle end reached in background
   const handleEndReachedBackground = useCallback(() => {
@@ -215,18 +219,18 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
 
   // Use FlatList to render the grid with appropriate numColumns
   return (
-    <View style={[styles.container, { backgroundColor }]}>
+    <View style={[styles.container, { backgroundColor }]}> 
       <View style={styles.topDivider} />
       <FlatList
         key={`grid-${feedOption}-${userDid || 'default'}`}
         data={feed}
         renderItem={renderGridItem}
         keyExtractor={(item, index) => `grid-${item.post.uri}-${index}`}
-        numColumns={NUM_COLUMNS}
+        numColumns={numColumns}
         contentContainerStyle={[
           styles.listContent,
           feed.length === 0 && styles.emptyContentContainer,
-          { paddingBottom: bottomNavBarHeight + 20, backgroundColor: '#000' } // Add safe area for nav bar and black background
+          { paddingBottom: bottomNavBarHeight + 20, backgroundColor: 'transparent' }
         ]}
         columnWrapperStyle={styles.columnWrapper}
         showsVerticalScrollIndicator={false}
@@ -234,13 +238,13 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
         ListHeaderComponent={headerComponent ? <View>{headerComponent}</View> : null}
         ListEmptyComponent={
           isProfileLoading ? (
-            <View style={[styles.loadingContainer, { backgroundColor }]}>
+            <View style={[styles.loadingContainer, { backgroundColor }]}> 
             </View>
           ) : isError ? (
             <EmptyFeed 
               type="error" 
               secondaryColor={secondaryColor} 
-              profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
+              profileColors={secondaryColor ? { backgroundColor: backgroundColor || 'transparent', textColor: secondaryColor } : undefined}
               feedKey={`grid-${feedOption}-${userDid || 'default'}`}
               onRetry={onRetry}
               isProfileFeed={isProfileFeed}
@@ -251,7 +255,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
             <EmptyFeed 
               type={feedOption === 'following' ? 'no-following' : 'no-videos'} 
               secondaryColor={secondaryColor} 
-              profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
+              profileColors={secondaryColor ? { backgroundColor: backgroundColor || 'transparent', textColor: secondaryColor } : undefined}
               feedKey={`grid-${feedOption}-${userDid || 'default'}`}
               isProfileFeed={isProfileFeed}
               viewableAreaHeight={viewableAreaHeight}
@@ -282,7 +286,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: 'transparent', // Changed from '#000' to transparent
   },
   listContent: {
     flexGrow: 1,
@@ -294,15 +298,13 @@ const styles = StyleSheet.create({
   },
   columnWrapper: {
     marginBottom: ITEM_MARGIN,
-    backgroundColor: '#000', // Ensure black gaps
+    backgroundColor: 'transparent', // Ensure transparent gaps
   },
   gridItem: {
-    width: ITEM_WIDTH,
-    height: ITEM_HEIGHT,
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 0, // Square corners
-    backgroundColor: '#000', // Black background for divider effect
+    backgroundColor: 'transparent', // Changed from '#000' to transparent
     // All margins for dividers are set dynamically in renderGridItem
   },
   thumbnail: {
@@ -383,7 +385,7 @@ const styles = StyleSheet.create({
   topDivider: {
     width: '100%',
     height: ITEM_MARGIN,
-    backgroundColor: '#000',
+    backgroundColor: 'transparent', // Changed from '#000' to transparent
   },
 });
 
