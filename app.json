@@ -4,11 +4,11 @@
     "slug": "byte-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/Icons/icon-dev.png",
+    "icon": "./src/assets/Icons/icon-prod.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./src/assets/splash-icon.png",
+      "image": "./src/assets/adaptive-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -49,7 +49,8 @@
           "photosPermission": "This app needs access to your photo library to select profile pictures and share photos.",
           "cameraPermission": "This app needs access to your camera to take photos for your profile picture."
         }
-      ]
+      ],
+      "react-native-edge-to-edge"
     ],
     "extra": {
       "eas": {
@@ -58,4 +59,4 @@
     },
     "owner": "orbyt"
   }
-} 
+}

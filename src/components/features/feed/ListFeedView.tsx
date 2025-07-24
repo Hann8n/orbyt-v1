@@ -70,7 +70,7 @@ interface ListFeedViewProps {
   secondaryColor?: string;
   feedOption: 'yourMix' | 'following' | 'discover' | 'profile' | 'author' | 'likes' | 'reposts' | string;
   userDid?: string;
-  onEndReached: () => void;
+  onEndReached?: () => void; // Make optional
   isFetchingNextPage: boolean;
   hasNextPage?: boolean;
   isLoading: boolean;

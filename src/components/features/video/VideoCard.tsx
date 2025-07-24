@@ -18,6 +18,7 @@ import {
   Platform,
   AppState,
   Animated,
+  Image,
 } from 'react-native';
 import Video from 'react-native-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,6 +59,7 @@ interface CachedVideoCardProps {
   height?: number;
   moderationDecision?: ModerationDecision;
   shouldDisablePlayback?: boolean;
+  thumbnailUrl?: string;
 }
 
 interface VideoCardProps extends CachedVideoCardProps {
@@ -87,7 +89,7 @@ const getVideoEmbed = (embed: VideoEmbed): VideoEmbed | undefined => {
 };
 
 const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
-  ({ post, isVisible, onVideoStatus, height, moderationDecision, shouldDisablePlayback = false }, ref) => {
+  ({ post, isVisible, onVideoStatus, height, moderationDecision, shouldDisablePlayback = false, thumbnailUrl }, ref) => {
     const [hasError, setHasError] = useState<boolean>(false);
     const [userPaused, setUserPaused] = useState<boolean>(false);
     const [isLoaded, setIsLoaded] = useState<boolean>(false);
@@ -109,6 +111,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     const appStateRef = useRef(AppState.currentState);
     const navigationState = useNavigationState(state => state);
     const [showAnyway, setShowAnyway] = useState(false);
+    const [showThumbnail, setShowThumbnail] = useState(true);
 
     // Memoize computed values for display size
     const { width: screenWidth } = Dimensions.get('window');
@@ -149,6 +152,12 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
       
       previousVisibilityRef.current = isVisible;
     }, [isVisible, overlayOpacity, customDimLevel]);
+
+    useEffect(() => {
+      if (isLoaded) {
+        setShowThumbnail(false);
+      }
+    }, [isLoaded]);
 
     useEffect(() => {
       const isValidEmbed =
@@ -340,6 +349,16 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                 ignoreSilentSwitch="ignore"
                 disableFocus={true}
               />
+              {/* Thumbnail overlay */}
+              {showThumbnail && thumbnailUrl && !isLoaded && (
+                <Animated.View style={[styles.thumbnailOverlay, { opacity: showThumbnail ? 1 : 0, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}> 
+                  <Image
+                    source={{ uri: thumbnailUrl }}
+                    style={{ width: displayWidth, height: displayHeight, resizeMode: 'cover' }}
+                    blurRadius={0}
+                  />
+                </Animated.View>
+              )}
               <Animated.View style={[styles.dimOverlay, { opacity: overlayOpacity }]} />
               {isVisible && !isLoaded && (
                 <View style={styles.loadingOverlay}>
@@ -374,7 +393,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
 ));
 
 const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
-  ({ post, isVisible, onVideoStatus, shouldCache, height, moderationDecision, shouldDisablePlayback }, ref) => {
+  ({ post, isVisible, onVideoStatus, shouldCache, height, moderationDecision, shouldDisablePlayback, thumbnailUrl }, ref) => {
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
     const insets = useSafeAreaInsets();
     const isSmallDevice = isSmallScreen() || isTablet();
@@ -405,6 +424,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
           height={cardHeight}
           moderationDecision={moderationDecision}
           shouldDisablePlayback={shouldDisablePlayback}
+          thumbnailUrl={thumbnailUrl}
         />
       </View>
     );
@@ -511,6 +531,17 @@ const styles = StyleSheet.create({
   },
   warningIcon: {
     marginBottom: 20,
+  },
+  thumbnailOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 5,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

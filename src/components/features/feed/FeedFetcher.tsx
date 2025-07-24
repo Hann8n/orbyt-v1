@@ -139,19 +139,29 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
     staleTime: 10 * 60 * 1000, // 10 minutes for better caching
   });
 
-  // Simplified handleEndReached: always load more when user scrolls to end
-  const handleEndReached = useCallback(() => {
+  // Remove handleEndReached and onEndReached from ListFeedView
+  // Add proactive queue filling logic
+
+  const QUEUE_THRESHOLD = 3; // Minimum number of videos to keep preloaded
+
+  const ensureQueueFilled = useCallback(() => {
+    const preloadedCount = VideoPreloadManager.getPreloadedUris().length;
     if (
       hasNextPage &&
       !isFetchingNextPage &&
       !isLoading &&
       !isError &&
-      !isPaused
+      !isPaused &&
+      preloadedCount < QUEUE_THRESHOLD
     ) {
-      // Always fetch next page for maximum batch loading
       fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, isLoading, isError, isPaused, fetchNextPage]);
+
+  // Call ensureQueueFilled whenever the feed or visible index changes
+  useEffect(() => {
+    ensureQueueFilled();
+  }, [feed, visibleIndex, ensureQueueFilled]);
 
   // Optimized profile prefetching for new items in background
   useEffect(() => {
@@ -236,7 +246,7 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
         secondaryColor={secondaryColor}
         feedOption={feedOption}
         userDid={userDid}
-        onEndReached={handleEndReached}
+        // onEndReached={handleEndReached} // REMOVE THIS LINE
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
         isLoading={isLoading}

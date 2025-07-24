@@ -7,7 +7,7 @@ import Animated, {
   useSharedValue, 
   SharedValue 
 } from 'react-native-reanimated';
-import { extractVideoEmbedAndUrl } from '../../../utils/helpers/video';
+import { extractVideoEmbedAndUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
 import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 
@@ -87,7 +87,8 @@ const VideoItem: React.FC<MemoizedVideoItemProps & { isModal?: boolean }> = ({
 
   // Use memoized video data
   const { videoEmbed, videoUrl, hasVideo } = useVideoData(post);
-  
+  const thumbnailUrl = extractVideoThumbnail(post.embed);
+
   // Use memoized styles
   const { container: containerStyle, overlay: overlayContainerStyle } = useMemoizedStyles(itemHeight, isSmallDevice);
 
@@ -133,6 +134,7 @@ const VideoItem: React.FC<MemoizedVideoItemProps & { isModal?: boolean }> = ({
         onVideoStatus={handleVideoStatusChange}
         height={itemHeight}
         moderationDecision={moderationDecision}
+        thumbnailUrl={thumbnailUrl || undefined}
       />
       <View style={overlayContainerStyle}>
         <VideoOverlay 
