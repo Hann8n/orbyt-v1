@@ -5,36 +5,11 @@ import Icon from './Icon';
 
 interface VideoInfoDisplayProps {
   videoInfo: VideoInfo;
-  showCompressionStatus?: boolean;
-  needsCompression?: boolean;
-  recommendedLevel?: string;
-  compressionStats?: {
-    originalSize: string;
-    compressedSize: string;
-    compressionRatio: number;
-    sizeReduction: string;
-  };
-  compressionOptions?: Array<{
-    level: string;
-    label: string;
-    estimatedSize: string;
-    quality: string;
-    uploadTime: string;
-  }>;
-  isCompressing?: boolean;
-  onCompressPress?: () => void;
   style?: any;
 }
 
 const VideoInfoDisplay: React.FC<VideoInfoDisplayProps> = ({
   videoInfo,
-  showCompressionStatus = false,
-  needsCompression = false,
-  recommendedLevel,
-  compressionStats,
-  compressionOptions,
-  isCompressing = false,
-  onCompressPress,
   style
 }) => {
   const getCompressionColor = (ratio: number) => {
@@ -71,102 +46,14 @@ const VideoInfoDisplay: React.FC<VideoInfoDisplayProps> = ({
             <Text style={styles.videoInfoValue}>{videoInfo.aspectRatio}</Text>
           </View>
           <View style={styles.videoInfoItem}>
-            <Text style={styles.videoInfoLabel}>Bitrate</Text>
-            <Text style={styles.videoInfoValue}>{videoInfo.bitrateFormatted}</Text>
-          </View>
-          <View style={styles.videoInfoItem}>
-            <Text style={styles.videoInfoLabel}>Frame Rate</Text>
-            <Text style={styles.videoInfoValue}>{videoInfo.frameRate} fps</Text>
-          </View>
-          <View style={styles.videoInfoItem}>
             <Text style={styles.videoInfoLabel}>Codec</Text>
             <Text style={styles.videoInfoValue}>{videoInfo.codec.toUpperCase()}</Text>
           </View>
 
           {/* Compression Stats - Only show if compression has been performed */}
-          {compressionStats && (
-            <>
-              <View style={styles.videoInfoItem}>
-                <Text style={styles.videoInfoLabel}>Original Size</Text>
-                <Text style={styles.videoInfoValue}>{compressionStats.originalSize}</Text>
-              </View>
-              <View style={styles.videoInfoItem}>
-                <Text style={styles.videoInfoLabel}>Compressed Size</Text>
-                <Text style={styles.videoInfoValue}>{compressionStats.compressedSize}</Text>
-              </View>
-              <View style={styles.videoInfoItem}>
-                <Text style={styles.videoInfoLabel}>Compression Rate</Text>
-                <Text style={[styles.videoInfoValue, { color: getCompressionColor(compressionStats.compressionRatio) }]}>
-                  {compressionStats.compressionRatio.toFixed(1)}%
-                </Text>
-              </View>
-              <View style={styles.videoInfoItem}>
-                <Text style={styles.videoInfoLabel}>Size Reduction</Text>
-                <Text style={styles.videoInfoValue}>{compressionStats.sizeReduction}</Text>
-              </View>
-            </>
-          )}
+          {/* The compression status, options, and button are removed */}
         </View>
       </View>
-
-      {/* Compression Status */}
-      {showCompressionStatus && (
-        <View style={styles.compressionStatusSection}>
-          <View style={styles.videoSizeRow}>
-            <Icon 
-              name={!needsCompression ? "check-circle" : "alert-circle"} 
-              size={20} 
-              iconSet="pixelarticons" 
-              color={!needsCompression ? "#4CAF50" : "#FF9800"} 
-            />
-            <Text style={styles.videoSizeText}>
-              {needsCompression ? 'Compression needed' : ''}
-            </Text>
-          </View>
-          {needsCompression && recommendedLevel && (
-            <Text style={styles.compressionNote}>
-              Recommended: {compressionOptions?.find(opt => opt.level === recommendedLevel)?.label || 'Auto compression'}
-            </Text>
-          )}
-        </View>
-      )}
-
-      {/* Compression Options */}
-      {needsCompression && compressionOptions && !compressionStats && (
-        <View style={styles.compressionOptionsSection}>
-          <Text style={styles.compressionOptionsTitle}>Compression Options</Text>
-          {compressionOptions.map((option, index) => (
-            <View key={option.level} style={styles.compressionOption}>
-              <View style={styles.compressionOptionHeader}>
-                <Text style={styles.compressionOptionLabel}>{option.label}</Text>
-                <Text style={styles.compressionOptionQuality}>{option.quality}</Text>
-              </View>
-              <View style={styles.compressionOptionDetails}>
-                <Text style={styles.compressionOptionSize}>{option.estimatedSize}</Text>
-                <Text style={styles.compressionOptionTime}>~{option.uploadTime}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Compression Button */}
-      {needsCompression && !compressionStats && onCompressPress && (
-        <TouchableOpacity
-          style={styles.compressButton}
-          onPress={onCompressPress}
-          disabled={isCompressing}
-        >
-          {isCompressing ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Icon name="compress" size={20} iconSet="pixelarticons" color="#fff" />
-          )}
-          <Text style={styles.compressButtonText}>
-            {isCompressing ? 'Compressing...' : 'Compress Video'}
-          </Text>
-        </TouchableOpacity>
-      )}
     </View>
   );
 };
@@ -174,6 +61,7 @@ const VideoInfoDisplay: React.FC<VideoInfoDisplayProps> = ({
 const styles = StyleSheet.create({
   videoSizeContainer: {
     padding: 15,
+    paddingBottom: 5, // reduce bottom padding
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.1)',
   },
@@ -195,7 +83,7 @@ const styles = StyleSheet.create({
     marginLeft: 28,
   },
   videoInfoSection: {
-    marginBottom: 15,
+    marginBottom: 4, // reduce space beneath video info
   },
   videoInfoTitle: {
     color: '#fff',

@@ -220,7 +220,7 @@ const ExploreScreen: React.FC = () => {
       // Search for both profiles and channels in parallel
       const [profilesResponse, channelsResponse] = await Promise.all([
         AtprotoService.searchProfilesPaginated(query, pageParam as string | null),
-        AtprotoService.searchPopularFeeds(query, 10)
+        AtprotoService.searchPopularFeeds(query)
       ]);
 
       // Process profiles
@@ -641,6 +641,9 @@ const ExploreScreen: React.FC = () => {
     staleTime: 60 * 1000, // 1 minute
   });
 
+  // Limit suggested feeds to 5 for display
+  const limitedSuggestedFeeds = useMemo(() => (suggestedFeeds ? suggestedFeeds.slice(0, 5) : []), [suggestedFeeds]);
+
   // Update all suggestions when new data comes in (only for initial load)
   useEffect(() => {
     if (suggestedAccounts && allSuggestions.length === 0) {
@@ -721,9 +724,9 @@ const ExploreScreen: React.FC = () => {
             <FlatList
               data={[
                 // Section header for feeds
-                ...(suggestedFeeds && suggestedFeeds.length > 0 ? [
+                ...(limitedSuggestedFeeds && limitedSuggestedFeeds.length > 0 ? [
                   { type: 'section-header' as const, title: 'Popular channels', key: 'feeds-header' },
-                  ...suggestedFeeds.map(item => ({ type: 'channel' as const, data: item, relevance: 0 }))
+                  ...limitedSuggestedFeeds.map(item => ({ type: 'channel' as const, data: item, relevance: 0 }))
                 ] : []),
                 // Section header for accounts
                 ...(allSuggestions && allSuggestions.length > 0 ? [

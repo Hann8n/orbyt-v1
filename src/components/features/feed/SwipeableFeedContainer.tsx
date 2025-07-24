@@ -17,9 +17,10 @@ import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-g
 import { BRAND } from '../../../utils/formatting/Colors';
 import FeedFetcher from './FeedFetcher';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
-import { isSmallScreen } from '../../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// Remove static SCREEN_WIDTH
+// const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Define the feed options type
 export type FeedOption = string;
@@ -42,7 +43,23 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
   const flatListRef = useRef<FlatList>(null);
   const indicatorScrollViewRef = useRef<ScrollView>(null);
   const { channels: subscribedChannels, isLoading: isLoadingChannels } = useSubscribedChannels();
-  const isSmallDevice = isSmallScreen();
+  const isSmallDevice = isSmallScreen() || isTablet();
+
+  // Add state for screen dimensions
+  const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
+  const screenWidth = screenDims.width;
+  const screenHeight = screenDims.height;
+
+  // Listen for orientation/screen size changes
+  useEffect(() => {
+    const onChange = ({ window }: { window: { width: number; height: number; scale: number; fontScale: number } }) => {
+      setScreenDims(window);
+    };
+    const sub = Dimensions.addEventListener('change', onChange);
+    return () => {
+      sub?.remove();
+    };
+  }, []);
   
   // State for current feed and positions
   const [currentFeedIndex, setCurrentFeedIndex] = useState(
@@ -54,7 +71,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
   // Animation values for feed bar visibility and transitions
   const feedBarOpacity = useRef(new Animated.Value(1)).current;
   const feedBarTranslateY = useRef(new Animated.Value(0)).current;
-  const horizontalScrollOffset = useRef(new Animated.Value(currentFeedIndex * SCREEN_WIDTH)).current;
+  const horizontalScrollOffset = useRef(new Animated.Value(0)).current;
   
   // Initialize feed bar as visible on mount
   useEffect(() => {
@@ -184,7 +201,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
     if (indicatorScrollViewRef.current) {
       // Calculate the approximate width of each indicator including padding
       const indicatorWidth = 120; // Account for text width + padding
-      const containerWidth = SCREEN_WIDTH - 32; // Account for horizontal padding
+      const containerWidth = screenWidth - 32; // Account for horizontal padding
       
       // Calculate the center position for the active indicator
       const targetPosition = (index * indicatorWidth) - (containerWidth / 2) + (indicatorWidth / 2);
@@ -197,7 +214,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
         animated: true,
       });
     }
-  }, []);
+  }, [screenWidth]);
 
   // Handle horizontal scroll for gradual transitions
   const handleHorizontalScroll = useCallback((event: any) => {
@@ -205,7 +222,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
     horizontalScrollOffset.setValue(offsetX);
     
     // Calculate scroll progress for gradual transitions
-    const progress = offsetX / SCREEN_WIDTH;
+    const progress = offsetX / screenWidth;
     setCurrentScrollProgress(progress);
     
     // Mark that user has interacted
@@ -218,7 +235,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
     }
     
     // Update current feed index during scroll for smoother transitions
-    const currentIndex = Math.round(offsetX / SCREEN_WIDTH);
+    const currentIndex = Math.round(offsetX / screenWidth);
     if (currentIndex !== currentFeedIndex && currentIndex >= 0 && currentIndex < feedOptions.length) {
       setCurrentFeedIndex(currentIndex);
       const newFeedOption = feedOptions[currentIndex];
@@ -227,12 +244,12 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
       // Scroll indicator to follow the feed change
       scrollIndicatorToActive(currentIndex);
     }
-  }, [currentFeedIndex, feedOptions, onFeedChange, isHorizontalScrolling, animateFeedBar, horizontalScrollOffset, scrollIndicatorToActive]);
+  }, [currentFeedIndex, feedOptions, onFeedChange, isHorizontalScrolling, animateFeedBar, horizontalScrollOffset, scrollIndicatorToActive, screenWidth]);
 
   // Handle scroll end to update current feed and hide feed bar
   const handleScrollEnd = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
-    const newIndex = Math.round(offsetX / SCREEN_WIDTH);
+    const newIndex = Math.round(offsetX / screenWidth);
     
     if (newIndex !== currentFeedIndex) {
       handleFeedChange(newIndex);
@@ -247,7 +264,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
         }
       }, 1000); // Delay to allow user to see the feed change
     }
-  }, [currentFeedIndex, handleFeedChange, isHorizontalScrolling, animateFeedBar, hasUserScrolled]);
+  }, [currentFeedIndex, handleFeedChange, isHorizontalScrolling, animateFeedBar, hasUserScrolled, screenWidth]);
 
   // Handle feed indicator tap
   const handleIndicatorTap = useCallback((feedOption: FeedOption) => {
@@ -276,9 +293,10 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
     const isVisible = index === currentFeedIndex;
     
     return (
-      <View style={styles.feedPage}>
+      <View style={[styles.feedPage, { width: screenWidth, height: '100%' }]}> 
+        {/* width is set dynamically above; removed inline comment to avoid text node error */}
         <FeedFetcher
-          feedOption={feedOption}
+          feedOption={String(feedOption)}
           onRetryFeed={handleRetryFeed}
           onPositionChange={handlePositionChange}
           initialPosition={savedPositions[feedOption]}
@@ -296,7 +314,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
         />
       </View>
     );
-  }, [currentFeedIndex, handleRetryFeed, handlePositionChange, savedPositions, handleVerticalScroll, isRefreshing]);
+  }, [currentFeedIndex, handleRetryFeed, handlePositionChange, savedPositions, handleVerticalScroll, isRefreshing, screenWidth]);
 
   // Get indicator style with gradual opacity based on scroll progress
   const getIndicatorStyle = useCallback((feedOption: FeedOption) => {
@@ -357,7 +375,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
               style={styles.indicatorItem}
             >
               <Animated.Text style={getIndicatorStyle(feedOption)}>
-                {feedConfig[feedOption]?.label || feedOption}
+                {String(feedConfig[feedOption]?.label || feedOption)}
               </Animated.Text>
             </TouchableOpacity>
           ))}
@@ -378,8 +396,8 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
         scrollEventThrottle={16}
         initialScrollIndex={currentFeedIndex}
         getItemLayout={(_, index) => ({
-          length: SCREEN_WIDTH,
-          offset: SCREEN_WIDTH * index,
+          length: screenWidth,
+          offset: screenWidth * index,
           index,
         })}
         style={styles.flatList}
@@ -426,7 +444,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   feedPage: {
-    width: SCREEN_WIDTH,
+    // width will be set dynamically
     height: '100%',
   },
 });

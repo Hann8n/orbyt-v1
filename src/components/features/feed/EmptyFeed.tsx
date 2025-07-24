@@ -13,7 +13,7 @@ import ProfileCache from '../../../services/cache/ProfileCache';
 interface EmptyFeedProps {
   secondaryColor?: string;
   message?: string;
-  type?: 'no-connection' | 'no-videos' | 'error' | 'no-following';
+  type?: 'no-connection' | 'no-videos' | 'error' | 'no-following' | 'end';
   profileColors?: {
     backgroundColor: string;
     textColor: string;
@@ -154,6 +154,11 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           icon: 'user-plus',
           defaultMessage: "Follow accounts to see their posts here"
         };
+      case 'end':
+        return {
+          icon: 'video-movies-vintage-tv-1',
+          defaultMessage: "That's all for now"
+        };
       case 'no-videos':
       default:
         return {
@@ -276,6 +281,32 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
             style={styles.suggestionsList}
             contentContainerStyle={styles.listContainer}
           />
+        </View>
+      </View>
+    );
+  }
+  // Special case: end of feed card
+  if (type === 'end') {
+    return (
+      <View 
+        key={feedKey ? `empty-feed-${feedKey}` : undefined}
+        style={[
+          styles.emptyContainer,
+          viewableAreaHeight ? { height: viewableAreaHeight } : {}
+        ]}
+      >
+        <View style={styles.contentContainer}>
+          <View style={styles.iconContainer}>
+            <Icon 
+              name={icon} 
+              size={72} 
+              color={iconColor} 
+              iconSet="streamline-pixel"
+            />
+          </View>
+          <Text style={[styles.emptyText, { color: textColor }]}> 
+            {displayMessage}
+          </Text>
         </View>
       </View>
     );

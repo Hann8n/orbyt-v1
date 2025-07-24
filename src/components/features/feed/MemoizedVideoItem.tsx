@@ -8,7 +8,7 @@ import Animated, {
   SharedValue 
 } from 'react-native-reanimated';
 import { extractVideoEmbedAndUrl } from '../../../utils/helpers/video';
-import { isSmallScreen } from '../../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -83,7 +83,7 @@ const VideoItem: React.FC<MemoizedVideoItemProps> = ({
   const localScrollY = useSharedValue(0);
   const scrollY = externalScrollY || localScrollY;
 
-  const isSmallDevice = isSmallScreen();
+  const isSmallDevice = isSmallScreen() || isTablet();
   const itemHeight = height || SCREEN_HEIGHT;
 
   // Use memoized video data

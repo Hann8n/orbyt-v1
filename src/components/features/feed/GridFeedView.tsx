@@ -18,7 +18,7 @@ import VideoPreloadManager from '../../../services/VideoPreloadManager';
 import VerificationBadge from '../verification/VerificationBadge';
 import { extractVideoUrl } from '../../../utils/helpers/video';
 import { Avatar } from '../../ui/UI';
-import { isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -41,6 +41,7 @@ interface GridFeedViewProps {
   userDid?: string;
   onEndReached?: () => void;
   isFetchingNextPage?: boolean;
+  hasNextPage?: boolean;
   onGridItemPress: (index: number) => void; // Callback for grid item tap
   isError?: boolean;
   error?: Error | null;
@@ -59,6 +60,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   userDid,
   onEndReached,
   isFetchingNextPage = false,
+  hasNextPage = false,
   onGridItemPress,
   isError = false,
   error,
@@ -67,7 +69,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   const insets = useSafeAreaInsets();
 
   // Define common dimension logic (same as ListFeedView)
-  const isSmallDevice = isSmallScreen();
+  const isSmallDevice = isSmallScreen() || isTablet();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const viewableAreaHeight = Dimensions.get('window').height - insets.top - bottomNavBarHeight;
 
@@ -270,7 +272,16 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
             <View style={styles.footerLoader}>
               <ActivityIndicator size="small" color={secondaryColor} />
             </View>
-          ) : null
+          ) : (!isFetchingNextPage && !isError && !hasNextPage && feed.length > 0 ? (
+            <EmptyFeed
+              type="end"
+              secondaryColor={secondaryColor}
+              profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
+              feedKey={`end-of-feed-${feedOption}-${userDid || 'default'}`}
+              viewableAreaHeight={120}
+              feedOption={feedOption}
+            />
+          ) : null)
         }
         removeClippedSubviews={true}
         maxToRenderPerBatch={5}

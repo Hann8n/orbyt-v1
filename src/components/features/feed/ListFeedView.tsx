@@ -10,6 +10,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Text,
+  ScaledSize,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, SharedValue } from 'react-native-reanimated';
@@ -19,7 +20,7 @@ import VideoPreloadManager from '../../../services/VideoPreloadManager';
 import WatchHistory from '../../../services/WatchHistory';
 import { extractVideoUrl } from '../../../utils/helpers/video';
 import GridFeedView from './GridFeedView';
-import { isSmallScreen, getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet, getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import PerformanceMonitor from '../../../utils/helpers/performance';
 
@@ -157,10 +158,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const scrollYShared = useSharedValue(0);
 
   // Define common dimension logic
-  const isSmallDevice = isSmallScreen();
+  const isSmallDevice = isSmallScreen() || isTablet();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const viewableAreaHeight = Dimensions.get('window').height - insets.top - bottomNavBarHeight;
-  const cardHeight = getVideoCardHeight(insets);
+  const cardHeight = isSmallDevice ? Dimensions.get('window').height : getVideoCardHeight(insets);
   
   // Memoize expensive calculations to prevent recreation
   const memoizedCardHeight = useMemo(() => cardHeight, [cardHeight]);
@@ -505,6 +506,24 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
   }, [isHeaderFeed, headerHeight]);
 
+  // Listen for orientation/screen size changes and snap to visibleIndex
+  useEffect(() => {
+    const onChange = ({ window }: { window: ScaledSize }) => {
+      // Wait for layout to update, then scroll to visibleIndex
+      setTimeout(() => {
+        if (flatListRef.current && displayFeed.length > 0) {
+          flatListRef.current.scrollToIndex({
+            index: visibleIndex,
+            animated: false,
+            viewPosition: 0,
+          });
+        }
+      }, 50);
+    };
+    const sub = Dimensions.addEventListener('change', onChange);
+    return () => { sub?.remove(); };
+  }, [visibleIndex, displayFeed.length]);
+
   // Render grid view if viewMode is 'grid'
   if (viewMode === 'grid') {
     return (
@@ -520,6 +539,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         userDid={userDid}
         onEndReached={onEndReached}
         isFetchingNextPage={isFetchingNextPage}
+        hasNextPage={hasNextPage}
         onGridItemPress={handleGridItemPress}
         isError={isError}
         error={error}
@@ -658,6 +678,18 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           displayFeed.length === 0 && styles.emptyContentContainer,
           { paddingBottom: bottomNavBarHeight }, // Add safe area for nav bar
         ]}
+        ListFooterComponent={
+          !isLoading && !isError && !isFetchingNextPage && !hasNextPage && displayFeed.length > 0 ? (
+            <EmptyFeed
+              type="end"
+              secondaryColor={secondaryColor}
+              profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
+              feedKey={`end-of-feed-${feedOption}-${userDid || 'default'}`}
+              viewableAreaHeight={120}
+              feedOption={feedOption}
+            />
+          ) : null
+        }
       />
     </View>
   );

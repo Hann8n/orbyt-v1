@@ -4,7 +4,7 @@
     "slug": "byte-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/Icons/icon-prod.png",
+    "icon": "./src/assets/Icons/icon-dev.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {

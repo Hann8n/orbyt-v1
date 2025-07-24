@@ -35,7 +35,7 @@ import { TEXT, BRAND, INTERACTIVE, PROFILE, OVERLAY } from '../../../utils/forma
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import VerificationBadge from '../verification/VerificationBadge';
 import { extractVideoUrl } from '../../../utils/helpers/video';
-import { isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
 import RelativeDate from '../../ui/RelativeDate';
@@ -116,7 +116,8 @@ const heartAnimationFrames: ImageSourcePropType[] = [
 
 // Optimized VideoOverlay component with reduced state and memoization
 const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, scrollY, prefetchProfile, feedOption }) => {
-  const isSmallDevice = isSmallScreen();
+  const isTabletDevice = isTablet();
+  const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   
@@ -319,38 +320,38 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
       {isAnimatingHeart ? (
         <Image 
           source={heartAnimationFrames[Math.floor(Math.random() * heartAnimationFrames.length)]}
-          style={[styles.icon, { tintColor: INTERACTIVE.HEART.ACTIVE }]} 
+          style={[styles.icon, isTabletDevice && styles.iconTablet, { tintColor: INTERACTIVE.HEART.ACTIVE }]} 
         />
       ) : isLiked ? (
         <Image 
           source={require('../../../assets/PostActions/Heart-PixelArtIconx3.png')} 
-          style={[styles.icon, { tintColor: INTERACTIVE.HEART.ACTIVE }]} 
+          style={[styles.icon, isTabletDevice && styles.iconTablet, { tintColor: INTERACTIVE.HEART.ACTIVE }]} 
         />
       ) : (
         <Image 
           source={require('../../../assets/PostActions/Heart-PixelArtIconx3.png')} 
-          style={[styles.icon, { tintColor: BRAND.SECONDARY }]} 
+          style={[styles.icon, isTabletDevice && styles.iconTablet, { tintColor: BRAND.SECONDARY }]} 
         />
       )}
     </Animated.View>
-  ), [isLiked, isAnimatingHeart, heartAnimatedStyle]);
+  ), [isLiked, isAnimatingHeart, heartAnimatedStyle, isTabletDevice]);
 
   const repostIcon = useMemo(() => (
     <Animated.View style={isReposted ? repostAnimatedStyle : undefined}>
       {isReposted ? (
-        <Icon name="repeat" size={30} color={INTERACTIVE.REPOST.ACTIVE} />
+        <Icon name="repeat" size={isTabletDevice ? 34 : 30} color={INTERACTIVE.REPOST.ACTIVE} />
       ) : (
-        <Icon name="repeat" size={30} color={INTERACTIVE.REPOST.INACTIVE} />
+        <Icon name="repeat" size={isTabletDevice ? 34 : 30} color={INTERACTIVE.REPOST.INACTIVE} />
       )}
     </Animated.View>
-  ), [isReposted, repostAnimatedStyle]);
+  ), [isReposted, repostAnimatedStyle, isTabletDevice]);
 
   const commentIcon = useMemo(() => (
     <Image 
       source={require('../../../assets/PostActions/Comments-PixelArtIcon-x3.png')} 
-      style={[styles.icon, { tintColor: INTERACTIVE.COMMENT }]} 
+      style={[styles.icon, isTabletDevice && styles.iconTablet, { tintColor: INTERACTIVE.COMMENT }]} 
     />
-  ), []);
+  ), [isTabletDevice]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -386,13 +387,17 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
             >
               <Icon name="repeat" size={22} color={INTERACTIVE.REPOST.ACTIVE} />
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <Text style={styles.repostIndicatorText}>
+                <Text style={
+                  isTabletDevice
+                    ? styles.repostIndicatorTextTablet
+                    : styles.repostIndicatorText
+                }>
                   {post.repostedBy?.displayName || post.repostedBy?.handle || 'Unknown'} reposted
                 </Text>
                 {post.repostedBy?.handle && (
                   <VerificationBadge 
                     handle={post.repostedBy.handle} 
-                    size={12} 
+                    size={isTabletDevice ? 16 : 14} 
                     style={{
                       marginLeft: 4,
                       shadowColor: 'rgba(0, 0, 0, 0.3)',
@@ -424,14 +429,14 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                   <View style={styles.expandedRow}>
                     {post.record?.metadata?.orbyt === true && (
                       <View style={styles.expandedPlatformRow}>
-                        <Icon name="device-tv" size={18} color="#FFD600" style={styles.expandedPlatformIcon} />
-                        <Text style={styles.expandedPlatformText}>
+                        <Icon name="device-tv" size={isTabletDevice ? 22 : 18} color="#FFD600" style={styles.expandedPlatformIcon} />
+                        <Text style={isTabletDevice ? styles.expandedPlatformTextTablet : styles.expandedPlatformText}>
                           {post.record?.metadata?.platform || 'Posted via orbyt'}
                         </Text>
                       </View>
                     )}
                     {post.record?.createdAt && (
-                      <Text style={styles.expandedDate}>
+                      <Text style={isTabletDevice ? styles.expandedDateTablet : styles.expandedDate}>
                         {format(new Date(post.record.createdAt), 'MMM d, yyyy, h:mm a')}
                       </Text>
                     )}
@@ -451,18 +456,28 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
             <Image
               source={{ uri: profilePicUrl }}
               style={[
-                isSmallDevice ? styles.profilePictureSmallScreen : styles.profilePicture,
+                isTabletDevice
+                  ? styles.profilePictureTablet
+                  : isSmallDevice
+                    ? styles.profilePictureSmallScreen
+                    : styles.profilePicture,
                 { borderColor: profileColors.foregroundColor }
               ]}
             />
             <View style={styles.authorTextContainer}>
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <Text style={isSmallDevice ? styles.authorNameSmallScreen : styles.authorName}>
+                <Text style={
+                  isTabletDevice
+                    ? styles.authorNameTablet
+                    : isSmallDevice
+                      ? styles.authorNameSmallScreen
+                      : styles.authorName
+                }>
                   {author.displayName || author.handle || 'Unknown'}
                 </Text>
                 {author.handle && <VerificationBadge 
                   handle={author.handle} 
-                  size={14} 
+                  size={isTabletDevice ? 16 : 14} 
                   style={{
                     marginLeft: 4,
                     shadowColor: 'rgba(0, 0, 0, 0.3)',
@@ -473,7 +488,13 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                   textColor={BRAND.SECONDARY}
                 />}
               </View>
-              <Text style={isSmallDevice ? styles.authorHandleSmallScreen : styles.authorHandle}>
+              <Text style={
+                isTabletDevice
+                  ? styles.authorHandleTablet
+                  : isSmallDevice
+                    ? styles.authorHandleSmallScreen
+                    : styles.authorHandle
+              }>
                 @{author.handle || 'unknown'}
               </Text>
             </View>
@@ -482,42 +503,68 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
         
         <View style={styles.actionsContainer}>
           <TouchableOpacity 
-            style={isSmallDevice ? styles.actionButtonSmallScreen : styles.actionButton} 
+            style={
+              isTabletDevice
+                ? styles.actionButtonTablet
+                : isSmallDevice
+                  ? styles.actionButtonSmallScreen
+                  : styles.actionButton
+            } 
             onPress={handleSharePress}
             activeOpacity={0.7}
           >
             <View style={styles.iconContainer}>
-              <Icon name="more-horizontal" size={28} color={BRAND.SECONDARY} />
+              <Icon name="more-horizontal" size={isTabletDevice ? 32 : 28} color={BRAND.SECONDARY} />
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[isSmallDevice ? styles.actionButtonSmallScreen : styles.actionButton, isRepostPending && styles.actionButtonDisabled]} 
+            style={[
+              isTabletDevice
+                ? styles.actionButtonTablet
+                : isSmallDevice
+                  ? styles.actionButtonSmallScreen
+                  : styles.actionButton,
+              isRepostPending && styles.actionButtonDisabled
+            ]} 
             onPress={handleRepost}
             disabled={isRepostPending}
             activeOpacity={0.7}
           >
             {repostIcon}
-            <Text style={styles.actionText}>{formatNumber(repostCount)}</Text>
+            <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(repostCount)}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={isSmallDevice ? styles.actionButtonSmallScreen : styles.actionButton} 
+            style={
+              isTabletDevice
+                ? styles.actionButtonTablet
+                : isSmallDevice
+                  ? styles.actionButtonSmallScreen
+                  : styles.actionButton
+            } 
             onPress={handleCommentPress}
             activeOpacity={0.7}
           >
             {commentIcon}
-            <Text style={styles.actionText}>{formatNumber(post.replyCount || 0)}</Text>
+            <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(post.replyCount || 0)}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[isSmallDevice ? styles.actionButtonSmallScreen : styles.actionButton, isLikePending && styles.actionButtonDisabled]} 
+            style={[
+              isTabletDevice
+                ? styles.actionButtonTablet
+                : isSmallDevice
+                  ? styles.actionButtonSmallScreen
+                  : styles.actionButton,
+              isLikePending && styles.actionButtonDisabled
+            ]} 
             onPress={handleLike}
             disabled={isLikePending}
             activeOpacity={0.7}
           >
             {likeIcon}
-            <Text style={styles.actionText}>{formatNumber(likeCount)}</Text>
+            <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(likeCount)}</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -812,6 +859,82 @@ const styles = StyleSheet.create({
   expandedPlatformText: {
     color: '#FFD600',
     fontSize: 13,
+    fontFamily: 'Firma-SemiBold',
+  },
+  authorNameTablet: {
+    color: BRAND.SECONDARY,
+    fontWeight: 'bold',
+    fontSize: 19, // was 26
+    fontFamily: 'Firma-Black',
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    lineHeight: 25,
+    includeFontPadding: false,
+    flexShrink: 1,
+  },
+  authorHandleTablet: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 16, // was 22
+    fontFamily: 'Firma-SemiBold',
+    textShadowColor: 'rgba(2, 2, 2, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  actionButtonTablet: {
+    alignItems: 'center',
+    marginVertical: 7, // was 10
+    shadowColor: BRAND.PRIMARY,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    width: 40, // was 60
+  },
+  actionTextTablet: {
+    color: BRAND.SECONDARY,
+    fontSize: 15, // was 22
+    marginTop: 3, // was 4
+    textAlign: 'center',
+    width: '100%',
+    minWidth: 45, // was 60
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  iconTablet: {
+    width: 36, // was 48
+    height: 36, // was 48
+    alignSelf: 'center',
+    resizeMode: 'contain',
+  },
+  profilePictureTablet: {
+    width: 54, // was 80
+    height: 54, // was 80
+    borderRadius: 27, // was 40
+    borderWidth: 2,
+    borderColor: PROFILE.DEFAULT_RING,
+  },
+  repostIndicatorTextTablet: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 16, // was 22
+    fontFamily: 'Firma-SemiBold',
+    textShadowColor: 'rgba(2, 2, 2, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    marginLeft: 4,
+  },
+  expandedDateTablet: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 15, // was 20
+    fontFamily: 'Firma-Regular',
+    marginRight: 8,
+    textShadowColor: 'rgba(2, 2, 2, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  expandedPlatformTextTablet: {
+    color: '#FFD600',
+    fontSize: 15, // was 20
     fontFamily: 'Firma-SemiBold',
   },
 });

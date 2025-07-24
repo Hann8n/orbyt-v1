@@ -8,7 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { isSmallScreen } from '../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet } from '../../utils/helpers/screenSize';
 import Icon from './Icon';
 
 interface BottomToolBarProps {
@@ -40,10 +40,11 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({ mode, onToolPress, flashA
   };
 
   const tools = getTools();
+  const isSmallDevice = isSmallScreen() || isTablet();
 
   return (
-    <SafeAreaView style={[styles.safeArea, isSmallScreen() && styles.safeAreaSmall]}>
-      <View style={[styles.container, isSmallScreen() && styles.containerSmall]}>
+    <SafeAreaView style={[styles.safeArea, isSmallDevice && styles.safeAreaSmall]}>
+      <View style={[styles.container, isSmallDevice && styles.containerSmall]}>
         {tools.map((tool) => (
           <TouchableOpacity
             key={tool.id}

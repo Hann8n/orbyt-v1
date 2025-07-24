@@ -15,6 +15,8 @@ import {
   ScrollView,
   SafeAreaView,
   Switch,
+  Modal,
+  FlatList,
 } from 'react-native';
 import Video, { VideoRef } from 'react-native-video';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,7 +24,7 @@ import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, TextOverlay } from '../navigation/types';
-import { BRAND, TEXT, INTERACTIVE } from '../utils/formatting/Colors';
+import { BRAND, TEXT, INTERACTIVE, UI } from '../utils/formatting/Colors';
 import AtprotoService from '../services/api/AtprotoService';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -34,6 +36,9 @@ import ProfileCache from '../services/cache/ProfileCache';
 import Icon from '../components/ui/Icon';
 import VideoProcessingService from '../services/VideoProcessingService';
 import { VideoInfoDisplay } from '../components/ui';
+import * as Device from 'expo-device';
+import { isTablet } from '../utils/helpers/screenSize';
+import AccountManager, { SavedAccount } from '../services/storage/AccountManager';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const VIDEO_WIDTH = SCREEN_WIDTH * 0.4; // Keep the same relative width as before
@@ -121,17 +126,49 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressedVideoPath, setCompressedVideoPath] = useState<string | null>(null);
 
-  // Use ProfileCache hooks for user profile data
+  // Add at the top of VideoPostScreen component:
+  const [accountModalVisible, setAccountModalVisible] = useState(false);
+  const [accounts, setAccounts] = useState<SavedAccount[]>([]);
+  const [activeAccount, setActiveAccount] = useState<SavedAccount | null>(null);
+
+  // Use ProfileCache hooks for user profile data (must be after activeAccount is declared)
   const {
     data: userProfile,
     isLoading: isProfileLoading,
     isError: isProfileError,
-  } = useProfile(userHandle);
+  } = useProfile(activeAccount?.handle || userHandle);
 
-  const { colors: profileColors } = useProfileColors(userHandle);
+  const { colors: profileColors } = useProfileColors(activeAccount?.handle || userHandle);
 
   // Ensure profile data is immediately available from cache to prevent flashing
-  const profileData = userProfile || (userHandle ? ProfileCache.getProfileFromCacheSync(userHandle) : null);
+  const profileData = userProfile || (activeAccount?.handle ? ProfileCache.getProfileFromCacheSync(activeAccount.handle) : (userHandle ? ProfileCache.getProfileFromCacheSync(userHandle) : null));
+
+  // Load accounts on mount
+  useEffect(() => {
+    (async () => {
+      const accs = await AccountManager.getSavedAccounts();
+      setAccounts(accs);
+      const active = await AccountManager.getActiveAccount();
+      setActiveAccount(active);
+    })();
+  }, []);
+
+  // When account switches, update profile
+  const handleSwitchAccount = async (account: SavedAccount) => {
+    await AccountManager.switchAccount(account.id);
+    setActiveAccount(account);
+    setAccountModalVisible(false);
+    // Reload current user profile and update userHandle
+    try {
+      const user = await AtprotoService.getCurrentUser();
+      if (user) {
+        setUserHandle(user.handle);
+        ProfileCache.setCurrentUserDid(user.did);
+      }
+    } catch (error) {
+      console.error('Failed to load profile after switch:', error);
+    }
+  };
 
   useEffect(() => {
     // Load current user profile info using ProfileCache
@@ -230,6 +267,23 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
     }
   };
 
+  // Add a helper to get the Orbyt platform label
+  const getOrbytPlatformLabel = async (): Promise<string> => {
+    if (Platform.OS === 'ios') {
+      const deviceType = await Device.getDeviceTypeAsync();
+      if (deviceType === Device.DeviceType.TABLET) {
+        return 'orbyt for iPad';
+      } else {
+        return 'orbyt for iPhone';
+      }
+    } else if (Platform.OS === 'android') {
+      return 'orbyt for Android';
+    } else if (Platform.OS === 'web') {
+      return 'orbyt for Web';
+    }
+    return 'orbyt';
+  };
+
   const handlePost = async () => {
     if (isPosting) return;
     
@@ -275,9 +329,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
       }, 300);
       
       // Add Orbyt metadata with platform
-      let platformLabel = 'orbyt for iPhone';
-      if (Platform.OS === 'android') platformLabel = 'orbyt for Android';
-      else if (Platform.OS === 'web') platformLabel = 'orbyt for Web';
+      const platformLabel = await getOrbytPlatformLabel();
       const orbytMetadata = { orbyt: true, platform: platformLabel };
       // Use compressed video if available, otherwise use original
       const videoPathToUpload = compressedVideoPath || video.path;
@@ -407,6 +459,377 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
   const containerWidth = VIDEO_WIDTH;
   const containerHeight = containerWidth / aspectRatio;
 
+  // Add orientation state
+  const getOrientation = () => {
+    const { width, height } = Dimensions.get('window');
+    return width > height ? 'landscape' : 'portrait';
+  };
+
+  const [orientation, setOrientation] = useState(getOrientation());
+
+  useEffect(() => {
+    const onChange = ({ window }: { window: { width: number; height: number } }) => {
+      const { width, height } = window;
+      setOrientation(width > height ? 'landscape' : 'portrait');
+    };
+    const sub = Dimensions.addEventListener('change', onChange);
+    return () => sub?.remove();
+  }, []);
+
+  // Layout for landscape mode
+  if (orientation === 'landscape' && isTablet()) {
+    return (
+      <View style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY} />
+        <View style={styles.landscapeContainer}>
+          {/* Left: Info Side */}
+          <View style={styles.landscapeInfoSide}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 0 }]}>
+              <View style={styles.header}>
+                <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
+                  <Icon name="arrow-left" size={32} iconSet="pixelarticons" color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleDownloadToCameraRoll} style={styles.headerButton}>
+                  <Icon name="download" size={32} iconSet="pixelarticons" color="#fff" />
+                </TouchableOpacity>
+              </View>
+              {/* Description Section */}
+              <View style={styles.descriptionSection}>
+                <View style={styles.sectionHeader}>
+                  <TouchableOpacity
+                    style={[styles.userInfoContainer, { flex: 1 }]}
+                    onPress={() => setAccountModalVisible((v) => !v)}
+                    activeOpacity={0.8}
+                  >
+                    <Avatar
+                      uri={activeAccount?.avatar || profileData?.avatar || ''}
+                      type="profile"
+                      size={45}
+                      style={styles.avatar}
+                      ringColor={profileData?.profileColors?.foregroundColor || Colors.PROFILE.DEFAULT_RING}
+                    />
+                    <View style={styles.userTextContainer}>
+                      {isProfileLoading && !profileData ? (
+                        <View style={styles.loadingContainer}>
+                          <ActivityIndicator size="small" color="#fff" />
+                          <Text style={styles.loadingText}>Loading profile...</Text>
+                        </View>
+                      ) : (
+                        <>
+                          <View style={styles.usernameContainer}>
+                            <Text style={styles.username}>
+                              {activeAccount?.displayName || profileData?.displayName || profileData?.handle || 'Username'}
+                            </Text>
+                            {(activeAccount?.handle || profileData?.handle) && (
+                              <VerificationBadge
+                                handle={activeAccount?.handle || profileData?.handle || ''}
+                                size={14}
+                                style={styles.verificationBadge}
+                              />
+                            )}
+                          </View>
+                          {(activeAccount?.handle || profileData?.handle) && (
+                            <Text style={styles.userHandle}>
+                              @{activeAccount?.handle || profileData?.handle}
+                            </Text>
+                          )}
+                        </>
+                      )}
+                    </View>
+                    <Ionicons name={accountModalVisible ? 'chevron-up' : 'chevron-down'} size={24} color="#fff" style={{ marginLeft: 8 }} />
+                  </TouchableOpacity>
+                </View>
+                {/* Dropdown list of accounts, shown if accountModalVisible */}
+                {accountModalVisible && (
+                  <View style={{
+                    backgroundColor: '#181818',
+                    borderRadius: 10,
+                    marginTop: 4,
+                    marginBottom: 12,
+                    borderWidth: 1,
+                    borderColor: UI.BORDER.PRIMARY,
+                    // Remove shadow for consistency
+                    paddingVertical: 0,
+                  }}>
+                    {accounts.map((item, idx) => (
+                      <TouchableOpacity
+                        key={item.id}
+                        onPress={() => handleSwitchAccount(item)}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          paddingVertical: 12,
+                          paddingHorizontal: 16,
+                          opacity: item.id === activeAccount?.id ? 0.5 : 1,
+                          borderBottomWidth: idx !== accounts.length - 1 ? 0.5 : 0,
+                          borderBottomColor: UI.BORDER.PRIMARY,
+                          backgroundColor: 'transparent',
+                        }}
+                        disabled={item.id === activeAccount?.id}
+                      >
+                        <Avatar
+                          uri={item.avatar || ''}
+                          type="profile"
+                          size={40}
+                          style={{ marginRight: 12, borderWidth: 1, borderColor: UI.BORDER.PRIMARY }}
+                        />
+                        <View style={{ flex: 1, justifyContent: 'center' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={{ color: TEXT.PRIMARY, fontSize: 14, fontFamily: 'Firma-SemiBold', marginBottom: 2 }}>
+                              {item.displayName || item.handle}
+                            </Text>
+                            {item.handle && (
+                              <VerificationBadge
+                                handle={item.handle}
+                                size={12}
+                                style={{ marginLeft: 4 }}
+                                textColor={TEXT.PRIMARY }
+                              />
+                            )}
+                          </View>
+                          <Text style={{ color: TEXT.LIGHT_GREY, fontSize: 14, fontFamily: 'Firma-Regular' }}>{`@${item.handle}`}</Text>
+                        </View>
+                        {item.id === activeAccount?.id && (
+                          <Ionicons name="checkmark" size={18} color="#fff" style={{ marginLeft: 8 }} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                <TextInput
+                  style={styles.descriptionInput}
+                  placeholder="Write a description..."
+                  placeholderTextColor="#777"
+                  multiline
+                  maxLength={300}
+                  value={description}
+                  onChangeText={setDescription}
+                />
+                <Text style={styles.charCount}>
+                  {description.length}/300
+                </Text>
+              </View>
+              {/* Content Warnings */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Content Warnings</Text>
+                  <TouchableOpacity onPress={() => setContentWarningsCollapsed(!contentWarningsCollapsed)}>
+                    <Ionicons name={contentWarningsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+                {!contentWarningsCollapsed && (
+                  <>
+                    <Text style={styles.sectionSubtitle}>
+                      Add appropriate warnings if your video contains sensitive content.
+                    </Text>
+                    {CONTENT_WARNINGS.map(warning => (
+                      <TouchableOpacity 
+                        key={warning.id} 
+                        style={styles.optionRow}
+                        onPress={() => toggleContentWarning(warning.id)}
+                      >
+                        <Text style={styles.optionText}>{warning.label}</Text>
+                        <View style={[
+                          styles.checkbox,
+                          selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
+                        ]}>
+                          {selectedContentWarnings.includes(warning.id) && (
+                            <Ionicons name="checkmark" size={16} color="#fff" />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                    <TouchableOpacity 
+                      style={styles.optionRow}
+                      onPress={() => setShowContentWarningInput(!showContentWarningInput)}
+                    >
+                      <Text style={styles.optionText}>Other warning</Text>
+                      <View style={[
+                        styles.checkbox,
+                        showContentWarningInput && styles.checkboxSelected
+                      ]}>
+                        {showContentWarningInput && (
+                          <Ionicons name="checkmark" size={16} color="#fff" />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                    {showContentWarningInput && (
+                      <TextInput
+                        style={styles.otherWarningInput}
+                        placeholder="Specify content warning"
+                        placeholderTextColor="#777"
+                        value={otherWarning}
+                        onChangeText={setOtherWarning}
+                      />
+                    )}
+                  </>
+                )}
+              </View>
+              {/* Comment Filtering */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Comment Settings</Text>
+                  <TouchableOpacity onPress={() => setCommentSettingsCollapsed(!commentSettingsCollapsed)}>
+                    <Ionicons name={commentSettingsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+                {!commentSettingsCollapsed && (
+                  <>
+                    <Text style={styles.sectionSubtitle}>
+                      Control who can comment on your video.
+                    </Text>
+                    {COMMENT_FILTERS.map(filter => (
+                      <TouchableOpacity 
+                        key={filter.id} 
+                        style={styles.optionRow}
+                        onPress={() => setCommentFilter(filter.id)}
+                      >
+                        <Text style={styles.optionText}>{filter.label}</Text>
+                        <View style={styles.radioContainer}>
+                          <Ionicons
+                            name={commentFilter === filter.id ? 'radio-button-on' : 'radio-button-off'}
+                            size={22}
+                            color={commentFilter === filter.id ? BRAND.PRIMARY : '#777'}
+                          />
+                          {commentFilter === filter.id && (
+                            <Ionicons
+                              name="checkmark"
+                              size={16}
+                              color="#fff"
+                              style={styles.radioCheckmark}
+                            />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+              </View>
+              {/* Video Info */}
+              {videoInfo && (
+                <VideoInfoDisplay
+                  videoInfo={videoInfo.originalInfo}
+                />
+              )}
+              {/* Post Button */}
+              <TouchableOpacity 
+                onPress={handlePost} 
+                style={[
+                  styles.landscapePostButton,
+                  isPosting && styles.floatingPostButtonDisabled
+                ]}
+                disabled={isPosting}
+              >
+                {isPosting ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color="#000" />
+                    <Text style={styles.floatingButtonLoadingText}>
+                      {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
+                        uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
+                        'Creating post...'}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.floatingPostButtonText}>
+                    Post
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+          {/* Right: Video Preview Side */}
+          <View style={styles.landscapeVideoSide}>
+            <View style={styles.previewSection}>
+              <TouchableOpacity onPress={handleEditVideo} activeOpacity={0.8} style={[styles.videoContainer, { width: '100%', aspectRatio: aspectRatio, maxHeight: '90%' }]}> 
+                {videoLoading && (
+                  <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: '#111' }]}> 
+                    <ActivityIndicator size="large" color="#fff" />
+                  </View>
+                )}
+                <View style={{ width: '100%', aspectRatio: aspectRatio, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
+                  <Video
+                    ref={videoRef}
+                    source={{ uri: videoUri }}
+                    style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
+                    resizeMode="contain"
+                    paused={!isPlaying}
+                    repeat={true}
+                    muted={true}
+                    volume={videoVolume}
+                    onLoadStart={() => {
+                      setVideoLoading(true);
+                      setVideoError(null);
+                    }}
+                    onLoad={e => {
+                      setVideoLoading(false);
+                      if (e?.naturalSize?.width && e?.naturalSize?.height) {
+                        setVideoDimensions({ width: e.naturalSize.width, height: e.naturalSize.height });
+                      }
+                      if (currentTime > 0 && videoRef.current && videoRef.current.seek) {
+                        videoRef.current.seek(currentTime);
+                      }
+                    }}
+                    onProgress={status => {
+                      if (status?.currentTime !== undefined) {
+                        setCurrentTime(status.currentTime);
+                      }
+                    }}
+                    onError={e => {
+                      setVideoLoading(false);
+                      setVideoError('Failed to load video');
+                    }}
+                  />
+                </View>
+                {videoError && (
+                  <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 3, backgroundColor: '#111' }]}> 
+                    <Text style={{ color: '#fff', fontSize: 16 }}>{videoError}</Text>
+                  </View>
+                )}
+                {!videoLoading && !videoError && textOverlays && textOverlays.length > 0 && textOverlays.map((overlay: TextOverlay) => (
+                  <View
+                    key={overlay.id}
+                    style={[
+                      styles.textOverlayContainer,
+                      {
+                        left: overlay.position.x,
+                        top: overlay.position.y,
+                        transform: [{ scale: overlay.scale }]
+                      }
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.textOverlay,
+                        { 
+                          fontFamily: overlay.fontFamily,
+                          color: overlay.color
+                        }
+                      ]}
+                    >
+                      {overlay.text}
+                    </Text>
+                  </View>
+                ))}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+        {/* Video Preview Modal (unchanged) */}
+        <VideoPreviewModal
+          visible={showPreviewModal}
+          onClose={handleClosePreviewModal}
+          videoPath={video.path}
+          description={description}
+          userProfile={profileData}
+          initialTime={currentTime}
+          initialIsPlaying={isPlaying}
+        />
+      </View>
+    );
+  }
+
+  // ... existing portrait layout ...
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY} />
@@ -418,6 +841,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
           <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
             <Icon name="arrow-left" size={32} iconSet="pixelarticons" color="#fff" />
           </TouchableOpacity>
+          {/* Remove the account avatar/user icon button here */}
           <TouchableOpacity onPress={handleDownloadToCameraRoll} style={styles.headerButton}>
             <Icon name="download" size={32} iconSet="pixelarticons" color="#fff" />
           </TouchableOpacity>
@@ -505,44 +929,84 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
           
           {/* Description Section */}
           <View style={styles.descriptionSection}>
-            <View style={styles.userInfoContainer}>
-              <Avatar
-                uri={profileData?.avatar}
-                type="profile"
-                size={45}
-                style={styles.avatar}
-                ringColor={profileData?.profileColors?.foregroundColor || Colors.PROFILE.DEFAULT_RING}
-              />
-              <View style={styles.userTextContainer}>
-                {isProfileLoading && !profileData ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#fff" />
-                    <Text style={styles.loadingText}>Loading profile...</Text>
-                  </View>
-                ) : (
-                  <>
-                    <View style={styles.usernameContainer}>
-                      <Text style={styles.username}>
-                        {profileData?.displayName || profileData?.handle || 'Username'}
-                      </Text>
-                      {profileData?.handle && (
-                        <VerificationBadge
-                          handle={profileData.handle}
-                          size={14}
-                          style={styles.verificationBadge}
-                        />
-                      )}
+            <View style={styles.sectionHeader}>
+              <TouchableOpacity
+                style={[styles.userInfoContainer, { flex: 1 }]}
+                onPress={() => setAccountModalVisible((v) => !v)}
+                activeOpacity={0.8}
+              >
+                <Avatar
+                  uri={activeAccount?.avatar || profileData?.avatar || ''}
+                  type="profile"
+                  size={45}
+                  style={styles.avatar}
+                  ringColor={profileData?.profileColors?.foregroundColor || Colors.PROFILE.DEFAULT_RING}
+                />
+                <View style={styles.userTextContainer}>
+                  {isProfileLoading && !profileData ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator size="small" color="#fff" />
+                      <Text style={styles.loadingText}>Loading profile...</Text>
                     </View>
-                    {profileData?.handle && (
-                      <Text style={styles.userHandle}>
-                        @{profileData.handle}
-                      </Text>
-                    )}
-                  </>
-                )}
-              </View>
+                  ) : (
+                    <>
+                      <View style={styles.usernameContainer}>
+                        <Text style={styles.username}>
+                          {activeAccount?.displayName || profileData?.displayName || profileData?.handle || 'Username'}
+                        </Text>
+                        {(activeAccount?.handle || profileData?.handle) && (
+                          <VerificationBadge
+                            handle={activeAccount?.handle || profileData?.handle || ''}
+                            size={14}
+                            style={styles.verificationBadge}
+                          />
+                        )}
+                      </View>
+                      {(activeAccount?.handle || profileData?.handle) && (
+                        <Text style={styles.userHandle}>
+                          @{activeAccount?.handle || profileData?.handle}
+                        </Text>
+                      )}
+                    </>
+                  )}
+                </View>
+                <Ionicons name={accountModalVisible ? 'chevron-up' : 'chevron-down'} size={24} color="#fff" style={{ marginLeft: 8 }} />
+              </TouchableOpacity>
             </View>
-
+            {/* Dropdown list of accounts, shown if accountModalVisible */}
+            {accountModalVisible && (
+              <View style={{ backgroundColor: '#181818', borderRadius: 10, marginTop: 12, marginBottom: 12, borderWidth: 1, borderColor: UI.BORDER.PRIMARY, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 }}>
+                {accounts.map((item, idx) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    onPress={() => handleSwitchAccount(item)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                      opacity: item.id === activeAccount?.id ? 0.5 : 1,
+                      borderBottomWidth: idx !== accounts.length - 1 ? 1 : 0,
+                      borderBottomColor: '#222',
+                    }}
+                    disabled={item.id === activeAccount?.id}
+                  >
+                    {item.avatar ? (
+                      <Image source={{ uri: item.avatar }} style={{ width: 32, height: 32, borderRadius: 16, marginRight: 14 }} />
+                    ) : (
+                      <Icon name="user" size={28} iconSet="pixelarticons" color="#fff" style={{ marginRight: 14 }} />
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#fff', fontSize: 16 }}>{item.displayName || item.handle}</Text>
+                      <Text style={{ color: '#aaa', fontSize: 13 }}>{`@${item.handle}`}</Text>
+                    </View>
+                    {item.id === activeAccount?.id && (
+                      <Ionicons name="checkmark" size={18} color="#fff" style={{ marginLeft: 8 }} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
             <TextInput
               style={styles.descriptionInput}
               placeholder="Write a description..."
@@ -660,13 +1124,6 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
           {videoInfo && (
             <VideoInfoDisplay
               videoInfo={videoInfo.originalInfo}
-              showCompressionStatus={true}
-              needsCompression={videoSizeInfo?.needsCompression || false}
-              recommendedLevel={videoInfo.recommendedLevel}
-              compressionStats={compressionStats || undefined}
-              compressionOptions={videoInfo.compressionOptions}
-              isCompressing={isCompressing}
-              onCompressPress={compressVideo}
             />
           )}
           
@@ -702,16 +1159,16 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
       {/* Video Preview Modal */}
       <VideoPreviewModal
         visible={showPreviewModal}
-        onClose={(modalCurrentTime, modalIsPlaying) => handleClosePreviewModal(modalCurrentTime, modalIsPlaying)}
+        onClose={handleClosePreviewModal}
         videoPath={video.path}
         description={description}
         userProfile={profileData}
-        textOverlays={textOverlays}
-        contentWarnings={selectedContentWarnings}
-        commentFilter={commentFilter}
         initialTime={currentTime}
         initialIsPlaying={isPlaying}
       />
+
+      {/* Account Switcher Modal */}
+      {/* This Modal is removed as per the edit hint to remove the account switcher from the header */}
     </SafeAreaView>
   );
 };
@@ -760,7 +1217,10 @@ const styles = StyleSheet.create({
     paddingBottom: 50,
   },
   previewSection: {
-    paddingVertical: 15,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 0,
   },
   videoContainer: {
     backgroundColor: '#111',
@@ -852,7 +1312,7 @@ const styles = StyleSheet.create({
   userInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 4,
   },
   avatar: {
     marginRight: 12,
@@ -1027,6 +1487,42 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 3,
     left: 3,
+  },
+  landscapeContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#000',
+  },
+  landscapeInfoSide: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#000',
+    justifyContent: 'flex-start',
+    minWidth: 0,
+  },
+  landscapeInfoScroll: {
+    paddingBottom: 40,
+  },
+  landscapeVideoSide: {
+    flex: 1,
+    backgroundColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 0,
+    padding: 0,
+  },
+  landscapePostButton: {
+    marginTop: 24,
+    backgroundColor: '#fff',
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
 
 });

@@ -1712,7 +1712,7 @@ class AtprotoService {
    * @param limit - Number of results to return
    * @returns Array of feed generator objects
    */
-  static async searchPopularFeeds(query: string, limit: number = 15): Promise<any[]> {
+  static async searchPopularFeeds(query: string, limit: number = 5): Promise<any[]> {
     await this.ensureSession();
     try {
       const response = await this.agent.api.app.bsky.unspecced.getPopularFeedGenerators({

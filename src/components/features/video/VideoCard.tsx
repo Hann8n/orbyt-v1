@@ -24,7 +24,7 @@ import VideoPreloadManager from '../../../services/VideoPreloadManager';
 import { useIsFocused, useNavigationState } from '@react-navigation/native';
 import WatchHistory from '../../../services/WatchHistory';
 import { extractVideoUrl } from '../../../utils/helpers/video';
-import { isSmallScreen, getVideoCardHeight } from '../../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet, getVideoCardHeight } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import Icon from '../../ui/Icon';
 
@@ -70,6 +70,7 @@ export interface VideoCardRef {
   seek: (fraction: number) => Promise<void>;
   getCurrentTime: () => number;
   setDimLevel: (level: number) => void;
+  getPlayState: () => boolean;
 }
 
 type ExtendedVideoPlayer = VideoPlayer & {
@@ -346,16 +347,16 @@ const CachedVideoCard = forwardRef<VideoCardRef, CachedVideoCardProps>(
         }
       },
       unload: () => {
-        if (!playerRef.current) return;
-        playerRef.current._hasBeenDestroyed = true;
-        safePause(playerRef.current);
-        playerRef.current = null;
+        if (playerRef.current) {
+          playerRef.current._hasBeenDestroyed = true;
+          safePause(playerRef.current);
+          playerRef.current = null;
+        }
         setIsPlayerValid(false);
         preloadCompleteRef.current = false;
       },
       getProgress: () => progress,
       getDuration: () => duration,
-      getCurrentTime: () => currentPosition,
       seek: async (fraction: number) => {
         if (playerRef.current && isValidPlayer(playerRef.current) && duration > 0) {
           const newPosition = Math.max(0, Math.min(fraction * duration, duration));
@@ -371,8 +372,13 @@ const CachedVideoCard = forwardRef<VideoCardRef, CachedVideoCardProps>(
         }
         return Promise.resolve();
       },
+      getCurrentTime: () => currentPosition,
       setDimLevel: (level: number) => {
         setCustomDimLevel(level);
+      },
+      // Add getPlayState for preview modal
+      getPlayState: () => {
+        return !userPaused;
       },
     }));
 
@@ -493,9 +499,9 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
   ({ post, isVisible, onVideoStatus, shouldCache, height, moderationDecision, shouldDisablePlayback }, ref) => {
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
     const insets = useSafeAreaInsets();
-    const isSmallDevice = isSmallScreen();
+    const isSmallDevice = isSmallScreen() || isTablet();
     
-    const cardHeight = height || getVideoCardHeight(insets);
+    const cardHeight = isSmallDevice ? screenHeight : getVideoCardHeight(insets);
     const cardWidth = screenWidth;
 
     const containerStyle = {

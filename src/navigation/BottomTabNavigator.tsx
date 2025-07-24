@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Image, Platform, Dimensions, TouchableOpacity, Alert } from 'react-native';
+import { View, Image, Platform, Dimensions, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,7 +14,7 @@ import NotificationScreen from '../screens/NotificationScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ChannelScreen from '../screens/ChannelScreen';
 import Icon from '../components/ui/Icon';
-import { isSmallScreen, getBottomNavBarHeight } from '../utils/helpers/screenSize';
+import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../utils/helpers/screenSize';
 import * as ImagePicker from 'expo-image-picker';
 import VideoProcessingService from '../services/VideoProcessingService';
 import * as FileSystem from 'expo-file-system';
@@ -123,7 +123,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
   const [currentTab, setCurrentTab] = useState('Home');
   const [isOnStackedScreen, setIsOnStackedScreen] = useState(false);
   const insets = useSafeAreaInsets();
-  const isSmallDevice = isSmallScreen();
+  const isSmallDevice = isSmallScreen() || isTablet();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   
 
@@ -156,8 +156,10 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
 
   // Custom tab bar button for capture
   const CaptureTabButton = ({ children }: { children: React.ReactNode }) => {
+    const [isPreparing, setIsPreparing] = useState(false);
     const handleGalleryPick = async () => {
       try {
+        setIsPreparing(true);
         // Open gallery for video selection
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: 'videos',
@@ -165,10 +167,12 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
           videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
         });
         if (result.canceled || !result.assets || result.assets.length === 0) {
+          setIsPreparing(false);
           return; // User cancelled
         }
         const asset = result.assets[0];
         if (!asset.uri) {
+          setIsPreparing(false);
           Alert.alert('Error', 'No video selected.');
           return;
         }
@@ -180,6 +184,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
         // Check file existence before proceeding
         const fileInfo = await FileSystem.getInfoAsync(videoPath);
         if (!fileInfo.exists) {
+          setIsPreparing(false);
           Alert.alert('Error', 'Selected video file does not exist or is not accessible.');
           return;
         }
@@ -193,8 +198,10 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
           width: asset.width || 0,
           height: asset.height || 0,
         };
+        setIsPreparing(false);
         navigation.navigate('VideoPost', { video: videoFile });
       } catch (e) {
+        setIsPreparing(false);
         console.error('Error picking video from gallery:', e);
         Alert.alert('Error', 'Failed to access gallery. Please try again.');
       }
@@ -217,8 +224,24 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
             shadowRadius: 0,
             elevation: 0,
           }}
+          disabled={isPreparing}
         >
           <Image source={require('../assets/CaptureButton_Normal.png')} style={{ width: 40, height: 40, resizeMode: 'contain' }} />
+          {isPreparing && (
+            <View style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              right: 0,
+              bottom: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0,0,0,0.25)',
+              borderRadius: 24,
+            }}>
+              <ActivityIndicator size="small" color="#fff" />
+            </View>
+          )}
         </TouchableOpacity>
       </View>
     );

@@ -24,11 +24,19 @@ const Icon: React.FC<IconProps> = ({
 }) => {
   try {
     const icons = iconSet === 'streamline-pixel' ? streamlinePixel : pixelarticons;
-    const iconData = icons.icons[name];
-    
+    let iconData = icons.icons[name];
+    let usedName = name;
     if (!iconData) {
+      // Log a warning and stack trace
       console.warn(`Icon not found: ${name} in ${iconSet}`);
-      return null;
+      console.trace();
+      // Try to use a fallback icon
+      usedName = 'question-mark';
+      iconData = icons.icons[usedName];
+      if (!iconData) {
+        // If fallback also not found, return null
+        return null;
+      }
     }
 
     const svgXml = `
