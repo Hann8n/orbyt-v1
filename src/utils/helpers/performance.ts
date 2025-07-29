@@ -5,17 +5,22 @@ interface PerformanceMetrics {
   itemCount: number;
   feedType: string;
   timestamp: number;
+  isVideoVisible?: boolean;
+  scrollPerformance?: number;
+  videoLoadTime?: number;
 }
 
 class PerformanceMonitor {
   private static metrics: PerformanceMetrics[] = [];
   private static isEnabled = __DEV__; // Only enable in development
+  private static scrollStartTime: number = 0;
+  private static videoLoadTimes: Map<string, number> = new Map();
 
   static startTimer(): number {
     return Date.now();
   }
 
-  static endTimer(startTime: number, itemCount: number, feedType: string): void {
+  static endTimer(startTime: number, itemCount: number, feedType: string, isVideoVisible?: boolean): void {
     if (!this.isEnabled) return;
 
     const renderTime = Date.now() - startTime;
@@ -23,7 +28,8 @@ class PerformanceMonitor {
       renderTime,
       itemCount,
       feedType,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      isVideoVisible
     };
 
     this.metrics.push(metric);
@@ -39,6 +45,44 @@ class PerformanceMonitor {
     }
   }
 
+  static startScrollTimer(): void {
+    if (!this.isEnabled) return;
+    this.scrollStartTime = Date.now();
+  }
+
+  static endScrollTimer(): number {
+    if (!this.isEnabled) return 0;
+    const scrollTime = Date.now() - this.scrollStartTime;
+    
+    // Log slow scroll events
+    if (scrollTime > 16) { // 60fps = 16ms per frame
+      console.warn(`Slow scroll event: ${scrollTime}ms`);
+    }
+    
+    return scrollTime;
+  }
+
+  static startVideoLoadTimer(videoUri: string): void {
+    if (!this.isEnabled) return;
+    this.videoLoadTimes.set(videoUri, Date.now());
+  }
+
+  static endVideoLoadTimer(videoUri: string): number {
+    if (!this.isEnabled) return 0;
+    const startTime = this.videoLoadTimes.get(videoUri);
+    if (!startTime) return 0;
+    
+    const loadTime = Date.now() - startTime;
+    this.videoLoadTimes.delete(videoUri);
+    
+    // Log slow video loads
+    if (loadTime > 2000) {
+      console.warn(`Slow video load: ${loadTime}ms for ${videoUri}`);
+    }
+    
+    return loadTime;
+  }
+
   static getAverageRenderTime(feedType?: string): number {
     if (this.metrics.length === 0) return 0;
 
@@ -52,12 +96,48 @@ class PerformanceMonitor {
     return totalTime / filteredMetrics.length;
   }
 
+  static getAverageScrollPerformance(): number {
+    if (this.metrics.length === 0) return 0;
+
+    const scrollMetrics = this.metrics.filter(m => m.scrollPerformance !== undefined);
+    if (scrollMetrics.length === 0) return 0;
+
+    const totalTime = scrollMetrics.reduce((sum, m) => sum + (m.scrollPerformance || 0), 0);
+    return totalTime / scrollMetrics.length;
+  }
+
+  static getAverageVideoLoadTime(): number {
+    if (this.metrics.length === 0) return 0;
+
+    const videoMetrics = this.metrics.filter(m => m.videoLoadTime !== undefined);
+    if (videoMetrics.length === 0) return 0;
+
+    const totalTime = videoMetrics.reduce((sum, m) => sum + (m.videoLoadTime || 0), 0);
+    return totalTime / videoMetrics.length;
+  }
+
   static clearMetrics(): void {
     this.metrics = [];
+    this.videoLoadTimes.clear();
   }
 
   static getMetrics(): PerformanceMetrics[] {
     return [...this.metrics];
+  }
+
+  static logPerformanceSummary(): void {
+    if (!this.isEnabled) return;
+    
+    const avgRenderTime = this.getAverageRenderTime();
+    const avgScrollPerformance = this.getAverageScrollPerformance();
+    const avgVideoLoadTime = this.getAverageVideoLoadTime();
+    
+    console.log('Performance Summary:', {
+      avgRenderTime: `${avgRenderTime.toFixed(2)}ms`,
+      avgScrollPerformance: `${avgScrollPerformance.toFixed(2)}ms`,
+      avgVideoLoadTime: `${avgVideoLoadTime.toFixed(2)}ms`,
+      totalMetrics: this.metrics.length
+    });
   }
 }
 

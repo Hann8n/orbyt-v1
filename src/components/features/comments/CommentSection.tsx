@@ -206,9 +206,8 @@ const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => (
         {like.actor.handle && (
           <VerificationBadge
             handle={like.actor.handle}
-            size={12}
-            style={{ marginLeft: 4 }}
-            textColor="#fff"
+            textSize={14}
+            textColor="#FFFFFF"
           />
         )}
       </View>
@@ -646,9 +645,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                 {authorHandle && (
                   <VerificationBadge
                     handle={authorHandle}
-                    size={12}
-                    style={{ marginLeft: 4 }}
-                    textColor="#fff"
+                    textSize={14}
+                    textColor="#FFFFFF"
                   />
                 )}
               </View>
@@ -953,7 +951,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             tabs={tabOptions}
             activeTab={activeTab}
             onTabPress={handleTabPress as any}
-            textColor="#fff"
+                                textColor="#FFFFFF"
             backgroundColor="transparent"
             style={{ marginBottom: 0, paddingVertical: 0, marginTop: 0 }}
             // @ts-ignore: Override tab text size via style

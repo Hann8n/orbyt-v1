@@ -7,7 +7,7 @@ import Animated, {
   useSharedValue, 
   SharedValue 
 } from 'react-native-reanimated';
-import { extractVideoEmbedAndUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
+import { extractVideoEmbedAndUrl } from '../../../utils/helpers/video';
 import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 
@@ -34,6 +34,7 @@ export interface MemoizedVideoItemProps {
   feedOption?: 'yourMix' | 'following' | 'discover';
   isVisible?: boolean;
   moderationDecision?: ModerationDecision;
+  onScrubbingChange?: (isScrubbing: boolean) => void;
 }
 
 // Memoized video extraction to avoid repeated calculations
@@ -75,6 +76,7 @@ const VideoItem: React.FC<MemoizedVideoItemProps & { isModal?: boolean }> = ({
   isVisible = false,
   moderationDecision,
   isModal = false,
+  onScrubbingChange,
 }) => {
   const videoRef = useRef<VideoCardRef>(null) as React.RefObject<VideoCardRef>;
 
@@ -84,10 +86,11 @@ const VideoItem: React.FC<MemoizedVideoItemProps & { isModal?: boolean }> = ({
 
   const isSmallDevice = isSmallScreen() || isTablet();
   const itemHeight = height || SCREEN_HEIGHT;
+  const isFullScreenCard = itemHeight >= SCREEN_HEIGHT - 1; // allow for rounding
+  const progressBarAtCardBottom = isModal || (!isSmallDevice && !isFullScreenCard);
 
   // Use memoized video data
   const { videoEmbed, videoUrl, hasVideo } = useVideoData(post);
-  const thumbnailUrl = extractVideoThumbnail(post.embed);
 
   // Use memoized styles
   const { container: containerStyle, overlay: overlayContainerStyle } = useMemoizedStyles(itemHeight, isSmallDevice);
@@ -97,23 +100,15 @@ const VideoItem: React.FC<MemoizedVideoItemProps & { isModal?: boolean }> = ({
     return null;
   }
 
-  // Memoize video status handler
+  // Memoize video status handler - optimized to prevent blocking scroll
   const handleVideoStatusChange = useCallback((uri: string, status: string) => {
     if (handleVideoStatus) {
-      handleVideoStatus(uri, status);
+      // Use requestAnimationFrame to prevent blocking scroll events
+      requestAnimationFrame(() => {
+        handleVideoStatus(uri, status);
+      });
     }
   }, [handleVideoStatus]);
-
-  // Control video playback
-  useEffect(() => {
-    if (!videoRef.current) return;
-    
-    if (!isVisible) {
-      videoRef.current?.playPause(false);
-    } else {
-      videoRef.current?.playPause(true);
-    }
-  }, [isVisible]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -124,29 +119,38 @@ const VideoItem: React.FC<MemoizedVideoItemProps & { isModal?: boolean }> = ({
     };
   }, []);
 
+  // Memoize props for VideoOverlay to prevent unnecessary re-renders
+  const memoizedPost = useMemo(() => post, [post]);
+  const memoizedFeedOption = useMemo(() => feedOption, [feedOption]);
+  // videoRef is already stable as a ref
+
   return (
     <View style={containerStyle}>
       <VideoCard
         ref={videoRef}
         post={{ ...post, embed: videoEmbed }}
         isVisible={isVisible}
+        shouldPreload={shouldPreload}
         shouldCache={true}
         onVideoStatus={handleVideoStatusChange}
         height={itemHeight}
         moderationDecision={moderationDecision}
-        thumbnailUrl={thumbnailUrl || undefined}
       />
       <View style={overlayContainerStyle}>
         <VideoOverlay 
-          post={post} 
-          isVisible={isVisible} 
-          scrollY={scrollY} 
+          post={memoizedPost}
+          isVisible={isVisible}
+          scrollY={scrollY}
           prefetchProfile={shouldPreload || isVisible}
           videoRef={videoRef as React.RefObject<VideoCardRef>}
-          feedOption={feedOption}
+          feedOption={memoizedFeedOption}
           isModal={isModal}
+          onScrubbingChange={onScrubbingChange}
+          progressBarAtCardBottom={progressBarAtCardBottom}
         />
       </View>
+      
+
     </View>
   );
 };
@@ -171,27 +175,34 @@ const styles = StyleSheet.create({
     // For small screens, overlay extends to full screen
     bottom: 0,
   },
+
 });
 
 // Optimized memo comparison with deep equality for critical props
 const MemoizedVideoItem = React.memo(
   VideoItem,
   (prevProps, nextProps) => {
-    // Deep comparison for post object
+    // Deep comparison for post object - optimized for performance
     const prevPost = prevProps.post;
     const nextPost = nextProps.post;
     
+    // Quick URI check first (most common change)
     if (prevPost.uri !== nextPost.uri) return false;
+    
+    // Only check other post properties if URI is the same
     if (prevPost.embed !== nextPost.embed) return false;
     if (prevPost.author?.handle !== nextPost.author?.handle) return false;
     if (prevPost.author?.displayName !== nextPost.author?.displayName) return false;
     if (prevPost.author?.avatar !== nextPost.author?.avatar) return false;
     
-    // Compare other critical props
+    // Compare other critical props - optimized order (most likely to change first)
     if (prevProps.isVisible !== nextProps.isVisible) return false;
+    if (prevProps.isPlaying !== nextProps.isPlaying) return false;
     if (prevProps.height !== nextProps.height) return false;
     if (prevProps.feedOption !== nextProps.feedOption) return false;
     if (prevProps.moderationDecision?.blur !== nextProps.moderationDecision?.blur) return false;
+    if (prevProps.shouldPreload !== nextProps.shouldPreload) return false;
+    if (prevProps.isModal !== nextProps.isModal) return false;
     
     return true;
   }

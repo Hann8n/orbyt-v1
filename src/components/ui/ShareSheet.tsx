@@ -9,11 +9,14 @@ import {
   Share,
   Platform,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import Icon from './Icon';
 import AtprotoService from '../../services/api/AtprotoService';
 import ProfileCache from '../../services/cache/ProfileCache';
+import { useClearView } from '../../services/ClearViewContext';
+import { isSmallScreen, isTablet } from '../../utils/helpers/screenSize';
 
 interface ShareSheetProps {
   visible: boolean;
@@ -27,6 +30,8 @@ interface ShareSheetProps {
 // Map to store feedback state by post URI
 const feedbackStateMap = new Map<string, string>();
 
+
+
 const ShareSheet: React.FC<ShareSheetProps> = ({ 
   visible, 
   onDismiss, 
@@ -36,6 +41,9 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   feedOption
 }) => {
   const queryClient = useQueryClient();
+  const { isClearViewMode, toggleClearViewMode } = useClearView();
+  const isSmallDevice = isSmallScreen() || isTablet();
+  const SCREEN_WIDTH = Dimensions.get('window').width;
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [feedbackSent, setFeedbackSent] = useState<string | null>(null);
   const [isBlocked, setIsBlocked] = useState<boolean>(false);
@@ -344,6 +352,65 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     }
   }, [postUri, onDismiss]);
 
+  // Get menu options based on current state
+  const getMenuOptions = () => {
+    const options = [
+      {
+        id: 'share',
+        label: 'Share',
+        icon: 'link',
+        onPress: handleShare,
+        color: '#fff'
+      }
+    ];
+
+    // Add Clear View option for small devices (only when not in clear view mode)
+    if (isSmallDevice && !isClearViewMode) {
+      options.push({
+        id: 'clearView',
+        label: 'Clear View',
+        icon: 'eye',
+        onPress: async () => toggleClearViewMode(),
+        color: '#fff'
+      });
+    }
+
+    // Add Block/Mute option
+    options.push({
+      id: 'block',
+      label: isCurrentUser ? 'Mute' : (isBlocked ? 'Unblock' : 'Block'),
+      icon: isCurrentUser ? 'message-minus' : 'user-x',
+      onPress: handleBlockToggle,
+      color: '#fff'
+    });
+
+    // Add Report/Delete option
+    options.push({
+      id: 'report',
+      label: isCurrentUser ? 'Delete' : 'Report',
+      icon: isCurrentUser ? 'trash' : 'warning-box',
+      onPress: async () => handleReportOrDelete(),
+      color: isCurrentUser ? '#000' : '#000',
+      buttonColor: isCurrentUser ? '#FE4359' : '#FE4359'
+    } as any);
+
+    return options;
+  };
+
+  const menuOptions = getMenuOptions();
+
+  // Calculate dynamic spacing based on screen width and number of options
+  const calculateSpacing = () => {
+    const optionWidth = 64; // Width of each option button
+    const totalOptionsWidth = menuOptions.length * optionWidth;
+    const availableWidth = SCREEN_WIDTH - 60; // Account for horizontal padding
+    const remainingSpace = availableWidth - totalOptionsWidth;
+    const spacing = Math.max(20, remainingSpace / (menuOptions.length + 1)); // Minimum 20px spacing
+    return spacing;
+  };
+
+  const dynamicSpacing = calculateSpacing();
+
   // Backdrop component
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -356,6 +423,11 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     ),
     []
   );
+
+  // Don't render the sheet if in clear view mode on small devices
+  if (isSmallDevice && isClearViewMode) {
+    return null;
+  }
 
   return (
     <BottomSheetModal
@@ -423,54 +495,27 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
         )}
         
         {/* Options */}
-        <View style={styles.optionsContainer}>
-          <View style={styles.optionWrapper}>
-            <TouchableOpacity 
-              style={[styles.option]} 
-              onPress={handleShare}
-              activeOpacity={0.7}
-              disabled={isSubmitting}
-            >
-              <Icon name="link" size={32} color="white" />
-            </TouchableOpacity>
-            <Text style={styles.optionText}>Share</Text>
-          </View>
-
-          <View style={styles.optionWrapper}>
-            <TouchableOpacity 
-              style={[styles.option]} 
-              onPress={handleBlockToggle}
-              activeOpacity={0.7}
-              disabled={isSubmitting}
-            >
-              {isCurrentUser ? (
-                <Icon name="message-minus" size={32} color="white" />
-              ) : (
-                <Icon name="user-x" size={32} color="white" />
-              )}
-            </TouchableOpacity>
-            <Text style={styles.optionText}>
-              {isCurrentUser ? 'Mute' : (isBlocked ? 'Unblock' : 'Block')}
-            </Text>
-          </View>
-
-          <View style={styles.optionWrapper}>
-            <TouchableOpacity 
-              style={[styles.option, styles.reportOption]} 
-              onPress={handleReportOrDelete}
-              activeOpacity={0.7}
-              disabled={isSubmitting}
-            >
-              {isCurrentUser ? (
-                <Icon name="trash" size={32} color="#000000" />
-              ) : (
-                <Icon name="warning-box" size={37} color="#000000" />
-              )}
-            </TouchableOpacity>
-            <Text style={styles.optionText}>
-              {isCurrentUser ? 'Delete' : 'Report'}
-            </Text>
-          </View>
+        <View style={[styles.optionsContainer, { gap: dynamicSpacing }]}>
+          {menuOptions.map((option) => (
+            <View key={option.id} style={styles.optionWrapper}>
+                              <TouchableOpacity 
+                  style={[
+                    styles.option,
+                    (option as any).buttonColor ? { backgroundColor: (option as any).buttonColor } : null
+                  ]} 
+                  onPress={option.onPress}
+                  activeOpacity={0.7}
+                  disabled={isSubmitting}
+                >
+                <Icon 
+                  name={option.icon} 
+                  size={32} 
+                  color={option.color} 
+                />
+              </TouchableOpacity>
+              <Text style={styles.optionText}>{option.label}</Text>
+            </View>
+          ))}
         </View>
         <View style={styles.cancelContainer}>
           <TouchableOpacity 
@@ -547,7 +592,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'flex-start',
-    gap: 60,
     marginTop: 0,
   },
   optionWrapper: {
@@ -566,6 +610,10 @@ const styles = StyleSheet.create({
   },
   reportOption: {
     backgroundColor: '#FE4359',
+  },
+  clearViewOptionActive: {
+    backgroundColor: '#fff',
+    borderColor: '#fff',
   },
   cancelContainer: {
     alignItems: 'center',

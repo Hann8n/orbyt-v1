@@ -176,7 +176,7 @@ export function UserSearchModal({
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Text style={styles.displayName}>{item.displayName || item.handle}</Text>
                     {item.handle && (
-                      <VerificationBadge handle={item.handle} size={12} style={{ marginLeft: 4 }} textColor="#fff" />
+                      <VerificationBadge handle={item.handle} textSize={14} textColor="#FFFFFF" />
                     )}
                   </View>
                   <Text style={styles.handle}>@{item.handle}</Text>

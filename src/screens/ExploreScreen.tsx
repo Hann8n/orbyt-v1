@@ -621,9 +621,9 @@ const ExploreScreen: React.FC = () => {
                   {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
                     <VerificationBadge 
                       handle={profile.handle.trim()} 
-                      size={12} 
-                      style={{marginLeft: 4}}
+                      textSize={16} 
                       textColor={TEXT.PRIMARY}
+                      style={{ marginLeft: 4, marginTop: 0 }}
                     />
                   )}
                 </View>

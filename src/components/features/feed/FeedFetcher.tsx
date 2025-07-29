@@ -37,6 +37,7 @@ interface FeedFetcherProps {
   onVerticalScroll?: (scrollY: number) => void;
   isRefreshing?: boolean;
   isModal?: boolean;
+  onScrubbingChange?: (isScrubbing: boolean) => void;
 }
 
 // Add FeedFetcherDebugPanel component
@@ -87,6 +88,7 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
   onVerticalScroll,
   isRefreshing = false,
   isModal = false,
+  onScrubbingChange,
 }) => {
   const insets = useSafeAreaInsets();
   const lastPrefetchedFeedLength = useRef(0);
@@ -265,6 +267,7 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
         isProfileLoading={isProfileLoading}
         onVisibleChange={handleVisibleChange}
         isModal={isModal}
+        onScrubbingChange={onScrubbingChange}
       />
     </View>
   );

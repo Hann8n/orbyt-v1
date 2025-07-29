@@ -11,9 +11,10 @@ import {
   NativeScrollEvent,
   Text,
   ScaledSize,
+  TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSharedValue, SharedValue } from 'react-native-reanimated';
+import { useSharedValue, SharedValue, runOnJS } from 'react-native-reanimated';
 import EmptyFeed from './EmptyFeed';
 import MemoizedVideoItem from './MemoizedVideoItem';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
@@ -23,6 +24,8 @@ import GridFeedView from './GridFeedView';
 import { isSmallScreen, isTablet, getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import PerformanceMonitor from '../../../utils/helpers/performance';
+import Icon from '../../ui/Icon';
+import { useClearView } from '../../../services/ClearViewContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -89,6 +92,7 @@ interface ListFeedViewProps {
   isRefreshing?: boolean;
   isProfileLoading?: boolean;
   onVisibleChange?: (index: number, video: string | null) => void;
+  onScrubbingChange?: (isScrubbing: boolean) => void;
 }
 
 // Constants for video preloading - optimized for faster visibility
@@ -132,13 +136,25 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   isRefreshing = false,
   isProfileLoading = false,
   onVisibleChange,
+  onScrubbingChange,
 }) => {
+  const { isClearViewMode, toggleClearViewMode, setClearViewMode } = useClearView();
+  const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
   
   // Clear feed when refreshing
   const displayFeed = isRefreshing ? [] : feed;
 
-  // State for tracking video visibility
+  // Lock vertical scroll while scrubbing
+  const [isScrubbing, _setIsScrubbing] = useState(false);
+  const setIsScrubbing = useCallback((val: boolean) => _setIsScrubbing(val), []);
+
+  // Propagate scrubbing state up if handler provided
+  useEffect(() => {
+    if (onScrubbingChange) onScrubbingChange(isScrubbing);
+  }, [isScrubbing, onScrubbingChange]);
+
+  // State for tracking video visibility - optimized with refs to reduce re-renders
   const [visibleVideo, setVisibleVideo] = useState<string | null>(null);
   const [visibleIndex, setVisibleIndex] = useState<number>(0);
   const [visibleRange, setVisibleRange] = useState<{ min: number; max: number }>({
@@ -149,7 +165,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const [scrollDirection, setScrollDirection] = useState<'up' | 'down' | null>(null);
   const [isSnappedToTop, setIsSnappedToTop] = useState<boolean>(false);
 
-  // Refs for scroll handling
+  // Refs for scroll handling - optimized to reduce state updates
   const flatListRef = useRef<Animated.FlatList>(null);
   const userScrolled = useRef<boolean>(false);
   const lastOffset = useRef(0);
@@ -158,9 +174,13 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const positionSaveTimeout = useRef<NodeJS.Timeout | null>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollYShared = useSharedValue(0);
+  
+  // Performance optimization: Use refs to avoid unnecessary re-renders
+  const visibleVideoRef = useRef<string | null>(null);
+  const visibleIndexRef = useRef<number>(0);
+  const isSnappedToTopRef = useRef<boolean>(false);
 
   // Define common dimension logic
-  const isSmallDevice = isSmallScreen() || isTablet();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const viewableAreaHeight = Dimensions.get('window').height - insets.top - bottomNavBarHeight;
   const cardHeight = isSmallDevice ? Dimensions.get('window').height : getVideoCardHeight(insets);
@@ -183,28 +203,39 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     && !!headerComponent
   );
 
+  // Disable clear view mode when snapped to top on header feeds
+  useEffect(() => {
+    if (isHeaderFeed && isSnappedToTop && isClearViewMode) {
+      setClearViewMode(false);
+    }
+  }, [isHeaderFeed, isSnappedToTop, isClearViewMode, setClearViewMode]);
+
   // Memoize video status handler to prevent recreation
   const handleVideoStatus = useCallback((uri: string, status: string) => {
-    // Handle video status changes
+    // Handle video status changes - optimized to avoid blocking scroll
+    if (status === 'ready' && uri === visibleVideoRef.current) {
+      // Only update if this is the currently visible video
+      // This prevents unnecessary re-renders during scroll
+    }
   }, []);
 
-  // Function to determine if a video should show its overlay
+  // Function to determine if a video should show its overlay - optimized
   const shouldShowOverlay = useCallback((index: number) => {
     if (!memoizedScrollDirection) {
       // If no scroll direction, only show overlay for current video
-      return index === visibleIndex;
+      return index === visibleIndexRef.current;
     }
     
     if (memoizedScrollDirection === 'down') {
       // Scrolling down: show overlays for videos ahead (higher indices)
-      return index >= visibleIndex;
+      return index >= visibleIndexRef.current;
     } else {
       // Scrolling up: show overlays for videos ahead (lower indices)
-      return index <= visibleIndex;
+      return index <= visibleIndexRef.current;
     }
-  }, [memoizedScrollDirection, visibleIndex]);
+  }, [memoizedScrollDirection]);
 
-  // Memoize viewable items changed handler - optimized for fast scrolling
+  // Optimized viewable items changed handler - debounced to reduce frequency
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
     if (viewableItems.length === 0) return;
 
@@ -213,13 +244,19 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     const newVisibleVideo = firstVisibleItem?.item?.post?.uri || null;
     const newVisibleIndex = firstVisibleItem?.index || 0;
     
-    // Update visible video immediately without complex checks
-    setVisibleVideo(newVisibleVideo);
-    setVisibleIndex(newVisibleIndex);
+    // Only update if values actually changed to prevent unnecessary re-renders
+    if (newVisibleVideo !== visibleVideoRef.current || newVisibleIndex !== visibleIndexRef.current) {
+      visibleVideoRef.current = newVisibleVideo;
+      visibleIndexRef.current = newVisibleIndex;
+      
+      // Batch state updates to reduce re-renders
+      setVisibleVideo(newVisibleVideo);
+      setVisibleIndex(newVisibleIndex);
 
-    // Notify parent if needed
-    if (typeof onVisibleChange === 'function') {
-      onVisibleChange(newVisibleIndex, newVisibleVideo);
+      // Notify parent if needed
+      if (typeof onVisibleChange === 'function') {
+        onVisibleChange(newVisibleIndex, newVisibleVideo);
+      }
     }
 
     // Update visible range for preloading - keep it simple for fast scrolling
@@ -235,23 +272,31 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     setHeaderHeight(height);
   }, []);
 
-  // Memoize scroll handler - optimized for fast scrolling
+  // Optimized scroll handler - debounced and batched
   const handleScroll = useCallback((event: any) => {
+    const startTime = PerformanceMonitor.startScrollTimer();
+    
     const y = event.nativeEvent.contentOffset.y;
     scrollYShared.value = y;
     currentScrollOffset.current = y;
     
-    // Track scroll direction
+    // Track scroll direction with reduced frequency
     const delta = y - lastOffset.current;
-    if (Math.abs(delta) > 5) { // Threshold to avoid noise
-      setScrollDirection(delta > 0 ? 'down' : 'up');
+    if (Math.abs(delta) > 10) { // Increased threshold to reduce noise
+      const newDirection = delta > 0 ? 'down' : 'up';
+      if (newDirection !== scrollDirection) {
+        setScrollDirection(newDirection);
+      }
     }
     lastOffset.current = y;
     
-    // Check if snapped to top for header feeds
+    // Check if snapped to top for header feeds - optimized
     if (isHeaderFeed && headerHeight > 0) {
       const isAtTop = y <= 64; // Larger target area for snapped to top
-      setIsSnappedToTop(isAtTop);
+      if (isAtTop !== isSnappedToTopRef.current) {
+        isSnappedToTopRef.current = isAtTop;
+        setIsSnappedToTop(isAtTop);
+      }
     }
     
     // Report vertical scroll position for feed bar visibility
@@ -261,7 +306,13 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     if (!userScrolled.current) {
       userScrolled.current = true;
     }
-  }, [scrollYShared, onVerticalScroll, isHeaderFeed, headerHeight]);
+    
+    // Track scroll performance
+    const scrollTime = PerformanceMonitor.endScrollTimer();
+    if (scrollTime > 16) { // Log slow scroll events
+      console.warn(`Slow scroll detected: ${scrollTime}ms`);
+    }
+  }, [scrollYShared, onVerticalScroll, isHeaderFeed, headerHeight, scrollDirection]);
 
   // Memoize momentum scroll end handler
   const onMomentumScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -288,11 +339,11 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const renderItem = useCallback(({ item, index }: { item: FeedItem; index: number }) => {
     const startTime = PerformanceMonitor.startTimer();
     
-    const isActive = item.post.uri === visibleVideo;
+    const isActive = item.post.uri === visibleVideoRef.current;
     const shouldPreload = index >= visibleRange.min - CACHE_BUFFER && index <= visibleRange.max + CACHE_BUFFER;
     const shouldShowVideoOverlay = shouldShowOverlay(index);
     // Fix: When isSnappedToTop is true, no video should be visible
-    const isItemVisible = !isSnappedToTop && (index === visibleIndex) && memoizedIsVisible;
+    const isItemVisible = !isSnappedToTopRef.current && (index === visibleIndexRef.current) && memoizedIsVisible;
     
     const result = (
       <MemoizedVideoItem
@@ -302,20 +353,20 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         handleVideoStatus={handleVideoStatus}
         height={memoizedCardHeight}
         shouldPreload={shouldPreload}
-        feedOption={memoizedFeedOption}
         scrollY={memoizedScrollYShared}
+        feedOption={memoizedFeedOption}
         isVisible={isItemVisible}
         moderationDecision={item.moderationDecision}
         isModal={isModal}
+        onScrubbingChange={setIsScrubbing}
       />
     );
     
-    // Track performance
-    PerformanceMonitor.endTimer(startTime, 1, feedOption);
+    // Track performance with video visibility info
+    PerformanceMonitor.endTimer(startTime, 1, feedOption, isItemVisible);
     
     return result;
   }, [
-    visibleVideo, 
     memoizedCardHeight, 
     visibleRange.min, 
     visibleRange.max, 
@@ -324,33 +375,32 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     memoizedIsVisible, 
     handleVideoStatus,
     shouldShowOverlay,
-    isHeaderFeed,
-    isSnappedToTop,
-    visibleIndex,
-    isModal
+    isModal,
+    setIsScrubbing
   ]);
 
   /**
    * Global video preloading: prioritize the next N videos after the visible one
+   * Preloaded videos will be rendered in paused state and unpaused when visible
    */
   useEffect(() => {
-    if (feed.length === 0 || visibleIndex < 0 || visibleIndex >= feed.length) return;
+    if (feed.length === 0 || visibleIndexRef.current < 0 || visibleIndexRef.current >= feed.length) return;
     // Build a list of all video URIs in order
     const allUris = feed.map(item => item.post.uri);
-    const currentUri = feed[visibleIndex]?.post?.uri;
+    const currentUri = feed[visibleIndexRef.current]?.post?.uri;
     if (currentUri) {
       VideoPreloadManager.prioritizeNextVideos(currentUri, allUris, 3);
     }
-  }, [feed, visibleIndex]);
+  }, [feed, visibleIndexRef.current]);
 
   /**
    * Watch-history logic
    */
   useEffect(() => {
-    if (visibleVideo && feedOption === 'yourMix') {
-      WatchHistory.addToWatchHistory(visibleVideo);
+    if (visibleVideoRef.current && feedOption === 'yourMix') {
+      WatchHistory.addToWatchHistory(visibleVideoRef.current);
     }
-  }, [visibleVideo, feedOption]);
+  }, [visibleVideoRef.current, feedOption]);
 
   // Compute snap offsets only when dependencies change to avoid recalculating on every render
   const computedSnapToOffsets = useMemo(() => {
@@ -450,6 +500,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
               setTimeout(() => {
                 const targetVideo = feed[index]?.post?.uri;
                 if (targetVideo) {
+                  visibleVideoRef.current = targetVideo;
+                  visibleIndexRef.current = index;
                   setVisibleVideo(targetVideo);
                   setVisibleIndex(index);
                 }
@@ -468,14 +520,15 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
   // Find shouldDisablePlayback for the visible video
   let debugShouldDisablePlayback = false;
-  if (feed[visibleIndex]) {
-    debugShouldDisablePlayback = (isHeaderFeed && isSnappedToTop) || (feed[visibleIndex].moderationDecision?.blur === true);
+  if (feed[visibleIndexRef.current]) {
+    debugShouldDisablePlayback = (isHeaderFeed && isSnappedToTopRef.current) || (feed[visibleIndexRef.current].moderationDecision?.blur === true);
   }
 
   // On mount and whenever isHeaderFeed or headerHeight changes, check if the initial scroll position is at the top (currentScrollOffset.current <= 24). If so, set isSnappedToTop to true. This ensures that the snapped-to-top state is correct on first render, preventing the first video from playing when the header is visible.
   useEffect(() => {
     // On mount or when header changes, if the initial scroll position is at the top, set isSnappedToTop to true
     if (isHeaderFeed && headerHeight > 0 && currentScrollOffset.current <= 24) {
+      isSnappedToTopRef.current = true;
       setIsSnappedToTop(true);
     }
   }, [isHeaderFeed, headerHeight]);
@@ -490,6 +543,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       }
     }
     if (isModal && typeof targetIndex === 'number' && targetIndex >= 0 && targetIndex < displayFeed.length) {
+      visibleIndexRef.current = targetIndex;
+      visibleVideoRef.current = displayFeed[targetIndex]?.post?.uri || null;
       setVisibleIndex(targetIndex);
       setVisibleVideo(displayFeed[targetIndex]?.post?.uri || null);
       // Scroll to the correct index
@@ -506,7 +561,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       setTimeout(() => {
         if (flatListRef.current && displayFeed.length > 0) {
           flatListRef.current.scrollToIndex({
-            index: visibleIndex,
+            index: visibleIndexRef.current,
             animated: false,
             viewPosition: 0,
           });
@@ -515,7 +570,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     };
     const sub = Dimensions.addEventListener('change', onChange);
     return () => { sub?.remove(); };
-  }, [visibleIndex, displayFeed.length]);
+  }, [displayFeed.length]);
 
   // Render grid view if viewMode is 'grid'
   if (viewMode === 'grid') {
@@ -558,17 +613,17 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           <Text style={{ color: '#fff', fontSize: 12 }}>scrollY: {Math.round(currentScrollOffset.current)}</Text>
           <Text style={{ color: '#fff', fontSize: 12 }}>isHeaderFeed: {String(isHeaderFeed)}</Text>
           <Text style={{ color: '#fff', fontSize: 12 }}>headerHeight: {headerHeight}</Text>
-          <Text style={{ color: '#fff', fontSize: 12 }}>isSnappedToTop: {String(isSnappedToTop)}</Text>
-          <Text style={{ color: '#fff', fontSize: 12 }}>visibleIndex: {visibleIndex}</Text>
-          <Text style={{ color: '#fff', fontSize: 12 }}>visibleVideo: {visibleVideo}</Text>
+          <Text style={{ color: '#fff', fontSize: 12 }}>isSnappedToTop: {String(isSnappedToTopRef.current)}</Text>
+          <Text style={{ color: '#fff', fontSize: 12 }}>visibleIndex: {visibleIndexRef.current}</Text>
+          <Text style={{ color: '#fff', fontSize: 12 }}>visibleVideo: {visibleVideoRef.current}</Text>
           {/* Improved bug warning: Only show if isSnappedToTop is true AND the logic would render any video as visible */}
-          {isSnappedToTop && (
+          {isSnappedToTopRef.current && (
             <Text style={{ color: 'red', fontSize: 12, fontWeight: 'bold' }}>
               {(() => {
                 // Simulate the logic used in renderItem for all indices
                 let anyVisible = false;
                 for (let i = 0; i < feed.length; i++) {
-                  const isItemVisible = !isSnappedToTop && (i === visibleIndex) && memoizedIsVisible;
+                  const isItemVisible = !isSnappedToTopRef.current && (i === visibleIndexRef.current) && memoizedIsVisible;
                   if (isItemVisible) {
                     anyVisible = true;
                     break;
@@ -607,7 +662,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         )}
         directionalLockEnabled={true}
         alwaysBounceVertical={false}
-        scrollEnabled={true}
+        scrollEnabled={!isScrubbing}
         nestedScrollEnabled={true}
         onMomentumScrollEnd={onMomentumScrollEnd}
         scrollEventThrottle={1} // Reduced for maximum responsiveness during fast scrolling
@@ -684,6 +739,21 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           ) : null
         }
       />
+      
+      {/* Clear View Exit Button - positioned at screen level */}
+      {isSmallDevice && isClearViewMode && (
+        <TouchableOpacity 
+          style={styles.clearViewExitButton}
+          onPress={toggleClearViewMode}
+          activeOpacity={0.7}
+        >
+          <Icon 
+            name="section-x" 
+            size={24} 
+            color="#fff" 
+          />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -729,6 +799,20 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  clearViewExitButton: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
 });
 

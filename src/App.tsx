@@ -19,7 +19,9 @@ import LoginScreen from '../src/screens/LoginScreen';
 import { AtprotoService } from '../src/services/api/AtprotoService';
 import * as Font from 'expo-font';
 import ProfileCache from '../src/services/cache/ProfileCache'; // import ProfileCache
-import VideoPreloadManager from '../src/services/VideoPreloadManager';
+import { ClearViewProvider } from '../src/services/ClearViewContext';
+import StatusBarController from '../src/components/ui/StatusBarController';
+import VideoPreloadManager from './services/VideoPreloadManager';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -202,12 +204,14 @@ const App: React.FC<{}> = () => {
     return (
       <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <QueryClientProvider client={queryClient}>
-          <StatusBar barStyle="light-content" backgroundColor="#000" />
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <BottomSheetModalProvider>
-              <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
-            </BottomSheetModalProvider>
-          </GestureHandlerRootView>
+          <ClearViewProvider>
+            <StatusBarController />
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <BottomSheetModalProvider>
+                <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
+              </BottomSheetModalProvider>
+            </GestureHandlerRootView>
+          </ClearViewProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     );
@@ -216,14 +220,16 @@ const App: React.FC<{}> = () => {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <QueryClientProvider client={queryClient}>
-        <NavigationContainer>
-          <StatusBar barStyle="light-content" backgroundColor="#000" />
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <BottomSheetModalProvider>
-              <RootNavigator onLogout={handleLogout} />
-            </BottomSheetModalProvider>
-          </GestureHandlerRootView>
-        </NavigationContainer>
+        <ClearViewProvider>
+          <NavigationContainer>
+            <StatusBarController />
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <BottomSheetModalProvider>
+                <RootNavigator onLogout={handleLogout} />
+              </BottomSheetModalProvider>
+            </GestureHandlerRootView>
+          </NavigationContainer>
+        </ClearViewProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   );

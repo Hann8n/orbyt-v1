@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -7,6 +7,8 @@ import {
   SafeAreaView,
   StyleSheet,
   Dimensions,
+  Text,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { isSmallScreen, isTablet } from '../../../../utils/helpers/screenSize';
@@ -37,6 +39,13 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
   initialTime = 0,
   initialIsPlaying = true,
 }) => {
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+  const videoCardRef = useRef<VideoCardRef>(null);
+
+  // Ensure videoPath is properly formatted
+  const formattedVideoPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
+
   // Construct a preview post object
   const previewPost = {
     uri: 'preview-post',
@@ -57,7 +66,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
     replyCount: 0,
     embed: {
       $type: 'app.bsky.embed.video#view',
-      playlist: [videoPath],
+      playlist: formattedVideoPath, // Use string instead of array
       aspectRatio: { width: 9, height: 16 },
     },
   };
@@ -65,21 +74,41 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
   // Responsive layout
   const isSmallDevice = isSmallScreen() || isTablet();
   const scrollY = useSharedValue(0);
-  const videoCardRef = useRef<VideoCardRef>(null);
 
-  // On mount or when visible, seek to initialTime and set play state
-  useEffect(() => {
-    if (visible && videoCardRef.current) {
-      if (initialTime > 0) {
-        // Seek to initialTime (fraction)
-        const duration = videoCardRef.current.getDuration();
-        if (duration > 0) {
-          videoCardRef.current.seek(initialTime / duration);
+  // Handle video status changes
+  const handleVideoStatus = useCallback((uri: string, status: string) => {
+    console.log('VideoPreviewModal - Video status:', status, 'for URI:', uri);
+    
+    if (status === 'ready') {
+      setIsVideoReady(true);
+      setVideoError(null);
+      
+      // Now that video is ready, set initial time and play state
+      if (videoCardRef.current) {
+        if (initialTime > 0) {
+          const duration = videoCardRef.current.getDuration();
+          if (duration > 0) {
+            videoCardRef.current.seek(initialTime / duration);
+          }
         }
+        videoCardRef.current.playPause(!!initialIsPlaying);
       }
-      videoCardRef.current.playPause(!!initialIsPlaying);
+    } else if (status === 'error') {
+      setVideoError('Failed to load video');
+      setIsVideoReady(false);
+    } else if (status === 'loading') {
+      setVideoError(null);
+      setIsVideoReady(false);
     }
-  }, [visible, initialTime, initialIsPlaying]);
+  }, [initialTime, initialIsPlaying]);
+
+  // Reset state when modal becomes visible
+  useEffect(() => {
+    if (visible) {
+      setVideoError(null);
+      setIsVideoReady(false);
+    }
+  }, [visible]);
 
   // Toggle play/pause on tap
   const handleVideoTap = useCallback(() => {
@@ -99,6 +128,30 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
       onClose();
     }
   }, [onClose]);
+
+  // Show error state
+  if (videoError) {
+    return (
+      <Modal
+        visible={visible}
+        animationType="fade"
+        presentationStyle="fullScreen"
+        onRequestClose={handleClose}
+      >
+        <StatusBar barStyle="light-content" backgroundColor="transparent" />
+        <View style={styles.container}>
+          <TouchableOpacity onPress={handleClose} style={styles.floatingCloseButton}>
+            <Ionicons name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={60} color="#fff" />
+            <Text style={styles.errorText}>{videoError}</Text>
+            <Text style={styles.errorSubtext}>Please try again or select a different video.</Text>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -120,14 +173,24 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
               isVisible={true}
               shouldCache={true}
               shouldDisablePlayback={false}
+              onVideoStatus={handleVideoStatus}
             />
             <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject, opacity: 0.5 }}>
               <VideoOverlay
                 post={previewPost}
                 isVisible={true}
                 scrollY={scrollY}
+                onScrubbingChange={(isScrubbing) => {
+                  // Handle scrubbing state if needed
+                }}
               />
             </View>
+            {!isVideoReady && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color="#fff" />
+                <Text style={styles.loadingText}>Loading video...</Text>
+              </View>
+            )}
           </View>
         </View>
       ) : (
@@ -144,14 +207,24 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
               isVisible={true}
               shouldCache={true}
               shouldDisablePlayback={false}
+              onVideoStatus={handleVideoStatus}
             />
             <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject, opacity: 0.5 }}>
               <VideoOverlay
                 post={previewPost}
                 isVisible={true}
                 scrollY={scrollY}
+                onScrubbingChange={(isScrubbing) => {
+                  // Handle scrubbing state if needed
+                }}
               />
             </View>
+            {!isVideoReady && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color="#fff" />
+                <Text style={styles.loadingText}>Loading video...</Text>
+              </View>
+            )}
           </View>
         </SafeAreaView>
       )}
@@ -208,6 +281,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    zIndex: 5,
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 16,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    color: '#ccc',
+    fontSize: 14,
+    marginTop: 10,
+    textAlign: 'center',
+  },
 });
 
-export default VideoPreviewModal; 
+export default VideoPreviewModal;

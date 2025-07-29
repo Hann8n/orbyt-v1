@@ -353,7 +353,6 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     minHeight: '100%', 
-    backgroundColor: '#000',
     overflow: 'hidden'
   },
   headerContainer: {
@@ -361,7 +360,6 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1, 
-    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,

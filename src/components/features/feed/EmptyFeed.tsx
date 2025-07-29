@@ -211,8 +211,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
             {item.handle && item.handle.trim() && item.handle.length > 0 && (
               <VerificationBadge 
                 handle={item.handle.trim()} 
-                size={12} 
-                style={{marginLeft: 4}}
+                textSize={14} 
                 textColor={textColor}
               />
             )}

@@ -32,18 +32,27 @@ interface SwipeableFeedContainerProps {
   initialFeed?: FeedOption;
   onFeedChange?: (feed: FeedOption) => void;
   isRefreshing?: boolean;
+  onScrubbingChange?: (isScrubbing: boolean) => void;
 }
 
 const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
   initialFeed = 'yourMix',
   onFeedChange,
   isRefreshing = false,
+  onScrubbingChange,
 }) => {
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
   const indicatorScrollViewRef = useRef<ScrollView>(null);
   const { channels: subscribedChannels, isLoading: isLoadingChannels } = useSubscribedChannels();
   const isSmallDevice = isSmallScreen() || isTablet();
+
+  // Scrubbing lock state
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const handleScrubbingChange = (scrubbing: boolean) => {
+    setIsScrubbing(scrubbing);
+    onScrubbingChange?.(scrubbing);
+  };
 
   // Add state for screen dimensions
   const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
@@ -311,10 +320,11 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
           // Pass scroll handler for feed bar visibility
           onVerticalScroll={(scrollY) => handleVerticalScroll(scrollY, index)}
           isRefreshing={isRefreshing}
+          onScrubbingChange={handleScrubbingChange}
         />
       </View>
     );
-  }, [currentFeedIndex, handleRetryFeed, handlePositionChange, savedPositions, handleVerticalScroll, isRefreshing, screenWidth]);
+  }, [currentFeedIndex, handleRetryFeed, handlePositionChange, savedPositions, handleVerticalScroll, isRefreshing, screenWidth, handleScrubbingChange]);
 
   // Get indicator style with gradual opacity based on scroll progress
   const getIndicatorStyle = useCallback((feedOption: FeedOption) => {
@@ -408,7 +418,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
         bounces={false}
         decelerationRate="fast"
         // Ensure proper gesture recognition
-        scrollEnabled={true}
+        scrollEnabled={!isScrubbing}
         nestedScrollEnabled={true}
       />
     </GestureHandlerRootView>

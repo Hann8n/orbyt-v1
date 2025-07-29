@@ -250,8 +250,8 @@ const HeaderContentComponent = memo<{
         >
           <Text style={[styles.title, { color: textColor }]}>
             {content.title}
-            {content.badge}
           </Text>
+          {content.badge}
         </TouchableOpacity>
         
         {content.subtitle && (

@@ -23,6 +23,9 @@ import { Avatar } from '../../ui/UI';
 import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import { setCurrentFeed } from '../../../services/FeedStore';
+import { setVideoBlurState, isVideoBlurred } from '../../../services/FeedStore';
+import { BlurView } from 'expo-blur';
+import Icon from '../../ui/Icon';
 
 const ITEM_MARGIN = 1; // Set divider thickness to 1 for both directions
 
@@ -65,6 +68,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [, forceRerender] = useState(0);
 
   // Responsive grid columns and item size
   const screen = Dimensions.get('window');
@@ -158,7 +162,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
     };
 
     // Check if this item should be blurred due to moderation
-    const shouldBlur = item.moderationDecision?.blur;
+    const shouldBlur = isVideoBlurred(item.post.uri, !!item.moderationDecision?.blur);
     
 
 
@@ -187,20 +191,23 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
           resizeMode="cover"
           defaultSource={require('../../../assets/Vector_Normal_Grey.png')}
         />
-        
-        {/* Warning overlay for moderated content */}
+        {/* Moderation Blur Overlay (matches list feed) */}
         {shouldBlur && (
-          <View style={styles.warningOverlay}>
-            <Text style={styles.warningText}>
-              {item.moderationDecision?.reason || 'Content Warning'}
-            </Text>
-          </View>
+          <BlurView intensity={80} style={styles.blurOverlay}>
+            <Icon name="hidden" size={60} color="#fff" style={styles.warningIcon} />
+            <TouchableOpacity
+              onPress={() => { setVideoBlurState(item.post.uri, false); forceRerender(n => n + 1); }}
+              style={styles.showAnywayButton}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.showAnywayButtonText} numberOfLines={1} ellipsizeMode="clip">View</Text>
+            </TouchableOpacity>
+          </BlurView>
         )}
-        
         {/* Overlay with author info removed as requested */}
       </TouchableOpacity>
     );
-  }, [onGridItemPress, extractVideoUrl, feed, numColumns, itemWidth, itemHeight]);
+  }, [onGridItemPress, extractVideoUrl, feed, numColumns, itemWidth, itemHeight, forceRerender]);
 
   // Handle end reached in background
   const handleEndReachedBackground = useCallback(() => {
@@ -386,6 +393,56 @@ const styles = StyleSheet.create({
     width: '100%',
     height: ITEM_MARGIN,
     backgroundColor: 'transparent', // Changed from '#000' to transparent
+  },
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    padding: 32,
+  },
+  warningIcon: {
+    marginBottom: 20,
+  },
+  blurText: {
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    fontWeight: '600',
+    fontFamily: 'Firma-Medium',
+    lineHeight: 22,
+    paddingHorizontal: 20,
+  },
+  showAnywayButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12, // reduced for tighter fit
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+    minWidth: 64,
+    maxWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  showAnywayButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontFamily: 'Firma-Medium',
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

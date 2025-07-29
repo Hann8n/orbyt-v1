@@ -245,8 +245,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
             </Text>
             <VerificationBadge
               handle={member.handle}
-              size={12}
-              style={styles.verificationBadge}
+              textSize={14}
               textColor={Colors.TEXT.PRIMARY}
             />
           </View>
@@ -403,9 +402,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
     flexShrink: 1,
   },
-  verificationBadge: {
-    marginLeft: 4,
-  },
+
   memberHandle: {
     color: Colors.TEXT.LIGHT_GREY,
     fontSize: 14,

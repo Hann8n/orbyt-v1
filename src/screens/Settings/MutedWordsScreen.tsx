@@ -101,7 +101,7 @@ const MutedWordsScreen: React.FC = () => {
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
-              <Icon name="x" size={16} color="#fff" />
+                              <Icon name="section-x" size={16} color="#fff" />
               <Text style={styles.removeButtonText}>Remove</Text>
             </>
           )}

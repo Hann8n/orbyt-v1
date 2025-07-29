@@ -21,6 +21,7 @@ export { default as BottomToolBar } from './BottomToolBar';
 export { default as ShareSheet } from './ShareSheet';
 export { default as RelativeDate } from './RelativeDate';
 export { default as VideoInfoDisplay } from './VideoInfoDisplay';
+export { default as AuthorItem } from './AuthorItem';
 
 // Default export for the entire UI system
 export { default as UI } from './UI'; 

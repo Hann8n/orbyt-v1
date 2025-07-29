@@ -523,8 +523,8 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                             {(activeAccount?.handle || profileData?.handle) && (
                               <VerificationBadge
                                 handle={activeAccount?.handle || profileData?.handle || ''}
-                                size={14}
-                                style={styles.verificationBadge}
+                                textSize={16}
+                                textColor={TEXT.PRIMARY}
                               />
                             )}
                           </View>
@@ -581,9 +581,8 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                             {item.handle && (
                               <VerificationBadge
                                 handle={item.handle}
-                                size={12}
-                                style={{ marginLeft: 4 }}
-                                textColor={TEXT.PRIMARY }
+                                textSize={14}
+                                textColor={TEXT.PRIMARY}
                               />
                             )}
                           </View>
@@ -957,8 +956,8 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                         {(activeAccount?.handle || profileData?.handle) && (
                           <VerificationBadge
                             handle={activeAccount?.handle || profileData?.handle || ''}
-                            size={14}
-                            style={styles.verificationBadge}
+                            textSize={16}
+                            textColor={TEXT.PRIMARY}
                           />
                         )}
                       </View>
@@ -1342,9 +1341,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  verificationBadge: {
-    marginLeft: 2,
-  },
+
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',

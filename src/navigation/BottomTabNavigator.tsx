@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Image, Platform, Dimensions, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Platform, Dimensions, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -18,6 +18,7 @@ import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../utils/helpers
 import * as ImagePicker from 'expo-image-picker';
 import VideoProcessingService from '../services/VideoProcessingService';
 import * as FileSystem from 'expo-file-system';
+import { useClearView } from '../services/ClearViewContext';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -125,6 +126,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
   const insets = useSafeAreaInsets();
   const isSmallDevice = isSmallScreen() || isTablet();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { isClearViewMode } = useClearView();
   
 
 
@@ -207,14 +209,14 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
       }
     };
     return (
-      <View style={{ top: 2, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
         <TouchableOpacity
           onPress={handleGalleryPick}
           activeOpacity={0.8}
           style={{
-            width: 36,
-            height: 36,
-            borderRadius: 24,
+            width: 40,
+            height: 40,
+            borderRadius: 20,
             backgroundColor: 'transparent',
             alignItems: 'center',
             justifyContent: 'center',
@@ -226,7 +228,24 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
           }}
           disabled={isPreparing}
         >
-          <Image source={require('../assets/CaptureButton_Normal.png')} style={{ width: 40, height: 40, resizeMode: 'contain' }} />
+          {/* Custom circle within a circle design */}
+          <View style={{
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            borderWidth: 1.75,
+            borderColor: '#fff',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'transparent',
+          }}>
+            <View style={{
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              backgroundColor: isPreparing ? 'rgba(255, 255, 255, 0.5)' : '#fff',
+            }} />
+          </View>
           {isPreparing && (
             <View style={{
               position: 'absolute',
@@ -236,8 +255,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
               bottom: 0,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: 'rgba(0,0,0,0.25)',
-              borderRadius: 24,
+              borderRadius: 20,
             }}>
               <ActivityIndicator size="small" color="#fff" />
             </View>
@@ -264,6 +282,8 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
           elevation: 0,
           // Ensure transparency works properly
           position: 'absolute',
+          // Hide tab bar in clear view mode on small devices
+          display: isSmallDevice && isClearViewMode ? 'none' : 'flex',
         },
         tabBarActiveTintColor: isSmallDevice ? '#fff' : '#fff',
         tabBarInactiveTintColor: isSmallDevice ? 'rgba(255, 255, 255, 0.6)' : '#666',

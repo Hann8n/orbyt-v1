@@ -11,6 +11,7 @@ import { HomeStackParamList } from '../../../navigation/types';
 import { useProfile } from '../../../services/cache/ProfileCache';
 import VerificationBadge from '../../features/verification/VerificationBadge';
 import { UI } from '../../../utils/formatting/Colors';
+import AuthorItem from '../../ui/AuthorItem';
 
 interface ChannelData {
   id: string;
@@ -44,58 +45,18 @@ const CreatorInfo: React.FC<{
   textColor: string;
   backgroundColor: string;
 }> = ({ creator, textColor, backgroundColor }) => {
-  const navigation = useNavigation<any>();
-
   if (!creator) return null;
 
-  // Use ProfileCache to get full creator profile data
-  const { data: creatorProfile } = useProfile(creator.handle);
-
-  const handleCreatorPress = useCallback(() => {
-    if (creator.handle) {
-      navigation.navigate('AuthorProfile', { handle: creator.handle });
-    }
-  }, [creator.handle, navigation]);
-
-  // Use cached profile data if available, otherwise fall back to channel creator data
-  const displayName = creatorProfile?.displayName || creator.displayName || creator.handle || 'Unknown';
-  const avatar = creatorProfile?.avatar || creator.avatar;
-  const handle = creatorProfile?.handle || creator.handle;
-
   return (
-    <TouchableOpacity
+    <AuthorItem
+      handle={creator.handle}
+      displayName={creator.displayName}
+      avatar={creator.avatar}
+      textColor={textColor}
+      backgroundColor={backgroundColor}
+      size="medium"
       style={styles.creatorContainer}
-      onPress={handleCreatorPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.creatorContent}>
-        <Avatar
-          uri={avatar}
-          type="profile"
-          size={40}
-          style={styles.creatorAvatar}
-        />
-        <View style={styles.creatorTextContainer}>
-          <View style={styles.creatorNameRow}>
-            <Text style={[styles.creatorName, { color: textColor }]}>
-              {displayName}
-            </Text>
-            {handle && (
-              <VerificationBadge
-                handle={handle}
-                size={12}
-                style={styles.verificationBadge}
-                textColor={textColor}
-              />
-            )}
-          </View>
-          <Text style={[styles.creatorHandle, { color: hexToRGBA(textColor, 0.67) }]}>
-            @{handle}
-          </Text>
-        </View>
-      </View>
-      <Icon name="chevron-right" size={16} color={hexToRGBA(textColor, 0.5)} />
-    </TouchableOpacity>
+    />
   );
 };
 
@@ -243,49 +204,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
 const styles = StyleSheet.create({
   creatorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
     marginTop: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  creatorContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  creatorAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
-  },
-  creatorTextContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  creatorNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  creatorName: {
-    fontSize: 14,
-    fontFamily: 'Firma-SemiBold',
-    marginBottom: 2,
-  },
-  creatorHandle: {
-    fontSize: 12,
-    fontFamily: 'Firma-Regular',
-  },
-  verificationBadge: {
-    marginLeft: 4,
   },
 });
 

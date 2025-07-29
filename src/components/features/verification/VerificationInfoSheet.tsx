@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   SafeAreaView,
   Platform,
@@ -20,6 +19,8 @@ import Icon from '../../ui/Icon';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import VerificationBadge from './VerificationBadge';
+import AuthorItem from '../../ui/AuthorItem';
 
 interface VerificationInfoSheetProps {
   visible: boolean;
@@ -50,15 +51,15 @@ const VerifiedByShimmer = () => (
       style={styles.issuerAvatarShimmer}
       shimmerColors={UI.SHIMMER}
     />
-    <View style={styles.issuerListText}>
+    <View style={{ flex: 1, marginLeft: 12 }}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 120, height: 16, marginBottom: 4, borderRadius: 3 }}
+        style={{ width: 120, height: 14, marginBottom: 4, borderRadius: 3 }}
         shimmerColors={UI.SHIMMER}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 80, height: 14, borderRadius: 2 }}
+        style={{ width: 80, height: 12, borderRadius: 2 }}
         shimmerColors={UI.SHIMMER}
       />
     </View>
@@ -219,10 +220,11 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
       <>
         {/* Verification Badge and Status */}
         <View style={styles.verificationHeader}>
-          <Image
-            source={require('../../../assets/badge-verified_Normal3x.png')}
-            style={styles.verificationBadge}
-            resizeMode="contain"
+          <VerificationBadge
+            handle={handle}
+            textSize={32}
+            badgeType="auto"
+            textColor="#FFFFFF"
           />
           <Text style={styles.verificationTitle}>
             Trusted Verifier
@@ -232,8 +234,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         {/* Info Container */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
-            <Text style={styles.highlightedText}>{profile?.displayName || handle}</Text> is a trusted verifier on Bluesky. 
-            Trusted verifiers can verify other accounts on the network.
+            <Text style={styles.highlightedText}>{profile?.displayName || handle}</Text>
+            <Text> is a trusted verifier on Bluesky. Trusted verifiers can verify other accounts on the network.</Text>
           </Text>
         </View>
           
@@ -277,10 +279,11 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
       <>
         {/* Verification Badge and Status */}
         <View style={styles.verificationHeader}>
-          <Image
-            source={require('../../../assets/badge-verified_Normal3x.png')}
-            style={styles.verificationBadge}
-            resizeMode="contain"
+          <VerificationBadge
+            handle={handle}
+            textSize={28}
+            badgeType="auto"
+            textColor="#FFFFFF"
           />
           <Text style={styles.verificationTitle}>
             Verified Account
@@ -301,9 +304,20 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             {isIssuerLoading ? (
               <VerifiedByShimmer />
             ) : (
-              <TouchableOpacity
+              <AuthorItem
+                handle={issuerProfile?.handle || actualIssuerHandle || verifierDid}
+                displayName={
+                  issuerProfile?.displayName || 
+                  actualIssuerHandle || 
+                  (isOfficialVerification ? 'Bluesky' : 
+                   (verifierDid ? `Verifier (${verifierDid.slice(0, 8)}...)` : 'Verifier'))
+                }
+                avatar={issuerProfile?.avatar}
+                textColor="#FFFFFF"
+                size="medium"
+                showDate={true}
+                date={issuerCreatedAt ? new Date(issuerCreatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : undefined}
                 style={styles.issuerListItem}
-                activeOpacity={0.7}
                 onPress={() => {
                   onDismiss();
                   // Slightly delay navigation to allow for smooth dismissal animation
@@ -311,37 +325,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
                     navigation.navigate('AuthorProfile', { handle: issuerProfile?.handle || actualIssuerHandle || verifierDid });
                   }, 300);
                 }}
-              >
-                <Avatar
-                  uri={issuerProfile?.avatar}
-                  type="profile"
-                  size={48}
-                />
-                <View style={styles.issuerListText}>
-                  <View style={styles.issuerNameContainer}>
-                    <Text style={styles.issuerNameList}>
-                      {issuerProfile?.displayName || 
-                       actualIssuerHandle || 
-                       (isOfficialVerification ? 'Bluesky' : 
-                        (verifierDid ? 'Verifier (' + verifierDid.slice(0, 8) + '...)' : 'Verifier'))}
-                    </Text>
-                    {/* Show verification badge if issuer is verified or official */}
-                    {(issuerProfile?.verified || isOfficialVerification) && (
-                      <Image
-                        source={require('../../../assets/badge-verified_Normal3x.png')}
-                        style={styles.issuerVerificationBadge}
-                        resizeMode="contain"
-                      />
-                    )}
-                  </View>
-                  {issuerCreatedAt ? (
-                    <Text style={styles.issuerDateText}>
-                      {new Date(issuerCreatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                    </Text>
-                  ) : null}
-                </View>
-                <Icon name="chevron-right" size={18} color="#888" style={styles.issuerArrowIcon} />
-              </TouchableOpacity>
+              />
             )}
           </>
         )}
@@ -393,10 +377,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Bold',
     marginLeft: 10,
   },
-  verificationBadge: {
-    width: 26,
-    height: 26,
-  },
+
   infoContainer: {
     marginTop: 5,
     marginBottom: 15,
@@ -422,44 +403,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   issuerListItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 4, // reduced from 8
-    marginHorizontal: 10,
-    padding: 10, // reduced from 16
-    backgroundColor: UI.BACKGROUND.ITEM,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
-  },
-  issuerListText: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  issuerNameList: {
-    color: TEXT.PRIMARY,
-    fontSize: 16,
-    fontFamily: 'Firma-Medium',
-  },
-  issuerDateText: {
-    color: TEXT.LIGHT_GREY,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
-    marginTop: 4,
-  },
-  issuerNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  issuerVerificationBadge: {
-    width: 16,
-    height: 16,
-    marginLeft: 6,
+    marginVertical: 4,
   },
   issuerAvatarShimmer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: UI.BORDER.PRIMARY,
   },
@@ -562,10 +511,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Regular',
     textAlign: 'center',
   },
-  issuerArrowIcon: {
-    marginLeft: 8,
-    alignSelf: 'center',
-  },
+
 });
 
 export default VerificationInfoSheet;
