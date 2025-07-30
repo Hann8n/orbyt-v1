@@ -36,6 +36,7 @@ import ProfileCache from '../services/cache/ProfileCache';
 import Icon from '../components/ui/Icon';
 import VideoProcessingService from '../services/VideoProcessingService';
 import { VideoInfoDisplay } from '../components/ui';
+import AuthorItem from '../components/ui/AuthorItem';
 import * as Device from 'expo-device';
 import { isTablet } from '../utils/helpers/screenSize';
 import AccountManager, { SavedAccount } from '../services/storage/AccountManager';
@@ -525,6 +526,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                                 handle={activeAccount?.handle || profileData?.handle || ''}
                                 textSize={16}
                                 textColor={TEXT.PRIMARY}
+                                customMargin={2}
                               />
                             )}
                           </View>
@@ -542,57 +544,41 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                 {/* Dropdown list of accounts, shown if accountModalVisible */}
                 {accountModalVisible && (
                   <View style={{
-                    backgroundColor: '#181818',
-                    borderRadius: 10,
+                    backgroundColor: UI.BACKGROUND.CARD,
+                    borderRadius: 12,
                     marginTop: 4,
                     marginBottom: 12,
                     borderWidth: 1,
                     borderColor: UI.BORDER.PRIMARY,
-                    // Remove shadow for consistency
                     paddingVertical: 0,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 8,
+                    elevation: 3,
                   }}>
-                    {accounts.map((item, idx) => (
-                      <TouchableOpacity
-                        key={item.id}
-                        onPress={() => handleSwitchAccount(item)}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          paddingVertical: 12,
-                          paddingHorizontal: 16,
-                          opacity: item.id === activeAccount?.id ? 0.5 : 1,
-                          borderBottomWidth: idx !== accounts.length - 1 ? 0.5 : 0,
-                          borderBottomColor: UI.BORDER.PRIMARY,
-                          backgroundColor: 'transparent',
-                        }}
-                        disabled={item.id === activeAccount?.id}
-                      >
-                        <Avatar
-                          uri={item.avatar || ''}
-                          type="profile"
-                          size={40}
-                          style={{ marginRight: 12, borderWidth: 1, borderColor: UI.BORDER.PRIMARY }}
+                    {accounts
+                      .filter(item => item.id !== activeAccount?.id)
+                      .map((item, idx, filteredAccounts) => (
+                        <AuthorItem
+                          key={item.id}
+                          handle={item.handle}
+                          displayName={item.displayName || item.handle}
+                          avatar={item.avatar}
+                          size="medium"
+                          showArrow={false}
+                          onPress={() => handleSwitchAccount(item)}
+                          style={{
+                            borderBottomWidth: idx !== filteredAccounts.length - 1 ? 0.5 : 0,
+                            borderBottomColor: UI.BORDER.PRIMARY,
+                            backgroundColor: 'transparent',
+                            borderRadius: 0,
+                            borderWidth: 0,
+                          }}
+                          textColor={TEXT.PRIMARY}
+                          backgroundColor="transparent"
                         />
-                        <View style={{ flex: 1, justifyContent: 'center' }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Text style={{ color: TEXT.PRIMARY, fontSize: 14, fontFamily: 'Firma-SemiBold', marginBottom: 2 }}>
-                              {item.displayName || item.handle}
-                            </Text>
-                            {item.handle && (
-                              <VerificationBadge
-                                handle={item.handle}
-                                textSize={14}
-                                textColor={TEXT.PRIMARY}
-                              />
-                            )}
-                          </View>
-                          <Text style={{ color: TEXT.LIGHT_GREY, fontSize: 14, fontFamily: 'Firma-Regular' }}>{`@${item.handle}`}</Text>
-                        </View>
-                        {item.id === activeAccount?.id && (
-                          <Ionicons name="checkmark" size={18} color="#fff" style={{ marginLeft: 8 }} />
-                        )}
-                      </TouchableOpacity>
-                    ))}
+                      ))}
                   </View>
                 )}
                 <TextInput
@@ -958,6 +944,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                             handle={activeAccount?.handle || profileData?.handle || ''}
                             textSize={16}
                             textColor={TEXT.PRIMARY}
+                            customMargin={2}
                           />
                         )}
                       </View>
@@ -974,36 +961,28 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
             </View>
             {/* Dropdown list of accounts, shown if accountModalVisible */}
             {accountModalVisible && (
-              <View style={{ backgroundColor: '#181818', borderRadius: 10, marginTop: 12, marginBottom: 12, borderWidth: 1, borderColor: UI.BORDER.PRIMARY, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 }}>
-                {accounts.map((item, idx) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    onPress={() => handleSwitchAccount(item)}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
-                      opacity: item.id === activeAccount?.id ? 0.5 : 1,
-                      borderBottomWidth: idx !== accounts.length - 1 ? 1 : 0,
-                      borderBottomColor: '#222',
-                    }}
-                    disabled={item.id === activeAccount?.id}
-                  >
-                    {item.avatar ? (
-                      <Image source={{ uri: item.avatar }} style={{ width: 32, height: 32, borderRadius: 16, marginRight: 14 }} />
-                    ) : (
-                      <Icon name="user" size={28} iconSet="pixelarticons" color="#fff" style={{ marginRight: 14 }} />
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#fff', fontSize: 16 }}>{item.displayName || item.handle}</Text>
-                      <Text style={{ color: '#aaa', fontSize: 13 }}>{`@${item.handle}`}</Text>
-                    </View>
-                    {item.id === activeAccount?.id && (
-                      <Ionicons name="checkmark" size={18} color="#fff" style={{ marginLeft: 8 }} />
-                    )}
-                  </TouchableOpacity>
-                ))}
+              <View style={{ backgroundColor: UI.BACKGROUND.CARD, borderRadius: 12, marginTop: 12, marginBottom: 12, borderWidth: 1, borderColor: UI.BORDER.PRIMARY, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}>
+                {accounts
+                  .filter(item => item.id !== activeAccount?.id)
+                  .map((item, idx, filteredAccounts) => (
+                    <AuthorItem
+                      key={item.id}
+                      handle={item.handle}
+                      displayName={item.displayName || item.handle}
+                      avatar={item.avatar}
+                      size="medium"
+                      showArrow={false}
+                      onPress={() => handleSwitchAccount(item)}
+                      style={{
+                        borderBottomWidth: idx !== filteredAccounts.length - 1 ? 1 : 0,
+                        borderBottomColor: '#222',
+                        borderRadius: 0,
+                        borderWidth: 0,
+                      }}
+                      textColor="#fff"
+                      backgroundColor="transparent"
+                    />
+                  ))}
               </View>
             )}
             <TextInput
@@ -1328,7 +1307,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Firma-Black',
-    marginRight: 6,
+    marginRight: 3,
     textShadowColor: 'rgba(0, 0, 0, 0.15)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,

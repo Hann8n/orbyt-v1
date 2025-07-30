@@ -17,6 +17,7 @@ import { Avatar, Icon } from '../../ui/UI';
 import AccountManager, { SavedAccount } from '../../../services/storage/AccountManager';
 import ProfileCache, { useProfile, CachedProfile } from '../../../services/cache/ProfileCache';
 import { BRAND, TEXT, UI } from '../../../utils/formatting/Colors';
+import VerificationBadge from '../verification/VerificationBadge';
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -248,9 +249,19 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             fallbackIconColor={isActive && customColors ? customColors.foregroundColor : TEXT.LIGHT_GREY}
           />
         </View>
-        <Text style={styles.displayName} numberOfLines={1}>
-          {displayName}
-        </Text>
+        <View style={styles.displayNameContainer}>
+          <Text style={styles.displayName} numberOfLines={1}>
+            {displayName}
+          </Text>
+          <VerificationBadge 
+            handle={handle}
+            textSize={16}
+            textColor={isActive && customColors ? customColors.foregroundColor : TEXT.PRIMARY}
+            borderColor={isActive && customColors ? customColors.foregroundColor : BRAND.ACCENT}
+            autoPosition={true}
+            style={styles.verificationBadge}
+          />
+        </View>
         <Text style={styles.handle} numberOfLines={1}>
           @{handle}
         </Text>
@@ -484,14 +495,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
   },
+  displayNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    maxWidth: CARD_SIZE - 24,
+  },
   displayName: {
     fontSize: 16,
     fontWeight: 'bold',
     color: TEXT.PRIMARY,
     fontFamily: 'Firma-Bold',
-    marginBottom: 4,
-    textAlign: 'center',
-    maxWidth: CARD_SIZE - 24,
+    marginRight: 4,
+  },
+  verificationBadge: {
+    marginLeft: 2,
   },
   handle: {
     fontSize: 14,

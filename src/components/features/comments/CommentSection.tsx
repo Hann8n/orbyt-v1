@@ -208,6 +208,7 @@ const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => (
             handle={like.actor.handle}
             textSize={14}
             textColor="#FFFFFF"
+            autoPosition={true}
           />
         )}
       </View>
@@ -647,6 +648,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                     handle={authorHandle}
                     textSize={14}
                     textColor="#FFFFFF"
+                    autoPosition={true}
                   />
                 )}
               </View>

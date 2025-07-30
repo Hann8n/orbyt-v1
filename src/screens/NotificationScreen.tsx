@@ -206,9 +206,8 @@ const NotificationScreen: React.FC = () => {
             {author.handle && (
               <VerificationBadge 
                 handle={author.handle} 
-                textSize={16} 
+                textSize={14} 
                 textColor={TEXT.PRIMARY}
-                style={{ marginLeft: 4, marginTop: 0 }}
               />
             )}
           </View>

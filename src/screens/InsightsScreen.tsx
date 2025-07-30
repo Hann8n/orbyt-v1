@@ -20,9 +20,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AtprotoService from '../services/api/AtprotoService';
 import { Avatar, Icon } from '../components/ui/UI';
 import { Card, Button, Badge, Divider, Loading } from '../components/ui/UI';
+import VerificationBadge from '../components/features/verification/VerificationBadge';
 import { BRAND, TEXT, UI } from '../utils/formatting/Colors';
 import { RootStackParamList } from '../navigation/types';
 import { queryKeys } from '../services/queryKeys';
+import { extractVideoUrl, extractVideoThumbnail } from '../utils/helpers/video';
+import ProfileCache from '../services/cache/ProfileCache';
 
 type InsightsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 
@@ -54,6 +57,9 @@ interface UserStats {
     repostCount: number;
     replyCount: number;
     createdAt: string;
+    videoUrl: string | null;
+    thumbnailUrl: string | null;
+    embed: any;
   }>;
   // New analytics features
   mostEngagedFollowers: Array<{
@@ -542,6 +548,18 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  // Get verification status using the same approach as VerificationBadge
+  const { data: verificationProfile } = useQuery({
+    queryKey: ['profile', userData?.handle],
+    queryFn: async () => {
+      if (!userData?.handle) return null;
+      return await ProfileCache.getProfile(userData.handle);
+    },
+    enabled: !!userData?.handle,
+    staleTime: 3600000, // Cache for 1 hour
+    refetchOnWindowFocus: false
+  });
+
   // Calculate insights from the data
   const calculateInsights = useCallback((): UserStats => {
     if (!userPosts || userPosts.length === 0 || !userData) {
@@ -602,6 +620,9 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
       repostCount: number;
       replyCount: number;
       createdAt: string;
+      videoUrl: string | null;
+      thumbnailUrl: string | null;
+      embed: any;
     }> = [];
 
     ownPosts.forEach(item => {
@@ -661,8 +682,12 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
     const favoriteEmoji = Object.keys(emojiCount).reduce((a, b) => 
       emojiCount[a] > emojiCount[b] ? a : b, Object.keys(emojiCount)[0] || '');
 
-    // Get top posts by engagement
+    // Get top video posts by engagement
     topPosts = ownPosts
+      .filter(item => {
+        const videoUrl = extractVideoUrl(item.post.embed);
+        return videoUrl !== null;
+      })
       .map(item => ({
         uri: item.post.uri,
         text: item.post.record.text || '',
@@ -670,9 +695,12 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
         repostCount: item.post.repostCount || 0,
         replyCount: item.post.replyCount || 0,
         createdAt: item.post.record.createdAt,
+        videoUrl: extractVideoUrl(item.post.embed),
+        thumbnailUrl: extractVideoThumbnail(item.post.embed),
+        embed: item.post.embed,
       }))
       .sort((a, b) => (b.likeCount + b.repostCount + b.replyCount) - (a.likeCount + a.repostCount + a.replyCount))
-      .slice(0, 3);
+      .slice(0, 6);
 
     const averageLikesPerPost = totalPosts > 0 ? totalLikes / totalPosts : 0;
     const averageRepostsPerPost = totalPosts > 0 ? totalReposts / totalPosts : 0;
@@ -707,6 +735,16 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
     
     // Calculate achievements
     const achievements = [
+      {
+        id: 'verified',
+        title: 'Verified',
+        description: 'Get your account verified',
+        icon: 'verified-badge',
+        color: '#10B981',
+        unlocked: verificationProfile?.verification?.isVerified || false,
+        progress: verificationProfile?.verification?.isVerified ? 1 : 0,
+        target: 1
+      },
       {
         id: 'first_post',
         title: 'First Post',
@@ -969,30 +1007,51 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
     );
   };
 
-  const renderTopPost = (post: any, index: number) => (
-    <Card key={post.uri} style={styles.topPostCard} backgroundColor="rgba(255, 255, 255, 0.03)">
-      <View style={styles.topPostHeader}>
-        <Badge text={`#${index + 1}`} variant="primary" size="small" />
-        <Text style={styles.topPostDate}>{formatDate(post.createdAt)}</Text>
+    const renderTopVideoPost = (post: any, index: number) => (
+    <View key={post.uri} style={[
+      styles.topVideoPostItem,
+      index === insights.topPosts.length - 1 && { borderBottomWidth: 0 }
+    ]}>
+      <View style={styles.topVideoPostContent}>
+                  <View style={styles.topVideoPostInfo}>
+            <View style={styles.topVideoPostHeader}>
+              <Text style={styles.topVideoPostRankText}>#{index + 1}</Text>
+            </View>
+            
+            {post.text && post.text.trim() && (
+              <Text style={styles.topVideoPostText} numberOfLines={2}>
+                {post.text}
+              </Text>
+            )}
+            
+            <Text style={styles.topVideoPostDate} numberOfLines={1}>
+              {formatDate(post.createdAt)}
+            </Text>
+            
+            <View style={styles.topVideoPostStats}>
+              <View style={styles.topVideoPostStat}>
+                <Icon name="heart" size={12} color="#FE4359" />
+                <Text style={styles.topVideoPostStatText}>{formatNumber(post.likeCount)}</Text>
+              </View>
+              <View style={styles.topVideoPostStat}>
+                <Icon name="repeat" size={12} color="#00D4AA" />
+                <Text style={styles.topVideoPostStatText}>{formatNumber(post.repostCount)}</Text>
+              </View>
+              <View style={styles.topVideoPostStat}>
+                <Icon name="message" size={12} color="#3797F0" />
+                <Text style={styles.topVideoPostStatText}>{formatNumber(post.replyCount)}</Text>
+              </View>
+            </View>
+          </View>
+        
+        <Image
+          source={{ uri: post.thumbnailUrl || post.videoUrl }}
+          style={styles.topVideoPostThumbnail}
+          resizeMode="contain"
+          defaultSource={require('../assets/Vector_Normal_Grey.png')}
+        />
       </View>
-      <Text style={styles.topPostText} numberOfLines={2}>
-        {post.text}
-      </Text>
-      <View style={styles.topPostStats}>
-        <View style={styles.topPostStat}>
-          <Icon name="heart" size={16} color="#FE4359" />
-          <Text style={styles.topPostStatText}>{formatNumber(post.likeCount)}</Text>
-        </View>
-        <View style={styles.topPostStat}>
-          <Icon name="repeat" size={16} color="#00D4AA" />
-          <Text style={styles.topPostStatText}>{formatNumber(post.repostCount)}</Text>
-        </View>
-        <View style={styles.topPostStat}>
-          <Icon name="message" size={16} color="#3797F0" />
-          <Text style={styles.topPostStatText}>{formatNumber(post.replyCount)}</Text>
-        </View>
-      </View>
-    </Card>
+    </View>
   );
 
   return (
@@ -1011,6 +1070,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
 
       <ScrollView 
         style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: insets.bottom }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -1034,7 +1094,14 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
                 type="profile"
                 size={60}
               />
-              <Text style={styles.userName}>{userData?.displayName || 'User'}</Text>
+              <View style={styles.userNameContainer}>
+                <Text style={styles.userName}>{userData?.displayName || 'User'}</Text>
+                <VerificationBadge 
+                  handle={userData?.handle || ''} 
+                  textSize={24}
+                  autoPosition={true}
+                />
+              </View>
               <Text style={styles.userHandle}>@{userData?.handle}</Text>
               
               {/* Account Stats */}
@@ -1190,19 +1257,19 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
           )
         )}
 
-        {/* Top Posts */}
+        {/* Top Video Posts */}
         {isLoading ? (
-          <View style={styles.topPostsSection}>
-            <Text style={styles.sectionTitle}>Top Performing Posts</Text>
+          <Card style={styles.topVideoPostsCard} backgroundColor="rgba(255, 255, 255, 0.05)">
+            <Text style={styles.cardTitle}>Top Performing Videos</Text>
             <TopPostCardShimmer />
             <TopPostCardShimmer />
             <TopPostCardShimmer />
-          </View>
+          </Card>
         ) : insights.topPosts.length > 0 ? (
-          <View style={styles.topPostsSection}>
-            <Text style={styles.sectionTitle}>Top Performing Posts</Text>
-            {insights.topPosts.map((post, index) => renderTopPost(post, index))}
-          </View>
+          <Card style={styles.topVideoPostsCard} backgroundColor="rgba(255, 255, 255, 0.05)">
+            <Text style={styles.cardTitle}>Top Performing Videos</Text>
+            {insights.topPosts.map((post, index) => renderTopVideoPost(post, index))}
+          </Card>
         ) : null}
 
         {/* Fun Facts */}
@@ -1284,11 +1351,20 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
                       opacity: achievement.unlocked ? 1 : 0.5
                     }
                   ]}>
-                    <Icon 
-                      name={achievement.icon} 
-                      size={20} 
-                      color={achievement.unlocked ? '#FFFFFF' : TEXT.SECONDARY} 
-                    />
+                    {achievement.icon === 'verified-badge' ? (
+                      <VerificationBadge 
+                        handle={userData?.handle || ''} 
+                        size={28}
+                        textColor={achievement.unlocked ? '#FFFFFF' : TEXT.SECONDARY}
+                        borderColor={achievement.unlocked ? '#FFFFFF' : TEXT.SECONDARY}
+                      />
+                    ) : (
+                      <Icon 
+                        name={achievement.icon} 
+                        size={20} 
+                        color={achievement.unlocked ? '#FFFFFF' : TEXT.SECONDARY} 
+                      />
+                    )}
                   </View>
                   <View style={styles.achievementContent}>
                     <Text style={[
@@ -1298,22 +1374,24 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
                       {achievement.title}
                     </Text>
                     <Text style={styles.achievementDescription}>{achievement.description}</Text>
-                    <View style={styles.achievementProgress}>
-                      <View style={styles.achievementProgressBar}>
-                        <View 
-                          style={[
-                            styles.achievementProgressFill,
-                            { 
-                              width: `${(achievement.progress / achievement.target) * 100}%`,
-                              backgroundColor: achievement.color
-                            }
-                          ]} 
-                        />
+                    {achievement.target > 1 && (
+                      <View style={styles.achievementProgress}>
+                        <View style={styles.achievementProgressBar}>
+                          <View 
+                            style={[
+                              styles.achievementProgressFill,
+                              { 
+                                width: `${(achievement.progress / achievement.target) * 100}%`,
+                                backgroundColor: achievement.color
+                              }
+                            ]} 
+                          />
+                        </View>
+                        <Text style={styles.achievementProgressText}>
+                          {achievement.progress}/{achievement.target}
+                        </Text>
                       </View>
-                      <Text style={styles.achievementProgressText}>
-                        {achievement.progress}/{achievement.target}
-                      </Text>
-                    </View>
+                    )}
                   </View>
                 </View>
               ))}
@@ -1428,7 +1506,6 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
           </Card>
         )}
 
-        <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
   );
@@ -1483,12 +1560,18 @@ const styles = StyleSheet.create({
   },
   userCard: {
     margin: 20,
+    marginTop: 0,
     marginBottom: 16,
   },
   userInfo: {
     alignItems: 'center',
   },
-
+  userNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -1831,9 +1914,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Firma-Bold',
   },
-  bottomSpacer: {
-    height: 120,
-  },
+
   lastUpdatedTop: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2161,6 +2242,79 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: TEXT.SECONDARY,
     fontFamily: 'Firma-Regular',
+  },
+  // Video list item styles (like notifications)
+  topVideoPostItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: UI.BORDER.PRIMARY,
+  },
+
+  topVideoPostRankText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontFamily: 'Firma-Bold',
+  },
+  topVideoPostContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  topVideoPostInfo: {
+    flex: 1,
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  topVideoPostHeader: {
+    marginBottom: 8,
+  },
+  topVideoPostDate: {
+    fontSize: 12,
+    color: TEXT.TERTIARY,
+    fontFamily: 'Firma-Regular',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  topVideoPostThumbnail: {
+    width: 54,
+    height: 96,
+    borderRadius: 8,
+    backgroundColor: '#000000',
+  },
+  topVideoPostText: {
+    fontSize: 14,
+    color: TEXT.LIGHT_GREY,
+    lineHeight: 18,
+    marginBottom: 8,
+    fontFamily: 'Firma-Regular',
+  },
+  topVideoPostStats: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    gap: 12,
+  },
+  topVideoPostStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  topVideoPostStatText: {
+    fontSize: 12,
+    color: TEXT.SECONDARY,
+    marginLeft: 4,
+    fontFamily: 'Firma-Regular',
+  },
+  topVideoPostsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  topVideoPostsCard: {
+    margin: 20,
+    marginTop: 0,
+    marginBottom: 8,
   },
 });
 

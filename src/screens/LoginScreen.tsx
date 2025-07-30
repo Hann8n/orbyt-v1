@@ -96,12 +96,13 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
   const renderSavedAccounts = () => (
     <View style={styles.savedAccountsContainer}>
-      <Text style={styles.savedAccountsTitle}>Choose an account</Text>
       <View style={styles.accountsListWrapper}>
         <ScrollView 
           style={styles.accountsList} 
           contentContainerStyle={styles.accountsListContent}
           showsVerticalScrollIndicator={false}
+          bounces={false}
+          overScrollMode="never"
         >
           {savedAccounts.map((account) => (
             <TouchableOpacity
@@ -385,6 +386,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     justifyContent: 'flex-start',
     paddingBottom: 8,
+    paddingTop: 0,
   },
   savedAccountsTitle: {
     color: BRAND.SECONDARY,
@@ -405,7 +407,7 @@ const styles = StyleSheet.create({
     maxHeight: undefined,
   },
   accountsListContent: {
-    paddingVertical: 4,
+    paddingTop: 0,
     paddingBottom: 8,
   },
   accountItem: {

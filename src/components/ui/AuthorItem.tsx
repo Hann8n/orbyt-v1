@@ -1,12 +1,12 @@
-import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Avatar } from './UI';
-import Icon from './Icon';
 import VerificationBadge from '../features/verification/VerificationBadge';
-import { useProfile } from '../../services/cache/ProfileCache';
+import Icon from './Icon';
 import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { UI } from '../../utils/formatting/Colors';
+import { HomeStackParamList } from '../../navigation/types';
 
 interface AuthorItemProps {
   handle: string;
@@ -35,50 +35,44 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   showDate = false,
   date,
 }) => {
-  const navigation = useNavigation<any>();
-
-  // Use ProfileCache to get full profile data
-  const { data: profile } = useProfile(handle);
-
-  const handlePress = useCallback(() => {
-    if (onPress) {
-      onPress();
-    } else if (handle) {
-      navigation.navigate('AuthorProfile', { handle });
-    }
-  }, [handle, navigation, onPress]);
-
-  // Use cached profile data if available, otherwise fall back to props
-  const actualDisplayName = profile?.displayName || displayName || handle || 'Unknown';
-  const actualAvatar = profile?.avatar || avatar;
-  const actualHandle = profile?.handle || handle;
-
-  // Size configurations
+  const navigation = useNavigation<NavigationProp<HomeStackParamList>>();
+  
+  // Size configuration
   const sizeConfig = {
     small: {
       avatarSize: 32,
       textSize: 12,
-      badgeTextSize: 10,
+      badgeTextSize: 12,
       nameFontSize: 12,
       handleFontSize: 10,
     },
     medium: {
       avatarSize: 40,
       textSize: 14,
-      badgeTextSize: 12,
+      badgeTextSize: 14,
       nameFontSize: 14,
       handleFontSize: 12,
     },
     large: {
       avatarSize: 48,
       textSize: 16,
-      badgeTextSize: 14,
+      badgeTextSize: 16,
       nameFontSize: 16,
       handleFontSize: 14,
     },
   };
 
   const config = sizeConfig[size];
+  const actualDisplayName = displayName || handle || 'Unknown';
+  const actualAvatar = avatar || undefined;
+
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+    } else if (handle) {
+      navigation.navigate('AuthorProfile', { handle });
+    }
+  };
 
   return (
     <TouchableOpacity
@@ -111,9 +105,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
             ]}>
               {actualDisplayName}
             </Text>
-            {actualHandle && (
+            {handle && (
               <VerificationBadge
-                handle={actualHandle}
+                handle={handle}
                 textSize={config.badgeTextSize}
                 textColor={textColor}
               />
@@ -126,17 +120,17 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
               fontSize: config.handleFontSize,
             }
           ]}>
-            {showDate && date ? date : `@${actualHandle}`}
+            {showDate && date ? date : `@${handle}`}
           </Text>
         </View>
+        {showArrow && (
+          <Icon 
+            name="chevron-right" 
+            size={config.textSize} 
+            color={hexToRGBA(textColor, 0.5)} 
+          />
+        )}
       </View>
-      {showArrow && (
-        <Icon 
-          name="chevron-right" 
-          size={config.textSize} 
-          color={hexToRGBA(textColor, 0.5)} 
-        />
-      )}
     </TouchableOpacity>
   );
 };

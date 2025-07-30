@@ -311,7 +311,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       badge: profileData.handle ? (
         <VerificationBadge
           handle={profileData.handle}
-          textSize={20}
+          textSize={24}
           borderColor={profileColors.textColor}
           textColor={profileColors.textColor}
           onPress={() => setShowVerificationInfo(true)}

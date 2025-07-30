@@ -9,7 +9,6 @@ import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import { Avatar } from '../../ui/UI';
 import { HomeStackParamList } from '../../../navigation/types';
 import { useProfile } from '../../../services/cache/ProfileCache';
-import VerificationBadge from '../../features/verification/VerificationBadge';
 import { UI } from '../../../utils/formatting/Colors';
 import AuthorItem from '../../ui/AuthorItem';
 

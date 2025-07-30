@@ -556,7 +556,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                       <VerificationBadge 
                         handle={post.repostedBy.handle} 
                         textSize={isTabletDevice ? 16 : 14} 
-                        style={{ marginLeft: 4 }}
+                        autoPosition={true}
                         textColor={styles.repostIndicatorText.color}
                       />
                     )}
@@ -630,6 +630,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                     {author.handle && <VerificationBadge 
                       handle={author.handle} 
                       textSize={isTabletDevice ? 16 : 14} 
+                      autoPosition={true}
                       textColor={BRAND.SECONDARY}
                     />}
                   </View>

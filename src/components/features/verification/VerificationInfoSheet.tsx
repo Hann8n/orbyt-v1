@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 20,
     fontFamily: 'Firma-Bold',
-    marginLeft: 10,
+    marginLeft: 6,
   },
 
   infoContainer: {

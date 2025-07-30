@@ -14,6 +14,7 @@ interface VerificationBadgeProps {
   badgeType?: 'circular' | 'scalloped' | 'auto'; // New prop to determine badge type
   textSize?: number; // New prop to automatically size badge based on text size
   autoPosition?: boolean; // New prop to automatically calculate positioning based on text size
+  customMargin?: number; // New prop to override auto-calculated margin
 }
 
 /**
@@ -26,6 +27,7 @@ interface VerificationBadgeProps {
  * @param badgeType - Type of badge: 'circular' for normal verified accounts, 'scalloped' for trusted verifiers, 'auto' to determine automatically
  * @param textSize - Optional text size to automatically calculate appropriate badge size
  * @param autoPosition - When true, automatically calculates margin based on text size for consistent positioning
+ * @param customMargin - Optional custom margin to override auto-calculated positioning
  * When not provided, uses the profile's text color from ProfileCache.
  */
 const VerificationBadge: React.FC<VerificationBadgeProps> = ({ 
@@ -37,53 +39,52 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
   borderColor, // Will default to textColor if not provided
   badgeType = 'auto', // Default to auto to determine based on verification status
   textSize, // New prop to automatically size badge based on text size
-  autoPosition = true // Default to true for consistent positioning
+  autoPosition = true, // Default to true for consistent positioning
+  customMargin // New prop to override auto-calculated margin
 }) => {
   // Calculate badge size based on text size if provided, otherwise use default
   const calculateBadgeSize = () => {
     if (size) return size;
     if (textSize) {
-      // Consistent sizing based on common author name text sizes throughout the app
-      // VideoOverlay: 16px (normal), 15px (small), 19px (tablet)
-      // CommentSection: 14px
-      // ChannelHeader: 14px
-      // MembersListView: 14px
-      // NotificationScreen: 16px
-      // VideoPostScreen: 16px
-      // ExploreScreen: 16px
-      // UniversalHeader: 24px (profile titles)
+      // More proportional badge sizing that scales better with text
+      // Use textSize * 1.3 as base for better proportions
+      let badgeSize = Math.round(textSize * 1.35);
       
-      // Scale badge size to be proportional to text size
-      // For text sizes 10-12px (grid feed), use badge size 16-18px
-      // For text sizes 13-15px (comments, channels), use badge size 18-20px
-      // For text sizes 16-18px (video overlays, notifications), use badge size 20-22px
-      // For text sizes 19-21px (tablet), use badge size 22-24px
-      // For text sizes 22px+ (headers), use badge size 24-26px
-      if (textSize <= 12) return Math.max(16, textSize + 6);
-      if (textSize <= 15) return Math.max(18, textSize + 5);
-      if (textSize <= 18) return Math.max(20, textSize + 4);
-      if (textSize <= 21) return Math.max(22, textSize + 3);
-      return Math.max(24, textSize + 2);
+      // Ensure minimum and maximum sizes for consistency
+      badgeSize = Math.max(14, Math.min(28, badgeSize));
+      
+      // Fine-tune for specific ranges to ensure optimal proportions
+      if (textSize <= 12) badgeSize = 16;
+      else if (textSize <= 14) badgeSize = 20;
+      else if (textSize <= 16) badgeSize = 22;
+      else if (textSize <= 18) badgeSize = 24;
+      else if (textSize <= 20) badgeSize = 26;
+      else badgeSize = 28;
+      
+      return badgeSize;
     }
-    return 22; // Default size for better visibility
+    return 20; // Default size for better visibility
   };
 
   // Calculate automatic positioning based on text size
   const calculateAutoPosition = () => {
     if (!autoPosition || !textSize) return {};
     
-    // Standardized margin calculation based on text size
-    // For smaller text (10-12px): 3px margin
-    // For medium text (13-15px): 4px margin (most common)
-    // For larger text (16-18px): 5px margin
-    // For tablet text (19-21px): 6px margin
-    // For header text (22px+): 7px margin
-    let marginLeft = 4; // Default
+    // Use custom margin if provided, otherwise calculate automatically
+    if (customMargin !== undefined) {
+      return { marginLeft: customMargin, marginTop: 0 };
+    }
     
-    if (textSize <= 12) marginLeft = 3;
-    else if (textSize <= 15) marginLeft = 4;
+    // More precise margin calculation based on text size
+    // Use a smaller, more consistent margin for better alignment
+    let marginLeft = Math.max(2, Math.min(6, Math.round(textSize * 0.15)));
+    
+    // Fine-tune for specific ranges to ensure optimal spacing
+    if (textSize <= 12) marginLeft = 2;
+    else if (textSize <= 14) marginLeft = 3;
+    else if (textSize <= 16) marginLeft = 4;
     else if (textSize <= 18) marginLeft = 5;
-    else if (textSize <= 21) marginLeft = 6;
+    else if (textSize <= 20) marginLeft = 6;
     else marginLeft = 7;
     
     return { marginLeft, marginTop: 0 };
@@ -232,8 +233,8 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
 
 const styles = StyleSheet.create({
   badge: {
-    alignSelf: 'center',
-    // Ensure consistent vertical alignment with text
+    // Remove alignSelf to let parent control alignment
+    // This allows better integration with flexbox layouts
     marginTop: 0,
   }
 });
