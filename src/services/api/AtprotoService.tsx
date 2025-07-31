@@ -1853,24 +1853,65 @@ class AtprotoService {
   }
 
   /**
-   * Paginated fetch for video posts (no search query supported)
+   * Search for video posts with query support
+   * @param query - Search query
    * @param cursor - Pagination cursor
    * @param limit - Number of results per page
    * @returns Array of video post results and next cursor
    */
-  static async searchVideosPaginated(cursor: string | null = null, limit: number = 20): Promise<{ videos: any[], cursor: string | null }> {
+  static async searchVideosPaginated(query: string, cursor: string | null = null, limit: number = 20): Promise<{ videos: any[], cursor: string | null }> {
     await this.ensureSession();
     try {
       let params: any = { limit };
       if (cursor !== null && cursor !== undefined) params.cursor = cursor;
-      let response: any = await this.agent.api.app.bsky.feed.getTimeline(params);
-      let posts = response?.data?.feed || [];
-      // Normalize to post objects
-      posts = posts.map((item: any) => item.post ? item.post : item);
-      // Filter for video posts only
-      const videoPosts = this.filterVideoPostsEfficiently(posts.map((post: any) => ({ post })));
-      // Map back to just the post object
-      const videos = videoPosts.map((item: any) => item.post);
+      
+      // Use search posts endpoint for query-based search
+      let response: any;
+      if (query && query.trim()) {
+        // Search for posts with the query
+        response = await this.agent.api.app.bsky.feed.searchPosts({
+          q: query,
+          limit,
+          cursor: cursor || undefined
+        });
+      } else {
+        // Fallback to timeline for no query
+        response = await this.agent.api.app.bsky.feed.getTimeline(params);
+      }
+      
+      let posts = response?.data?.posts || response?.data?.feed || [];
+      
+      // Filter for video posts only and normalize structure
+      const videoPosts = posts.filter((item: any) => {
+        const post = item.post || item;
+        const embed = post.embed;
+        if (!embed) return false;
+        
+        // Check for video embeds
+        if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
+          return true;
+        } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
+          return embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view';
+        }
+        return false;
+      });
+      
+      // Normalize video structure for UI consumption
+      const videos = videoPosts.map((item: any) => {
+        const post = item.post || item;
+        return {
+          ...post,
+          // Ensure we have the expected structure for the UI
+          uri: post.uri,
+          cid: post.cid,
+          author: post.author,
+          text: post.record?.text || '',
+          embed: post.embed,
+          likeCount: post.likeCount || 0,
+          indexedAt: post.indexedAt
+        };
+      });
+      
       return {
         videos,
         cursor: response?.data?.cursor || null

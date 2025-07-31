@@ -29,6 +29,8 @@ import EmptyFeed from '../components/features/feed/EmptyFeed';
 import { queryKeys } from '../services/queryKeys';
 import { getBottomNavBarHeight } from '../utils/helpers/screenSize';
 import GridFeedView from '../components/features/feed/GridFeedView';
+import { extractVideoThumbnail } from '../utils/helpers/video';
+import { setCurrentFeed } from '../services/FeedStore';
 
 interface Profile {
   did: string;
@@ -213,6 +215,7 @@ const ExploreScreen: React.FC = () => {
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
   const [isScrolling, setIsScrolling] = useState(false);
   const [allSuggestions, setAllSuggestions] = useState<any[]>([]);
+  const [allVideos, setAllVideos] = useState<any[]>([]);
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -253,12 +256,29 @@ const ExploreScreen: React.FC = () => {
     }
 
     try {
-      // Search for profiles, channels, and videos in parallel
-      const [profilesResponse, channelsResponse, videosResponse] = await Promise.all([
-        AtprotoService.searchProfilesPaginated(query, pageParam as string | null),
-        AtprotoService.searchPopularFeeds(query),
-        AtprotoService.searchVideosPaginated(pageParam as string | null)
-      ]);
+      // Search for profiles and videos in parallel (channels don't support pagination)
+      let profilesResponse, videosResponse;
+      try {
+        [profilesResponse, videosResponse] = await Promise.all([
+          AtprotoService.searchProfilesPaginated(query, pageParam as string | null),
+          AtprotoService.searchVideosPaginated(query, pageParam as string | null)
+        ]);
+      } catch (error) {
+        console.error('Error in parallel search:', error);
+        profilesResponse = { profiles: [], cursor: null };
+        videosResponse = { videos: [], cursor: null };
+      }
+
+      // Only fetch channels on the first page to avoid duplicates
+      let channelsResponse: any[] = [];
+      if (!pageParam) {
+        try {
+          channelsResponse = await AtprotoService.searchPopularFeeds(query);
+        } catch (error) {
+          console.warn('Error fetching channels:', error);
+          channelsResponse = [];
+        }
+      }
 
       // Process profiles
       const processedProfiles = profilesResponse.profiles.map(profile => ({
@@ -270,7 +290,7 @@ const ExploreScreen: React.FC = () => {
         relevance: calculateRelevance(profile, query, 'profile')
       }));
 
-      // Process channels
+      // Process channels (only on first page)
       const processedChannels = channelsResponse.map(channel => ({
         type: 'channel' as const,
         data: channel as Channel,
@@ -278,11 +298,19 @@ const ExploreScreen: React.FC = () => {
       }));
 
       // Process videos
-      const processedVideos = (videosResponse.videos || []).map(video => ({
-        type: 'video' as const,
-        data: video,
-        relevance: calculateRelevance(video, query, 'video')
-      }));
+      const processedVideos = (videosResponse.videos || []).map(video => {
+        // Add some debugging for video structure
+        if (!video.uri) {
+          console.warn('Video missing URI:', video);
+        }
+        return {
+          type: 'video' as const,
+          data: video,
+          relevance: calculateRelevance(video, query, 'video')
+        };
+      });
+
+      // Note: allVideos is now updated in useEffect based on searchData
 
       // Combine all results and sort by relevance
       const allResults: ListItem[] = [
@@ -321,7 +349,8 @@ const ExploreScreen: React.FC = () => {
       if (item.likeCount && item.likeCount > 100) score += 2; // Boost popular channels
     } else if (type === 'video') {
       // Video relevance scoring
-      if (item.text?.toLowerCase().includes(queryLower)) score += 10;
+      const videoText = item.text || item.record?.text || '';
+      if (videoText.toLowerCase().includes(queryLower)) score += 10;
       if (item.author?.displayName?.toLowerCase().includes(queryLower)) score += 6;
       if (item.author?.handle?.toLowerCase().includes(queryLower)) score += 5;
       if (item.labels && item.labels.some((l: any) => l.val?.toLowerCase().includes(queryLower))) score += 3;
@@ -356,6 +385,25 @@ const ExploreScreen: React.FC = () => {
   // Flatten results from all pages
   const searchResults = useMemo(() => {
     return searchData?.pages.flatMap(page => page.results) || [];
+  }, [searchData]);
+
+  // Update allVideos with all videos from all pages when search results change
+  useEffect(() => {
+    if (searchData?.pages) {
+      const allVideosFromPages = searchData.pages.flatMap(page => {
+        const videoResults = page.results.filter((result: any) => result.type === 'video');
+        return videoResults.map((result: any) => result.data);
+      });
+      setAllVideos(allVideosFromPages);
+      
+      // Also update the FeedStore with formatted feed data
+      const formattedFeed = allVideosFromPages.map(video => ({
+        post: video,
+        shouldCache: true,
+        uniqueKey: video.uri,
+      }));
+      setCurrentFeed(formattedFeed);
+    }
   }, [searchData]);
 
   // Batch prefetch profiles and channels when search results change
@@ -681,31 +729,62 @@ const ExploreScreen: React.FC = () => {
         case 'video': {
           const video = searchItem.data;
           const author = video.author || {};
-          const thumbnail = video.embed?.video?.thumb || video.embed?.media?.video?.thumb;
+          
+          // Use the same thumbnail extraction logic as GridFeedView
+          const thumbnailUrl = extractVideoThumbnail(video.embed);
+          
           return (
             <TouchableOpacity
-              style={styles.feedItem}
+              style={styles.videoItem}
               onPress={() => {
                 if (video.uri) {
-                  navigation.navigate('VideoPostScreen', { uri: video.uri });
+                  // Find the index of this video in the allVideos array
+                  const videoIndex = allVideos.findIndex(v => v.uri === video.uri);
+                  const index = videoIndex >= 0 ? videoIndex : 0;
+                  
+                  // FeedStore is already updated with formatted data from useEffect
+                  
+                  navigation.navigate('FeedModal', {
+                    initialIndex: index,
+                    initialUri: video.uri,
+                    feedOption: 'search',
+                    userDid: undefined,
+                    backgroundColor: 'transparent',
+                    secondaryColor: '#fff',
+                    searchQuery: debouncedQuery,
+                    hasNextPage: hasNextPage,
+                    isFetchingNextPage: isFetchingNextPage,
+                    fetchNextPage: fetchNextPage
+                  });
                 }
               }}
             >
-              <Avatar
-                uri={thumbnail}
-                type={"channel"}
-                size={40}
-                style={styles.feedImage}
-              />
-              <View style={styles.feedContent}>
-                <Text style={styles.displayName} numberOfLines={1}>
-                  {video.text || 'Untitled video'}
+              <View style={styles.videoThumbnailContainer}>
+                {thumbnailUrl ? (
+                  <Image
+                    source={{ uri: thumbnailUrl }}
+                    style={styles.videoThumbnail}
+                    resizeMode="cover"
+                    defaultSource={require('../assets/Vector_Normal_Grey.png')}
+                    onError={() => {
+                      console.warn('Failed to load thumbnail:', thumbnailUrl);
+                    }}
+                  />
+                ) : (
+                  <View style={styles.videoThumbnailPlaceholder}>
+                    <Icon name="videocam" size={16} color={TEXT.TERTIARY} />
+                  </View>
+                )}
+              </View>
+              <View style={styles.videoContent}>
+                <Text style={styles.videoTitle} numberOfLines={2}>
+                  {video.text || video.record?.text || 'Untitled video'}
                 </Text>
-                <Text style={styles.channelCreator} numberOfLines={1}>
+                <Text style={styles.videoAuthor} numberOfLines={1}>
                   by @{author.handle || 'unknown'}
                 </Text>
-                {video.likeCount && (
-                  <Text style={styles.channelStats}>
+                {video.likeCount && video.likeCount > 0 && (
+                  <Text style={styles.videoStats}>
                     {video.likeCount} likes
                   </Text>
                 )}
@@ -718,41 +797,7 @@ const ExploreScreen: React.FC = () => {
     return null;
   }, [navigation, queryClient]);
 
-  // Render a video result item
-  const renderVideoResult = ({ video }: { video: any }) => {
-    const author = video.author || {};
-    const thumbnail = video.embed?.video?.thumb || video.embed?.media?.video?.thumb;
-    return (
-      <TouchableOpacity
-        style={styles.feedItem}
-        onPress={() => {
-          if (video.uri) {
-            navigation.navigate('VideoPostScreen', { uri: video.uri });
-          }
-        }}
-      >
-        <Avatar
-          uri={thumbnail}
-          type={"channel"} // fallback to channel for video avatar type
-          size={40}
-          style={styles.feedImage}
-        />
-        <View style={styles.feedContent}>
-          <Text style={styles.displayName} numberOfLines={1}>
-            {video.text || 'Untitled video'}
-          </Text>
-          <Text style={styles.channelCreator} numberOfLines={1}>
-            by @{author.handle || 'unknown'}
-          </Text>
-          {video.likeCount && (
-            <Text style={styles.channelStats}>
-              {video.likeCount} likes
-            </Text>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
-  };
+
 
   const isLoadingResults = isLoading || isFetching && !isFetchingNextPage;
 
@@ -914,9 +959,18 @@ const ExploreScreen: React.FC = () => {
             if (typeof item === 'string') return `shimmer-${index}`;
             if (isSearchResult(item)) {
               const searchResult = item as SearchResult;
-              if (searchResult.type === 'profile') return `profile-${(searchResult.data as Profile).did}-${index}`;
-              if (searchResult.type === 'channel') return `channel-${(searchResult.data as Channel).uri}-${index}`;
-              if (searchResult.type === 'video') return `video-${searchResult.data?.uri || index}`;
+              if (searchResult.type === 'profile') {
+                const profile = searchResult.data as Profile;
+                return `profile-${profile.did || profile.handle || index}`;
+              }
+              if (searchResult.type === 'channel') {
+                const channel = searchResult.data as Channel;
+                return `channel-${channel.uri || channel.cid || index}`;
+              }
+              if (searchResult.type === 'video') {
+                const video = searchResult.data;
+                return `video-${video?.uri || video?.cid || index}`;
+              }
             }
             return `item-${index}`;
           }}
@@ -1198,6 +1252,60 @@ const styles = StyleSheet.create({
   feedContent: {
     flex: 1,
     justifyContent: 'center',
+  },
+  videoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    borderBottomWidth: 0.5,
+    borderBottomColor: UI.BORDER.PRIMARY,
+  },
+  videoThumbnailContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  videoThumbnail: {
+    width: 45,
+    height: 80, // 9:16 aspect ratio (45 * 16/9)
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: UI.BORDER.PRIMARY,
+    overflow: 'hidden' as const,
+  },
+  videoThumbnailPlaceholder: {
+    width: 45,
+    height: 80,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: UI.BORDER.PRIMARY,
+    backgroundColor: UI.BACKGROUND.SECONDARY,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  videoContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  videoTitle: {
+    color: TEXT.PRIMARY,
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginBottom: 4,
+    fontFamily: 'Firma-SemiBold',
+    flexShrink: 1,
+  },
+  videoAuthor: {
+    color: TEXT.LIGHT_GREY,
+    fontSize: 12,
+    fontFamily: 'Firma-Regular',
+    marginBottom: 2,
+  },
+  videoStats: {
+    color: TEXT.TERTIARY,
+    fontSize: 11,
+    fontFamily: 'Firma-Regular',
   },
 
 });

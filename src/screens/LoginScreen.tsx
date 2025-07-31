@@ -13,6 +13,7 @@ import {
   Linking,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../components/ui/Icon';
 import { BRAND, TEXT, UI } from '../utils/formatting/Colors';
 import AccountManager from '../services/storage/AccountManager';
@@ -25,6 +26,7 @@ interface LoginScreenProps {
 }
 
 export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenProps) {
+  const insets = useSafeAreaInsets();
   const [handle, setHandle] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -251,7 +253,10 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={[styles.container, { 
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom 
+      }]}
     >
       <View style={styles.logoContainer}>
         <Image

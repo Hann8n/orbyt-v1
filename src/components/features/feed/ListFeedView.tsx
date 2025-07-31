@@ -26,6 +26,7 @@ import type { ModerationDecision } from '../../../services/ModerationTypes';
 import PerformanceMonitor from '../../../utils/helpers/performance';
 import Icon from '../../ui/Icon';
 import { useClearView } from '../../../services/ClearViewContext';
+import { updateHeaderVisibility } from '../../../services/FeedStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -270,7 +271,12 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const onHeaderLayout = useCallback((event: any) => {
     const { height } = event.nativeEvent.layout;
     setHeaderHeight(height);
-  }, []);
+    
+    // Report header height to FeedStore for header visibility tracking
+    if (isHeaderFeed) {
+      updateHeaderVisibility(currentScrollOffset.current, height, isSnappedToTopRef.current);
+    }
+  }, [isHeaderFeed]);
 
   // Optimized scroll handler - debounced and batched
   const handleScroll = useCallback((event: any) => {
@@ -292,7 +298,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     
     // Check if snapped to top for header feeds - optimized
     if (isHeaderFeed && headerHeight > 0) {
-      const isAtTop = y <= 64; // Larger target area for snapped to top
+      const threshold = Math.max(64, headerHeight - insets.top);
+      const isAtTop = y <= threshold;
       if (isAtTop !== isSnappedToTopRef.current) {
         isSnappedToTopRef.current = isAtTop;
         setIsSnappedToTop(isAtTop);
@@ -301,6 +308,11 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     
     // Report vertical scroll position for feed bar visibility
     onVerticalScroll?.(y);
+    
+    // Report scroll position to FeedStore for header visibility
+    if (isHeaderFeed) {
+      updateHeaderVisibility(y, headerHeight, isSnappedToTopRef.current);
+    }
     
     // Simplified user scroll detection for fast scrolling
     if (!userScrolled.current) {
@@ -524,14 +536,27 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     debugShouldDisablePlayback = (isHeaderFeed && isSnappedToTopRef.current) || (feed[visibleIndexRef.current].moderationDecision?.blur === true);
   }
 
-  // On mount and whenever isHeaderFeed or headerHeight changes, check if the initial scroll position is at the top (currentScrollOffset.current <= 24). If so, set isSnappedToTop to true. This ensures that the snapped-to-top state is correct on first render, preventing the first video from playing when the header is visible.
+  // On mount and whenever isHeaderFeed or headerHeight changes, check if the initial scroll position is at the top. If so, set isSnappedToTop to true. This ensures that the snapped-to-top state is correct on first render, preventing the first video from playing when the header is visible.
   useEffect(() => {
     // On mount or when header changes, if the initial scroll position is at the top, set isSnappedToTop to true
-    if (isHeaderFeed && headerHeight > 0 && currentScrollOffset.current <= 24) {
+    if (isHeaderFeed && headerHeight > 0) {
+      const threshold = Math.max(64, headerHeight - insets.top);
+      if (currentScrollOffset.current <= threshold) {
+        isSnappedToTopRef.current = true;
+        setIsSnappedToTop(true);
+      }
+    }
+  }, [isHeaderFeed, headerHeight, insets.top]);
+
+  // Reset header visibility when feed changes to ensure header is visible on feed switch
+  useEffect(() => {
+    if (isHeaderFeed) {
       isSnappedToTopRef.current = true;
       setIsSnappedToTop(true);
+      // Report to FeedStore that header should be visible
+      updateHeaderVisibility(currentScrollOffset.current, headerHeight, true);
     }
-  }, [isHeaderFeed, headerHeight]);
+  }, [feedOption]); // Reset when feed option changes
 
   // Set initial visible index and video on mount (for modal)
   useEffect(() => {

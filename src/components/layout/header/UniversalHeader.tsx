@@ -1,9 +1,10 @@
-import React, { memo, useCallback, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image } from 'react-native';
+import React, { memo, useCallback, useMemo, useRef, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image, Animated } from 'react-native';
 import Icon from '../../ui/Icon';
 import { useNavigation } from '@react-navigation/native';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import { Avatar } from '../../ui/UI';
+import { useHeaderVisibility } from '../../../hooks/useHeaderVisibility';
 
 // Types for the universal header system
 export interface HeaderAction {
@@ -285,6 +286,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   style,
 }) => {
   const navigation = useNavigation();
+  const headerVisibility = useHeaderVisibility();
+  const opacityAnim = useRef(new Animated.Value(1)).current;
 
   const handleBackPress = useCallback(() => {
     if (onBackPress) {
@@ -299,6 +302,23 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     { backgroundColor },
     style,
   ], [backgroundColor, style]);
+
+  // Animate opacity based on header visibility
+  useEffect(() => {
+    const toValue = headerVisibility.isSnappedToTop ? 1 : 0;
+    Animated.timing(opacityAnim, {
+      toValue,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [headerVisibility.isSnappedToTop, opacityAnim]);
+
+  const animatedHeaderStyle = useMemo(() => [
+    headerStyle,
+    {
+      opacity: opacityAnim,
+    },
+  ], [headerStyle, opacityAnim]);
 
   // Extract custom description from children
   const customDescription = useMemo(() => {
@@ -349,7 +369,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   }, [children]);
 
   return (
-    <View style={headerStyle}>
+    <Animated.View style={animatedHeaderStyle}>
       {/* Navigation and Action Buttons */}
       <View style={styles.topRow}>
         <View style={styles.leftSection}>
@@ -402,7 +422,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
 
       {/* Additional Children */}
       {additionalChildren}
-    </View>
+    </Animated.View>
   );
 };
 

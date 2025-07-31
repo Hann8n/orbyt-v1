@@ -8,6 +8,7 @@ import { useFeedQuery } from '../../../hooks/useFeedQuery';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
 import ListFeedDebugPanel from './ListFeedDebugPanel';
+import { getCurrentFeed } from '../../../services/FeedStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -38,6 +39,10 @@ interface FeedFetcherProps {
   isRefreshing?: boolean;
   isModal?: boolean;
   onScrubbingChange?: (isScrubbing: boolean) => void;
+  searchQuery?: string;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  fetchNextPage?: () => void;
 }
 
 // Add FeedFetcherDebugPanel component
@@ -89,6 +94,10 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
   isRefreshing = false,
   isModal = false,
   onScrubbingChange,
+  searchQuery,
+  hasNextPage: searchHasNextPage,
+  isFetchingNextPage: searchIsFetchingNextPage,
+  fetchNextPage: searchFetchNextPage,
 }) => {
   const insets = useSafeAreaInsets();
   const lastPrefetchedFeedLength = useRef(0);
@@ -124,22 +133,36 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Use the optimized feed query hook with maximum batch loading
-  const {
-    feed,
-    isProfileFeed,
-    error,
-    isLoading,
-    isFetchingNextPage,
-    fetchNextPage,
-    hasNextPage,
-    refetch,
-    isPaused,
-    isError
-  } = useFeedQuery(feedOption, userDid, {
+  // For search results, use the current feed from FeedStore
+  const searchFeed = feedOption === 'search' ? getCurrentFeed() : null;
+  
+  // For search feeds, we need to handle dynamic updates when new pages are loaded
+  const [searchFeedState, setSearchFeedState] = useState<any[]>([]);
+  
+  // Update search feed state when searchFeed changes
+  useEffect(() => {
+    if (feedOption === 'search' && searchFeed) {
+      setSearchFeedState(searchFeed);
+    }
+  }, [searchFeed, feedOption]);
+  
+  // Only use useFeedQuery for non-search feeds
+  const queryResult = feedOption !== 'search' ? useFeedQuery(feedOption, userDid, {
     ...queryOptions,
     staleTime: 10 * 60 * 1000, // 10 minutes for better caching
-  });
+  }) : null;
+
+  // Use search feed if available, otherwise use query feed
+  const feed = feedOption === 'search' ? searchFeedState : (queryResult?.feed || []);
+  const isProfileFeed = queryResult?.isProfileFeed || false;
+  const error = queryResult?.error || null;
+  const isLoading = queryResult?.isLoading || false;
+  const isFetchingNextPage = feedOption === 'search' ? (searchIsFetchingNextPage || false) : (queryResult?.isFetchingNextPage || false);
+  const hasNextPage = feedOption === 'search' ? (searchHasNextPage || false) : (queryResult?.hasNextPage || false);
+  const fetchNextPage = feedOption === 'search' ? (searchFetchNextPage || (() => {})) : (queryResult?.fetchNextPage || (() => {}));
+  const refetch = queryResult?.refetch || (() => {});
+  const isPaused = queryResult?.isPaused || false;
+  const isError = queryResult?.isError || false;
 
   // Remove handleEndReached and onEndReached from ListFeedView
   // Add proactive queue filling logic
@@ -165,9 +188,9 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
     ensureQueueFilled();
   }, [feed, visibleIndex, ensureQueueFilled]);
 
-  // Optimized profile prefetching for new items in background
+  // Optimized profile prefetching for new items in background (only for non-search feeds)
   useEffect(() => {
-    if (feed.length > 0 && feed.length !== lastPrefetchedFeedLength.current) {
+    if (feedOption !== 'search' && feed.length > 0 && feed.length !== lastPrefetchedFeedLength.current) {
       const newItems = feed.slice(lastPrefetchedFeedLength.current);
       if (newItems.length > 0) {
         // Batch prefetch profiles for better performance
@@ -177,7 +200,7 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
       }
       lastPrefetchedFeedLength.current = feed.length;
     }
-  }, [feed]);
+  }, [feed, feedOption]);
 
   /**
    * Handle retrying failed feed
@@ -188,9 +211,9 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
   }, [refetch, onRetryFeed]);
 
   /**
-   * Render an error if the query has failed
+   * Render an error if the query has failed (only for non-search feeds)
    */
-  if (isError) {
+  if (isError && feedOption !== 'search') {
     return (
       <View style={[styles.errorContainer, { backgroundColor: backgroundColor || '#000' }]}>
         <EmptyFeed 
@@ -205,8 +228,8 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
     );
   }
 
-  // Show offline notice when network is unavailable
-  if (isPaused) {
+  // Show offline notice when network is unavailable (only for non-search feeds)
+  if (isPaused && feedOption !== 'search') {
     return (
       <View style={[styles.errorContainer, { backgroundColor: backgroundColor || '#000' }]}>
         <EmptyFeed 
@@ -248,12 +271,12 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
         secondaryColor={secondaryColor}
         feedOption={feedOption}
         userDid={userDid}
-        // onEndReached={handleEndReached} // REMOVE THIS LINE
+        onEndReached={fetchNextPage}
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
-        isLoading={isLoading}
-        isError={isError}
-        error={error}
+        isLoading={feedOption === 'search' ? false : isLoading}
+        isError={feedOption === 'search' ? false : isError}
+        error={feedOption === 'search' ? null : error}
         onRetry={handleRetry}
         onPositionChange={handlePositionChange}
         initialPosition={initialPosition}

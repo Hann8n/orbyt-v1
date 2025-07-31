@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import FeedFetcher from '../components/features/feed/FeedFetcher';
 import Icon from '../components/ui/Icon';
-import { getCurrentFeed } from '../services/FeedStore';
+import { getCurrentFeed, clearCurrentFeed } from '../services/FeedStore';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -28,6 +28,10 @@ const FeedModal: React.FC = () => {
     userDid,
     backgroundColor,
     secondaryColor,
+    searchQuery,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
   } = route.params || {};
 
   // Swipe-to-dismiss animation values
@@ -42,6 +46,7 @@ const FeedModal: React.FC = () => {
 
   // Dismiss modal
   const handleClose = () => {
+    clearCurrentFeed();
     navigation.goBack();
   };
 
@@ -115,6 +120,10 @@ const FeedModal: React.FC = () => {
           isVisible={true}
           isProfileLoading={false}
           isModal={true}
+          searchQuery={searchQuery}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          fetchNextPage={fetchNextPage}
         />
       </Animated.View>
     </PanGestureHandler>

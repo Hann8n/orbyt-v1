@@ -182,7 +182,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
       
       // Show feed bar when changing feeds
       animateFeedBar(true, true);
-      
+            
       // Reset scroll state for new feed
       setLastScrollY(0);
     }
@@ -249,6 +249,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
       setCurrentFeedIndex(currentIndex);
       const newFeedOption = feedOptions[currentIndex];
       onFeedChange?.(newFeedOption);
+      
       
       // Scroll indicator to follow the feed change
       scrollIndicatorToActive(currentIndex);

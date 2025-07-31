@@ -13,6 +13,7 @@ import { FeedItem } from './ListFeedView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
+import { isVideoBlurred } from '../../../services/FeedStore';
 
 // Shared video item component (factored out from GridFeedView)
 export const VideoGridItem: React.FC<{
@@ -24,7 +25,7 @@ export const VideoGridItem: React.FC<{
   const videoUrl = extractVideoUrl(item.post.embed);
   const thumbnailUrl = extractVideoThumbnail(item.post.embed);
   if (!videoUrl) return null;
-  const shouldBlur = item.moderationDecision?.blur;
+  const shouldBlur = isVideoBlurred(item.post.uri, !!item.moderationDecision?.blur);
   return (
     <TouchableOpacity
       style={[styles.gridItem, style]}

@@ -123,8 +123,8 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     const displayHeight = containerHeight;
     const videoUrl = extractVideoUrl(videoEmbed);
 
-    // Determine if video should be blurred
-    const shouldBlur = moderationDecision?.blur || isVideoBlurred(post.uri, !!moderationDecision?.blur);
+    // Determine if video should be blurred - prioritize user choice over moderation
+    const shouldBlur = isVideoBlurred(post.uri, !!moderationDecision?.blur);
 
     // Calculate overlay opacity based on various factors
     const overlayOpacity = useMemo(() => {
