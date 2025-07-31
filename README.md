@@ -1,0 +1,84 @@
+![Orbyt Banner](src/assets/orbyt-banner.png)
+
+# Orbyt
+
+A React Native social media app built with Expo, featuring video content, feed management, and user interactions.
+
+## Tech Stack
+
+- **Framework**: React Native
+- **Navigation**: React Navigation
+- **State Management**: TanStack Query (React Query)
+- **Video**: React Native Video
+- **Camera**: Vision Camera
+- **Storage**: AsyncStorage and SecureStore
+- **API**: Atproto
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v18 or higher)
+- Yarn package manager
+- Expo CLI
+- iOS Simulator or Android Emulator
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/Hann8n/orbyt
+```
+
+2. Install dependencies:
+```bash
+yarn install
+```
+
+3. Start the development server:
+```bash
+yarn start
+```
+
+## Project Structure
+
+```
+src/
+├── components/          # Reusable UI components
+│   ├── features/       # Feature-specific components
+│   ├── layout/         # Layout components
+│   └── ui/            # Basic UI components
+├── screens/            # Screen components
+├── navigation/         # Navigation configuration
+├── services/          # API and business logic
+├── hooks/             # Custom React hooks
+└── utils/             # Utility functions
+```
+
+## Development
+
+The app uses Expo's managed workflow with the new architecture enabled. Key features include:
+
+- **Video Optimization**: Preloading and caching for smooth playback
+- **Feed Management**: Efficient feed loading with pagination
+- **Memory Management**: Automatic cleanup when app goes to background
+- **Performance**: Optimized rendering with memoization
+
+## Building
+
+The project uses EAS Build for creating production builds:
+
+```bash
+# Development build
+yarn build:dev
+
+# Preview build
+yarn build:preview
+
+# Production build
+yarn build:prod
+```
+
+## License
+
+MIT 

@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bytesocial.byte-app",
+      "bundleIdentifier": "com.orbyt.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "This app needs access to your camera to take photos and record videos",
@@ -59,4 +59,4 @@
     },
     "owner": "orbyt"
   }
-}
+} 
