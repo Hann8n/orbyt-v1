@@ -2,7 +2,7 @@
 
 # Orbyt
 
-A React Native social media app built with Expo, featuring video content, feed management, and user interactions.
+A new video app built for bluesky
 
 ## Tech Stack
 
