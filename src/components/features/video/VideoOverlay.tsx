@@ -120,12 +120,14 @@ const heartAnimationFrames: ImageSourcePropType[] = [
   require('../../../assets/Heart Animation/Heart-14.png'),
 ];
 
-// Format ms to mm:ss
-const formatTime = (ms: number) => {
-  const totalSeconds = Math.floor(ms / 1000);
+// Format seconds to mm:ss
+const formatTime = (seconds: number) => {
+  if (!seconds || isNaN(seconds) || seconds <= 0) return '0:00';
+  // The input is in seconds, convert to mm:ss
+  const totalSeconds = Math.floor(seconds);
   const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  const secs = totalSeconds % 60;
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
 };
 
 // Optimized VideoOverlay component with reduced state and memoization
@@ -140,8 +142,8 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
   const [progress, setProgress] = useState(0); // 0-1 float
   const [isScrubbing, setIsScrubbing] = useState(false);
   const scrubProgress = useSharedValue(0); // 0-1 float
-  const [scrubTime, setScrubTime] = useState(0); // ms
-  const [duration, setDuration] = useState(0); // ms
+  const [scrubTime, setScrubTime] = useState(0); // seconds
+  const [duration, setDuration] = useState(0); // seconds
   const [wasPlayingBeforeScrub, setWasPlayingBeforeScrub] = useState(false);
   const [progressBarWidth, setProgressBarWidth] = useState(0); // NEW: cache width
 
@@ -221,9 +223,12 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     let p = Math.max(0, Math.min(1, touchX / progressBarWidth));
     scrubProgress.value = p;
     if (videoRef?.current?.getDuration) {
-      const t = p * videoRef.current.getDuration();
-      // Use runOnJS to prevent blocking scroll events
-      runOnJS(setScrubTime)(t);
+      const d = videoRef.current.getDuration();
+      if (d && d > 0) {
+        const t = p * d;
+        // Update scrub time immediately for better responsiveness
+        setScrubTime(t);
+      }
     }
   };
 
@@ -242,8 +247,11 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
       let p = Math.max(0, Math.min(1, touchX / progressBarWidth));
       scrubProgress.value = p;
       if (videoRef?.current?.getDuration) {
-        const t = p * videoRef.current.getDuration();
-        runOnJS(setScrubTime)(t);
+        const d = videoRef.current.getDuration();
+        if (d && d > 0) {
+          const t = p * d;
+          setScrubTime(t);
+        }
       }
     } else if (
       state === GestureState.END ||
@@ -270,7 +278,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
       }
       setTimeout(() => {
         scrubProgress.value = 0;
-        runOnJS(setScrubTime)(0);
+        setScrubTime(0);
       }, 200);
     }
   };
@@ -725,21 +733,21 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
               left: 0,
               right: 0,
               bottom: progressBarAtCardBottom ? 36 : (isTabletDevice ? bottomNavBarHeight + 36 : insets.bottom + bottomNavBarHeight + 36), // above progress bar
-              zIndex: 200,
+              zIndex: 1000,
               alignItems: 'center',
             },
           ]}
           pointerEvents="none"
         >
           <Text style={styles.timeTrackingText}>
-            <Text style={styles.timeCurrent}>{formatTime(Math.round(scrubTime))}</Text>
+            <Text style={styles.timeCurrent}>{formatTime(scrubTime)}</Text>
             <Text style={styles.timeDivider}> / </Text>
-            <Text style={styles.timeTotal}>{formatTime(Math.round(duration))}</Text>
+            <Text style={styles.timeTotal}>{formatTime(duration)}</Text>
           </Text>
         </View>
       )}
-      {/* Progress Bar Divider (Touchable for scrubbing) - hide in clear view mode */}
-      {!isClearViewMode && (
+      {/* Progress Bar Divider (Touchable for scrubbing) - hide in clear view mode and for short videos */}
+      {!isClearViewMode && duration >= 16 && (
         <PanGestureHandler
           onGestureEvent={handlePanGesture}
           onHandlerStateChange={handlePanStateChange}
@@ -1184,6 +1192,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 36,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   timeTrackingText: {
     flexDirection: 'row',
