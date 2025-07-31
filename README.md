@@ -54,15 +54,6 @@ src/
 └── utils/             # Utility functions
 ```
 
-## Development
-
-The app uses Expo's managed workflow with the new architecture enabled. Key features include:
-
-- **Video Optimization**: Preloading and caching for smooth playback
-- **Feed Management**: Efficient feed loading with pagination
-- **Memory Management**: Automatic cleanup when app goes to background
-- **Performance**: Optimized rendering with memoization
-
 ## Building
 
 The project uses EAS Build for creating production builds:
