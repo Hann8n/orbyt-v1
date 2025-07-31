@@ -42,63 +42,171 @@
             overflow-y: auto;
             background-attachment: fixed;
             background-size: cover;
+            animation: backgroundFadeIn 3s ease-out;
         }
 
-        body::before {
-            content: '';
+        @keyframes backgroundFadeIn {
+            0% {
+                background: radial-gradient(ellipse at bottom, #0A0A0A 0%, #000000 100%);
+            }
+            100% {
+                background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+            }
+        }
+
+        /* Star container for dynamic positioning */
+        .stars-container {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-image: 
-                radial-gradient(1px 1px at 23px 17px, #fff, transparent),
-                radial-gradient(1px 1px at 47px 83px, #ddd, transparent),
-                radial-gradient(1px 1px at 156px 42px, #fff, transparent),
-                radial-gradient(1px 1px at 234px 91px, #eee, transparent),
-                radial-gradient(1px 1px at 378px 13px, #fff, transparent),
-                radial-gradient(1px 1px at 412px 67px, #ddd, transparent),
-                radial-gradient(1px 1px at 589px 34px, #fff, transparent),
-                radial-gradient(1px 1px at 623px 78px, #eee, transparent),
-                radial-gradient(1px 1px at 745px 29px, #fff, transparent),
-                radial-gradient(1px 1px at 891px 56px, #ddd, transparent),
-                radial-gradient(1px 1px at 1023px 19px, #fff, transparent),
-                radial-gradient(1px 1px at 1156px 73px, #eee, transparent),
-                radial-gradient(1px 1px at 1289px 41px, #fff, transparent),
-                radial-gradient(1px 1px at 1423px 87px, #ddd, transparent),
-                radial-gradient(1px 1px at 1556px 15px, #fff, transparent),
-                radial-gradient(1px 1px at 1689px 62px, #eee, transparent),
-                radial-gradient(1px 1px at 1823px 38px, #fff, transparent),
-                radial-gradient(1px 1px at 1956px 84px, #ddd, transparent),
-                radial-gradient(1px 1px at 2089px 27px, #fff, transparent),
-                radial-gradient(1px 1px at 2223px 71px, #eee, transparent),
-                radial-gradient(1px 1px at 2356px 45px, #fff, transparent),
-                radial-gradient(1px 1px at 2489px 93px, #ddd, transparent),
-                radial-gradient(1px 1px at 2623px 11px, #fff, transparent),
-                radial-gradient(1px 1px at 2756px 69px, #eee, transparent),
-                radial-gradient(1px 1px at 2889px 33px, #fff, transparent),
-                radial-gradient(1px 1px at 3023px 77px, #ddd, transparent),
-                radial-gradient(1px 1px at 3156px 25px, #fff, transparent),
-                radial-gradient(1px 1px at 3289px 81px, #eee, transparent),
-                radial-gradient(1px 1px at 3423px 37px, #fff, transparent),
-                radial-gradient(1px 1px at 3556px 89px, #ddd, transparent),
-                radial-gradient(1px 1px at 3689px 21px, #fff, transparent),
-                radial-gradient(1px 1px at 3823px 65px, #eee, transparent),
-                radial-gradient(1px 1px at 3956px 43px, #fff, transparent),
-                radial-gradient(1px 1px at 4089px 95px, #ddd, transparent),
-                radial-gradient(1px 1px at 4223px 9px, #fff, transparent),
-                radial-gradient(1px 1px at 4356px 75px, #eee, transparent),
-                radial-gradient(1px 1px at 4489px 31px, #fff, transparent),
-                radial-gradient(1px 1px at 4623px 79px, #ddd, transparent);
-            background-repeat: repeat;
-            background-size: 4800px 100px;
-            animation: twinkle 6s ease-in-out infinite;
             z-index: -1;
+            pointer-events: none;
+            opacity: 0;
+            animation: fadeInStars 2s ease-out forwards;
+        }
+
+        @keyframes fadeInStars {
+            0% {
+                opacity: 0;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: radial-gradient(1px 1px at center, #fff 0%, rgba(255, 255, 255, 0.8) 30%, rgba(255, 255, 255, 0.4) 60%, transparent 100%);
+            border-radius: 50%;
+            animation: twinkle var(--twinkle-duration) ease-in-out infinite;
+            animation-delay: var(--twinkle-delay);
+            box-shadow: 
+                0 0 2px rgba(255, 255, 255, 0.8),
+                0 0 4px rgba(255, 255, 255, 0.4),
+                0 0 6px rgba(255, 255, 255, 0.2);
+            transform-origin: center;
+            transform: scale(var(--final-scale, 1)) rotate(var(--rotation, 0deg));
+            opacity: 0;
+            animation: washIn var(--wash-delay) ease-out forwards, twinkle var(--twinkle-duration) ease-in-out infinite;
+            animation-delay: var(--wash-delay), calc(var(--wash-delay) + var(--twinkle-delay));
+        }
+
+        .star::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 6px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+            transform: translate(-50%, -50%);
+            animation: flare var(--twinkle-duration) ease-in-out infinite;
+            animation-delay: var(--twinkle-delay);
+        }
+
+        .star::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 1px;
+            height: 6px;
+            background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+            transform: translate(-50%, -50%);
+            animation: flare var(--twinkle-duration) ease-in-out infinite;
+            animation-delay: var(--twinkle-delay);
+        }
+
+        .star.dim {
+            background: radial-gradient(1px 1px at center, #ddd 0%, rgba(221, 221, 221, 0.8) 30%, rgba(221, 221, 221, 0.4) 60%, transparent 100%);
+            box-shadow: 
+                0 0 1px rgba(221, 221, 221, 0.6),
+                0 0 2px rgba(221, 221, 221, 0.3);
+        }
+
+        .star.dim::before,
+        .star.dim::after {
+            background: linear-gradient(90deg, transparent, rgba(221, 221, 221, 0.4), transparent);
+        }
+
+        .star.bright {
+            background: radial-gradient(1px 1px at center, #fff 0%, rgba(255, 255, 255, 0.9) 40%, rgba(255, 255, 255, 0.6) 70%, transparent 100%);
+            box-shadow: 
+                0 0 3px rgba(255, 255, 255, 0.9),
+                0 0 6px rgba(255, 255, 255, 0.6),
+                0 0 9px rgba(255, 255, 255, 0.3);
+        }
+
+        .star.bright::before {
+            width: 8px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+        }
+
+        .star.bright::after {
+            height: 8px;
+            background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+        }
+
+        /* Special star types for variety */
+        .star.special::before {
+            width: 10px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+        }
+
+        .star.special::after {
+            height: 10px;
+            background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+        }
+
+        .star.special {
+            box-shadow: 
+                0 0 4px rgba(255, 255, 255, 0.9),
+                0 0 8px rgba(255, 255, 255, 0.6),
+                0 0 12px rgba(255, 255, 255, 0.3);
         }
 
         @keyframes twinkle {
-            0%, 100% { opacity: 0.8; }
-            50% { opacity: 1; }
+            0%, 100% { 
+                opacity: 0.3; 
+                transform: scale(calc(var(--final-scale, 1) * 0.8)) rotate(var(--rotation, 0deg));
+            }
+            50% { 
+                opacity: 1; 
+                transform: scale(calc(var(--final-scale, 1) * 1.2)) rotate(var(--rotation, 0deg));
+            }
+        }
+
+        @keyframes flare {
+            0%, 100% { 
+                opacity: 0.2; 
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            50% { 
+                opacity: 0.8; 
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+        }
+
+        @keyframes washIn {
+            0% {
+                opacity: 0;
+                transform: scale(var(--final-scale, 1)) rotate(var(--rotation, 0deg));
+                filter: blur(4px);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(var(--final-scale, 1)) rotate(var(--rotation, 0deg));
+                filter: blur(2px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(var(--final-scale, 1)) rotate(var(--rotation, 0deg));
+                filter: blur(0px);
+            }
         }
 
         .container {
@@ -212,6 +320,7 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             position: relative;
             overflow: hidden;
+            display: none; /* Start hidden */
         }
 
         .feed-container::before {
@@ -386,6 +495,10 @@
             margin: 0;
         }
 
+        .hidden {
+            display: none !important;
+        }
+
         @media (max-width: 925px) {
             .desktop-layout {
                 flex-direction: column;
@@ -460,6 +573,8 @@
 </head>
 <body>
 
+    <!-- Dynamic stars container -->
+    <div class="stars-container" id="starsContainer"></div>
 
     <div class="container">
         <div class="desktop-layout">
@@ -496,5 +611,166 @@
     </div>
     
     <script type="module" src="https://cdn.jsdelivr.net/npm/bsky-embed/dist/bsky-embed.es.js" async></script>
+    
+    <script>
+        // Mathematical star generation and twinkling system
+        class StarField {
+            constructor() {
+                this.container = document.getElementById('starsContainer');
+                this.starCount = 200; // Increased number of stars
+                this.seed = Date.now(); // Random seed for consistent positioning
+                this.init();
+            }
+
+            // Mathematical formula for pseudo-random number generation (Linear Congruential Generator)
+            random(seed) {
+                return (seed * 9301 + 49297) % 233280;
+            }
+
+            // Generate random position using mathematical distribution
+            generatePosition(index, seed) {
+                // Use different mathematical distributions for more natural star placement
+                const xSeed = this.random(seed + index * 3);
+                const ySeed = this.random(seed + index * 7);
+                
+                // Apply golden ratio distribution for more natural spacing
+                const goldenRatio = 1.618033988749895;
+                const x = (xSeed / 233280) * window.innerWidth;
+                const y = (ySeed / 233280) * window.innerHeight;
+                
+                // Apply spiral distribution for more realistic star field
+                const angle = (index * goldenRatio) % (2 * Math.PI);
+                const radius = Math.sqrt(index) * 50;
+                const spiralX = x + Math.cos(angle) * radius;
+                const spiralY = y + Math.sin(angle) * radius;
+                
+                return {
+                    x: (spiralX + window.innerWidth) % window.innerWidth,
+                    y: (spiralY + window.innerHeight) % window.innerHeight
+                };
+            }
+
+            // Generate twinkling parameters using mathematical formulas
+            generateTwinkleParams(index, seed) {
+                const durationSeed = this.random(seed + index * 11);
+                const delaySeed = this.random(seed + index * 13);
+                
+                // Create varied twinkling durations (2-8 seconds)
+                const duration = 2 + (durationSeed / 233280) * 6;
+                
+                // Create varied delays (0-4 seconds)
+                const delay = (delaySeed / 233280) * 4;
+                
+                // Determine star brightness using mathematical distribution
+                const brightnessSeed = this.random(seed + index * 17);
+                const brightness = brightnessSeed / 233280;
+                
+                return { duration, delay, brightness };
+            }
+
+            // Generate wash-in parameters for staggered loading
+            generateWashInParams(index, seed) {
+                const washDelaySeed = this.random(seed + index * 29);
+                
+                // Create staggered wash-in delays (0-3 seconds)
+                const washDelay = (washDelaySeed / 233280) * 3;
+                
+                // Create wash-in duration (0.5-1.5 seconds)
+                const washDurationSeed = this.random(seed + index * 31);
+                const washDuration = 0.5 + (washDurationSeed / 233280) * 1;
+                
+                return { washDelay, washDuration };
+            }
+
+            // Create individual star element
+            createStar(index) {
+                const seed = this.seed + index;
+                const position = this.generatePosition(index, seed);
+                const twinkleParams = this.generateTwinkleParams(index, seed);
+                const washParams = this.generateWashInParams(index, seed);
+                
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = position.x + 'px';
+                star.style.top = position.y + 'px';
+                star.style.setProperty('--twinkle-duration', twinkleParams.duration + 's');
+                star.style.setProperty('--twinkle-delay', twinkleParams.delay + 's');
+                star.style.setProperty('--wash-delay', washParams.washDelay + 's');
+                
+                // Add size variation based on brightness
+                const sizeSeed = this.random(seed + index * 19);
+                const sizeVariation = 0.5 + (sizeSeed / 233280) * 0.85; // 0.5x to 1.35x size
+                star.style.setProperty('--final-scale', sizeVariation);
+                
+                // Apply brightness class based on mathematical distribution
+                if (twinkleParams.brightness > 0.85) {
+                    star.classList.add('special');
+                } else if (twinkleParams.brightness > 0.7) {
+                    star.classList.add('bright');
+                } else if (twinkleParams.brightness < 0.3) {
+                    star.classList.add('dim');
+                }
+                
+                // Add slight rotation for more natural appearance
+                const rotationSeed = this.random(seed + index * 23);
+                const rotation = (rotationSeed / 233280) * 360;
+                star.style.setProperty('--rotation', rotation + 'deg');
+                
+                return star;
+            }
+
+            // Initialize star field
+            init() {
+                // Clear existing stars
+                this.container.innerHTML = '';
+                
+                // Generate stars using mathematical formulas
+                for (let i = 0; i < this.starCount; i++) {
+                    const star = this.createStar(i);
+                    this.container.appendChild(star);
+                }
+            }
+
+            // Regenerate stars (useful for window resize)
+            regenerate() {
+                this.seed = Date.now();
+                this.init();
+            }
+        }
+
+        // Initialize star field when page loads
+        let starField;
+        document.addEventListener('DOMContentLoaded', () => {
+            starField = new StarField();
+        });
+
+        // Regenerate stars on window resize for responsive behavior
+        window.addEventListener('resize', () => {
+            if (starField) {
+                starField.regenerate();
+            }
+        });
+
+        // Function to check if the embed has content and show if it does
+        function checkEmbedContent() {
+            const embedElement = document.querySelector('bsky-embed');
+            const feedContainer = document.querySelector('.feed-container');
+            
+            if (!embedElement || !feedContainer) return;
+            
+            // Check if there are any post elements inside the embed
+            const posts = embedElement.querySelectorAll('.post');
+            const hasContent = posts.length > 0;
+            
+            // If content exists, show the feed container
+            if (hasContent) {
+                feedContainer.style.display = 'block';
+            }
+        }
+        
+        // Check content after embed loads
+        setTimeout(checkEmbedContent, 2000);
+        setTimeout(checkEmbedContent, 4000);
+    </script>
 </body>
 </html> 
