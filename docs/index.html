@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orbyt - A New Social App for Bluesky</title>
+    <link rel="icon" type="image/png" href="../src/assets/favicon.png">
+    <style>
+        @font-face {
+            font-family: 'Firma-Black';
+            src: url('../src/assets/fonts/Firma-Black.otf') format('opentype');
+        }
+        
+        @font-face {
+            font-family: 'Firma-Regular';
+            src: url('../src/assets/fonts/Firma-Regular.otf') format('opentype');
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+            min-height: 100vh;
+            color: white;
+            position: relative;
+            overflow-x: hidden;
+            overflow-y: auto;
+            background-attachment: fixed;
+            background-size: cover;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(1px 1px at 23px 17px, #fff, transparent),
+                radial-gradient(1px 1px at 47px 83px, #ddd, transparent),
+                radial-gradient(1px 1px at 156px 42px, #fff, transparent),
+                radial-gradient(1px 1px at 234px 91px, #eee, transparent),
+                radial-gradient(1px 1px at 378px 13px, #fff, transparent),
+                radial-gradient(1px 1px at 412px 67px, #ddd, transparent),
+                radial-gradient(1px 1px at 589px 34px, #fff, transparent),
+                radial-gradient(1px 1px at 623px 78px, #eee, transparent),
+                radial-gradient(1px 1px at 745px 29px, #fff, transparent),
+                radial-gradient(1px 1px at 891px 56px, #ddd, transparent),
+                radial-gradient(1px 1px at 1023px 19px, #fff, transparent),
+                radial-gradient(1px 1px at 1156px 73px, #eee, transparent),
+                radial-gradient(1px 1px at 1289px 41px, #fff, transparent),
+                radial-gradient(1px 1px at 1423px 87px, #ddd, transparent),
+                radial-gradient(1px 1px at 1556px 15px, #fff, transparent),
+                radial-gradient(1px 1px at 1689px 62px, #eee, transparent),
+                radial-gradient(1px 1px at 1823px 38px, #fff, transparent),
+                radial-gradient(1px 1px at 1956px 84px, #ddd, transparent),
+                radial-gradient(1px 1px at 2089px 27px, #fff, transparent),
+                radial-gradient(1px 1px at 2223px 71px, #eee, transparent),
+                radial-gradient(1px 1px at 2356px 45px, #fff, transparent),
+                radial-gradient(1px 1px at 2489px 93px, #ddd, transparent),
+                radial-gradient(1px 1px at 2623px 11px, #fff, transparent),
+                radial-gradient(1px 1px at 2756px 69px, #eee, transparent),
+                radial-gradient(1px 1px at 2889px 33px, #fff, transparent),
+                radial-gradient(1px 1px at 3023px 77px, #ddd, transparent),
+                radial-gradient(1px 1px at 3156px 25px, #fff, transparent),
+                radial-gradient(1px 1px at 3289px 81px, #eee, transparent),
+                radial-gradient(1px 1px at 3423px 37px, #fff, transparent),
+                radial-gradient(1px 1px at 3556px 89px, #ddd, transparent),
+                radial-gradient(1px 1px at 3689px 21px, #fff, transparent),
+                radial-gradient(1px 1px at 3823px 65px, #eee, transparent),
+                radial-gradient(1px 1px at 3956px 43px, #fff, transparent),
+                radial-gradient(1px 1px at 4089px 95px, #ddd, transparent),
+                radial-gradient(1px 1px at 4223px 9px, #fff, transparent),
+                radial-gradient(1px 1px at 4356px 75px, #eee, transparent),
+                radial-gradient(1px 1px at 4489px 31px, #fff, transparent),
+                radial-gradient(1px 1px at 4623px 79px, #ddd, transparent);
+            background-repeat: repeat;
+            background-size: 4800px 100px;
+            animation: twinkle 6s ease-in-out infinite;
+            z-index: -1;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .desktop-layout {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1200px;
+            width: 100%;
+            gap: 4rem;
+        }
+
+        .left-side {
+            flex: 1;
+            text-align: left;
+            max-width: 400px;
+        }
+
+        .right-side {
+            flex: 1;
+            max-width: 500px;
+        }
+
+        .container > * {
+            text-align: center;
+        }
+
+        .feed-container {
+            text-align: left;
+        }
+
+        .follow-button {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .follow-button {
+            margin-top: 1.5rem;
+            text-align: left;
+        }
+
+        .follow-button a {
+            display: inline-block;
+            background: #FFFFFF;
+            color: #000000;
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-family: 'Firma-SemiBold', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 1px solid #FFFFFF;
+        }
+
+        .follow-button a:hover {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(255, 255, 255, 0.9);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+        }
+
+        .outlink-icon {
+            font-size: 0.8em;
+            margin-left: 4px;
+            opacity: 0.8;
+        }
+
+
+
+        .logo {
+            width: 200px;
+            height: auto;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-family: 'Firma-Black', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 4rem;
+            font-weight: 900;
+            margin-bottom: 1rem;
+            color: white;
+        }
+
+        p {
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 1.5rem;
+            color: #cfd6e8;
+            opacity: 0.9;
+        }
+
+        .feed-container {
+            margin-top: 4rem;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            background: rgba(28, 28, 30, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid rgba(51, 51, 51, 0.6);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feed-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        }
+
+        .feed-container::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        }
+
+        /* Custom styling for the bsky-embed component to match Orbyt app design */
+        .feed-container bsky-embed {
+            --bsky-background: transparent !important;
+            --bsky-text-color: #FFFFFF !important;
+            --bsky-link-color: #3797F0 !important;
+            --bsky-border-color: #333333 !important;
+            --bsky-hover-background: rgba(255, 255, 255, 0.05) !important;
+        }
+
+        .feed-container bsky-embed * {
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        }
+
+        .feed-container bsky-embed a {
+            color: #3797F0 !important;
+            text-decoration: none !important;
+            transition: color 0.3s ease !important;
+        }
+
+        .feed-container bsky-embed a:hover {
+            color: #2A7CD6 !important;
+        }
+
+        .feed-container bsky-embed img {
+            border-radius: 12px !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .feed-container bsky-embed video {
+            border-radius: 12px !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .feed-container bsky-embed .post {
+            background: rgba(28, 28, 30, 0.6) !important;
+            backdrop-filter: blur(10px) !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(51, 51, 51, 0.4) !important;
+            margin-bottom: 1rem !important;
+            padding: 16px !important;
+            transition: all 0.3s ease !important;
+        }
+
+        .feed-container bsky-embed .post:hover {
+            background: rgba(42, 42, 42, 0.8) !important;
+            border-color: rgba(68, 68, 68, 0.6) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        .feed-container bsky-embed .author {
+            color: #FFFFFF !important;
+            font-family: 'Firma-SemiBold', -apple-system, BlinkMacSystemFont, sans-serif !important;
+            font-weight: 600 !important;
+            margin-bottom: 2px !important;
+        }
+
+        .feed-container bsky-embed .content {
+            color: #FFFFFF !important;
+            line-height: 1.6 !important;
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif !important;
+            text-align: left !important;
+        }
+
+        .feed-container bsky-embed .content * {
+            text-align: left !important;
+        }
+
+        .feed-container bsky-embed .content p {
+            text-align: left !important;
+        }
+
+        .feed-container bsky-embed .content div {
+            text-align: left !important;
+        }
+
+        .feed-container bsky-embed .content span {
+            text-align: left !important;
+        }
+
+        .feed-container bsky-embed .timestamp {
+            color: #848895 !important;
+            font-size: 14px !important;
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        }
+
+        .feed-container bsky-embed .handle {
+            color: #848895 !important;
+            font-size: 12px !important;
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        }
+
+        .feed-container bsky-embed .stats {
+            color: #848895 !important;
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        }
+
+        .feed-container bsky-embed .stats span {
+            margin-right: 1rem !important;
+            font-size: 14px !important;
+        }
+
+        .feed-container bsky-embed .stats svg {
+            width: 16px !important;
+            height: 16px !important;
+            margin-right: 4px !important;
+        }
+
+        /* Avatar styling to match Orbyt app */
+        .feed-container bsky-embed .avatar {
+            border-radius: 50% !important;
+            border: 2px solid #333333 !important;
+            width: 40px !important;
+            height: 40px !important;
+            margin-right: 12px !important;
+        }
+
+        /* Author row styling to match AuthorItem component */
+        .feed-container bsky-embed .author-row {
+            display: flex !important;
+            align-items: center !important;
+            margin-bottom: 8px !important;
+        }
+
+        .feed-container bsky-embed .author-info {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        .feed-header {
+            text-align: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #333333;
+        }
+
+        .feed-header h3 {
+            font-family: 'Firma-Black', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 1.5rem;
+            color: #FFFFFF;
+            margin-bottom: 0.5rem;
+            font-weight: 900;
+        }
+
+        .feed-header p {
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 1rem;
+            color: #848895;
+            margin: 0;
+        }
+
+        @media (max-width: 925px) {
+            .desktop-layout {
+                flex-direction: column;
+                gap: 2rem;
+            }
+
+            .left-side {
+                text-align: center;
+                max-width: none;
+            }
+
+            .follow-button {
+                text-align: center;
+            }
+
+            .right-side {
+                max-width: none;
+            }
+
+            .feed-container {
+                max-width: 100%;
+                margin: 0;
+                padding: 1.5rem;
+            }
+
+            h1 {
+                font-size: 3rem;
+            }
+            
+            p {
+                font-size: 1.25rem;
+            }
+            
+            .logo {
+                width: 150px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .desktop-layout {
+                gap: 1.5rem;
+            }
+
+            .feed-container {
+                padding: 1rem;
+                margin: 0;
+            }
+
+            .feed-header {
+                display: none;
+            }
+
+            h1 {
+                font-size: 2.5rem;
+            }
+            
+            p {
+                font-size: 1rem;
+            }
+            
+            .logo {
+                width: 120px;
+            }
+        }
+
+
+    </style>
+</head>
+<body>
+
+
+    <div class="container">
+        <div class="desktop-layout">
+            <div class="left-side">
+                <img src="../src/assets/logo.png" alt="Orbyt Logo" class="logo">
+                <h1>orbyt</h1>
+                <p>a new video app for bluesky</p>
+                
+                <div class="follow-button">
+                    <a href="https://bsky.app/profile/orbytapp.bsky.social" target="_blank" rel="noopener noreferrer">
+                        Follow <span class="outlink-icon">↗</span>
+                    </a>
+                </div>
+            </div>
+            
+            <div class="right-side">
+                <div class="feed-container">
+                    <div class="feed-header">
+                        <h3>what's new</h3>
+                        <p>follow us on Bluesky for updates</p>
+                    </div>
+                    <bsky-embed
+                        username="orbytapp.bsky.social"
+                        mode="dark"
+                        limit="3"
+                        link-target="_blank"
+                        disable-images="false"
+                        disable-videos="false"
+                    >
+                    </bsky-embed>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="https://cdn.jsdelivr.net/npm/bsky-embed/dist/bsky-embed.es.js" async></script>
+</body>
+</html> 
