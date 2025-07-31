@@ -6,13 +6,13 @@ A new video app built for bluesky
 
 ## Tech Stack
 
-- **Framework**: React Native
-- **Navigation**: React Navigation
-- **State Management**: TanStack Query (React Query)
-- **Video**: React Native Video
-- **Camera**: Vision Camera
+- **Framework**: [React Native](https://github.com/facebook/react-native)
+- **Navigation**: [React Navigation](https://github.com/react-navigation/react-navigation)
+- **State Management**: [TanStack Query](https://github.com/TanStack/query) (React Query)
+- **Video**: [React Native Video](https://github.com/TheWidlarzGroup/react-native-video)
+- **Camera**: [Vision Camera](https://github.com/mrousavy/react-native-vision-camera)
 - **Storage**: AsyncStorage and SecureStore
-- **API**: Atproto
+- **API**: [Atproto](https://github.com/bluesky-social/atproto/tree/main/packages/api)
 
 ## Getting Started
 
@@ -21,7 +21,6 @@ A new video app built for bluesky
 - Node.js (v18 or higher)
 - Yarn package manager
 - Expo CLI
-- iOS Simulator or Android Emulator
 
 ### Installation
 
