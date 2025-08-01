@@ -82,8 +82,6 @@
             height: 2px;
             background: radial-gradient(1px 1px at center, #fff 0%, rgba(255, 255, 255, 0.8) 30%, rgba(255, 255, 255, 0.4) 60%, transparent 100%);
             border-radius: 50%;
-            animation: twinkle var(--twinkle-duration) ease-in-out infinite;
-            animation-delay: var(--twinkle-delay);
             box-shadow: 
                 0 0 2px rgba(255, 255, 255, 0.8),
                 0 0 4px rgba(255, 255, 255, 0.4),
@@ -91,8 +89,8 @@
             transform-origin: center;
             transform: scale(var(--final-scale, 1)) rotate(var(--rotation, 0deg));
             opacity: 0;
-            animation: washIn var(--wash-delay) ease-out forwards, twinkle var(--twinkle-duration) ease-in-out infinite;
-            animation-delay: var(--wash-delay), calc(var(--wash-delay) + var(--twinkle-delay));
+            animation: unifiedStarAnimation var(--total-duration) ease-in-out infinite;
+            animation-delay: var(--animation-delay);
         }
 
         .star::before {
@@ -104,8 +102,8 @@
             height: 1px;
             background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
             transform: translate(-50%, -50%);
-            animation: flare var(--twinkle-duration) ease-in-out infinite;
-            animation-delay: var(--twinkle-delay);
+            animation: unifiedFlareAnimation var(--total-duration) ease-in-out infinite;
+            animation-delay: var(--animation-delay);
         }
 
         .star::after {
@@ -117,8 +115,8 @@
             height: 6px;
             background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.6), transparent);
             transform: translate(-50%, -50%);
-            animation: flare var(--twinkle-duration) ease-in-out infinite;
-            animation-delay: var(--twinkle-delay);
+            animation: unifiedFlareAnimation var(--total-duration) ease-in-out infinite;
+            animation-delay: var(--animation-delay);
         }
 
         .star.dim {
@@ -169,43 +167,54 @@
                 0 0 12px rgba(255, 255, 255, 0.3);
         }
 
-        @keyframes twinkle {
-            0%, 100% { 
-                opacity: 0.3; 
-                transform: scale(calc(var(--final-scale, 1) * 0.8)) rotate(var(--rotation, 0deg));
-            }
-            50% { 
-                opacity: 1; 
-                transform: scale(calc(var(--final-scale, 1) * 1.2)) rotate(var(--rotation, 0deg));
-            }
-        }
-
-        @keyframes flare {
-            0%, 100% { 
-                opacity: 0.2; 
-                transform: translate(-50%, -50%) scale(0.8);
-            }
-            50% { 
-                opacity: 0.8; 
-                transform: translate(-50%, -50%) scale(1.1);
-            }
-        }
-
-        @keyframes washIn {
+        @keyframes unifiedStarAnimation {
             0% {
                 opacity: 0;
-                transform: scale(var(--final-scale, 1)) rotate(var(--rotation, 0deg));
+                transform: scale(calc(var(--final-scale, 1) * 0.8)) rotate(var(--rotation, 0deg));
                 filter: blur(4px);
             }
-            50% {
+            15% {
                 opacity: 0.5;
                 transform: scale(var(--final-scale, 1)) rotate(var(--rotation, 0deg));
                 filter: blur(2px);
             }
-            100% {
+            30% {
                 opacity: 1;
                 transform: scale(var(--final-scale, 1)) rotate(var(--rotation, 0deg));
                 filter: blur(0px);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(calc(var(--final-scale, 1) * 1.2)) rotate(var(--rotation, 0deg));
+                filter: blur(0px);
+            }
+            100% {
+                opacity: 0.3;
+                transform: scale(calc(var(--final-scale, 1) * 0.8)) rotate(var(--rotation, 0deg));
+                filter: blur(0px);
+            }
+        }
+
+        @keyframes unifiedFlareAnimation {
+            0% {
+                opacity: 0.1;
+                transform: translate(-50%, -50%) scale(0.6);
+            }
+            15% {
+                opacity: 0.3;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            30% {
+                opacity: 0.5;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+                opacity: 0.8;
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+            100% {
+                opacity: 0.2;
+                transform: translate(-50%, -50%) scale(0.8);
             }
         }
 
@@ -650,52 +659,36 @@
                 };
             }
 
-            // Generate twinkling parameters using mathematical formulas
-            generateTwinkleParams(index, seed) {
+            // Generate unified animation parameters using mathematical formulas
+            generateAnimationParams(index, seed) {
                 const durationSeed = this.random(seed + index * 11);
                 const delaySeed = this.random(seed + index * 13);
                 
-                // Create varied twinkling durations (2-8 seconds)
-                const duration = 2 + (durationSeed / 233280) * 6;
+                // Create varied animation durations (3-10 seconds)
+                const totalDuration = 3 + (durationSeed / 233280) * 7;
                 
-                // Create varied delays (0-4 seconds)
-                const delay = (delaySeed / 233280) * 4;
+                // Create varied delays (0-5 seconds)
+                const animationDelay = (delaySeed / 233280) * 5;
                 
                 // Determine star brightness using mathematical distribution
                 const brightnessSeed = this.random(seed + index * 17);
                 const brightness = brightnessSeed / 233280;
                 
-                return { duration, delay, brightness };
-            }
-
-            // Generate wash-in parameters for staggered loading
-            generateWashInParams(index, seed) {
-                const washDelaySeed = this.random(seed + index * 29);
-                
-                // Create staggered wash-in delays (0-3 seconds)
-                const washDelay = (washDelaySeed / 233280) * 3;
-                
-                // Create wash-in duration (0.5-1.5 seconds)
-                const washDurationSeed = this.random(seed + index * 31);
-                const washDuration = 0.5 + (washDurationSeed / 233280) * 1;
-                
-                return { washDelay, washDuration };
+                return { totalDuration, animationDelay, brightness };
             }
 
             // Create individual star element
             createStar(index) {
                 const seed = this.seed + index;
                 const position = this.generatePosition(index, seed);
-                const twinkleParams = this.generateTwinkleParams(index, seed);
-                const washParams = this.generateWashInParams(index, seed);
+                const animationParams = this.generateAnimationParams(index, seed);
                 
                 const star = document.createElement('div');
                 star.className = 'star';
                 star.style.left = position.x + 'px';
                 star.style.top = position.y + 'px';
-                star.style.setProperty('--twinkle-duration', twinkleParams.duration + 's');
-                star.style.setProperty('--twinkle-delay', twinkleParams.delay + 's');
-                star.style.setProperty('--wash-delay', washParams.washDelay + 's');
+                star.style.setProperty('--total-duration', animationParams.totalDuration + 's');
+                star.style.setProperty('--animation-delay', animationParams.animationDelay + 's');
                 
                 // Add size variation based on brightness
                 const sizeSeed = this.random(seed + index * 19);
@@ -703,11 +696,11 @@
                 star.style.setProperty('--final-scale', sizeVariation);
                 
                 // Apply brightness class based on mathematical distribution
-                if (twinkleParams.brightness > 0.85) {
+                if (animationParams.brightness > 0.85) {
                     star.classList.add('special');
-                } else if (twinkleParams.brightness > 0.7) {
+                } else if (animationParams.brightness > 0.7) {
                     star.classList.add('bright');
-                } else if (twinkleParams.brightness < 0.3) {
+                } else if (animationParams.brightness < 0.3) {
                     star.classList.add('dim');
                 }
                 
