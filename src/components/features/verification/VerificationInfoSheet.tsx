@@ -46,22 +46,26 @@ const DISMISS_THRESHOLD = 150; // pixels to drag down before dismissing
 // Shimmer component for verified by profile
 const VerifiedByShimmer = () => (
   <View style={styles.issuerListItem}>
-    <ShimmerPlaceholder
-      LinearGradient={LinearGradient}
-      style={styles.issuerAvatarShimmer}
-      shimmerColors={UI.SHIMMER}
-    />
-    <View style={{ flex: 1, marginLeft: 12 }}>
+    <View style={styles.issuerContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 120, height: 14, marginBottom: 4, borderRadius: 3 }}
+        style={styles.issuerAvatarShimmer}
         shimmerColors={UI.SHIMMER}
       />
-      <ShimmerPlaceholder
-        LinearGradient={LinearGradient}
-        style={{ width: 80, height: 12, borderRadius: 2 }}
-        shimmerColors={UI.SHIMMER}
-      />
+      <View style={styles.issuerTextContainer}>
+        <View style={styles.issuerNameRow}>
+          <ShimmerPlaceholder
+            LinearGradient={LinearGradient}
+            style={styles.issuerNameShimmer}
+            shimmerColors={UI.SHIMMER}
+          />
+        </View>
+        <ShimmerPlaceholder
+          LinearGradient={LinearGradient}
+          style={styles.issuerHandleShimmer}
+          shimmerColors={UI.SHIMMER}
+        />
+      </View>
     </View>
   </View>
 );
@@ -115,6 +119,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     staleTime: 60000, // 1 minute
     refetchOnWindowFocus: false
   });
+
+
 
   // Get the verifier DID from the valid verification's issuer
   const validVerification = verification?.verifications?.find(v => v.isValid);
@@ -190,7 +196,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
       handleIndicatorStyle={styles.handleIndicator}
     >
       <BottomSheetView style={styles.content}>
-        <SafeAreaView>
           {isLoading ? (
             <ActivityIndicator size="small" color={BRAND.PRIMARY} style={styles.loadingIndicator} />
           ) : verification ? (
@@ -209,7 +214,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
               </TouchableOpacity>
             </View>
           )}
-        </SafeAreaView>
       </BottomSheetView>
     </BottomSheetModal>
   );
@@ -368,8 +372,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    marginBottom: 10,
+    paddingVertical: 5,
+    marginBottom: 5,
   },
   verificationTitle: {
     color: '#fff',
@@ -510,6 +514,76 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     textAlign: 'center',
+  },
+  loadingContainer: {
+    paddingVertical: 20,
+  },
+  badgeShimmer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  titleShimmer: {
+    width: 120,
+    height: 20,
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  infoShimmer: {
+    width: '100%',
+    height: 60,
+    borderRadius: 8,
+  },
+  closeButtonShimmer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  buttonShimmer: {
+    width: 120,
+    height: 44,
+    borderRadius: 16,
+  },
+  issuerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  issuerTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  issuerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  issuerNameShimmer: {
+    width: 120,
+    height: 14,
+    borderRadius: 3,
+    marginRight: 8,
+  },
+  issuerBadgeShimmer: {
+    width: 16,
+    height: 14,
+    borderRadius: 7,
+  },
+  issuerHandleShimmer: {
+    width: 80,
+    height: 12,
+    borderRadius: 2,
+  },
+  issuerArrowShimmer: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
   },
 
 });

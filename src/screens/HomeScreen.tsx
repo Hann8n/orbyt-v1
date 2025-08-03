@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef }
 import { View, StyleSheet } from 'react-native';
 import SwipeableFeedContainer, { FeedOption } from '../components/features/feed/SwipeableFeedContainer';
 import { BRAND } from '../utils/formatting/Colors';
+import { FORCE_FEED_ERROR } from '../utils/helpers/errorDebug';
 
 // Define the ref interface for HomeScreen
 export interface HomeScreenRef {
@@ -45,6 +46,7 @@ const HomeScreen = forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
         initialFeed="yourMix"
         onFeedChange={handleFeedChange}
         isRefreshing={isRefreshing}
+        forceError={FORCE_FEED_ERROR} // Use centralized error debugging flag
       />
     </View>
   );

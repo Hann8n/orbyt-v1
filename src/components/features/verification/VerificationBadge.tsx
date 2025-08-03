@@ -77,15 +77,15 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
     
     // More precise margin calculation based on text size
     // Use a smaller, more consistent margin for better alignment
-    let marginLeft = Math.max(2, Math.min(6, Math.round(textSize * 0.15)));
+    let marginLeft = Math.max(1, Math.min(3, Math.round(textSize * 0.1)));
     
     // Fine-tune for specific ranges to ensure optimal spacing
-    if (textSize <= 12) marginLeft = 2;
-    else if (textSize <= 14) marginLeft = 3;
-    else if (textSize <= 16) marginLeft = 4;
-    else if (textSize <= 18) marginLeft = 5;
-    else if (textSize <= 20) marginLeft = 6;
-    else marginLeft = 7;
+    if (textSize <= 12) marginLeft = 1;
+    else if (textSize <= 14) marginLeft = 1;
+    else if (textSize <= 16) marginLeft = 2;
+    else if (textSize <= 18) marginLeft = 2;
+    else if (textSize <= 20) marginLeft = 3;
+    else marginLeft = 3;
     
     return { marginLeft, marginTop: 0 };
   };

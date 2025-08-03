@@ -22,6 +22,7 @@ import ProfileCache, { profileKeys, useProfileColors } from '../../../services/c
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
 import Icon from '../../ui/Icon';
+import { Avatar } from '../../ui/UI';
 import { queryKeys } from '../../../services/queryKeys';
 import Animated, { 
   useAnimatedStyle, 
@@ -613,15 +614,17 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                 }
                 style={styles.authorInfoContainer}
               >
-                <Image
-                  source={{ uri: profilePicUrl }}
+                <Avatar
+                  uri={profilePicUrl}
+                  type="profile"
+                  size={isTabletDevice ? 45 : isSmallDevice ? 42 : 45}
+                  profileColors={profileColors}
                   style={[
                     isTabletDevice
                       ? styles.profilePictureTablet
                       : isSmallDevice
                         ? styles.profilePictureSmallScreen
-                        : styles.profilePicture,
-                    { borderColor: profileColors.foregroundColor }
+                        : styles.profilePicture
                   ]}
                 />
                 <View style={styles.authorTextContainer}>
@@ -929,15 +932,11 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 25,
-    borderWidth: 2,
-    borderColor: PROFILE.DEFAULT_RING,
   },
   profilePictureSmallScreen: {
     width: 42,
     height: 42,
     borderRadius: 22,
-    borderWidth: 2,
-    borderColor: PROFILE.DEFAULT_RING,
   },
   authorTextContainer: {
     marginLeft: 8,
@@ -1131,8 +1130,6 @@ const styles = StyleSheet.create({
     width: 54, // was 80
     height: 54, // was 80
     borderRadius: 27, // was 40
-    borderWidth: 2,
-    borderColor: PROFILE.DEFAULT_RING,
   },
   repostIndicatorTextTablet: {
     color: 'rgba(255, 255, 255, 0.8)',

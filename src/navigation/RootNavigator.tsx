@@ -27,41 +27,7 @@ interface RootNavigatorProps {
 const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
   const navigation = useNavigation();
   
-  // Add navigation state listener to handle video management on stacked screens
-  React.useEffect(() => {
-    const unsubscribe = navigation.addListener('state', (e: any) => {
-      const currentRoute = e.data.state?.routes?.[e.data.state.index];
-      
-      if (currentRoute?.name === 'VideoPost') {
-        // Initialize VideoPreloadManager when navigating to stacked screens
-        VideoPreloadManager.initialize();
-      } else if (currentRoute?.name === 'Main') {
-        // Initialize VideoPreloadManager when returning to main screen
-        VideoPreloadManager.initialize();
-      }
-    });
-
-    return unsubscribe;
-  }, [navigation]);
-
-  // Add app state listener to handle app reopening on stacked screens
-  React.useEffect(() => {
-    const handleAppStateChange = (nextAppState: string) => {
-      if (nextAppState === 'active') {
-        // App has come to foreground
-        const navigationState = navigation.getState();
-        const currentRoute = navigationState?.routes?.[navigationState.index];
-        
-        // If app is reopened on a stacked screen, initialize VideoPreloadManager
-        if (currentRoute?.name === 'VideoPost') {
-          VideoPreloadManager.initialize();
-        }
-      }
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription.remove();
-  }, [navigation]);
+  // VideoPreloadManager is self-initializing and doesn't need manual initialization calls
 
   return (
     <LogoutContext.Provider value={onLogout}>

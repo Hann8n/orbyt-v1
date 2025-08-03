@@ -114,19 +114,9 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
               }
             }
             
-            // Use batch streaming preload for all grid videos with low priority
+            // Use simplified batch preload for all grid videos
             if (videosToPreload.length > 0) {
-              // Split into smaller chunks to prevent main thread blocking
-              const chunkSize = 5;
-              for (let i = 0; i < videosToPreload.length; i += chunkSize) {
-                const chunk = videosToPreload.slice(i, i + chunkSize);
-                setTimeout(() => {
-                  VideoPreloadManager.batchAddToPreloadQueue(
-                    chunk,
-                    [] // No priority for grid videos
-                  );
-                }, i * 50); // Stagger chunk processing
-              }
+              VideoPreloadManager.addVideosToPreloadQueue(videosToPreload, []);
             }
           } catch (error) {
             console.warn('Error processing grid videos in background:', error);

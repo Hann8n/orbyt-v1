@@ -13,12 +13,44 @@ import { getCurrentFeed } from '../../../services/FeedStore';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface FeedFetcherProps {
+  // Core feed configuration
   feedOption: 'yourMix' | 'profile' | 'following' | 'author' | 'likes' | 'reposts' | string;
   userDid?: string;
+  
+  // UI configuration
   headerComponent?: React.ReactNode;
   refreshControl?: React.ReactElement;
   backgroundColor?: string;
+  secondaryColor?: string;
+  
+  // Feed state
+  isProfileLoading?: boolean;
+  isRefreshing?: boolean;
+  isVisible?: boolean;
+  isModal?: boolean;
+  
+  // View mode
+  viewMode?: 'list' | 'grid';
+  onViewModeChange?: (mode: 'list' | 'grid') => void;
+  
+  // Callbacks
   onRetryFeed?: () => void;
+  onPositionChange?: (position: number) => void;
+  onVerticalScroll?: (scrollY: number) => void;
+  onScrubbingChange?: (isScrubbing: boolean) => void;
+  
+  // Initial state
+  initialPosition?: number;
+  initialIndex?: number;
+  initialUri?: string;
+  
+  // Search-specific props
+  searchQuery?: string;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  fetchNextPage?: () => void;
+  
+  // Query options
   queryOptions?: {
     enabled?: boolean;
     staleTime?: number;
@@ -26,23 +58,9 @@ interface FeedFetcherProps {
     refetchOnWindowFocus?: boolean;
     refetchOnMount?: boolean;
   };
-  secondaryColor?: string;
-  isProfileLoading?: boolean;
-  onPositionChange?: (position: number) => void;
-  initialPosition?: number;
-  initialIndex?: number;
-  initialUri?: string;
-  isVisible?: boolean;
-  viewMode?: 'list' | 'grid';
-  onViewModeChange?: (mode: 'list' | 'grid') => void;
-  onVerticalScroll?: (scrollY: number) => void;
-  isRefreshing?: boolean;
-  isModal?: boolean;
-  onScrubbingChange?: (isScrubbing: boolean) => void;
-  searchQuery?: string;
-  hasNextPage?: boolean;
-  isFetchingNextPage?: boolean;
-  fetchNextPage?: () => void;
+  
+  // Debug flag to force error responses
+  forceError?: boolean;
 }
 
 // Add FeedFetcherDebugPanel component
@@ -98,6 +116,7 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
   hasNextPage: searchHasNextPage,
   isFetchingNextPage: searchIsFetchingNextPage,
   fetchNextPage: searchFetchNextPage,
+  forceError = false, // Add debug flag to force error responses
 }) => {
   const insets = useSafeAreaInsets();
   const lastPrefetchedFeedLength = useRef(0);
@@ -164,6 +183,11 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
   const isPaused = queryResult?.isPaused || false;
   const isError = queryResult?.isError || false;
 
+  // Force error state if forceError flag is enabled
+  const forcedError = forceError ? new Error('Forced error for testing purposes') : null;
+  const forcedIsError = forceError || isError;
+  const forcedErrorState = forceError ? forcedError : error;
+
   // Remove handleEndReached and onEndReached from ListFeedView
   // Add proactive queue filling logic
 
@@ -175,13 +199,13 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
       hasNextPage &&
       !isFetchingNextPage &&
       !isLoading &&
-      !isError &&
+      !forcedIsError && // Use forced error state
       !isPaused &&
       preloadedCount < QUEUE_THRESHOLD
     ) {
       fetchNextPage();
     }
-  }, [hasNextPage, isFetchingNextPage, isLoading, isError, isPaused, fetchNextPage]);
+  }, [hasNextPage, isFetchingNextPage, isLoading, forcedIsError, isPaused, fetchNextPage]);
 
   // Call ensureQueueFilled whenever the feed or visible index changes
   useEffect(() => {
@@ -213,7 +237,7 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
   /**
    * Render an error if the query has failed (only for non-search feeds)
    */
-  if (isError && feedOption !== 'search') {
+  if (forcedIsError && feedOption !== 'search') {
     return (
       <View style={[styles.errorContainer, { backgroundColor: backgroundColor || '#000' }]}>
         <EmptyFeed 
@@ -253,7 +277,7 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
           isFetchingNextPage={isFetchingNextPage}
           hasNextPage={hasNextPage}
           isLoading={isLoading}
-          isError={isError}
+          isError={forcedIsError} // Use forced error state
           cursorPosition={cursorPosition}
           preloadedVideos={preloadedVideos}
           queueStats={queueStats}
@@ -275,8 +299,8 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
         isLoading={feedOption === 'search' ? false : isLoading}
-        isError={feedOption === 'search' ? false : isError}
-        error={feedOption === 'search' ? null : error}
+        isError={feedOption === 'search' ? false : forcedIsError} // Use forced error state
+        error={feedOption === 'search' ? null : forcedErrorState} // Use forced error state
         onRetry={handleRetry}
         onPositionChange={handlePositionChange}
         initialPosition={initialPosition}

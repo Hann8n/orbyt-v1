@@ -217,7 +217,6 @@ const HeaderContentComponent = memo<{
       <TouchableOpacity
         style={[
           styles.avatar, 
-          { borderColor: textColor },
           content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare
         ]}
         onPress={content.onAvatarPress}
@@ -227,6 +226,7 @@ const HeaderContentComponent = memo<{
           uri={content.avatar}
           type={content.avatarStyle === 'rounded-square' ? 'channel' : 'profile'}
           size={80}
+          profileColors={{ backgroundColor, textColor, foregroundColor: textColor }}
           style={[
             styles.avatarImage,
             content.avatarStyle === 'rounded-square' && styles.avatarImageRoundedSquare
@@ -520,7 +520,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
   },
   avatarRoundedSquare: {
     borderRadius: 16,
@@ -528,7 +527,7 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 48,
+    borderRadius: 50,
   },
   avatarImageRoundedSquare: {
     borderRadius: 14,

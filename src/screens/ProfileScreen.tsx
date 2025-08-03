@@ -60,6 +60,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const { colors: profileColors } = useProfileColors(targetHandle);
   const colorsMutation = useProfileColorsMutation();
 
+  // Force shimmer state for testing
+  const forceShimmer = false;
+  const isProfileLoadingForced = forceShimmer || (isProfileLoading && !cachedProfile);
+
   // Tab state
   const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'likes'>('posts');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -303,6 +307,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                 isOwnProfile={!providedHandle}
                 onLogout={handleLogout}
                 onSwitchAccount={() => setShowAccountSwitcher(true)}
+                forceLoading={isProfileLoadingForced}
               >
                 {profileData && (
                   <TabNavigation

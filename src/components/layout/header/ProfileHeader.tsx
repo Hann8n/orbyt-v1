@@ -21,6 +21,7 @@ interface ProfileHeaderProps {
   isOwnProfile?: boolean;
   onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
   onSwitchAccount?: () => void;
+  forceLoading?: boolean;
   children?: React.ReactNode;
 }
 
@@ -31,6 +32,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   isOwnProfile = false,
   onLogout,
   onSwitchAccount,
+  forceLoading = false,
   children,
 }) => {
   const navigation = useNavigation<any>();
@@ -326,10 +328,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const skeleton = useMemo(() => (
     <HeaderSkeleton
       textColor={profileColors.textColor}
+      backgroundColor={profileColors.backgroundColor}
       showAvatar={true}
       showDescription={true}
     />
-  ), [profileColors.textColor]);
+  ), [profileColors.textColor, profileColors.backgroundColor]);
 
   // Custom description component with TextWithLinks or TextInput for edit mode
   const customDescription = useMemo(() => {
@@ -375,7 +378,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         onBackPress={onBackPress}
         backgroundColor={profileColors.backgroundColor}
         textColor={profileColors.textColor}
-        isLoading={isProfileLoading && !profileData}
+        isLoading={forceLoading || (isProfileLoading && !profileData)}
         skeleton={skeleton}
       >
         {customDescription}

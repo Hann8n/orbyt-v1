@@ -33,6 +33,7 @@ interface SwipeableFeedContainerProps {
   onFeedChange?: (feed: FeedOption) => void;
   isRefreshing?: boolean;
   onScrubbingChange?: (isScrubbing: boolean) => void;
+  forceError?: boolean; // Add debug flag to force error responses
 }
 
 const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
@@ -40,6 +41,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
   onFeedChange,
   isRefreshing = false,
   onScrubbingChange,
+  forceError = false, // Add debug flag to force error responses
 }) => {
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
@@ -322,10 +324,11 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
           onVerticalScroll={(scrollY) => handleVerticalScroll(scrollY, index)}
           isRefreshing={isRefreshing}
           onScrubbingChange={handleScrubbingChange}
+          forceError={forceError} // Pass the forceError prop to FeedFetcher
         />
       </View>
     );
-  }, [currentFeedIndex, handleRetryFeed, handlePositionChange, savedPositions, handleVerticalScroll, isRefreshing, screenWidth, handleScrubbingChange]);
+  }, [currentFeedIndex, handleRetryFeed, handlePositionChange, savedPositions, handleVerticalScroll, isRefreshing, screenWidth, handleScrubbingChange, forceError]);
 
   // Get indicator style with gradual opacity based on scroll progress
   const getIndicatorStyle = useCallback((feedOption: FeedOption) => {

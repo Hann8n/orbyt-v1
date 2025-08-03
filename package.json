@@ -52,7 +52,8 @@
     "react-native-video": "^6.16.1",
     "react-native-video-manager": "^0.1.2",
     "react-native-vision-camera": "^4.7.0",
-    "react-native-worklets-core": "^1.6.0"
+    "react-native-worklets-core": "^1.6.0",
+    "zustand": "^5.0.7"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

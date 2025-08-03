@@ -286,21 +286,19 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
       }
     }, [shouldBlur, shouldPlay, isVisible]);
 
-    // Preload video if needed - optimized
+    // Preload video if needed - simplified
     useEffect(() => {
       if (shouldPreload && videoUrl && !preloadCompleteRef.current) {
         VideoPreloadManager.addToPreloadQueue(videoUrl, () => Promise.resolve(), false)
           .then(() => {
             setIsPreloadReady(true);
             preloadCompleteRef.current = true;
-            // Mark preloaded videos as ready immediately
             if (!isLoaded) {
               setIsLoaded(true);
               setIsPlayerValid(true);
             }
           })
           .catch(() => {
-            // Preload failed, but continue anyway
             preloadCompleteRef.current = true;
           });
       }

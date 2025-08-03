@@ -31,6 +31,7 @@ import { getBottomNavBarHeight } from '../utils/helpers/screenSize';
 import GridFeedView from '../components/features/feed/GridFeedView';
 import { extractVideoThumbnail } from '../utils/helpers/video';
 import { setCurrentFeed } from '../services/FeedStore';
+import { FORCE_SEARCH_ERROR, getForcedErrorMessage } from '../utils/helpers/errorDebug';
 
 interface Profile {
   did: string;
@@ -373,6 +374,10 @@ const ExploreScreen: React.FC = () => {
   } = useInfiniteQuery({
     queryKey: unifiedSearchKeys.infiniteSearch(debouncedQuery),
     queryFn: async ({ pageParam }) => {
+      // Force error if debug flag is enabled
+      if (FORCE_SEARCH_ERROR) {
+        throw getForcedErrorMessage('search');
+      }
       return await performUnifiedSearch(debouncedQuery, pageParam as string | null);
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
@@ -809,7 +814,13 @@ const ExploreScreen: React.FC = () => {
     refetch: refetchSuggestions,
   } = useQuery({
     queryKey: ['suggestedAccounts', 5],
-    queryFn: () => AtprotoService.getSuggestedAccounts(5),
+    queryFn: async () => {
+      // Force error if debug flag is enabled
+      if (FORCE_SEARCH_ERROR) {
+        throw getForcedErrorMessage('suggested accounts');
+      }
+      return await AtprotoService.getSuggestedAccounts(5);
+    },
     enabled: debouncedQuery.length === 0,
     staleTime: 60 * 1000, // 1 minute
   });
@@ -822,7 +833,13 @@ const ExploreScreen: React.FC = () => {
     refetch: refetchSuggestedFeeds,
   } = useQuery({
     queryKey: ['suggestedFeeds', 8],
-    queryFn: () => AtprotoService.getSuggestedFeeds(8),
+    queryFn: async () => {
+      // Force error if debug flag is enabled
+      if (FORCE_SEARCH_ERROR) {
+        throw getForcedErrorMessage('suggested feeds');
+      }
+      return await AtprotoService.getSuggestedFeeds(8);
+    },
     enabled: debouncedQuery.length === 0,
     staleTime: 60 * 1000, // 1 minute
   });

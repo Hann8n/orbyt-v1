@@ -402,6 +402,11 @@ interface AvatarProps {
   fallbackIconColor?: string;
   fallbackIconSize?: number;
   ringColor?: string;
+  profileColors?: {
+    backgroundColor: string;
+    foregroundColor: string;
+    textColor: string;
+  };
 }
 
 export const Avatar: React.FC<AvatarProps> = ({
@@ -413,6 +418,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   fallbackIconColor = Colors.TEXT.LIGHT_GREY,
   fallbackIconSize,
   ringColor,
+  profileColors,
 }) => {
   const defaultFallbackIcon = type === 'channel' ? 'device-tv' : 'user';
   const iconSize = fallbackIconSize || Math.max(size * 0.4, 16);
@@ -433,7 +439,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     height: size,
     borderRadius: getBorderRadius(),
     borderWidth: 2,
-    borderColor: ringColor || Colors.BORDER.PRIMARY,
+    borderColor: ringColor || (profileColors?.textColor || Colors.BORDER.PRIMARY),
   };
 
   if (uri) {

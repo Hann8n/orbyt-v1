@@ -62,27 +62,12 @@ const App: React.FC<{}> = () => {
     loadFonts();
   }, []);
 
-  // Initialize app services when app starts
-  useEffect(() => {
-    VideoPreloadManager.initialize();
-  }, []);
-
   // Handle app state changes for memory management
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
-      if (appState.match(/inactive|background/) && nextAppState === 'active') {
-        // App has come to the foreground
-        
-        // Initialize VideoPreloadManager when app comes to foreground
-        VideoPreloadManager.initialize();
-        
-        // Don't re-initialize services here to prevent unnecessary reloading
-        // The cache should persist and be used immediately
-      } else if (appState === 'active' && nextAppState.match(/inactive|background/)) {
-        // App has gone to the background
-        // No longer clearing feed queries here; only clean up video manager
+      if (appState === 'active' && nextAppState.match(/inactive|background/)) {
+        // App has gone to the background - cleanup video manager
         try {
-          // Cleanup VideoPreloadManager when app goes to background
           VideoPreloadManager.cleanup();
         } catch (error) {
           console.error('Error during app background cleanup:', error);
@@ -144,8 +129,6 @@ const App: React.FC<{}> = () => {
     try {
       await AtprotoService.login(handle, password, true); // Save account by default
       setIsLoggedIn(true);
-      // Initialize services after login
-      VideoPreloadManager.initialize();
       return Promise.resolve();
     } catch (error) {
       console.error('Login error:', error);

@@ -94,6 +94,7 @@ interface ListFeedViewProps {
   isProfileLoading?: boolean;
   onVisibleChange?: (index: number, video: string | null) => void;
   onScrubbingChange?: (isScrubbing: boolean) => void;
+  forceError?: boolean; // Add debug flag to force error responses
 }
 
 // Constants for video preloading - optimized for faster visibility
@@ -138,6 +139,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   isProfileLoading = false,
   onVisibleChange,
   onScrubbingChange,
+  forceError = false, // Add debug flag to force error responses
 }) => {
   const { isClearViewMode, toggleClearViewMode, setClearViewMode } = useClearView();
   const isSmallDevice = isSmallScreen() || isTablet();
@@ -145,6 +147,11 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   
   // Clear feed when refreshing
   const displayFeed = isRefreshing ? [] : feed;
+
+  // Force error state if forceError flag is enabled
+  const forcedError = forceError ? new Error('Forced error for testing purposes') : null;
+  const forcedIsError = forceError || isError;
+  const forcedErrorState = forceError ? forcedError : error;
 
   // Lock vertical scroll while scrubbing
   const [isScrubbing, _setIsScrubbing] = useState(false);
@@ -659,6 +666,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
             </Text>
           )}
           <Text style={{ color: '#fff', fontSize: 12 }}>shouldDisablePlayback: {String(debugShouldDisablePlayback)}</Text>
+          <Text style={{ color: '#fff', fontSize: 12 }}>forceError: {String(forceError)}</Text>
+          <Text style={{ color: '#fff', fontSize: 12 }}>forcedIsError: {String(forcedIsError)}</Text>
         </View>
       )}
       <Animated.FlatList
@@ -705,7 +714,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
             <View style={styles.centeredLoadingContainer}>
               <ActivityIndicator size="large" color={secondaryColor || "#FFFFFF"} />
             </View>
-          ) : isError ? (
+          ) : forcedIsError ? ( // Use forced error state
             <EmptyFeed 
               type="error"
               secondaryColor={secondaryColor} 

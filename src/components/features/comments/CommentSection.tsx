@@ -1,18 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, JSX } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  TextInput,
   Platform,
   UIManager,
   Dimensions,
   StyleSheet,
-  Keyboard,
-  KeyboardEvent,
-  TouchableWithoutFeedback,
-  BackHandler,
-  KeyboardAvoidingView,
   Alert,
   Image,
   Modal,
@@ -1091,33 +1085,25 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                           shimmerColors={UI.Colors.SHIMMER.PRIMARY}
                         />
                         <View style={{ flex: 1, justifyContent: 'center' }}>
+                          {/* Author name */}
                           <ShimmerPlaceholder
                             LinearGradient={LinearGradient}
-                            style={{ width: '60%', height: 14, borderRadius: 3, marginBottom: 0 }}
+                            style={{ width: '50%', height: 14, borderRadius: 3, marginBottom: 2 }}
                             shimmerColors={UI.Colors.SHIMMER.PRIMARY}
                           />
+                          {/* Handle */}
                           <ShimmerPlaceholder
                             LinearGradient={LinearGradient}
-                            style={{ width: '40%', height: 12, borderRadius: 3, marginBottom: 2 }}
+                            style={{ width: '35%', height: 14, borderRadius: 3, marginBottom: 4 }}
                             shimmerColors={UI.Colors.SHIMMER.PRIMARY}
                           />
+                          {/* Comment text */}
                           <ShimmerPlaceholder
                             LinearGradient={LinearGradient}
-                            style={{ width: '90%', height: 15, borderRadius: 4, marginTop: 2, marginBottom: 4 }}
+                            style={{ width: '85%', height: 15, borderRadius: 4, marginBottom: 6 }}
                             shimmerColors={UI.Colors.SHIMMER.PRIMARY}
                           />
-                          <ShimmerPlaceholder
-                            LinearGradient={LinearGradient}
-                            style={{ width: '30%', height: 10, borderRadius: 2 }}
-                            shimmerColors={UI.Colors.SHIMMER.PRIMARY}
-                          />
-                        </View>
-                        <View style={{ alignItems: 'center', justifyContent: 'center', marginLeft: 8, width: 32, alignSelf: 'flex-start' }}>
-                          <ShimmerPlaceholder
-                            LinearGradient={LinearGradient}
-                            style={{ width: 18, height: 18, borderRadius: 9 }}
-                            shimmerColors={UI.Colors.SHIMMER.PRIMARY}
-                          />
+
                         </View>
                       </View>
                     )}

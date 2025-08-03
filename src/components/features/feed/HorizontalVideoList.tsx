@@ -110,13 +110,7 @@ const HorizontalVideoList: React.FC<HorizontalVideoListProps> = ({
               }
             }
             if (videosToPreload.length > 0) {
-              const chunkSize = 5;
-              for (let i = 0; i < videosToPreload.length; i += chunkSize) {
-                const chunk = videosToPreload.slice(i, i + chunkSize);
-                setTimeout(() => {
-                  VideoPreloadManager.batchAddToPreloadQueue(chunk, []);
-                }, i * 50);
-              }
+              VideoPreloadManager.addVideosToPreloadQueue(videosToPreload, []);
             }
           } catch (error) {
             console.warn('Error processing horizontal videos in background:', error);

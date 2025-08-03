@@ -34,24 +34,12 @@
 
         body {
             font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+            background: #000000;
             min-height: 100vh;
             color: white;
             position: relative;
             overflow-x: hidden;
             overflow-y: auto;
-            background-attachment: fixed;
-            background-size: cover;
-            animation: backgroundFadeIn 3s ease-out;
-        }
-
-        @keyframes backgroundFadeIn {
-            0% {
-                background: radial-gradient(ellipse at bottom, #0A0A0A 0%, #000000 100%);
-            }
-            100% {
-                background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
-            }
         }
 
         /* Star container for dynamic positioning */
@@ -246,6 +234,9 @@
         .right-side {
             flex: 1;
             max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
         }
 
         .container > * {
@@ -267,30 +258,36 @@
         }
 
         .follow-button a {
-            display: inline-block;
-            background: #FFFFFF;
-            color: #000000;
+            display: inline-flex;
+            background: #1C1C1E;
+            color: #FFFFFF;
             text-decoration: none;
-            padding: 0.75rem 1.5rem;
             border-radius: 12px;
             font-family: 'Firma-SemiBold', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 0.9rem;
+            font-size: 16px;
             font-weight: 600;
             transition: all 0.3s ease;
-            border: 1px solid #FFFFFF;
+            border: 1px solid #333333;
+            min-height: 44px;
+            align-items: center;
+            justify-content: center;
+            min-width: 120px;
         }
 
         .follow-button a:hover {
-            background: rgba(255, 255, 255, 0.9);
-            border-color: rgba(255, 255, 255, 0.9);
+            background: #2A2A2A;
+            border-color: #444444;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
         .outlink-icon {
-            font-size: 0.8em;
-            margin-left: 4px;
-            opacity: 0.8;
+            width: 16px;
+            height: 16px;
+            margin-left: 6px;
+            opacity: 1;
+            vertical-align: baseline;
+            filter: brightness(0) invert(1);
         }
 
 
@@ -301,13 +298,29 @@
             margin-bottom: 2rem;
         }
 
+        .title-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
         h1 {
             font-family: 'Firma-Black', -apple-system, BlinkMacSystemFont, sans-serif;
             font-size: 4rem;
             font-weight: 900;
-            margin-bottom: 1rem;
             color: white;
+            margin: 0;
         }
+
+        .tv-icon {
+            width: 60px;
+            height: auto;
+            opacity: 0.9;
+        }
+
+
 
         p {
             font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -515,17 +528,25 @@
             }
 
             .left-side {
-                text-align: center;
+                text-align: left;
                 max-width: none;
+                order: 2;
+            }
+
+            .title-container {
+                justify-content: flex-start;
             }
 
             .follow-button {
-                text-align: center;
+                text-align: left;
             }
 
             .right-side {
                 max-width: none;
+                order: 1;
             }
+
+
 
             .feed-container {
                 max-width: 100%;
@@ -575,6 +596,8 @@
             .logo {
                 width: 120px;
             }
+
+
         }
 
 
@@ -588,13 +611,15 @@
     <div class="container">
         <div class="desktop-layout">
             <div class="left-side">
-                <img src="logo_docs.png" alt="Orbyt Logo" class="logo">
-                <h1>orbyt</h1>
+                <div class="title-container">
+                    <h1>orbyt</h1>
+                    <img src="TV-Raw.png" alt="TV Icon" class="tv-icon">
+                </div>
                 <p>a new video app for bluesky</p>
                 
                 <div class="follow-button">
                     <a href="https://bsky.app/profile/orbytapp.bsky.social" target="_blank" rel="noopener noreferrer">
-                        Follow <span class="outlink-icon">↗</span>
+                        follow <img src="pixelarticons--external-link.svg" alt="External link" class="outlink-icon">
                     </a>
                 </div>
             </div>
