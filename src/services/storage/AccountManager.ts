@@ -14,7 +14,7 @@ export interface SavedAccount {
 }
 
 export interface AccountCredentials {
-  handle: string;
+  did: string; // Use DID as the primary authentication identifier
   appPassword: string;
 }
 
@@ -78,11 +78,11 @@ class AccountManager {
       // Save accounts list
       await SecureStore.setItemAsync(this.ACCOUNTS_KEY, JSON.stringify(accounts));
       
-      // Save credentials securely (use original identifier for login)
+      // Save credentials securely using DID for authentication
       await SecureStore.setItemAsync(
         this.CREDENTIALS_PREFIX + accountId,
         JSON.stringify({ 
-          handle: handle, // Original identifier (email or handle) for login
+          did: did, // Use DID for authentication
           appPassword
         })
       );
@@ -161,8 +161,8 @@ class AccountManager {
 
       const credentials: AccountCredentials = JSON.parse(credentialsStr);
 
-      // Login with the target account (use the original identifier, not the correct handle)
-      await AtprotoService.login(credentials.handle, credentials.appPassword);
+      // Login with the target account using DID for authentication
+      await AtprotoService.login(credentials.did, credentials.appPassword);
 
       // Update account statuses
       accounts.forEach(acc => {
@@ -181,7 +181,7 @@ class AccountManager {
       // Try to refresh profile data for the switched account
       try {
         const ProfileCache = (await import('../cache/ProfileCache')).default;
-        const freshProfile = await ProfileCache.refreshProfile(credentials.handle);
+        const freshProfile = await ProfileCache.refreshProfile(targetAccount.handle);
         if (freshProfile) {
           await this.updateAccountProfile(accountId, {
             displayName: freshProfile.displayName,
@@ -195,7 +195,7 @@ class AccountManager {
 
       return targetAccount;
     } catch (error) {
-      console.error('Error switching account:', error);
+      // console.error('Error switching account:', error);
       throw error;
     }
   }
@@ -301,6 +301,30 @@ class AccountManager {
       await AsyncStorage.setItem('feedMixingStrategy', strategy);
     } catch (error) {
       console.error('Error setting feed mixing strategy:', error);
+    }
+  }
+
+  /**
+   * Get experimental feeds setting
+   */
+  static async getExperimentalFeedsEnabled(): Promise<boolean> {
+    try {
+      const value = await SecureStore.getItemAsync('experimental_feeds_enabled');
+      return value === null ? true : value === 'true'; // Default to true
+    } catch (error) {
+      console.error('Error getting experimental feeds setting:', error);
+      return true; // Default to true
+    }
+  }
+
+  /**
+   * Set experimental feeds setting
+   */
+  static async setExperimentalFeedsEnabled(enabled: boolean): Promise<void> {
+    try {
+      await SecureStore.setItemAsync('experimental_feeds_enabled', enabled.toString());
+    } catch (error) {
+      console.error('Error setting experimental feeds setting:', error);
     }
   }
 

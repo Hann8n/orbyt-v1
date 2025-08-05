@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
 import AtprotoService from '../services/api/AtprotoService';
-import FeedFetcher from '../components/features/feed/FeedFetcher';
+import FeedRenderer from '../components/features/feed/FeedRenderer';
 import { extractColorsFromImage } from '../utils/formatting/colorUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileCache, { 
@@ -61,11 +61,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const colorsMutation = useProfileColorsMutation();
 
   // Force shimmer state for testing
-  const forceShimmer = false;
-  const isProfileLoadingForced = forceShimmer || (isProfileLoading && !cachedProfile);
+  const forceShimmer = false; // Force loading state
+  
+  // Show loading when:
+  // 1. Force shimmer is enabled, OR
+  // 2. Profile is loading and no cached data, OR
+  // 3. We don't have a target handle yet (initial loading state)
+  const isProfileLoadingForced = forceShimmer || 
+    (isProfileLoading && !cachedProfile) || 
+    (!targetHandle && !providedHandle);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'posts' | 'reposts' | 'likes'>('posts');
+  const [activeTab, setActiveTab] = useState<'profile' | 'reposts' | 'likes'>('profile');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   // Ensure profile data is immediately available from cache
@@ -76,20 +83,26 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
     const loadCurrentUserHandle = async () => {
       if (!providedHandle && !userHandle) {
         try {
-          const storedHandle = await AsyncStorage.getItem(CURRENT_USER_HANDLE_KEY);
           const storedDid = await AsyncStorage.getItem(CURRENT_USER_DID_KEY);
-          if (storedHandle) {
-            // console.log("Loaded user handle from storage:", storedHandle);
-            setUserHandle(storedHandle);
-            if (storedDid) {
-              ProfileCache.setCurrentUserDid(storedDid);
+          const storedHandle = await AsyncStorage.getItem(CURRENT_USER_HANDLE_KEY);
+          
+          if (storedDid) {
+            // console.log("Loaded user DID from storage:", storedDid);
+            ProfileCache.setCurrentUserDid(storedDid);
+            
+            // If we have a stored handle, use it for display, but don't rely on it for authentication
+            if (storedHandle) {
+              setUserHandle(storedHandle);
+            } else {
+              // If no stored handle, fetch current user to get the latest handle
+              fetchCurrentUserProfile();
             }
           } else {
-            // console.log("No user handle in storage, fetching current user...");
+            // console.log("No user DID in storage, fetching current user...");
             fetchCurrentUserProfile();
           }
         } catch (error) {
-          console.error('Error loading current user handle:', error);
+          console.error('Error loading current user data:', error);
           fetchCurrentUserProfile();
         }
       }
@@ -99,12 +112,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
 
   // Save profile to AsyncStorage for persistence between sessions
   const saveCurrentUserProfile = useCallback(async (profileData: any) => {
-    if (!profileData || !profileData.handle || !profileData.did) return;
+    if (!profileData || !profileData.did) return;
 
     try {
-              // console.log("Saving current user handle/DID to storage:", profileData.handle, profileData.did);
-      await AsyncStorage.setItem(CURRENT_USER_HANDLE_KEY, profileData.handle);
+      // console.log("Saving current user DID to storage:", profileData.did);
+      // Always save DID as primary identifier
       await AsyncStorage.setItem(CURRENT_USER_DID_KEY, profileData.did);
+      
+      // Save handle for display purposes, but don't rely on it for authentication
+      if (profileData.handle) {
+        await AsyncStorage.setItem(CURRENT_USER_HANDLE_KEY, profileData.handle);
+      }
     } catch (error) {
       console.error('Error saving current user profile info:', error);
     }
@@ -225,23 +243,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const handleAccountSwitch = async (account: SavedAccount) => {
     try {
       // The AccountManager.switchAccount already handles the authentication
-      // We just need to update the local state and refresh the UI
+      // Data clearing is now handled in AccountSwitcher component
       
-      // Update the current user handle
+      // Update the current user handle for display
       setUserHandle(account.handle);
       
-      // Save the new user info to storage
-      await AsyncStorage.setItem(CURRENT_USER_HANDLE_KEY, account.handle);
+      // Save the new user info to storage - prioritize DID over handle
       await AsyncStorage.setItem(CURRENT_USER_DID_KEY, account.did);
+      await AsyncStorage.setItem(CURRENT_USER_HANDLE_KEY, account.handle);
       
       // Set the current user DID in ProfileCache
       ProfileCache.setCurrentUserDid(account.did);
       
       // Refresh the profile data after switching accounts
       await refetchProfile();
-      
-      // Clear any cached queries to ensure fresh data
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
       
       // console.log(`Switched to account: ${account.handle}`);
     } catch (error) {
@@ -251,7 +266,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
 
   // Create tab options
   const tabOptions: TabOption[] = [
-    { id: 'posts', label: 'posts' },
+    { id: 'profile', label: 'videos' },
     { id: 'reposts', label: 'reposts' },
     ...(providedHandle ? [] : [{ id: 'likes', label: 'likes' }]),
   ];
@@ -293,9 +308,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
       {showErrorScreen ? (
         renderErrorScreen()
       ) : (
-        <FeedFetcher
+        <FeedRenderer
           feedOption={
-            activeTab === 'posts' ? 'profile' :
+            activeTab === 'profile' ? 'profile' :
             activeTab === 'reposts' ? 'reposts' : 'likes'
           }
           userDid={profileData?.did || undefined}
@@ -349,6 +364,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           // Log out but do not clear all accounts, just go to login screen
           await handleLogout(false);
         }}
+        onLogout={onLogout}
       />
     </View>
   );

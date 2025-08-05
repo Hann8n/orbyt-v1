@@ -23,7 +23,7 @@ import { Card, Button, Badge, Divider, Loading } from '../components/ui/UI';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import { BRAND, TEXT, UI } from '../utils/formatting/Colors';
 import { RootStackParamList } from '../navigation/types';
-import { queryKeys } from '../services/queryKeys';
+import { createQueryKeys } from '../services/FeedService';
 import { extractVideoUrl, extractVideoThumbnail } from '../utils/helpers/video';
 import ProfileCache from '../services/cache/ProfileCache';
 
@@ -525,7 +525,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
       
       // Fetch multiple pages to get comprehensive data
       while (hasMore && posts.length < 500) {
-        const response = await AtprotoService.getAuthorFeed(userData.did, cursor, 100, false);
+        const response = await AtprotoService.getFeed(cursor, userData.did, {}, false, 100, 'author');
         posts.push(...response.feed);
         cursor = response.cursor;
         hasMore = !!cursor;

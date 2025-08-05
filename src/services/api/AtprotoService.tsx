@@ -1,7 +1,6 @@
 import { AtpAgent } from '@atproto/api';
 import * as SecureStore from 'expo-secure-store';
 import { ModerationDecision, ModerationSettings, LabelPreference, ModerationFilters, ModerationOpts, LabelDefinition } from '../ModerationTypes';
-import { feedPerformanceMonitor } from '../../utils/helpers/performance';
 
 const SERVICE_URL = 'https://bsky.social';
 const CHAT_SERVICE_URL = 'https://api.bsky.chat';
@@ -61,20 +60,32 @@ interface BlockedPost {
 
 type ThreadPost = ThreadViewPost | NotFoundPost | BlockedPost;
 
+/**
+ * Author feed types supported by Bluesky API
+ */
+type AuthorFilter = 
+  | 'posts_with_replies'
+  | 'posts_no_replies' 
+  | 'posts_and_author_threads'
+  | 'posts_with_media'
+  | 'posts_with_video';
+
 class AtprotoService {
   static agent = new AtpAgent({ service: SERVICE_URL });
   private static _sessionPromise: Promise<any> | null = null;
 
-  static async login(handle: string, appPassword: string, saveAccount: boolean = true): Promise<any> {
+
+
+  static async login(identifier: string, appPassword: string, saveAccount: boolean = true): Promise<any> {
     try {
       const response = await this.agent.login({
-        identifier: handle,
+        identifier: identifier, // Can be DID, handle, or email
         password: appPassword,
       });
       await SecureStore.setItemAsync('session', JSON.stringify(response.data));
       await SecureStore.setItemAsync(
         'credentials',
-        JSON.stringify({ handle, appPassword })
+        JSON.stringify({ identifier, appPassword })
       );
       // console.log('Logged in Successfully: ' + response.data.did);
       
@@ -82,7 +93,7 @@ class AtprotoService {
       if (saveAccount) {
         try {
           const AccountManager = (await import('../storage/AccountManager')).default;
-          await AccountManager.saveAccount(handle, appPassword, (response.data as any).displayName, (response.data as any).avatar);
+          await AccountManager.saveAccount(identifier, appPassword, (response.data as any).displayName, (response.data as any).avatar);
         } catch (error) {
           console.warn('Failed to save account to AccountManager:', error);
         }
@@ -123,7 +134,7 @@ class AtprotoService {
             const credStr = await SecureStore.getItemAsync('credentials');
             const creds = credStr ? JSON.parse(credStr) : null;
             if (creds) {
-              session = await this.login(creds.handle, creds.appPassword);
+              session = await this.login(creds.identifier, creds.appPassword);
             } else {
               throw new Error('Session expired and no stored credentials available.');
             }
@@ -157,7 +168,8 @@ class AtprotoService {
     feedLink: string | null = null,
     feedVariables: FeedParams = {},
     filterVideosOnly: boolean = true,
-    limit: number = 100
+    limit: number = 100,
+    feedType?: 'timeline' | 'author' | 'likes' | 'reposts' | 'authorVideos' | 'custom'
   ): Promise<FeedResponse> {
     let retries = 3;
     
@@ -166,11 +178,12 @@ class AtprotoService {
         await this.ensureSession();
         let response: any;
         
-        // Only use timeline for explicit following feed, not for null
-        if (feedLink === 'at://following') {
+        // Unified feed handling based on feedType
+        if (feedType === 'timeline' || feedLink === 'at://following') {
+          // Timeline feed (following)
           try {
             const params: any = { 
-              limit: limit, // Use provided limit for lazy loading
+              limit: limit,
               cursor: cursor || undefined,
               algorithm: 'reverse-chronological',
             };
@@ -178,6 +191,36 @@ class AtprotoService {
             response = await this.agent.api.app.bsky.feed.getTimeline(params);
           } catch (timelineError: any) {
             console.warn('Timeline fetch error:', timelineError.message);
+            return { feed: [], cursor: null };
+          }
+        } else if (feedType === 'author' || feedType === 'authorVideos') {
+          // Author feed - use author filter
+          const authorFilter = feedType === 'authorVideos' ? 'posts_with_video' : 'posts_with_media';
+          try {
+            const params: any = {
+              actor: feedLink || '',
+              limit: limit,
+              cursor: cursor || undefined,
+              filter: authorFilter,
+            };
+            
+            response = await this.agent.api.app.bsky.feed.getAuthorFeed(params);
+          } catch (authorError: any) {
+            console.warn('Author feed error:', authorError.message);
+            return { feed: [], cursor: null };
+          }
+        } else if (feedType === 'likes') {
+          // Liked posts feed
+          try {
+            const params: any = {
+              actor: feedLink || '',
+              limit: limit,
+              cursor: cursor || undefined,
+            };
+            
+            response = await this.agent.api.app.bsky.feed.getActorLikes(params);
+          } catch (likesError: any) {
+            console.warn('Likes feed error:', likesError.message);
             return { feed: [], cursor: null };
           }
         } else {
@@ -204,7 +247,7 @@ class AtprotoService {
           
           const params: any = { 
             feed, 
-            limit: limit // Use provided limit for lazy loading
+            limit: limit
           };
           if (cursor) params.cursor = cursor;
           
@@ -314,49 +357,11 @@ class AtprotoService {
     }
   }
 
-  /**
-   * Simplified author feed fetch that returns feed items or an empty result on error.
-   */
-  static async getAuthorFeed(userDid?: string, cursor: string | null = null, limit: number = 100, filterVideosOnly: boolean = true): Promise<FeedResponse> {
-    await this.ensureSession();
-    let resolvedDid = userDid;
-    if (!resolvedDid) {
-      const sessionStr = await SecureStore.getItemAsync('session');
-      const session = sessionStr ? JSON.parse(sessionStr) : null;
-      resolvedDid = session?.did;
-    }
-    try {
-      const params: any = { actor: resolvedDid, limit: 100 }; // Always use maximum limit
-      if (cursor) params.cursor = cursor;
-      const response = await this.agent.api.app.bsky.feed.getAuthorFeed(params);
-      
-      let feedData = response.data.feed || [];
-      
-      // Filter for video posts if requested
-      if (filterVideosOnly && feedData.length > 0) {
-        feedData = await this.filterVideoPostsEfficiently(feedData);
-      }
-      
-      // Apply content moderation at fetch level to reduce downstream compute
-      if (feedData.length > 0) {
-        const { ModerationService } = await import('../ModerationService');
-        const moderationResult = await ModerationService.batchModeratePosts(feedData);
-        // Attach moderationDecision to each item
-        const moderationMap = moderationResult.moderationDecisions;
-        feedData = moderationResult.filteredPosts.map(item => {
-          const uri = item?.post?.uri;
-          return uri && moderationMap.has(uri)
-            ? { ...item, moderationDecision: moderationMap.get(uri) }
-            : item;
-        });
-      }
-      
-      return { feed: feedData, cursor: response.data.cursor || null };
-    } catch (error: any) {
-      console.error('Error fetching author feed:', error);
-      return { feed: [], cursor: null };
-    }
-  }
+  // Unified getFeed method now handles all feed types
+  // Removed redundant getAuthorFeed method
+
+  // Unified getFeed method now handles all feed types
+  // Removed redundant getAuthorVideos method
 
   /**
    * Fetch conversations for React Query
@@ -925,7 +930,7 @@ class AtprotoService {
       // No need for separate API calls - verification data is included in the profile
       return response.data;
     } catch (error: any) {
-      console.error('Error getting profile:', error);
+      // console.error('Error getting profile:', error);
       return null;
     }
   }
@@ -969,25 +974,22 @@ class AtprotoService {
     const session = sessionStr ? JSON.parse(sessionStr) : null;
     
     try {
-      // Find the follow record
-      const follows = await this.agent.api.app.bsky.graph.getFollows({
-        actor: session.did,
-        limit: 50,
-      });
-      
-      const followRecord = follows.data.follows.find(
-        (follow: any) => follow.did === did
-      );
-      
-      if (!followRecord) {
-        console.log('Follow record not found');
+      // Get the profile by DID to get the viewer.following
+      const profileResponse = await this.agent.api.app.bsky.actor.getProfile({ actor: did });
+      if (!profileResponse.data.viewer?.following) {
+        console.log('Not following this user');
         return false;
       }
       
-      // Extract the rkey from the follow record URI
+      // Extract the rkey from the follow URI
       // URI format: at://did:plc:xxxx/app.bsky.graph.follow/rkey
-      const uriParts = (followRecord as any).uri?.split('/') || [];
+      const uriParts = profileResponse.data.viewer.following.split('/');
       const rkey = uriParts[uriParts.length - 1];
+      
+      if (!rkey) {
+        console.error('Could not extract rkey from follow URI:', profileResponse.data.viewer.following);
+        return false;
+      }
       
       // Delete the follow using the record key
       await this.agent.api.app.bsky.graph.follow.delete({
@@ -1129,77 +1131,8 @@ class AtprotoService {
     }
   }
 
-  static async getLikedPosts(userDid: string, cursor: string | null = null, limit: number = 100, filterVideosOnly: boolean = true): Promise<FeedResponse> {
-    await this.ensureSession();
-    try {
-      const params: any = { actor: userDid, limit: 100 }; // Always use maximum limit
-      if (cursor) params.cursor = cursor;
-      const response = await this.agent.api.app.bsky.feed.getActorLikes(params);
-      
-      let feedData = response.data.feed || [];
-      
-      // Filter for video posts if requested
-      if (filterVideosOnly && feedData.length > 0) {
-        feedData = await this.filterVideoPostsEfficiently(feedData);
-      }
-      
-      // Apply content moderation at fetch level to reduce downstream compute
-      if (feedData.length > 0) {
-        const { ModerationService } = await import('../ModerationService');
-        const moderationResult = await ModerationService.batchModeratePosts(feedData);
-        // Attach moderationDecision to each item
-        const moderationMap = moderationResult.moderationDecisions;
-        feedData = moderationResult.filteredPosts.map(item => {
-          const uri = item?.post?.uri;
-          return uri && moderationMap.has(uri)
-            ? { ...item, moderationDecision: moderationMap.get(uri) }
-            : item;
-        });
-      }
-      
-      return { feed: feedData, cursor: response.data.cursor || null };
-    } catch (error: any) {
-      console.error('Error fetching liked posts:', error);
-      return { feed: [], cursor: null };
-    }
-  }
-
-  static async getRepostedPosts(userDid: string, cursor: string | null = null, limit: number = 100, filterVideosOnly: boolean = true): Promise<FeedResponse> {
-    await this.ensureSession();
-    try {
-      const params: any = { actor: userDid, limit: 100 }; // Always use maximum limit
-      if (cursor) params.cursor = cursor;
-      // Using getAuthorFeed and filtering for reposts as there's no direct repost feed endpoint
-      const response = await this.agent.api.app.bsky.feed.getAuthorFeed(params);
-      let repostedPosts = response.data.feed.filter(item => 
-        item.reason && item.reason.$type === 'app.bsky.feed.defs#reasonRepost'
-      );
-      
-      // Filter for video posts if requested
-      if (filterVideosOnly && repostedPosts.length > 0) {
-        repostedPosts = await this.filterVideoPostsEfficiently(repostedPosts);
-      }
-      
-      // Apply content moderation at fetch level to reduce downstream compute
-      if (repostedPosts.length > 0) {
-        const { ModerationService } = await import('../ModerationService');
-        const moderationResult = await ModerationService.batchModeratePosts(repostedPosts);
-        // Attach moderationDecision to each item
-        const moderationMap = moderationResult.moderationDecisions;
-        repostedPosts = moderationResult.filteredPosts.map(item => {
-          const uri = item?.post?.uri;
-          return uri && moderationMap.has(uri)
-            ? { ...item, moderationDecision: moderationMap.get(uri) }
-            : item;
-        });
-      }
-      
-      return { feed: repostedPosts || [], cursor: response.data.cursor || null };
-    } catch (error: any) {
-      console.error('Error fetching reposted posts:', error);
-      return { feed: [], cursor: null };
-    }
-  }
+  // Unified getFeed method now handles all feed types
+  // Removed redundant getLikedPosts and getRepostedPosts methods
 
   /**
    * Delete a post
@@ -1707,19 +1640,42 @@ class AtprotoService {
   }
 
   /**
-   * Search for popular feed generators (channels)
+   * Search for popular feed generators (channels) with query support
    * @param query - Search query
    * @param limit - Number of results to return
-   * @returns Array of feed generator objects
+   * @returns Array of feed generator objects filtered for video-only feeds
    */
   static async searchPopularFeeds(query: string, limit: number = 5): Promise<any[]> {
     await this.ensureSession();
     try {
-      const response = await this.agent.api.app.bsky.unspecced.getPopularFeedGenerators({
-        limit,
-        query: query,
+      // Get experimental feeds setting first
+      const AccountManager = (await import('../storage/AccountManager')).default;
+      const experimentalFeedsEnabled = await AccountManager.getExperimentalFeedsEnabled();
+      
+      // If experimental feeds are disabled, request more feeds to ensure we get enough video-only results
+      const requestLimit = experimentalFeedsEnabled ? limit : Math.max(limit * 3, 15);
+      const params = { limit: requestLimit, query: query };
+      
+      const response = await this.agent.api.app.bsky.unspecced.getPopularFeedGenerators(params);
+      
+      // Filter and mark feeds
+      const allFeeds = response.data.feeds || [];
+      const processedFeeds = allFeeds.map((feed: any) => {
+        const isVideoOnly = feed.contentMode === 'app.bsky.feed.defs#contentModeVideo';
+        return {
+          ...feed,
+          isExperimental: !isVideoOnly
+        };
       });
-      return response.data.feeds || [];
+      
+      // Filter based on experimental setting
+      let filteredFeeds = processedFeeds;
+      if (!experimentalFeedsEnabled) {
+        filteredFeeds = processedFeeds.filter((feed: any) => !feed.isExperimental);
+      }
+      
+      // Return the requested number of results (or all if fewer than requested)
+      return filteredFeeds.slice(0, limit);
     } catch (error: any) {
       console.error('Error searching popular feeds:', error);
       return [];
@@ -1727,17 +1683,41 @@ class AtprotoService {
   }
 
   /**
-   * Get suggested feed generators (channels) without search query
+   * Get suggested feed generators (channels) without search query, filtered for video-only feeds
    * @param limit - Number of results to return
-   * @returns Array of feed generator objects
+   * @returns Array of feed generator objects filtered for video-only feeds
    */
   static async getSuggestedFeeds(limit: number = 10): Promise<any[]> {
     await this.ensureSession();
     try {
-      const response = await this.agent.api.app.bsky.unspecced.getPopularFeedGenerators({
-        limit,
+      // Get experimental feeds setting first
+      const AccountManager = (await import('../storage/AccountManager')).default;
+      const experimentalFeedsEnabled = await AccountManager.getExperimentalFeedsEnabled();
+      
+      // If experimental feeds are disabled, request more feeds to ensure we get enough video-only results
+      const requestLimit = experimentalFeedsEnabled ? limit : Math.max(limit * 3, 30);
+      const params = { limit: requestLimit };
+      
+      const response = await this.agent.api.app.bsky.unspecced.getPopularFeedGenerators(params);
+      
+      // Filter and mark feeds
+      const allFeeds = response.data.feeds || [];
+      const processedFeeds = allFeeds.map((feed: any) => {
+        const isVideoOnly = feed.contentMode === 'app.bsky.feed.defs#contentModeVideo';
+        return {
+          ...feed,
+          isExperimental: !isVideoOnly
+        };
       });
-      return response.data.feeds || [];
+      
+      // Filter based on experimental setting
+      let filteredFeeds = processedFeeds;
+      if (!experimentalFeedsEnabled) {
+        filteredFeeds = processedFeeds.filter((feed: any) => !feed.isExperimental);
+      }
+      
+      // Return the requested number of results (or all if fewer than requested)
+      return filteredFeeds.slice(0, limit);
     } catch (error: any) {
       console.error('Error fetching suggested feeds:', error);
       return [];
@@ -1752,9 +1732,10 @@ class AtprotoService {
   static async getFeedGenerator(uri: string): Promise<any> {
     await this.ensureSession();
     try {
-      const response = await this.agent.api.app.bsky.feed.getFeedGenerator({
-        feed: uri,
-      });
+      const params = { feed: uri };
+      
+      const response = await this.agent.api.app.bsky.feed.getFeedGenerator(params);
+      
       return response.data;
     } catch (error: any) {
       console.error('Error getting feed generator:', error);
@@ -1771,9 +1752,9 @@ class AtprotoService {
     await this.ensureSession();
     try {
       // Get the feed generator details first
-      const generatorResponse = await this.agent.api.app.bsky.feed.getFeedGenerator({
-        feed: uri,
-      });
+      const params = { feed: uri };
+      
+      const generatorResponse = await this.agent.api.app.bsky.feed.getFeedGenerator(params);
       
       if (!generatorResponse.data?.view?.likeCount) {
         return 0;
@@ -1797,9 +1778,9 @@ class AtprotoService {
     await this.ensureSession();
     try {
       // Get generator details
-      const generatorResponse = await this.agent.api.app.bsky.feed.getFeedGenerator({
-        feed: uri,
-      });
+      const generatorParams = { feed: uri };
+      
+      const generatorResponse = await this.agent.api.app.bsky.feed.getFeedGenerator(generatorParams);
       
       // Get feed posts
       const feedResponse = await this.getFeed(cursor, uri, {}, true);
@@ -1948,109 +1929,46 @@ class AtprotoService {
     }
   }
 
-  /**
-   * Smart feed selection - prioritize feeds based on engagement and recency
-   */
-  private static selectPriorityFeeds(
-    feedUris: string[], 
-    maxFeeds: number,
-    strategy: 'engagement' | 'recency' | 'diversity' | 'chronological' | 'weighted' = 'engagement'
-  ): string[] {
-    if (feedUris.length <= maxFeeds) {
-      return feedUris;
-    }
 
-    // For now, use simple strategies. In the future, this could be enhanced with:
-    // - User engagement data (likes, comments, watch time)
-    // - Feed activity levels
-    // - User preferences
-    // - Feed quality scores
-
-    switch (strategy) {
-      case 'recency':
-        // Prioritize feeds that were most recently subscribed to
-        // This would require tracking subscription dates in the feed URIs or metadata
-        return feedUris.slice(0, maxFeeds);
-        
-      case 'diversity':
-        // Try to select feeds that represent different content types
-        // This is a simplified version - could be enhanced with feed categorization
-        const selected: string[] = [];
-        const step = Math.max(1, Math.floor(feedUris.length / maxFeeds));
-        
-        for (let i = 0; i < maxFeeds && i * step < feedUris.length; i++) {
-          selected.push(feedUris[i * step]);
-        }
-        
-        // Fill remaining slots with first feeds if needed
-        for (let i = 0; selected.length < maxFeeds && i < feedUris.length; i++) {
-          if (!selected.includes(feedUris[i])) {
-            selected.push(feedUris[i]);
-          }
-        }
-        
-        return selected;
-        
-      case 'engagement':
-      case 'chronological':
-      case 'weighted':
-      default:
-        // Default: take the first N feeds (could be enhanced with engagement data)
-        return feedUris.slice(0, maxFeeds);
-    }
-  }
 
   static async getMixedFeed(
     feedUris: string[],
     cursor: string | null = null,
-    limit: number = 100,
+    limit: number = 50,
     filterVideosOnly: boolean = true,
-    maxFeeds: number = 5 // NEW: Limit number of feeds to fetch
+    maxFeeds: number = 8
   ): Promise<FeedResponse> {
-    const operationId = `mixed-feed-fast-${cursor ? 'pagination' : 'initial'}`;
-    feedPerformanceMonitor.startTimer(operationId);
-    
     try {
-      // Limit the number of feeds to fetch
-      const limitedFeedUris = this.selectPriorityFeeds(feedUris, maxFeeds, 'engagement');
+      // Limit the number of feeds to fetch from
+      const limitedFeedUris = feedUris.slice(0, maxFeeds);
       
-      if (limitedFeedUris.length !== feedUris.length) {
-        console.log(`[MixedFeed] Limited feeds from ${feedUris.length} to ${limitedFeedUris.length} feeds`);
-      }
-      
-      // Parse the mixed feed cursor to get individual feed states
+      // Parse cursor to get individual feed states
       let feedStates: { [feedUri: string]: string | null } = {};
       
       if (cursor) {
         try {
           feedStates = JSON.parse(cursor);
         } catch (error) {
-          console.warn('Failed to parse mixed feed cursor, starting fresh:', error);
+          console.warn('Failed to parse mixed feed cursor, starting fresh');
           feedStates = {};
         }
       } else {
-        // Initialize limited feeds with null cursors
+        // Initialize feeds with null cursors
         limitedFeedUris.forEach(feedUri => {
           feedStates[feedUri] = null;
         });
       }
 
-      // Fetch from limited feeds in parallel with their respective cursors
+      // Fetch from feeds in parallel
       const feedPromises = limitedFeedUris.map(async (feedUri) => {
         try {
           const feedCursor = feedStates[feedUri] || null;
-          // Use smaller limit for faster initial response
-          const feedLimit = cursor ? 100 : 25; // Start with 25 posts per feed for faster initial load
+          const feedLimit = Math.floor(limit / limitedFeedUris.length) + 10; // Distribute limit across feeds
+          
           const response = await this.getFeed(feedCursor, feedUri, {}, filterVideosOnly, feedLimit);
           
-          // Add source feed information to each post
-          const postsWithSource = (response.feed || []).map(post => ({
-            ...post,
-            sourceFeed: feedUri
-          }));
-          
           return {
-            posts: postsWithSource,
+            posts: response.feed || [],
             cursor: response.cursor,
             feedUri
           };
@@ -2074,51 +1992,34 @@ class AtprotoService {
       // Flatten and merge all feeds
       let allPosts = feedResults.flatMap(result => result.posts);
       
-      // Enhanced duplicate removal using utility function
-      const originalCount = feedResults.flatMap(result => result.posts).length;
+      // Remove duplicates
       allPosts = this.deduplicatePosts(allPosts);
-      const uniqueCount = allPosts.length;
       
-      if (originalCount !== uniqueCount) {
-        console.log(`[MixedFeed] Removed ${originalCount - uniqueCount} duplicate posts (${originalCount} → ${uniqueCount})`);
-      }
-      
-      // Use fast chronological sorting for maximum speed
+      // Sort chronologically
       allPosts.sort((a, b) => {
         const aTime = new Date(a?.post?.indexedAt || 0).getTime();
         const bTime = new Date(b?.post?.indexedAt || 0).getTime();
         return bTime - aTime;
       });
       
-      // Final deduplication step to ensure no duplicates remain after mixing
-      allPosts = this.deduplicatePosts(allPosts);
-      
       // Apply limit
       const limitedPosts = allPosts.slice(0, limit);
       
-      // Create a composite cursor that contains all feed states
-      const compositeCursor = JSON.stringify(feedStates);
+      // Create cursor from active feeds
+      const activeFeedStates: { [feedUri: string]: string | null } = {};
+      feedResults.forEach(result => {
+        if (result.cursor !== null) {
+          activeFeedStates[result.feedUri] = result.cursor;
+        }
+      });
       
-      // Check if we have more content available
-      const hasMoreContent = feedResults.some(result => result.cursor !== null) || 
-                           allPosts.length > limitedPosts.length;
-      
-      // Log pagination info for debugging
-      if (cursor) {
-        console.log(`[MixedFeed] Pagination: ${limitedPosts.length} posts returned, ${hasMoreContent ? 'more available' : 'no more content'}`);
-      } else {
-        console.log(`[MixedFeed] Initial load: ${limitedPosts.length} posts from ${limitedFeedUris.length} feeds using fast chronological strategy`);
-      }
-      
-      const duration = feedPerformanceMonitor.endTimer(operationId);
-      console.log(`[MixedFeed] Loaded ${limitedPosts.length} posts in ${duration}ms using fast chronological strategy`);
+      const compositeCursor = Object.keys(activeFeedStates).length > 0 ? JSON.stringify(activeFeedStates) : null;
       
       return {
         feed: limitedPosts,
-        cursor: hasMoreContent ? compositeCursor : null
+        cursor: compositeCursor
       };
     } catch (error) {
-      feedPerformanceMonitor.endTimer(operationId);
       console.error('Error fetching mixed feed:', error);
       return { feed: [], cursor: null };
     }

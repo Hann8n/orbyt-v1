@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModerationDebug from '../../components/features/moderation/ModerationDebug';
 import ListFeedDebugPanel from '../../components/features/feed/ListFeedDebugPanel';
 import AccountManager from '../../services/storage/AccountManager';
+import { useQueryClient } from '@tanstack/react-query';
 
 type SettingsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 type SettingsScreenRouteProp = RouteProp<RootStackParamList, 'Settings'>;
@@ -28,10 +29,25 @@ const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const route = useRoute<SettingsScreenRouteProp>();
   const onLogout = useLogout();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFeedDebugEnabled, setIsFeedDebugEnabled] = useState(!!(typeof window !== 'undefined' && (window as any).__LIST_FEED_DEBUG__));
   const [isFeedFetcherDebugEnabled, setIsFeedFetcherDebugEnabled] = useState(!!(typeof globalThis !== 'undefined' && (globalThis as any).__FEED_FETCHER_DEBUG__));
+  const [isExperimentalFeedsEnabled, setIsExperimentalFeedsEnabled] = useState(true);
   const insets = useSafeAreaInsets();
+
+  // Load experimental feeds setting on mount
+  useEffect(() => {
+    const loadExperimentalFeedsSetting = async () => {
+      try {
+        const enabled = await AccountManager.getExperimentalFeedsEnabled();
+        setIsExperimentalFeedsEnabled(enabled);
+      } catch (error) {
+        console.error('Error loading experimental feeds setting:', error);
+      }
+    };
+    loadExperimentalFeedsSetting();
+  }, []);
 
   const handleLogout = async () => {
     if (isSubmitting) return;
@@ -73,10 +89,25 @@ const SettingsScreen: React.FC = () => {
       (window as any).__LIST_FEED_DEBUG__ = value;
     }
   };
+  
   const handleToggleFeedFetcherDebug = (value: boolean) => {
     setIsFeedFetcherDebugEnabled(value);
     if (typeof globalThis !== 'undefined') {
       (globalThis as any).__FEED_FETCHER_DEBUG__ = value;
+    }
+  };
+
+  const handleToggleExperimentalFeeds = async (value: boolean) => {
+    try {
+      await AccountManager.setExperimentalFeedsEnabled(value);
+      setIsExperimentalFeedsEnabled(value);
+      
+      // Invalidate queries that depend on experimental feeds setting
+      queryClient.invalidateQueries({ queryKey: ['suggestedFeeds'] });
+      queryClient.invalidateQueries({ queryKey: ['unifiedSearch'] });
+    } catch (error) {
+      console.error('Error saving experimental feeds setting:', error);
+      Alert.alert('Error', 'Failed to save setting. Please try again.');
     }
   };
 
@@ -110,7 +141,6 @@ const SettingsScreen: React.FC = () => {
     {
       title: 'Content',
       items: [
-
         {
           id: 'watch-history',
           label: 'Watch History',
@@ -118,6 +148,13 @@ const SettingsScreen: React.FC = () => {
           onPress: () => navigation.navigate('WatchHistory'),
           showChevron: true
         },
+        // {
+        //   id: 'experimental-feeds',
+        //   label: 'Experimental Feeds',
+        //   icon: 'lightbulb',
+        //   onPress: () => handlePlaceholderAction('Experimental Feeds'),
+        //   showChevron: true
+        // },
         // {
         //   id: 'data-usage',
         //   label: 'Data Usage',
@@ -197,8 +234,8 @@ const SettingsScreen: React.FC = () => {
                     </View>
                     <View style={styles.settingItemTextContainer}>
                       <Text style={styles.settingItemText}>{item.label}</Text>
-                      {item.subtitle && (
-                        <Text style={styles.settingItemSubtitle}>{item.subtitle}</Text>
+                      {(item as any).subtitle && (
+                        <Text style={styles.settingItemSubtitle}>{(item as any).subtitle}</Text>
                       )}
                     </View>
                   </View>
@@ -207,6 +244,28 @@ const SettingsScreen: React.FC = () => {
                   )}
                 </TouchableOpacity>
               ))}
+              
+              {/* Experimental Feeds Toggle (only in Content section) */}
+              {section.title === 'Content' && (
+                <View style={[styles.settingItem, styles.switchItem]}> 
+                  <View style={styles.settingItemLeft}>
+                    <View style={styles.iconContainer}>
+                      <Icon name="lightbulb" size={20} color="#fff" />
+                    </View>
+                    <View style={styles.settingItemTextContainer}>
+                      <Text style={styles.settingItemText}>Experimental Feeds</Text>
+                      <Text style={styles.settingItemSubtitle}>Show non-video feeds</Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={isExperimentalFeedsEnabled}
+                    onValueChange={handleToggleExperimentalFeeds}
+                    trackColor={{ false: '#2A2A2A', true: '#4CAF50' }}
+                    thumbColor={isExperimentalFeedsEnabled ? '#fff' : '#999'}
+                    ios_backgroundColor="#2A2A2A"
+                  />
+                </View>
+              )}
             </View>
           </View>
         ))}
@@ -229,7 +288,7 @@ const SettingsScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Debug</Text>
           <View style={styles.sectionContent}>
             {/* List Feed Debugger (switch) */}
-            <View style={[styles.settingItem, { justifyContent: 'space-between' }]}> 
+            <View style={[styles.settingItem, styles.switchItem]}> 
               <View style={styles.settingItemLeft}>
                 <View style={styles.iconContainer}>
                   <Icon name="list" size={20} color="#fff" />
@@ -239,12 +298,13 @@ const SettingsScreen: React.FC = () => {
               <Switch
                 value={isFeedDebugEnabled}
                 onValueChange={handleToggleFeedDebug}
-                thumbColor={isFeedDebugEnabled ? '#FE4359' : '#666'}
-                trackColor={{ false: '#333', true: '#FE4359' }}
+                trackColor={{ false: '#2A2A2A', true: '#FE4359' }}
+                thumbColor={isFeedDebugEnabled ? '#fff' : '#999'}
+                ios_backgroundColor="#2A2A2A"
               />
             </View>
             {/* FeedFetcher Debugger (switch) */}
-            <View style={[styles.settingItem, { justifyContent: 'space-between', marginTop: 12 }]}> 
+            <View style={[styles.settingItem, styles.switchItem]}> 
               <View style={styles.settingItemLeft}>
                 <View style={styles.iconContainer}>
                   <Icon name="zap" size={20} color="#fff" />
@@ -254,8 +314,9 @@ const SettingsScreen: React.FC = () => {
               <Switch
                 value={isFeedFetcherDebugEnabled}
                 onValueChange={handleToggleFeedFetcherDebug}
-                thumbColor={isFeedFetcherDebugEnabled ? '#FE4359' : '#666'}
-                trackColor={{ false: '#333', true: '#FE4359' }}
+                trackColor={{ false: '#2A2A2A', true: '#FE4359' }}
+                thumbColor={isFeedFetcherDebugEnabled ? '#fff' : '#999'}
+                ios_backgroundColor="#2A2A2A"
               />
             </View>
           </View>
@@ -367,6 +428,10 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     fontFamily: 'Firma-Regular',
     marginTop: 2,
+  },
+  switchItem: {
+    justifyContent: 'space-between',
+    marginTop: 12,
   },
   logoutSection: {
     marginTop: 32,

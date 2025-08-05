@@ -140,9 +140,8 @@ const App: React.FC<{}> = () => {
     try {
       // The account switching is already handled by AccountManager.switchAccount
       // which calls AtprotoService.login internally
+      // Data clearing is now handled in AccountSwitcher component
       setIsLoggedIn(true);
-      // Initialize services after account switch
-      VideoPreloadManager.initialize();
       return Promise.resolve();
     } catch (error) {
       console.error('Account switch error:', error);

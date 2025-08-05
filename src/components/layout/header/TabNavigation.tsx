@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
   },
   activeViewToggleButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    // Removed background color for active view toggle button
   },
 });
 

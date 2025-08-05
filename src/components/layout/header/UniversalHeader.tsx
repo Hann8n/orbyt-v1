@@ -12,6 +12,7 @@ export interface HeaderAction {
   id: string;
   label: string;
   icon?: string;
+  customIcon?: React.ReactNode;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
@@ -74,9 +75,12 @@ const ActionButton = memo<{
   size?: 'small' | 'medium' | 'large';
 }>(({ action, textColor, backgroundColor, size = 'medium' }) => {
   const getButtonStyle = useCallback(() => {
+    // Check if this is a following state (Following, Mutuals, etc.)
+    const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
+    
     const baseStyle = {
-      backgroundColor: hexToRGBA(textColor, 0.2),
-      borderColor: hexToRGBA(textColor, 0.3),
+      backgroundColor: isFollowingState ? textColor : hexToRGBA(textColor, 0.2),
+      borderColor: isFollowingState ? textColor : hexToRGBA(textColor, 0.3),
     };
 
     switch (action.variant) {
@@ -90,7 +94,7 @@ const ActionButton = memo<{
       default:
         return baseStyle;
     }
-  }, [action.variant, textColor]);
+  }, [action.variant, textColor, action.label]);
 
   const getButtonSize = useCallback(() => {
     switch (size) {
@@ -114,12 +118,21 @@ const ActionButton = memo<{
         <ActivityIndicator size="small" color={textColor} />
       ) : (
         <View style={styles.actionContent}>
-          <Text style={[styles.actionText, { color: textColor }]}>
+          <Text style={[styles.actionText, { 
+            color: (action.label === 'Following' || action.label === 'Mutuals') ? backgroundColor : textColor 
+          }]}>
             {action.label}
           </Text>
-          {action.icon && (
-            <Icon name={action.icon} size={16} color={textColor} strokeWidth={2.5} />
-          )}
+          {action.customIcon ? (
+            action.customIcon
+          ) : action.icon ? (
+            <Icon 
+              name={action.icon} 
+              size={16} 
+              color={(action.label === 'Following' || action.label === 'Mutuals') ? backgroundColor : textColor} 
+              strokeWidth={2.5} 
+            />
+          ) : null}
         </View>
       )}
     </TouchableOpacity>

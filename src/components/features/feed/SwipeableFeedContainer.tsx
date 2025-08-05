@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue } from 'react-native-reanimated';
 import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { BRAND } from '../../../utils/formatting/Colors';
-import FeedFetcher from './FeedFetcher';
+import FeedRenderer from './FeedRenderer';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
 import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
 
@@ -307,7 +307,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
     return (
       <View style={[styles.feedPage, { width: screenWidth, height: '100%' }]}> 
         {/* width is set dynamically above; removed inline comment to avoid text node error */}
-        <FeedFetcher
+        <FeedRenderer
           feedOption={String(feedOption)}
           onRetryFeed={handleRetryFeed}
           onPositionChange={handlePositionChange}

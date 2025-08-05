@@ -24,7 +24,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
 import Icon, { SlashIcon } from '../../ui/Icon';
 import { Avatar, Colors } from '../../ui/UI';
-import { queryKeys } from '../../../services/queryKeys';
+import { createQueryKeys } from '../../../services/FeedService';
 import Animated, { 
   useAnimatedStyle, 
   useSharedValue, 

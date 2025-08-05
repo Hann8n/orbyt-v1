@@ -28,6 +28,7 @@ export interface CachedChannel {
   likeCount?: number;
   subscriberCount?: number;
   indexedAt: string;
+  isExperimental?: boolean; // Added for experimental feed indicator
   channelColors?: {
     backgroundColor: string;
     foregroundColor: string;
@@ -223,6 +224,19 @@ class ChannelCache {
             // Get subscriber count (number of likes on the feed generator post)
             const subscriberCount = channel.view?.likeCount || 0;
 
+            // Determine if this is an experimental (non-video) feed
+            const isVideoOnly = channel.view?.contentMode === 'app.bsky.feed.defs#contentModeVideo';
+            const isExperimental = !isVideoOnly;
+
+            // Debug logging
+            // console.log('[ChannelCache] Feed data:', {
+            //   uri: channel.view?.uri || channel.uri,
+            //   displayName: channel.view?.displayName || channel.displayName,
+            //   contentMode: channel.view?.contentMode,
+            //   isVideoOnly,
+            //   isExperimental
+            // });
+
             const cacheObject: CachedChannel = {
               uri: channel.view?.uri || channel.uri,
               cid: channel.view?.cid || channel.cid,
@@ -234,6 +248,7 @@ class ChannelCache {
               likeCount: channel.view?.likeCount || channel.likeCount,
               subscriberCount,
               indexedAt: channel.view?.indexedAt || channel.indexedAt,
+              isExperimental, // Add experimental flag
               channelColors: channelColors ? {
                 backgroundColor: channelColors.backgroundColor,
                 foregroundColor: channelColors.foregroundColor,
@@ -519,13 +534,28 @@ class ChannelCache {
    * Invalidate a specific channel cache
    */
   static async invalidateChannel(uri: string): Promise<void> {
-    if (!uri) return;
-    
     try {
       const normalizedUri = uri.toLowerCase();
+      
+      // Debug logging
+      console.log('[ChannelCache] Invalidating channel:', {
+        uri,
+        normalizedUri,
+        hasMemoryCache: this.memoryCache.has(normalizedUri),
+        memoryCacheSize: this.memoryCache.size
+      });
+      
+      // Remove from memory cache
       this.memoryCache.delete(normalizedUri);
-      await AsyncStorage.removeItem(this.getCacheKey(normalizedUri));
+      
+      // Remove from persistent cache
+      const cacheKey = this.getCacheKey(normalizedUri);
+      await AsyncStorage.removeItem(cacheKey);
+      
+      // Notify subscribers
       this.notifyChannelUpdated(normalizedUri);
+      
+      console.log('[ChannelCache] Channel invalidated successfully:', uri);
     } catch (error) {
       console.error('[ChannelCache] Error invalidating channel:', error);
     }

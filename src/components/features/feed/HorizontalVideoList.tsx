@@ -13,7 +13,8 @@ import { FeedItem } from './ListFeedView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
-import { isVideoBlurred } from '../../../services/FeedStore';
+import { feedService } from '../../../services/FeedService';
+
 
 // Shared video item component (factored out from GridFeedView)
 export const VideoGridItem: React.FC<{
@@ -24,8 +25,8 @@ export const VideoGridItem: React.FC<{
 }> = ({ item, index, onPress, style }) => {
   const videoUrl = extractVideoUrl(item.post.embed);
   const thumbnailUrl = extractVideoThumbnail(item.post.embed);
-  if (!videoUrl) return null;
-  const shouldBlur = isVideoBlurred(item.post.uri, !!item.moderationDecision?.blur);
+  // Posts are already filtered at API level, so we don't need to skip non-video posts
+  const shouldBlur = feedService.isVideoBlurred(item.post.uri, !!item.moderationDecision?.blur);
   return (
     <TouchableOpacity
       style={[styles.gridItem, style]}
@@ -33,7 +34,7 @@ export const VideoGridItem: React.FC<{
       onPress={() => onPress(index)}
     >
       <Image
-        source={{ uri: thumbnailUrl || videoUrl }}
+        source={{ uri: thumbnailUrl || videoUrl || undefined }}
         style={styles.thumbnail}
         resizeMode="cover"
         defaultSource={require('../../../assets/Vector_Normal_Grey.png')}
@@ -59,7 +60,7 @@ interface HorizontalVideoListProps {
   isProfileFeed?: boolean;
   feedOption: string;
   userDid?: string;
-  onEndReached?: () => void;
+  onLoadMore: () => void;
   isFetchingNextPage?: boolean;
   hasNextPage?: boolean;
   onVideoItemPress: (index: number) => void;
@@ -82,7 +83,7 @@ const HorizontalVideoList: React.FC<HorizontalVideoListProps> = ({
   isProfileFeed = false,
   feedOption,
   userDid,
-  onEndReached,
+  onLoadMore,
   isFetchingNextPage = false,
   hasNextPage = false,
   onVideoItemPress,
@@ -91,6 +92,9 @@ const HorizontalVideoList: React.FC<HorizontalVideoListProps> = ({
   onRetry,
 }) => {
   const insets = useSafeAreaInsets();
+
+  // Infinite scroll removed - handled by parent
+  const onScroll = () => {};
 
   useEffect(() => {
     VideoPreloadManager.clearUnneededVideos([]);
@@ -145,8 +149,8 @@ const HorizontalVideoList: React.FC<HorizontalVideoListProps> = ({
         contentContainerStyle={styles.horizontalListContent}
         ListHeaderComponent={headerComponent ? <View>{headerComponent}</View> : null}
         refreshControl={refreshControl as any}
-        onEndReached={onEndReached}
-        onEndReachedThreshold={0.2}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         ListFooterComponent={
           isFetchingNextPage ? (
             <View style={styles.footerLoader}>

@@ -1,17 +1,17 @@
-import React, { useMemo, useCallback, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import UniversalHeader, { HeaderAction, HeaderContent, CustomActionLayout } from './UniversalHeader';
+import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
 import HeaderSkeleton from './HeaderSkeleton';
 import { useChannelColors } from '../../../services/cache/ChannelCache';
 import Icon, { PlusIcon, CheckIcon } from '../../ui/Icon';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
-import { Avatar } from '../../ui/UI';
+import { Avatar, Colors } from '../../ui/UI';
 import { HomeStackParamList } from '../../../navigation/types';
 import { useProfile } from '../../../services/cache/ProfileCache';
-import { UI } from '../../../utils/formatting/Colors';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
+
 
 interface ChannelData {
   id: string;
@@ -22,6 +22,7 @@ interface ChannelData {
   likeCount?: number;
   isSubscribed?: boolean;
   isOwner?: boolean;
+  isExperimental?: boolean; // Added for experimental feed indicator
   creator?: {
     did: string;
     handle: string;
@@ -37,11 +38,6 @@ interface ChannelHeaderProps {
   onEdit?: (channelId: string) => void;
   onDelete?: (channelId: string) => void;
   children?: React.ReactNode;
-  mixIcon?: {
-    isInMix: boolean;
-    isExcluded: boolean;
-    onPress: () => void;
-  };
 }
 
 
@@ -63,25 +59,90 @@ const SubscribeButton: React.FC<{
   }, [channels, channel?.uri]);
 
   const handleSubscribe = useCallback(async () => {
-    if (!channel?.uri) return;
-
     try {
-      setIsSubscribing(true);
-      
-      if (isSubscribed) {
-        await unsubscribeFromChannel(channel.uri);
-      } else {
-        await subscribeToChannel({
-          uri: channel.uri,
-          displayName: channel.name,
-          description: channel.description,
-          avatar: channel.avatar,
-          memberCount: channel.likeCount,
-        });
+      if (!channel?.uri) return;
+
+      // Show warning for experimental feeds
+      if (channel.isExperimental && !isSubscribed) {
+        // Try to show alert, but fallback to direct subscription if Alert fails
+        let alertShown = false;
+        try {
+          Alert.alert(
+            'Experimental Feed',
+            'This feed is not designed for orbyt, and may result in poor performance.\n\nAre you sure you want to subscribe?',
+            [
+              {
+                text: 'Cancel',
+                style: 'cancel',
+              },
+              {
+                text: 'Subscribe',
+                onPress: async () => {
+                  try {
+                    setIsSubscribing(true);
+                    await subscribeToChannel({
+                      uri: channel.uri!,
+                      displayName: channel.name,
+                      description: channel.description,
+                      avatar: channel.avatar,
+                      memberCount: channel.likeCount,
+                    });
+                  } catch (error) {
+                    console.error('Error during subscribe:', error);
+                  } finally {
+                    setIsSubscribing(false);
+                  }
+                },
+              },
+            ]
+          );
+          alertShown = true;
+        } catch (error) {
+          console.error('Error showing alert, subscribing directly:', error);
+          alertShown = false;
+        }
+        
+        // If alert failed to show, subscribe directly
+        if (!alertShown) {
+          try {
+            setIsSubscribing(true);
+            await subscribeToChannel({
+              uri: channel.uri!,
+              displayName: channel.name,
+              description: channel.description,
+              avatar: channel.avatar,
+              memberCount: channel.likeCount,
+            });
+          } catch (subscribeError) {
+            console.error('Error during direct subscribe:', subscribeError);
+          } finally {
+            setIsSubscribing(false);
+          }
+        }
+        return;
+      }
+
+      try {
+        setIsSubscribing(true);
+        
+        if (isSubscribed) {
+          await unsubscribeFromChannel(channel.uri!);
+        } else {
+          await subscribeToChannel({
+            uri: channel.uri!,
+            displayName: channel.name,
+            description: channel.description,
+            avatar: channel.avatar,
+            memberCount: channel.likeCount,
+          });
+        }
+      } catch (error) {
+        console.error('Error during subscribe/unsubscribe:', error);
+      } finally {
+        setIsSubscribing(false);
       }
     } catch (error) {
-      console.error('Error during subscribe/unsubscribe:', error);
-    } finally {
+      console.error('Unexpected error in handleSubscribe:', error);
       setIsSubscribing(false);
     }
   }, [channel, isSubscribed, subscribeToChannel, unsubscribeFromChannel]);
@@ -94,8 +155,8 @@ const SubscribeButton: React.FC<{
         style={[
           styles.subscribeButton,
           {
-            backgroundColor: hexToRGBA(accentColor, 0.2),
-            borderColor: hexToRGBA(accentColor, 0.4),
+            backgroundColor: isSubscribed ? accentColor : hexToRGBA(accentColor, 0.2),
+            borderColor: isSubscribed ? accentColor : hexToRGBA(accentColor, 0.4),
           }
         ]}
         onPress={handleSubscribe}
@@ -106,22 +167,22 @@ const SubscribeButton: React.FC<{
           <ActivityIndicator size="small" color={accentColor} />
         ) : (
           <>
-            <Text style={[styles.subscribeButtonText, { color: accentColor }]}>
+            <Text style={[styles.subscribeButtonText, { color: isSubscribed ? backgroundColor : accentColor }]}>
               {isSubscribed ? 'Subscribed' : 'Subscribe'}
             </Text>
-            {isSubscribed ? (
-              <CheckIcon 
-                size={16} 
-                color={accentColor} 
-                strokeWidth={2.0}
-              />
-            ) : (
-              <PlusIcon 
-                size={12} 
-                color={accentColor} 
-                strokeWidth={2.0}
-              />
-            )}
+                         {isSubscribed ? (
+               <CheckIcon 
+                 size={16} 
+                 color={backgroundColor} 
+                 strokeWidth={2.0}
+               />
+             ) : (
+               <PlusIcon 
+                 size={12} 
+                 color={accentColor} 
+                 strokeWidth={2.0}
+               />
+             )}
           </>
         )}
       </TouchableOpacity>
@@ -147,7 +208,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onEdit,
   onDelete,
   children,
-  mixIcon,
 }) => {
   const navigation = useNavigation<any>();
 
@@ -218,11 +278,19 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       });
     } : undefined;
 
+    // Create experimental badge if channel is experimental
+    const experimentalBadge = channel.isExperimental ? (
+      <Icon name="bug" size={18} color="#4CAF50" style={styles.experimentalIcon} />
+    ) : undefined;
+
+
+
     return {
       avatar: channel.avatar,
       title: channel.name,
       subtitle: channel.creator?.handle ? `@${channel.creator.handle}` : undefined,
       description: channel.description,
+      badge: experimentalBadge,
       avatarStyle: 'rounded-square' as const,
       onTitlePress: handleCreatorPress,
     };
@@ -266,7 +334,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       skeleton={skeleton}
       showGradient={true} // Re-enable gradient for channels
       gradientType="channel" // Use channel-specific gradient
-      mixIcon={mixIcon}
+
     >
       {headerChildren}
     </UniversalHeader>
@@ -315,6 +383,11 @@ const styles = StyleSheet.create({
   likeCountLabel: {
     fontFamily: 'Firma-SemiBold',
     fontSize: 14,
+    marginTop: 2,
+  },
+  experimentalIcon: {
+    marginLeft: 6,
+    alignSelf: 'center',
     marginTop: 2,
   },
 });

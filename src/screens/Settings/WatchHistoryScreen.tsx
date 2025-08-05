@@ -214,6 +214,9 @@ const WatchHistoryScreen: React.FC = () => {
         backgroundColor={UI.BACKGROUND.PRIMARY}
         secondaryColor={TEXT.PRIMARY}
         onGridItemPress={handleGridItemPress}
+        onLoadMore={() => {}} // No pagination needed for watch history
+        isFetchingNextPage={false}
+        hasNextPage={false}
         isError={false}
         isProfileFeed={false}
       />

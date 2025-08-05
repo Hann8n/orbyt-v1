@@ -11,7 +11,7 @@ import {
   Animated,
 } from 'react-native';
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
-import { queryKeys } from '../../services/queryKeys';
+import { createQueryKeys } from '../../services/FeedService';
 import AtprotoService from '../../services/api/AtprotoService';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/verification/VerificationBadge';
@@ -134,8 +134,8 @@ export function UserSearchModal({
     hasNextPage,
     error,
     refetch,
-  } = useInfiniteQuery<{ profiles: UserProfile[]; cursor: string | null }, Error, { profiles: UserProfile[]; cursor: string | null }, ReturnType<typeof queryKeys.search.profiles>, string | null>({
-    queryKey: queryKeys.search.profiles(searchQuery),
+  } = useInfiniteQuery<{ profiles: UserProfile[]; cursor: string | null }, Error, { profiles: UserProfile[]; cursor: string | null }, ReturnType<typeof createQueryKeys.search.profiles>, string | null>({
+    queryKey: createQueryKeys.search.profiles(searchQuery),
     queryFn: async ({ pageParam }) => {
       return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
     },

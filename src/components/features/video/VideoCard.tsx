@@ -30,8 +30,8 @@ import { extractVideoUrl } from '../../../utils/helpers/video';
 import { isSmallScreen, isTablet, getVideoCardHeight } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import Icon from '../../ui/Icon';
-import { isVideoBlurred, setVideoBlurState } from '../../../services/FeedStore';
-import PerformanceMonitor from '../../../utils/helpers/performance';
+import { feedService } from '../../../services/FeedService';
+
 
 
 export interface VideoEmbed {
@@ -124,7 +124,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     const videoUrl = extractVideoUrl(videoEmbed);
 
     // Determine if video should be blurred - prioritize user choice over moderation
-    const shouldBlur = isVideoBlurred(post.uri, !!moderationDecision?.blur);
+    const shouldBlur = feedService.isVideoBlurred(post.uri, !!moderationDecision?.blur);
 
     // Calculate overlay opacity based on various factors
     const overlayOpacity = useMemo(() => {
@@ -152,11 +152,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
         setIsLoaded(true);
         setIsPlayerValid(true);
         if (!videoStatusNotifiedRef.current) {
-          // Track video load performance
-          const loadTime = PerformanceMonitor.endVideoLoadTimer(post.uri);
-          if (loadTime > 2000) {
-            console.warn(`Slow video load: ${loadTime}ms for ${post.uri}`);
-          }
+          // Performance monitoring removed for simplification
           
           // Use requestAnimationFrame to prevent blocking scroll events
           requestAnimationFrame(() => {
@@ -175,7 +171,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
         });
       } else if (status === 'loading') {
         // Start tracking video load time
-        PerformanceMonitor.startVideoLoadTimer(post.uri);
+        // Performance monitoring removed for simplification
         requestAnimationFrame(() => {
           onVideoStatus?.(post.uri, 'loading');
         });
@@ -326,6 +322,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
       };
     }, []);
 
+    // Safety check for video-specific component (filtering is already done at API level for feeds)
     if (!videoUrl) return null;
 
     return (
@@ -385,7 +382,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                   {moderationDecision?.reason || 'This video is flagged as sensitive or explicit.'}
                 </Text>
                 <TouchableWithoutFeedback onPress={() => {
-                  setVideoBlurState(post.uri, false);
+                  feedService.setVideoBlurState(post.uri, false);
                   forceRerender(n => n + 1);
                   if (playerRef.current && isPlayerValid && isVisible && !userPaused) {
                     setUserPaused(false);

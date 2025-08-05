@@ -16,17 +16,18 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, SharedValue, runOnJS } from 'react-native-reanimated';
 import EmptyFeed from './EmptyFeed';
-import MemoizedVideoItem from './MemoizedVideoItem';
+import { MemoizedVideoItem } from './FeedRenderer';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
 import WatchHistory from '../../../services/WatchHistory';
 import { extractVideoUrl } from '../../../utils/helpers/video';
 import GridFeedView from './GridFeedView';
 import { isSmallScreen, isTablet, getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
-import PerformanceMonitor from '../../../utils/helpers/performance';
+
 import Icon from '../../ui/Icon';
 import { useClearView } from '../../../services/ClearViewContext';
-import { updateHeaderVisibility } from '../../../services/FeedStore';
+
+// Header visibility removed for simplification
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -73,9 +74,9 @@ interface ListFeedViewProps {
   refreshControl?: React.ReactElement;
   backgroundColor?: string;
   secondaryColor?: string;
-  feedOption: 'yourMix' | 'following' | 'discover' | 'profile' | 'author' | 'likes' | 'reposts' | string;
+  feedOption: 'yourMix' | 'following' | 'discover' | 'profile' | 'likes' | 'reposts' | string;
   userDid?: string;
-  onEndReached?: () => void; // Make optional
+  onLoadMore: () => void; // Simplified callback for loading more content
   isFetchingNextPage: boolean;
   hasNextPage?: boolean;
   isLoading: boolean;
@@ -95,6 +96,7 @@ interface ListFeedViewProps {
   isProfileLoading?: boolean;
   onVisibleChange?: (index: number, video: string | null) => void;
   onScrubbingChange?: (isScrubbing: boolean) => void;
+  onScroll?: (event: { nativeEvent: any }) => void; // Infinite scroll handler
   forceError?: boolean; // Add debug flag to force error responses
 }
 
@@ -120,7 +122,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   secondaryColor,
   feedOption,
   userDid,
-  onEndReached,
+  onLoadMore,
   isFetchingNextPage,
   hasNextPage,
   isLoading,
@@ -140,6 +142,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   isProfileLoading = false,
   onVisibleChange,
   onScrubbingChange,
+  onScroll,
   forceError = false, // Add debug flag to force error responses
 }) => {
   const { isClearViewMode, toggleClearViewMode, setClearViewMode } = useClearView();
@@ -213,6 +216,9 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const visibleIndexRef = useRef<number>(0);
   const isSnappedToTopRef = useRef<boolean>(false);
 
+  // Use infinite scroll handler from props (provided by parent FeedRenderer)
+  const infiniteScrollHandler = onScroll || (() => {});
+
   // Define common dimension logic
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const viewableAreaHeight = Dimensions.get('window').height - insets.top - bottomNavBarHeight;
@@ -229,7 +235,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   // Channel feeds (at:// URIs) should use header feed behavior only if they have a headerComponent
   const isHeaderFeed = (
     (feedOption === 'profile' ||
-     feedOption === 'author' ||
      feedOption === 'likes' ||
      feedOption === 'reposts' ||
      feedOption.startsWith('at://'))
@@ -306,13 +311,16 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     
     // Report header height to FeedStore for header visibility tracking
     if (isHeaderFeed) {
-      updateHeaderVisibility(currentScrollOffset.current, height, isSnappedToTopRef.current);
+      // Header visibility removed for simplification
     }
   }, [isHeaderFeed]);
 
   // Optimized scroll handler - debounced and batched
   const handleScroll = useCallback((event: any) => {
-    const startTime = PerformanceMonitor.startScrollTimer();
+    // Performance monitoring removed for simplification
+    
+    // Call infinite scroll handler first for loading more content
+    infiniteScrollHandler(event);
     
     const y = event.nativeEvent.contentOffset.y;
     scrollYShared.value = y;
@@ -343,7 +351,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     
     // Report scroll position to FeedStore for header visibility
     if (isHeaderFeed) {
-      updateHeaderVisibility(y, headerHeight, isSnappedToTopRef.current);
+      // Header visibility removed for simplification
     }
     
     // Simplified user scroll detection for fast scrolling
@@ -351,12 +359,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       userScrolled.current = true;
     }
     
-    // Track scroll performance
-    const scrollTime = PerformanceMonitor.endScrollTimer();
-    if (scrollTime > 16) { // Log slow scroll events
-      console.warn(`Slow scroll detected: ${scrollTime}ms`);
-    }
-  }, [scrollYShared, onVerticalScroll, isHeaderFeed, headerHeight, scrollDirection]);
+    // Performance monitoring removed for simplification
+  }, [infiniteScrollHandler, scrollYShared, onVerticalScroll, isHeaderFeed, headerHeight, scrollDirection]);
 
   // Memoize momentum scroll end handler
   const onMomentumScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -381,7 +385,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
    * Optimized renderItem with minimal dependencies and memoization
    */
   const renderItem = useCallback(({ item, index }: { item: FeedItem; index: number }) => {
-    const startTime = PerformanceMonitor.startTimer();
+    // Performance monitoring removed for simplification
     
     const isActive = item.post.uri === visibleVideoRef.current;
     const shouldPreload = index >= visibleRange.min - CACHE_BUFFER && index <= visibleRange.max + CACHE_BUFFER;
@@ -408,7 +412,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     );
     
     // Track performance with video visibility info
-    PerformanceMonitor.endTimer(startTime, 1, feedOption, isItemVisible);
+    // Performance monitoring removed for simplification
     
     return result;
   }, [
@@ -455,12 +459,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     // Move offset calculations to background if this becomes heavy
     try {
       if (isHeaderFeed) {
-        if (feedOption === 'author') {
-          // For author pages, calculate offsets that center each card in the viewport
-          const centerOffset = (Dimensions.get('window').height - memoizedCardHeight) / 2 - insets.top;
-          return feed.map((_, i) => Math.max(headerHeight, headerHeight + (i * memoizedCardHeight) - centerOffset));
-        }
-        
         // Original behavior for other profile pages and custom feeds
         return feed.map((_, i) => Math.max(headerHeight, headerHeight + i * memoizedCardHeight));
       }
@@ -480,16 +478,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       
       // For header feeds, adjust the layout to account for header height
       if (isHeaderFeed && headerHeight > 0) {
-        if (feedOption === 'author') {
-          // For author pages, adjust the layout to account for card centering
-          const centerOffset = (Dimensions.get('window').height - memoizedCardHeight) / 2 - insets.top;
-          return {
-            length: memoizedCardHeight,
-            offset: Math.max(headerHeight, headerHeight + (memoizedCardHeight * safeIndex) - centerOffset),
-            index: safeIndex,
-          };
-        }
-        
         // Original behavior for other header page types
         return {
           length: memoizedCardHeight,
@@ -587,7 +575,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       isSnappedToTopRef.current = true;
       setIsSnappedToTop(true);
       // Report to FeedStore that header should be visible
-      updateHeaderVisibility(currentScrollOffset.current, headerHeight, true);
+      // Header visibility removed for simplification
     }
   }, [feedOption]); // Reset when feed option changes
 
@@ -643,7 +631,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         isProfileFeed={isHeaderFeed}
         feedOption={feedOption}
         userDid={userDid}
-        onEndReached={onEndReached}
+        onLoadMore={onLoadMore}
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
         onGridItemPress={undefined}
@@ -726,8 +714,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         nestedScrollEnabled={true}
         onMomentumScrollEnd={onMomentumScrollEnd}
         scrollEventThrottle={1} // Reduced for maximum responsiveness during fast scrolling
-        onEndReached={onEndReached}
-        onEndReachedThreshold={feedOption === 'yourMix' ? 0.1 : 0.3} // Lower threshold since we have proactive fetching
+
         CellRendererComponent={CellRenderer}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={{
@@ -736,8 +723,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         }}
         getItemLayout={getItemLayout}
         ListEmptyComponent={
-          // Show loader when feed is empty, especially for yourMix which takes time to process
-          (isLoading || displayFeed.length === 0) ? (
+          // Show loader only when loading, show empty state when feed is empty
+          isLoading ? (
             <View style={styles.centeredLoadingContainer}>
               <ActivityIndicator size="large" color={secondaryColor || "#FFFFFF"} />
             </View>

@@ -11,9 +11,9 @@ import Animated, {
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
-import FeedFetcher from '../components/features/feed/FeedFetcher';
+import FeedRenderer from '../components/features/feed/FeedRenderer';
 import Icon from '../components/ui/Icon';
-import { getCurrentFeed, clearCurrentFeed } from '../services/FeedStore';
+import { feedService } from '../services/FeedService';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -46,7 +46,7 @@ const FeedModal: React.FC = () => {
 
   // Dismiss modal
   const handleClose = () => {
-    clearCurrentFeed();
+    feedService.clearCurrentFeed();
     navigation.goBack();
   };
 
@@ -110,7 +110,7 @@ const FeedModal: React.FC = () => {
     <PanGestureHandler onGestureEvent={gestureHandler}>
       <Animated.View style={[styles.container, animatedStyle]}>
         {/* Removed grab bar/swipe indicator and X close button */}
-        <FeedFetcher
+        <FeedRenderer
           feedOption={feedOption}
           userDid={userDid}
           backgroundColor={backgroundColor}

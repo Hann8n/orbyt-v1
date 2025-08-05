@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../../services/queryKeys';
+import { createQueryKeys } from '../../services/FeedService';
 import {
   View,
   Text,
@@ -82,7 +82,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   }, [visible, authorDid]);
 
   const { data: blockStatus = false } = useQuery({
-    queryKey: queryKeys.blocks.status(authorDid),
+    queryKey: createQueryKeys.blocks.status(authorDid),
     queryFn: () => AtprotoService.isBlocked(authorDid),
     enabled: visible && !!authorDid && !isCurrentUser,
     initialData: false
@@ -154,7 +154,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       // Regular block/unblock flow for other users' content
       if (isBlocked) {
         await AtprotoService.unblockUser(authorDid);
-        queryClient.invalidateQueries({ queryKey: queryKeys.blocks.status(authorDid) });
+        queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(authorDid) });
         setIsBlocked(false);
       } else {
         Alert.alert(
@@ -170,7 +170,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
               style: 'destructive',
               onPress: async () => {
                 await AtprotoService.blockUser(authorDid);
-                queryClient.invalidateQueries({ queryKey: queryKeys.blocks.status(authorDid) });
+                queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(authorDid) });
                 setIsBlocked(true);
                 onDismiss();
               }
@@ -208,10 +208,10 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       // Make API call
       if (feedbackSent === type) {
         // Currently there's no API to remove feedback, so we just clear it locally
-        console.log(`Cleared ${type} feedback for post: ${postUri}`);
+        // console.log(`Cleared ${type} feedback for post: ${postUri}`);
       } else {
         await AtprotoService.sendVideoFeedback(postUri, type);
-        console.log(`Sent ${type} feedback for post: ${postUri}`);
+        // console.log(`Sent ${type} feedback for post: ${postUri}`);
       }
     } catch (error) {
       // Revert to previous state on error
@@ -251,7 +251,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
                 if (success) {
                   Alert.alert('Success', 'Your post has been deleted.');
                   // Invalidate any related queries to refresh feeds
-                  queryClient.invalidateQueries({ queryKey: queryKeys.feed.all });
+                  queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
                   onDismiss();
                 } else {
                   Alert.alert('Error', 'Failed to delete post. Please try again.');

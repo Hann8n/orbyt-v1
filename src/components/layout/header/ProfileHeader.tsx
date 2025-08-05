@@ -11,7 +11,7 @@ import VerificationInfoSheet from '../../features/verification/VerificationInfoS
 import ProfileMenu from '../../features/profile/ProfileMenu';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import AtprotoService from '../../../services/api/AtprotoService';
-import Icon from '../../ui/Icon';
+import Icon, { PlusIcon, CheckIcon } from '../../ui/Icon';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 
 interface ProfileHeaderProps {
@@ -262,16 +262,21 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
       let label = 'Follow';
       let icon: string | undefined = 'plus';
+      let customIcon: React.ReactNode | undefined = undefined;
 
-      if (followMutation.isPending) {
-        label = 'Loading...';
-        icon = undefined;
-      } else if (isFollowing && isFollowedBy) {
+      if (isFollowing && isFollowedBy) {
         label = 'Mutuals';
         icon = 'users';
       } else if (isFollowing) {
         label = 'Following';
-        icon = 'check';
+        icon = undefined;
+        customIcon = (
+          <CheckIcon 
+            size={16} 
+            color={profileColors.backgroundColor} 
+            strokeWidth={2.0}
+          />
+        );
       }
 
       return [
@@ -286,15 +291,14 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               id: 'follow',
               label,
               icon,
+              customIcon,
               onPress: handleFollowUnfollow,
-              disabled: followMutation.isPending,
-              loading: followMutation.isPending,
             },
           ],
         },
       ];
     }
-  }, [profileData, isOwnProfile, isEditMode, profileUpdateMutation.isPending, followMutation.isPending, handleFollowUnfollow, enterEditMode, exitEditMode, handleSaveProfile, handleMenuPress]);
+  }, [profileData, isOwnProfile, isEditMode, profileUpdateMutation.isPending, handleFollowUnfollow, enterEditMode, exitEditMode, handleSaveProfile, handleMenuPress]);
 
   // Create header content with custom description component
   const headerContent = useMemo((): HeaderContent => {

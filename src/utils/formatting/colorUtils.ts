@@ -339,7 +339,7 @@ export async function extractColorsFromImage(imageUrl: string) {
       statusBarStyle: isColorDark(finalColors.backgroundColor) ? 'light' as const : 'dark' as const,
     };
   } catch (error) {
-    console.error('Error extracting colors from image:', error);
+          // console.error('Error extracting colors from image:', error);
     return {
       backgroundColor: Colors.BRAND.PRIMARY,
       foregroundColor: Colors.TEXT.PRIMARY,

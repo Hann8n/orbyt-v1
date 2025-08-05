@@ -33,7 +33,7 @@ import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
-import { queryKeys } from '../../../services/queryKeys';
+import { createQueryKeys } from '../../../services/FeedService';
 import { INTERACTIVE, BRAND } from '../../../utils/formatting/Colors';
 import ProfileCache, { profileKeys } from '../../../services/cache/ProfileCache';
 import VerificationBadge from '../verification/VerificationBadge';
@@ -808,7 +808,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     isFetchingNextPage: isFetchingNextCommentsPage,
     refetch: refetchComments,
   } = useInfiniteQuery<{ comments: any[]; cursor: string | null }, Error>({
-    queryKey: queryKeys.comments.byPost(post.uri),
+    queryKey: createQueryKeys.comments.byPost(post.uri),
     queryFn: ({ pageParam }) => AtprotoService.getComments(post.uri, pageParam as string | null),
     getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
     initialPageParam: null,
@@ -828,7 +828,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     isFetchingNextPage: isFetchingNextLikesPage,
     refetch: refetchLikes,
   } = useInfiniteQuery<{ likes: any[]; cursor: string | null }, Error>({
-    queryKey: queryKeys.likes.byPost(post.uri),
+    queryKey: createQueryKeys.likes.byPost(post.uri),
     queryFn: ({ pageParam }) => AtprotoService.getLikes(post.uri, pageParam as string | null),
     getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
     initialPageParam: null,
@@ -917,7 +917,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       setNewCommentText('');
       setReplyContext(null);
       // Refetch comments
-      queryClient.invalidateQueries({ queryKey: queryKeys.comments.byPost(post.uri) });
+      queryClient.invalidateQueries({ queryKey: createQueryKeys.comments.byPost(post.uri) });
     } catch (error) {
       Alert.alert('Error', 'Failed to post comment. Please try again.');
     } finally {

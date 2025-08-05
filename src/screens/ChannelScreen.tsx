@@ -11,9 +11,9 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import AtprotoService from '../services/api/AtprotoService';
-import { queryKeys } from '../services/queryKeys';
+import { createQueryKeys } from '../services/FeedService';
 import ChannelHeader from '../components/layout/header/ChannelHeader';
-import FeedFetcher from '../components/features/feed/FeedFetcher';
+import FeedRenderer from '../components/features/feed/FeedRenderer';
 import MembersListView from '../components/features/feed/MembersListView';
 import { BRAND, TEXT } from '../utils/formatting/Colors';
 import EmptyFeed from '../components/features/feed/EmptyFeed';
@@ -21,7 +21,7 @@ import { useChannelColors, useChannel, useChannelColorsMutation } from '../servi
 import { extractColorsFromImage } from '../utils/formatting/colorUtils';
 import { TabNavigation, TabOption } from '../components/layout/header';
 import { useSubscribedChannels } from '../hooks/useSubscribedChannels';
-import { useFeedQuery } from '../hooks/useFeedQuery';
+import { useFeed } from '../hooks/useFeed';
 import Icon from '../components/ui/Icon';
 
 interface ChannelScreenProps {
@@ -50,6 +50,23 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
     refetch: refetchChannel,
   } = useChannel(uri || '');
 
+  // Force refresh channel data to get experimental flag if not present
+  useEffect(() => {
+    if (uri && channelData && channelData.isExperimental === undefined) {
+      // Invalidate the channel cache to force a fresh fetch
+      const invalidateAndRefetch = async () => {
+        try {
+          const ChannelCache = await import('../services/cache/ChannelCache');
+          await ChannelCache.default.invalidateChannel(uri);
+          refetchChannel();
+        } catch (error) {
+          console.error('Error invalidating channel cache:', error);
+        }
+      };
+      invalidateAndRefetch();
+    }
+  }, [uri, channelData, refetchChannel]);
+
   const { colors: channelColors } = useChannelColors(uri || '');
   const colorsMutation = useChannelColorsMutation();
 
@@ -70,7 +87,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
     refetch: refetchFeed,
     isPaused,
     isError: isFeedError
-  } = useFeedQuery(feedOption, undefined, {
+  } = useFeed(feedOption, undefined, {
     enabled: !!uri && activeTab === 'posts',
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
@@ -130,13 +147,11 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
   // Handle edit (only for owned channels)
   const handleEdit = useCallback((channelId: string) => {
     // TODO: Implement edit functionality
-    console.log('Edit channel:', channelId);
   }, []);
 
   // Handle delete (only for owned channels)
   const handleDelete = useCallback((channelId: string) => {
     // TODO: Implement delete functionality
-    console.log('Delete channel:', channelId);
   }, []);
 
   // Extract and save channel colors if needed
@@ -185,6 +200,8 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
 
     const likeCount = channelData.likeCount || 0;
 
+
+
     return {
       id: uri,
       uri: uri,
@@ -193,6 +210,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
       avatar: channelData.avatar || avatar,
       likeCount,
       isOwner: false, // TODO: Check if current user owns this channel
+      isExperimental: channelData.isExperimental, // Add experimental flag
       creator: channelData.creator || creator, // Use creator from API or fallback to route params
     };
   }, [channelData, uri, title, description, avatar, creator]);
@@ -262,27 +280,6 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
         onBackPress={handleBackPress}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        mixIcon={
-          channelData ? (() => {
-            // Don't show mix controls for built-in feeds
-            const isBuiltInFeed = ['following', 'yourMix'].includes(uri || '');
-            if (isBuiltInFeed) return undefined;
-            
-            return {
-              isInMix,
-              isExcluded,
-              onPress: () => {
-                if (isExcluded) {
-                  handleIncludeChannel();
-                } else if (isInMix) {
-                  handleRemoveFromMix();
-                } else {
-                  handleAddToMix();
-                }
-              }
-            };
-          })() : undefined
-        }
       >
         {channelData && (
           <>
@@ -306,7 +303,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
   return (
     <View style={[styles.container, { backgroundColor: channelColors.backgroundColor }]}>
       {activeTab === 'posts' ? (
-        <FeedFetcher
+                        <FeedRenderer
           feedOption={feedOption}
           userDid={undefined}
           headerComponent={headerComponent}

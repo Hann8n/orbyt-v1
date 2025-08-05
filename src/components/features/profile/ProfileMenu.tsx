@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../../../services/queryKeys';
+import { createQueryKeys } from '../../../services/FeedService';
 import {
   View,
   Text,
@@ -52,14 +52,14 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   // Get profile data to determine if it's the current user
   const { data: profile } = useQuery({
-    queryKey: queryKeys.profiles.detail(handle),
+    queryKey: createQueryKeys.profiles.detail(handle),
     queryFn: () => AtprotoService.getProfile(handle),
     enabled: visible && !!handle,
   });
 
   // Check block status for non-own profiles
   const { data: blockStatus = false } = useQuery({
-    queryKey: queryKeys.blocks.status(profile?.did || ''),
+    queryKey: createQueryKeys.blocks.status(profile?.did || ''),
     queryFn: () => AtprotoService.isBlocked(profile?.did || ''),
     enabled: visible && !!profile?.did && !isOwnProfile,
     initialData: false
@@ -88,7 +88,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       
       if (isBlocked) {
         await AtprotoService.unblockUser(profile.did);
-        queryClient.invalidateQueries({ queryKey: queryKeys.blocks.status(profile.did) });
+        queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(profile.did) });
         setIsBlocked(false);
       } else {
         Alert.alert(
@@ -104,7 +104,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
               style: 'destructive',
               onPress: async () => {
                 await AtprotoService.blockUser(profile.did);
-                queryClient.invalidateQueries({ queryKey: queryKeys.blocks.status(profile.did) });
+                queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(profile.did) });
                 setIsBlocked(true);
                 onDismiss();
               }

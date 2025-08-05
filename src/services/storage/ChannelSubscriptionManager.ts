@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import FeedConfigManager from '../FeedConfig';
+import { FEED_CONFIG } from '../FeedService';
 
 export interface SubscribedChannel {
   uri: string;
@@ -177,7 +177,7 @@ class ChannelSubscriptionManager {
         };
       } else {
         // Check if we've reached the maximum number of channels
-        const maxChannels = FeedConfigManager.getMaxSubscribedChannels();
+        const maxChannels = FEED_CONFIG.maxSubscribedChannels;
         const nonDefaultChannels = channels.filter(ch => !ch.isDefault);
         
         if (nonDefaultChannels.length >= maxChannels) {

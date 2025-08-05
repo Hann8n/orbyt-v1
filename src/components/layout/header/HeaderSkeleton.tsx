@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
-import { UI, TEXT } from '../../../utils/formatting/Colors';
+import { Colors } from '../../../components/ui/UI';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 
 interface HeaderSkeletonProps {
@@ -14,14 +14,14 @@ interface HeaderSkeletonProps {
 }
 
 const HeaderSkeleton: React.FC<HeaderSkeletonProps> = ({
-  textColor = TEXT.PRIMARY,
+  textColor = Colors.TEXT.PRIMARY,
   showAvatar = true,
   showDescription = true,
   avatarStyle = 'circle',
   backgroundColor,
 }) => {
   // Use standard shimmer colors for better visibility
-  const shimmerColors = UI.SHIMMER;
+  const shimmerColors = Colors.SHIMMER.PRIMARY;
 
   return (
     <View style={styles.skeletonContainer}>
@@ -32,7 +32,7 @@ const HeaderSkeleton: React.FC<HeaderSkeletonProps> = ({
             style={[
               styles.skeletonAvatar,
               avatarStyle === 'rounded-square' && styles.skeletonAvatarRoundedSquare,
-              { borderWidth: 1, borderColor: UI.BORDER.PRIMARY }
+              { borderWidth: 1, borderColor: Colors.BORDER.PRIMARY }
             ]}
             shimmerColors={shimmerColors}
           />
@@ -40,6 +40,7 @@ const HeaderSkeleton: React.FC<HeaderSkeletonProps> = ({
       )}
       
       <View style={styles.skeletonTextContainer}>
+        {/* Title row with title only */}
         <View style={styles.titleRow}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
@@ -48,11 +49,14 @@ const HeaderSkeleton: React.FC<HeaderSkeletonProps> = ({
           />
         </View>
         
-        <ShimmerPlaceholder
-          LinearGradient={LinearGradient}
-          style={[styles.skeletonSubtitle, { borderRadius: 4 }]}
-          shimmerColors={shimmerColors}
-        />
+        {/* Subtitle row with subtitle only */}
+        <View style={styles.subtitleRow}>
+          <ShimmerPlaceholder
+            LinearGradient={LinearGradient}
+            style={[styles.skeletonSubtitle, { borderRadius: 4 }]}
+            shimmerColors={shimmerColors}
+          />
+        </View>
         
         {showDescription && (
           <View style={styles.descriptionContainer}>
@@ -84,9 +88,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     width: '100%',
     paddingVertical: 8,
+    marginTop: -8,
   },
   avatarContainer: {
-    marginBottom: 8,
+    marginBottom: 6,
     alignSelf: 'flex-start',
   },
   skeletonAvatar: {
@@ -100,24 +105,27 @@ const styles = StyleSheet.create({
   skeletonTextContainer: {
     width: '100%',
     alignSelf: 'flex-start',
+    marginBottom: 8,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
   },
   skeletonTitle: {
     height: 28,
     width: '45%',
-    marginRight: 12,
+  },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
   },
   skeletonSubtitle: {
     height: 20,
     width: '35%',
-    marginBottom: 16,
   },
   descriptionContainer: {
-    marginBottom: 20,
+    marginTop: 12,
   },
   skeletonDescription: {
     height: 18,

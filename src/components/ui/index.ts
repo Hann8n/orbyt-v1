@@ -22,6 +22,7 @@ export { default as ShareSheet } from './ShareSheet';
 export { default as RelativeDate } from './RelativeDate';
 export { default as VideoInfoDisplay } from './VideoInfoDisplay';
 export { default as AuthorItem } from './AuthorItem';
+export { default as GridFeedShimmer } from './GridFeedShimmer';
 
 // Default export for the entire UI system
 export { default as UI } from './UI'; 

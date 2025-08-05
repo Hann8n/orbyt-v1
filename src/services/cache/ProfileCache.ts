@@ -177,7 +177,7 @@ class ProfileCache {
             } 
             // Check for valid handle format (should contain at least one dot)
             else if (!cleanHandle.includes('.')) {
-              console.warn(`[ProfileCache] Invalid handle format: ${handle}, original: ${handle}`);
+              // console.warn(`[ProfileCache] Invalid handle format: ${handle}, original: ${handle}`);
               resolve(null);
               return;
             }
@@ -734,7 +734,7 @@ class ProfileCache {
                       };
                     }
                   } catch (error) {
-                    console.warn('Error extracting avatar colors:', error);
+                    // console.warn('Error extracting avatar colors:', error);
                   }
                 }, 0);
               });
@@ -758,7 +758,7 @@ class ProfileCache {
 
             resolve(cacheObject);
           } catch (error) {
-            console.warn(`ProfileCache: Error fetching and caching profile for ${handle}:`, error);
+            // console.warn(`ProfileCache: Error fetching and caching profile for ${handle}:`, error);
             resolve(null);
           }
         }, 0);

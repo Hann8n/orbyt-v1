@@ -131,16 +131,16 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
 
 
   const handleTabPress = (routeName: string) => {
-    console.log(`[BottomTabNavigator] Tab pressed: ${routeName}, current tab: ${currentTab}`);
+    // console.log(`[BottomTabNavigator] Tab pressed: ${routeName}, current tab: ${currentTab}`);
     
     // If user taps home while already on home, refresh the feed
     if (routeName === 'Home' && currentTab === 'Home') {
-      console.log('[BottomTabNavigator] Home tab pressed while on home - triggering refresh');
+      // console.log('[BottomTabNavigator] Home tab pressed while on home - triggering refresh');
       setIsHomeRefreshing(true);
       
       // Call refresh method
       if (homeScreenRef.current) {
-        console.log('[BottomTabNavigator] Calling homeScreenRef.current.refresh()');
+        // console.log('[BottomTabNavigator] Calling homeScreenRef.current.refresh()');
         homeScreenRef.current.refresh();
       } else {
         console.warn('[BottomTabNavigator] homeScreenRef.current is null');
@@ -148,7 +148,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
       
       // Reset refreshing state after a delay
       setTimeout(() => {
-        console.log('[BottomTabNavigator] Resetting refresh state');
+        // console.log('[BottomTabNavigator] Resetting refresh state');
         setIsHomeRefreshing(false);
       }, 2000);
     }

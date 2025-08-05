@@ -22,10 +22,10 @@ import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/v
 import { Avatar } from '../../ui/UI';
 import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
-import { setCurrentFeed } from '../../../services/FeedStore';
-import { setVideoBlurState, isVideoBlurred } from '../../../services/FeedStore';
+import { feedService } from '../../../services/FeedService';
 import { BlurView } from 'expo-blur';
 import Icon from '../../ui/Icon';
+
 
 const ITEM_MARGIN = 1; // Set divider thickness to 1 for both directions
 
@@ -37,9 +37,9 @@ interface GridFeedViewProps {
   secondaryColor?: string;
   isProfileLoading?: boolean;
   isProfileFeed?: boolean;
-  feedOption: 'yourMix' | 'profile' | 'following' | 'author' | 'likes' | 'reposts' | string;
+  feedOption: 'yourMix' | 'profile' | 'following' | 'likes' | 'reposts' | string;
   userDid?: string;
-  onEndReached?: () => void;
+  onLoadMore: () => void; // Simplified callback for loading more content
   isFetchingNextPage?: boolean;
   hasNextPage?: boolean;
   onGridItemPress?: (index: number) => void; // Callback for grid item tap
@@ -58,7 +58,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   isProfileFeed = false,
   feedOption,
   userDid,
-  onEndReached,
+  onLoadMore,
   isFetchingNextPage = false,
   hasNextPage = false,
   onGridItemPress,
@@ -69,6 +69,10 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [, forceRerender] = useState(0);
+
+  // Initialize infinite scroll hook with cursor-based loading
+  // Infinite scroll functionality removed - should be handled by parent component
+  const onScroll = () => {};
 
   // Responsive grid columns and item size
   const screen = Dimensions.get('window');
@@ -140,7 +144,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
 
     // Handle press: use the callback provided by parent
     const handlePress = () => {
-      setCurrentFeed(feed);
+      feedService.setCurrentFeed(feed);
       navigation.navigate('FeedModal', {
         initialUri: item.post.uri,
         initialIndex: index, // keep for fallback
@@ -152,7 +156,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
     };
 
     // Check if this item should be blurred due to moderation
-    const shouldBlur = isVideoBlurred(item.post.uri, !!item.moderationDecision?.blur);
+    const shouldBlur = feedService.isVideoBlurred(item.post.uri, !!item.moderationDecision?.blur);
     
 
 
@@ -184,14 +188,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
         {/* Moderation Blur Overlay (matches list feed) */}
         {shouldBlur && (
           <BlurView intensity={80} style={styles.blurOverlay}>
-            <Icon name="hidden" size={60} color="#fff" style={styles.warningIcon} />
-            <TouchableOpacity
-              onPress={() => { setVideoBlurState(item.post.uri, false); forceRerender(n => n + 1); }}
-              style={styles.showAnywayButton}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.showAnywayButtonText} numberOfLines={1} ellipsizeMode="clip">View</Text>
-            </TouchableOpacity>
+            <Icon name="hidden" size={45} color="rgba(255, 255, 255, 0.7)" style={styles.warningIcon} />
           </BlurView>
         )}
         {/* Overlay with author info removed as requested */}
@@ -199,20 +196,9 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
     );
   }, [onGridItemPress, extractVideoUrl, feed, numColumns, itemWidth, itemHeight, forceRerender]);
 
-  // Handle end reached in background
-  const handleEndReachedBackground = useCallback(() => {
-    if (onEndReached) {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          try {
-            onEndReached();
-          } catch (error) {
-            console.warn('Error in background end reached handler:', error);
-          }
-        }, 0);
-      });
-    }
-  }, [onEndReached]);
+  // Combine scroll handlers for infinite scroll and other scroll events
+  // Scroll handling removed - should be handled by parent component
+  const handleScroll = useCallback(() => {}, []);
 
   // Use FlatList to render the grid with appropriate numColumns
   return (
@@ -261,8 +247,8 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
           ) as React.ReactElement
         }
         refreshControl={refreshControl as any}
-        onEndReached={handleEndReachedBackground}
-        onEndReachedThreshold={0.2}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         ListFooterComponent={
           isFetchingNextPage ? (
             <View style={styles.footerLoader}>
@@ -396,7 +382,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   warningIcon: {
-    marginBottom: 20,
+    // Centered by parent container
   },
   blurText: {
     color: '#fff',
