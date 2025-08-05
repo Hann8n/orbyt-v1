@@ -16,7 +16,7 @@ import { RootStackParamList, useLogout } from '../../navigation/types';
 import Icon from '../../components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModerationDebug from '../../components/features/moderation/ModerationDebug';
-import ListFeedDebugPanel from '../../components/features/feed/ListFeedDebugPanel';
+
 import AccountManager from '../../services/storage/AccountManager';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -31,8 +31,6 @@ const SettingsScreen: React.FC = () => {
   const onLogout = useLogout();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isFeedDebugEnabled, setIsFeedDebugEnabled] = useState(!!(typeof window !== 'undefined' && (window as any).__LIST_FEED_DEBUG__));
-  const [isFeedFetcherDebugEnabled, setIsFeedFetcherDebugEnabled] = useState(!!(typeof globalThis !== 'undefined' && (globalThis as any).__FEED_FETCHER_DEBUG__));
   const [isExperimentalFeedsEnabled, setIsExperimentalFeedsEnabled] = useState(true);
   const insets = useSafeAreaInsets();
 
@@ -83,19 +81,7 @@ const SettingsScreen: React.FC = () => {
     Alert.alert('Coming Soon', `${action} will be available in a future update.`);
   };
 
-  const handleToggleFeedDebug = (value: boolean) => {
-    setIsFeedDebugEnabled(value);
-    if (typeof window !== 'undefined') {
-      (window as any).__LIST_FEED_DEBUG__ = value;
-    }
-  };
-  
-  const handleToggleFeedFetcherDebug = (value: boolean) => {
-    setIsFeedFetcherDebugEnabled(value);
-    if (typeof globalThis !== 'undefined') {
-      (globalThis as any).__FEED_FETCHER_DEBUG__ = value;
-    }
-  };
+
 
   const handleToggleExperimentalFeeds = async (value: boolean) => {
     try {
@@ -283,44 +269,7 @@ const SettingsScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Debug Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Debug</Text>
-          <View style={styles.sectionContent}>
-            {/* List Feed Debugger (switch) */}
-            <View style={[styles.settingItem, styles.switchItem]}> 
-              <View style={styles.settingItemLeft}>
-                <View style={styles.iconContainer}>
-                  <Icon name="list" size={20} color="#fff" />
-                </View>
-                <Text style={styles.settingItemText}>List Feed Debugger</Text>
-              </View>
-              <Switch
-                value={isFeedDebugEnabled}
-                onValueChange={handleToggleFeedDebug}
-                trackColor={{ false: '#2A2A2A', true: '#FE4359' }}
-                thumbColor={isFeedDebugEnabled ? '#fff' : '#999'}
-                ios_backgroundColor="#2A2A2A"
-              />
-            </View>
-            {/* FeedFetcher Debugger (switch) */}
-            <View style={[styles.settingItem, styles.switchItem]}> 
-              <View style={styles.settingItemLeft}>
-                <View style={styles.iconContainer}>
-                  <Icon name="zap" size={20} color="#fff" />
-                </View>
-                <Text style={styles.settingItemText}>FeedFetcher Debugger</Text>
-              </View>
-              <Switch
-                value={isFeedFetcherDebugEnabled}
-                onValueChange={handleToggleFeedFetcherDebug}
-                trackColor={{ false: '#2A2A2A', true: '#FE4359' }}
-                thumbColor={isFeedFetcherDebugEnabled ? '#fff' : '#999'}
-                ios_backgroundColor="#2A2A2A"
-              />
-            </View>
-          </View>
-        </View>
+
       </ScrollView>
       
     </View>

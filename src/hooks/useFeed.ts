@@ -126,7 +126,7 @@ export function useSearchFeed(
   options: UseFeedOptions = {}
 ) {
   const {
-    threshold = 0.8,
+    threshold = 0.3,
     debounceMs = 100,
   } = options;
 

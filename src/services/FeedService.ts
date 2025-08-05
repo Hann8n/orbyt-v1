@@ -232,7 +232,7 @@ class FeedService {
 
   // Infinite scroll logic
   createInfiniteScrollHandler({
-    threshold = 0.8,
+    threshold = 0.3,
     hasNextPage = false,
     isFetchingNextPage = false,
     onLoadMore,

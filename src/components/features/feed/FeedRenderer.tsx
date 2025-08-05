@@ -14,7 +14,7 @@ import GridFeedView from './GridFeedView';
 import EmptyFeed from './EmptyFeed';
 import VideoCard, { VideoCardRef } from '../video/VideoCard';
 import VideoOverlay from '../video/VideoOverlay';
-import ListFeedDebugPanel from './ListFeedDebugPanel';
+
 
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
 import { feedService } from '../../../services/FeedService';
@@ -230,22 +230,7 @@ interface FeedRendererProps {
   forceError?: boolean;
 }
 
-// Debug Panel Component
-const FeedDebugPanel = ({ 
-  feed, 
-  isFetchingNextPage, 
-  hasNextPage, 
-  isLoading, 
-  isError 
-}: any) => (
-  <ListFeedDebugPanel title="Feed Debug Panel" style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
-    <Text style={{ color: '#fff', fontSize: 12 }}>isFetchingNextPage: {String(isFetchingNextPage)}</Text>
-    <Text style={{ color: '#fff', fontSize: 12 }}>hasNextPage: {String(hasNextPage)}</Text>
-    <Text style={{ color: '#fff', fontSize: 12 }}>isLoading: {String(isLoading)}</Text>
-    <Text style={{ color: '#fff', fontSize: 12 }}>isError: {String(isError)}</Text>
-    <Text style={{ color: '#fff', fontSize: 12 }}>feedLength: {feed?.length || 0}</Text>
-  </ListFeedDebugPanel>
-);
+
 
 // Main Feed Renderer Component
 const FeedRenderer: React.FC<FeedRendererProps> = ({
@@ -419,16 +404,6 @@ const FeedRenderer: React.FC<FeedRendererProps> = ({
           isModal={isModal}
           onScrubbingChange={onScrubbingChange}
           onScroll={onScroll}
-        />
-      )}
-      
-      {__DEV__ && (
-        <FeedDebugPanel
-          feed={feed}
-          isFetchingNextPage={isFetchingNextPage}
-          hasNextPage={hasNextPage}
-          isLoading={isLoading}
-          isError={forcedIsError}
         />
       )}
     </View>
