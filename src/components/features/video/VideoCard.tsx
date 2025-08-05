@@ -331,7 +331,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     return (
       <View style={[styles.container, { width: displayWidth, height: displayHeight }]}>
         <TouchableWithoutFeedback onPress={() => setUserPaused(!userPaused)}>
-          <View style={styles.videoContainer}>
+          <View style={styles.videoContainer} pointerEvents="box-none">
             {videoUrl && (isVisible || shouldPreload) && (
               <Video
                 ref={playerRef}
@@ -372,14 +372,14 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                 useTextureView={Platform.OS === 'android'} // Use TextureView for better performance on Android
               />
             )}
-            <Animated.View style={[styles.dimOverlay, { opacity: overlayOpacity }]} />
+            <Animated.View style={[styles.dimOverlay, { opacity: overlayOpacity }]} pointerEvents="none" />
             {isVisible && !isLoaded && (
-              <View style={styles.loadingOverlay}>
+              <View style={styles.loadingOverlay} pointerEvents="none">
                 <ActivityIndicator size="large" color="#fff" />
               </View>
             )}
             {shouldBlur && (
-              <BlurView intensity={80} style={styles.blurOverlay}>
+              <BlurView intensity={80} style={styles.blurOverlay} pointerEvents="box-none">
                 <Icon name="hidden" size={60} color="#fff" style={styles.warningIcon} />
                 <Text style={styles.blurText}>
                   {moderationDecision?.reason || 'This video is flagged as sensitive or explicit.'}

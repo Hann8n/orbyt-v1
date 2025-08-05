@@ -42,6 +42,7 @@ export interface FeedItem {
       };
     };
     uri: string;
+    cid: string;
     author?: {
       avatar?: string;
       displayName?: string;
@@ -145,8 +146,32 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
   
-  // Clear feed when refreshing
-  const displayFeed = isRefreshing ? [] : feed;
+  // Clear feed when refreshing and ensure no duplicates
+  const displayFeed = useMemo(() => {
+    if (isRefreshing) return [];
+    
+    // Final deduplication to ensure no duplicates are rendered
+    const seenUris = new Set<string>();
+    const seenCids = new Set<string>();
+    
+    return feed.filter((item) => {
+      const uri = item.post.uri;
+      const cid = item.post.cid;
+      
+      if (!uri || !cid) return false;
+      
+      const uniqueId = `${uri}_${cid}`;
+      
+      if (seenUris.has(uri) || seenCids.has(cid) || seenUris.has(uniqueId)) {
+        return false;
+      }
+      
+      seenUris.add(uri);
+      seenCids.add(cid);
+      seenUris.add(uniqueId);
+      return true;
+    });
+  }, [feed, isRefreshing]);
 
   // Force error state if forceError flag is enabled
   const forcedError = forceError ? new Error('Forced error for testing purposes') : null;
@@ -368,6 +393,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       <MemoizedVideoItem
         key={`${item.post.uri}-${index}`}
         post={item.post}
+        feedItem={item}
         isPlaying={isActive && isItemVisible}
         handleVideoStatus={handleVideoStatus}
         height={memoizedCardHeight}
@@ -675,16 +701,16 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         key={`${feedOption}-${userDid || 'default'}-${isRefreshing ? 'refreshing' : 'normal'}`}
         data={displayFeed}
         renderItem={renderItem}
-        keyExtractor={(item) => item.post.uri}
+        keyExtractor={(item, index) => `${item.post.uri}_${index}`}
         pagingEnabled={!isHeaderFeed}
         snapToInterval={isHeaderFeed ? undefined : memoizedCardHeight}
         snapToOffsets={computedSnapToOffsets}
         decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.85}
-        removeClippedSubviews={true}
-        windowSize={2} // Reduced for faster scrolling
-        maxToRenderPerBatch={1} // Reduced for faster scrolling
-        updateCellsBatchingPeriod={16} // Reduced from 50 for faster updates
-        initialNumToRender={1}
+        removeClippedSubviews={Platform.OS === 'android'} // Only on Android for better performance
+        windowSize={feedOption === 'yourMix' ? 5 : 3} // Increased from 4 to 5 for your mix
+        maxToRenderPerBatch={feedOption === 'yourMix' ? 4 : 2} // Increased from 3 to 4 for your mix
+        updateCellsBatchingPeriod={feedOption === 'yourMix' ? 8 : 32} // Faster updates for your mix (reduced from 16)
+        initialNumToRender={feedOption === 'yourMix' ? 6 : 3} // Increased from 5 to 6 for your mix
         showsVerticalScrollIndicator={false}
         maintainVisibleContentPosition={{
           minIndexForVisible: 0,
@@ -701,7 +727,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         onMomentumScrollEnd={onMomentumScrollEnd}
         scrollEventThrottle={1} // Reduced for maximum responsiveness during fast scrolling
         onEndReached={onEndReached}
-        onEndReachedThreshold={0.5}
+        onEndReachedThreshold={feedOption === 'yourMix' ? 0.1 : 0.3} // Lower threshold since we have proactive fetching
         CellRendererComponent={CellRenderer}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={{
@@ -710,7 +736,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         }}
         getItemLayout={getItemLayout}
         ListEmptyComponent={
-          isLoading ? (
+          // Show loader when feed is empty, especially for yourMix which takes time to process
+          (isLoading || displayFeed.length === 0) ? (
             <View style={styles.centeredLoadingContainer}>
               <ActivityIndicator size="large" color={secondaryColor || "#FFFFFF"} />
             </View>
@@ -828,6 +855,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: Dimensions.get('window').height,
+    backgroundColor: '#000',
   },
   feedLoadingContainer: {
     width: '100%',
@@ -847,6 +875,11 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import ChannelSubscriptionManager, { SubscribedChannel } from '../services/storage/ChannelSubscriptionManager';
+import ChannelSubscriptionManager, { SubscribedChannel, ChannelMixSettings } from '../services/storage/ChannelSubscriptionManager';
 
 export const useSubscribedChannels = () => {
   const queryClient = useQueryClient();
@@ -16,6 +16,26 @@ export const useSubscribedChannels = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  const {
+    data: channelsInMix = [],
+    isLoading: isLoadingMix,
+    refetch: refetchMix,
+  } = useQuery({
+    queryKey: ['channelsInMix'],
+    queryFn: () => ChannelSubscriptionManager.getChannelsInMix.call(ChannelSubscriptionManager),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const {
+    data: excludedChannels = [],
+    isLoading: isLoadingExcluded,
+    refetch: refetchExcluded,
+  } = useQuery({
+    queryKey: ['excludedChannels'],
+    queryFn: () => ChannelSubscriptionManager.getExcludedChannels.call(ChannelSubscriptionManager),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
   const subscribeToChannel = useCallback(async (channelData: {
     uri: string;
     displayName: string;
@@ -26,6 +46,8 @@ export const useSubscribedChannels = () => {
     try {
       await ChannelSubscriptionManager.subscribeToChannel(channelData);
       queryClient.invalidateQueries({ queryKey: ['subscribedChannels'] });
+      queryClient.invalidateQueries({ queryKey: ['channelsInMix'] });
+      queryClient.invalidateQueries({ queryKey: ['excludedChannels'] });
     } catch (error) {
       console.error('Error subscribing to channel:', error);
       throw error;
@@ -36,6 +58,8 @@ export const useSubscribedChannels = () => {
     try {
       await ChannelSubscriptionManager.unsubscribeFromChannel(uri);
       queryClient.invalidateQueries({ queryKey: ['subscribedChannels'] });
+      queryClient.invalidateQueries({ queryKey: ['channelsInMix'] });
+      queryClient.invalidateQueries({ queryKey: ['excludedChannels'] });
     } catch (error) {
       console.error('Error unsubscribing from channel:', error);
       throw error;
@@ -60,6 +84,8 @@ export const useSubscribedChannels = () => {
     try {
       await ChannelSubscriptionManager.restoreDefaultChannel(uri);
       queryClient.invalidateQueries({ queryKey: ['subscribedChannels'] });
+      queryClient.invalidateQueries({ queryKey: ['channelsInMix'] });
+      queryClient.invalidateQueries({ queryKey: ['excludedChannels'] });
     } catch (error) {
       console.error('Error restoring default channel:', error);
       throw error;
@@ -70,16 +96,55 @@ export const useSubscribedChannels = () => {
     return ChannelSubscriptionManager.getAvailableDefaultChannels();
   }, []);
 
+  const updateMixSettings = useCallback(async (uri: string, settings: Partial<ChannelMixSettings>) => {
+    try {
+      await ChannelSubscriptionManager.updateMixSettings(uri, settings);
+      queryClient.invalidateQueries({ queryKey: ['subscribedChannels'] });
+      queryClient.invalidateQueries({ queryKey: ['channelsInMix'] });
+      queryClient.invalidateQueries({ queryKey: ['excludedChannels'] });
+    } catch (error) {
+      console.error('Error updating mix settings:', error);
+      throw error;
+    }
+  }, [queryClient]);
+
+  const addToMix = useCallback(async (uri: string) => {
+    await updateMixSettings(uri, { inMix: true, isExcluded: false });
+  }, [updateMixSettings]);
+
+  const removeFromMix = useCallback(async (uri: string) => {
+    await updateMixSettings(uri, { inMix: false });
+  }, [updateMixSettings]);
+
+  const excludeChannel = useCallback(async (uri: string) => {
+    await updateMixSettings(uri, { isExcluded: true, inMix: false });
+  }, [updateMixSettings]);
+
+  const includeChannel = useCallback(async (uri: string) => {
+    await updateMixSettings(uri, { isExcluded: false });
+  }, [updateMixSettings]);
+
   return {
     channels,
+    channelsInMix,
+    excludedChannels,
     isLoading,
+    isLoadingMix,
+    isLoadingExcluded,
     error,
     refetch,
+    refetchMix,
+    refetchExcluded,
     subscribeToChannel,
     unsubscribeFromChannel,
     reorderChannels,
     isSubscribedToChannel,
     restoreDefaultChannel,
     getAvailableDefaultChannels,
+    updateMixSettings,
+    addToMix,
+    removeFromMix,
+    excludeChannel,
+    includeChannel,
   };
 }; 

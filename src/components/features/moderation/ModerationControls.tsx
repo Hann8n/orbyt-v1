@@ -86,7 +86,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
     showContentWarnings: true,
     autoExpandContentWarnings: false,
     adultContentEnabled: false,
-    adultContentOnlyMode: false, // NEW: Adult content only mode
   });
 
   useEffect(() => {
@@ -123,7 +122,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
         showContentWarnings: currentSettings.showContentWarnings,
         autoExpandContentWarnings: currentSettings.autoExpandContentWarnings,
         adultContentEnabled: currentSettings.adultContentEnabled,
-        adultContentOnlyMode: currentSettings.adultContentOnlyMode || false,
       });
 
       // Update content options with current label preferences
@@ -292,7 +290,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                   >
                     <View style={styles.statContent}>
                       <Text style={styles.statValue}>{stats.blockedUsers}</Text>
-                      <Text style={styles.statLabel}>Blocked Users</Text>
+                      <Text style={styles.statLabel}>Blocked{'\n'}Users</Text>
                     </View>
                   </TouchableOpacity>
                   <TouchableOpacity 
@@ -302,7 +300,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                   >
                     <View style={styles.statContent}>
                       <Text style={styles.statValue}>{stats.mutedUsers}</Text>
-                      <Text style={styles.statLabel}>Muted Users</Text>
+                      <Text style={styles.statLabel}>Muted{'\n'}Users</Text>
                     </View>
                   </TouchableOpacity>
                   <TouchableOpacity 
@@ -312,17 +310,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                   >
                     <View style={styles.statContent}>
                       <Text style={styles.statValue}>{stats.mutedWords}</Text>
-                      <Text style={styles.statLabel}>Muted Words</Text>
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.statItem}
-                    onPress={() => navigation.navigate('HiddenPosts')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.statContent}>
-                      <Text style={styles.statValue}>{stats.hiddenPosts}</Text>
-                      <Text style={styles.statLabel}>Hidden Posts</Text>
+                      <Text style={styles.statLabel}>Muted{'\n'}Words</Text>
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -382,96 +370,70 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                 Choose how to handle different types of content
               </Text>
               <View style={styles.sectionContent}>
-                <View style={styles.settingItem}>
-                  <View style={styles.settingItemLeft}>
-                    <View style={styles.iconContainer}>
-                      <Icon name="contact" size={20} color="#fff" />
-                    </View>
-                    <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingItemText}>Sensitive Content</Text>
-                      <Text style={styles.settingItemDescription}>
-                        {generalSettings.adultContentEnabled 
-                          ? 'Allow sensitive content (adult, sexual, nudity, graphic) to be displayed'
-                          : 'Sensitive content is disabled. Use Bluesky web app to enable.'
-                        }
-                      </Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={generalSettings.adultContentEnabled}
-                    onValueChange={(value) => updateGeneralSetting('adultContentEnabled', value)}
-                    trackColor={{ false: '#333', true: '#4CAF50' }}
-                    thumbColor={generalSettings.adultContentEnabled ? '#fff' : '#666'}
-                    disabled={!generalSettings.adultContentEnabled} // Disable when off
-                    style={!generalSettings.adultContentEnabled ? { opacity: 0.5 } : undefined}
-                  />
-                </View>
-
                 {generalSettings.adultContentEnabled && (
                   <View style={styles.settingItem}>
                     <View style={styles.settingItemLeft}>
                       <View style={styles.iconContainer}>
-                        <Icon name="cocktail" size={20} color="#fff" />
+                        <Icon name="contact" size={20} color="#fff" />
                       </View>
                       <View style={styles.settingTextContainer}>
-                        <Text style={styles.settingItemText}>RULE 34</Text>
+                        <Text style={styles.settingItemText}>Sensitive Content</Text>
                         <Text style={styles.settingItemDescription}>
-                          Show only sensitive content
+                          Allow sensitive content (adult, sexual, nudity, graphic) to be displayed
                         </Text>
                       </View>
                     </View>
                     <Switch
-                      value={generalSettings.adultContentOnlyMode}
-                      onValueChange={(value) => updateGeneralSetting('adultContentOnlyMode', value)}
-                      trackColor={{ false: '#333', true: '#FF6B6B' }}
-                      thumbColor={generalSettings.adultContentOnlyMode ? '#fff' : '#666'}
+                      value={generalSettings.adultContentEnabled}
+                      onValueChange={(value) => updateGeneralSetting('adultContentEnabled', value)}
+                      trackColor={{ false: '#333', true: '#4CAF50' }}
+                      thumbColor={generalSettings.adultContentEnabled ? '#fff' : '#666'}
                     />
                   </View>
                 )}
+
+
                 {contentOptions.map((option, index) => {
                   const isAdultContent = ['porn', 'sexual', 'nudity'].includes(option.id);
-                  const isDisabled = isAdultContent && !generalSettings.adultContentEnabled;
+                  // Hide adult content options when sensitive content is disabled
+                  if (isAdultContent && !generalSettings.adultContentEnabled) {
+                    return null;
+                  }
                   
                   return (
                     <View
                       key={option.id}
                       style={[
                         styles.contentOptionItem,
-                        index === contentOptions.length - 1 && styles.lastItem,
-                        isDisabled && styles.disabledItem
+                        index === contentOptions.length - 1 && styles.lastItem
                       ]}
                     >
                       <View style={styles.settingTextContainer}>
-                        <Text style={[styles.settingItemText, isDisabled && styles.disabledText]}>
+                        <Text style={styles.settingItemText}>
                           {option.label}
                         </Text>
-                        <Text style={[styles.settingItemDescription, isDisabled && styles.disabledText]}>
+                        <Text style={styles.settingItemDescription}>
                           {option.description}
                         </Text>
                       </View>
                       
                       {/* Toggle Buttons Below Each Item */}
                       <View style={styles.toggleButtonsContainer}>
-                        <View style={[styles.toggleButtonGroup, isDisabled && styles.disabledToggleGroup]}>
+                        <View style={styles.toggleButtonGroup}>
                           <TouchableOpacity
                             style={[
                               styles.toggleButton,
-                              option.preference === 'ignore' && [styles.toggleButtonActive, { backgroundColor: STATUS.SUCCESS, borderRightColor: STATUS.SUCCESS }],
-                              isDisabled && styles.disabledToggleButton
+                              option.preference === 'ignore' && [styles.toggleButtonActive, { backgroundColor: STATUS.SUCCESS, borderRightColor: STATUS.SUCCESS }]
                             ]}
                             onPress={() => {
                               console.log('Show button pressed for:', option.id);
-                              if (!isDisabled) {
-                                updateContentPreference(option.id, 'ignore');
-                              }
+                              updateContentPreference(option.id, 'ignore');
                             }}
-                            activeOpacity={isDisabled ? 1 : 0.7}
-                            disabled={isDisabled}
+                            activeOpacity={0.7}
                           >
                             <Text style={[
                               styles.toggleButtonText,
-                              option.preference === 'ignore' && styles.toggleButtonTextActive,
-                              isDisabled && styles.disabledToggleText
+                              option.preference === 'ignore' && styles.toggleButtonTextActive
                             ]}>
                               Show
                             </Text>
@@ -479,22 +441,17 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                           <TouchableOpacity
                             style={[
                               styles.toggleButton,
-                              option.preference === 'warn' && [styles.toggleButtonActive, { backgroundColor: STATUS.WARNING, borderRightColor: STATUS.WARNING }],
-                              isDisabled && styles.disabledToggleButton
+                              option.preference === 'warn' && [styles.toggleButtonActive, { backgroundColor: STATUS.WARNING, borderRightColor: STATUS.WARNING }]
                             ]}
                             onPress={() => {
                               console.log('Warn button pressed for:', option.id);
-                              if (!isDisabled) {
-                                updateContentPreference(option.id, 'warn');
-                              }
+                              updateContentPreference(option.id, 'warn');
                             }}
-                            activeOpacity={isDisabled ? 1 : 0.7}
-                            disabled={isDisabled}
+                            activeOpacity={0.7}
                           >
                             <Text style={[
                               styles.toggleButtonText,
-                              option.preference === 'warn' && styles.toggleButtonTextActive,
-                              isDisabled && styles.disabledToggleText
+                              option.preference === 'warn' && styles.toggleButtonTextActive
                             ]}>
                               Warn
                             </Text>
@@ -503,22 +460,17 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                             style={[
                               styles.toggleButton,
                               styles.toggleButtonLast,
-                              option.preference === 'hide' && [styles.toggleButtonActive, { backgroundColor: STATUS.ERROR, borderRightColor: STATUS.ERROR }],
-                              isDisabled && styles.disabledToggleButton
+                              option.preference === 'hide' && [styles.toggleButtonActive, { backgroundColor: STATUS.ERROR, borderRightColor: STATUS.ERROR }]
                             ]}
                             onPress={() => {
                               console.log('Hide button pressed for:', option.id);
-                              if (!isDisabled) {
-                                updateContentPreference(option.id, 'hide');
-                              }
+                              updateContentPreference(option.id, 'hide');
                             }}
-                            activeOpacity={isDisabled ? 1 : 0.7}
-                            disabled={isDisabled}
+                            activeOpacity={0.7}
                           >
                             <Text style={[
                               styles.toggleButtonText,
-                              option.preference === 'hide' && styles.toggleButtonTextActive,
-                              isDisabled && styles.disabledToggleText
+                              option.preference === 'hide' && styles.toggleButtonTextActive
                             ]}>
                               Hide
                             </Text>
@@ -529,6 +481,20 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                   );
                 })}
               </View>
+            </View>
+
+            {/* Web Settings Button */}
+            <View style={styles.webSettingsSection}>
+              <TouchableOpacity
+                style={styles.webSettingsTextButton}
+                onPress={() => ModerationService.openBlueskyModerationSettings()}
+                activeOpacity={0.7}
+              >
+                <Icon name="external-link" size={16} color="#fff" />
+                <Text style={styles.webSettingsTextButtonText}>
+                  adjust settings on bsky.app
+                </Text>
+              </TouchableOpacity>
             </View>
           </>
         )}
@@ -760,7 +726,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   statItem: {
-    width: '48%',
+    width: '31%',
     backgroundColor: '#1C1C1E',
     padding: 15,
     borderRadius: 10,
@@ -772,18 +738,22 @@ const styles = StyleSheet.create({
   },
   statContent: {
     alignItems: 'center',
+    justifyContent: 'center',
   },
   statValue: {
     color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
+    textAlign: 'center',
   },
   statLabel: {
     color: '#999',
     fontSize: 12,
     marginTop: 5,
     fontFamily: 'Firma-Regular',
+    textAlign: 'center',
+    lineHeight: 16,
   },
   debugOption: {
     flexDirection: 'row',
@@ -791,6 +761,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
     paddingHorizontal: 20,
+  },
+  webSettingsSection: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  webSettingsTextButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  webSettingsTextButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+    fontFamily: 'Firma-Medium',
+    marginLeft: 6,
+  },
+  webSettingsDescription: {
+    color: '#999',
+    fontSize: 12,
+    fontFamily: 'Firma-Regular',
+    textAlign: 'center',
+    lineHeight: 16,
+    marginBottom: 8,
   },
 });
 

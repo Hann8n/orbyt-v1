@@ -43,7 +43,7 @@ export const Colors = {
   // Text Colors - Hierarchical text system
   TEXT: {
     PRIMARY: '#FFFFFF',          // Primary text (white)
-    SECONDARY: '#D1D1E1',        // Secondary text (light gray)
+    SECONDARY: '#cfd6e8',        // Secondary text (light blue-gray)
     TERTIARY: '#848895',         // Tertiary text (medium gray)
     BRIGHT: '#FDFCFA',           // Extra bright for emphasis
     DISABLED: '#666666',         // Disabled text
@@ -337,12 +337,12 @@ export const Button: React.FC<ButtonProps> = ({
         />
       ) : (
         <>
-          {icon && iconPosition === 'left' && (
-            <Icon name={icon} size={16} color={getTextStyle().color as string} style={{ marginRight: 8 }} />
-          )}
           <Text style={[getTextStyle(), textStyle]}>{title}</Text>
+          {icon && iconPosition === 'left' && (
+            <Icon name={icon} size={16} color={getTextStyle().color as string} style={{ marginLeft: 8 }} strokeWidth={2.5} />
+          )}
           {icon && iconPosition === 'right' && (
-            <Icon name={icon} size={16} color={getTextStyle().color as string} style={{ marginLeft: 8 }} />
+            <Icon name={icon} size={16} color={getTextStyle().color as string} style={{ marginLeft: 8 }} strokeWidth={2.5} />
           )}
         </>
       )}

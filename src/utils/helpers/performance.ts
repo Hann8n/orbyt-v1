@@ -132,13 +132,51 @@ class PerformanceMonitor {
     const avgScrollPerformance = this.getAverageScrollPerformance();
     const avgVideoLoadTime = this.getAverageVideoLoadTime();
     
-    console.log('Performance Summary:', {
-      avgRenderTime: `${avgRenderTime.toFixed(2)}ms`,
-      avgScrollPerformance: `${avgScrollPerformance.toFixed(2)}ms`,
-      avgVideoLoadTime: `${avgVideoLoadTime.toFixed(2)}ms`,
-      totalMetrics: this.metrics.length
-    });
+
   }
 }
+
+/**
+ * Performance monitoring for feed loading
+ */
+class FeedPerformanceMonitor {
+  private static instance: FeedPerformanceMonitor;
+  private metrics: Map<string, { startTime: number; endTime?: number; duration?: number }> = new Map();
+
+  static getInstance(): FeedPerformanceMonitor {
+    if (!FeedPerformanceMonitor.instance) {
+      FeedPerformanceMonitor.instance = new FeedPerformanceMonitor();
+    }
+    return FeedPerformanceMonitor.instance;
+  }
+
+  startTimer(operation: string): void {
+    this.metrics.set(operation, { startTime: Date.now() });
+  }
+
+  endTimer(operation: string): number {
+    const metric = this.metrics.get(operation);
+    if (!metric) {
+      console.warn(`[FeedPerformance] No start time found for operation: ${operation}`);
+      return 0;
+    }
+
+    metric.endTime = Date.now();
+    metric.duration = metric.endTime - metric.startTime;
+    
+    console.log(`[FeedPerformance] ${operation}: ${metric.duration}ms`);
+    return metric.duration;
+  }
+
+  getMetrics(): Map<string, { startTime: number; endTime?: number; duration?: number }> {
+    return new Map(this.metrics);
+  }
+
+  clearMetrics(): void {
+    this.metrics.clear();
+  }
+}
+
+export const feedPerformanceMonitor = FeedPerformanceMonitor.getInstance();
 
 export default PerformanceMonitor; 

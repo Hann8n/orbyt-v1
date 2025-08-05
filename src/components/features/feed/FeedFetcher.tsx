@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, RefreshControl, Dimensions, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import ListFeedView from './ListFeedView';
 import EmptyFeed from './EmptyFeed';
 import { useFeedQuery } from '../../../hooks/useFeedQuery';
@@ -9,6 +9,7 @@ import ProfileCache from '../../../services/cache/ProfileCache';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
 import ListFeedDebugPanel from './ListFeedDebugPanel';
 import { getCurrentFeed } from '../../../services/FeedStore';
+import AccountManager from '../../../services/storage/AccountManager';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -121,6 +122,8 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
   const insets = useSafeAreaInsets();
   const lastPrefetchedFeedLength = useRef(0);
 
+
+
   // Debug state for cursor position, visible index, visible video
   const [cursorPosition, setCursorPosition] = useState(0);
   const [visibleIndex, setVisibleIndex] = useState(0);
@@ -173,25 +176,103 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
 
   // Use search feed if available, otherwise use query feed
   const feed = feedOption === 'search' ? searchFeedState : (queryResult?.feed || []);
-  const isProfileFeed = queryResult?.isProfileFeed || false;
-  const error = queryResult?.error || null;
-  const isLoading = queryResult?.isLoading || false;
-  const isFetchingNextPage = feedOption === 'search' ? (searchIsFetchingNextPage || false) : (queryResult?.isFetchingNextPage || false);
-  const hasNextPage = feedOption === 'search' ? (searchHasNextPage || false) : (queryResult?.hasNextPage || false);
-  const fetchNextPage = feedOption === 'search' ? (searchFetchNextPage || (() => {})) : (queryResult?.fetchNextPage || (() => {}));
-  const refetch = queryResult?.refetch || (() => {});
-  const isPaused = queryResult?.isPaused || false;
-  const isError = queryResult?.isError || false;
+  // Use the regular query for all feeds
+  const activeQuery = queryResult;
+  
+  const isProfileFeed = activeQuery?.isProfileFeed || false;
+  const error = activeQuery?.error || null;
+  const isLoading = activeQuery?.isLoading || false;
+  const isFetchingNextPage = feedOption === 'search' ? (searchIsFetchingNextPage || false) : (activeQuery?.isFetchingNextPage || false);
+  const hasNextPage = feedOption === 'search' ? (searchHasNextPage || false) : (activeQuery?.hasNextPage || false);
+  const fetchNextPage = feedOption === 'search' ? (searchFetchNextPage || (() => {})) : (activeQuery?.fetchNextPage || (() => {}));
+  const refetch = activeQuery?.refetch || (() => {});
+  const isPaused = activeQuery?.isPaused || false;
+  const isError = activeQuery?.isError || false;
 
   // Force error state if forceError flag is enabled
   const forcedError = forceError ? new Error('Forced error for testing purposes') : null;
   const forcedIsError = forceError || isError;
   const forcedErrorState = forceError ? forcedError : error;
 
+  // Improved loading state: show loader when feed is empty, especially for yourMix
+  const shouldShowLoader = isLoading || (feed.length === 0 && feedOption === 'yourMix');
+
+  // Proactive fetching logic - starts fetching before user reaches the end
+  // This is especially important for mixed feeds (yourMix) which take time to process
+  const [shouldProactivelyFetch, setShouldProactivelyFetch] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState(0);
+  const proactiveFetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Determine when to start proactive fetching based on feed type and current position
+  const shouldStartProactiveFetch = useCallback((currentIndex: number, totalLength: number) => {
+    if (!hasNextPage || isFetchingNextPage) return false;
+    
+    // For mixed feeds (yourMix), start fetching earlier since they take more time to process
+    if (feedOption === 'yourMix') {
+      // Start fetching when user is 3 items away from the end (reduced from 5)
+      return currentIndex >= totalLength - 3;
+    }
+    
+    // For other feeds, start fetching when user is 2 items away from the end (reduced from 3)
+    return currentIndex >= totalLength - 2;
+  }, [hasNextPage, isFetchingNextPage, feedOption]);
+
+  // Handle proactive fetching
+  const handleProactiveFetch = useCallback(() => {
+    if (!shouldProactivelyFetch || isFetchingNextPage || !hasNextPage) return;
+    
+    const now = Date.now();
+    // Prevent too frequent fetching (minimum 2 seconds between fetches)
+    if (now - lastFetchTime < 2000) return;
+    
+    console.log(`[FeedFetcher] Proactively fetching more data for ${feedOption}`);
+    setLastFetchTime(now);
+    fetchNextPage();
+  }, [shouldProactivelyFetch, isFetchingNextPage, hasNextPage, lastFetchTime, fetchNextPage, feedOption]);
+
+  // Set up proactive fetching timeout
+  useEffect(() => {
+    if (shouldProactivelyFetch && !isFetchingNextPage && hasNextPage) {
+      // Clear existing timeout
+      if (proactiveFetchTimeoutRef.current) {
+        clearTimeout(proactiveFetchTimeoutRef.current);
+      }
+      
+      // Set new timeout for proactive fetch
+      proactiveFetchTimeoutRef.current = setTimeout(() => {
+        handleProactiveFetch();
+      }, 500); // Reduced from 1000ms to 500ms for faster loading
+    } else {
+      // Clear timeout if conditions aren't met
+      if (proactiveFetchTimeoutRef.current) {
+        clearTimeout(proactiveFetchTimeoutRef.current);
+        proactiveFetchTimeoutRef.current = null;
+      }
+    }
+    
+    return () => {
+      if (proactiveFetchTimeoutRef.current) {
+        clearTimeout(proactiveFetchTimeoutRef.current);
+      }
+    };
+  }, [shouldProactivelyFetch, isFetchingNextPage, hasNextPage, handleProactiveFetch]);
+
+  // Handle proactive fetching when visible index changes
+  useEffect(() => {
+    if (visibleIndex >= 0 && feed.length > 0) {
+      const shouldStart = shouldStartProactiveFetch(visibleIndex, feed.length);
+      setShouldProactivelyFetch(shouldStart);
+      
+      if (shouldStart) {
+        console.log(`[FeedFetcher] Proactive fetching triggered for ${feedOption} at index ${visibleIndex}/${feed.length}`);
+      }
+    }
+  }, [visibleIndex, feed.length, shouldStartProactiveFetch, feedOption]);
+
   // Remove handleEndReached and onEndReached from ListFeedView
   // Add proactive queue filling logic
 
-  const QUEUE_THRESHOLD = 3; // Minimum number of videos to keep preloaded
+  const QUEUE_THRESHOLD = 2; // Reduced from 3 for faster loading
 
   const ensureQueueFilled = useCallback(() => {
     const preloadedCount = VideoPreloadManager.getPreloadedUris().length;
@@ -298,7 +379,7 @@ const FeedFetcher: React.FC<FeedFetcherProps> = ({
         onEndReached={fetchNextPage}
         isFetchingNextPage={isFetchingNextPage}
         hasNextPage={hasNextPage}
-        isLoading={feedOption === 'search' ? false : isLoading}
+        isLoading={feedOption === 'search' ? false : shouldShowLoader}
         isError={feedOption === 'search' ? false : forcedIsError} // Use forced error state
         error={feedOption === 'search' ? null : forcedErrorState} // Use forced error state
         onRetry={handleRetry}

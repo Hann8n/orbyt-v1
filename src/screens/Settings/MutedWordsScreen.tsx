@@ -79,7 +79,7 @@ const MutedWordsScreen: React.FC = () => {
       <View style={styles.wordItem}>
         <View style={styles.wordInfo}>
           <View style={styles.wordIconContainer}>
-            <Icon name="hash" size={20} color={TEXT.SECONDARY} />
+            <Icon name="message-delete" size={20} color={TEXT.SECONDARY} />
           </View>
           <View style={styles.wordDetails}>
             <Text style={styles.wordText}>{item.word}</Text>
@@ -154,7 +154,7 @@ const MutedWordsScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="hash" size={48} color={TEXT.SECONDARY} />
+            <Icon name="message-delete" size={48} color={TEXT.SECONDARY} />
             <Text style={styles.emptyTitle}>No Muted Words</Text>
             <Text style={styles.emptyDescription}>
               You haven't muted any words yet. Posts containing muted words won't appear in your feed.
@@ -286,10 +286,10 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 40,
-    paddingTop: 60,
+    paddingTop: 120,
   },
   emptyTitle: {
     color: TEXT.PRIMARY,

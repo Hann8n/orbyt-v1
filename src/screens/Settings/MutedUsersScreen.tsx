@@ -308,10 +308,10 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 40,
-    paddingTop: 60,
+    paddingTop: 120,
   },
   emptyTitle: {
     color: TEXT.PRIMARY,

@@ -4,20 +4,22 @@ import { useNavigation } from '@react-navigation/native';
 import UniversalHeader, { HeaderAction, HeaderContent, CustomActionLayout } from './UniversalHeader';
 import HeaderSkeleton from './HeaderSkeleton';
 import { useChannelColors } from '../../../services/cache/ChannelCache';
-import Icon from '../../ui/Icon';
+import Icon, { PlusIcon, CheckIcon } from '../../ui/Icon';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import { Avatar } from '../../ui/UI';
 import { HomeStackParamList } from '../../../navigation/types';
 import { useProfile } from '../../../services/cache/ProfileCache';
 import { UI } from '../../../utils/formatting/Colors';
-import AuthorItem from '../../ui/AuthorItem';
+import { formatNumber } from '../../../utils/helpers/formatNumber';
+import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
 
 interface ChannelData {
   id: string;
+  uri?: string;
   name: string;
   description?: string;
   avatar?: string;
-  memberCount?: number;
+  likeCount?: number;
   isSubscribed?: boolean;
   isOwner?: boolean;
   creator?: {
@@ -32,30 +34,109 @@ interface ChannelHeaderProps {
   channel: ChannelData | null;
   showBackButton?: boolean;
   onBackPress?: () => void;
-  onSubscribe?: (channelId: string, subscribe: boolean) => Promise<void>;
   onEdit?: (channelId: string) => void;
   onDelete?: (channelId: string) => void;
   children?: React.ReactNode;
+  mixIcon?: {
+    isInMix: boolean;
+    isExcluded: boolean;
+    onPress: () => void;
+  };
 }
 
-// Creator information component
-const CreatorInfo: React.FC<{
-  creator: ChannelData['creator'];
+
+
+// Subscribe button component
+const SubscribeButton: React.FC<{
+  channel: ChannelData;
   textColor: string;
   backgroundColor: string;
-}> = ({ creator, textColor, backgroundColor }) => {
-  if (!creator) return null;
+  accentColor: string;
+}> = ({ channel, textColor, backgroundColor, accentColor }) => {
+  const { channels, subscribeToChannel, unsubscribeFromChannel } = useSubscribedChannels();
+  const [isSubscribing, setIsSubscribing] = useState(false);
+
+  // Check if channel is subscribed by looking it up in the subscribed channels
+  const isSubscribed = useMemo(() => {
+    if (!channel?.uri) return false;
+    return channels.some(subChannel => subChannel.uri === channel.uri);
+  }, [channels, channel?.uri]);
+
+  const handleSubscribe = useCallback(async () => {
+    if (!channel?.uri) return;
+
+    try {
+      setIsSubscribing(true);
+      
+      if (isSubscribed) {
+        await unsubscribeFromChannel(channel.uri);
+      } else {
+        await subscribeToChannel({
+          uri: channel.uri,
+          displayName: channel.name,
+          description: channel.description,
+          avatar: channel.avatar,
+          memberCount: channel.likeCount,
+        });
+      }
+    } catch (error) {
+      console.error('Error during subscribe/unsubscribe:', error);
+    } finally {
+      setIsSubscribing(false);
+    }
+  }, [channel, isSubscribed, subscribeToChannel, unsubscribeFromChannel]);
+
+  if (channel.isOwner) return null; // Don't show subscribe button for owners
 
   return (
-    <AuthorItem
-      handle={creator.handle}
-      displayName={creator.displayName}
-      avatar={creator.avatar}
-      textColor={textColor}
-      backgroundColor={backgroundColor}
-      size="medium"
-      style={styles.creatorContainer}
-    />
+    <View style={styles.subscribeContainer}>
+      <TouchableOpacity
+        style={[
+          styles.subscribeButton,
+          {
+            backgroundColor: hexToRGBA(accentColor, 0.2),
+            borderColor: hexToRGBA(accentColor, 0.4),
+          }
+        ]}
+        onPress={handleSubscribe}
+        disabled={isSubscribing}
+        activeOpacity={0.7}
+      >
+        {isSubscribing ? (
+          <ActivityIndicator size="small" color={accentColor} />
+        ) : (
+          <>
+            <Text style={[styles.subscribeButtonText, { color: accentColor }]}>
+              {isSubscribed ? 'Subscribed' : 'Subscribe'}
+            </Text>
+            {isSubscribed ? (
+              <CheckIcon 
+                size={16} 
+                color={accentColor} 
+                strokeWidth={2.0}
+              />
+            ) : (
+              <PlusIcon 
+                size={12} 
+                color={accentColor} 
+                strokeWidth={2.0}
+              />
+            )}
+          </>
+        )}
+      </TouchableOpacity>
+      
+      {channel.likeCount && channel.likeCount > 0 && (
+        <View style={styles.likeCountContainer}>
+          <Text style={[styles.likeCountNumber, { color: textColor }]}>
+            {formatNumber(channel.likeCount)}
+          </Text>
+          <Text style={[styles.likeCountLabel, { color: hexToRGBA(textColor, 0.67) }]}>
+            members
+          </Text>
+        </View>
+      )}
+    </View>
   );
 };
 
@@ -63,31 +144,26 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   channel,
   showBackButton = false,
   onBackPress,
-  onSubscribe,
   onEdit,
   onDelete,
   children,
+  mixIcon,
 }) => {
-  const navigation = useNavigation();
-  const [isSubscribing, setIsSubscribing] = useState(false);
+  const navigation = useNavigation<any>();
 
   // Get channel colors from cache
-  const { colors: channelColors } = useChannelColors(channel?.id);
+  const { colors: channelColors } = useChannelColors(channel?.id || channel?.uri);
 
-  // Handle subscribe/unsubscribe action
-  const handleSubscribe = useCallback(async () => {
-    if (!channel?.id || !onSubscribe) return;
+  // Ensure text color is always light for better readability on gradients
+  const safeTextColor = useMemo(() => {
+    // Force light text for channels to ensure readability on gradient backgrounds
+    return '#FFFFFF';
+  }, []);
 
-    try {
-      setIsSubscribing(true);
-      const isCurrentlySubscribed = !!channel.isSubscribed;
-      await onSubscribe(channel.id, !isCurrentlySubscribed);
-    } catch (error) {
-      console.error('Error during subscribe/unsubscribe:', error);
-    } finally {
-      setIsSubscribing(false);
-    }
-  }, [channel, onSubscribe]);
+  // Ensure background color is properly contrasted
+  const safeBackgroundColor = useMemo(() => {
+    return channelColors.backgroundColor || '#000000';
+  }, [channelColors.backgroundColor]);
 
   // Handle edit action
   const handleEdit = useCallback(() => {
@@ -103,79 +179,79 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     }
   }, [channel, onDelete]);
 
-  // Create custom action layouts
+  // Create custom action layouts (only for owner actions now)
   const customActions = useMemo((): CustomActionLayout[] => {
-    if (!channel) return [];
+    const actions: CustomActionLayout[] = [];
 
-    if (channel.isOwner) {
-      // Owner actions: Edit and Delete
-      return [
-        {
-          type: 'button',
-          buttons: [
-            {
-              id: 'edit',
-              label: 'Edit',
-              icon: 'edit',
-              onPress: handleEdit,
-            },
-            {
-              id: 'delete',
-              label: 'Delete',
-              icon: 'trash',
-              onPress: handleDelete,
-              variant: 'danger' as const,
-            },
-          ],
-        },
-      ];
-    } else {
-      // Non-owner: Subscribe button
-      return [
-        {
-          type: 'button',
-          buttons: [
-            {
-              id: 'subscribe',
-              label: channel.isSubscribed ? 'Subscribed' : 'Subscribe',
-              icon: channel.isSubscribed ? 'check' : 'plus',
-              onPress: handleSubscribe,
-              disabled: isSubscribing,
-              loading: isSubscribing,
-            },
-          ],
-        },
-      ];
+    // Owner actions: Edit and Delete
+    if (channel && channel.isOwner) {
+      actions.push({
+        type: 'button' as const,
+        buttons: [
+          {
+            id: 'delete',
+            label: 'Delete',
+            icon: 'trash',
+            onPress: handleDelete,
+            variant: 'danger' as const,
+          },
+        ],
+      });
     }
-  }, [channel, isSubscribing, handleSubscribe, handleEdit, handleDelete]);
+
+    return actions;
+  }, [channel, handleEdit, handleDelete]);
 
   // Create header content
   const headerContent = useMemo((): HeaderContent => {
     if (!channel) {
       return {
-        title: 'Loading...',
-        subtitle: 'Loading channel...',
+        title: '',
+        subtitle: '',
       };
     }
+
+    const handleCreatorPress = channel.creator?.handle ? () => {
+      // Navigate to creator profile
+      navigation.navigate('AuthorProfile', { 
+        handle: channel.creator!.handle
+      });
+    } : undefined;
 
     return {
       avatar: channel.avatar,
       title: channel.name,
-      subtitle: channel.memberCount ? `${channel.memberCount} members` : undefined,
+      subtitle: channel.creator?.handle ? `@${channel.creator.handle}` : undefined,
       description: channel.description,
       avatarStyle: 'rounded-square' as const,
+      onTitlePress: handleCreatorPress,
     };
-  }, [channel]);
+  }, [channel, navigation]);
 
   // Create skeleton component
   const skeleton = useMemo(() => (
     <HeaderSkeleton
-      textColor={channelColors.textColor}
+      textColor={safeTextColor}
       showAvatar={true}
       showDescription={true}
       avatarStyle="rounded-square"
     />
-  ), [channelColors.textColor]);
+  ), [safeTextColor]);
+
+  // Create children with subscribe button and other content
+  const headerChildren = useMemo(() => (
+    <>
+      {channel && (
+        <SubscribeButton
+          channel={channel}
+          textColor={safeTextColor}
+          backgroundColor={safeBackgroundColor}
+          accentColor={channelColors.accentColor || '#00D4FF'}
+        />
+      )}
+      {children}
+    </>
+  ), [channel, safeTextColor, safeBackgroundColor, children, channelColors.accentColor]);
 
   return (
     <UniversalHeader
@@ -184,26 +260,62 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       customActions={customActions}
       showBackButton={showBackButton}
       onBackPress={onBackPress}
-      backgroundColor={channelColors.backgroundColor}
-      textColor={channelColors.textColor}
+      backgroundColor={safeBackgroundColor}
+      textColor={safeTextColor}
       isLoading={!channel}
       skeleton={skeleton}
+      showGradient={true} // Re-enable gradient for channels
+      gradientType="channel" // Use channel-specific gradient
+      mixIcon={mixIcon}
     >
-      {channel?.creator && (
-        <CreatorInfo
-          creator={channel.creator}
-          textColor={channelColors.textColor}
-          backgroundColor={channelColors.backgroundColor}
-        />
-      )}
-      {children}
+      {headerChildren}
     </UniversalHeader>
   );
 };
 
 const styles = StyleSheet.create({
-  creatorContainer: {
-    marginTop: 8,
+  subscribeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginTop: 12,
+    width: '100%',
+  },
+  subscribeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    borderRadius: 50,
+    borderWidth: 1,
+    flex: 1,
+    height: 40,
+    gap: 6,
+  },
+  subscribeButtonText: {
+    fontFamily: 'Firma-Bold',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  likeCountContainer: {
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginLeft: 4,
+  },
+  likeCountNumber: {
+    fontFamily: 'Firma-Bold',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  likeCountLabel: {
+    fontFamily: 'Firma-SemiBold',
+    fontSize: 14,
+    marginTop: 2,
   },
 });
 

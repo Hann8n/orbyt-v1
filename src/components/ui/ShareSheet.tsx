@@ -25,6 +25,7 @@ interface ShareSheetProps {
   postCid?: string;
   authorDid: string;
   feedOption?: 'yourMix' | 'following' | 'discover';
+  sourceFeed?: string; // Add sourceFeed prop to determine if feedback is available
 }
 
 // Map to store feedback state by post URI
@@ -38,8 +39,13 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   postUri, 
   postCid,
   authorDid,
-  feedOption
+  feedOption,
+  sourceFeed
 }) => {
+  // Helper function to check if the source feed supports feedback
+  const canSendFeedback = (feed: string | undefined): boolean => {
+    return feed === 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids';
+  };
   const queryClient = useQueryClient();
   const { isClearViewMode, toggleClearViewMode } = useClearView();
   const isSmallDevice = isSmallScreen() || isTablet();
@@ -440,8 +446,8 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       handleIndicatorStyle={styles.handleIndicator}
     >
       <BottomSheetView style={styles.content}>
-        {/* Interest feedback buttons - only show for yourMix feed and not current user's content */}
-        {feedOption === 'yourMix' && !isCurrentUser && (
+        {/* Interest feedback buttons - only show for yourMix feed from thevids source and not current user's content */}
+        {feedOption === 'yourMix' && canSendFeedback(sourceFeed) && !isCurrentUser && (
           <>
             <View style={styles.feedbackContainer}>
               <View style={styles.feedbackOptions}>

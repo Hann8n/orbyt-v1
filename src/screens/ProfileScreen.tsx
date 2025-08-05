@@ -315,7 +315,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                     activeTab={activeTab}
                     onTabPress={(tabId) => setActiveTab(tabId as any)}
                     textColor={profileColors.textColor}
-                    backgroundColor={profileColors.backgroundColor}
+                    backgroundColor="transparent"
                     viewMode={viewMode}
                     onViewModeChange={setViewMode}
                     showViewToggle={true}

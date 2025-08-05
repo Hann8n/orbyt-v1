@@ -11,6 +11,7 @@ import { extractVideoEmbedAndUrl } from '../../../utils/helpers/video';
 import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 
+
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export interface Post {
@@ -24,8 +25,14 @@ export interface Post {
   moderationDecision?: ModerationDecision;
 }
 
+export interface FeedItem {
+  post: Post;
+  sourceFeed?: string;
+}
+
 export interface MemoizedVideoItemProps {
   post: Post;
+  feedItem?: FeedItem; // Add feedItem to get sourceFeed information
   isPlaying?: boolean;
   handleVideoStatus?: (uri: string, status: string) => void;
   height?: number;
@@ -35,6 +42,7 @@ export interface MemoizedVideoItemProps {
   isVisible?: boolean;
   moderationDecision?: ModerationDecision;
   onScrubbingChange?: (isScrubbing: boolean) => void;
+  onFeedSwitch?: (feed: string) => void; // Add callback for feed switching
 }
 
 // Memoized video extraction to avoid repeated calculations
@@ -67,6 +75,7 @@ const useMemoizedStyles = (itemHeight: number, isSmallDevice: boolean) => {
 
 const VideoItem: React.FC<MemoizedVideoItemProps & { isModal?: boolean }> = ({
   post,
+  feedItem,
   isPlaying = false,
   handleVideoStatus,
   height,
@@ -77,6 +86,7 @@ const VideoItem: React.FC<MemoizedVideoItemProps & { isModal?: boolean }> = ({
   moderationDecision,
   isModal = false,
   onScrubbingChange,
+  onFeedSwitch,
 }) => {
   const videoRef = useRef<VideoCardRef>(null) as React.RefObject<VideoCardRef>;
 
@@ -144,6 +154,7 @@ const VideoItem: React.FC<MemoizedVideoItemProps & { isModal?: boolean }> = ({
           prefetchProfile={shouldPreload || isVisible}
           videoRef={videoRef as React.RefObject<VideoCardRef>}
           feedOption={memoizedFeedOption}
+          sourceFeed={feedItem?.sourceFeed}
           isModal={isModal}
           onScrubbingChange={onScrubbingChange}
           progressBarAtCardBottom={progressBarAtCardBottom}

@@ -89,10 +89,41 @@ const adjustColorForAAA = (color: string, background: string): string => {
 };
 
 /**
+ * Ensures a color is bright and vibrant for accent usage
+ * If the color is too dark, it will be lightened to make it more vibrant
+ */
+const ensureBrightAccentColor = (color: string): string => {
+  // Convert hex to RGB
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  
+  // Calculate brightness (0-255)
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  
+  // If the color is too dark (brightness < 100), lighten it
+  if (brightness < 100) {
+    // Increase brightness by 50% while maintaining color hue
+    const factor = 1.5;
+    const newR = Math.min(255, Math.round(r * factor));
+    const newG = Math.min(255, Math.round(g * factor));
+    const newB = Math.min(255, Math.round(b * factor));
+    
+    return '#' + 
+      newR.toString(16).padStart(2, '0') +
+      newG.toString(16).padStart(2, '0') +
+      newB.toString(16).padStart(2, '0');
+  }
+  
+  return color;
+};
+
+/**
  * Gets the most suitable color for background from ImageColors result
  */
-function getBestColor(result: ImageColorsResult): { backgroundColor: string, foregroundColor: string } {
-  let bestCombo = { backgroundColor: '', foregroundColor: '' };
+function getBestColor(result: ImageColorsResult): { backgroundColor: string, foregroundColor: string, accentColor?: string } {
+  let bestCombo = { backgroundColor: '', foregroundColor: '', accentColor: '' };
   let bestContrastRatio = 0;
   let bestScore = 0;
 
@@ -140,7 +171,16 @@ function getBestColor(result: ImageColorsResult): { backgroundColor: string, for
           if (score > bestScore && statusBarContrast >= 3.0) {
             bestScore = score;
             bestContrastRatio = contrast;
-            bestCombo = { backgroundColor: colors[i], foregroundColor: colors[j] };
+            
+            // Ensure accent color is bright and vibrant
+            const rawAccentColor = result.lightVibrant || result.vibrant || result.lightMuted || colors[j];
+            const brightAccentColor = ensureBrightAccentColor(rawAccentColor);
+            
+            bestCombo = { 
+              backgroundColor: colors[i], 
+              foregroundColor: colors[j],
+              accentColor: brightAccentColor
+            };
           }
         }
       }
@@ -201,7 +241,16 @@ function getBestColor(result: ImageColorsResult): { backgroundColor: string, for
           if (score > bestScore && statusBarContrast >= 3.0) {
             bestScore = score;
             bestContrastRatio = contrast;
-            bestCombo = { backgroundColor: colors[i], foregroundColor: colors[j] };
+            
+            // Ensure accent color is bright and vibrant
+            const rawAccentColor = result.secondary || result.detail || colors[j];
+            const brightAccentColor = ensureBrightAccentColor(rawAccentColor);
+            
+            bestCombo = { 
+              backgroundColor: colors[i], 
+              foregroundColor: colors[j],
+              accentColor: brightAccentColor
+            };
           }
         }
       }
@@ -229,11 +278,16 @@ function getBestColor(result: ImageColorsResult): { backgroundColor: string, for
 
 function getSecondaryColor(result: ImageColorsResult): string {
   if (result.platform === "android") {
-    return result.vibrant || result.lightVibrant || result.average || '#FFFFFF';
+    // Prioritize bright, vibrant colors for secondary/accent usage
+    const rawColor = result.lightVibrant || result.vibrant || result.lightMuted || result.average || '#FFFFFF';
+    return ensureBrightAccentColor(rawColor);
   } else if (result.platform === "ios") {
-    return result.secondary || result.detail || result.primary || '#FFFFFF';
+    // For iOS, secondary and detail colors are typically brighter
+    const rawColor = result.secondary || result.detail || result.primary || '#FFFFFF';
+    return ensureBrightAccentColor(rawColor);
   } else {
-    return result.vibrant || result.lightVibrant || '#FFFFFF';
+    const rawColor = result.lightVibrant || result.vibrant || '#FFFFFF';
+    return ensureBrightAccentColor(rawColor);
   }
 }
 
@@ -268,16 +322,20 @@ export async function extractColorsFromImage(imageUrl: string) {
       key: imageUrl,
     });
 
-    const { backgroundColor, foregroundColor } = getBestColor(result);
+    const { backgroundColor, foregroundColor, accentColor } = getBestColor(result);
     const secondaryColor = getSecondaryColor(result);
     
     const finalColors = ensureAccessibleColors(backgroundColor, foregroundColor);
+
+    // Ensure accent color is bright and vibrant
+    const brightAccentColor = ensureBrightAccentColor(accentColor || secondaryColor);
 
     return {
       backgroundColor: finalColors.backgroundColor,
       foregroundColor: finalColors.foregroundColor,
       textColor: finalColors.foregroundColor,
       secondaryColor: secondaryColor,
+      accentColor: brightAccentColor, // Use bright accent color for vibrant UI elements
       statusBarStyle: isColorDark(finalColors.backgroundColor) ? 'light' as const : 'dark' as const,
     };
   } catch (error) {
@@ -287,6 +345,7 @@ export async function extractColorsFromImage(imageUrl: string) {
       foregroundColor: Colors.TEXT.PRIMARY,
       textColor: Colors.TEXT.PRIMARY,
       secondaryColor: Colors.TEXT.SECONDARY,
+      accentColor: '#00D4FF', // Bright cyan fallback accent color
       statusBarStyle: 'light' as const,
     };
   }

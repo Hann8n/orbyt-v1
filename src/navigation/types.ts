@@ -71,6 +71,8 @@ export type RootStackParamList = {
   HiddenPosts: undefined;
   WatchHistory: undefined;
   ChannelManagement: undefined;
+  About: undefined;
+  AuthorProfile: { handle: string };
 };
 
 // Define stack navigator parameter lists for tab stacks

@@ -52,7 +52,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   feed,
   headerComponent,
   refreshControl,
-  backgroundColor = 'transparent',
+  backgroundColor = '#000',
   secondaryColor = '#fff',
   isProfileLoading = false,
   isProfileFeed = false,
@@ -227,7 +227,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
         contentContainerStyle={[
           styles.listContent,
           feed.length === 0 && styles.emptyContentContainer,
-          { paddingBottom: bottomNavBarHeight + 20, backgroundColor: 'transparent' }
+          { paddingBottom: bottomNavBarHeight + 20, backgroundColor: '#000' }
         ]}
         columnWrapperStyle={styles.columnWrapper}
         showsVerticalScrollIndicator={false}
@@ -241,7 +241,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
             <EmptyFeed 
               type="error" 
               secondaryColor={secondaryColor} 
-              profileColors={secondaryColor ? { backgroundColor: backgroundColor || 'transparent', textColor: secondaryColor } : undefined}
+              profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
               feedKey={`grid-${feedOption}-${userDid || 'default'}`}
               onRetry={onRetry}
               isProfileFeed={isProfileFeed}
@@ -252,7 +252,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
             <EmptyFeed 
               type={feedOption === 'following' ? 'no-following' : 'no-videos'} 
               secondaryColor={secondaryColor} 
-              profileColors={secondaryColor ? { backgroundColor: backgroundColor || 'transparent', textColor: secondaryColor } : undefined}
+              profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
               feedKey={`grid-${feedOption}-${userDid || 'default'}`}
               isProfileFeed={isProfileFeed}
               viewableAreaHeight={viewableAreaHeight}
@@ -283,7 +283,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent', // Changed from '#000' to transparent
+    backgroundColor: '#000', // Changed back to black
   },
   listContent: {
     flexGrow: 1,
@@ -295,13 +295,13 @@ const styles = StyleSheet.create({
   },
   columnWrapper: {
     marginBottom: ITEM_MARGIN,
-    backgroundColor: 'transparent', // Ensure transparent gaps
+    backgroundColor: '#000', // Changed to black
   },
   gridItem: {
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 0, // Square corners
-    backgroundColor: 'transparent', // Changed from '#000' to transparent
+    backgroundColor: '#000', // Changed back to black
     // All margins for dividers are set dynamically in renderGridItem
   },
   thumbnail: {
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
   topDivider: {
     width: '100%',
     height: ITEM_MARGIN,
-    backgroundColor: 'transparent', // Changed from '#000' to transparent
+    backgroundColor: '#000', // Changed back to black
   },
   blurOverlay: {
     position: 'absolute',

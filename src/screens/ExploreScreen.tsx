@@ -32,6 +32,7 @@ import GridFeedView from '../components/features/feed/GridFeedView';
 import { extractVideoThumbnail } from '../utils/helpers/video';
 import { setCurrentFeed } from '../services/FeedStore';
 import { FORCE_SEARCH_ERROR, getForcedErrorMessage } from '../utils/helpers/errorDebug';
+import { formatNumber } from '../utils/helpers/formatNumber';
 
 interface Profile {
   did: string;
@@ -724,7 +725,7 @@ const ExploreScreen: React.FC = () => {
                 </Text>
                 {channel.likeCount && channel.likeCount > 0 && (
                   <Text style={styles.channelStats}>
-                    {channel.likeCount} likes
+                    {formatNumber(channel.likeCount)} likes
                   </Text>
                 )}
               </View>
@@ -790,7 +791,7 @@ const ExploreScreen: React.FC = () => {
                 </Text>
                 {video.likeCount && video.likeCount > 0 && (
                   <Text style={styles.videoStats}>
-                    {video.likeCount} likes
+                    {formatNumber(video.likeCount)} likes
                   </Text>
                 )}
               </View>

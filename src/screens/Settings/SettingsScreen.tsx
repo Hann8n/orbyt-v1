@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import Icon from '../../components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModerationDebug from '../../components/features/moderation/ModerationDebug';
 import ListFeedDebugPanel from '../../components/features/feed/ListFeedDebugPanel';
+import AccountManager from '../../services/storage/AccountManager';
 
 type SettingsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 type SettingsScreenRouteProp = RouteProp<RootStackParamList, 'Settings'>;
@@ -97,18 +98,19 @@ const SettingsScreen: React.FC = () => {
           onPress: () => navigation.navigate('ChannelManagement'),
           showChevron: true
         },
-        {
-          id: 'notifications',
-          label: 'Notifications',
-          icon: 'notification',
-          onPress: () => handlePlaceholderAction('Notifications'),
-          showChevron: true
-        }
+        // {
+        //   id: 'notifications',
+        //   label: 'Notifications',
+        //   icon: 'notification',
+        //   onPress: () => handlePlaceholderAction('Notifications'),
+        //   showChevron: true
+        // }
       ]
     },
     {
       title: 'Content',
       items: [
+
         {
           id: 'watch-history',
           label: 'Watch History',
@@ -116,27 +118,13 @@ const SettingsScreen: React.FC = () => {
           onPress: () => navigation.navigate('WatchHistory'),
           showChevron: true
         },
-        {
-          id: 'auto-play',
-          label: 'Auto-play Videos',
-          icon: 'play',
-          onPress: () => handlePlaceholderAction('Auto-play Videos'),
-          showChevron: true
-        },
-        {
-          id: 'data-usage',
-          label: 'Data Usage',
-          icon: 'radio-signal',
-          onPress: () => handlePlaceholderAction('Data Usage'),
-          showChevron: true
-        },
-        {
-          id: 'download-quality',
-          label: 'Download Quality',
-          icon: 'download',
-          onPress: () => handlePlaceholderAction('Download Quality'),
-          showChevron: true
-        }
+        // {
+        //   id: 'data-usage',
+        //   label: 'Data Usage',
+        //   icon: 'radio-signal',
+        //   onPress: () => handlePlaceholderAction('Data Usage'),
+        //   showChevron: true
+        // }
       ]
     },
     {
@@ -146,23 +134,23 @@ const SettingsScreen: React.FC = () => {
           id: 'about',
           label: 'About Orbyt',
           icon: 'device-tv',
-          onPress: () => handlePlaceholderAction('About Orbyt'),
+          onPress: () => navigation.navigate('About'),
           showChevron: true
         },
-        {
-          id: 'help',
-          label: 'Help & Support',
-          icon: 'headset',
-          onPress: () => handlePlaceholderAction('Help & Support'),
-          showChevron: true
-        },
-        {
-          id: 'feedback',
-          label: 'Send Feedback',
-          icon: 'message-text',
-          onPress: () => handlePlaceholderAction('Send Feedback'),
-          showChevron: true
-        }
+        // {
+        //   id: 'help',
+        //   label: 'Help & Support',
+        //   icon: 'headset',
+        //   onPress: () => handlePlaceholderAction('Help & Support'),
+        //   showChevron: true
+        // },
+        // {
+        //   id: 'feedback',
+        //   label: 'Send Feedback',
+        //   icon: 'message-text',
+        //   onPress: () => handlePlaceholderAction('Send Feedback'),
+        //   showChevron: true
+        // }
       ]
     }
   ];
@@ -207,7 +195,12 @@ const SettingsScreen: React.FC = () => {
                     <View style={styles.iconContainer}>
                       <Icon name={item.icon} size={20} color="#fff" />
                     </View>
-                    <Text style={styles.settingItemText}>{item.label}</Text>
+                    <View style={styles.settingItemTextContainer}>
+                      <Text style={styles.settingItemText}>{item.label}</Text>
+                      {item.subtitle && (
+                        <Text style={styles.settingItemSubtitle}>{item.subtitle}</Text>
+                      )}
+                    </View>
                   </View>
                   {item.showChevron && (
                     <Icon name="chevron-right" size={20} color="#666" />
@@ -359,11 +352,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+  settingItemTextContainer: {
+    flex: 1,
+  },
   settingItemText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '500',
     fontFamily: 'Firma-Medium',
+  },
+  settingItemSubtitle: {
+    color: '#666',
+    fontSize: 12,
+    fontWeight: '400',
+    fontFamily: 'Firma-Regular',
+    marginTop: 2,
   },
   logoutSection: {
     marginTop: 32,

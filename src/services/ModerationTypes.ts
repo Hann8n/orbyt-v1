@@ -18,7 +18,6 @@ export interface ModerationSettings {
 
   // Bluesky-specific settings
   adultContentEnabled: boolean;
-  adultContentOnlyMode: boolean; // NEW: Show only adult content, filter out everything else
   labels: Record<string, LabelPreference>;
   labelers: Array<{did: string, labels: Record<string, LabelPreference>}>;
   mutedWords: string[];

@@ -300,8 +300,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const headerContent = useMemo((): HeaderContent => {
     if (!profileData) {
       return {
-        title: 'Loading...',
-        subtitle: 'Loading profile...',
+        title: '',
+        subtitle: '',
       };
     }
 
@@ -380,6 +380,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         textColor={profileColors.textColor}
         isLoading={forceLoading || (isProfileLoading && !profileData)}
         skeleton={skeleton}
+        showGradient={false}
       >
         {customDescription}
         {children}
@@ -417,7 +418,7 @@ const styles = StyleSheet.create({
   },
   editDescription: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     minHeight: 80,
     fontFamily: 'Firma-Regular',

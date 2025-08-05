@@ -12,6 +12,7 @@ import {
   ImageSourcePropType,
   Pressable,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { PanGestureHandler, GestureHandlerRootView, PanGestureHandlerGestureEvent, HandlerStateChangeEvent, PanGestureHandlerEventPayload, State as GestureState } from 'react-native-gesture-handler';
 import AtprotoService from '../../../services/api/AtprotoService';
 import CommentSection from '../../features/comments/CommentSection';
@@ -21,8 +22,8 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import ProfileCache, { profileKeys, useProfileColors } from '../../../services/cache/ProfileCache';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
-import Icon from '../../ui/Icon';
-import { Avatar } from '../../ui/UI';
+import Icon, { SlashIcon } from '../../ui/Icon';
+import { Avatar, Colors } from '../../ui/UI';
 import { queryKeys } from '../../../services/queryKeys';
 import Animated, { 
   useAnimatedStyle, 
@@ -44,11 +45,24 @@ import { formatNumber } from '../../../utils/helpers/formatNumber';
 import RelativeDate from '../../ui/RelativeDate';
 import { format } from 'date-fns';
 import { useClearView } from '../../../services/ClearViewContext';
+import { useChannelColors, useChannel } from '../../../services/cache/ChannelCache';
 
 // Define RootParamList type for navigation
 type RootParamList = {
   Main: undefined;
   AuthorProfile: { handle: string };
+  Channel: {
+    uri: string;
+    title?: string;
+    description?: string;
+    avatar?: string;
+    creator?: {
+      did: string;
+      handle: string;
+      displayName?: string;
+      avatar?: string;
+    };
+  };
 };
 
 interface Author {
@@ -93,6 +107,7 @@ interface VideoOverlayProps {
   scrollY: Animated.SharedValue<number>;
   prefetchProfile?: boolean;
   feedOption?: 'yourMix' | 'following' | 'discover';
+  sourceFeed?: string; // Add sourceFeed prop
   isModal?: boolean;
   onScrubbingChange?: (isScrubbing: boolean) => void;
   progressBarAtCardBottom?: boolean;
@@ -131,8 +146,33 @@ const formatTime = (seconds: number) => {
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 };
 
+// Map feed URIs to readable names
+const getFeedDisplayName = (uri: string): string => {
+  switch (uri) {
+    case 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids':
+      return 'for your consideration';
+    case 'at://following':
+      return 'Following';
+
+    default:
+      // For custom feeds, try to extract a readable name
+      if (uri.includes('/app.bsky.feed.generator/')) {
+        const parts = uri.split('/app.bsky.feed.generator/');
+        if (parts.length > 1) {
+          const feedName = parts[1];
+          // Convert kebab-case to Title Case
+          return feedName
+            .split('-')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        }
+      }
+      return 'Custom Feed';
+  }
+};
+
 // Optimized VideoOverlay component with reduced state and memoization
-const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, scrollY, prefetchProfile, feedOption, isModal, onScrubbingChange, progressBarAtCardBottom }) => {
+const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, scrollY, prefetchProfile, feedOption, sourceFeed, isModal, onScrubbingChange, progressBarAtCardBottom }) => {
   const isTabletDevice = isTablet();
   const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
@@ -209,7 +249,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
 
   // --- Scrubbing Handlers ---
   const progressBarRef = useRef<View>(null);
-  const PROGRESS_TOUCH_HEIGHT = 24;
+  const PROGRESS_TOUCH_HEIGHT = 16;
   const PROGRESS_BAR_HEIGHT = 4;
 
   // NEW: onLayout handler to cache width
@@ -312,13 +352,37 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
   const [isLikePending, setIsLikePending] = useState<boolean>(false);
   const [isRepostPending, setIsRepostPending] = useState<boolean>(false);
   
+  // Add state for content height measurement
+  const [contentHeight, setContentHeight] = useState<number>(0);
+  const gradientHeightShared = useSharedValue(SCREEN_HEIGHT * 0.8);
+  
   // Refs for animations
   const heartAnimationTimer = useRef<NodeJS.Timeout | null>(null);
   const heartScale = useSharedValue(1);
   const repostScale = useSharedValue(1);
   
+  // Ref for content measurement
+  const contentRef = useRef<View>(null);
+  
   const navigation = useNavigation<NavigationProp<RootParamList>>();
   const queryClient = useQueryClient();
+  
+  // Handle content layout measurement
+  const handleContentLayout = useCallback((event: { nativeEvent: { layout: { height: number } } }) => {
+    const height = event.nativeEvent.layout.height;
+    setContentHeight(height);
+    
+    // Calculate adaptive gradient height based on content
+    const minHeight = 200; // Increased minimum gradient height
+    const maxHeight = SCREEN_HEIGHT * 1; // Increased maximum gradient height
+    const contentBasedHeight = height + 400; // Increased padding for gradient effect
+    const adaptiveHeight = Math.max(minHeight, Math.min(maxHeight, contentBasedHeight));
+    
+    // Smoothly animate the gradient height change
+    if (Math.abs(gradientHeightShared.value - adaptiveHeight) > 10) { // Only animate if change is significant
+      gradientHeightShared.value = withTiming(adaptiveHeight, { duration: 300 });
+    }
+  }, [gradientHeightShared]);
   
   // Simplified overlay visibility animation - always visible on small screens
   const overlayOpacity = useSharedValue(isVisible || isSmallDevice ? 1 : 0);
@@ -364,6 +428,27 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
       // Profile is already cached, no need for additional prefetching
     }
   }, [prefetchProfile, author.handle, profileData]);
+
+  // Smooth gradient animation with interpolated colors
+  const gradientIntensity = useSharedValue(0); // 0 = soft, 1 = intense
+  
+  useEffect(() => {
+    // Always use high intensity when expanded, regardless of text length
+    const targetIntensity = !isCollapsed ? 1 : 0;
+    gradientIntensity.value = withTiming(targetIntensity, { duration: 400 });
+  }, [isCollapsed, gradientIntensity]);
+
+  // Smooth gradient overlay animation
+  const animatedGradientStyle = useAnimatedStyle(() => {
+    const intensity = gradientIntensity.value;
+    // Reduce overall intensity range - softer overlay
+    const opacity = interpolate(intensity, [0, 1], [0.3, 1.0]); // Reduced from [0.4, 1.0] to [0.3, 0.8]
+    
+    return {
+      opacity,
+      height: gradientHeightShared.value,
+    };
+  });
 
   // Memoized animation functions
   const animateHeart = useCallback(() => {
@@ -527,50 +612,99 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     };
   }, []);
 
+  // Get channel colors for source feed
+  const { colors: channelColors } = useChannelColors(sourceFeed);
+  
+  // Get channel data for source feed to get actual title
+  const { data: sourceChannel } = useChannel(sourceFeed);
+  
+  // Memoize source display name - use hardcoded mapping for specific feeds, otherwise use actual channel title
+  const sourceDisplayName = useMemo(() => {
+    if (feedOption === 'yourMix' && sourceFeed) {
+      // Don't show indicator for "thevids" feed
+      if (sourceFeed === 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids') {
+        return null;
+      }
+      // Use hardcoded mapping for specific feeds, otherwise use actual channel title
+      return getFeedDisplayName(sourceFeed) || sourceChannel?.displayName;
+    }
+    return null;
+  }, [feedOption, sourceFeed, sourceChannel?.displayName]);
+
   return (
-    <Animated.View style={[styles.container, animatedOverlayStyle]}>
+    <Animated.View style={[styles.container, animatedOverlayStyle]} pointerEvents="box-none">
       {/* Hide overlay content while scrubbing */}
       {!isScrubbing && (
         <>
-          {/* Orbyt Pixel Art Icon Overlay */}
-          {(!isCollapsed && needsCollapsing) && (
-            <Animated.View 
-              style={styles.fullScreenDimOverlay}
+          {/* Smooth animated gradient overlay */}
+          <Animated.View style={[styles.uiOverlay, animatedGradientStyle]} pointerEvents="none">
+            <LinearGradient
+              colors={['rgba(0, 0, 0, 0.95)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.3)', 'transparent']}
+              locations={[0, 0.4, 0.6, 1]}
+              style={{ flex: 1 }}
               pointerEvents="none"
+              start={{ x: 0, y: 1 }}
+              end={{ x: 0, y: 0 }}
             />
-          )}
+          </Animated.View>
           
-          <Animated.View style={[
-            styles.overlayContentContainer,
-            isModal ? { bottom: 0 } : (isSmallDevice ? { bottom: bottomNavBarHeight } : {}),
-            progressBarAtCardBottom ? { paddingBottom: 15 } : {},
-          ]}>
-            <View style={styles.infoColumn}>
+          <Animated.View 
+            ref={contentRef}
+            onLayout={handleContentLayout}
+            style={[
+              styles.overlayContentContainer,
+              isModal ? { bottom: 0 } : (isSmallDevice ? { bottom: bottomNavBarHeight } : {}),
+              progressBarAtCardBottom ? { paddingBottom: 15 } : {},
+            ]} 
+            pointerEvents="box-none"
+          >
+            <View style={styles.infoColumn} pointerEvents="box-none">
               {post.repostedBy && (
-                <TouchableOpacity 
-                  style={styles.repostIndicatorContainer} 
-                  onPress={handleRepostAuthorPress}
-                  activeOpacity={0.7}
-                >
-                  <Icon name="repeat" size={22} color={INTERACTIVE.REPOST.ACTIVE} />
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Text style={
-                      isTabletDevice
-                        ? styles.repostIndicatorTextTablet
-                        : styles.repostIndicatorText
-                    }>
-                      {post.repostedBy?.displayName || post.repostedBy?.handle || 'Unknown'} reposted
-                    </Text>
-                    {post.repostedBy?.handle && (
-                      <VerificationBadge 
-                        handle={post.repostedBy.handle} 
-                        textSize={isTabletDevice ? 16 : 14} 
-                        autoPosition={true}
-                        textColor={styles.repostIndicatorText.color}
-                      />
-                    )}
-                  </View>
-                </TouchableOpacity>
+                <View style={styles.repostIndicatorBox}>
+                  <TouchableOpacity 
+                    style={styles.repostIndicatorContainer} 
+                    onPress={handleRepostAuthorPress}
+                    activeOpacity={0.7}
+                  >
+                                      <Avatar
+                    uri={post.repostedBy?.avatar && post.repostedBy.avatar.startsWith('http')
+                      ? post.repostedBy.avatar
+                      : 'https://via.placeholder.com/40'}
+                    type="user"
+                    size={isTabletDevice ? 24 : 22}
+                    ringColor="transparent"
+                    style={styles.repostAvatar}
+                  />
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                      <Text style={
+                        isTabletDevice
+                          ? styles.repostIndicatorTextTablet
+                          : styles.repostIndicatorText
+                      }>
+                        {(post.repostedBy?.displayName || post.repostedBy?.handle || 'Unknown').length > 30 
+                          ? (post.repostedBy?.displayName || post.repostedBy?.handle || 'Unknown').substring(0, 30) + '...'
+                          : (post.repostedBy?.displayName || post.repostedBy?.handle || 'Unknown')
+                        }
+                      </Text>
+                      {post.repostedBy?.handle && (
+                        <VerificationBadge 
+                          handle={post.repostedBy.handle} 
+                          textSize={isTabletDevice ? 16 : 14} 
+                          autoPosition={true}
+                          textColor={styles.repostIndicatorText.color}
+                        />
+                      )}
+                      <Text style={[
+                        isTabletDevice
+                          ? styles.repostIndicatorTextTablet
+                          : styles.repostIndicatorText,
+                        { marginLeft: -1 }
+                      ]}>
+                        {' reposted'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
               )}
               
               {record.text && (
@@ -617,8 +751,9 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                 <Avatar
                   uri={profilePicUrl}
                   type="profile"
-                  size={isTabletDevice ? 45 : isSmallDevice ? 42 : 45}
+                  size={isTabletDevice ? 50 : isSmallDevice ? 46 : 50}
                   profileColors={profileColors}
+                  ringColor="transparent"
                   style={[
                     isTabletDevice
                       ? styles.profilePictureTablet
@@ -629,13 +764,17 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                 />
                 <View style={styles.authorTextContainer}>
                   <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Text style={
-                      isTabletDevice
-                        ? styles.authorNameTablet
-                        : isSmallDevice
-                          ? styles.authorNameSmallScreen
-                          : styles.authorName
-                    }>
+                    <Text 
+                      style={
+                        isTabletDevice
+                          ? styles.authorNameTablet
+                          : isSmallDevice
+                            ? styles.authorNameSmallScreen
+                            : styles.authorName
+                      }
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {author.displayName || author.handle || 'Unknown'}
                     </Text>
                     {author.handle && <VerificationBadge 
@@ -645,20 +784,52 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                       textColor={BRAND.SECONDARY}
                     />}
                   </View>
-                  <Text style={
-                    isTabletDevice
-                      ? styles.authorHandleTablet
-                      : isSmallDevice
-                        ? styles.authorHandleSmallScreen
-                        : styles.authorHandle
-                  }>
-                    @{author.handle || 'unknown'}
-                  </Text>
+                  {/* Show source indicator instead of author handle in your mix feed */}
+                  {feedOption === 'yourMix' && sourceDisplayName ? (
+                    <TouchableOpacity 
+                      style={styles.sourceIndicatorContainer}
+                      onPress={() => {
+                        // Navigate to the channel/feed
+                        if (sourceFeed) {
+                          navigation.navigate('Channel', {
+                            uri: sourceFeed,
+                            title: sourceDisplayName,
+                            description: '',
+                            avatar: '',
+                            creator: undefined,
+                          });
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                                                                    <Image 
+                        source={require('../../../assets/device-tv-filled.png')}
+                        style={[
+                          { 
+                            width: isTabletDevice ? 16 : 14, 
+                            height: isTabletDevice ? 16 : 14,
+                            marginRight: 4,
+                            tintColor: sourceDisplayName === 'for your consideration' ? Colors.TEXT.SECONDARY : channelColors.accentColor
+                          }
+                        ]}
+                      />
+                      <Text style={[
+                        isTabletDevice
+                          ? styles.sourceTextTablet
+                          : isSmallDevice
+                            ? styles.sourceTextSmallScreen
+                            : styles.sourceText,
+                        { color: sourceDisplayName === 'for your consideration' ? Colors.TEXT.SECONDARY : 'rgba(255, 255, 255, 0.9)' }
+                      ]}>
+                        {sourceDisplayName}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               </TouchableOpacity>
             </View>
             
-            <View style={styles.actionsContainer}>
+            <View style={styles.actionsContainer} pointerEvents="box-none">
               <TouchableOpacity 
                 style={
                   isTabletDevice
@@ -768,7 +939,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                 left: 0,
                 right: 0,
                 bottom: progressBarAtCardBottom ? 5 : (isTabletDevice ? bottomNavBarHeight : insets.bottom + bottomNavBarHeight),
-                height: 24,
+                height: 16,
                 zIndex: 100,
               },
             ]}
@@ -827,6 +998,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
         postCid={post.cid}
         authorDid={post.author?.did || ''}
         feedOption={feedOption}
+        sourceFeed={sourceFeed}
       />
     </Animated.View>
   );
@@ -855,15 +1027,14 @@ const styles = StyleSheet.create({
     height: 28,
     resizeMode: 'contain',
   },
-  fullScreenDimOverlay: {
+  uiOverlay: {
     position: 'absolute',
     left: 0,
     right: 0,
-    top: 0,
     bottom: 0,
-    backgroundColor: OVERLAY.DIM,
     zIndex: 1,
   },
+
   overlayContentContainer: {
     position: 'absolute',
     left: 0,
@@ -896,12 +1067,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   repostIndicatorText: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(0, 0, 0, 0.8)',
     fontSize: 14,
     fontFamily: 'Firma-SemiBold',
-    textShadowColor: 'rgba(2, 2, 2, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
     marginLeft: 4,
   },
   descriptionContainer: {
@@ -929,14 +1097,14 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   profilePicture: {
-    width: 45,
-    height: 45,
+    width: 50,
+    height: 50,
     borderRadius: 25,
   },
   profilePictureSmallScreen: {
-    width: 42,
-    height: 42,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
   },
   authorTextContainer: {
     marginLeft: 8,
@@ -1127,17 +1295,14 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   profilePictureTablet: {
-    width: 54, // was 80
-    height: 54, // was 80
-    borderRadius: 27, // was 40
+    width: 60, // was 80
+    height: 60, // was 80
+    borderRadius: 30, // was 40
   },
   repostIndicatorTextTablet: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(0, 0, 0, 0.8)',
     fontSize: 16, // was 22
     fontFamily: 'Firma-SemiBold',
-    textShadowColor: 'rgba(2, 2, 2, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
     marginLeft: 4,
   },
   expandedDateTablet: {
@@ -1156,7 +1321,7 @@ const styles = StyleSheet.create({
   },
   progressBarTouchableArea: {
     width: '100%',
-    height: 24,
+    height: 16,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
@@ -1189,10 +1354,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 36,
-    backgroundColor: 'rgba(0,0,0,0.7)',
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 8,
   },
   timeTrackingText: {
     flexDirection: 'row',
@@ -1219,6 +1382,44 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  repostIndicatorBox: {
+    backgroundColor: 'rgba(255, 255, 255, 1)',
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    marginBottom: 3,
+    alignSelf: 'flex-start',
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+  },
+  repostAvatar: {
+    marginRight: 2,
+  },
+  sourceIndicatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 0,
+    paddingHorizontal: 0,
+  },
+  sourceIcon: {
+    marginRight: 4,
+    fontSize: 12,
+    fontWeight: 'bold',
+    fontFamily: 'Firma',
+  },
+  sourceText: {
+    fontSize: 13,
+    fontFamily: 'Firma-SemiBold',
+  },
+  sourceTextSmallScreen: {
+    fontSize: 12,
+    fontFamily: 'Firma-SemiBold',
+  },
+  sourceTextTablet: {
+    fontSize: 15,
+    fontFamily: 'Firma-SemiBold',
   },
 
 });

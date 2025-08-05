@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { AtpAgent } from '@atproto/api';
 import AtprotoService from '../../../src/services/api/AtprotoService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface SavedAccount {
   id: string;
@@ -285,8 +286,23 @@ class AccountManager {
     }
   }
 
+  static async getFeedMixingStrategy(): Promise<'chronological' | 'engagement' | 'diversity' | 'weighted'> {
+    try {
+      const strategy = await AsyncStorage.getItem('feedMixingStrategy');
+      return (strategy as 'chronological' | 'engagement' | 'diversity' | 'weighted') || 'weighted';
+    } catch (error) {
+      console.error('Error getting feed mixing strategy:', error);
+      return 'weighted';
+    }
+  }
 
-
+  static async setFeedMixingStrategy(strategy: 'chronological' | 'engagement' | 'diversity' | 'weighted'): Promise<void> {
+    try {
+      await AsyncStorage.setItem('feedMixingStrategy', strategy);
+    } catch (error) {
+      console.error('Error setting feed mixing strategy:', error);
+    }
+  }
 
 
   /**

@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: '#000',
   },
   contentContainer: {
     alignItems: 'center',
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   followButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Firma-Bold',
   },
 });

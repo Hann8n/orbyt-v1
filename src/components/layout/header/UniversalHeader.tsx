@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Icon from '../../ui/Icon';
 import { useNavigation } from '@react-navigation/native';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
@@ -56,6 +57,13 @@ export interface UniversalHeaderProps {
   skeleton?: React.ReactNode;
   children?: React.ReactNode;
   style?: any;
+  showGradient?: boolean;
+  gradientType?: 'default' | 'channel';
+  mixIcon?: {
+    isInMix: boolean;
+    isExcluded: boolean;
+    onPress: () => void;
+  };
 }
 
 // Memoized action button component for performance
@@ -91,7 +99,7 @@ const ActionButton = memo<{
       case 'large':
         return { paddingHorizontal: 24, paddingVertical: 12, minWidth: 110, height: 48 };
       default:
-        return { paddingHorizontal: 16, paddingVertical: 8, minWidth: 90, height: 40 };
+        return { paddingHorizontal: 16, paddingVertical: 8, minWidth: 90, height: 44 };
     }
   }, [size]);
 
@@ -106,12 +114,12 @@ const ActionButton = memo<{
         <ActivityIndicator size="small" color={textColor} />
       ) : (
         <View style={styles.actionContent}>
-          {action.icon && (
-            <Icon name={action.icon} size={16} color={textColor} />
-          )}
           <Text style={[styles.actionText, { color: textColor }]}>
             {action.label}
           </Text>
+          {action.icon && (
+            <Icon name={action.icon} size={16} color={textColor} strokeWidth={2.5} />
+          )}
         </View>
       )}
     </TouchableOpacity>
@@ -205,12 +213,36 @@ const HeaderContentComponent = memo<{
   isLoading?: boolean;
   skeleton?: React.ReactNode;
   customDescription?: React.ReactNode;
-}>(({ content, textColor, backgroundColor, isLoading, skeleton, customDescription }) => {
+  mixIcon?: {
+    isInMix: boolean;
+    isExcluded: boolean;
+    onPress: () => void;
+  };
+}>(({ content, textColor, backgroundColor, isLoading, skeleton, customDescription, mixIcon }) => {
   const navigation = useNavigation();
 
   if (isLoading && skeleton) {
     return skeleton;
   }
+
+  // Create mix icon badge
+  const mixIconBadge = mixIcon ? (
+    <TouchableOpacity
+      style={styles.mixIconContainer}
+      onPress={mixIcon.onPress}
+      activeOpacity={0.7}
+    >
+      <Icon 
+        name="shuffle" 
+        size={20} 
+        color={
+          mixIcon.isExcluded ? '#FE4359' : 
+          mixIcon.isInMix && !mixIcon.isExcluded ? '#4CAF50' : 
+          hexToRGBA(textColor, 0.6)
+        } 
+      />
+    </TouchableOpacity>
+  ) : null;
 
   return (
     <View style={styles.contentContainer}>
@@ -252,13 +284,25 @@ const HeaderContentComponent = memo<{
           <Text style={[styles.title, { color: textColor }]}>
             {content.title}
           </Text>
+          {mixIconBadge}
           {content.badge}
         </TouchableOpacity>
         
         {content.subtitle && (
-          <Text style={[styles.subtitle, { color: hexToRGBA(textColor, 0.67) }]}>
-            {content.subtitle}
-          </Text>
+          <TouchableOpacity
+            style={styles.subtitleRow}
+            onPress={content.onTitlePress}
+            activeOpacity={content.onTitlePress ? 0.7 : 1}
+          >
+            <Text style={[styles.subtitle, { color: hexToRGBA(textColor, 0.67) }]}>
+              {content.subtitle}
+            </Text>
+            {content.onTitlePress && (
+              <View style={styles.chevronContainer}>
+                <Icon name="chevron-right" size={16} color={hexToRGBA(textColor, 0.67)} />
+              </View>
+            )}
+          </TouchableOpacity>
         )}
         
         {customDescription || (content.description && (
@@ -284,6 +328,9 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   skeleton,
   children,
   style,
+  showGradient = true,
+  gradientType = 'default',
+  mixIcon,
 }) => {
   const navigation = useNavigation();
   const headerVisibility = useHeaderVisibility();
@@ -303,7 +350,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     style,
   ], [backgroundColor, style]);
 
-  // Animate opacity based on header visibility
+  // Animate opacity based on header visibility (excluding shadow)
   useEffect(() => {
     const toValue = headerVisibility.isSnappedToTop ? 1 : 0;
     Animated.timing(opacityAnim, {
@@ -368,10 +415,28 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     return children;
   }, [children]);
 
+  const gradientColors = useMemo((): [string, string, string] => {
+    if (gradientType === 'channel') {
+      // Lighter gradient for channels to work better with light text, but still goes to 100% at bottom
+      return ['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,1)'];
+    }
+    return ['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,1)'];
+  }, [gradientType]);
+
   return (
-    <Animated.View style={animatedHeaderStyle}>
-      {/* Navigation and Action Buttons */}
-      <View style={styles.topRow}>
+    <View style={headerStyle}>
+      {/* Fade to black gradient - conditionally visible */}
+      {showGradient && (
+        <LinearGradient
+          colors={gradientColors}
+          style={styles.fadeGradient}
+          pointerEvents="none"
+        />
+      )}
+      {/* Animated content container */}
+      <Animated.View style={[styles.animatedContent, { opacity: opacityAnim }]}>
+        {/* Navigation and Action Buttons */}
+        <View style={styles.topRow}>
         <View style={styles.leftSection}>
           {showBackButton && (
             <TouchableOpacity
@@ -418,11 +483,13 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
         isLoading={isLoading}
         skeleton={skeleton}
         customDescription={customDescription}
+        mixIcon={mixIcon}
       />
 
       {/* Additional Children */}
       {additionalChildren}
-    </Animated.View>
+      </Animated.View>
+    </View>
   );
 };
 
@@ -460,7 +527,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   actionButton: {
-    borderRadius: 20,
+    borderRadius: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -478,9 +545,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   actionText: {
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Firma-SemiBold',
     textAlign: 'center',
     fontWeight: '600',
+    fontSize: 15,
   },
   customActionsLayout: {
     flexDirection: 'row',
@@ -541,6 +609,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+  },
+  chevronContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
+  },
   title: {
     fontFamily: 'Firma-Black',
     fontWeight: 'bold',
@@ -564,14 +643,29 @@ const styles = StyleSheet.create({
     right: 0,
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#fff',
   },
   editAvatarOverlayRoundedSquare: {
-    borderRadius: 12,
+    borderRadius: 16,
+  },
+  animatedContent: {
+    width: '100%',
+    zIndex: 1,
+  },
+  fadeGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '85%', // Extended gradient to cover more of the header
+    zIndex: 0, // Above background but below UI elements
+  },
+  mixIconContainer: {
+    marginLeft: 8,
   },
 });
 

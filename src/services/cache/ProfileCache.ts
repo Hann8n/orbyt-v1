@@ -81,9 +81,7 @@ class ProfileCache {
     // Only initialize the flag and any necessary setup
     this.isInitialized = true;
     
-    if (this.DEBUG) {
-      console.log('[ProfileCache] Initialized (preserving existing cache)');
-    }
+
   }
 
   // React Query integration
@@ -103,9 +101,6 @@ class ProfileCache {
    */
   static setCurrentUserDid(did: string) {
     this.currentUserDid = did;
-    if (this.DEBUG) {
-      console.log('ProfileCache: Set current user DID:', did);
-    }
   }
 
   /**
@@ -139,9 +134,6 @@ class ProfileCache {
     // Return from memory cache immediately
     const memoryCached = this.memoryCache.get(cleanHandle);
     if (memoryCached && this.isCacheValid(memoryCached)) {
-      if (this.DEBUG) {
-        console.log(`ProfileCache: Memory cache hit for ${handle}`);
-      }
       return memoryCached;
     }
     
@@ -193,9 +185,6 @@ class ProfileCache {
             // Check memory cache first (fastest)
             const memoryCached = this.memoryCache.get(cleanHandle);
             if (memoryCached && this.isCacheValid(memoryCached)) {
-              if (this.DEBUG) {
-                console.log(`ProfileCache: Memory cache hit for ${handle}`);
-              }
               resolve(memoryCached);
               return;
             }
@@ -248,9 +237,7 @@ class ProfileCache {
       requestAnimationFrame(() => {
         setTimeout(async () => {
           try {
-            if (this.DEBUG) {
-              console.log(`ProfileCache: Force refreshing profile for ${handle}`);
-            }
+
             
             const normalizedHandle = handle.toLowerCase();
             const freshProfile = await this.fetchAndCacheProfile(normalizedHandle);
@@ -663,9 +650,7 @@ class ProfileCache {
       requestAnimationFrame(() => {
         setTimeout(async () => {
           try {
-            if (this.DEBUG) {
-              console.log(`ProfileCache: Fetching profile for ${handle}`);
-            }
+
             
             const normalizedHandle = handle.toLowerCase();
             const profile = await AtprotoService.getProfile(handle);
@@ -892,10 +877,6 @@ class ProfileCache {
    */
   static cleanup(): void {
     try {
-      if (this.DEBUG) {
-        console.log('[ProfileCache] Starting cleanup...');
-      }
-      
       // Only clear memory cache to free RAM, but preserve AsyncStorage cache
       // This allows profiles to be restored from storage when app comes back to foreground
       this.memoryCache.clear();
@@ -905,10 +886,6 @@ class ProfileCache {
       
       // Don't reset initialization flag - keep it initialized
       // Don't clear AsyncStorage cache - preserve it for app restart
-      
-      if (this.DEBUG) {
-        console.log('[ProfileCache] Cleanup completed (preserving AsyncStorage cache)');
-      }
     } catch (error) {
       console.error('[ProfileCache] Error during cleanup:', error);
     }
@@ -982,9 +959,7 @@ class ProfileCache {
 
             const needsFetching = handlesToPrefetch.length - alreadyCached;
 
-            if (this.DEBUG) {
-              console.log(`[ProfileCache] Batch prefetching ${handlesToPrefetch.length} profiles (${alreadyCached} cached, ${needsFetching} new)`);
-            }
+
 
             // Process handles in smaller batches to avoid overwhelming the API
             const batchSize = 5;
@@ -1005,10 +980,6 @@ class ProfileCache {
                   console.warn(`[ProfileCache] Error prefetching profile ${handle}:`, error);
                 }
               }));
-            }
-
-            if (this.DEBUG) {
-              console.log(`[ProfileCache] Batch prefetch completed for ${handlesToPrefetch.length} profiles`);
             }
             
             resolve();

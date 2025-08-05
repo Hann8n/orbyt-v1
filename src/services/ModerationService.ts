@@ -83,7 +83,6 @@ export class ModerationService {
           showContentWarnings: true,
           autoExpandContentWarnings: false,
           adultContentEnabled: adultContentEnabled,
-          adultContentOnlyMode: false,
           labels: {
             // Default labels if not set in API
             'porn': labels.porn || 'hide',
@@ -123,7 +122,6 @@ export class ModerationService {
       showContentWarnings: true,
       autoExpandContentWarnings: false,
       adultContentEnabled: false,
-      adultContentOnlyMode: false,
       labels: {
         'porn': 'hide',
         'sexual': 'warn',
@@ -282,31 +280,6 @@ export class ModerationService {
         decision.filter = true;
         decision.reason = 'Adult content is disabled';
         decision.source = 'adult_content_disabled';
-        return decision;
-      }
-    }
-
-    // NEW: Check if adult-only mode is enabled - filter out non-adult content
-    if (settings.adultContentOnlyMode) {
-      const labels = post.post.labels || [];
-      const contentWarnings = post.post.contentWarnings || [];
-      
-      // Check if post has adult labels or content warnings
-      const hasAdultLabels = labels.some((label: any) => 
-        ['porn', 'sexual', 'nudity'].includes(label.val?.toLowerCase() || '')
-      );
-      
-      const hasAdultContentWarnings = contentWarnings.some((warning: string) => 
-        ['adult', 'nsfw', 'nudity', 'sexual'].some(keyword => 
-          warning.toLowerCase().includes(keyword)
-        )
-      );
-      
-      // If post doesn't have adult content, filter it out
-      if (!hasAdultLabels && !hasAdultContentWarnings) {
-        decision.filter = true;
-        decision.reason = 'Non-adult content filtered in adult-only mode';
-        decision.source = 'adult_only_mode';
         return decision;
       }
     }
@@ -627,31 +600,6 @@ export class ModerationService {
         decision.filter = true;
         decision.reason = 'Adult content is disabled';
         decision.source = 'adult_content_disabled';
-        return decision;
-      }
-    }
-
-    // NEW: Check if adult-only mode is enabled - filter out non-adult content
-    if (settings.adultContentOnlyMode) {
-      const labels = post.post.labels || [];
-      const contentWarnings = post.post.contentWarnings || [];
-      
-      // Check if post has adult labels or content warnings
-      const hasAdultLabels = labels.some((label: any) => 
-        ['porn', 'sexual', 'nudity'].includes(label.val?.toLowerCase() || '')
-      );
-      
-      const hasAdultContentWarnings = contentWarnings.some((warning: string) => 
-        ['adult', 'nsfw', 'nudity', 'sexual'].some(keyword => 
-          warning.toLowerCase().includes(keyword)
-        )
-      );
-      
-      // If post doesn't have adult content, filter it out
-      if (!hasAdultLabels && !hasAdultContentWarnings) {
-        decision.filter = true;
-        decision.reason = 'Non-adult content filtered in adult-only mode';
-        decision.source = 'adult_only_mode';
         return decision;
       }
     }

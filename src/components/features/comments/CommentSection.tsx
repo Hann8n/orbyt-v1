@@ -678,7 +678,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   <Text style={styles.repliesToggleText}>
                     {repliesVisible
                       ? `Hide ${replyCount === 1 ? 'reply' : 'replies'}`
-                      : `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`}
+                      : `View ${formatNumber(replyCount)} ${replyCount === 1 ? 'reply' : 'replies'}`}
                   </Text>
                 </TouchableOpacity>
               )}

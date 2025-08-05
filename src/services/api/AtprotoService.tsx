@@ -1,6 +1,7 @@
 import { AtpAgent } from '@atproto/api';
 import * as SecureStore from 'expo-secure-store';
 import { ModerationDecision, ModerationSettings, LabelPreference, ModerationFilters, ModerationOpts, LabelDefinition } from '../ModerationTypes';
+import { feedPerformanceMonitor } from '../../utils/helpers/performance';
 
 const SERVICE_URL = 'https://bsky.social';
 const CHAT_SERVICE_URL = 'https://api.bsky.chat';
@@ -155,7 +156,8 @@ class AtprotoService {
     cursor: string | null = null,
     feedLink: string | null = null,
     feedVariables: FeedParams = {},
-    filterVideosOnly: boolean = true
+    filterVideosOnly: boolean = true,
+    limit: number = 100
   ): Promise<FeedResponse> {
     let retries = 3;
     
@@ -168,7 +170,7 @@ class AtprotoService {
         if (feedLink === 'at://following') {
           try {
             const params: any = { 
-              limit: 100, // Maximum limit for better batch loading
+              limit: limit, // Use provided limit for lazy loading
               cursor: cursor || undefined,
               algorithm: 'reverse-chronological',
             };
@@ -202,7 +204,7 @@ class AtprotoService {
           
           const params: any = { 
             feed, 
-            limit: 100 // Maximum limit for better batch loading
+            limit: limit // Use provided limit for lazy loading
           };
           if (cursor) params.cursor = cursor;
           
@@ -1761,6 +1763,30 @@ class AtprotoService {
   }
 
   /**
+   * Get subscriber count for a feed generator
+   * @param uri - Feed generator URI
+   * @returns Subscriber count (number of likes on the feed generator post)
+   */
+  static async getFeedGeneratorSubscriberCount(uri: string): Promise<number> {
+    await this.ensureSession();
+    try {
+      // Get the feed generator details first
+      const generatorResponse = await this.agent.api.app.bsky.feed.getFeedGenerator({
+        feed: uri,
+      });
+      
+      if (!generatorResponse.data?.view?.likeCount) {
+        return 0;
+      }
+      
+      return generatorResponse.data.view.likeCount;
+    } catch (error: any) {
+      console.error('Error getting feed generator subscriber count:', error);
+      return 0;
+    }
+  }
+
+  /**
    * Get feed generator details by URI with pagination support
    * @param uri - Feed generator URI
    * @param cursor - Pagination cursor
@@ -1921,6 +1947,212 @@ class AtprotoService {
       return { videos: [], cursor: null };
     }
   }
+
+  /**
+   * Smart feed selection - prioritize feeds based on engagement and recency
+   */
+  private static selectPriorityFeeds(
+    feedUris: string[], 
+    maxFeeds: number,
+    strategy: 'engagement' | 'recency' | 'diversity' | 'chronological' | 'weighted' = 'engagement'
+  ): string[] {
+    if (feedUris.length <= maxFeeds) {
+      return feedUris;
+    }
+
+    // For now, use simple strategies. In the future, this could be enhanced with:
+    // - User engagement data (likes, comments, watch time)
+    // - Feed activity levels
+    // - User preferences
+    // - Feed quality scores
+
+    switch (strategy) {
+      case 'recency':
+        // Prioritize feeds that were most recently subscribed to
+        // This would require tracking subscription dates in the feed URIs or metadata
+        return feedUris.slice(0, maxFeeds);
+        
+      case 'diversity':
+        // Try to select feeds that represent different content types
+        // This is a simplified version - could be enhanced with feed categorization
+        const selected: string[] = [];
+        const step = Math.max(1, Math.floor(feedUris.length / maxFeeds));
+        
+        for (let i = 0; i < maxFeeds && i * step < feedUris.length; i++) {
+          selected.push(feedUris[i * step]);
+        }
+        
+        // Fill remaining slots with first feeds if needed
+        for (let i = 0; selected.length < maxFeeds && i < feedUris.length; i++) {
+          if (!selected.includes(feedUris[i])) {
+            selected.push(feedUris[i]);
+          }
+        }
+        
+        return selected;
+        
+      case 'engagement':
+      case 'chronological':
+      case 'weighted':
+      default:
+        // Default: take the first N feeds (could be enhanced with engagement data)
+        return feedUris.slice(0, maxFeeds);
+    }
+  }
+
+  static async getMixedFeed(
+    feedUris: string[],
+    cursor: string | null = null,
+    limit: number = 100,
+    filterVideosOnly: boolean = true,
+    maxFeeds: number = 5 // NEW: Limit number of feeds to fetch
+  ): Promise<FeedResponse> {
+    const operationId = `mixed-feed-fast-${cursor ? 'pagination' : 'initial'}`;
+    feedPerformanceMonitor.startTimer(operationId);
+    
+    try {
+      // Limit the number of feeds to fetch
+      const limitedFeedUris = this.selectPriorityFeeds(feedUris, maxFeeds, 'engagement');
+      
+      if (limitedFeedUris.length !== feedUris.length) {
+        console.log(`[MixedFeed] Limited feeds from ${feedUris.length} to ${limitedFeedUris.length} feeds`);
+      }
+      
+      // Parse the mixed feed cursor to get individual feed states
+      let feedStates: { [feedUri: string]: string | null } = {};
+      
+      if (cursor) {
+        try {
+          feedStates = JSON.parse(cursor);
+        } catch (error) {
+          console.warn('Failed to parse mixed feed cursor, starting fresh:', error);
+          feedStates = {};
+        }
+      } else {
+        // Initialize limited feeds with null cursors
+        limitedFeedUris.forEach(feedUri => {
+          feedStates[feedUri] = null;
+        });
+      }
+
+      // Fetch from limited feeds in parallel with their respective cursors
+      const feedPromises = limitedFeedUris.map(async (feedUri) => {
+        try {
+          const feedCursor = feedStates[feedUri] || null;
+          // Use smaller limit for faster initial response
+          const feedLimit = cursor ? 100 : 25; // Start with 25 posts per feed for faster initial load
+          const response = await this.getFeed(feedCursor, feedUri, {}, filterVideosOnly, feedLimit);
+          
+          // Add source feed information to each post
+          const postsWithSource = (response.feed || []).map(post => ({
+            ...post,
+            sourceFeed: feedUri
+          }));
+          
+          return {
+            posts: postsWithSource,
+            cursor: response.cursor,
+            feedUri
+          };
+        } catch (error) {
+          console.warn(`Failed to fetch feed ${feedUri}:`, error);
+          return {
+            posts: [],
+            cursor: null,
+            feedUri
+          };
+        }
+      });
+
+      const feedResults = await Promise.all(feedPromises);
+      
+      // Update feed states with new cursors
+      feedResults.forEach(result => {
+        feedStates[result.feedUri] = result.cursor;
+      });
+      
+      // Flatten and merge all feeds
+      let allPosts = feedResults.flatMap(result => result.posts);
+      
+      // Enhanced duplicate removal using utility function
+      const originalCount = feedResults.flatMap(result => result.posts).length;
+      allPosts = this.deduplicatePosts(allPosts);
+      const uniqueCount = allPosts.length;
+      
+      if (originalCount !== uniqueCount) {
+        console.log(`[MixedFeed] Removed ${originalCount - uniqueCount} duplicate posts (${originalCount} → ${uniqueCount})`);
+      }
+      
+      // Use fast chronological sorting for maximum speed
+      allPosts.sort((a, b) => {
+        const aTime = new Date(a?.post?.indexedAt || 0).getTime();
+        const bTime = new Date(b?.post?.indexedAt || 0).getTime();
+        return bTime - aTime;
+      });
+      
+      // Final deduplication step to ensure no duplicates remain after mixing
+      allPosts = this.deduplicatePosts(allPosts);
+      
+      // Apply limit
+      const limitedPosts = allPosts.slice(0, limit);
+      
+      // Create a composite cursor that contains all feed states
+      const compositeCursor = JSON.stringify(feedStates);
+      
+      // Check if we have more content available
+      const hasMoreContent = feedResults.some(result => result.cursor !== null) || 
+                           allPosts.length > limitedPosts.length;
+      
+      // Log pagination info for debugging
+      if (cursor) {
+        console.log(`[MixedFeed] Pagination: ${limitedPosts.length} posts returned, ${hasMoreContent ? 'more available' : 'no more content'}`);
+      } else {
+        console.log(`[MixedFeed] Initial load: ${limitedPosts.length} posts from ${limitedFeedUris.length} feeds using fast chronological strategy`);
+      }
+      
+      const duration = feedPerformanceMonitor.endTimer(operationId);
+      console.log(`[MixedFeed] Loaded ${limitedPosts.length} posts in ${duration}ms using fast chronological strategy`);
+      
+      return {
+        feed: limitedPosts,
+        cursor: hasMoreContent ? compositeCursor : null
+      };
+    } catch (error) {
+      feedPerformanceMonitor.endTimer(operationId);
+      console.error('Error fetching mixed feed:', error);
+      return { feed: [], cursor: null };
+    }
+  }
+
+  /**
+   * Deduplicate posts based on URI and CID
+   */
+  private static deduplicatePosts(posts: any[]): any[] {
+    const seenUris = new Set<string>();
+    const seenCids = new Set<string>();
+    
+    return posts.filter(post => {
+      const uri = post?.post?.uri;
+      const cid = post?.post?.cid;
+      
+      if (!uri || !cid) {
+        return false;
+      }
+      
+      const uniqueId = `${uri}_${cid}`;
+      
+      if (seenUris.has(uri) || seenCids.has(cid) || seenUris.has(uniqueId)) {
+        return false;
+      }
+      
+      seenUris.add(uri);
+      seenCids.add(cid);
+      seenUris.add(uniqueId);
+      return true;
+    });
+  }
+
+
 }
 
 // Use a named export to ensure TypeScript picks up the type correctly

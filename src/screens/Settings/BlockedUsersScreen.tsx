@@ -171,7 +171,7 @@ const BlockedUsersScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="shield-check" size={48} color={TEXT.SECONDARY} />
+            <Icon name="shield-off" size={48} color={TEXT.SECONDARY} />
             <Text style={styles.emptyTitle}>No Blocked Users</Text>
             <Text style={styles.emptyDescription}>
               You haven't blocked any users yet. Blocked users won't be able to see your content or interact with you.
@@ -308,10 +308,10 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 40,
-    paddingTop: 60,
+    paddingTop: 120,
   },
   emptyTitle: {
     color: TEXT.PRIMARY,

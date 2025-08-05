@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AtprotoService from '../api/AtprotoService';
 import { extractColorsFromImage, isColorDark } from '../../utils/formatting/colorUtils';
+import ImageColors from 'react-native-image-colors';
 import { 
   useQuery, 
   useMutation,
@@ -25,10 +26,12 @@ export interface CachedChannel {
   description?: string;
   avatar?: string;
   likeCount?: number;
+  subscriberCount?: number;
   indexedAt: string;
   channelColors?: {
     backgroundColor: string;
     foregroundColor: string;
+    accentColor?: string; // Add accent color for vibrant UI elements
     statusBarStyle: 'light' | 'dark';
   };
   lastUpdated: number; // timestamp
@@ -41,6 +44,7 @@ export interface ChannelColorScheme {
   textColor: string;
   primaryColor: string;
   secondaryColor: string;
+  accentColor: string; // Add accent color for vibrant UI elements
   statusBarStyle: 'light' | 'dark';
 }
 
@@ -169,10 +173,6 @@ class ChannelCache {
       requestAnimationFrame(() => {
         setTimeout(async () => {
           try {
-            if (this.DEBUG) {
-              console.log(`ChannelCache: Fetching channel for ${uri}`);
-            }
-            
             const normalizedUri = uri.toLowerCase();
             const channel = await AtprotoService.getFeedGenerator(uri);
             if (!channel) {
@@ -180,30 +180,73 @@ class ChannelCache {
               return;
             }
 
+
+
             let channelColors = undefined;
-            if (channel.avatar) {
+            // Robust avatar extraction
+            const avatarUrl =
+              channel.view?.avatar ||
+              channel.avatar ||
+              channel.view?.creator?.avatar ||
+              (channel.creator && channel.creator.avatar) ||
+              undefined;
+            if (avatarUrl) {
               try {
-                channelColors = await extractColorsFromImage(channel.avatar);
+                // Use the improved extractColorsFromImage function for better color extraction
+                const extractedColors = await extractColorsFromImage(avatarUrl);
+                channelColors = {
+                  backgroundColor: extractedColors.backgroundColor,
+                  foregroundColor: '#FFFFFF', // Always use white text for channels
+                  accentColor: extractedColors.accentColor || '#00D4FF', // Use vibrant accent color for UI elements
+                  statusBarStyle: 'light' as const
+                };
               } catch (e) {
                 console.error('[ChannelCache] Error extracting colors:', e);
+                // Set fallback colors if extraction fails
+                channelColors = {
+                  backgroundColor: '#000000',
+                  foregroundColor: '#FFFFFF',
+                  accentColor: '#00D4FF', // Bright cyan fallback accent
+                  statusBarStyle: 'light' as const
+                };
               }
+            } else {
+              // Set fallback colors if no avatar
+              channelColors = {
+                backgroundColor: '#000000',
+                foregroundColor: '#FFFFFF',
+                accentColor: '#00D4FF', // Bright cyan fallback accent
+                statusBarStyle: 'light' as const
+              };
             }
 
+            // Get subscriber count (number of likes on the feed generator post)
+            const subscriberCount = channel.view?.likeCount || 0;
+
             const cacheObject: CachedChannel = {
-              uri: channel.uri,
-              cid: channel.cid,
-              did: channel.did,
-              creator: channel.creator,
-              displayName: channel.displayName,
-              description: channel.description,
-              avatar: channel.avatar,
-              likeCount: channel.likeCount,
-              indexedAt: channel.indexedAt,
+              uri: channel.view?.uri || channel.uri,
+              cid: channel.view?.cid || channel.cid,
+              did: channel.view?.did || channel.did,
+              creator: channel.view?.creator || channel.creator,
+              displayName: channel.view?.displayName || channel.displayName,
+              description: channel.view?.description || channel.description,
+              avatar: avatarUrl, // Use the avatarUrl variable directly
+              likeCount: channel.view?.likeCount || channel.likeCount,
+              subscriberCount,
+              indexedAt: channel.view?.indexedAt || channel.indexedAt,
               channelColors: channelColors ? {
                 backgroundColor: channelColors.backgroundColor,
                 foregroundColor: channelColors.foregroundColor,
-                statusBarStyle: channelColors.statusBarStyle,
-              } : undefined,
+                accentColor: channelColors.accentColor,
+                statusBarStyle: (channelColors.statusBarStyle === 'light' || channelColors.statusBarStyle === 'dark') 
+                  ? channelColors.statusBarStyle 
+                  : 'light',
+              } : {
+                backgroundColor: '#000000',
+                foregroundColor: '#FFFFFF',
+                accentColor: '#00D4FF',
+                statusBarStyle: 'light' as const
+              },
               lastUpdated: Date.now()
             };
 
@@ -239,7 +282,8 @@ class ChannelCache {
   static async updateChannelColors(
     uri: string,
     backgroundColor: string,
-    foregroundColor: string
+    foregroundColor: string,
+    accentColor?: string
   ): Promise<void> {
     if (!uri) return;
     
@@ -261,8 +305,9 @@ class ChannelCache {
               // Create a new colors object to avoid direct reference mutation
               cachedChannel.channelColors = {
                 backgroundColor,
-                foregroundColor,
-                statusBarStyle: isColorDark(backgroundColor) ? 'light' : 'dark'
+                foregroundColor: '#FFFFFF', // Always use white text for channels
+                accentColor: accentColor || cachedChannel.channelColors?.accentColor || '#00D4FF',
+                statusBarStyle: 'light' // Always use light status bar for channels
               };
               
               cachedChannel.lastUpdated = Date.now();
@@ -324,7 +369,13 @@ class ChannelCache {
                 let channelColors = undefined;
                 try {
                   if (channel.avatar) {
-                    channelColors = await extractColorsFromImage(channel.avatar);
+                    const extractedColors = await extractColorsFromImage(channel.avatar);
+                                      channelColors = {
+                    backgroundColor: extractedColors.backgroundColor,
+                    foregroundColor: '#FFFFFF', // Always use white text for channels
+                    accentColor: extractedColors.accentColor || '#00D4FF', // Use vibrant accent color for UI elements
+                    statusBarStyle: 'light' as const
+                  };
                   }
                 } catch (e) {
                   console.error('[ChannelCache] Error extracting colors:', e);
@@ -343,6 +394,7 @@ class ChannelCache {
                   channelColors: channelColors ? {
                     backgroundColor: channelColors.backgroundColor,
                     foregroundColor: channelColors.foregroundColor,
+                    accentColor: channelColors.accentColor,
                     statusBarStyle: channelColors.statusBarStyle,
                   } : undefined,
                   lastUpdated: Date.now()
@@ -416,10 +468,6 @@ class ChannelCache {
 
             const needsFetching = urisToPrefetch.length - alreadyCached;
 
-            if (this.DEBUG) {
-              console.log(`[ChannelCache] Batch prefetching ${urisToPrefetch.length} channels (${alreadyCached} cached, ${needsFetching} new)`);
-            }
-
             // Process URIs in smaller batches to avoid overwhelming the API
             const batchSize = 5;
             for (let i = 0; i < urisToPrefetch.length; i += batchSize) {
@@ -439,10 +487,6 @@ class ChannelCache {
                   console.warn(`[ChannelCache] Error prefetching channel ${uri}:`, error);
                 }
               }));
-            }
-
-            if (this.DEBUG) {
-              console.log(`[ChannelCache] Batch prefetch completed for ${urisToPrefetch.length} channels`);
             }
             
             resolve();
@@ -486,6 +530,19 @@ class ChannelCache {
       console.error('[ChannelCache] Error invalidating channel:', error);
     }
   }
+
+  /**
+   * Force refresh a channel to get updated data including subscriber count
+   */
+  static async forceRefreshChannel(uri: string): Promise<CachedChannel | null> {
+    if (!uri) return null;
+    
+    // Invalidate the cache first
+    await this.invalidateChannel(uri);
+    
+    // Fetch fresh data
+    return await this.fetchAndCacheChannel(uri);
+  }
 }
 
 /**
@@ -509,11 +566,12 @@ export function useChannelColors(uri: string | null | undefined) {
   
   const colors: ChannelColorScheme = {
     backgroundColor: channel?.channelColors?.backgroundColor || '#000000',
-    foregroundColor: channel?.channelColors?.foregroundColor || '#FFFFFF',
-    textColor: channel?.channelColors?.foregroundColor || '#FFFFFF',
+    foregroundColor: '#FFFFFF', // Always use white text for channels
+    textColor: '#FFFFFF', // Always use white text for channels
     primaryColor: channel?.channelColors?.backgroundColor || '#000000',
-    secondaryColor: channel?.channelColors?.foregroundColor || '#FFFFFF',
-    statusBarStyle: channel?.channelColors?.statusBarStyle || 'light',
+    secondaryColor: '#FFFFFF', // Always use white text for channels
+    accentColor: channel?.channelColors?.accentColor || '#000000', // Add accent color for vibrant UI elements
+    statusBarStyle: 'light', // Always use light status bar for channels
   };
   
   return {
@@ -542,14 +600,16 @@ export function useChannelColorsMutation() {
     mutationFn: async ({ 
       uri, 
       backgroundColor, 
-      foregroundColor 
+      foregroundColor,
+      accentColor 
     }: { 
       uri: string, 
       backgroundColor: string, 
-      foregroundColor: string 
+      foregroundColor: string,
+      accentColor?: string 
     }) => {
-      await ChannelCache.updateChannelColors(uri, backgroundColor, foregroundColor);
-      return { uri, backgroundColor, foregroundColor };
+      await ChannelCache.updateChannelColors(uri, backgroundColor, foregroundColor, accentColor);
+      return { uri, backgroundColor, foregroundColor, accentColor };
     },
     onSuccess: (_, { uri }) => {
       // Invalidate the specific channel query to refetch with new colors
@@ -569,4 +629,7 @@ export function useChannelInvalidation() {
   }, [queryClient]);
 }
 
-export default ChannelCache; 
+// Export forceRefreshChannel for direct use
+export const forceRefreshChannel = ChannelCache.forceRefreshChannel.bind(ChannelCache);
+
+export default ChannelCache;

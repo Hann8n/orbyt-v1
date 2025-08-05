@@ -1,10 +1,12 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
-import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
 import AtprotoService from '../services/api/AtprotoService';
 import WatchHistory from '../services/WatchHistory';
 import { queryKeys } from '../services/queryKeys';
-import { hasVideoContent } from '../utils/helpers/video';
 import type { ModerationDecision } from '../services/ModerationTypes';
+import { useSubscribedChannels } from './useSubscribedChannels';
+import FeedConfigManager from '../services/FeedConfig';
+import { feedPerformanceMonitor } from '../utils/helpers/performance';
 
 export interface Post {
   embed?: {
@@ -17,6 +19,7 @@ export interface Post {
     };
   };
   uri: string;
+  cid: string;
   author?: {
     avatar?: string;
     displayName?: string;
@@ -43,6 +46,7 @@ export interface FeedItem {
     };
   };
   moderationDecision?: ModerationDecision;
+  sourceFeed?: string; // Added for your mix feed to track which feed each post comes from
 }
 
 export interface APIResponse {
@@ -73,7 +77,8 @@ const feedStateStore = new Map<
 export function useFeedQuery(
   feedOption: FeedOption, 
   userDid?: string, 
-  queryOptions: QueryOptions = {}
+  queryOptions: QueryOptions = {},
+  maxFeeds?: number // Use config default if not provided
 ) {
   // Store the feed state for persistence across components
   const feedState = useRef<{
@@ -83,6 +88,9 @@ export function useFeedQuery(
       pages: APIResponse[];
     }
   }>({});
+
+  // Get subscribed channels for your mix feed
+  const { channels: subscribedChannels = [] } = useSubscribedChannels();
 
   // Initialize from global store if available
   if (feedStateStore.has(feedOption) && !feedState.current[feedOption]) {
@@ -100,7 +108,8 @@ export function useFeedQuery(
     
     switch (feedOption) {
       case 'yourMix':
-        return 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids';
+        // Your Mix now uses mixed feed logic, so return null to indicate it should be handled specially
+        return null;
       case 'discover':
         return 'at://did:plc:tenurhgjptubkk5zf5qhi3og/app.bsky.feed.generator/discover-video';
       case 'following':
@@ -116,7 +125,9 @@ export function useFeedQuery(
    * Always loads maximum metadata for optimal batch loading
    */
   const fetchFeed = useCallback(async ({ pageParam }: { pageParam?: unknown }): Promise<APIResponse> => {
-    const startTime = Date.now();
+    const operationId = `${feedOption}-${pageParam ? 'pagination' : 'initial'}`;
+    feedPerformanceMonitor.startTimer(operationId);
+    
     let rawPosts: FeedItem[] = [];
     let apiCursor: string | null = null;
 
@@ -143,10 +154,37 @@ export function useFeedQuery(
         }
         
         apiCursor = response.cursor ?? null;
+      } else if (feedOption === 'yourMix') {
+        // Your Mix feed - combine all subscribed channels (mixed feed logic moved here)
+        const feedUris = subscribedChannels
+          .filter((channel: any) => channel.uri !== 'following') // Only exclude following
+          .map((channel: any) => {
+            // Convert 'yourMix' to the actual feed URI
+            if (channel.uri === 'yourMix') {
+              return 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids';
+            }
+            return channel.uri;
+          });
+        
+        if (feedUris.length > 0) {
+          const effectiveMaxFeeds = maxFeeds ?? FeedConfigManager.getMaxFeedsPerFetch();
+          // Use smaller limit for initial load to improve performance and get content faster
+          const initialLimit = pageParam ? 50 : 20; // Reduced from 30 to 20 for faster initial load
+          const response = await AtprotoService.getMixedFeed(feedUris, pageParam as string | null, initialLimit, true, effectiveMaxFeeds);
+          rawPosts = response.feed ?? [];
+          apiCursor = response.cursor ?? null;
+        } else {
+          // Fallback to single feed if no other channels
+          const initialLimit = pageParam ? 50 : 20; // Reduced from 30 to 20 for faster initial load
+          const response = await AtprotoService.getFeed(pageParam as string | null, 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids', {}, true, initialLimit);
+          rawPosts = response.feed ?? [];
+          apiCursor = response.cursor ?? null;
+        }
       } else {
-        // "yourMix", "discover", "following", or custom feed URIs - always load maximum metadata
+        // "discover", "following", or custom feed URIs - always load maximum metadata
         const feedLink = getFeedLink();
-        const response = await AtprotoService.getFeed(pageParam as string | null, feedLink);
+        const initialLimit = pageParam ? 50 : 20; // Reduced from 30 to 20 for faster initial load
+        const response = await AtprotoService.getFeed(pageParam as string | null, feedLink, {}, true, initialLimit);
         rawPosts = response.feed ?? [];
         apiCursor = response.cursor ?? null;
       }
@@ -154,23 +192,49 @@ export function useFeedQuery(
       // Posts are already filtered for videos at the API level
       let finalPosts = rawPosts;
 
-      // For yourMix feed, filter out watched videos
+      // For yourMix feed, filter out watched videos and ensure no duplicates
       if (feedOption === 'yourMix' && rawPosts.length > 0) {
         const watchedUris = await WatchHistory.getWatchHistory();
         const watchedSet = new Set(watchedUris);
-        finalPosts = rawPosts.filter((item: FeedItem) => !watchedSet.has(item.post.uri));
+        
+        // Remove watched videos and duplicates
+        const seenUris = new Set<string>();
+        const seenCids = new Set<string>();
+        
+        finalPosts = rawPosts.filter((item: FeedItem) => {
+          const uri = item.post.uri;
+          const cid = item.post.cid;
+          
+          // Skip if watched
+          if (watchedSet.has(uri)) {
+            return false;
+          }
+          
+          // Skip if duplicate
+          if (!uri || !cid || seenUris.has(uri) || seenCids.has(cid)) {
+            return false;
+          }
+          
+          // Mark as seen
+          seenUris.add(uri);
+          seenCids.add(cid);
+          return true;
+        });
       }
 
+      const duration = feedPerformanceMonitor.endTimer(operationId);
+      console.log(`[useFeedQuery] ${feedOption} feed loaded ${finalPosts.length} posts in ${duration}ms`);
+      
       return {
         feed: finalPosts,
         cursor: apiCursor,
       };
     } catch (error) {
-      const fetchTime = Date.now() - startTime;
-      console.error(`[useFeedQuery] Error fetching ${feedOption} feed after ${fetchTime}ms:`, error);
+      feedPerformanceMonitor.endTimer(operationId);
+      console.error(`[useFeedQuery] Error fetching ${feedOption} feed:`, error);
       throw error;
     }
-  }, [feedOption, userDid, getFeedLink]);
+  }, [feedOption, userDid, getFeedLink, subscribedChannels, maxFeeds]);
 
   /**
    * Setup the infinite query with optimized batch loading
@@ -209,11 +273,13 @@ export function useFeedQuery(
     refetchOnWindowFocus: queryOptions.refetchOnWindowFocus ?? false,
     refetchOnMount: queryOptions.refetchOnMount ?? false,
     refetchOnReconnect: false,
+    // Add lazy loading for better performance
+    refetchInterval: false, // Disable automatic refetching
     ...queryOptions
   });
 
   // Flatten the pages for a single data array
-  const feed = query.data?.pages.flatMap((page) => page.feed).filter(Boolean) || [];
+  const feed = query.data?.pages.flatMap((page: APIResponse) => page.feed).filter(Boolean) || [];
 
   const saveScrollPosition = useCallback((offset: number) => {
     if (feedState.current[feedOption]) {

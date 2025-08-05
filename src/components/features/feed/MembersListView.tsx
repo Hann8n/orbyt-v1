@@ -12,6 +12,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
+import { LinearGradient } from 'expo-linear-gradient';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar, Icon } from '../../ui/UI';
 import VerificationBadge from '../verification/VerificationBadge';
@@ -19,6 +21,40 @@ import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Shimmer component for member items
+const MemberItemShimmer = () => (
+  <View style={styles.memberItem}>
+    <ShimmerPlaceholder
+      LinearGradient={LinearGradient}
+      style={[styles.memberAvatar, { borderRadius: 20 }]}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
+    />
+    <View style={styles.memberDetails}>
+      <View style={styles.memberNameRow}>
+        <ShimmerPlaceholder
+          LinearGradient={LinearGradient}
+          style={{ width: 120, height: 16, borderRadius: 4, marginBottom: 4 }}
+          shimmerColors={Colors.SHIMMER.PRIMARY}
+        />
+      </View>
+      <ShimmerPlaceholder
+        LinearGradient={LinearGradient}
+        style={{ width: 80, height: 14, borderRadius: 3 }}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
+      />
+    </View>
+  </View>
+);
+
+// Shimmer list component
+const MembersListShimmer = ({ count = 8 }: { count?: number }) => (
+  <View style={styles.container}>
+    {Array.from({ length: count }).map((_, index) => (
+      <MemberItemShimmer key={`shimmer-${index}`} />
+    ))}
+  </View>
+);
 
 interface Member {
   did: string;
@@ -310,6 +346,16 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     );
   }
 
+  // Show shimmer while loading
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor }]}>
+        {headerComponent}
+        <MembersListShimmer count={8} />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor }]}>
       <FlatList
@@ -360,6 +406,7 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     paddingBottom: 20,
@@ -371,11 +418,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.BORDER.PRIMARY,
-  },
-  memberInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    backgroundColor: '#000',
   },
   memberAvatar: {
     width: 40,
@@ -384,6 +427,11 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderWidth: 1,
     borderColor: Colors.BORDER.PRIMARY,
+  },
+  memberInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   memberDetails: {
     flex: 1,
@@ -395,7 +443,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   memberName: {
-    color: Colors.TEXT.PRIMARY,
+    color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 14,
     marginBottom: 2,
@@ -404,7 +452,7 @@ const styles = StyleSheet.create({
   },
 
   memberHandle: {
-    color: Colors.TEXT.LIGHT_GREY,
+    color: '#888888',
     fontSize: 14,
     fontFamily: 'Firma-Regular',
   },
@@ -423,7 +471,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   followButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
   },

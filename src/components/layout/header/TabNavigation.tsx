@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import Icon from '../../ui/Icon';
+import { ListViewIcon, GridViewIcon } from '../../ui/Icon';
 
 export interface TabOption {
   id: string;
@@ -14,6 +14,7 @@ interface TabNavigationProps {
   onTabPress: (tabId: string) => void;
   textColor?: string;
   backgroundColor?: string;
+  accentColor?: string; // Add accent color for vibrant tab styling
   style?: any;
   viewMode?: 'list' | 'grid';
   onViewModeChange?: (mode: 'list' | 'grid') => void;
@@ -26,16 +27,20 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   onTabPress,
   textColor = '#fff',
   backgroundColor = 'transparent',
+  accentColor, // Add accent color prop
   style,
   viewMode = 'list',
   onViewModeChange,
   showViewToggle = false,
 }) => {
-  const handleViewToggle = () => {
+  const handleViewModeChange = (mode: 'list' | 'grid') => {
     if (onViewModeChange) {
-      onViewModeChange(viewMode === 'list' ? 'grid' : 'list');
+      onViewModeChange(mode);
     }
   };
+
+  // Use accent color for active tabs, fallback to text color
+  const activeTabColor = accentColor || textColor;
 
   return (
     <View style={[styles.tabContainer, { backgroundColor }, style]}>
@@ -48,13 +53,14 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             disabled={tab.disabled}
             style={[
               styles.tabOption,
+              activeTab === tab.id && styles.activeTabOption,
               tab.disabled && styles.disabledTab,
             ]}
           >
             <Text
               style={[
                 styles.tabText,
-                { color: textColor },
+                { color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.7) },
                 activeTab === tab.id && styles.activeTabText,
                 tab.disabled && styles.disabledTabText,
               ]}
@@ -65,21 +71,53 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         ))}
       </View>
       
-      {showViewToggle && onViewModeChange && (
-        <TouchableOpacity
-          style={styles.viewToggleButton}
-          onPress={handleViewToggle}
-          activeOpacity={0.7}
-        >
-          <Icon 
-            name={viewMode === 'list' ? 'grid' : 'menu'} 
-            size={20} 
-            color={textColor} 
-          />
-        </TouchableOpacity>
-      )}
+      {/* Always render the view toggle area to maintain consistent spacing */}
+      <View style={styles.viewToggleArea}>
+        {showViewToggle && onViewModeChange && (
+          <View style={styles.viewToggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.viewToggleButton,
+                viewMode === 'grid' && styles.activeViewToggleButton
+              ]}
+              onPress={() => handleViewModeChange('grid')}
+              activeOpacity={0.7}
+            >
+              <GridViewIcon 
+                color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.6)} 
+                size={20}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.viewToggleButton,
+                viewMode === 'list' && styles.activeViewToggleButton
+              ]}
+              onPress={() => handleViewModeChange('list')}
+              activeOpacity={0.7}
+            >
+              <ListViewIcon 
+                color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.6)} 
+                size={20}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </View>
   );
+};
+
+// Helper function for hex to rgba conversion
+const hexToRGBA = (hex: string, alpha: number): string => {
+  hex = hex.replace('#', '');
+  if (hex.length === 3) {
+    hex = hex.split('').map(c => c + c).join('');
+  }
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 const styles = StyleSheet.create({
@@ -88,10 +126,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingLeft: 0,
-    paddingRight: 0,
     marginTop: 4,
-    marginLeft: 0,
+
+    backgroundColor: 'transparent',
   },
   tabsRow: {
     flexDirection: 'row',
@@ -99,9 +136,8 @@ const styles = StyleSheet.create({
     gap: 8, // reduced from 20 to 8
   },
   tabOption: {
-    paddingVertical: 4,
-    paddingHorizontal: 0,
-    paddingLeft: 0,
+
+
     paddingRight: 8,
   },
   tabText: {
@@ -119,9 +155,26 @@ const styles = StyleSheet.create({
   disabledTabText: {
     opacity: 0.3,
   },
+  activeTabOption: {
+    opacity: 1,
+  },
+  viewToggleArea: {
+    width: 'auto', // Remove fixed width to eliminate right padding
+    height: 36, // Fixed height to maintain consistent spacing
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+  },
+  viewToggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2, // Fine-tune vertical alignment with tabs
+  },
   viewToggleButton: {
-    padding: 8,
-    borderRadius: 8,
+    padding: 6,
+    borderRadius: 50,
+  },
+  activeViewToggleButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
 });

@@ -546,7 +546,6 @@ class VideoProcessingService {
       
       // Fallback: use the first video if merging fails
       if (videoPaths.length > 0) {
-        console.log('Using fallback: first video only');
         const compressedVideo = await this.compressVideoWithSizeLimit(videoPaths[0]);
         return compressedVideo.path;
       }

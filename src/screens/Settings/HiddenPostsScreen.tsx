@@ -174,7 +174,7 @@ const HiddenPostsScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="eye-off" size={48} color={TEXT.SECONDARY} />
+            <Icon name="eye-closed" size={48} color={TEXT.SECONDARY} />
             <Text style={styles.emptyTitle}>No Hidden Posts</Text>
             <Text style={styles.emptyDescription}>
               You haven't hidden any posts yet. Hidden posts won't appear in your feed, but you can unhide them here.
@@ -321,10 +321,10 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 40,
-    paddingTop: 60,
+    paddingTop: 120,
   },
   emptyTitle: {
     color: TEXT.PRIMARY,
