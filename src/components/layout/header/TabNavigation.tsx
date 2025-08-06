@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   tabText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
     opacity: 0.7,
