@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tansta
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Icon } from '../components/ui/UI';
+
 import { GridViewIcon } from '../components/ui/Icon';
 import { BRAND, TEXT, INTERACTIVE, UI, STATUS } from '../utils/formatting/Colors';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
@@ -35,7 +36,7 @@ import { extractVideoThumbnail } from '../utils/helpers/video';
 import { feedService } from '../services/FeedService';
 import { FORCE_SEARCH_ERROR, getForcedErrorMessage } from '../utils/helpers/errorDebug';
 import { formatNumber } from '../utils/helpers/formatNumber';
-import { ModerationService } from '../services/ModerationService';
+// import { ModerationService } from '../services/ModerationService'; // Commented out since videos are disabled
 
 interface Profile {
   did: string;
@@ -94,21 +95,23 @@ interface SpotlightVideosSection {
   key: string;
 }
 
-// Add a new type for horizontal scrolling columns
-interface ColumnData {
-  type: 'mixed-column';
-  data: (Profile | Channel)[];
+
+
+interface LoadMoreSection {
+  type: 'load-more';
+  section: 'profiles' | 'channels';
+  remaining: number;
   key: string;
 }
 
-interface HorizontalColumnsSection {
-  type: 'horizontal-columns';
-  mixedResults: (Profile | Channel)[];
-  columns: ColumnData[];
+interface PeopleChannelsSection {
+  type: 'people-channels-section';
+  profiles: Profile[];
+  channels: Channel[];
   key: string;
 }
 
-type ListItem = SearchResult | SectionHeader | VideoGridSection | SpotlightVideosSection | HorizontalColumnsSection;
+type ListItem = SearchResult | SectionHeader | VideoGridSection | SpotlightVideosSection | LoadMoreSection | PeopleChannelsSection;
 
 
 
@@ -199,7 +202,37 @@ const FeedShimmer = () => (
 );
 
 // Section header shimmer skeleton component
+const SectionHeaderShimmer = () => (
+  <View style={styles.sectionHeader}>
+    <ShimmerPlaceholder
+      LinearGradient={LinearGradient}
+      style={{ width: 120, height: 16, borderRadius: 3 }}
+      shimmerColors={UI.SHIMMER}
+    />
+  </View>
+);
 
+// Spotlight videos shimmer skeleton component
+const SpotlightVideosShimmer = () => (
+  <View style={styles.spotlightContainer}>
+    <FlatList
+      data={Array(4).fill(0)}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.spotlightScrollContainer}
+      keyExtractor={(_, index) => `spotlight-shimmer-${index}`}
+      renderItem={({ item, index }) => (
+        <View style={styles.spotlightVideoItem}>
+          <ShimmerPlaceholder
+            LinearGradient={LinearGradient}
+            style={[styles.spotlightVideoThumbnail, { borderWidth: 1, borderColor: UI.BORDER.PRIMARY }]}
+            shimmerColors={UI.SHIMMER}
+          />
+        </View>
+      )}
+    />
+  </View>
+);
 
 // Video shimmer skeleton component
 const VideoShimmer = () => (
@@ -234,7 +267,6 @@ const ExploreScreen: React.FC = () => {
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
   const [isScrolling, setIsScrolling] = useState(false);
   const [allSuggestions, setAllSuggestions] = useState<any[]>([]);
-  const [allVideos, setAllVideos] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'grid'>('grid');
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
@@ -269,6 +301,14 @@ const ExploreScreen: React.FC = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
 
+  // Reset showAll states when search query changes
+  useEffect(() => {
+    // setShowAllProfiles(false); // Removed
+    // setShowAllChannels(false); // Removed
+  }, [debouncedQuery]);
+
+
+
   // Unified search function that combines profiles, channels, and videos
   const performUnifiedSearch = useCallback(async (query: string, pageParam?: string | null) => {
     if (!query || query.trim() === '') {
@@ -276,29 +316,18 @@ const ExploreScreen: React.FC = () => {
     }
 
     try {
-      // Search for profiles and videos in parallel (channels don't support pagination)
-      let profilesResponse, videosResponse;
+      // Search for profiles and channels in parallel (videos commented out)
+      let profilesResponse, channelsResponse;
       try {
-        [profilesResponse, videosResponse] = await Promise.all([
+        [profilesResponse, channelsResponse] = await Promise.all([
           AtprotoService.searchProfilesPaginated(query, pageParam as string | null),
-          AtprotoService.searchVideosPaginated(query, pageParam as string | null)
+          // AtprotoService.searchVideosPaginated(query, pageParam as string | null) // Commented out video support
+          AtprotoService.searchPopularFeeds(query, 15) // Get channels instead
         ]);
       } catch (error) {
         console.error('Error in parallel search:', error);
         profilesResponse = { profiles: [], cursor: null };
-        videosResponse = { videos: [], cursor: null };
-      }
-
-      // Only fetch channels on the first page to avoid duplicates
-      let channelsResponse: any[] = [];
-      if (!pageParam) {
-        try {
-          // Request more channels to ensure we get enough video-only results
-          channelsResponse = await AtprotoService.searchPopularFeeds(query, 15);
-        } catch (error) {
-          console.warn('Error fetching channels:', error);
-          channelsResponse = [];
-        }
+        channelsResponse = [];
       }
 
       // Process profiles
@@ -311,62 +340,56 @@ const ExploreScreen: React.FC = () => {
         relevance: calculateRelevance(profile, query, 'profile')
       }));
 
-      // Process channels (only on first page)
+      // Process channels
       const processedChannels = channelsResponse.map(channel => ({
         type: 'channel' as const,
         data: channel as Channel,
         relevance: calculateRelevance(channel, query, 'channel')
       }));
 
-      // Apply moderation to videos
-      let moderatedVideos = videosResponse.videos || [];
-      if (moderatedVideos.length > 0) {
-        try {
-          // Convert search videos to the expected feed item format for moderation
-          const feedItems = moderatedVideos.map(video => ({
-            post: video,
-            shouldCache: true,
-            uniqueKey: video.uri,
-          }));
-          
-          const moderationResult = await ModerationService.batchModeratePosts(feedItems);
-          moderatedVideos = moderationResult.filteredPosts.map(item => item.post);
-          
-          // Attach moderation decisions to videos
-          const moderationMap = moderationResult.moderationDecisions;
-          moderatedVideos = moderatedVideos.map(video => {
-            const uri = video?.uri;
-            return uri && moderationMap.has(uri)
-              ? { ...video, moderationDecision: moderationMap.get(uri) }
-              : video;
-          });
-        } catch (error) {
-          console.warn('Error applying moderation to search videos:', error);
-        }
-      }
+      // Comment out video processing
+      // let moderatedVideos = videosResponse.videos || [];
+      // if (moderatedVideos.length > 0) {
+      //   try {
+      //     const feedItems = moderatedVideos.map(video => ({
+      //       post: video,
+      //       shouldCache: true,
+      //       uniqueKey: video.uri,
+      //     }));
+      //     
+      //     const moderationResult = await ModerationService.batchModeratePosts(feedItems);
+      //     moderatedVideos = moderationResult.filteredPosts.map(item => item.post);
+      //     
+      //     const moderationMap = moderationResult.moderationDecisions;
+      //     moderatedVideos = moderatedVideos.map(video => {
+      //       const uri = video?.uri;
+      //       return uri && moderationMap.has(uri)
+      //         ? { ...video, moderationDecision: moderationMap.get(uri) }
+      //         : video;
+      //     });
+      //   } catch (error) {
+      //     console.warn('Error applying moderation to search videos:', error);
+      //   }
+      // }
 
-      // Process videos
-      const processedVideos = moderatedVideos.map(video => {
-        // Add some debugging for video structure
-        if (!video.uri) {
-          console.warn('Video missing URI:', video);
-        }
-        return {
-          type: 'video' as const,
-          data: video,
-          relevance: calculateRelevance(video, query, 'video')
-        };
-      });
+      // const processedVideos = moderatedVideos.map(video => {
+      //   if (!video.uri) {
+      //     console.warn('Video missing URI:', video);
+      //   }
+      //   return {
+      //     type: 'video' as const,
+      //     data: video,
+      //     relevance: calculateRelevance(video, query, 'video')
+      //   };
+      // });
 
-      // Note: allVideos is now updated in useEffect based on searchData
-
-      // Combine all results in backend order (no client-side sorting)
+      // Combine all results and sort by relevance
       const allResults: ListItem[] = [
         ...processedProfiles,
         ...processedChannels,
-        ...processedVideos
+        // ...processedVideos // Commented out video results
       ];
-      // Removed: allResults.sort((a, b) => (b as SearchResult).relevance - (a as SearchResult).relevance);
+      allResults.sort((a, b) => (b as SearchResult).relevance - (a as SearchResult).relevance);
 
       return {
         results: allResults,
@@ -390,20 +413,22 @@ const ExploreScreen: React.FC = () => {
       if (item.description?.toLowerCase().includes(queryLower)) score += 5;
       if (item.viewer?.followedBy) score += 3; // Boost followed profiles
     } else if (type === 'channel') {
-      // Channel relevance scoring
+      // Channel relevance scoring - focus on actual search relevance
       if (item.displayName?.toLowerCase().includes(queryLower)) score += 10;
       if (item.description?.toLowerCase().includes(queryLower)) score += 8;
       if (item.creator?.handle?.toLowerCase().includes(queryLower)) score += 6;
-      if (item.likeCount && item.likeCount > 100) score += 2; // Boost popular channels
-    } else if (type === 'video') {
-      // Video relevance scoring
-      const videoText = item.text || item.record?.text || '';
-      if (videoText.toLowerCase().includes(queryLower)) score += 10;
-      if (item.author?.displayName?.toLowerCase().includes(queryLower)) score += 6;
-      if (item.author?.handle?.toLowerCase().includes(queryLower)) score += 5;
-      if (item.labels && item.labels.some((l: any) => l.val?.toLowerCase().includes(queryLower))) score += 3;
-      if (item.likeCount && item.likeCount > 10) score += 2;
+      // Removed popularity boost to focus on search relevance
     }
+    // Comment out video relevance scoring since videos are disabled
+    // else if (type === 'video') {
+    //   // Video relevance scoring
+    //   const videoText = item.text || item.record?.text || '';
+    //   if (videoText.toLowerCase().includes(queryLower)) score += 10;
+    //   if (item.author?.displayName?.toLowerCase().includes(queryLower)) score += 6;
+    //   if (item.author?.handle?.toLowerCase().includes(queryLower)) score += 5;
+    //   if (item.labels && item.labels.some((l: any) => l.val?.toLowerCase().includes(queryLower))) score += 3;
+    //   if (item.likeCount && item.likeCount > 10) score += 2;
+    // }
 
     return score;
   };
@@ -439,25 +464,23 @@ const ExploreScreen: React.FC = () => {
     return searchData?.pages.flatMap(page => page.results) || [];
   }, [searchData]);
 
-  // Update allVideos with all videos from all pages when search results change
-  useEffect(() => {
-    if (searchData?.pages) {
-      const allVideosFromPages = searchData.pages.flatMap(page => {
-        const videoResults = page.results.filter((result: any) => result.type === 'video');
-        return videoResults.map((result: any) => result.data);
-      });
-      setAllVideos(allVideosFromPages);
-      
-      // Also update the FeedStore with formatted feed data
-      const formattedFeed = allVideosFromPages.map(video => ({
-        post: video,
-        shouldCache: true,
-        uniqueKey: video.uri,
-        moderationDecision: video.moderationDecision,
-      }));
-      feedService.setCurrentFeed(formattedFeed);
-    }
-  }, [searchData]);
+  // Comment out video-related useEffect since videos are disabled
+  // useEffect(() => {
+  //   if (searchData?.pages) {
+  //     const allVideosFromPages = searchData.pages.flatMap(page => {
+  //       const videoResults = page.results.filter((result: any) => result.type === 'video');
+  //       return videoResults.map((result: any) => result.data);
+  //     });
+  //     setAllVideos(allVideosFromPages);
+  //     
+  //     const formattedFeed = allVideosFromPages.map(video => ({
+  //       post: video,
+  //       shouldCache: true,
+  //       uniqueKey: video.uri,
+  //     }));
+  //     setCurrentFeed(formattedFeed);
+  //   }
+  // }, [searchData]);
 
   // Batch prefetch profiles and channels when search results change
   useEffect(() => {
@@ -631,7 +654,10 @@ const ExploreScreen: React.FC = () => {
   );
 
   // For shimmer loading, define a discriminated union type
-  const shimmerTypes = ['profile', 'channel', 'video'] as const;
+  const shimmerTypes = [
+    'profile', 'channel', 'profile', 'channel', 'profile', 
+    'channel', 'profile', 'channel', 'profile', 'channel'
+  ] as const;
   type ShimmerType = typeof shimmerTypes[number];
 
   // Create shimmer items for suggested content with section headers
@@ -639,16 +665,16 @@ const ExploreScreen: React.FC = () => {
     return [
       // Section header for spotlight
       { type: 'section-header' as const, key: 'spotlight-header-shimmer' },
-      // Spotlight video items
-      ...Array(3).fill(0).map((_, index) => ({ type: 'video' as const, key: `spotlight-video-shimmer-${index}` })),
+      // Spotlight videos section
+      { type: 'spotlight-videos' as const, key: 'spotlight-videos-shimmer' },
       // Section header for feeds
       { type: 'section-header' as const, key: 'feeds-header-shimmer' },
-      // Feed items
-      ...Array(3).fill(0).map((_, index) => ({ type: 'feed' as const, key: `feed-shimmer-${index}` })),
+      // Feed items - increased from 3 to 8
+      ...Array(8).fill(0).map((_, index) => ({ type: 'channel' as const, key: `feed-shimmer-${index}` })),
       // Section header for accounts
       { type: 'section-header' as const, key: 'accounts-header-shimmer' },
-      // Account items
-      ...Array(5).fill(0).map((_, index) => ({ type: 'profile' as const, key: `profile-shimmer-${index}` }))
+      // Account items - increased from 5 to 10
+      ...Array(10).fill(0).map((_, index) => ({ type: 'profile' as const, key: `profile-shimmer-${index}` }))
     ];
   }, []);
 
@@ -674,19 +700,12 @@ const ExploreScreen: React.FC = () => {
       typeof item === 'object' &&
       'type' in item &&
       item.type !== 'section-header' &&
+      item.type !== 'load-more' &&
       'data' in item
     );
   }
 
-  // Type predicate to check if item is a Profile
-  function isProfile(item: any): item is Profile {
-    return 'did' in item && 'handle' in item;
-  }
 
-  // Type predicate to check if item is a Channel
-  function isChannel(item: any): item is Channel {
-    return 'uri' in item && 'displayName' in item;
-  }
 
   // Helper function for hex to rgba conversion (copied from TabNavigation)
   const hexToRGBA = (hex: string, alpha: number): string => {
@@ -830,7 +849,7 @@ const ExploreScreen: React.FC = () => {
               onPress={() => {
                 if (video.uri) {
                   // Find the index of this video in the allVideos array
-                  const videoIndex = allVideos.findIndex(v => v.uri === video.uri);
+                  const videoIndex = 0; // allVideos.findIndex(v => v.uri === video.uri); // Removed allVideos
                   const index = videoIndex >= 0 ? videoIndex : 0;
                   
                   // FeedStore is already updated with formatted data from useEffect
@@ -895,63 +914,71 @@ const ExploreScreen: React.FC = () => {
       }
     }
     return null;
-  }, [navigation, queryClient, allVideos, debouncedQuery, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [navigation, queryClient, debouncedQuery, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Organize search results into sections
   const organizedSearchResults = useMemo(() => {
     if (!searchResults.length) return [];
     
-    // Get all profiles and channels in backend order (no client-side sorting)
-    const profilesAndChannels = searchResults
-      .filter((result): result is SearchResult => result.type === 'profile' || result.type === 'channel')
-      .map(result => result.data as Profile | Channel);
+    // Separate profiles and channels (videos commented out)
+    const profiles = searchResults
+      .filter((result): result is SearchResult => result.type === 'profile')
+      .map(result => result.data as Profile)
+      .filter((profile, index, self) => 
+        index === self.findIndex(p => p.did === profile.did)
+      );
     
-    const videos = searchResults
-      .filter((result): result is SearchResult => result.type === 'video')
-      .map(result => result.data);
+    const channels = searchResults
+      .filter((result): result is SearchResult => result.type === 'channel')
+      .map(result => result.data as Channel)
+      .filter((channel, index, self) => 
+        index === self.findIndex(c => c.uri === channel.uri)
+      );
+    
+    // const videos = searchResults
+    //   .filter((result): result is SearchResult => result.type === 'video')
+    //   .map(result => result.data);
     
     const sections: ListItem[] = [];
     
-    // Add mixed profiles and channels in horizontal scrolling columns
-    if (profilesAndChannels.length > 0) {
-      // Create columns with 5 items each
-      const itemsPerColumn = 5;
-      const mixedColumns = [];
-      
-      // Split mixed results into columns
-      for (let i = 0; i < profilesAndChannels.length; i += itemsPerColumn) {
-        mixedColumns.push(profilesAndChannels.slice(i, i + itemsPerColumn));
-      }
-      
-      // Create columns data
-      const columns: ColumnData[] = [];
-      mixedColumns.forEach((mixedColumn, index) => {
-        columns.push({
-          type: 'mixed-column',
-          data: mixedColumn,
-          key: `mixed-column-${index}`
-        });
-      });
-      
-      sections.push({
-        type: 'horizontal-columns',
-        mixedResults: profilesAndChannels,
-        columns: columns,
-        key: 'horizontal-columns'
-      });
+    // Add people and channels section if either exists
+    if (profiles.length > 0 || channels.length > 0) {
+      sections.push({ type: 'people-channels-section' as const, profiles, channels, key: 'people-channels' });
     }
     
-    // Add videos grid if there are videos
-    if (videos.length > 0) {
-      sections.push({
-        type: 'video-grid',
-        videos: videos,
-        key: 'videos-grid'
-      });
-    }
+    // Comment out video grid
+    // if (videos.length > 0) {
+    //   sections.push({
+    //     type: 'video-grid',
+    //     videos: videos,
+    //     key: 'videos-grid'
+    //   });
+    // }
     
     return sections;
   }, [searchResults]);
+
+  // Get combined profiles and channels for unified feed
+  const combinedResults = useMemo(() => {
+    const peopleChannelsSection = organizedSearchResults.find(section => section.type === 'people-channels-section') as PeopleChannelsSection;
+    const profiles = peopleChannelsSection?.profiles || [];
+    const channels = peopleChannelsSection?.channels || [];
+    
+    // Get the original search results to preserve relevance ordering
+    const profileResults = searchResults
+      .filter((result): result is SearchResult => result.type === 'profile')
+      .map(result => ({ type: 'profile' as const, data: result.data as Profile, relevance: result.relevance }));
+    
+    const channelResults = searchResults
+      .filter((result): result is SearchResult => result.type === 'channel')
+      .map(result => ({ type: 'channel' as const, data: result.data as Channel, relevance: result.relevance }));
+    
+    // Combine and sort by relevance to mix profiles and channels together
+    const combined = [...profileResults, ...channelResults];
+    combined.sort((a, b) => b.relevance - a.relevance);
+    
+    return combined;
+  }, [organizedSearchResults, searchResults]);
 
 
   const isLoadingResults = isLoading || isFetching && !isFetchingNextPage;
@@ -1015,17 +1042,17 @@ const ExploreScreen: React.FC = () => {
       // Apply moderation to spotlight videos
       if (feed.length > 0) {
         try {
-          const moderationResult = await ModerationService.batchModeratePosts(feed);
-          feed = moderationResult.filteredPosts;
+          // const moderationResult = await ModerationService.batchModeratePosts(feed); // Commented out ModerationService
+          // feed = moderationResult.filteredPosts;
           
-          // Attach moderation decisions to videos
-          const moderationMap = moderationResult.moderationDecisions;
-          feed = feed.map((video: any) => {
-            const uri = video?.post?.uri;
-            return uri && moderationMap.has(uri)
-              ? { ...video, moderationDecision: moderationMap.get(uri) }
-              : video;
-          });
+          // // Attach moderation decisions to videos
+          // const moderationMap = moderationResult.moderationDecisions;
+          // feed = feed.map((video: any) => {
+          //   const uri = video?.post?.uri;
+          //   return uri && moderationMap.has(uri)
+          //     ? { ...video, moderationDecision: moderationMap.get(uri) }
+          //     : video;
+          // });
         } catch (error) {
           console.warn('Error applying moderation to spotlight videos:', error);
         }
@@ -1066,7 +1093,7 @@ const ExploreScreen: React.FC = () => {
         pointerEvents="none"
       />
       {/* Search Bar */}
-      <View style={[styles.searchContainer, { top: insets.top + 5, zIndex: 10 }]}>
+              <View style={[styles.searchContainer, { top: insets.top + 10, zIndex: 10 }]}>
         <Icon
           name="search"
           size={24}
@@ -1099,15 +1126,17 @@ const ExploreScreen: React.FC = () => {
               data={shimmerSuggestedItems}
               keyExtractor={(item) => item.key}
               renderItem={({ item }) => {
-                if (item.type === 'feed') {
-                  return <FeedShimmer />;
-                } else if (item.type === 'video') {
-                  return <VideoShimmer />;
+                if (item.type === 'section-header') {
+                  return <SectionHeaderShimmer />;
+                } else if (item.type === 'spotlight-videos') {
+                  return <SpotlightVideosShimmer />;
+                } else if (item.type === 'channel') {
+                  return <ChannelShimmer />;
                 } else {
                   return <ProfileShimmer />;
                 }
               }}
-              contentContainerStyle={[styles.mainExploreContainer, { paddingTop: 60, paddingBottom: getBottomNavBarHeight(insets)}]}
+                              contentContainerStyle={[styles.listContainer, { paddingTop: 70, paddingBottom: getBottomNavBarHeight(insets)}]}
               scrollEnabled={true}
             />
           ) : (suggestionsError || suggestedFeedsError || orbyterRepostsError) ? (
@@ -1145,10 +1174,7 @@ const ExploreScreen: React.FC = () => {
                 if (item.type === 'section-header') {
                   return (
                     <View style={styles.sectionHeader}>
-                      <Text style={[
-                        styles.sectionTitle,
-                        item.title === '🔥 Spotlight' && styles.spotlightTitle
-                      ]}>
+                      <Text style={styles.sectionTitle}>
                         {item.title}
                       </Text>
                     </View>
@@ -1245,7 +1271,7 @@ const ExploreScreen: React.FC = () => {
                 }
                 return renderSearchResult({ item });
               }}
-              contentContainerStyle={[styles.mainExploreContainer, { paddingTop: 60, paddingBottom: getBottomNavBarHeight(insets) }]}
+                              contentContainerStyle={[styles.listContainer, { paddingTop: 70, paddingBottom: getBottomNavBarHeight(insets) }]}
               scrollEnabled={true}
               showsVerticalScrollIndicator={false}
               ListFooterComponent={null}
@@ -1275,18 +1301,18 @@ const ExploreScreen: React.FC = () => {
               const searchResult = item as SearchResult;
               if (searchResult.type === 'profile') {
                 const profile = searchResult.data as Profile;
-                return `profile-${profile.did || profile.handle || index}`;
+                return `search-profile-${profile.did || profile.handle || index}-${index}`;
               }
               if (searchResult.type === 'channel') {
                 const channel = searchResult.data as Channel;
-                return `channel-${channel.uri || channel.cid || index}`;
+                return `search-channel-${channel.uri || channel.cid || index}-${index}`;
               }
               if (searchResult.type === 'video') {
                 const video = searchResult.data;
-                return `video-${video?.uri || video?.cid || index}`;
+                return `search-video-${video?.uri || video?.cid || index}-${index}`;
               }
             }
-            if (item.type === 'video-grid') {
+            if (item.type === 'video-grid' || item.type === 'section-header' || item.type === 'load-more') {
               return item.key;
             }
             return `item-${index}`;
@@ -1301,185 +1327,169 @@ const ExploreScreen: React.FC = () => {
               return renderSearchResult({ item });
             }
 
-            if (item.type === 'horizontal-columns') {
+            if (item.type === 'people-channels-section') {
               return (
-                <View style={styles.horizontalColumnsContainer}>
-                  <FlatList
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    data={item.columns}
-                    keyExtractor={(column, index) => column.key}
-                    snapToInterval={Dimensions.get('window').width}
-                    snapToAlignment="start"
-                    decelerationRate="fast"
-                    renderItem={({ item: column }) => (
-                      <View style={styles.columnContainer}>
-                        <FlatList
-                          data={column.data}
-                          keyExtractor={(item, index) => {
-                            if (isProfile(item)) {
-                              return `profile-${item.did}`;
-                            } else if (isChannel(item)) {
-                              return `channel-${item.uri}`;
-                            }
-                            return `item-${index}`;
-                          }}
-                          renderItem={({ item }) => {
-                            if (isProfile(item)) {
-                              const profile = item;
-                              return (
-                                <TouchableOpacity
-                                  style={styles.profileItem}
-                                  onPress={() => {
-                                    navigation.navigate('AuthorProfile', {
-                                      handle: profile.handle,
-                                      did: profile.did,
+                <View style={styles.peopleChannelsContainer}>
+                  {combinedResults.length > 0 ? (
+                    <>
+                      {combinedResults.map((result, index: number) => {
+                        if (result.type === 'profile') {
+                          const profile = result.data as Profile;
+                          return (
+                            <TouchableOpacity
+                              key={`combined-profile-${profile.did || profile.handle || index}-${index}`}
+                              style={styles.profileItem}
+                              onPress={() => {
+                                if (profile.handle) {
+                                  const handle = profile.handle.trim();
+                                  if (handle && handle.trim()) {
+                                    queryClient.prefetchQuery({
+                                      queryKey: profileKeys.detail(handle.trim()),
+                                      queryFn: () => ProfileCache.getProfile(handle.trim()),
+                                      staleTime: ProfileCache.cacheExpiry
+                                    }).finally(() => {
+                                      navigation.navigate('AuthorProfile', { handle: handle.trim() });
                                     });
-                                  }}
-                                >
-                                  <Avatar
-                                    uri={profile.avatar}
-                                    type="profile"
-                                    size={40}
-                                    style={styles.profileImage}
-                                  />
-                                  <View style={styles.profileContent}>
-                                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                      <Text style={styles.profileName} numberOfLines={1}>
-                                        {profile.displayName || profile.handle}
-                                      </Text>
-                                      {profile.handle && (
-                                        <VerificationBadge handle={profile.handle} textSize={14} textColor="#FFFFFF" />
-                                      )}
-                                    </View>
-                                    <Text style={styles.profileHandle}>
-                                      @{profile.handle}
-                                    </Text>
-                                  </View>
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.followButton,
-                                      profile.isFollowing && styles.followingButton
-                                    ]}
-                                    onPress={() => {
-                                      if (profile.isFollowing) {
-                                        unfollowMutation.mutate({ profile });
-                                      } else {
-                                        followMutation.mutate({ profile });
-                                      }
-                                    }}
-                                  >
-                                    <Text style={[
-                                      styles.followButtonText,
-                                      profile.isFollowing && styles.followingButtonText
-                                    ]}>
-                                      {profile.isFollowing ? 'Following' : 'Follow'}
-                                    </Text>
-                                  </TouchableOpacity>
-                                </TouchableOpacity>
-                              );
-                            } else if (isChannel(item)) {
-                              const channel = item;
-                              return (
-                                <TouchableOpacity
-                                  style={styles.channelItem}
-                                  onPress={() => {
-                                    if (channel.uri && channel.uri.trim()) {
-                                      navigation.navigate('Channel', {
-                                        uri: channel.uri.trim(),
-                                        title: channel.displayName || 'Unknown Channel',
-                                        description: channel.description || '',
-                                        avatar: channel.avatar || '',
-                                        creator: channel.creator || null,
-                                      });
-                                    }
-                                  }}
-                                >
-                                  <Avatar
-                                    uri={channel.avatar}
-                                    type="channel"
-                                    size={40}
-                                    style={styles.channelImage}
-                                  />
-                                  <View style={styles.channelContent}>
-                                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                      <Text style={styles.channelName} numberOfLines={1}>
-                                        {channel.displayName || 'Unknown channel'}
-                                      </Text>
-                                      {channel.isExperimental && (
-                                        <Icon name="bug" size={12} color="#4CAF50" style={styles.experimentalIcon} />
-                                      )}
-                                    </View>
-                                    <Text style={styles.channelCreator}>
-                                      by @{channel.creator?.handle || 'unknown'}
-                                    </Text>
-                                  </View>
-                                </TouchableOpacity>
-                              );
-                            }
-                            return null;
-                          }}
-                          scrollEnabled={false}
-                        />
-                      </View>
-                    )}
-                  />
+                                  }
+                                }
+                              }}
+                            >
+                              <Avatar
+                                uri={profile.avatar}
+                                type="profile"
+                                size={40}
+                                style={styles.profileImage}
+                              />
+                              <View style={styles.profileContent}>
+                                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                  <Text style={styles.displayName}>
+                                    {profile.displayName || profile.handle || 'Unknown user'}
+                                  </Text>
+                                  {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
+                                    <VerificationBadge 
+                                      handle={profile.handle.trim()} 
+                                      textSize={14} 
+                                      textColor={TEXT.PRIMARY}
+                                    />
+                                  )}
+                                </View>
+                                <Text style={styles.handleText}>
+                                  @{profile.handle || 'unknown'}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        } else if (result.type === 'channel') {
+                          const channel = result.data as Channel;
+                          return (
+                            <TouchableOpacity
+                              key={`combined-channel-${channel.uri || channel.cid || index}-${index}`}
+                              style={styles.channelItem}
+                              onPress={() => {
+                                if (channel.uri && channel.uri.trim()) {
+                                  navigation.navigate('Channel', {
+                                    uri: channel.uri.trim(),
+                                    title: channel.displayName || 'Unknown Channel',
+                                    description: channel.description || '',
+                                    avatar: channel.avatar || '',
+                                    creator: channel.creator || null,
+                                  });
+                                }
+                              }}
+                            >
+                              <Avatar
+                                uri={channel.avatar}
+                                type="channel"
+                                size={40}
+                                style={styles.channelImage}
+                              />
+                              <View style={styles.channelContent}>
+                                <Text style={styles.channelName}>
+                                  {channel.displayName || 'Unknown channel'}
+                                </Text>
+                                <Text style={styles.channelCreator}>
+                                  by @{channel.creator?.handle || 'unknown'}
+                                </Text>
+                                {channel.likeCount && channel.likeCount > 0 && (
+                                  <Text style={styles.channelStats}>
+                                    {formatNumber(channel.likeCount)} likes
+                                  </Text>
+                                )}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        }
+                        return null;
+                      })}
+                      {/* Infinite scroll loading indicator */}
+                      {isFetchingNextPage && (
+                        <View style={styles.loadingMoreContainer}>
+                          <ActivityIndicator size="small" color={TEXT.PRIMARY} />
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    <View style={styles.emptyTabContent}>
+                      <Text style={styles.emptyTabText}>No results found</Text>
+                    </View>
+                  )}
                 </View>
               );
             }
-            if (item.type === 'video-grid') {
-              const formattedFeed = item.videos.map((video: any) => ({
-                post: video,
-                shouldCache: true,
-                uniqueKey: video.uri,
-                moderationDecision: video.moderationDecision,
-              }));
 
-              return (
-                <View style={styles.videoGridContainer}>
-                  <GridFeedView
-                    feed={formattedFeed}
-                    headerComponent={<GridViewHeader />}
-                    feedOption="search"
-                    onLoadMore={() => {
-                      if (hasNextPage && !isFetchingNextPage) {
-                        fetchNextPage();
-                      }
-                    }}
-                    hasNextPage={hasNextPage}
-                    isFetchingNextPage={isFetchingNextPage}
-                    onGridItemPress={(index) => {
-                      const video = item.videos[index];
-                      if (video?.uri) {
-                        // Find the index of this video in the allVideos array
-                        const videoIndex = allVideos.findIndex(v => v.uri === video.uri);
-                        const finalIndex = videoIndex >= 0 ? videoIndex : 0;
-                        
-                        navigation.navigate('FeedModal', {
-                          initialIndex: finalIndex,
-                          initialUri: video.uri,
-                          feedOption: 'search',
-                          userDid: undefined,
-                          backgroundColor: 'transparent',
-                          secondaryColor: '#fff',
-                          searchQuery: debouncedQuery,
-                          hasNextPage: hasNextPage,
-                          isFetchingNextPage: isFetchingNextPage,
-                          fetchNextPage: fetchNextPage
-                        });
-                      }
-                    }}
-                  />
-                </View>
-              );
-            }
+            // Comment out video grid rendering
+            // if (item.type === 'video-grid') {
+            //   const formattedFeed = item.videos.map((video: any) => ({
+            //     post: video,
+            //     shouldCache: true,
+            //     uniqueKey: video.uri,
+            //     moderationDecision: video.moderationDecision,
+            //   }));
+
+            //   return (
+            //     <View style={styles.videoGridContainer}>
+            //       <GridFeedView
+            //         feed={formattedFeed}
+            //         headerComponent={<GridViewHeader />}
+            //         feedOption="search"
+            //         onLoadMore={() => {
+            //           if (hasNextPage && !isFetchingNextPage) {
+            //             fetchNextPage();
+            //           }
+            //         }}
+            //         hasNextPage={hasNextPage}
+            //         isFetchingNextPage={isFetchingNextPage}
+            //         onGridItemPress={(index) => {
+            //           const video = item.videos[index];
+            //           if (video?.uri) {
+            //             const videoIndex = allVideos.findIndex(v => v.uri === video.uri);
+            //             const finalIndex = videoIndex >= 0 ? videoIndex : 0;
+            //             
+            //             navigation.navigate('FeedModal', {
+            //               initialIndex: finalIndex,
+            //               initialUri: video.uri,
+            //               feedOption: 'search',
+            //               userDid: undefined,
+            //               backgroundColor: 'transparent',
+            //               secondaryColor: '#fff',
+            //               searchQuery: debouncedQuery,
+            //               hasNextPage: hasNextPage,
+            //               isFetchingNextPage: isFetchingNextPage,
+            //               fetchNextPage: fetchNextPage
+            //             });
+            //           }
+            //         }}
+            //       />
+            //     </View>
+            //   );
+            // }
             return null;
           }}
-          contentContainerStyle={[
-            styles.listContainer, 
-            { paddingTop: 60, paddingBottom: getBottomNavBarHeight(insets) },
-            searchResults.length === 0 && !isLoadingResults && { flex: 1, justifyContent: 'center' }
-          ]}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               contentContainerStyle={[
+               styles.listContainer, 
+               { paddingTop: 70, paddingBottom: getBottomNavBarHeight(insets) },
+               searchResults.length === 0 && !isLoadingResults && { flex: 1, justifyContent: 'center' }
+             ]}
           showsVerticalScrollIndicator={false}
           onScroll={({ nativeEvent }) => {
             const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
@@ -1511,11 +1521,7 @@ const ExploreScreen: React.FC = () => {
               <Text style={styles.noResultsSubtext}>Try searching for something else</Text>
             </View>
           ) : null}
-          ListFooterComponent={isFetchingNextPage ? (
-            <View style={styles.loadingMoreContainer}>
-              <ActivityIndicator size="small" color={TEXT.PRIMARY} />
-            </View>
-          ) : null}
+          ListFooterComponent={null}
         />
       )}
 
@@ -1590,8 +1596,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
   },
   profileImage: {
     width: 40,
@@ -1622,8 +1626,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
   },
   channelImage: {
     width: 40,
@@ -1717,58 +1719,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Firma-Bold',
   },
-  horizontalColumnsContainer: {
-    marginTop: 5,
-    marginBottom: 5,
-  },
-  columnContainer: {
-    flex: 1,
-    width: Dimensions.get('window').width,
-    paddingHorizontal: 0,
-  },
 
-  profileName: {
-    color: TEXT.PRIMARY,
-    fontSize: 14,
-    marginBottom: 2,
-    fontFamily: 'Firma-SemiBold',
-    flexShrink: 1,
-  },
-  profileHandle: {
-    color: TEXT.LIGHT_GREY,
-    fontSize: 12,
-    fontFamily: 'Firma-Regular',
-    marginBottom: 2,
-  },
-  profileDescription: {
-    color: TEXT.TERTIARY,
-    fontSize: 11,
-    fontFamily: 'Firma-Regular',
-  },
-  followButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: BRAND.SECONDARY,
-    borderRadius: 15,
-    minWidth: 60,
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  followingButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
-  },
-  followButtonText: {
-    color: BRAND.PRIMARY,
-    fontSize: 12,
-    fontFamily: 'Firma-Medium',
-  },
-  followingButtonText: {
-    color: TEXT.PRIMARY,
-    fontSize: 12,
-    fontFamily: 'Firma-Medium',
-  },
+
   videoGridContainer: {
     marginTop: 5,
     marginBottom: 10,
@@ -1780,23 +1732,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Firma-Bold',
   },
-  loadMoreButton: {
-    alignSelf: 'center',
-    marginTop: 15,
-    marginBottom: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: BRAND.SECONDARY,
-    borderRadius: 20,
-    minHeight: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadMoreButtonText: {
-    color: BRAND.PRIMARY,
-    fontSize: 14,
-    fontFamily: 'Firma-Medium',
-  },
+
   feedItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1901,7 +1837,7 @@ const styles = StyleSheet.create({
     paddingRight: 40, // Extra padding on the right to allow scrolling off screen
   },
   spotlightVideoItem: {
-    width: 100,
+    width: 85,
     marginRight: 12,
   },
   spotlightVideoThumbnailContainer: {
@@ -1909,16 +1845,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   spotlightVideoThumbnail: {
-    width: 100,
-    height: 178, // 9:16 aspect ratio (100 * 16/9)
+    width: 85,
+    height: 151, // 9:16 aspect ratio (85 * 16/9)
     borderRadius: 12,
     borderWidth: 1,
     borderColor: UI.BORDER.PRIMARY,
     overflow: 'hidden' as const,
   },
   spotlightVideoThumbnailPlaceholder: {
-    width: 100,
-    height: 178, // 9:16 aspect ratio (100 * 16/9)
+    width: 85,
+    height: 151, // 9:16 aspect ratio (85 * 16/9)
     borderRadius: 12,
     borderWidth: 1,
     borderColor: UI.BORDER.PRIMARY,
@@ -1967,6 +1903,20 @@ const styles = StyleSheet.create({
   viewModeButton: {
     padding: 6,
     borderRadius: 50,
+  },
+  peopleChannelsContainer: {
+    marginBottom: 10,
+  },
+  emptyTabContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyTabText: {
+    color: TEXT.TERTIARY,
+    fontSize: 16,
+    fontFamily: 'Firma-Regular',
   },
 
 

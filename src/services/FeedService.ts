@@ -206,6 +206,13 @@ class FeedService {
           response = await AtprotoService.getMixedFeed(feedUris, cursor, limit, true, FEED_CONFIG.maxFeedsPerFetch);
         } else {
           response = await AtprotoService.getFeed(cursor, 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids', {}, true, limit, 'custom');
+          // Set sourceFeed for fallback case
+          if (response.feed) {
+            response.feed = response.feed.map(item => ({
+              ...item,
+              sourceFeed: 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids'
+            }));
+          }
         }
       } else if (feedOption === 'search') {
         // Return current search feed from state

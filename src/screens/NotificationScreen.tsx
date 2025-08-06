@@ -361,8 +361,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 15,
     paddingBottom: 15,
-    borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
     backgroundColor: BRAND.PRIMARY,
     zIndex: 1,
   },
@@ -387,8 +385,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
   },
   profileImage: {
     width: 40,
