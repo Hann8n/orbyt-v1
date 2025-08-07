@@ -22,17 +22,15 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import ProfileCache, { profileKeys, useProfileColors } from '../../../services/cache/ProfileCache';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
-import Icon, { SlashIcon } from '../../ui/Icon';
+import Icon, { SlashIcon, HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon, TvIcon } from '../../ui/Icon';
 import { Avatar, Colors } from '../../ui/UI';
 import { createQueryKeys } from '../../../services/FeedService';
 import Animated, { 
-  useAnimatedStyle, 
+  useAnimatedStyle,
   useSharedValue, 
   withTiming,
   withSpring,
   withSequence,
-  interpolate,
-  Extrapolate,
   runOnJS
 } from 'react-native-reanimated';
 import { TEXT, BRAND, INTERACTIVE, PROFILE, OVERLAY } from '../../../utils/formatting/Colors';
@@ -117,24 +115,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const DEFAULT_PROFILE_COLOR = PROFILE.DEFAULT_RING;
 
-// Memoized heart animation frames
-const heartAnimationFrames: ImageSourcePropType[] = [
-  require('../../../assets/Heart Animation/Heart-0.png'),
-  require('../../../assets/Heart Animation/Heart-1.png'),
-  require('../../../assets/Heart Animation/Heart-2.png'),
-  require('../../../assets/Heart Animation/Heart-3.png'),
-  require('../../../assets/Heart Animation/Heart-4.png'),
-  require('../../../assets/Heart Animation/Heart-5.png'),
-  require('../../../assets/Heart Animation/Heart-6.png'),
-  require('../../../assets/Heart Animation/Heart-7.png'),
-  require('../../../assets/Heart Animation/Heart-8.png'),
-  require('../../../assets/Heart Animation/Heart-9.png'),
-  require('../../../assets/Heart Animation/Heart-10.png'),
-  require('../../../assets/Heart Animation/Heart-11.png'),
-  require('../../../assets/Heart Animation/Heart-12.png'),
-  require('../../../assets/Heart Animation/Heart-13.png'),
-  require('../../../assets/Heart Animation/Heart-14.png'),
-];
+
 
 // Format seconds to mm:ss
 const formatTime = (seconds: number) => {
@@ -214,24 +195,26 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     borderRadius: 2,
   }));
 
-  // Poll progress and duration from videoRef
+  // Poll progress and duration from videoRef - optimized for scroll performance
   useEffect(() => {
-    if (!videoRef?.current) return;
+    if (!videoRef?.current || !isVisible || isScrubbing) return;
+    
     let interval: NodeJS.Timeout | null = null;
-    if (isVisible && !isScrubbing) {
-      interval = setInterval(() => {
-        if (videoRef?.current && typeof videoRef.current.getProgress === 'function') {
-          const p = videoRef.current.getProgress();
-          setProgress(isNaN(p) ? 0 : Math.max(0, Math.min(1, p)));
+    interval = setInterval(() => {
+      if (videoRef?.current && typeof videoRef.current.getProgress === 'function') {
+        const p = videoRef.current.getProgress();
+        if (!isNaN(p)) {
+          setProgress(Math.max(0, Math.min(1, p)));
         }
-        if (videoRef?.current && typeof videoRef.current.getDuration === 'function') {
-          const d = videoRef.current.getDuration();
-          setDuration(isNaN(d) ? 0 : d);
+      }
+      if (videoRef?.current && typeof videoRef.current.getDuration === 'function') {
+        const d = videoRef.current.getDuration();
+        if (!isNaN(d) && d > 0) {
+          setDuration(d);
         }
-      }, 100);
-    } else if (!isVisible) {
-      setProgress(0);
-    }
+      }
+    }, 200); // Reduced frequency for better performance
+    
     return () => {
       if (interval) clearInterval(interval);
     };
@@ -305,17 +288,13 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
         onScrubbingChange?.(false);
         return;
       }
-      // Use requestAnimationFrame to prevent blocking scroll events
-      requestAnimationFrame(() => {
-        videoRef.current?.seek(scrubProgress.value);
-      });
+      // Seek and resume playback immediately
+      videoRef.current?.seek(scrubProgress.value);
       setIsScrubbing(false);
       onScrubbingChange?.(false);
       setProgress(scrubProgress.value);
       if (wasPlayingBeforeScrub) {
-        requestAnimationFrame(() => {
-          videoRef.current?.playPause(true);
-        });
+        videoRef.current?.playPause(true);
       }
       setTimeout(() => {
         scrubProgress.value = 0;
@@ -348,7 +327,6 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
   const [showShareSheet, setShowShareSheet] = useState<boolean>(false);
   const [isCollapsed, setIsCollapsed] = useState<boolean>(true);
   const [needsCollapsing, setNeedsCollapsing] = useState<boolean>(false);
-  const [isAnimatingHeart, setIsAnimatingHeart] = useState<boolean>(false);
   const [isLikePending, setIsLikePending] = useState<boolean>(false);
   const [isRepostPending, setIsRepostPending] = useState<boolean>(false);
   
@@ -384,19 +362,12 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     }
   }, [gradientHeightShared]);
   
-  // Simplified overlay visibility animation - always visible on small screens
-  const overlayOpacity = useSharedValue(isVisible || isSmallDevice ? 1 : 0);
-  
-  useEffect(() => {
-    // On small devices, always show the overlay unless in clear view mode
-    if (isSmallDevice && isClearViewMode) {
-      overlayOpacity.value = 0;
-    } else if (isSmallDevice) {
-      overlayOpacity.value = 1;
-    } else {
-      overlayOpacity.value = withTiming(isVisible ? 1 : 0, { duration: 150 });
-    }
-  }, [isVisible, overlayOpacity, isSmallDevice, isClearViewMode]);
+  // Simplified overlay visibility - no animation for better scroll performance
+  const overlayOpacity = useMemo(() => {
+    if (isSmallDevice && isClearViewMode) return 0;
+    if (isSmallDevice) return 1;
+    return isVisible ? 1 : 0;
+  }, [isVisible, isSmallDevice, isClearViewMode]);
   
   // Optimized profile query with better caching
   const { data: profileData } = useQuery({
@@ -429,41 +400,23 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     }
   }, [prefetchProfile, author.handle, profileData]);
 
-  // Smooth gradient animation with interpolated colors
-  const gradientIntensity = useSharedValue(0); // 0 = soft, 1 = intense
-  
-  useEffect(() => {
-    // Always use high intensity when expanded, regardless of text length
-    const targetIntensity = !isCollapsed ? 1 : 0;
-    gradientIntensity.value = withTiming(targetIntensity, { duration: 400 });
-  }, [isCollapsed, gradientIntensity]);
+  // Simplified gradient - no animation for better scroll performance
+  const gradientOpacity = useMemo(() => {
+    return !isCollapsed ? 1.0 : 0.3;
+  }, [isCollapsed]);
 
-  // Smooth gradient overlay animation
-  const animatedGradientStyle = useAnimatedStyle(() => {
-    const intensity = gradientIntensity.value;
-    // Reduce overall intensity range - softer overlay
-    const opacity = interpolate(intensity, [0, 1], [0.3, 1.0]); // Reduced from [0.4, 1.0] to [0.3, 0.8]
-    
-    return {
-      opacity,
-      height: gradientHeightShared.value,
-    };
-  });
+  const gradientStyle = useMemo(() => ({
+    opacity: gradientOpacity,
+    height: contentHeight + 400,
+  }), [gradientOpacity, contentHeight]);
 
   // Memoized animation functions
   const animateHeart = useCallback(() => {
-    if (isAnimatingHeart) return;
-    
-    setIsAnimatingHeart(true);
     heartScale.value = withSequence(
       withSpring(1.3, { duration: 100 }),
       withSpring(1, { duration: 100 })
     );
-    
-    heartAnimationTimer.current = setTimeout(() => {
-      setIsAnimatingHeart(false);
-    }, 200);
-  }, [heartScale, isAnimatingHeart]);
+  }, [heartScale]);
 
   const animateRepost = useCallback(() => {
     repostScale.value = withSequence(
@@ -560,47 +513,25 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     transform: [{ scale: repostScale.value }]
   }));
 
-  const animatedOverlayStyle = useAnimatedStyle(() => ({
-    opacity: overlayOpacity.value
-  }));
+  const overlayStyle = useMemo(() => ({
+    opacity: overlayOpacity
+  }), [overlayOpacity]);
 
   // Memoized UI components
   const likeIcon = useMemo(() => (
     <Animated.View style={isLiked ? heartAnimatedStyle : undefined}>
-      {isAnimatingHeart ? (
-        <Image 
-          source={heartAnimationFrames[Math.floor(Math.random() * heartAnimationFrames.length)]}
-          style={[styles.icon, isTabletDevice && styles.iconTablet, { tintColor: INTERACTIVE.HEART.ACTIVE }]} 
-        />
-      ) : isLiked ? (
-        <Image 
-          source={require('../../../assets/PostActions/Heart-PixelArtIconx3.png')} 
-          style={[styles.icon, isTabletDevice && styles.iconTablet, { tintColor: INTERACTIVE.HEART.ACTIVE }]} 
-        />
-      ) : (
-        <Image 
-          source={require('../../../assets/PostActions/Heart-PixelArtIconx3.png')} 
-          style={[styles.icon, isTabletDevice && styles.iconTablet, { tintColor: BRAND.SECONDARY }]} 
-        />
-      )}
+      <HeartFillIcon size={isTabletDevice ? 38 : 34} color={isLiked ? INTERACTIVE.HEART.ACTIVE : BRAND.SECONDARY} />
     </Animated.View>
-  ), [isLiked, isAnimatingHeart, heartAnimatedStyle, isTabletDevice]);
+  ), [isLiked, heartAnimatedStyle, isTabletDevice]);
 
   const repostIcon = useMemo(() => (
     <Animated.View style={isReposted ? repostAnimatedStyle : undefined}>
-      {isReposted ? (
-        <Icon name="repeat" size={isTabletDevice ? 34 : 30} color={INTERACTIVE.REPOST.ACTIVE} />
-      ) : (
-        <Icon name="repeat" size={isTabletDevice ? 34 : 30} color={INTERACTIVE.REPOST.INACTIVE} />
-      )}
+      <RefreshFillIcon size={isTabletDevice ? 38 : 34} color={isReposted ? INTERACTIVE.REPOST.ACTIVE : INTERACTIVE.REPOST.INACTIVE} />
     </Animated.View>
   ), [isReposted, repostAnimatedStyle, isTabletDevice]);
 
   const commentIcon = useMemo(() => (
-    <Image 
-      source={require('../../../assets/PostActions/Comments-PixelArtIcon-x3.png')} 
-      style={[styles.icon, isTabletDevice && styles.iconTablet, { tintColor: INTERACTIVE.COMMENT }]} 
-    />
+    <ChatFillIcon size={isTabletDevice ? 38 : 34} color={INTERACTIVE.COMMENT} />
   ), [isTabletDevice]);
 
   // Cleanup on unmount
@@ -612,15 +543,18 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     };
   }, []);
 
-  // Get channel colors for source feed
-  const { colors: channelColors } = useChannelColors(sourceFeed);
+  // Only use sourceFeed for yourMix feeds
+  const shouldUseSourceFeed = feedOption === 'yourMix' && sourceFeed;
   
-  // Get channel data for source feed to get actual title
-  const { data: sourceChannel } = useChannel(sourceFeed);
+  // Get channel colors for source feed (only for yourMix feeds)
+  const { colors: channelColors } = useChannelColors(shouldUseSourceFeed ? sourceFeed : null);
   
-  // Memoize source display name - use hardcoded mapping for specific feeds, otherwise use actual channel title
+  // Get channel data for source feed to get actual title (only for yourMix feeds)
+  const { data: sourceChannel } = useChannel(shouldUseSourceFeed ? sourceFeed : null);
+  
+  // Memoize source display name - only for yourMix feeds
   const sourceDisplayName = useMemo(() => {
-    if (feedOption === 'yourMix' && sourceFeed) {
+    if (shouldUseSourceFeed) {
       // Don't show indicator for "thevids" feed
       if (sourceFeed === 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids') {
         return null;
@@ -629,15 +563,15 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
       return getFeedDisplayName(sourceFeed) || sourceChannel?.displayName;
     }
     return null;
-  }, [feedOption, sourceFeed, sourceChannel?.displayName]);
+  }, [shouldUseSourceFeed, sourceFeed, sourceChannel?.displayName]);
 
   return (
-    <Animated.View style={[styles.container, animatedOverlayStyle]} pointerEvents="box-none">
+    <View style={[styles.container, overlayStyle]} pointerEvents="box-none">
       {/* Hide overlay content while scrubbing */}
       {!isScrubbing && (
         <>
-          {/* Smooth animated gradient overlay */}
-          <Animated.View style={[styles.uiOverlay, animatedGradientStyle]} pointerEvents="none">
+          {/* Simplified gradient overlay */}
+          <View style={[styles.uiOverlay, gradientStyle]} pointerEvents="none">
             <LinearGradient
               colors={['rgba(0, 0, 0, 0.95)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.3)', 'transparent']}
               locations={[0, 0.4, 0.6, 1]}
@@ -646,9 +580,9 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
               start={{ x: 0, y: 1 }}
               end={{ x: 0, y: 0 }}
             />
-          </Animated.View>
+          </View>
           
-          <Animated.View 
+          <View 
             ref={contentRef}
             onLayout={handleContentLayout}
             style={[
@@ -724,7 +658,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                       <View style={styles.expandedRow}>
                         {post.record?.metadata?.orbyt === true && (
                           <View style={styles.expandedPlatformRow}>
-                            <Icon name="device-tv" size={isTabletDevice ? 22 : 18} color="#FFD600" style={styles.expandedPlatformIcon} />
+                            <TvIcon size={isTabletDevice ? 22 : 18} color="#FFD600" />
                             <Text style={isTabletDevice ? styles.expandedPlatformTextTablet : styles.expandedPlatformText}>
                               {post.record?.metadata?.platform || 'Posted via orbyt'}
                             </Text>
@@ -802,24 +736,19 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                       }}
                       activeOpacity={0.7}
                     >
-                                                                    <Image 
-                        source={require('../../../assets/device-tv-filled.png')}
-                        style={[
-                          { 
-                            width: isTabletDevice ? 16 : 14, 
-                            height: isTabletDevice ? 16 : 14,
-                            marginRight: 4,
-                            tintColor: sourceDisplayName === 'for your consideration' ? Colors.TEXT.SECONDARY : channelColors.accentColor
-                          }
-                        ]}
-                      />
+                                                                    <View style={{ marginRight: 4 }}>
+                        <TvIcon 
+                          size={isTabletDevice ? 16 : 14}
+                          color={sourceDisplayName === 'for your consideration' ? Colors.TEXT.SECONDARY : channelColors.accentColor}
+                        />
+                      </View>
                       <Text style={[
                         isTabletDevice
                           ? styles.sourceTextTablet
                           : isSmallDevice
                             ? styles.sourceTextSmallScreen
                             : styles.sourceText,
-                        { color: sourceDisplayName === 'for your consideration' ? Colors.TEXT.SECONDARY : 'rgba(255, 255, 255, 0.9)' }
+                        { color: sourceDisplayName === 'for your consideration' ? Colors.TEXT.SECONDARY : '#cfd6e8' }
                       ]}>
                         {sourceDisplayName}
                       </Text>
@@ -842,7 +771,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                 activeOpacity={0.7}
               >
                 <View style={styles.iconContainer}>
-                  <Icon name="more-horizontal" size={isTabletDevice ? 32 : 28} color={BRAND.SECONDARY} />
+                  <MoreFillIcon size={isTabletDevice ? 32 : 28} color={BRAND.SECONDARY} />
                 </View>
               </TouchableOpacity>
 
@@ -895,7 +824,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                 <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(likeCount)}</Text>
               </TouchableOpacity>
             </View>
-          </Animated.View>
+          </View>
         </>
       )}
       {isScrubbing && !isClearViewMode && (
@@ -1000,7 +929,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
         feedOption={feedOption}
         sourceFeed={sourceFeed}
       />
-    </Animated.View>
+    </View>
   );
 };
 
@@ -1168,7 +1097,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    width: 32.5,
+    width: 36.5,
   },
   actionButtonSmallScreen: {
     alignItems: 'center',
@@ -1177,17 +1106,19 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    width: 32.5,
+    width: 36.5,
   },
   iconContainer: {
-    width: 30.5,
-    height: 30.5,
+    width: 34.5,
+    height: 34.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionText: {
     color: BRAND.SECONDARY,
     fontSize: 12.5,
+    fontWeight: 'bold',
+    fontFamily: 'Firma-Bold',
     marginTop: 2,
     textAlign: 'center',
     width: '100%',
@@ -1275,11 +1206,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    width: 40, // was 60
+    width: 44, // was 60
   },
   actionTextTablet: {
     color: BRAND.SECONDARY,
     fontSize: 15, // was 22
+    fontWeight: 'bold',
+    fontFamily: 'Firma-Bold',
     marginTop: 3, // was 4
     textAlign: 'center',
     width: '100%',
@@ -1289,8 +1222,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   iconTablet: {
-    width: 36, // was 48
-    height: 36, // was 48
+    width: 40, // was 48
+    height: 40, // was 48
     alignSelf: 'center',
     resizeMode: 'contain',
   },

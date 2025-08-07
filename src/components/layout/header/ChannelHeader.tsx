@@ -38,6 +38,7 @@ interface ChannelHeaderProps {
   onEdit?: (channelId: string) => void;
   onDelete?: (channelId: string) => void;
   children?: React.ReactNode;
+  feedKey?: string; // Feed-specific header visibility key
 }
 
 
@@ -208,6 +209,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onEdit,
   onDelete,
   children,
+  feedKey,
 }) => {
   const navigation = useNavigation<any>();
 
@@ -334,7 +336,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       skeleton={skeleton}
       showGradient={true} // Re-enable gradient for channels
       gradientType="channel" // Use channel-specific gradient
-
+      feedKey={feedKey}
     >
       {headerChildren}
     </UniversalHeader>

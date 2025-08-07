@@ -13,7 +13,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList, useLogout } from '../../navigation/types';
-import Icon from '../../components/ui/Icon';
+import Icon, { TvIcon, BackArrowIcon } from '../../components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModerationDebug from '../../components/features/moderation/ModerationDebug';
 
@@ -104,7 +104,7 @@ const SettingsScreen: React.FC = () => {
         {
           id: 'moderation',
           label: 'Content Moderation',
-          icon: 'shield',
+          icon: 'mingcute:safe-shield-2-fill',
           onPress: () => navigation.navigate({ name: 'ModerationControls', params: {} }),
           showChevron: true
         },
@@ -130,7 +130,7 @@ const SettingsScreen: React.FC = () => {
         {
           id: 'watch-history',
           label: 'Watch History',
-          icon: 'clock',
+          icon: 'mingcute:history-anticlockwise-line',
           onPress: () => navigation.navigate('WatchHistory'),
           showChevron: true
         },
@@ -187,7 +187,7 @@ const SettingsScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <BackArrowIcon size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={styles.headerSpacer} />
@@ -216,7 +216,11 @@ const SettingsScreen: React.FC = () => {
                 >
                   <View style={styles.settingItemLeft}>
                     <View style={styles.iconContainer}>
-                      <Icon name={item.icon} size={20} color="#fff" />
+                      {item.icon === 'device-tv' ? (
+                        <TvIcon size={20} color="#fff" />
+                      ) : (
+                        <Icon name={item.icon} size={20} color="#fff" />
+                      )}
                     </View>
                     <View style={styles.settingItemTextContainer}>
                       <Text style={styles.settingItemText}>{item.label}</Text>
@@ -236,7 +240,7 @@ const SettingsScreen: React.FC = () => {
                 <View style={[styles.settingItem, styles.switchItem]}> 
                   <View style={styles.settingItemLeft}>
                     <View style={styles.iconContainer}>
-                      <Icon name="lightbulb" size={20} color="#fff" />
+                      <Icon name="experimental-feeds" size={20} color="#fff" />
                     </View>
                     <View style={styles.settingItemTextContainer}>
                       <Text style={styles.settingItemText}>Experimental Feeds</Text>

@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Icon from '../../../ui/Icon';
 import { isSmallScreen, isTablet } from '../../../../utils/helpers/screenSize';
 import { BRAND } from '../../../../utils/formatting/Colors';
 import VideoCard from '../VideoCard';
@@ -144,7 +145,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
           <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle" size={60} color="#fff" />
+            <Icon name="alert-circle" size={60} color="#fff" />
             <Text style={styles.errorText}>{videoError}</Text>
             <Text style={styles.errorSubtext}>Please try again or select a different video.</Text>
           </View>

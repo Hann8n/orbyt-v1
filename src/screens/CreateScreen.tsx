@@ -19,7 +19,7 @@ import { useIsFocused, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import Animated, { useSharedValue, withSpring, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import Icon from '../components/ui/Icon';
+import Icon, { BackArrowIcon } from '../components/ui/Icon';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import BottomToolBar from '../components/ui/BottomToolBar';
@@ -442,9 +442,9 @@ const CreateScreen: React.FC = () => {
   // to maintain the tab navigation structure
   return (
     <SafeAreaView style={styles.container}>
-      <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-        <Icon name="arrow-left" size={32} color="white" style={{ marginLeft: 1 }} />
-      </TouchableOpacity>
+              <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <BackArrowIcon size={32} color="white" style={{ marginLeft: 1 }} />
+        </TouchableOpacity>
       {renderContent()}
       <BottomToolBar mode="create" onToolPress={handleToolAction} flashActive={flash === 'on'} />
     </SafeAreaView>

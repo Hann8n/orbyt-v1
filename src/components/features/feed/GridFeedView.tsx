@@ -183,7 +183,6 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
           source={{ uri: thumbnailUrl || videoUrl }}
           style={styles.thumbnail}
           resizeMode="cover"
-          defaultSource={require('../../../assets/Vector_Normal_Grey.png')}
         />
         {/* Moderation Blur Overlay (matches list feed) */}
         {shouldBlur && (

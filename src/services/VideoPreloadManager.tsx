@@ -4,7 +4,7 @@
  * Simplified and optimized for React Query integration.
  */
 
-import ProfileCache from '../../src/services/cache/ProfileCache';
+import ProfileCache from './cache/ProfileCache';
 
 interface PreloadStatus {
   status: 'queued' | 'preloading' | 'preloaded' | 'error';
@@ -117,10 +117,21 @@ class VideoPreloadManager {
     
     for (const uri of uris) {
       if (!this.preloadQueue.has(uri)) {
+        const preloadFn = async () => {
+          // Simple HTTP HEAD request to preload video metadata
+          return fetch(uri, { method: 'HEAD' })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              return response;
+            });
+        };
+        
         const entry: VideoPreloadEntry = {
           type: 'video',
           status: 'queued',
-          preloadFn: () => Promise.resolve(),
+          preloadFn,
           stillNeeded: true,
           addedAt: Date.now(),
           readyCallbacks: []

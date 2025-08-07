@@ -272,14 +272,14 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         {
           id: 'share',
           label: 'Share',
-          icon: 'link',
+          icon: 'share',
           onPress: handleShare,
           color: '#fff'
         },
         {
           id: 'insights',
           label: 'Insights',
-          icon: 'chart',
+          icon: 'insights',
           onPress: () => {
             onDismiss();
             navigation.navigate({ name: 'Insights', params: {} });
@@ -289,14 +289,14 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         {
           id: 'switch',
           label: 'Switch',
-          icon: 'user',
+          icon: 'user-3',
           onPress: handleSwitchAccount,
           color: '#fff'
         },
         {
           id: 'settings',
           label: 'Settings',
-          icon: 'sliders-2',
+          icon: 'settings',
           onPress: handleSettings,
           color: '#fff'
         }

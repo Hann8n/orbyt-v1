@@ -239,9 +239,15 @@ class AtprotoService {
             }
           }
           
-          // If feedLink is null or empty, return empty feed
+          // Validate feed URI format before making the request
           if (!feed) {
             console.warn('[AtprotoService] No feed specified, returning empty feed');
+            return { feed: [], cursor: null };
+          }
+          
+          // Validate AT-URI format
+          if (!feed.startsWith('at://') && !feed.startsWith('did:')) {
+            console.warn('[AtprotoService] Invalid feed URI format:', feed);
             return { feed: [], cursor: null };
           }
           
@@ -255,6 +261,11 @@ class AtprotoService {
             response = await this.agent.api.app.bsky.feed.getFeed(params);
           } catch (customFeedError: any) {
             console.warn('Custom feed error:', customFeedError.message);
+            // Check if it's a feed validation error
+            if (customFeedError.message && customFeedError.message.includes('feed must be a valid at-uri')) {
+              console.warn('[AtprotoService] Invalid feed URI:', feed);
+              return { feed: [], cursor: null };
+            }
             return { feed: [], cursor: null };
           }
         }
@@ -1748,6 +1759,12 @@ class AtprotoService {
   static async getFeedGenerator(uri: string): Promise<any> {
     await this.ensureSession();
     try {
+      // Validate URI format
+      if (!uri || !uri.startsWith('at://')) {
+        console.error('Invalid feed generator URI:', uri);
+        return null;
+      }
+      
       const params = { feed: uri };
       
       const response = await this.agent.api.app.bsky.feed.getFeedGenerator(params);
@@ -1755,6 +1772,9 @@ class AtprotoService {
       return response.data;
     } catch (error: any) {
       console.error('Error getting feed generator:', error);
+      if (error.message?.includes('feed must be a valid at-uri')) {
+        console.error(`Invalid feed URI provided: ${uri}`);
+      }
       return null;
     }
   }
@@ -1767,6 +1787,12 @@ class AtprotoService {
   static async getFeedGeneratorSubscriberCount(uri: string): Promise<number> {
     await this.ensureSession();
     try {
+      // Validate URI format
+      if (!uri || !uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
+        console.warn('[AtprotoService] Invalid feed generator URI for subscriber count:', uri);
+        return 0;
+      }
+      
       // Get the feed generator details first
       const params = { feed: uri };
       
@@ -1793,6 +1819,12 @@ class AtprotoService {
   static async getFeedGeneratorWithPosts(uri: string, cursor: string | null = null, limit: number = 50): Promise<{ generator: any, posts: any[], cursor: string | null }> {
     await this.ensureSession();
     try {
+      // Validate URI format
+      if (!uri || !uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
+        console.warn('[AtprotoService] Invalid feed generator URI for posts:', uri);
+        return { generator: null, posts: [], cursor: null };
+      }
+      
       // Get generator details
       const generatorParams = { feed: uri };
       
@@ -1955,8 +1987,18 @@ class AtprotoService {
     maxFeeds: number = 8
   ): Promise<FeedResponse> {
     try {
+      // Filter out invalid URIs first
+      const validFeedUris = feedUris.filter(uri => 
+        uri && (uri.startsWith('at://') || uri.startsWith('did:'))
+      );
+      
+      if (validFeedUris.length === 0) {
+        console.warn('[AtprotoService] No valid feed URIs provided for mixed feed');
+        return { feed: [], cursor: null };
+      }
+      
       // Limit the number of feeds to fetch from
-      const limitedFeedUris = feedUris.slice(0, maxFeeds);
+      const limitedFeedUris = validFeedUris.slice(0, maxFeeds);
       
       // Parse cursor to get individual feed states
       let feedStates: { [feedUri: string]: string | null } = {};
@@ -1981,7 +2023,7 @@ class AtprotoService {
           const feedCursor = feedStates[feedUri] || null;
           const feedLimit = Math.floor(limit / limitedFeedUris.length) + 10; // Distribute limit across feeds
           
-          const response = await this.getFeed(feedCursor, feedUri, {}, filterVideosOnly, feedLimit);
+          const response = await this.getFeed(feedCursor, feedUri, {}, filterVideosOnly, feedLimit, 'custom');
           
           return {
             posts: response.feed || [],

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, Alert, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Icon from '../../components/ui/Icon';
+import Icon, { BackArrowIcon } from '../../components/ui/Icon';
 import { BRAND, TEXT, UI, STATUS } from '../../utils/formatting/Colors';
 import WatchHistory from '../../services/WatchHistory';
 import AtprotoService from '../../services/api/AtprotoService';
@@ -155,13 +155,13 @@ const WatchHistoryScreen: React.FC = () => {
     return (
       <View style={[styles.safeArea, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Icon name="arrow-left" size={24} color={TEXT.PRIMARY} />
-          </TouchableOpacity>
+                  <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <BackArrowIcon size={24} color={TEXT.PRIMARY} />
+        </TouchableOpacity>
           <Text style={styles.headerTitle}>Watch History</Text>
           <View style={styles.headerRight} />
         </View>
@@ -181,7 +181,7 @@ const WatchHistoryScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Icon name="arrow-left" size={24} color={TEXT.PRIMARY} />
+          <BackArrowIcon size={24} color={TEXT.PRIMARY} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Watch History</Text>
         <TouchableOpacity

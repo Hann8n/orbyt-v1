@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, SharedValue, runOnJS } from 'react-native-reanimated';
 import EmptyFeed from './EmptyFeed';
-import { MemoizedVideoItem } from './FeedRenderer';
+import { MemoizedVideoItem } from './VideoItem';
 import VideoPreloadManager from '../../../services/VideoPreloadManager';
 import WatchHistory from '../../../services/WatchHistory';
 import { extractVideoUrl } from '../../../utils/helpers/video';
@@ -26,8 +26,9 @@ import type { ModerationDecision } from '../../../services/ModerationTypes';
 
 import Icon from '../../ui/Icon';
 import { useClearView } from '../../../services/ClearViewContext';
+import { updateHeaderVisibility, generateFeedKey } from '../../../hooks/useHeaderVisibility';
 
-// Header visibility removed for simplification
+// Header visibility system for medium/large screens
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -100,9 +101,9 @@ interface ListFeedViewProps {
   forceError?: boolean; // Add debug flag to force error responses
 }
 
-// Constants for video preloading - optimized for faster visibility
-const PREPARE_BUFFER = 0; // Reduced from 1 for faster loading
-const CACHE_BUFFER = 1; // Reduced from 2 for faster loading
+// Constants for video preloading - balanced for performance and preloading
+const PREPARE_BUFFER = 1; // Keep some buffer for smooth scrolling
+const CACHE_BUFFER = 2; // Sufficient buffer for effective preloading
 const STREAMING_ENABLED = true;
 
 // Pure function component for CellRenderer with performance optimization
@@ -194,8 +195,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const [visibleVideo, setVisibleVideo] = useState<string | null>(null);
   const [visibleIndex, setVisibleIndex] = useState<number>(0);
   const [visibleRange, setVisibleRange] = useState<{ min: number; max: number }>({
-    min: Number.MAX_VALUE,
-    max: -1,
+    min: 0,
+    max: 2, // Initialize with reasonable defaults for preloading
   });
   const [headerHeight, setHeaderHeight] = useState<number>(0);
   const [scrollDirection, setScrollDirection] = useState<'up' | 'down' | null>(null);
@@ -309,11 +310,20 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     const { height } = event.nativeEvent.layout;
     setHeaderHeight(height);
     
-    // Report header height to FeedStore for header visibility tracking
+    // Report header height for header visibility tracking
     if (isHeaderFeed) {
-      // Header visibility removed for simplification
+      // Use consistent feed key format based on feed type
+      let feedKey: string;
+      if (feedOption.startsWith('at://')) {
+        // For channel feeds, use the same format as ChannelScreen
+        feedKey = `channel-${feedOption}`;
+      } else {
+        // For other feeds, use the standard format
+        feedKey = generateFeedKey(feedOption, userDid);
+      }
+      updateHeaderVisibility(feedKey, { headerHeight: height });
     }
-  }, [isHeaderFeed]);
+  }, [isHeaderFeed, feedOption, userDid]);
 
   // Optimized scroll handler - debounced and batched
   const handleScroll = useCallback((event: any) => {
@@ -343,15 +353,38 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       if (isAtTop !== isSnappedToTopRef.current) {
         isSnappedToTopRef.current = isAtTop;
         setIsSnappedToTop(isAtTop);
+        
+        // Report header visibility state
+        let feedKey: string;
+        if (feedOption.startsWith('at://')) {
+          // For channel feeds, use the same format as ChannelScreen
+          feedKey = `channel-${feedOption}`;
+        } else {
+          // For other feeds, use the standard format
+          feedKey = generateFeedKey(feedOption, userDid);
+        }
+        updateHeaderVisibility(feedKey, { 
+          isSnappedToTop: isAtTop,
+          scrollY: y,
+          isShadowVisible: !isAtTop
+        });
       }
     }
     
     // Report vertical scroll position for feed bar visibility
     onVerticalScroll?.(y);
     
-    // Report scroll position to FeedStore for header visibility
+    // Report scroll position for header visibility
     if (isHeaderFeed) {
-      // Header visibility removed for simplification
+      let feedKey: string;
+      if (feedOption.startsWith('at://')) {
+        // For channel feeds, use the same format as ChannelScreen
+        feedKey = `channel-${feedOption}`;
+      } else {
+        // For other feeds, use the standard format
+        feedKey = generateFeedKey(feedOption, userDid);
+      }
+      updateHeaderVisibility(feedKey, { scrollY: y });
     }
     
     // Simplified user scroll detection for fast scrolling
@@ -565,19 +598,44 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       if (currentScrollOffset.current <= threshold) {
         isSnappedToTopRef.current = true;
         setIsSnappedToTop(true);
+        
+        // Report initial header visibility state
+        let feedKey: string;
+        if (feedOption.startsWith('at://')) {
+          // For channel feeds, use the same format as ChannelScreen
+          feedKey = `channel-${feedOption}`;
+        } else {
+          // For other feeds, use the standard format
+          feedKey = generateFeedKey(feedOption, userDid);
+        }
+        updateHeaderVisibility(feedKey, { 
+          isSnappedToTop: true,
+          isShadowVisible: false
+        });
       }
     }
-  }, [isHeaderFeed, headerHeight, insets.top]);
+  }, [isHeaderFeed, headerHeight, insets.top, feedOption, userDid]);
 
   // Reset header visibility when feed changes to ensure header is visible on feed switch
   useEffect(() => {
     if (isHeaderFeed) {
       isSnappedToTopRef.current = true;
       setIsSnappedToTop(true);
-      // Report to FeedStore that header should be visible
-      // Header visibility removed for simplification
+      // Report that header should be visible
+      let feedKey: string;
+      if (feedOption.startsWith('at://')) {
+        // For channel feeds, use the same format as ChannelScreen
+        feedKey = `channel-${feedOption}`;
+      } else {
+        // For other feeds, use the standard format
+        feedKey = generateFeedKey(feedOption, userDid);
+      }
+      updateHeaderVisibility(feedKey, { 
+        isSnappedToTop: true,
+        isShadowVisible: false
+      });
     }
-  }, [feedOption]); // Reset when feed option changes
+  }, [feedOption, userDid, isHeaderFeed]); // Reset when feed option changes
 
   // Set initial visible index and video on mount (for modal)
   useEffect(() => {
@@ -686,19 +744,19 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       )}
       <Animated.FlatList
         ref={flatListRef}
-        key={`${feedOption}-${userDid || 'default'}-${isRefreshing ? 'refreshing' : 'normal'}`}
+        key={`${feedOption}-${userDid || 'default'}`}
         data={displayFeed}
         renderItem={renderItem}
-        keyExtractor={(item, index) => `${item.post.uri}_${index}`}
+        keyExtractor={(item, index) => `${item.post.uri}_${item.post.cid}_${index}`}
         pagingEnabled={!isHeaderFeed}
         snapToInterval={isHeaderFeed ? undefined : memoizedCardHeight}
         snapToOffsets={computedSnapToOffsets}
         decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.85}
-        removeClippedSubviews={Platform.OS === 'android'} // Only on Android for better performance
-        windowSize={feedOption === 'yourMix' ? 5 : 3} // Increased from 4 to 5 for your mix
-        maxToRenderPerBatch={feedOption === 'yourMix' ? 4 : 2} // Increased from 3 to 4 for your mix
-        updateCellsBatchingPeriod={feedOption === 'yourMix' ? 8 : 32} // Faster updates for your mix (reduced from 16)
-        initialNumToRender={feedOption === 'yourMix' ? 6 : 3} // Increased from 5 to 6 for your mix
+        removeClippedSubviews={true} // Enable for better memory management
+        windowSize={5} // Optimal window size for video recycling
+        maxToRenderPerBatch={2} // Conservative batch size to prevent jank
+        updateCellsBatchingPeriod={50} // Standard React Native default
+        initialNumToRender={2} // Minimal initial render for faster load
         showsVerticalScrollIndicator={false}
         maintainVisibleContentPosition={{
           minIndexForVisible: 0,
@@ -723,7 +781,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         }}
         getItemLayout={getItemLayout}
         ListEmptyComponent={
-          // Show loader only when loading, show empty state when feed is empty
+          // Force suggested accounts for timeline feed testing
           isLoading ? (
             <View style={styles.centeredLoadingContainer}>
               <ActivityIndicator size="large" color={secondaryColor || "#FFFFFF"} />
@@ -738,16 +796,30 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
               isProfileFeed={isHeaderFeed}
               viewableAreaHeight={viewableAreaHeight}
               feedOption={feedOption}
+              headerHeight={isHeaderFeed ? headerHeight : 0}
             />
-          ) : (
+          ) : feedOption === 'following' ? (
+            // Force suggested accounts for timeline feed
             <EmptyFeed 
-              type={feedOption === 'following' ? 'no-following' : 'no-videos'}
+              type="no-following"
               secondaryColor={secondaryColor} 
               profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
               feedKey={`${feedOption}-${userDid || 'default'}`}
               isProfileFeed={isHeaderFeed}
               viewableAreaHeight={viewableAreaHeight}
               feedOption={feedOption}
+              headerHeight={isHeaderFeed ? headerHeight : 0}
+            />
+          ) : (
+            <EmptyFeed 
+              type="no-videos"
+              secondaryColor={secondaryColor} 
+              profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
+              feedKey={`${feedOption}-${userDid || 'default'}`}
+              isProfileFeed={isHeaderFeed}
+              viewableAreaHeight={viewableAreaHeight}
+              feedOption={feedOption}
+              headerHeight={isHeaderFeed ? headerHeight : 0}
             />
           )
         }
@@ -772,7 +844,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         contentContainerStyle={[
           styles.contentContainer,
           displayFeed.length === 0 && styles.emptyContentContainer,
-          { paddingBottom: bottomNavBarHeight }, // Add safe area for nav bar
+          displayFeed.length === 0 ? { flex: 1, paddingBottom: 0 } : { paddingBottom: bottomNavBarHeight }, // Remove padding when empty to allow full height
         ]}
         ListFooterComponent={
           !isLoading && !isError && !isFetchingNextPage && !hasNextPage && displayFeed.length > 0 ? (
@@ -783,6 +855,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
               feedKey={`end-of-feed-${feedOption}-${userDid || 'default'}`}
               viewableAreaHeight={120}
               feedOption={feedOption}
+              headerHeight={isHeaderFeed ? headerHeight : 0}
             />
           ) : null
         }

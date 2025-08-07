@@ -147,6 +147,12 @@ class ChannelCache {
    */
   static async getChannel(uri: string): Promise<CachedChannel | null> {
     if (!uri) return null;
+    
+    // Skip if this is not a feed generator URI (e.g., DIDs, user handles, etc.)
+    if (!uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
+      console.log(`[ChannelCache] Skipping non-feed-generator URI: ${uri}`);
+      return null;
+    }
 
     // Check memory cache first
     const memoryCached = this.getChannelFromCacheSync(uri);
@@ -169,6 +175,12 @@ class ChannelCache {
    */
   private static async fetchAndCacheChannel(uri: string): Promise<CachedChannel | null> {
     if (!uri) return null;
+    
+    // Validate URI format - must be a valid at-uri for feed generators
+    if (!uri.startsWith('at://')) {
+      console.warn(`[ChannelCache] Invalid URI format for feed generator: ${uri}`);
+      return null;
+    }
     
     return new Promise((resolve) => {
       requestAnimationFrame(() => {
@@ -594,13 +606,39 @@ export function useChannel(uri: string | null | undefined): UseQueryResult<Cache
 export function useChannelColors(uri: string | null | undefined) {
   const { data: channel } = useChannel(uri);
   
+  // Return default colors if URI is not a valid feed generator URI
+  if (!uri || !uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
+    return {
+      colors: {
+        backgroundColor: '#000000',
+        foregroundColor: '#FFFFFF',
+        textColor: '#FFFFFF',
+        primaryColor: '#000000',
+        secondaryColor: '#FFFFFF',
+        accentColor: '#00D4FF',
+        statusBarStyle: 'light' as const,
+      },
+      isLoading: false,
+      getColorWithOpacity: (colorKey: keyof ChannelColorScheme, opacity: number): string => {
+        const hex = '#000000';
+        if (hex.startsWith('#')) {
+          const r = parseInt(hex.slice(1, 3), 16);
+          const g = parseInt(hex.slice(3, 5), 16);
+          const b = parseInt(hex.slice(5, 7), 16);
+          return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        }
+        return hex;
+      }
+    };
+  }
+  
   const colors: ChannelColorScheme = {
     backgroundColor: channel?.channelColors?.backgroundColor || '#000000',
     foregroundColor: '#FFFFFF', // Always use white text for channels
     textColor: '#FFFFFF', // Always use white text for channels
     primaryColor: channel?.channelColors?.backgroundColor || '#000000',
     secondaryColor: '#FFFFFF', // Always use white text for channels
-    accentColor: channel?.channelColors?.accentColor || '#000000', // Add accent color for vibrant UI elements
+    accentColor: channel?.channelColors?.accentColor || '#00D4FF', // Add accent color for vibrant UI elements
     statusBarStyle: 'light', // Always use light status bar for channels
   };
   

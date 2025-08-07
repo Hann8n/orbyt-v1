@@ -14,7 +14,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from '../components/ui/Icon';
+import Icon, { BackArrowIcon, PlusIcon, AtLineIcon, MailLineIcon, Key2LineIcon } from '../components/ui/Icon';
 import { BRAND, TEXT, UI } from '../utils/formatting/Colors';
 import AccountManager from '../services/storage/AccountManager';
 import AccountSwitcher from '../components/features/profile/AccountSwitcher';
@@ -143,23 +143,29 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
               )}
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            style={styles.manualLoginButton}
+            onPress={() => setShowManualLogin(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.manualLoginIcon}>
+              <PlusIcon size={16} color={BRAND.ACCENT} strokeWidth={2.0} />
+            </View>
+            <Text style={styles.manualLoginText}>Login with different account</Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
-      <TouchableOpacity
-        style={styles.manualLoginButton}
-        onPress={() => setShowManualLogin(true)}
-        activeOpacity={0.7}
-      >
-        <Icon name="plus" size={16} color={BRAND.ACCENT} style={styles.manualLoginIcon} />
-        <Text style={styles.manualLoginText}>Login with different account</Text>
-      </TouchableOpacity>
     </View>
   );
 
   const renderManualLogin = () => (
     <View style={styles.formContainer}>
       <View style={styles.inputContainer}>
-        <Icon name={handle.includes('@') ? "mail" : "at"} size={20} color={TEXT.DARK_GREY} style={styles.inputIcon} />
+        {handle.includes('@') ? (
+          <MailLineIcon size={20} color={TEXT.DARK_GREY} style={styles.inputIcon} />
+        ) : (
+          <AtLineIcon size={20} color={TEXT.DARK_GREY} style={styles.inputIcon} />
+        )}
         <TextInput
           style={styles.input}
           placeholder="Bluesky Handle or Email"
@@ -175,7 +181,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       </View>
 
       <View style={styles.inputContainer}>
-        <Icon name="lock" size={20} color={TEXT.DARK_GREY} style={styles.inputIcon} />
+        <Key2LineIcon size={20} color={TEXT.DARK_GREY} style={styles.inputIcon} />
         <TextInput
           style={[styles.input, styles.passwordInput]}
           placeholder="Password"
@@ -243,7 +249,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           onPress={() => setShowManualLogin(false)}
           activeOpacity={0.7}
         >
-          <Icon name="arrow-left" size={16} color={BRAND.ACCENT} style={styles.backIcon} />
+          <BackArrowIcon size={16} color={BRAND.ACCENT} style={styles.backIcon} />
           <Text style={styles.backToAccountsText}>Back to saved accounts</Text>
         </TouchableOpacity>
       )}
@@ -467,21 +473,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 14,
+    marginTop: 24,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: BRAND.ACCENT,
     backgroundColor: 'transparent',
-    marginTop: 4,
-    marginBottom: 8,
   },
   manualLoginIcon: {
-    marginRight: 8,
+    marginRight: 16,
   },
   manualLoginText: {
     color: BRAND.ACCENT,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
   },

@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
-  memo, // <-- Add memo
+  memo,
 } from 'react';
 import {
   View,
@@ -31,8 +31,6 @@ import { isSmallScreen, isTablet, getVideoCardHeight } from '../../../utils/help
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import Icon from '../../ui/Icon';
 import { feedService } from '../../../services/FeedService';
-
-
 
 export interface VideoEmbed {
   $type: string;
@@ -90,15 +88,15 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     const isSmallDevice = isSmallScreen() || isTablet();
     const [hasError, setHasError] = useState<boolean>(false);
     const [userPaused, setUserPaused] = useState<boolean>(false);
-    const [isLoaded, setIsLoaded] = useState<boolean>(false);
-    const [isPlayerValid, setIsPlayerValid] = useState<boolean>(false);
+    const [isReady, setIsReady] = useState<boolean>(false);
     const [isPreloadReady, setIsPreloadReady] = useState<boolean>(false);
-
     const [progress, setProgress] = useState<number>(0);
     const [duration, setDuration] = useState<number>(0);
     const [currentPosition, setCurrentPosition] = useState<number>(0);
     const [hasMarkedAsWatched, setHasMarkedAsWatched] = useState<boolean>(false);
     const [customDimLevel, setCustomDimLevel] = useState<number>(0);
+    const [isPlaying, setIsPlaying] = useState<boolean>(false);
+    
     const wasPlayingBeforeBlur = useRef<boolean>(false);
     const playerRef = useRef<any>(null);
     const videoEmbed = getVideoEmbed(post.embed);
@@ -126,68 +124,51 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     // Determine if video should be blurred - prioritize user choice over moderation
     const shouldBlur = feedService.isVideoBlurred(post.uri, !!moderationDecision?.blur);
 
-    // Calculate overlay opacity based on various factors
+    // Calculate overlay opacity based on various factors - optimized for scroll performance
     const overlayOpacity = useMemo(() => {
       if (shouldBlur) return 1;
       if (customDimLevel > 0) return customDimLevel;
-      if (!isVisible) return 0.3;
       return 0;
-    }, [shouldBlur, customDimLevel, isVisible]);
+    }, [shouldBlur, customDimLevel]);
 
-    // Determine if video should actually play - optimized to reduce recalculations
-    const shouldPlay = useMemo(() => {
-      if (shouldDisablePlayback) return false;
-      if (shouldBlur) return false;
-      if (!isVisible) return false;
-      if (userPaused) return false;
-      if (!isScreenFocused) return false;
-      if (!isLoaded) return false;
-      if (!isPlayerValid) return false;
-      return true;
-    }, [shouldDisablePlayback, shouldBlur, isVisible, userPaused, isScreenFocused, isLoaded, isPlayerValid]);
+    // Simplified play state management - removed redundant isLoaded and isPlayerValid
+    useEffect(() => {
+      const shouldPlay = !shouldDisablePlayback && 
+                        !shouldBlur && 
+                        isVisible && 
+                        !userPaused && 
+                        isScreenFocused && 
+                        isReady;
+      
+      setIsPlaying(shouldPlay);
+    }, [shouldDisablePlayback, shouldBlur, isVisible, userPaused, isScreenFocused, isReady]);
 
     // Handle video status changes - optimized to prevent blocking scroll
     const handleVideoStatus = useCallback((status: string) => {
       if (status === 'ready') {
-        setIsLoaded(true);
-        setIsPlayerValid(true);
+        setIsReady(true);
         if (!videoStatusNotifiedRef.current) {
-          // Performance monitoring removed for simplification
-          
-          // Use requestAnimationFrame to prevent blocking scroll events
-          requestAnimationFrame(() => {
-            onVideoStatus?.(post.uri, 'ready');
-          });
+          onVideoStatus?.(post.uri, 'ready');
           videoStatusNotifiedRef.current = true;
         }
-        // If video becomes ready while visible, start playing immediately
+        // Start playing immediately when ready and visible
         if (isVisible && !shouldDisablePlayback && !shouldBlur) {
           setUserPaused(false);
         }
       } else if (status === 'error') {
         setHasError(true);
-        requestAnimationFrame(() => {
-          onVideoStatus?.(post.uri, 'error');
-        });
+        onVideoStatus?.(post.uri, 'error');
       } else if (status === 'loading') {
-        // Start tracking video load time
-        // Performance monitoring removed for simplification
-        requestAnimationFrame(() => {
-          onVideoStatus?.(post.uri, 'loading');
-        });
+        onVideoStatus?.(post.uri, 'loading');
       }
     }, [post.uri, onVideoStatus, isVisible, shouldDisablePlayback, shouldBlur]);
 
     // Handle buffer events - optimized
     const handleBuffer = useCallback((data: any) => {
       if (data.isBuffering) {
-        requestAnimationFrame(() => {
-          onVideoStatus?.(post.uri, 'buffering');
-        });
+        onVideoStatus?.(post.uri, 'buffering');
       } else {
-        requestAnimationFrame(() => {
-          onVideoStatus?.(post.uri, 'ready');
-        });
+        onVideoStatus?.(post.uri, 'ready');
       }
     }, [post.uri, onVideoStatus]);
 
@@ -232,26 +213,24 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
       setDimLevel: (level: number) => {
         setCustomDimLevel(level);
       },
-      getPlayState: () => shouldPlay,
-    }), [progress, duration, currentPosition, shouldPlay]);
+      getPlayState: () => isPlaying,
+    }), [progress, duration, currentPosition, isPlaying]);
 
-    // Handle visibility changes - optimized
+    // Handle visibility changes - optimized for scroll performance
     useEffect(() => {
       if (isVisible !== previousVisibilityRef.current) {
         previousVisibilityRef.current = isVisible;
         
         // When becoming visible, ensure video is ready to play
-        if (isVisible && isLoaded && isPlayerValid) {
-          requestAnimationFrame(() => {
-            onVideoStatus?.(post.uri, 'ready');
-          });
+        if (isVisible && isReady) {
+          onVideoStatus?.(post.uri, 'ready');
           // Reset user pause state when becoming visible to allow auto-play
           if (userPaused && !shouldDisablePlayback && !shouldBlur) {
             setUserPaused(false);
           }
         }
       }
-    }, [isVisible, isLoaded, isPlayerValid, post.uri, onVideoStatus, userPaused, shouldDisablePlayback, shouldBlur]);
+    }, [isVisible, isReady, post.uri, onVideoStatus, userPaused, shouldDisablePlayback, shouldBlur]);
 
     // Handle app state changes
     useEffect(() => {
@@ -275,43 +254,51 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     // Handle blur state changes
     useEffect(() => {
       if (shouldBlur) {
-        wasPlayingBeforeBlur.current = shouldPlay;
+        wasPlayingBeforeBlur.current = isPlaying;
         setUserPaused(true);
       } else if (wasPlayingBeforeBlur.current && isVisible) {
         setUserPaused(false);
       }
-    }, [shouldBlur, shouldPlay, isVisible]);
+    }, [shouldBlur, isVisible, isPlaying]);
 
-    // Preload video if needed - simplified
+    // Preload video if needed - React Native compatible
     useEffect(() => {
       if (shouldPreload && videoUrl && !preloadCompleteRef.current) {
-        VideoPreloadManager.addToPreloadQueue(videoUrl, () => Promise.resolve(), false)
+        const preloadFn = async () => {
+          // Simple HTTP HEAD request to preload video metadata
+          return fetch(videoUrl, { method: 'HEAD' })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              return response;
+            });
+        };
+        
+        VideoPreloadManager.addToPreloadQueue(videoUrl, preloadFn, false)
           .then(() => {
             setIsPreloadReady(true);
             preloadCompleteRef.current = true;
-            if (!isLoaded) {
-              setIsLoaded(true);
-              setIsPlayerValid(true);
-            }
+            // Make video ready immediately after preload
+            setIsReady(true);
+            videoStatusNotifiedRef.current = true;
+            onVideoStatus?.(post.uri, 'ready');
           })
           .catch(() => {
             preloadCompleteRef.current = true;
           });
       }
-    }, [shouldPreload, videoUrl, isLoaded]);
+    }, [shouldPreload, videoUrl, post.uri, onVideoStatus]);
 
     // Handle preloaded videos - they should be ready to play immediately
     useEffect(() => {
-      if (isVisible && shouldPreload && isPreloadReady && !isLoaded) {
+      if (isVisible && shouldPreload && isPreloadReady && !isReady) {
         // Preloaded videos should be immediately ready
-        setIsLoaded(true);
-        setIsPlayerValid(true);
+        setIsReady(true);
         videoStatusNotifiedRef.current = true;
-        requestAnimationFrame(() => {
-          onVideoStatus?.(post.uri, 'ready');
-        });
+        onVideoStatus?.(post.uri, 'ready');
       }
-    }, [isVisible, shouldPreload, isPreloadReady, isLoaded, post.uri, onVideoStatus]);
+    }, [isVisible, shouldPreload, isPreloadReady, isReady, post.uri, onVideoStatus]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -336,41 +323,41 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                 style={{ width: displayWidth, height: displayHeight }}
                 resizeMode="contain"
                 repeat={true}
-                paused={!shouldPlay}
+                paused={!isPlaying}
                 onLoad={() => handleVideoStatus('ready')}
                 onError={err => {
                   setHasError(true);
-                  requestAnimationFrame(() => {
-                    onVideoStatus?.(post.uri, 'error');
-                  });
+                  onVideoStatus?.(post.uri, 'error');
                 }}
                 onBuffer={handleBuffer}
                 onProgress={handleProgress}
                 onEnd={handleEnd}
                 bufferConfig={{
-                  minBufferMs: 15000,
-                  maxBufferMs: 50000,
-                  bufferForPlaybackMs: 2500,
-                  bufferForPlaybackAfterRebufferMs: 5000,
+                  minBufferMs: 5000,        // Reduced from 15000
+                  maxBufferMs: 20000,        // Reduced from 50000
+                  bufferForPlaybackMs: 1000, // Reduced from 2500
+                  bufferForPlaybackAfterRebufferMs: 2000, // Reduced from 5000
                 }}
-                maxBitRate={1500000}
                 muted={false}
                 controls={false}
                 playInBackground={false}
                 playWhenInactive={false}
                 ignoreSilentSwitch="ignore"
                 disableFocus={true}
-                // Performance optimizations
-                progressUpdateInterval={100} // Reduced from default for smoother updates
+                // Performance optimizations - faster playback
+                progressUpdateInterval={50}  // Reduced from 100 for more responsive updates
                 reportBandwidth={false} // Disable bandwidth reporting to reduce overhead
-                automaticallyWaitsToMinimizeStalling={true} // iOS optimization
+                automaticallyWaitsToMinimizeStalling={false} // Disable to start playing immediately
                 textTracks={[]} // Disable text tracks to reduce overhead
                 // Android specific optimizations
                 useTextureView={Platform.OS === 'android'} // Use TextureView for better performance on Android
+                // iOS specific optimizations
+                allowsExternalPlayback={false} // Disable AirPlay to reduce overhead
+                preventsDisplaySleepDuringVideoPlayback={false} // Don't prevent sleep
               />
             )}
             <Animated.View style={[styles.dimOverlay, { opacity: overlayOpacity }]} pointerEvents="none" />
-            {isVisible && !isLoaded && (
+            {isVisible && !isReady && (
               <View style={styles.loadingOverlay} pointerEvents="none">
                 <ActivityIndicator size="large" color="#fff" />
               </View>
@@ -384,7 +371,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                 <TouchableWithoutFeedback onPress={() => {
                   feedService.setVideoBlurState(post.uri, false);
                   forceRerender(n => n + 1);
-                  if (playerRef.current && isPlayerValid && isVisible && !userPaused) {
+                  if (playerRef.current && isReady && isVisible && !userPaused) {
                     setUserPaused(false);
                   }
                 }}>
@@ -507,18 +494,17 @@ const styles = StyleSheet.create({
   warningIcon: {
     marginBottom: 20,
   },
-
 });
 
 // Custom comparison for React.memo - optimized for performance
 const areEqual = (prevProps: VideoCardProps, nextProps: VideoCardProps) => {
-  // Quick checks first
-  if (prevProps.post?.uri !== nextProps.post?.uri) return false;
+  // Quick checks first - order by most likely to change
   if (prevProps.isVisible !== nextProps.isVisible) return false;
+  if (prevProps.post?.uri !== nextProps.post?.uri) return false;
+  if (prevProps.shouldDisablePlayback !== nextProps.shouldDisablePlayback) return false;
+  if (prevProps.moderationDecision?.blur !== nextProps.moderationDecision?.blur) return false;
   if (prevProps.shouldPreload !== nextProps.shouldPreload) return false;
   if (prevProps.height !== nextProps.height) return false;
-  if (prevProps.moderationDecision?.blur !== nextProps.moderationDecision?.blur) return false;
-  if (prevProps.shouldDisablePlayback !== nextProps.shouldDisablePlayback) return false;
   
   // Deep check for post embed only if URI is the same
   if (prevProps.post?.embed !== nextProps.post?.embed) return false;

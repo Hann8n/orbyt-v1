@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from '../../components/ui/Icon';
+import Icon, { BackArrowIcon } from '../../components/ui/Icon';
 import AuthorItem from '../../components/ui/AuthorItem';
 import { TEXT, UI, BRAND } from '../../utils/formatting/Colors';
 import Constants from 'expo-constants';
@@ -78,7 +78,7 @@ const AboutScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Icon name="arrow-left" size={24} color="#fff" />
+          <BackArrowIcon size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>About Orbyt</Text>
         <View style={styles.headerSpacer} />
@@ -135,7 +135,7 @@ const AboutScreen: React.FC = () => {
               >
                 <View style={styles.linkItemLeft}>
                   <View style={styles.linkIconContainer}>
-                    <Icon name={item.icon} size={20} color="#fff" />
+                    <Icon name={item.icon} size={24} color="#fff" />
                   </View>
                   <View style={styles.linkTextContainer}>
                     <Text style={styles.linkItemText}>{item.label}</Text>

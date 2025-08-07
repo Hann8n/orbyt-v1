@@ -37,7 +37,7 @@ export const VideoGridItem: React.FC<{
         source={{ uri: thumbnailUrl || videoUrl || undefined }}
         style={styles.thumbnail}
         resizeMode="cover"
-        defaultSource={require('../../../assets/Vector_Normal_Grey.png')}
+        
       />
       {shouldBlur && (
         <View style={styles.warningOverlay}>

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { ModerationService } from '../../../services/ModerationService';
 import { ModerationDecision } from '../../../services/ModerationTypes';
-import Icon from '../../ui/Icon';
+import Icon, { BackArrowIcon } from '../../ui/Icon';
 
 interface ModerationDebugProps {
   visible: boolean;
@@ -54,7 +54,7 @@ const ModerationDebug: React.FC<ModerationDebugProps> = ({ visible, onClose }) =
             onPress={onClose}
             activeOpacity={0.7}
           >
-            <Icon name="arrow-left" size={24} color="#fff" />
+            <BackArrowIcon size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Debug Moderation</Text>
         </View>

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from '../../components/ui/Icon';
+import Icon, { BackArrowIcon } from '../../components/ui/Icon';
 import { BRAND, TEXT, UI, STATUS } from '../../utils/formatting/Colors';
 import { ModerationService } from '../../services/ModerationService';
 
@@ -79,7 +79,7 @@ const MutedWordsScreen: React.FC = () => {
       <View style={styles.wordItem}>
         <View style={styles.wordInfo}>
           <View style={styles.wordIconContainer}>
-            <Icon name="message-delete" size={20} color={TEXT.SECONDARY} />
+            <Icon name="message-delete" size={24} color={TEXT.PRIMARY} />
           </View>
           <View style={styles.wordDetails}>
             <Text style={styles.wordText}>{item.word}</Text>
@@ -119,7 +119,7 @@ const MutedWordsScreen: React.FC = () => {
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
-            <Icon name="arrow-left" size={24} color={TEXT.PRIMARY} />
+            <BackArrowIcon size={24} color={TEXT.PRIMARY} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Muted Words</Text>
           <View style={styles.headerRight} />
@@ -140,7 +140,7 @@ const MutedWordsScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Icon name="arrow-left" size={24} color={TEXT.PRIMARY} />
+          <BackArrowIcon size={24} color={TEXT.PRIMARY} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Muted Words</Text>
         <View style={styles.headerRight} />
@@ -154,7 +154,7 @@ const MutedWordsScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="message-delete" size={48} color={TEXT.SECONDARY} />
+            <Icon name="message-delete" size={24} color={TEXT.PRIMARY} />
             <Text style={styles.emptyTitle}>No Muted Words</Text>
             <Text style={styles.emptyDescription}>
               You haven't muted any words yet. Posts containing muted words won't appear in your feed.

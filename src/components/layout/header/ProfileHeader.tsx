@@ -11,7 +11,7 @@ import VerificationInfoSheet from '../../features/verification/VerificationInfoS
 import ProfileMenu from '../../features/profile/ProfileMenu';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import AtprotoService from '../../../services/api/AtprotoService';
-import Icon, { PlusIcon, CheckIcon } from '../../ui/Icon';
+import Icon, { PlusIcon, CheckIcon, FollowIcon, MutualHeartIcon, ProfileEditIcon, MoreFillIcon } from '../../ui/Icon';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 
 interface ProfileHeaderProps {
@@ -23,6 +23,7 @@ interface ProfileHeaderProps {
   onSwitchAccount?: () => void;
   forceLoading?: boolean;
   children?: React.ReactNode;
+  feedKey?: string; // Feed-specific header visibility key
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -34,6 +35,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   onSwitchAccount,
   forceLoading = false,
   children,
+  feedKey,
 }) => {
   const navigation = useNavigation<any>();
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
@@ -220,7 +222,13 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               primary: {
                 id: 'save',
                 label: profileUpdateMutation.isPending ? 'Saving...' : 'Save',
-                icon: 'check',
+                customIcon: (
+                  <CheckIcon 
+                    size={16} 
+                    color={profileColors.textColor} 
+                    strokeWidth={2.0}
+                  />
+                ),
                 onPress: handleSaveProfile,
                 disabled: profileUpdateMutation.isPending,
                 loading: profileUpdateMutation.isPending,
@@ -241,14 +249,18 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           {
             type: 'button',
             menuIcon: {
-              name: 'more-horizontal',
               onPress: handleMenuPress,
             },
             buttons: [
               {
                 id: 'edit',
                 label: 'Edit',
-                icon: 'edit',
+                customIcon: (
+                  <ProfileEditIcon 
+                    size={16} 
+                    color={profileColors.textColor} 
+                  />
+                ),
                 onPress: enterEditMode,
               },
             ],
@@ -261,12 +273,23 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       const isFollowedBy = !!profileData.isFollowedBy;
 
       let label = 'Follow';
-      let icon: string | undefined = 'plus';
-      let customIcon: React.ReactNode | undefined = undefined;
+      let icon: string | undefined = undefined;
+      let customIcon: React.ReactNode | undefined = (
+        <FollowIcon 
+          size={16} 
+          color={profileColors.textColor} 
+        />
+      );
 
       if (isFollowing && isFollowedBy) {
         label = 'Mutuals';
-        icon = 'users';
+        icon = undefined;
+        customIcon = (
+          <MutualHeartIcon 
+            size={16} 
+            color={profileColors.backgroundColor} 
+          />
+        );
       } else if (isFollowing) {
         label = 'Following';
         icon = undefined;
@@ -283,7 +306,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         {
           type: 'button',
           menuIcon: {
-            name: 'more-horizontal',
             onPress: handleMenuPress,
           },
           buttons: [
@@ -385,6 +407,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         isLoading={forceLoading || (isProfileLoading && !profileData)}
         skeleton={skeleton}
         showGradient={false}
+        feedKey={feedKey}
       >
         {customDescription}
         {children}

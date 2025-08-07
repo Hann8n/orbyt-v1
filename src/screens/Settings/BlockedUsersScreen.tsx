@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from '../../components/ui/Icon';
+import Icon, { BackArrowIcon } from '../../components/ui/Icon';
 import { BRAND, TEXT, UI, STATUS } from '../../utils/formatting/Colors';
 import { ModerationService } from '../../services/ModerationService';
 import AtprotoService from '../../services/api/AtprotoService';
@@ -95,7 +95,7 @@ const BlockedUsersScreen: React.FC = () => {
             {item.avatar ? (
               <Image source={{ uri: item.avatar }} style={styles.avatar} />
             ) : (
-              <Icon name="user" size={20} color={TEXT.SECONDARY} />
+              <Icon name="user" size={24} color={TEXT.PRIMARY} />
             )}
           </View>
           <View style={styles.userDetails}>
@@ -136,7 +136,7 @@ const BlockedUsersScreen: React.FC = () => {
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
-            <Icon name="arrow-left" size={24} color={TEXT.PRIMARY} />
+            <BackArrowIcon size={24} color={TEXT.PRIMARY} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Blocked Users</Text>
           <View style={styles.headerRight} />
@@ -157,7 +157,7 @@ const BlockedUsersScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Icon name="arrow-left" size={24} color={TEXT.PRIMARY} />
+          <BackArrowIcon size={24} color={TEXT.PRIMARY} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Blocked Users</Text>
         <View style={styles.headerRight} />
@@ -171,7 +171,7 @@ const BlockedUsersScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="shield-off" size={48} color={TEXT.SECONDARY} />
+            <Icon name="shield-off" size={24} color={TEXT.PRIMARY} />
             <Text style={styles.emptyTitle}>No Blocked Users</Text>
             <Text style={styles.emptyDescription}>
               You haven't blocked any users yet. Blocked users won't be able to see your content or interact with you.

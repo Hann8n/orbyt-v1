@@ -280,6 +280,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
         onBackPress={handleBackPress}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        feedKey={`channel-${uri || 'default'}`}
       >
         {channelData && (
           <>

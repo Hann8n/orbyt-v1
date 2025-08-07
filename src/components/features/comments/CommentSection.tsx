@@ -39,6 +39,7 @@ import VerificationBadge from '../verification/VerificationBadge';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate, { formatPostDate } from '../../ui/RelativeDate';
 import UI from '../../ui/UI';
+import { Icon } from '../../ui/UI';
 import PopUpModal from '../../ui/PopUpModal';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView, NativeViewGestureHandler } from 'react-native-gesture-handler';
@@ -363,7 +364,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               styles.input,
               {
                 backgroundColor: 'transparent',
-                color: '#cfd6e8',
+                color: '#fff',
                 borderColor: 'transparent',
                 flex: 1,
                 borderTopRightRadius: 0,
@@ -400,8 +401,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 onPress={replyContext && !newCommentText.trim() ? handleCancelReply : handleSendComment}
                 disabled={isPosting || (!newCommentText.trim() && !replyContext) || charCount > MAX_COMMENT_LENGTH}
               >
-                <UI.Icon 
-                  name={replyContext && !newCommentText.trim() ? "close" : "arrow-up"} 
+                <Icon 
+                  name={replyContext && !newCommentText.trim() ? "close" : "send-plane-fill"} 
                   size={22} 
                   color={isPosting || (!newCommentText.trim() && !replyContext) || charCount > MAX_COMMENT_LENGTH ? '#ccc' : '#fff'} 
                 />

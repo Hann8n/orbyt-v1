@@ -168,10 +168,16 @@ class FeedService {
     switch (feedOption) {
       case 'yourMix':
         return null; // Handle specially with mixed feed logic
+      case 'profile':
+        return null; // Handle specially with user-specific logic
+      case 'likes':
+        return null; // Handle specially with user-specific logic
+      case 'reposts':
+        return null; // Handle specially with user-specific logic
       case 'discover':
         return 'at://did:plc:tenurhgjptubkk5zf5qhi3og/app.bsky.feed.generator/discover-video';
       case 'following':
-        return 'at://following';
+        return null; // Handle specially with timeline feed logic
       default:
         return null;
     }
@@ -181,6 +187,8 @@ class FeedService {
     try {
       const limit = FEED_CONFIG.defaultLimit;
       let response;
+      
+
 
       // Handle different feed types
       if (feedOption === 'likes' && userDid) {
@@ -192,6 +200,23 @@ class FeedService {
         );
       } else if (feedOption === 'profile' && userDid) {
         response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'authorVideos');
+      } else if (feedOption === 'profile' && !userDid) {
+        console.warn(`[FeedService] Profile feed requested but no userDid provided for option: ${feedOption}`);
+        return { feed: [], cursor: null };
+      } else if (feedOption === 'likes' && !userDid) {
+        console.warn(`[FeedService] Likes feed requested but no userDid provided for option: ${feedOption}`);
+        return { feed: [], cursor: null };
+      } else if (feedOption === 'reposts' && !userDid) {
+        console.warn(`[FeedService] Reposts feed requested but no userDid provided for option: ${feedOption}`);
+        return { feed: [], cursor: null };
+      } else if (feedOption === 'following') {
+        // Handle following feed specially - it uses timeline feed type
+        const feedType = 'timeline';
+        response = await AtprotoService.getFeed(cursor, null, {}, true, limit, feedType);
+      } else if (feedOption === 'profile' || feedOption === 'likes' || feedOption === 'reposts') {
+        // These feed types require a userDid but none was provided
+        console.warn(`[FeedService] ${feedOption} feed requires userDid but none provided`);
+        return { feed: [], cursor: null };
       } else if (feedOption === 'yourMix') {
         const feedUris = this.subscribedChannels
           .filter((channel: any) => channel.uri !== 'following')
@@ -200,11 +225,13 @@ class FeedService {
               return 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids';
             }
             return channel.uri;
-          });
+          })
+          .filter(uri => uri && uri.startsWith('at://')); // Filter out invalid URIs
         
         if (feedUris.length > 0) {
           response = await AtprotoService.getMixedFeed(feedUris, cursor, limit, true, FEED_CONFIG.maxFeedsPerFetch);
         } else {
+          // Fallback to a default video feed if no valid channels
           response = await AtprotoService.getFeed(cursor, 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids', {}, true, limit, 'custom');
           // Set sourceFeed for fallback case
           if (response.feed) {
@@ -223,6 +250,10 @@ class FeedService {
       } else {
         // Standard feeds
         const feedLink = this.getFeedLink(feedOption);
+        if (!feedLink) {
+          console.warn(`[FeedService] No feed link found for option: ${feedOption}`);
+          return { feed: [], cursor: null };
+        }
         const feedType = feedOption === 'following' ? 'timeline' : 'custom';
         response = await AtprotoService.getFeed(cursor, feedLink, {}, true, limit, feedType);
       }
@@ -233,7 +264,7 @@ class FeedService {
       };
     } catch (error) {
       console.error(`[FeedService] Error fetching ${feedOption} feed:`, error);
-      throw error;
+      return { feed: [], cursor: null };
     }
   }
 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,14 +11,24 @@ import {
   Platform,
   UIManager,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
 import UI from '../../ui/UI';
+import { CommentHeartIcon } from '../../ui/Icon';
 import VerificationBadge from '../verification/VerificationBadge';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
+import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -115,6 +125,11 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const queryClient = useQueryClient();
     const [repliesVisible, setRepliesVisible] = useState(false);
 
+    // Animation values for heart interaction
+    const heartScale = useSharedValue(1);
+    const heartOpacity = useSharedValue(1);
+    const isAnimating = useRef(false);
+
     // Define the proper URI and CID for the comment
     const properUri = comment?.uri || comment?.post?.uri;
     const properCid = comment?.cid || comment?.post?.cid;
@@ -160,34 +175,74 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       return comment?.replyCount || (comment?.replies ? comment.replies.length : 0);
     }, [comment?.replies, comment?.replyCount]);
 
+    // Animated styles for heart
+    const heartAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: heartScale.value }],
+      opacity: heartOpacity.value,
+    }));
+
+    const animateHeart = useCallback(() => {
+      if (isAnimating.current) return;
+      isAnimating.current = true;
+
+      // Quick scale up and down animation
+      heartScale.value = withSpring(1.3, { duration: 150 }, () => {
+        heartScale.value = withSpring(1, { duration: 150 }, () => {
+          isAnimating.current = false;
+        });
+      });
+
+      // Slight opacity pulse
+      heartOpacity.value = withTiming(0.8, { duration: 100 }, () => {
+        heartOpacity.value = withTiming(1, { duration: 100 });
+      });
+    }, [heartScale, heartOpacity]);
+
     const handleLikeComment = useCallback(async () => {
+      // Optimistic update - change state immediately
+      const newIsLiked = !isLiked;
+      const newLikeCount = newIsLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
+      
+      // Only animate when liking (not when unliking)
+      if (newIsLiked) {
+        animateHeart();
+      }
+      
+      setIsLiked(newIsLiked);
+      setLikeCount(newLikeCount);
+      
       try {
-        if (isLiked) {
-          if (!viewer.like) {
-            console.error('No like URI found for unlike action');
-            return;
-          }
-          await AtprotoService.deleteLike(viewer.like);
-          setIsLiked(false);
-          setLikeCount((prev) => Math.max(0, prev - 1));
-        } else {
+        if (newIsLiked) {
           if (!properUri || !properCid) {
             console.error('Missing URI or CID for like action', comment);
+            // Revert on error
+            setIsLiked(isLiked);
+            setLikeCount(likeCount);
             return;
           }
           const likeURI: string = await AtprotoService.likePost(properUri, properCid);
-          setIsLiked(true);
-          setLikeCount((prev) => prev + 1);
           if (comment) {
             comment.viewer = comment.viewer || {};
             comment.viewer.like = likeURI;
           }
+        } else {
+          if (!viewer.like) {
+            console.error('No like URI found for unlike action');
+            // Revert on error
+            setIsLiked(isLiked);
+            setLikeCount(likeCount);
+            return;
+          }
+          await AtprotoService.deleteLike(viewer.like);
         }
       } catch (error) {
         console.error('Error liking comment:', error);
+        // Revert optimistic update on error
+        setIsLiked(isLiked);
+        setLikeCount(likeCount);
         Alert.alert('Error', 'Failed to like comment. Please try again.');
       }
-    }, [isLiked, comment, viewer.like, properUri, properCid]);
+    }, [isLiked, likeCount, comment, viewer.like, properUri, properCid, animateHeart]);
 
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
@@ -250,6 +305,56 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
 
     const BLUESKY_CDN = 'https://cdn.bsky.app/img/feed_thumbnail/plain/';
 
+    // Shimmer Image Component
+    const ShimmerImage: React.FC<{
+      uri: string;
+      style: any;
+      onPress?: () => void;
+      accessibilityLabel?: string;
+      onLoad?: (e: any) => void;
+      onError?: (e: any) => void;
+    }> = React.memo(({ uri, style, onPress, accessibilityLabel, onLoad, onError }) => {
+      const [isLoading, setIsLoading] = useState(true);
+      const [hasError, setHasError] = useState(false);
+
+      const handleLoad = (e: any) => {
+        setIsLoading(false);
+        onLoad?.(e);
+      };
+
+      const handleError = (e: any) => {
+        setIsLoading(false);
+        setHasError(true);
+        onError?.(e);
+      };
+
+      if (hasError) {
+        return null;
+      }
+
+      return (
+        <>
+          {isLoading && (
+            <ShimmerPlaceholder
+              LinearGradient={LinearGradient}
+              style={style}
+              shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+            />
+          )}
+          <Image
+            source={{ uri }}
+            style={[style, { opacity: isLoading ? 0 : 1 }]}
+            resizeMode="cover"
+            accessible={true}
+            accessibilityLabel={accessibilityLabel}
+            onLoadStart={() => setIsLoading(true)}
+            onLoad={handleLoad}
+            onError={handleError}
+          />
+        </>
+      );
+    });
+
     const LinkThumbnail: React.FC<{ external: { uri: string; thumb?: any; title?: string; description?: string } }> = React.memo(({ external }) => {
       if (!external?.uri || !/^https?:\/\//.test(external.uri)) return null;
       
@@ -273,10 +378,9 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           android_ripple={{ color: '#222' }}
         >
           {thumbUrl && (
-            <Image
-              source={{ uri: thumbUrl }}
+            <ShimmerImage
+              uri={thumbUrl}
               style={{ width: 64, height: 64, borderTopLeftRadius: 10, borderBottomLeftRadius: 10, backgroundColor: '#222' }}
-              resizeMode="cover"
             />
           )}
           <View style={{ flex: 1, padding: 8, minWidth: 0 }}>
@@ -332,11 +436,9 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   if (onImagePress) onImagePress(external.uri);
                 }}
               >
-                <Image
-                  source={{ uri: external.uri }}
+                <ShimmerImage
+                  uri={external.uri}
                   style={[styles.commentImage, imageStyle]}
-                  resizeMode="cover"
-                  accessible={true}
                   accessibilityLabel={external.description || external.title || 'Comment image'}
                   onError={(e: { nativeEvent: { error: string } }) => {
                     console.warn('Error loading comment image:', e.nativeEvent.error);
@@ -393,25 +495,17 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                 // Future enhancement: open image in fullscreen viewer
               }}
             >
-              <Image
-                source={{ uri: img.thumb || img.fullsize }}
+              <ShimmerImage
+                uri={img.thumb || img.fullsize}
                 style={[
                   styles.commentImage,
                   img.aspectRatio ? {
                     aspectRatio: img.aspectRatio.width / img.aspectRatio.height
                   } : { aspectRatio: 1 }
                 ]}
-                resizeMode="cover"
-                accessible={true}
                 accessibilityLabel={img.alt || "Comment image"}
                 onError={(e: { nativeEvent: { error: string } }) => {
                   console.warn('Error loading comment image:', e.nativeEvent.error);
-                }}
-                onLoadStart={() => {
-                  // Optional: Add loading state if needed
-                }}
-                onLoadEnd={() => {
-                  // Optional: Remove loading state if needed
                 }}
               />
             </TouchableOpacity>
@@ -527,15 +621,12 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           </View>
           <View style={styles.commentActionsContainer}>
             <TouchableOpacity onPress={handleLikeComment} style={styles.likeButton}>
-              <Image
-                source={
-                  isLiked
-                    ? require('../../../assets/Vector_Normal.png')
-                    : require('../../../assets/Vector_Normal_Grey.png')
-                }
-                style={styles.likeIcon}
-                resizeMode="contain"
-              />
+              <Animated.View style={heartAnimatedStyle}>
+                <CommentHeartIcon
+                  size={22}
+                  color={isLiked ? UI.Colors.INTERACTIVE.HEART.ACTIVE : UI.Colors.INTERACTIVE.HEART.INACTIVE}
+                />
+              </Animated.View>
             </TouchableOpacity>
             {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
           </View>
@@ -684,7 +775,7 @@ const styles = StyleSheet.create({
     color: UI.Colors.BRAND.SECONDARY,
     fontSize: 12.5,
     fontFamily: 'Firma-SemiBold',
-    marginTop: 2,
+    marginTop: 0,
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.15)',
     textShadowOffset: { width: 0, height: 1 },

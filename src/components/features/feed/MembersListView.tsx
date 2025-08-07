@@ -110,6 +110,12 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     queryFn: async ({ pageParam }: { pageParam: string | null }) => {
       // For now, we'll use the channel creator's following list
       // In the future, this could be replaced with actual channel member API
+      
+      // Validate channel URI before calling getFeedGenerator
+      if (!channelUri || !channelUri.startsWith('at://')) {
+        throw new Error('Invalid channel URI');
+      }
+      
       const channelDetails = await AtprotoService.getFeedGenerator(channelUri);
       if (!channelDetails?.view?.creator?.did) {
         throw new Error('Channel creator not found');

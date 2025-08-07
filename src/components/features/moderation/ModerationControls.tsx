@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Icon from '../../ui/Icon';
+import Icon, { BackArrowIcon } from '../../ui/Icon';
 import { ModerationService } from '../../../services/ModerationService';
 import { ModerationSettings, LabelPreference } from '../../../services/ModerationTypes';
 import { BRAND, STATUS } from '../../../utils/formatting/Colors';
@@ -260,7 +260,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
             onPress={onClose}
             activeOpacity={0.7}
           >
-            <Icon name="arrow-left" size={24} color="#fff" />
+            <BackArrowIcon size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Content Moderation</Text>
         </View>
@@ -324,7 +324,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                 <View style={styles.settingItem}>
                   <View style={styles.settingItemLeft}>
                     <View style={styles.iconContainer}>
-                      <Icon name="user-x" size={20} color="#fff" />
+                      <Icon name="block" size={24} color="#fff" />
                     </View>
                     <View style={styles.settingTextContainer}>
                       <Text style={styles.settingItemText}>Hide Blocked Users</Text>
@@ -344,7 +344,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                 <View style={styles.settingItem}>
                   <View style={styles.settingItemLeft}>
                     <View style={styles.iconContainer}>
-                      <Icon name="volume-x" size={20} color="#fff" />
+                      <Icon name="muted-users" size={24} color="#fff" />
                     </View>
                     <View style={styles.settingTextContainer}>
                       <Text style={styles.settingItemText}>Hide Muted Users</Text>
@@ -374,7 +374,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                   <View style={styles.settingItem}>
                     <View style={styles.settingItemLeft}>
                       <View style={styles.iconContainer}>
-                        <Icon name="contact" size={20} color="#fff" />
+                        <Icon name="sensitive-content" size={24} color="#fff" />
                       </View>
                       <View style={styles.settingTextContainer}>
                         <Text style={styles.settingItemText}>Sensitive Content</Text>
@@ -490,7 +490,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                 onPress={() => ModerationService.openBlueskyModerationSettings()}
                 activeOpacity={0.7}
               >
-                <Icon name="external-link" size={16} color="#fff" />
+                <Icon name="external-link" size={24} color="#fff" />
                 <Text style={styles.webSettingsTextButtonText}>
                   adjust settings on bsky.app
                 </Text>

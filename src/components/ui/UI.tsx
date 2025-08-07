@@ -20,6 +20,8 @@ import { Modal as RNModal } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { icons as pixelarticons } from '@iconify-json/pixelarticons';
 import { icons as streamlinePixel } from '@iconify-json/streamline-pixel';
+import Icon from './Icon';
+
 
 // ============================================================================
 // ENHANCED COLOR SYSTEM
@@ -35,7 +37,7 @@ export const Colors = {
   BRAND: {
     PRIMARY: '#000000',          // Primary brand color (pure black)
     SECONDARY: '#FFFFFF',        // Secondary brand color (pure white)
-    ACCENT: '#3797F0',           // Primary accent (accessible blue)
+    ACCENT: '#cfd6e8',           // Primary accent (light blue-gray)
     ACCENT_DARK: '#2A7CD6',      // Darker variant for hover states
     ACCENT_LIGHT: '#5BA8F4',     // Lighter variant for disabled states
   },
@@ -351,44 +353,7 @@ export const Button: React.FC<ButtonProps> = ({
 };
 
 // Icon Component
-interface IconProps {
-  name: string;
-  size?: number;
-  color?: string;
-  style?: ViewStyle;
-  strokeWidth?: number;
-  iconSet?: 'pixelarticons' | 'streamline-pixel';
-}
 
-export const Icon: React.FC<IconProps> = ({ 
-  name, 
-  size = 24, 
-  color = Colors.TEXT.PRIMARY, 
-  style, 
-  strokeWidth = 1.75,
-  iconSet = 'pixelarticons'
-}) => {
-  try {
-    const icons = iconSet === 'streamline-pixel' ? streamlinePixel : pixelarticons;
-    const iconData = icons.icons[name];
-    
-    if (!iconData) {
-      console.warn(`Icon not found: ${name} in ${iconSet}`);
-      return null;
-    }
-
-    const svgXml = `
-      <svg width="${size}" height="${size}" viewBox="0 0 ${icons.width} ${icons.height}" xmlns="http://www.w3.org/2000/svg" stroke-width="${strokeWidth}">
-        ${iconData.body.replace(/currentColor/g, color)}
-      </svg>
-    `;
-
-    return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
-  } catch (error) {
-    console.error(`Error rendering icon ${name}:`, error);
-    return null;
-  }
-};
 
 // Avatar Component
 export type AvatarType = 'profile' | 'channel' | 'user';
@@ -857,7 +822,6 @@ const styles = StyleSheet.create({
 export default {
   Colors,
   Button,
-  Icon,
   Card,
   Modal,
   Input,
@@ -869,4 +833,6 @@ export default {
   isColorDark,
   getContrastRatio,
   meetsContrastGuidelines,
-}; 
+};
+
+export { default as Icon } from './Icon'; 

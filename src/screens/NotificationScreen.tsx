@@ -14,14 +14,17 @@ import {
 } from 'react-native';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../services/api/AtprotoService';
 import { useNavigation } from '@react-navigation/native';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
 import ProfileCache, { profileKeys } from '../services/cache/ProfileCache';
 import { Avatar, Icon } from '../components/ui/UI';
+import { NotificationIcon } from '../components/ui/Icon';
 import { BRAND, TEXT, UI } from '../utils/formatting/Colors';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
+import { getBottomNavBarHeight } from '../utils/helpers/screenSize';
 
 const NotificationShimmer = () => (
   <View style={styles.notificationItem}>
@@ -82,10 +85,23 @@ const isVideoOrProfileNotification = (notification: any): boolean => {
   return false;
 };
 
+// Header component for the list
+const ActivityHeader = () => (
+  <View style={styles.headerContainer}>
+    <NotificationIcon 
+      size={24} 
+      color={TEXT.PRIMARY} 
+    />
+    <Text style={styles.header}>Activity</Text>
+  </View>
+);
+
 const NotificationScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const [isScrolling, setIsScrolling] = useState(false);
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
+  const bottomNavBarHeight = getBottomNavBarHeight(insets);
   
   // Initialize current user for ProfileCache on mount
   useEffect(() => {
@@ -260,16 +276,8 @@ const NotificationScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY} />
-        <View style={styles.headerContainer}>
-          <Icon 
-            name="notification" 
-            size={24} 
-            color={TEXT.PRIMARY} 
-            style={{ transform: [{ scale: 1.2 }] }} 
-          />
-          <Text style={styles.header}>Activity</Text>
-        </View>
-        <View style={styles.errorContainer}>
+        <ActivityHeader />
+        <View style={[styles.errorContainer, { paddingBottom: bottomNavBarHeight }]}>
           <Text style={styles.errorText}>
             Something went wrong loading notifications.
           </Text>
@@ -285,24 +293,17 @@ const NotificationScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY} />
       
-      {/* Persistent Header */}
-      <View style={styles.headerContainer}>
-        <Icon 
-          name="notification" 
-          size={24} 
-          color={TEXT.PRIMARY} 
-          style={{ transform: [{ scale: 1.2 }] }} 
-        />
-        <Text style={styles.header}>Activity</Text>
-      </View>
-
       {/* Content */}
       <FlatList
         style={styles.listContainer}
-        contentContainerStyle={styles.listContentContainer}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingBottom: bottomNavBarHeight + 5,
+        }}
         data={isLoading ? shimmerItems : notifications}
         renderItem={isLoading ? () => <NotificationShimmer /> : renderNotificationContent}
         keyExtractor={(item, index) => isLoading ? `shimmer-${index}` : item.uri || `notification-${index}`}
+        ListHeaderComponent={ActivityHeader}
         onScroll={({ nativeEvent }) => {
           const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
           preloadNextPage(contentOffset.y, contentSize.height, layoutMeasurement.height);
@@ -358,18 +359,17 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingRight: 20,
     paddingTop: 15,
-    paddingBottom: 15,
+    paddingBottom: 5,
     backgroundColor: BRAND.PRIMARY,
-    zIndex: 1,
   },
   header: {
     color: TEXT.PRIMARY,
     fontSize: 30,
     fontFamily: 'Firma-Bold',
     marginLeft: 8,
-      },
+  },
   headerIcon: {
     width: 24,
     height: 24,
@@ -377,10 +377,7 @@ const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
   },
-  listContentContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
+
   notificationItem: {
     flexDirection: 'row',
     alignItems: 'center',

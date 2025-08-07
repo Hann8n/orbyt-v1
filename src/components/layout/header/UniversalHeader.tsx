@@ -1,7 +1,9 @@
+declare let window: any;
+
 import React, { memo, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Icon from '../../ui/Icon';
+import Icon, { BackArrowIcon, MoreFillIcon } from '../../ui/Icon';
 import { useNavigation } from '@react-navigation/native';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import { Avatar } from '../../ui/UI';
@@ -35,7 +37,7 @@ export interface CustomActionLayout {
   type: 'menu' | 'button' | 'button-group';
   position?: 'top-right' | 'top-left';
   menuIcon?: {
-    name: string;
+    name?: string;
     size?: number;
     onPress: () => void;
   };
@@ -65,6 +67,7 @@ export interface UniversalHeaderProps {
     isExcluded: boolean;
     onPress: () => void;
   };
+  feedKey?: string; // Feed-specific header visibility key
 }
 
 // Memoized action button component for performance
@@ -154,8 +157,7 @@ const CustomActionLayout = memo<{
         onPress={layout.menuIcon.onPress}
         activeOpacity={0.7}
       >
-        <Icon 
-          name={layout.menuIcon.name} 
+        <MoreFillIcon 
           size={layout.menuIcon.size || 24} 
           color={textColor} 
         />
@@ -344,9 +346,10 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   showGradient = true,
   gradientType = 'default',
   mixIcon,
+  feedKey,
 }) => {
   const navigation = useNavigation();
-  const headerVisibility = useHeaderVisibility();
+  const headerVisibility = useHeaderVisibility(feedKey);
   const opacityAnim = useRef(new Animated.Value(1)).current;
 
   const handleBackPress = useCallback(() => {
@@ -457,7 +460,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
               onPress={handleBackPress}
               activeOpacity={0.7}
             >
-              <Icon name="arrow-left" size={30} color={textColor} />
+              <BackArrowIcon size={30} color={textColor} />
             </TouchableOpacity>
           )}
         </View>

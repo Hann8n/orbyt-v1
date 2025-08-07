@@ -7,6 +7,8 @@ import Icon from './Icon';
 import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { UI } from '../../utils/formatting/Colors';
 import { HomeStackParamList } from '../../navigation/types';
+import { useProfile } from '../../services/cache/ProfileCache';
+import { Colors } from './UI';
 
 interface AuthorItemProps {
   handle: string;
@@ -20,6 +22,9 @@ interface AuthorItemProps {
   style?: any;
   showDate?: boolean;
   date?: string;
+  showFollowButton?: boolean;
+  isFollowing?: boolean;
+  onFollowPress?: () => void;
 }
 
 const AuthorItem: React.FC<AuthorItemProps> = ({
@@ -34,6 +39,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   style,
   showDate = false,
   date,
+  showFollowButton = false,
+  isFollowing = false,
+  onFollowPress,
 }) => {
   const navigation = useNavigation<NavigationProp<HomeStackParamList>>();
   
@@ -65,6 +73,10 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const config = sizeConfig[size];
   const actualDisplayName = displayName || handle || 'Unknown';
   const actualAvatar = avatar || undefined;
+
+  // Get following status from ProfileCache using the hook
+  const { data: cachedProfile } = useProfile(handle);
+  const actualIsFollowing = cachedProfile?.isFollowing ?? isFollowing;
 
   const handlePress = () => {
     if (onPress) {
@@ -102,7 +114,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
                 color: textColor,
                 fontSize: config.nameFontSize,
               }
-            ]}>
+            ]} numberOfLines={1}>
               {actualDisplayName}
             </Text>
             {handle && (
@@ -116,14 +128,30 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           <Text style={[
             styles.handle,
             { 
-              color: hexToRGBA(textColor, 0.67),
+              color: Colors.TEXT.SECONDARY,
               fontSize: config.handleFontSize,
             }
-          ]}>
+          ]} numberOfLines={1}>
             {showDate && date ? date : `@${handle}`}
           </Text>
         </View>
-        {showArrow && (
+        {showFollowButton ? (
+          <TouchableOpacity
+            style={[
+              styles.followButton,
+              { borderColor: textColor },
+              actualIsFollowing && { backgroundColor: textColor }
+            ]}
+            onPress={onFollowPress}
+          >
+            <Text style={[
+              styles.followButtonText,
+              { color: actualIsFollowing ? '#000' : textColor }
+            ]}>
+              {actualIsFollowing ? 'Following' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
+        ) : showArrow && (
           <Icon 
             name="chevron-right" 
             size={config.textSize} 
@@ -142,9 +170,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   content: {
     flexDirection: 'row',
@@ -153,11 +178,12 @@ const styles = StyleSheet.create({
   },
   avatar: {
     marginRight: 12,
-    borderWidth: 1,
   },
   textContainer: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'flex-start',
+    marginRight: 8,
   },
   nameRow: {
     flexDirection: 'row',
@@ -165,10 +191,30 @@ const styles = StyleSheet.create({
   },
   name: {
     fontFamily: 'Firma-SemiBold',
-    marginBottom: 2,
+    marginBottom: 1,
   },
   handle: {
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Firma-Medium',
+  },
+  followButton: {
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 50,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  followButtonText: {
+    fontSize: 15,
+    fontFamily: 'Firma-SemiBold',
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

@@ -13,6 +13,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Icon } from '../../components/ui/UI';
+import { BackArrowIcon, PlusIcon } from '../../components/ui/Icon';
 import { useSubscribedChannels } from '../../hooks/useSubscribedChannels';
 import { SubscribedChannel } from '../../services/storage/ChannelSubscriptionManager';
 import AtprotoService from '../../services/api/AtprotoService';
@@ -333,7 +334,7 @@ const ChannelManagementScreen: React.FC = () => {
         onPress={() => handleRestoreDefault(channel)}
         activeOpacity={0.7}
       >
-        <Icon name="plus" size={16} color="#4CAF50" />
+        <PlusIcon size={16} color="#4CAF50" strokeWidth={2.0} />
       </TouchableOpacity>
     </View>
   ), [handleRestoreDefault]);
@@ -426,7 +427,7 @@ const ChannelManagementScreen: React.FC = () => {
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
-            <Icon name="arrow-left" size={24} color="#fff" />
+            <BackArrowIcon size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manage Channels</Text>
           <View style={styles.headerSpacer} />
@@ -473,7 +474,7 @@ const ChannelManagementScreen: React.FC = () => {
           }}
           activeOpacity={0.7}
         >
-          <Icon name="arrow-left" size={24} color="#fff" />
+                      <BackArrowIcon size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Manage Channels</Text>
         <TouchableOpacity 

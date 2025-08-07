@@ -13,7 +13,7 @@ import CreateScreen from '../screens/CreateScreen';
 import NotificationScreen from '../screens/NotificationScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ChannelScreen from '../screens/ChannelScreen';
-import Icon from '../components/ui/Icon';
+import Icon, { HomeIcon, ExploreIcon, NotificationIcon, ProfileIcon } from '../components/ui/Icon';
 import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../utils/helpers/screenSize';
 import * as ImagePicker from 'expo-image-picker';
 import VideoProcessingService from '../services/VideoProcessingService';
@@ -294,24 +294,36 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
 
           switch (route.name) {
             case 'Home':
-              iconName = isHomeRefreshing ? 'refresh' : 'spotlight';
-              iconSize = 30;
-              break;
+              return (
+                <HomeIcon 
+                  size={32} 
+                  color={color}
+                />
+              );
             case 'Explore':
-              iconName = 'map';
-              iconSize = 30;
-              break;
+              return (
+                <ExploreIcon 
+                  size={32} 
+                  color={color}
+                  style={{ transform: [{ scaleX: -1 }] }}
+                />
+              );
             case 'Notifications':
-              iconName = 'notification';
-              iconSize = 28;
-              break;
+              return (
+                <NotificationIcon 
+                  size={30} 
+                  color={color}
+                />
+              );
             case 'Profile':
-              iconName = 'user';
-              iconSize = 30;
-              break;
+              return (
+                <ProfileIcon 
+                  size={32} 
+                  color={color}
+                />
+              );
             default:
               iconName = 'home';
-              iconSize = 28;
           }
 
           return (

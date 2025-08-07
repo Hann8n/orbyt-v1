@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from '../../components/ui/Icon';
+import Icon, { BackArrowIcon } from '../../components/ui/Icon';
 import { BRAND, TEXT, UI, STATUS } from '../../utils/formatting/Colors';
 import { ModerationService } from '../../services/ModerationService';
 import AtprotoService from '../../services/api/AtprotoService';
@@ -131,13 +131,13 @@ const MutedUsersScreen: React.FC = () => {
     return (
       <View style={[styles.safeArea, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Icon name="arrow-left" size={24} color={TEXT.PRIMARY} />
-          </TouchableOpacity>
+                  <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <BackArrowIcon size={24} color={TEXT.PRIMARY} />
+        </TouchableOpacity>
           <Text style={styles.headerTitle}>Muted Users</Text>
           <View style={styles.headerRight} />
         </View>
@@ -157,7 +157,7 @@ const MutedUsersScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Icon name="arrow-left" size={24} color={TEXT.PRIMARY} />
+          <BackArrowIcon size={24} color={TEXT.PRIMARY} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Muted Users</Text>
         <View style={styles.headerRight} />

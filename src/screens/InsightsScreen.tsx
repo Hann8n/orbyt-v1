@@ -19,6 +19,7 @@ import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import AtprotoService from '../services/api/AtprotoService';
 import { Avatar, Icon } from '../components/ui/UI';
+import { BackArrowIcon } from '../components/ui/Icon';
 import { Card, Button, Badge, Divider, Loading } from '../components/ui/UI';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import { BRAND, TEXT, UI } from '../utils/formatting/Colors';
@@ -1048,7 +1049,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
           source={{ uri: post.thumbnailUrl || post.videoUrl }}
           style={styles.topVideoPostThumbnail}
           resizeMode="contain"
-          defaultSource={require('../assets/Vector_Normal_Grey.png')}
+
         />
       </View>
     </View>
@@ -1062,7 +1063,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
           style={styles.backButton} 
           onPress={() => navigation.goBack()}
         >
-          <Icon name="arrow-left" size={20} color={TEXT.PRIMARY} />
+          <BackArrowIcon size={20} color={TEXT.PRIMARY} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Insights</Text>
         <View style={styles.headerRight} />

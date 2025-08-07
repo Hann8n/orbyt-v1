@@ -33,7 +33,7 @@ import { useProfile, useProfileColors } from '../services/cache/ProfileCache';
 import { Avatar, Colors } from '../components/ui/UI';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import ProfileCache from '../services/cache/ProfileCache';
-import Icon from '../components/ui/Icon';
+import Icon, { BackArrowIcon } from '../components/ui/Icon';
 import VideoProcessingService from '../services/VideoProcessingService';
 import { VideoInfoDisplay } from '../components/ui';
 import AuthorItem from '../components/ui/AuthorItem';
@@ -488,10 +488,10 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
             <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 0 }]}>
               <View style={styles.header}>
                 <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-                  <Icon name="arrow-left" size={32} iconSet="pixelarticons" color="#fff" />
+                  <BackArrowIcon size={32} color="#fff" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleDownloadToCameraRoll} style={styles.headerButton}>
-                  <Icon name="download" size={32} iconSet="pixelarticons" color="#fff" />
+                  <Icon name="download" size={32} color="#fff" />
                 </TouchableOpacity>
               </View>
               {/* Description Section */}
@@ -538,7 +538,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                         </>
                       )}
                     </View>
-                    <Ionicons name={accountModalVisible ? 'chevron-up' : 'chevron-down'} size={24} color="#fff" style={{ marginLeft: 8 }} />
+                    <Icon name={accountModalVisible ? 'chevron-up' : 'chevron-down'} size={24} color="#fff" style={{ marginLeft: 8 }} />
                   </TouchableOpacity>
                 </View>
                 {/* Dropdown list of accounts, shown if accountModalVisible */}
@@ -599,7 +599,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>Content Warnings</Text>
                   <TouchableOpacity onPress={() => setContentWarningsCollapsed(!contentWarningsCollapsed)}>
-                    <Ionicons name={contentWarningsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
+                    <Icon name={contentWarningsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
                   </TouchableOpacity>
                 </View>
                 {!contentWarningsCollapsed && (
@@ -655,7 +655,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>Comment Settings</Text>
                   <TouchableOpacity onPress={() => setCommentSettingsCollapsed(!commentSettingsCollapsed)}>
-                    <Ionicons name={commentSettingsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
+                    <Icon name={commentSettingsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
                   </TouchableOpacity>
                 </View>
                 {!commentSettingsCollapsed && (
@@ -677,7 +677,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                             color={commentFilter === filter.id ? BRAND.PRIMARY : '#777'}
                           />
                           {commentFilter === filter.id && (
-                            <Ionicons
+                            <Icon
                               name="checkmark"
                               size={16}
                               color="#fff"
@@ -824,11 +824,11 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-            <Icon name="arrow-left" size={32} iconSet="pixelarticons" color="#fff" />
+            <BackArrowIcon size={32} color="#fff" />
           </TouchableOpacity>
           {/* Remove the account avatar/user icon button here */}
           <TouchableOpacity onPress={handleDownloadToCameraRoll} style={styles.headerButton}>
-            <Icon name="download" size={32} iconSet="pixelarticons" color="#fff" />
+            <Icon name="download" size={32} color="#fff" />
           </TouchableOpacity>
         </View>
   
@@ -956,7 +956,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                     </>
                   )}
                 </View>
-                <Ionicons name={accountModalVisible ? 'chevron-up' : 'chevron-down'} size={24} color="#fff" style={{ marginLeft: 8 }} />
+                <Icon name={accountModalVisible ? 'chevron-up' : 'chevron-down'} size={24} color="#fff" style={{ marginLeft: 8 }} />
               </TouchableOpacity>
             </View>
             {/* Dropdown list of accounts, shown if accountModalVisible */}
@@ -1005,7 +1005,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Content Warnings</Text>
               <TouchableOpacity onPress={() => setContentWarningsCollapsed(!contentWarningsCollapsed)}>
-                <Ionicons name={contentWarningsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
+                <Icon name={contentWarningsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
               </TouchableOpacity>
             </View>
             {!contentWarningsCollapsed && (
@@ -1062,7 +1062,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Comment Settings</Text>
               <TouchableOpacity onPress={() => setCommentSettingsCollapsed(!commentSettingsCollapsed)}>
-                <Ionicons name={commentSettingsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
+                <Icon name={commentSettingsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
               </TouchableOpacity>
             </View>
             {!commentSettingsCollapsed && (
@@ -1084,7 +1084,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                         color={commentFilter === filter.id ? BRAND.PRIMARY : '#777'}
                       />
                       {commentFilter === filter.id && (
-                        <Ionicons
+                        <Icon
                           name="checkmark"
                           size={16}
                           color="#fff"

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList } from 'react-native';
-import Icon from '../../ui/Icon';
+import Icon, { TelescopeIcon } from '../../ui/Icon';
 import { Colors } from '../../ui/UI';
 import { useQuery } from '@tanstack/react-query';
 import AtprotoService from '../../../services/api/AtprotoService';
@@ -8,7 +8,9 @@ import { Avatar } from '../../ui/UI';
 import VerificationBadge from '../verification/VerificationBadge';
 import { useNavigation } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import ProfileCache from '../../../services/cache/ProfileCache';
+import ProfileCache, { useFollowMutation } from '../../../services/cache/ProfileCache';
+import AuthorItem from '../../ui/AuthorItem';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface EmptyFeedProps {
   secondaryColor?: string;
@@ -23,6 +25,7 @@ interface EmptyFeedProps {
   isProfileFeed?: boolean;
   viewableAreaHeight?: number;
   feedOption?: string;
+  headerHeight?: number; // Add header height prop for profile screens
 }
 
 interface SuggestedUser {
@@ -46,15 +49,18 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   onRetry,
   isProfileFeed = false,
   viewableAreaHeight,
-  feedOption
+  feedOption,
+  headerHeight = 0
 }) => {
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
+  const insets = useSafeAreaInsets();
 
   // Fetch suggested users when this is a following feed with no videos
   const isFollowingFeed = feedOption === 'following';
-  const shouldShowSuggestions = isFollowingFeed && (type === 'no-videos' || type === 'no-following');
+  // Force suggested accounts for timeline feed testing
+  const shouldShowSuggestions = isFollowingFeed;
 
   const { data: suggestedAccounts, isLoading: isLoadingSuggestions } = useQuery({
     queryKey: ['suggestedAccounts', 5],
@@ -70,71 +76,8 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     }
   }, [suggestedAccounts, shouldShowSuggestions]);
 
-  // Follow mutation
-  const followMutation = useMutation({
-    mutationFn: async ({ profile }: { profile: SuggestedUser }) => {
-      await AtprotoService.follow(profile.did);
-      return profile;
-    },
-    onMutate: async ({ profile }) => {
-      // Optimistically update the UI
-      setSuggestedUsers(prev => 
-        prev.map(user => 
-          user.did === profile.did 
-            ? { ...user, viewer: { ...user.viewer, following: 'true' } }
-            : user
-        )
-      );
-    },
-    onError: (_, __, context) => {
-      // Revert optimistic update on error
-      if (suggestedAccounts) {
-        setSuggestedUsers(suggestedAccounts);
-      }
-    },
-    onSettled: async (profile) => {
-      if (profile) {
-        const freshProfile = await AtprotoService.getProfile(profile.handle);
-        await ProfileCache.updateFollowingStatus(
-          profile.handle, 
-          !!freshProfile?.viewer?.following
-        );
-      }
-    }
-  });
-
-  // Unfollow mutation
-  const unfollowMutation = useMutation({
-    mutationFn: async ({ profile }: { profile: SuggestedUser }) => {
-      await AtprotoService.unfollow(profile.did);
-      return profile;
-    },
-    onMutate: async ({ profile }) => {
-      // Optimistically update the UI
-      setSuggestedUsers(prev => 
-        prev.map(user => 
-          user.did === profile.did 
-            ? { ...user, viewer: { ...user.viewer, following: undefined } }
-            : user
-        )
-      );
-    },
-    onError: (_, __, context) => {
-      // Revert optimistic update on error
-      if (suggestedAccounts) {
-        setSuggestedUsers(suggestedAccounts);
-      }
-    },
-    onSettled: async (profile) => {
-      if (profile) {
-        const freshProfile = await AtprotoService.getProfile(profile.handle);
-        await ProfileCache.updateFollowingStatus(
-          profile.handle, 
-          !!freshProfile?.viewer?.following
-        );
-      }
-    }
-  });
+  // Use ProfileCache's follow mutation hook
+  const followMutation = useFollowMutation();
 
   // Determine icon and message based on type
   const getIconAndMessage = () => {
@@ -162,7 +105,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       case 'no-videos':
       default:
         return {
-          icon: 'interface-essential-search-binocular',
+          icon: isProfileFeed ? 'telescope' : 'interface-essential-search-binocular',
           defaultMessage: isProfileFeed ? "No videos posted yet" : "Nothing to see here yet..."
         };
     }
@@ -175,73 +118,26 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const iconColor = profileColors ? profileColors.textColor : (secondaryColor || Colors.TEXT.SECONDARY);
   const textColor = profileColors ? profileColors.textColor : (secondaryColor || Colors.TEXT.SECONDARY);
 
-  // Render suggested user item - matching ExploreScreen styling exactly
+  // Render suggested user item using AuthorItem component
   const renderSuggestedUser = ({ item }: { item: SuggestedUser }) => {
-    const isFollowing = !!item.viewer?.following;
-    
     return (
-      <TouchableOpacity
-        style={styles.profileItem}
-        onPress={() => {
-          if (item.handle) {
-            const handle = item.handle.trim();
-            if (handle && handle.trim()) {
-              queryClient.prefetchQuery({
-                queryKey: ['profile', handle.trim()],
-                queryFn: () => ProfileCache.getProfile(handle.trim()),
-                staleTime: ProfileCache.cacheExpiry
-              }).finally(() => {
-                navigation.navigate('AuthorProfile', { handle: handle.trim() });
-              });
-            }
-          }
+      <AuthorItem
+        handle={item.handle}
+        displayName={item.displayName}
+        avatar={item.avatar}
+        textColor={textColor}
+        backgroundColor={profileColors?.backgroundColor || 'transparent'}
+        size="medium"
+        showArrow={false}
+        showFollowButton={true}
+        onFollowPress={() => {
+          followMutation.mutate({ 
+            handle: item.handle, 
+            isFollowing: !(ProfileCache.getProfileFromCacheSync(item.handle)?.isFollowing ?? !!item.viewer?.following)
+          });
         }}
-      >
-        <Avatar
-          uri={item.avatar}
-          type="profile"
-          size={40}
-          style={styles.profileImage}
-        />
-        <View style={styles.profileContent}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
-            <Text style={[styles.displayName, { color: textColor }]} numberOfLines={1}>
-              {item.displayName || item.handle || 'Unknown user'}
-            </Text>
-            {item.handle && item.handle.trim() && item.handle.length > 0 && (
-              <VerificationBadge 
-                handle={item.handle.trim()} 
-                textSize={14} 
-                textColor={textColor}
-              />
-            )}
-          </View>
-          <Text style={[styles.handleText, { color: textColor }]} numberOfLines={1}>
-            @{item.handle || 'unknown'}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={[
-            styles.followButton,
-            { borderColor: textColor },
-            isFollowing && { backgroundColor: textColor }
-          ]}
-          onPress={() => {
-            if (isFollowing) {
-              unfollowMutation.mutate({ profile: item });
-            } else {
-              followMutation.mutate({ profile: item });
-            }
-          }}
-        >
-          <Text style={[
-            styles.followButtonText,
-            { color: isFollowing ? (profileColors?.backgroundColor || '#000') : textColor }
-          ]}>
-            {isFollowing ? 'Following' : 'Follow'}
-          </Text>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        style={styles.profileItem}
+      />
     );
   };
 
@@ -252,17 +148,29 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
         key={feedKey ? `empty-feed-${feedKey}` : undefined}
         style={[
           styles.emptyContainer,
-          viewableAreaHeight ? { height: viewableAreaHeight } : {}
+          { 
+            minHeight: isProfileFeed 
+              ? Dimensions.get('window').height - insets.top - insets.bottom - headerHeight
+              : Dimensions.get('window').height - insets.top - insets.bottom,
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom
+          }
         ]}
       >
         <View style={styles.contentContainer}>
           <View style={styles.iconContainer}>
-            <Icon 
-              name={icon} 
-              size={72} 
-              color={iconColor} 
-              iconSet="pixelarticons"
-            />
+            {isProfileFeed && type === 'no-videos' ? (
+              <TelescopeIcon 
+                size={72} 
+                color={iconColor} 
+              />
+            ) : (
+              <Icon 
+                name={icon} 
+                size={72} 
+                color={iconColor} 
+              />
+            )}
           </View>
           <Text style={[styles.emptyText, { color: textColor }]}>
             {displayMessage}
@@ -316,18 +224,31 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       key={feedKey ? `empty-feed-${feedKey}` : undefined}
       style={[
         styles.emptyContainer,
-        viewableAreaHeight ? { height: viewableAreaHeight } : {}
+        { 
+          minHeight: isProfileFeed 
+            ? Dimensions.get('window').height - insets.top - insets.bottom - headerHeight
+            : Dimensions.get('window').height - insets.top - insets.bottom,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom
+        }
       ]}
     >
-      <View style={styles.contentContainer}>
-        <View style={styles.iconContainer}>
-          <Icon 
-            name={icon} 
-            size={72} 
-            color={iconColor} 
-            iconSet={type === 'no-following' ? 'pixelarticons' : 'streamline-pixel'}
-          />
-        </View>
+              <View style={styles.contentContainer}>
+          <View style={styles.iconContainer}>
+            {isProfileFeed && type === 'no-videos' ? (
+              <TelescopeIcon 
+                size={72} 
+                color={iconColor} 
+              />
+            ) : (
+              <Icon 
+                name={icon} 
+                size={72} 
+                color={iconColor} 
+                iconSet={type === 'no-following' ? 'pixelarticons' : 'streamline-pixel'}
+              />
+            )}
+          </View>
         <Text style={[styles.emptyText, { color: textColor }]}>
           {displayMessage}
         </Text>
@@ -356,11 +277,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
     width: '100%',
+    flex: 1,
   },
   emptyText: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Firma-SemiBold',
     marginTop: 0,
     textAlign: 'center',
   },
@@ -407,8 +329,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 0,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.BORDER.PRIMARY,
   },
   profileImage: {
     width: 40,
@@ -433,18 +353,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Firma-Regular',
   },
-  followButton: {
-    borderWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    minWidth: 70,
-    alignItems: 'center',
-  },
-  followButtonText: {
-    fontSize: 15,
-    fontFamily: 'Firma-Bold',
-  },
+
 });
 
 export default EmptyFeed;

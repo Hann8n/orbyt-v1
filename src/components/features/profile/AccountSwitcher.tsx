@@ -12,6 +12,7 @@ import {
 import { BottomSheetModal, BottomSheetFlatList, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../../ui/UI';
+import { PlusIcon } from '../../ui/Icon';
 import AuthorItem from '../../ui/AuthorItem';
 import AccountManager, { SavedAccount } from '../../../services/storage/AccountManager';
 import ProfileCache, { useProfile, CachedProfile } from '../../../services/cache/ProfileCache';
@@ -282,7 +283,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         >
           <View style={styles.addAccountContent}>
             <View style={styles.addAccountIcon}>
-              <Icon name="plus" size={20} color={TEXT.SECONDARY} />
+              <PlusIcon size={20} color={TEXT.SECONDARY} strokeWidth={2.0} />
             </View>
             <View style={styles.addAccountTextContainer}>
               <Text style={styles.addAccountText}>Add Account</Text>

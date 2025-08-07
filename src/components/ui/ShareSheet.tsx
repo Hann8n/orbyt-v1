@@ -12,7 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import Icon from './Icon';
+import Icon, { ShareIcon, BlockIcon, ReportIcon, InterestedIcon, NotInterestedIcon } from './Icon';
 import AtprotoService from '../../services/api/AtprotoService';
 import ProfileCache from '../../services/cache/ProfileCache';
 import { useClearView } from '../../services/ClearViewContext';
@@ -364,7 +364,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       {
         id: 'share',
         label: 'Share',
-        icon: 'link',
+        icon: 'share',
         onPress: handleShare,
         color: '#fff'
       }
@@ -385,7 +385,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     options.push({
       id: 'block',
       label: isCurrentUser ? 'Mute' : (isBlocked ? 'Unblock' : 'Block'),
-      icon: isCurrentUser ? 'message-minus' : 'user-x',
+      icon: 'block',
       onPress: handleBlockToggle,
       color: '#fff'
     });
@@ -394,7 +394,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     options.push({
       id: 'report',
       label: isCurrentUser ? 'Delete' : 'Report',
-      icon: isCurrentUser ? 'trash' : 'warning-box',
+      icon: 'report',
       onPress: async () => handleReportOrDelete(),
       color: isCurrentUser ? '#000' : '#000',
       buttonColor: isCurrentUser ? '#FE4359' : '#FE4359'
@@ -459,11 +459,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
                   onPress={() => handleInterestFeedback('interested')}
                   disabled={isSubmitting}
                 >
-                  <Icon 
-                    name={feedbackSent === 'interested' ? 'mood-happy' : 'mood-happy'} 
-                    size={24} 
-                    color={feedbackSent === 'interested' ? '#000' : '#fff'} 
-                  />
+                  <InterestedIcon size={24} color={feedbackSent === 'interested' ? '#000' : '#fff'} />
                   <Text style={[
                     styles.feedbackButtonText,
                     feedbackSent === 'interested' && styles.feedbackButtonTextSelected
@@ -480,11 +476,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
                   onPress={() => handleInterestFeedback('not_interested')}
                   disabled={isSubmitting}
                 >
-                  <Icon 
-                    name={feedbackSent === 'not_interested' ? 'mood-sad' : 'mood-sad'} 
-                    size={24} 
-                    color={feedbackSent === 'not_interested' ? '#000' : '#fff'} 
-                  />
+                  <NotInterestedIcon size={24} color={feedbackSent === 'not_interested' ? '#000' : '#fff'} />
                   <Text style={[
                     styles.feedbackButtonText,
                     feedbackSent === 'not_interested' && styles.feedbackButtonTextSelected
@@ -504,20 +496,27 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
         <View style={[styles.optionsContainer, { gap: dynamicSpacing }]}>
           {menuOptions.map((option) => (
             <View key={option.id} style={styles.optionWrapper}>
-                              <TouchableOpacity 
-                  style={[
-                    styles.option,
-                    (option as any).buttonColor ? { backgroundColor: (option as any).buttonColor } : null
-                  ]} 
-                  onPress={option.onPress}
-                  activeOpacity={0.7}
-                  disabled={isSubmitting}
-                >
-                <Icon 
-                  name={option.icon} 
-                  size={32} 
-                  color={option.color} 
-                />
+              <TouchableOpacity 
+                style={[
+                  styles.option,
+                  (option as any).buttonColor ? { backgroundColor: (option as any).buttonColor } : null
+                ]} 
+                onPress={option.onPress}
+                activeOpacity={0.7}
+                disabled={isSubmitting}
+              >
+                {option.icon === 'share' && (
+                  <ShareIcon size={32} color={option.color} />
+                )}
+                {option.icon === 'eye' && (
+                  <Icon name="eye" size={32} color={option.color} />
+                )}
+                {option.icon === 'block' && (
+                  <BlockIcon size={32} color={option.color} />
+                )}
+                {option.icon === 'report' && (
+                  <ReportIcon size={32} color={option.color} />
+                )}
               </TouchableOpacity>
               <Text style={styles.optionText}>{option.label}</Text>
             </View>

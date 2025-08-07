@@ -4,7 +4,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Text,
-  Image,
   SafeAreaView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -51,14 +50,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({ mode, onToolPress, flashA
             style={styles.tool}
             onPress={() => onToolPress && onToolPress(tool.id)}
           >
-            {tool.id === 'flash' && mode === 'create' && flashActive ? (
-              <Image
-                source={require('../../assets/pixelarticons--zap.png')}
-                style={{ width: 24, height: 24, resizeMode: 'contain' }}
-              />
-            ) : (
-              <Icon name={tool.icon} size={24} color="white" />
-            )}
+            <Icon name={tool.icon} size={24} color="white" />
             <Text style={styles.toolLabel}>{tool.label}</Text>
           </TouchableOpacity>
         ))}

@@ -25,7 +25,7 @@ import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Icon } from '../components/ui/UI';
 
-import { GridViewIcon } from '../components/ui/Icon';
+import { GridViewIcon, LightningIcon, SearchIcon } from '../components/ui/Icon';
 import { BRAND, TEXT, INTERACTIVE, UI, STATUS } from '../utils/formatting/Colors';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import EmptyFeed from '../components/features/feed/EmptyFeed';
@@ -876,7 +876,6 @@ const ExploreScreen: React.FC = () => {
                       source={{ uri: thumbnailUrl }}
                       style={styles.videoThumbnail}
                       resizeMode="cover"
-                      defaultSource={require('../assets/Vector_Normal_Grey.png')}
                       onError={() => {
                         console.warn('Failed to load thumbnail:', thumbnailUrl);
                       }}
@@ -1094,8 +1093,7 @@ const ExploreScreen: React.FC = () => {
       />
       {/* Search Bar */}
               <View style={[styles.searchContainer, { top: insets.top + 10, zIndex: 10 }]}>
-        <Icon
-          name="search"
+        <SearchIcon
           size={24}
           color={BRAND.PRIMARY}
           style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }}
@@ -1113,7 +1111,7 @@ const ExploreScreen: React.FC = () => {
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={handleClearSearch} style={styles.clearButton}>
-            <Ionicons name="close-circle" size={22.5} color="#0d0d11" />
+            <Icon name="close-circle" size={22.5} color="#0d0d11" />
           </TouchableOpacity>
         )}
       </View>
@@ -1174,9 +1172,20 @@ const ExploreScreen: React.FC = () => {
                 if (item.type === 'section-header') {
                   return (
                     <View style={styles.sectionHeader}>
-                      <Text style={styles.sectionTitle}>
-                        {item.title}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {item.title === '🔥 Spotlight' ? (
+                          <>
+                            <LightningIcon size={20} color={TEXT.PRIMARY} style={{ marginRight: 8 }} />
+                            <Text style={styles.sectionTitle}>
+                              Spotlight
+                            </Text>
+                          </>
+                        ) : (
+                          <Text style={styles.sectionTitle}>
+                            {item.title}
+                          </Text>
+                        )}
+                      </View>
                     </View>
                   );
                 }
@@ -1240,7 +1249,6 @@ const ExploreScreen: React.FC = () => {
                                         source={{ uri: thumbnailUrl }}
                                         style={styles.spotlightVideoThumbnail}
                                         resizeMode="cover"
-                                        defaultSource={require('../assets/Vector_Normal_Grey.png')}
                                         onError={() => {
                                           console.warn('Failed to load spotlight thumbnail:', thumbnailUrl);
                                         }}
@@ -1585,7 +1593,7 @@ const styles = StyleSheet.create({
     color: BRAND.PRIMARY,
     fontSize: 20,
     height: '100%',
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Firma-SemiBold',
     marginLeft: 15,
   },
   clearButton: {

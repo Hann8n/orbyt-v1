@@ -313,7 +313,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
             activeTab === 'profile' ? 'profile' :
             activeTab === 'reposts' ? 'reposts' : 'likes'
           }
-          userDid={profileData?.did || undefined}
+          userDid={profileData?.did}
+          queryOptions={{
+            enabled: !!profileData?.did
+          }}
           headerComponent={
             <View style={styles.headerContainer}>
               <ProfileHeader
@@ -323,6 +326,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                 onLogout={handleLogout}
                 onSwitchAccount={() => setShowAccountSwitcher(true)}
                 forceLoading={isProfileLoadingForced}
+                feedKey={`profile-${profileData?.did || 'default'}`}
               >
                 {profileData && (
                   <TabNavigation
