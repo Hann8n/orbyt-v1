@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
+import { navigateToUserProfile } from '../../../navigation/profileNavigation';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
 import UI from '../../ui/UI';
@@ -246,17 +247,28 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
 
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
+    // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
+    const navigateToAuthorProfile = useCallback((rawHandle?: string | null) => {
+      const cleanHandle = (rawHandle || '').trim();
+      if (!cleanHandle) {
+        console.error('CommentItem: Cannot navigate: Invalid handle:', rawHandle);
+        return;
+      }
+
+      // Always dismiss the sheet first if provided
+      onDismiss?.();
+
+      const navState: any = navigation.getState?.();
+      const topRouteName: string | undefined = navState?.routes?.[navState?.index || 0]?.name;
+
+      navigateToUserProfile(navigation, { handle: cleanHandle }, { isModal: topRouteName === 'FeedModal' });
+    }, [navigation, onDismiss]);
+
     const handleAuthorPress = useCallback(
       (handle: string) => {
-        if (handle && typeof handle === 'string' && handle.trim() !== '') {
-          const cleanHandle = handle.trim();
-          navigation.navigate('AuthorProfile', { handle: cleanHandle });
-          if (onDismiss) onDismiss();
-        } else {
-          console.error('CommentItem: Cannot navigate: Invalid handle:', handle);
-        }
+        navigateToAuthorProfile(handle);
       },
-      [navigation, onDismiss]
+      [navigateToAuthorProfile]
     );
 
     const handleAuthorAvatarPress = useCallback(() => {
@@ -269,13 +281,11 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       }
       
       if (handle && typeof handle === 'string' && handle.trim() !== '') {
-        const cleanHandle = handle.trim();
-        navigation.navigate('AuthorProfile', { handle: cleanHandle });
-        if (onDismiss) onDismiss();
+        navigateToAuthorProfile(handle);
       } else {
         console.error('CommentItem: Cannot navigate: Invalid or missing handle', comment?.author, comment?.post?.author);
       }
-    }, [comment?.post?.author, comment?.author, navigation, onDismiss]);
+    }, [comment?.post?.author, comment?.author, navigateToAuthorProfile]);
 
     const handleReplyPress = useCallback(() => {
       if (comment?.author?.handle && properUri && properCid) {

@@ -2075,6 +2075,85 @@ class AtprotoService {
   }
 
   /**
+   * Aggressively fetch an actor's reposted videos by paging raw author feed data
+   * and filtering client-side for reposts that contain video embeds.
+   * This avoids server-side author filters that exclude reposts.
+   */
+  static async getRepostedVideos(
+    actor: string,
+    cursor: string | null = null,
+    limit: number = 50
+  ): Promise<FeedResponse> {
+    try {
+      await this.ensureSession();
+
+      const collected: any[] = [];
+      let nextCursor: string | null = cursor || null;
+      let safetyCounter = 0;
+
+      // Aggressively page until we have enough items or run out
+      while (collected.length < limit && safetyCounter < 10) {
+        safetyCounter++;
+
+        const params: any = {
+          actor,
+          limit: Math.min(100, Math.max(limit, 50)),
+          ...(nextCursor ? { cursor: nextCursor } : {}),
+          // Use a posts-only filter that still includes reposts; do not use media/video filters
+          filter: 'posts_no_replies' as AuthorFilter,
+        };
+
+        let response: any;
+        try {
+          response = await this.agent.api.app.bsky.feed.getAuthorFeed(params);
+        } catch (err: any) {
+          console.warn('Reposts author feed error:', err?.message || err);
+          break;
+        }
+
+        const feedChunk: any[] = response?.data?.feed || [];
+        if (feedChunk.length === 0) {
+          nextCursor = null;
+          break;
+        }
+
+        // Keep only items that are reposts
+        const reposts = feedChunk.filter((item: any) =>
+          item?.reason?.$type && String(item.reason.$type).includes('reasonRepost')
+        );
+
+        // Within reposts, keep only those that contain video embeds using our efficient filter
+        const videoReposts = this.filterVideoPostsEfficiently(reposts);
+
+        collected.push(...videoReposts);
+
+        nextCursor = response?.data?.cursor || null;
+        if (!nextCursor) break;
+      }
+
+      let feedData = collected.slice(0, limit);
+
+      // Apply moderation decisions similar to getFeed
+      if (feedData.length > 0) {
+        const { ModerationService } = await import('../ModerationService');
+        const moderationResult = await ModerationService.batchModeratePosts(feedData);
+        const moderationMap = moderationResult.moderationDecisions;
+        feedData = moderationResult.filteredPosts.map(item => {
+          const uri = item?.post?.uri;
+          return uri && moderationMap.has(uri)
+            ? { ...item, moderationDecision: moderationMap.get(uri) }
+            : item;
+        });
+      }
+
+      return { feed: feedData, cursor: nextCursor };
+    } catch (error: any) {
+      console.error('Error fetching reposted videos:', error);
+      return { feed: [], cursor: null };
+    }
+  }
+
+  /**
    * Deduplicate posts based on URI and CID
    */
   private static deduplicatePosts(posts: any[]): any[] {

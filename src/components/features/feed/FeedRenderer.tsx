@@ -37,6 +37,8 @@ interface FeedRendererProps {
   
   // UI configuration
   headerComponent?: React.ReactNode;
+  headerMode?: 'embedded' | 'external';
+  externalHeaderHeight?: number;
   refreshControl?: React.ReactElement;
   backgroundColor?: string;
   secondaryColor?: string;
@@ -86,6 +88,8 @@ const FeedRenderer: React.FC<FeedRendererProps> = ({
   feedOption,
   userDid,
   headerComponent,
+  headerMode,
+  externalHeaderHeight,
   refreshControl,
   backgroundColor = '#000',
   secondaryColor,
@@ -233,12 +237,18 @@ const FeedRenderer: React.FC<FeedRendererProps> = ({
       {viewMode === 'grid' ? (
         <GridFeedView
           {...commonProps}
+          headerMode={headerMode}
+          externalHeaderHeight={externalHeaderHeight}
+          onVerticalScroll={onVerticalScroll}
           isError={isSearchFeed ? false : finalIsError}
           error={isSearchFeed ? null : finalError}
         />
       ) : (
         <ListFeedView
           {...commonProps}
+          headerMode={headerMode}
+          externalHeaderHeight={externalHeaderHeight}
+          onVerticalScroll={onVerticalScroll}
           isLoading={isSearchFeed ? false : shouldShowLoader}
           isError={isSearchFeed ? false : finalIsError}
           error={isSearchFeed ? null : finalError}

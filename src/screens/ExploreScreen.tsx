@@ -24,6 +24,7 @@ import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Icon } from '../components/ui/UI';
 import HeaderBanner from '../components/ui/HeaderBanner';
+import { navigateToUserProfile } from '../navigation/profileNavigation';
 
 import { GridViewIcon, SearchIcon } from '../components/ui/Icon';
 import { BRAND, TEXT, INTERACTIVE, UI, STATUS } from '../utils/formatting/Colors';
@@ -782,9 +783,9 @@ const ExploreScreen: React.FC = () => {
                       queryKey: profileKeys.detail(handle.trim()),
                       queryFn: () => ProfileCache.getProfile(handle.trim()),
                       staleTime: ProfileCache.cacheExpiry
-                    }).finally(() => {
-                      navigation.navigate('AuthorProfile', { handle: handle.trim() });
-                    });
+                      }).finally(() => {
+                        navigateToUserProfile(navigation, { handle: handle.trim() });
+                      });
                   }
                 }
               }}
@@ -1399,7 +1400,7 @@ const ExploreScreen: React.FC = () => {
                                         queryFn: () => ProfileCache.getProfile(handle.trim()),
                                         staleTime: ProfileCache.cacheExpiry
                                       }).finally(() => {
-                                        navigation.navigate('AuthorProfile', { handle: handle.trim() });
+                                        navigateToUserProfile(navigation, { handle: handle.trim() });
                                       });
                                     }
                                   }
@@ -1519,10 +1520,8 @@ const ExploreScreen: React.FC = () => {
             windowSize={21}
             initialNumToRender={15}
             updateCellsBatchingPeriod={30}
-            maintainVisibleContentPosition={{ 
-              minIndexForVisible: 0, 
-              autoscrollToTopThreshold: null 
-            }}
+            // Removing maintainVisibleContentPosition to avoid initial offset issues on Android/iOS
+            // maintainVisibleContentPosition can cause lists to mount with an unintended scroll offset
             viewabilityConfig={viewabilityConfig}
             ListEmptyComponent={() => {
               const isSearchingLocal = debouncedQuery.length > 0;
@@ -1569,7 +1568,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BRAND.PRIMARY,
-    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
   },
   headerBannerContainer: {
     position: 'absolute',

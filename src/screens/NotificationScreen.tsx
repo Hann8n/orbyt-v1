@@ -25,6 +25,7 @@ import { NotificationIcon } from '../components/ui/Icon';
 import { BRAND, TEXT, UI } from '../utils/formatting/Colors';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import { getBottomNavBarHeight } from '../utils/helpers/screenSize';
+import { navigateToUserProfile } from '../navigation/profileNavigation';
 
 const NotificationShimmer = () => (
   <View style={styles.notificationItem}>
@@ -203,7 +204,7 @@ const NotificationScreen: React.FC = () => {
               staleTime: ProfileCache.cacheExpiry
             }).finally(() => {
               // Navigate regardless of prefetch success
-              navigation.navigate('AuthorProfile', { handle });
+              navigateToUserProfile(navigation, { handle });
             });
           }
         }}
@@ -333,7 +334,7 @@ const NotificationScreen: React.FC = () => {
         updateCellsBatchingPeriod={30}
         maintainVisibleContentPosition={{ 
           minIndexForVisible: 0, 
-          autoscrollToTopThreshold: null 
+          autoscrollToTopThreshold: undefined 
         }}
         viewabilityConfig={viewabilityConfig}
         ListEmptyComponent={!isLoading ? (

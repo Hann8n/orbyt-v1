@@ -50,7 +50,24 @@
           "cameraPermission": "This app needs access to your camera to take photos for your profile picture."
         }
       ],
-      "react-native-edge-to-edge"
+      "react-native-edge-to-edge",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "packagingOptions": {
+              "pickFirsts": [
+                "builddef.lst",
+                "**/builddef.lst"
+              ],
+              "excludes": [
+                "builddef.lst",
+                "**/builddef.lst"
+              ]
+            }
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {

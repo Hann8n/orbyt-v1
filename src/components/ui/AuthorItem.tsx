@@ -9,6 +9,7 @@ import { UI } from '../../utils/formatting/Colors';
 import { HomeStackParamList } from '../../navigation/types';
 import { useProfile } from '../../services/cache/ProfileCache';
 import { Colors } from './UI';
+import { navigateToUserProfile } from '../../navigation/profileNavigation';
 
 interface AuthorItemProps {
   handle: string;
@@ -82,7 +83,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
     if (onPress) {
       onPress();
     } else if (handle) {
-      navigation.navigate('AuthorProfile', { handle });
+      navigateToUserProfile(navigation, { handle });
     }
   };
 

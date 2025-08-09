@@ -19,6 +19,7 @@ import { Avatar, Icon } from '../../ui/UI';
 import VerificationBadge from '../verification/VerificationBadge';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
+import { navigateToUserProfile } from '../../../navigation/profileNavigation';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -235,7 +236,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
       onMemberPress(member);
     } else {
       // Navigate to profile
-      navigation.navigate('AuthorProfile', { handle: member.handle });
+      navigateToUserProfile(navigation, { handle: member.handle });
     }
   }, [onMemberPress, navigation]);
 

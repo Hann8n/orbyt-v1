@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCollapsibleStyle } from 'react-native-collapsible-tab-view';
 import { useSharedValue, SharedValue, runOnJS } from 'react-native-reanimated';
 import EmptyFeed from './EmptyFeed';
 import { MemoizedVideoItem } from './VideoItem';
@@ -74,6 +75,8 @@ export interface FeedItem {
 interface ListFeedViewProps {
   feed: FeedItem[];
   headerComponent?: React.ReactNode;
+  headerMode?: 'embedded' | 'external';
+  externalHeaderHeight?: number;
   refreshControl?: React.ReactElement;
   backgroundColor?: string;
   secondaryColor?: string;
@@ -120,6 +123,8 @@ const CellRenderer = React.memo(({ children, style }: { children: React.ReactNod
 const ListFeedView: React.FC<ListFeedViewProps> = ({
   feed,
   headerComponent,
+  headerMode = 'embedded',
+  externalHeaderHeight,
   refreshControl,
   backgroundColor,
   secondaryColor,
@@ -151,7 +156,22 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const { isClearViewMode, toggleClearViewMode, setClearViewMode } = useClearView();
   const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
+  const {
+    contentContainerStyle: collapsibleContentContainerStyle,
+    progressViewOffset: collapsibleProgressViewOffset,
+    style: collapsibleStyle,
+  } = useCollapsibleStyle();
   const [isFeedDebugEnabled, setIsFeedDebugEnabled] = useState<boolean>(false);
+  const effectiveRefreshControl = useMemo(() => {
+    if (!refreshControl) return undefined;
+    try {
+      return React.cloneElement(refreshControl as any, {
+        progressViewOffset: collapsibleProgressViewOffset,
+      });
+    } catch {
+      return refreshControl;
+    }
+  }, [refreshControl, collapsibleProgressViewOffset]);
   
   // Clear feed when refreshing and ensure no duplicates
   const displayFeed = useMemo(() => {
@@ -240,11 +260,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   // Determine if this is a header feed (profile, channel, etc.)
   // Channel feeds (at:// URIs) should use header feed behavior only if they have a headerComponent
   const isHeaderFeed = (
-    (feedOption === 'profile' ||
-     feedOption === 'likes' ||
-     feedOption === 'reposts' ||
-     feedOption.startsWith('at://'))
-    && !!headerComponent
+    feedOption === 'profile' ||
+    feedOption === 'likes' ||
+    feedOption === 'reposts' ||
+    feedOption.startsWith('at://')
   );
 
   // Disable clear view mode when snapped to top on header feeds
@@ -329,6 +348,19 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       updateHeaderVisibility(feedKey, { headerHeight: height });
     }
   }, [isHeaderFeed, feedOption, userDid]);
+
+  // When using external header, propagate its measured height to the header visibility system
+  useEffect(() => {
+    if (headerMode === 'external' && typeof externalHeaderHeight === 'number' && isHeaderFeed) {
+      let feedKey: string;
+      if (feedOption.startsWith('at://')) {
+        feedKey = `channel-${feedOption}`;
+      } else {
+        feedKey = generateFeedKey(feedOption, userDid);
+      }
+      updateHeaderVisibility(feedKey, { headerHeight: externalHeaderHeight });
+    }
+  }, [headerMode, externalHeaderHeight, isHeaderFeed, feedOption, userDid]);
 
   // Optimized scroll handler - debounced and batched
   const handleScroll = useCallback((event: any) => {
@@ -785,10 +817,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         updateCellsBatchingPeriod={50} // Standard React Native default
         initialNumToRender={2} // Minimal initial render for faster load
         showsVerticalScrollIndicator={false}
-        maintainVisibleContentPosition={{
-          minIndexForVisible: 0,
-          autoscrollToTopThreshold: null,
-        }}
+        // Removing maintainVisibleContentPosition to avoid initial mount offsets with headers
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: true, listener: handleScroll }
@@ -851,27 +880,31 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           )
         }
         ListHeaderComponent={
-          headerComponent ? (
+          headerMode === 'embedded' && headerComponent ? (
             <View 
               onLayout={isHeaderFeed ? onHeaderLayout : undefined}
               style={isSmallDevice ? { paddingTop: insets.top } : undefined}
             >
               {headerComponent}
             </View>
+          ) : headerMode === 'external' && typeof externalHeaderHeight === 'number' ? (
+            <View style={{ height: Math.max(0, externalHeaderHeight - (isSmallDevice ? insets.top : 0)) }} />
           ) : null
         }
-        refreshControl={refreshControl as any}
+        refreshControl={effectiveRefreshControl as any}
         style={[
           styles.flatList,
           {
             paddingTop: isSmallDevice ? 0 : insets.top,
             backgroundColor: backgroundColor || '#000',
           },
+          collapsibleStyle,
         ]}
         contentContainerStyle={[
           styles.contentContainer,
           displayFeed.length === 0 && styles.emptyContentContainer,
           displayFeed.length === 0 ? { flex: 1, paddingBottom: 0 } : { paddingBottom: bottomNavBarHeight }, // Remove padding when empty to allow full height
+          collapsibleContentContainerStyle,
         ]}
         ListFooterComponent={
           !isLoading && !isError && !isFetchingNextPage && !hasNextPage && displayFeed.length > 0 ? (

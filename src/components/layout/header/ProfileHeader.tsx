@@ -13,6 +13,7 @@ import ProfileCache from '../../../services/cache/ProfileCache';
 import AtprotoService from '../../../services/api/AtprotoService';
 import Icon, { PlusIcon, CheckIcon, FollowIcon, MutualHeartIcon, ProfileEditIcon, MoreFillIcon } from '../../ui/Icon';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
+import { navigateToUserProfile } from '../../../navigation/profileNavigation';
 
 interface ProfileHeaderProps {
   handle: string | null;
@@ -194,7 +195,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   // Handle author navigation
   const handleAuthorPress = useCallback((authorHandle: string) => {
-    navigation.navigate("AuthorProfile", { handle: authorHandle });
+    navigateToUserProfile(navigation, { handle: authorHandle });
   }, [navigation]);
 
   // Handle menu button press

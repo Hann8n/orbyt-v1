@@ -11,6 +11,7 @@ import { HomeStackParamList } from '../../../navigation/types';
 import { useProfile } from '../../../services/cache/ProfileCache';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
+import { navigateToUserProfile } from '../../../navigation/profileNavigation';
 
 
 interface ChannelData {
@@ -275,9 +276,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
     const handleCreatorPress = channel.creator?.handle ? () => {
       // Navigate to creator profile
-      navigation.navigate('AuthorProfile', { 
-        handle: channel.creator!.handle
-      });
+      navigateToUserProfile(navigation, { handle: channel.creator!.handle });
     } : undefined;
 
     // Create experimental badge if channel is experimental

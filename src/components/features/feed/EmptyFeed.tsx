@@ -148,13 +148,15 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
         key={feedKey ? `empty-feed-${feedKey}` : undefined}
         style={[
           styles.emptyContainer,
-          { 
-            minHeight: isProfileFeed 
-              ? Dimensions.get('window').height - insets.top - insets.bottom - headerHeight
-              : Dimensions.get('window').height - insets.top - insets.bottom,
-            paddingTop: insets.top,
-            paddingBottom: insets.bottom
-          }
+          viewableAreaHeight
+            ? { height: viewableAreaHeight }
+            : {
+                minHeight: isProfileFeed
+                  ? Dimensions.get('window').height - insets.top - insets.bottom - headerHeight
+                  : Dimensions.get('window').height - insets.top - insets.bottom,
+                paddingTop: insets.top,
+                paddingBottom: insets.bottom,
+              }
         ]}
       >
         <View style={styles.contentContainer}>
@@ -224,13 +226,15 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       key={feedKey ? `empty-feed-${feedKey}` : undefined}
       style={[
         styles.emptyContainer,
-        { 
-          minHeight: isProfileFeed 
-            ? Dimensions.get('window').height - insets.top - insets.bottom - headerHeight
-            : Dimensions.get('window').height - insets.top - insets.bottom,
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom
-        }
+        viewableAreaHeight
+          ? { height: viewableAreaHeight }
+          : {
+              minHeight: isProfileFeed
+                ? Dimensions.get('window').height - insets.top - insets.bottom - headerHeight
+                : Dimensions.get('window').height - insets.top - insets.bottom,
+              paddingTop: insets.top,
+              paddingBottom: insets.bottom,
+            }
       ]}
     >
               <View style={styles.contentContainer}>

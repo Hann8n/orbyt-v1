@@ -44,6 +44,7 @@ import RelativeDate from '../../ui/RelativeDate';
 import { format } from 'date-fns';
 import { useClearView } from '../../../services/ClearViewContext';
 import { useChannelColors, useChannel } from '../../../services/cache/ChannelCache';
+import { navigateToUserProfile } from '../../../navigation/profileNavigation';
 
 // Define RootParamList type for navigation
 type RootParamList = {
@@ -490,11 +491,18 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     setShowShareSheet(true);
   }, []);
 
+  // Centralized navigation to author profile with modal-aware behavior
+  const navigateToAuthorProfile = useCallback((targetHandle?: string | null) => {
+    const cleanHandle = (targetHandle || '').trim();
+    if (!cleanHandle) return;
+    navigateToUserProfile(navigation, { handle: cleanHandle }, { isModal });
+  }, [isModal, navigation]);
+
   const handleRepostAuthorPress = useCallback(() => {
     if (post.repostedBy?.handle) {
-      navigation.navigate("AuthorProfile", { handle: post.repostedBy.handle });
+      navigateToAuthorProfile(post.repostedBy.handle);
     }
-  }, [post.repostedBy?.handle, navigation]);
+  }, [post.repostedBy?.handle, navigateToAuthorProfile]);
 
   const toggleCollapsed = useCallback(() => {
     setIsCollapsed(prev => !prev);
@@ -648,7 +656,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                       text={record.text}
                       style={styles.descriptionText}
                       numberOfLines={isCollapsed ? 1 : undefined}
-                      onAuthorPress={(handle) => navigation.navigate("AuthorProfile", { handle })}
+                      onAuthorPress={(handle) => navigateToAuthorProfile(handle)}
                     />
                   </TouchableOpacity>
                   {/* Expanded info below description */}
@@ -676,10 +684,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
               )}
               
               <TouchableOpacity
-                onPress={() =>
-                  author.handle &&
-                  navigation.navigate("AuthorProfile", { handle: author.handle })
-                }
+                onPress={() => author.handle && navigateToAuthorProfile(author.handle)}
                 style={styles.authorInfoContainer}
               >
                 <Avatar

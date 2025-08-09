@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../services/api/AtprotoService';
 import FeedRenderer from '../components/features/feed/FeedRenderer';
 import { extractColorsFromImage } from '../utils/formatting/colorUtils';
@@ -18,6 +19,7 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { ProfileHeader, TabNavigation, TabOption } from '../components/layout/header';
 import AccountSwitcher from '../components/features/profile/AccountSwitcher';
 import AccountManager, { SavedAccount } from '../services/storage/AccountManager';
+import { Tabs } from 'react-native-collapsible-tab-view';
 
 type RootParamList = {
   Main: undefined;
@@ -303,22 +305,41 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
     </View>
   );
 
+  const insets = useSafeAreaInsets();
+  const [headerHeight, setHeaderHeight] = useState<number | undefined>(undefined);
+
+  const initialTabName = useMemo(() => {
+    switch (activeTab) {
+      case 'profile':
+        return 'videos';
+      case 'reposts':
+        return 'reposts';
+      case 'likes':
+        return 'likes';
+      default:
+        return 'videos';
+    }
+  }, [activeTab]);
+
+  const handleTabChange = useCallback((data: { prevIndex: number; index: number; prevTabName: string | number; tabName: string | number; }) => {
+    const next = String(data.tabName);
+    if (next === 'videos') setActiveTab('profile');
+    else if (next === 'reposts') setActiveTab('reposts');
+    else if (next === 'likes') setActiveTab('likes');
+  }, []);
+
   return (
     <View style={[styles.container, { backgroundColor: profileColors.backgroundColor }]}>
       {showErrorScreen ? (
         renderErrorScreen()
       ) : (
-        <FeedRenderer
-          feedOption={
-            activeTab === 'profile' ? 'profile' :
-            activeTab === 'reposts' ? 'reposts' : 'likes'
-          }
-          userDid={profileData?.did}
-          queryOptions={{
-            enabled: !!profileData?.did
-          }}
-          headerComponent={
-            <View style={styles.headerContainer}>
+        <Tabs.Container
+          renderHeader={() => (
+            <View
+              style={styles.headerContainer}
+              pointerEvents="box-none"
+              onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+            >
               <ProfileHeader
                 handle={targetHandle}
                 showBackButton={!!providedHandle}
@@ -342,20 +363,81 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                 )}
               </ProfileHeader>
             </View>
-          }
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={profileColors.textColor}
-            />
-          }
-          backgroundColor={profileColors.backgroundColor}
-          secondaryColor={profileColors.textColor}
-          isProfileLoading={isProfileLoading && !profileData}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-        />
+          )}
+          headerHeight={headerHeight}
+          initialTabName={initialTabName}
+          onTabChange={handleTabChange}
+          renderTabBar={() => null}
+          revealHeaderOnScroll
+          containerStyle={{ paddingTop: insets.top }}
+        >
+          <Tabs.Tab name="videos" label="videos">
+            <View style={{ flex: 1 }}>
+              <FeedRenderer
+                feedOption="profile"
+                userDid={profileData?.did}
+                backgroundColor={profileColors.backgroundColor}
+                secondaryColor={profileColors.textColor}
+                isProfileLoading={isProfileLoading && !profileData}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                isRefreshing={refreshing}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={profileColors.textColor}
+                  />
+                }
+                queryOptions={{ enabled: !!profileData?.did }}
+              />
+            </View>
+          </Tabs.Tab>
+          <Tabs.Tab name="reposts" label="reposts">
+            <View style={{ flex: 1 }}>
+              <FeedRenderer
+                feedOption="reposts"
+                userDid={profileData?.did}
+                backgroundColor={profileColors.backgroundColor}
+                secondaryColor={profileColors.textColor}
+                isProfileLoading={isProfileLoading && !profileData}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                isRefreshing={refreshing}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={profileColors.textColor}
+                  />
+                }
+                queryOptions={{ enabled: !!profileData?.did }}
+              />
+            </View>
+          </Tabs.Tab>
+          <Tabs.Tab name="likes" label="likes">
+            <View style={{ flex: 1 }}>
+              <FeedRenderer
+                feedOption="likes"
+                userDid={profileData?.did}
+                backgroundColor={profileColors.backgroundColor}
+                secondaryColor={profileColors.textColor}
+                isProfileLoading={isProfileLoading && !profileData}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                isRefreshing={refreshing}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={profileColors.textColor}
+                  />
+                }
+                queryOptions={{ enabled: !!profileData?.did }}
+              />
+            </View>
+          </Tabs.Tab>
+        </Tabs.Container>
       )}
       
       {/* Account Switcher Modal */}
@@ -379,6 +461,13 @@ const styles = StyleSheet.create({
     flex: 1, 
     minHeight: '100%', 
     overflow: 'hidden'
+  },
+  fixedHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   headerContainer: {
     minHeight: 280,

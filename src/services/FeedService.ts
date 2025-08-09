@@ -194,10 +194,8 @@ class FeedService {
       if (feedOption === 'likes' && userDid) {
         response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'likes');
       } else if (feedOption === 'reposts' && userDid) {
-        response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'author');
-        response.feed = response.feed.filter(item => 
-          item.reason && item.reason.$type === 'app.bsky.feed.defs#reasonRepost'
-        );
+        // Aggressive client-side fetch of reposted videos for the actor
+        response = await (AtprotoService as any).getRepostedVideos(userDid, cursor, limit);
       } else if (feedOption === 'profile' && userDid) {
         response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'authorVideos');
       } else if (feedOption === 'profile' && !userDid) {

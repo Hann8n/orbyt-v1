@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import VerificationBadge from './VerificationBadge';
 import AuthorItem from '../../ui/AuthorItem';
+import { navigateToUserProfile } from '../../../navigation/profileNavigation';
 
 interface VerificationInfoSheetProps {
   visible: boolean;
@@ -326,7 +327,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
                   onDismiss();
                   // Slightly delay navigation to allow for smooth dismissal animation
                   setTimeout(() => {
-                    navigation.navigate('AuthorProfile', { handle: issuerProfile?.handle || actualIssuerHandle || verifierDid });
+                    navigateToUserProfile(navigation, { handle: issuerProfile?.handle || actualIssuerHandle || verifierDid });
                   }, 300);
                 }}
               />
