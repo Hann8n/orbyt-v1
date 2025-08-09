@@ -85,8 +85,8 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress }) =
   const slideColors = useMemo(() => {
     const realColors = headers.map((h) => {
       const titleCol = h.titleColor as string | undefined;
-      const descCol = (h.descriptionColor || h.subtitleColor) as string | undefined;
-      return (titleCol || descCol || TEXT.PRIMARY) as string;
+      const subCol = h.subtitleColor as string | undefined;
+      return (titleCol || subCol || TEXT.PRIMARY) as string;
     });
     if (headers.length <= 1) return realColors;
     const firstColor = realColors[0];
@@ -204,24 +204,23 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress }) =
                   </Text>
                 );
 
-                const descriptionEl = !!header.description && (
+                const subtitleText = header.subtitle;
+                const descriptionEl = !!subtitleText && (
                   <Text
                     style={[
-                      styles.headerDescription,
-                      (header.descriptionColor || header.subtitleColor)
-                        ? { color: (header.descriptionColor || header.subtitleColor) as string }
-                        : null,
-                      header.descriptionFontFamily ? { fontFamily: header.descriptionFontFamily } : null,
-                      header.descriptionFontSize ? { fontSize: header.descriptionFontSize } : null,
-                      header.descriptionOpacity !== undefined ? { opacity: header.descriptionOpacity } : null,
+                      styles.headerSubtitle,
+                      header.subtitleColor ? { color: header.subtitleColor as string } : null,
+                      header.subtitleFontFamily ? { fontFamily: header.subtitleFontFamily } : null,
+                      header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : null,
+                      header.subtitleOpacity !== undefined ? { opacity: header.subtitleOpacity } : null,
                     ]}
                     numberOfLines={1}
                   >
-                    {header.description}
+                    {subtitleText}
                   </Text>
                 );
 
-                const order = header.textOrder || 'description-first';
+                const order = header.textOrder || 'subtitle-first';
                 return order === 'title-first' ? (
                   <>
                     {titleEl}
@@ -280,24 +279,23 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress }) =
                     </Text>
                   );
   
-                  const descriptionEl = !!header.description && (
+                  const subtitleText = header.subtitle;
+                  const descriptionEl = !!subtitleText && (
                     <Text
                       style={[
-                        styles.headerDescription,
-                        (header.descriptionColor || header.subtitleColor)
-                          ? { color: (header.descriptionColor || header.subtitleColor) as string }
-                          : null,
-                        header.descriptionFontFamily ? { fontFamily: header.descriptionFontFamily } : null,
-                        header.descriptionFontSize ? { fontSize: header.descriptionFontSize } : null,
-                        header.descriptionOpacity !== undefined ? { opacity: header.descriptionOpacity } : null,
+                        styles.headerSubtitle,
+                        header.subtitleColor ? { color: header.subtitleColor as string } : null,
+                        header.subtitleFontFamily ? { fontFamily: header.subtitleFontFamily } : null,
+                        header.subtitleFontSize ? { fontSize: header.subtitleFontSize } : null,
+                        header.subtitleOpacity !== undefined ? { opacity: header.subtitleOpacity } : null,
                       ]}
                       numberOfLines={1}
                     >
-                      {header.description}
+                      {subtitleText}
                     </Text>
                   );
   
-                  const order = header.textOrder || 'description-first';
+                  const order = header.textOrder || 'subtitle-first';
                   return order === 'title-first' ? (
                     <>
                       {titleEl}
@@ -402,7 +400,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Black',
     marginBottom: 2,
   },
-  headerDescription: {
+  headerSubtitle: {
     color: TEXT.LIGHT_GREY,
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
@@ -433,18 +431,17 @@ function areEqual(prev: HeaderBannerProps, next: HeaderBannerProps): boolean {
     if (a[i].id !== b[i].id) return false;
     if (a[i].imageUrl !== b[i].imageUrl) return false;
     if (a[i].title !== b[i].title) return false;
-    if (a[i].description !== b[i].description) return false;
+    if (a[i].subtitle !== b[i].subtitle) return false;
     if (a[i].destinationUrl !== b[i].destinationUrl) return false;
     if (a[i].titleColor !== b[i].titleColor) return false;
-    if (a[i].descriptionColor !== b[i].descriptionColor) return false;
     if (a[i].subtitleColor !== b[i].subtitleColor) return false;
     if (a[i].titleFontFamily !== b[i].titleFontFamily) return false;
     if (a[i].titleFontSize !== b[i].titleFontSize) return false;
-    if (a[i].descriptionFontFamily !== b[i].descriptionFontFamily) return false;
-    if (a[i].descriptionFontSize !== b[i].descriptionFontSize) return false;
+    if (a[i].subtitleFontFamily !== b[i].subtitleFontFamily) return false;
+    if (a[i].subtitleFontSize !== b[i].subtitleFontSize) return false;
     if (a[i].textOrder !== b[i].textOrder) return false;
     if (a[i].titleOpacity !== b[i].titleOpacity) return false;
-    if (a[i].descriptionOpacity !== b[i].descriptionOpacity) return false;
+    if (a[i].subtitleOpacity !== b[i].subtitleOpacity) return false;
   }
   return true;
 }

@@ -3,26 +3,28 @@ interface Header {
   imageUrl: string;
   destinationUrl?: string | null;
   title: string;
-  description: string;
+  /** Secondary text used by the header banner. */
+  subtitle?: string;
   // Optional custom colors
   titleColor?: string;
-  descriptionColor?: string;
-  // Backwards-compat alias used by some JSONs for description color
+  /** Color for subtitle text. */
   subtitleColor?: string;
   // Optional font customization
   titleFontFamily?: string;
   titleFontSize?: number;
-  descriptionFontFamily?: string;
-  descriptionFontSize?: number;
+  /** Font for subtitle text. */
+  subtitleFontFamily?: string;
+  subtitleFontSize?: number;
   /**
    * Controls rendering order of text overlay
-   * - 'title-first' renders title above description
-   * - 'description-first' renders description above title (default for backwards compat)
+   * - 'title-first' renders title above subtitle
+   * - 'subtitle-first' renders subtitle above title
    */
-  textOrder?: 'title-first' | 'description-first';
+  textOrder?: 'title-first' | 'subtitle-first';
   // Optional text opacity (0 to 1)
   titleOpacity?: number;
-  descriptionOpacity?: number;
+  /** Opacity for subtitle text. */
+  subtitleOpacity?: number;
 }
 
 interface HeadersResponse {
