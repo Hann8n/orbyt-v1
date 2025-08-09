@@ -37,22 +37,6 @@
   },
   "headers": [
     {
-      "id": "header_3.2",
-      "imageUrl": "banners/header_3.2.jpeg",
-      "destinationUrl": "https://getorbyt.com",
-      "title": "Orbyt",
-      "description": "a new video app for bluesky",
-      "titleColor": "#000000",
-      "descriptionColor": "#000000",
-      "titleFontFamily": "Firma-Black",
-      "titleFontSize": 28,
-      "descriptionFontFamily": "Firma-SemiBold",
-      "descriptionFontSize": 16,
-      "titleOpacity": 1,
-      "descriptionOpacity": 1,
-      "textOrder": "description-first"
-    },
-    {
       "id": "header_3.2_b",
       "imageUrl": "banners/warp.gif",
       "destinationUrl": "https://getorbyt.com/",
@@ -61,7 +45,7 @@
       "titleColor": "#ffffff",
       "descriptionColor": "#ffffff",
       "titleFontFamily": "Firma-Black",
-      "titleFontSize": 28,
+      "titleFontSize": 38,
       "descriptionFontFamily": "Firma-SemiBold",
       "descriptionFontSize": 16,
       "titleOpacity": 1,

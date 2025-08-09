@@ -92,7 +92,7 @@ const ActivityHeader = () => (
       size={24} 
       color={TEXT.PRIMARY} 
     />
-    <Text style={styles.header}>Activity</Text>
+    <Text style={styles.header}>activity</Text>
   </View>
 );
 

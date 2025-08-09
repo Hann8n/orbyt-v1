@@ -93,6 +93,13 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress }) =
 
   const inputRange = useMemo(() => (loopedData || []).map((_, i) => i), [loopedData]);
   const colorAnimatedStyle = useAnimatedStyle(() => {
+    // Avoid interpolation when there is only one slide
+    if (!isCarousel) {
+      const firstColor = (slideColors && slideColors[0]) || TEXT.PRIMARY;
+      return {
+        backgroundColor: firstColor as any,
+      };
+    }
     const indexProgress = scrollX.value / HEADER_WIDTH;
     return {
       backgroundColor: interpolateColor(indexProgress, inputRange, slideColors as any),

@@ -1495,7 +1495,7 @@ const ExploreScreen: React.FC = () => {
                 // Use safe area + search bar height when searching OR when header not visible on main explore
                 paddingTop: (debouncedQuery.length > 0 || !isHeaderVisible)
                   ? (insets.top + 10 + 55 + 10)
-                  : 60,
+                  : insets.top,
                 paddingBottom: getBottomNavBarHeight(insets),
               },
             ]}
