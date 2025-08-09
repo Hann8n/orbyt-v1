@@ -1,5 +1,0 @@
-Resolved "production" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
-No environment variables with visibility "Plain text" and "Sensitive" found for the "production" environment on EAS.
-Environment variables loaded from the "apk" build profile "env" configuration: EXPO_PUBLIC_APP_CONFIG.
-
-✔ Using remote Android credentials (Expo server)
