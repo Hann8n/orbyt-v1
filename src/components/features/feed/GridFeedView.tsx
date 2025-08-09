@@ -16,8 +16,6 @@ import type { RootStackParamList } from '../../../navigation/types';
 import { FeedItem } from './ListFeedView';
 import EmptyFeed from './EmptyFeed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useCollapsibleStyle } from 'react-native-collapsible-tab-view';
-import { updateHeaderVisibility, generateFeedKey } from '../../../hooks/useHeaderVisibility';
 
 import VerificationBadge from '../verification/VerificationBadge';
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
@@ -34,8 +32,6 @@ const ITEM_MARGIN = 1; // Set divider thickness to 1 for both directions
 interface GridFeedViewProps {
   feed: FeedItem[];
   headerComponent?: React.ReactNode;
-  headerMode?: 'embedded' | 'external';
-  externalHeaderHeight?: number;
   refreshControl?: React.ReactElement;
   backgroundColor?: string;
   secondaryColor?: string;
@@ -50,14 +46,11 @@ interface GridFeedViewProps {
   isError?: boolean;
   error?: Error | null;
   onRetry?: () => void;
-  onVerticalScroll?: (scrollY: number) => void;
 }
 
 const GridFeedView: React.FC<GridFeedViewProps> = ({
   feed,
   headerComponent,
-  headerMode = 'embedded',
-  externalHeaderHeight,
   refreshControl,
   backgroundColor = '#000',
   secondaryColor = '#fff',
@@ -72,27 +65,11 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   isError = false,
   error,
   onRetry,
-  onVerticalScroll,
 }) => {
   const insets = useSafeAreaInsets();
-  const {
-    contentContainerStyle: collapsibleContentContainerStyle,
-    progressViewOffset: collapsibleProgressViewOffset,
-    style: collapsibleStyle,
-  } = useCollapsibleStyle();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [, forceRerender] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
-  const effectiveRefreshControl = React.useMemo(() => {
-    if (!refreshControl) return undefined;
-    try {
-      return React.cloneElement(refreshControl as any, {
-        progressViewOffset: collapsibleProgressViewOffset,
-      });
-    } catch {
-      return refreshControl as any;
-    }
-  }, [refreshControl, collapsibleProgressViewOffset]);
 
   // Initialize infinite scroll hook with cursor-based loading
   // Infinite scroll functionality removed - should be handled by parent component
@@ -178,51 +155,9 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
     );
   }, [onGridItemPress, extractVideoUrl, feed, numColumns, itemWidth, itemHeight, forceRerender]);
 
-  // Determine if this grid is associated with a header feed (profile, likes, reposts, channels)
-  const isHeaderFeed = (
-    feedOption === 'profile' ||
-    feedOption === 'likes' ||
-    feedOption === 'reposts' ||
-    (typeof feedOption === 'string' && feedOption.startsWith('at://'))
-  );
-
-  // Report vertical scroll and header visibility state
-  const handleScroll = useCallback((event: any) => {
-    try {
-      const y = event?.nativeEvent?.contentOffset?.y ?? 0;
-      if (typeof onVerticalScroll === 'function') {
-        onVerticalScroll(y);
-      }
-      if (isHeaderFeed) {
-        let feedKey: string;
-        if (typeof feedOption === 'string' && feedOption.startsWith('at://')) {
-          feedKey = `channel-${feedOption}`;
-        } else {
-          feedKey = generateFeedKey(feedOption, userDid);
-        }
-        const threshold = Math.max(64, (externalHeaderHeight || 0) - insets.top);
-        const isAtTop = y <= threshold;
-        updateHeaderVisibility(feedKey, {
-          scrollY: y,
-          isSnappedToTop: isAtTop,
-          isShadowVisible: !isAtTop,
-        });
-      }
-    } catch {}
-  }, [onVerticalScroll, isHeaderFeed, feedOption, userDid, externalHeaderHeight, insets.top]);
-
-  // When external header is used, keep header height in the visibility store
-  useEffect(() => {
-    if (headerMode === 'external' && typeof externalHeaderHeight === 'number' && isHeaderFeed) {
-      let feedKey: string;
-      if (typeof feedOption === 'string' && feedOption.startsWith('at://')) {
-        feedKey = `channel-${feedOption}`;
-      } else {
-        feedKey = generateFeedKey(feedOption, userDid);
-      }
-      updateHeaderVisibility(feedKey, { headerHeight: externalHeaderHeight });
-    }
-  }, [headerMode, externalHeaderHeight, isHeaderFeed, feedOption, userDid]);
+  // Combine scroll handlers for infinite scroll and other scroll events
+  // Scroll handling removed - should be handled by parent component
+  const handleScroll = useCallback(() => {}, []);
 
   // Use FlatList to render the grid with appropriate numColumns
   return (
@@ -240,22 +175,19 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
           feed.length === 0
             ? { paddingBottom: 0, backgroundColor: '#000' }
             : { paddingBottom: bottomNavBarHeight + 20, backgroundColor: '#000' }
-          , collapsibleContentContainerStyle
         ]}
         columnWrapperStyle={styles.columnWrapper}
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
-         ListHeaderComponent={
-           headerMode === 'embedded' && headerComponent ? (
-             <View
-               onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
-             >
-               {headerComponent}
-             </View>
-           ) : headerMode === 'external' && typeof externalHeaderHeight === 'number' ? (
-             <View style={{ height: Math.max(0, externalHeaderHeight - (isSmallScreen() || isTablet() ? insets.top : 0)) }} />
-           ) : null
-         }
+        ListHeaderComponent={
+          headerComponent ? (
+            <View
+              onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+            >
+              {headerComponent}
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           isProfileLoading ? (
             <View style={[styles.loadingContainer, { backgroundColor }]}> 
@@ -285,7 +217,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
             />
           ) as React.ReactElement
         }
-        refreshControl={effectiveRefreshControl as any}
+        refreshControl={refreshControl as any}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         ListFooterComponent={

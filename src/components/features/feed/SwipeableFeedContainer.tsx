@@ -34,30 +34,6 @@ interface SwipeableFeedContainerProps {
   isRefreshing?: boolean;
   onScrubbingChange?: (isScrubbing: boolean) => void;
   forceError?: boolean; // Add debug flag to force error responses
-  // Customization for consumers (e.g., Profile)
-  feeds?: Array<{ id: FeedOption; label?: string; order?: number }>;
-  activeFeed?: FeedOption; // external control
-  showIndicatorBar?: boolean; // hide internal indicator when parent provides its own tabs
-  // Forwarded props to FeedRenderer
-  userDid?: string;
-  headerComponent?: React.ReactNode;
-  refreshControl?: React.ReactElement;
-  backgroundColor?: string;
-  secondaryColor?: string;
-  isProfileLoading?: boolean;
-  viewMode?: 'list' | 'grid';
-  onViewModeChange?: (mode: 'list' | 'grid') => void;
-  isModal?: boolean;
-  feedQueryOptions?: {
-    enabled?: boolean;
-    staleTime?: number;
-    cacheTime?: number;
-    refetchOnWindowFocus?: boolean;
-    refetchOnMount?: boolean;
-  };
-  onActiveFeedVerticalScroll?: (y: number) => void;
-  headerMode?: 'embedded' | 'external';
-  externalHeaderHeight?: number;
 }
 
 const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
@@ -66,22 +42,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
   isRefreshing = false,
   onScrubbingChange,
   forceError = false, // Add debug flag to force error responses
-  feeds,
-  activeFeed,
-  showIndicatorBar = true,
-  userDid,
-  headerComponent,
-  refreshControl,
-  backgroundColor,
-  secondaryColor,
-  isProfileLoading,
-  viewMode,
-  onViewModeChange,
-  isModal,
-  feedQueryOptions,
-  onActiveFeedVerticalScroll,
-  headerMode,
-  externalHeaderHeight,
 }) => {
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
@@ -135,24 +95,15 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
   const [currentScrollProgress, setCurrentScrollProgress] = useState(0);
   const [hasUserScrolled, setHasUserScrolled] = useState(false);
 
-  // Build feed configuration from either custom feeds or subscribed channels
+  // Build feed configuration from subscribed channels
   const buildFeedConfig = () => {
     const config: { [key: string]: { label: string; order: number } } = {};
-    if (feeds && feeds.length > 0) {
-      feeds.forEach((f, index) => {
-        config[f.id] = {
-          label: (f.label || f.id).toLowerCase(),
-          order: typeof f.order === 'number' ? f.order : index,
-        };
-      });
-    } else {
-      subscribedChannels.forEach(channel => {
-        config[channel.uri] = {
-          label: channel.displayName.toLowerCase(),
-          order: channel.order,
-        };
-      });
-    }
+    subscribedChannels.forEach(channel => {
+      config[channel.uri] = {
+        label: channel.displayName.toLowerCase(),
+        order: channel.order,
+      };
+    });
     return config;
   };
 
@@ -189,18 +140,11 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
           flatListRef.current?.scrollToIndex({ index: initialIndex, animated: false });
         });
         // Keep indicator in sync
-        if (showIndicatorBar) {
-          scrollIndicatorToActive(initialIndex);
-        }
+        scrollIndicatorToActive(initialIndex);
         hasAppliedInitialIndexRef.current = true;
-        if (typeof onActiveFeedVerticalScroll === 'function') {
-          const initFeed = feedOptions[initialIndex];
-          const savedY = savedPositions[initFeed] || 0;
-          onActiveFeedVerticalScroll(savedY);
-        }
       }
     }
-  }, [feedOptions, initialFeed, scrollIndicatorToActive, showIndicatorBar, onActiveFeedVerticalScroll, savedPositions]);
+  }, [feedOptions, initialFeed, scrollIndicatorToActive]);
 
   // Compute current feed option with no-flicker fallback to the intended initial feed
   const pendingInitialIndex = feedOptions.findIndex(option => option === initialFeed);
@@ -273,10 +217,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
       }
       setLastScrollY(scrollY);
     }
-    if (typeof onActiveFeedVerticalScroll === 'function') {
-      onActiveFeedVerticalScroll(scrollY);
-    }
-  }, [currentFeedIndex, lastScrollY, animateFeedBar, onActiveFeedVerticalScroll]);
+  }, [currentFeedIndex, lastScrollY, animateFeedBar]);
 
   // Handle feed change
   const handleFeedChange = useCallback((newIndex: number) => {
@@ -290,12 +231,8 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
             
       // Reset scroll state for new feed
       setLastScrollY(0);
-      if (typeof onActiveFeedVerticalScroll === 'function') {
-        const savedY = savedPositions[newFeedOption] || 0;
-        onActiveFeedVerticalScroll(savedY);
-      }
     }
-  }, [feedOptions, onFeedChange, animateFeedBar, onActiveFeedVerticalScroll, savedPositions]);
+  }, [feedOptions, onFeedChange, animateFeedBar]);
 
   // Handle position saving for each feed
   const handlePositionChange = useCallback((position: number) => {
@@ -343,15 +280,9 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
       
       
       // Scroll indicator to follow the feed change
-      if (showIndicatorBar) {
-        scrollIndicatorToActive(currentIndex);
-      }
-      if (typeof onActiveFeedVerticalScroll === 'function') {
-        const savedY = savedPositions[newFeedOption] || 0;
-        onActiveFeedVerticalScroll(savedY);
-      }
+      scrollIndicatorToActive(currentIndex);
     }
-  }, [currentFeedIndex, feedOptions, onFeedChange, isHorizontalScrolling, animateFeedBar, horizontalScrollOffset, scrollIndicatorToActive, screenWidth, showIndicatorBar, onActiveFeedVerticalScroll, savedPositions]);
+  }, [currentFeedIndex, feedOptions, onFeedChange, isHorizontalScrolling, animateFeedBar, horizontalScrollOffset, scrollIndicatorToActive, screenWidth]);
 
   // Handle scroll end to update current feed and hide feed bar
   const handleScrollEnd = useCallback((event: any) => {
@@ -392,26 +323,8 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
 
   // Scroll indicator when feed changes
   useEffect(() => {
-    if (showIndicatorBar) {
-      scrollIndicatorToActive(currentFeedIndex);
-    }
-  }, [currentFeedIndex, scrollIndicatorToActive, showIndicatorBar]);
-
-  // Sync with external activeFeed changes
-  useEffect(() => {
-    if (!activeFeed) return;
-    const targetIndex = feedOptions.findIndex(option => option === activeFeed);
-    if (targetIndex >= 0 && targetIndex !== currentFeedIndex) {
-      setCurrentFeedIndex(targetIndex);
-      setCurrentScrollProgress(targetIndex);
-      requestAnimationFrame(() => {
-        flatListRef.current?.scrollToIndex({ index: targetIndex, animated: true });
-      });
-      if (showIndicatorBar) {
-        scrollIndicatorToActive(targetIndex);
-      }
-    }
-  }, [activeFeed, feedOptions, currentFeedIndex, scrollIndicatorToActive, showIndicatorBar]);
+    scrollIndicatorToActive(currentFeedIndex);
+  }, [currentFeedIndex, scrollIndicatorToActive]);
 
   // Render individual feed
   const renderFeed = useCallback(({ item: feedOption, index }: { item: FeedOption; index: number }) => {
@@ -422,22 +335,14 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
         {/* width is set dynamically above; removed inline comment to avoid text node error */}
         <FeedRenderer
           feedOption={String(feedOption)}
-          userDid={userDid}
-          headerComponent={headerComponent}
-          headerMode={headerMode ?? (headerComponent ? 'embedded' : 'external')}
-          externalHeaderHeight={externalHeaderHeight}
-          refreshControl={refreshControl}
-          backgroundColor={backgroundColor}
-          secondaryColor={secondaryColor}
           onRetryFeed={handleRetryFeed}
           onPositionChange={handlePositionChange}
           initialPosition={savedPositions[feedOption]}
           queryOptions={{
-            enabled: feedQueryOptions?.enabled ?? true,
-            staleTime: feedQueryOptions?.staleTime ?? 5 * 60 * 1000, // 5 minutes
-            refetchOnMount: feedQueryOptions?.refetchOnMount ?? false,
-            refetchOnWindowFocus: feedQueryOptions?.refetchOnWindowFocus ?? false,
-            cacheTime: feedQueryOptions?.cacheTime,
+            enabled: true, // Always enable to preload feeds
+            staleTime: 5 * 60 * 1000, // 5 minutes
+            refetchOnMount: false,
+            refetchOnWindowFocus: false,
           }}
           // Pass visibility state to control video playback
           isVisible={isVisible}
@@ -446,14 +351,10 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
           isRefreshing={isRefreshing}
           onScrubbingChange={handleScrubbingChange}
           forceError={forceError} // Pass the forceError prop to FeedFetcher
-          isProfileLoading={isProfileLoading}
-          viewMode={viewMode}
-          onViewModeChange={onViewModeChange}
-          isModal={isModal}
         />
       </View>
     );
-  }, [currentFeedIndex, handleRetryFeed, handlePositionChange, savedPositions, handleVerticalScroll, isRefreshing, screenWidth, handleScrubbingChange, forceError, userDid, headerComponent, refreshControl, backgroundColor, secondaryColor, isProfileLoading, viewMode, onViewModeChange, isModal, feedQueryOptions]);
+  }, [currentFeedIndex, handleRetryFeed, handlePositionChange, savedPositions, handleVerticalScroll, isRefreshing, screenWidth, handleScrubbingChange, forceError]);
 
   // Get indicator style with gradual opacity based on scroll progress
   const getIndicatorStyle = useCallback((feedOption: FeedOption) => {
@@ -492,43 +393,41 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
 
 
   return (
-    <GestureHandlerRootView style={[styles.container, backgroundColor ? { backgroundColor } : null]}>
+    <GestureHandlerRootView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY} />
       
       {/* Animated Feed Indicators with horizontal scrolling */}
-      {showIndicatorBar && (
-        <Animated.View 
-          style={[
-            styles.feedSwitcher, 
-            { 
-              top: isSmallDevice ? insets.top + 12 : insets.top + 12,
-              opacity: feedBarOpacity,
-              transform: [{ translateY: feedBarTranslateY }],
-            }
-          ]}
+      <Animated.View 
+        style={[
+          styles.feedSwitcher, 
+          { 
+            top: isSmallDevice ? insets.top + 12 : insets.top + 12,
+            opacity: feedBarOpacity,
+            transform: [{ translateY: feedBarTranslateY }],
+          }
+        ]}
+      >
+        <ScrollView
+          ref={indicatorScrollViewRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.indicatorContainer}
+          scrollEnabled={false} // Disable manual scrolling, only programmatic
         >
-          <ScrollView
-            ref={indicatorScrollViewRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.indicatorContainer}
-            scrollEnabled={false} // Disable manual scrolling, only programmatic
-          >
-            {feedOptions.map((feedOption) => (
-              <TouchableOpacity
-                key={feedOption}
-                onPress={() => handleIndicatorTap(feedOption)}
-                activeOpacity={0.7}
-                style={styles.indicatorItem}
-              >
-                <Animated.Text style={getIndicatorStyle(feedOption)}>
-                  {String(feedConfig[feedOption]?.label || feedOption)}
-                </Animated.Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </Animated.View>
-      )}
+          {feedOptions.map((feedOption) => (
+            <TouchableOpacity
+              key={feedOption}
+              onPress={() => handleIndicatorTap(feedOption)}
+              activeOpacity={0.7}
+              style={styles.indicatorItem}
+            >
+              <Animated.Text style={getIndicatorStyle(feedOption)}>
+                {String(feedConfig[feedOption]?.label || feedOption)}
+              </Animated.Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </Animated.View>
 
       {/* Horizontal FlatList for feeds with proper gesture handling */}
       <FlatList
