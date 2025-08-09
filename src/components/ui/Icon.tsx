@@ -449,19 +449,6 @@ export const SearchIcon: React.FC<{ size: number; color: string; style?: StylePr
   );
 };
 
-// Custom Spotlight Icon component
-export const SpotlightIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
-  const svgXml = SPOTLIGHT_ICON_SVG.replace(/#fff/g, color);
-  return (
-    <SvgXml 
-      xml={svgXml} 
-      width={size} 
-      height={size} 
-      style={style}
-    />
-  );
-};
-
 // Custom Back Arrow Icon component
 export const BackArrowIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
   const svgXml = BACK_ARROW_ICON_SVG.replace(/#fff/g, color);

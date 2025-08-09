@@ -25,7 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Icon } from '../components/ui/UI';
 import HeaderBanner from '../components/ui/HeaderBanner';
 
-import { GridViewIcon, SpotlightIcon, SearchIcon } from '../components/ui/Icon';
+import { GridViewIcon, SearchIcon } from '../components/ui/Icon';
 import { BRAND, TEXT, INTERACTIVE, UI, STATUS } from '../utils/formatting/Colors';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import EmptyFeed from '../components/features/feed/EmptyFeed';
@@ -751,7 +751,7 @@ const ExploreScreen: React.FC = () => {
   // Grid view header component
   const GridViewHeader = () => (
     <View style={styles.gridHeader}>
-      <Text style={styles.gridHeaderTitle}>Videos</Text>
+      <Text style={styles.gridHeaderTitle}>videos</Text>
     </View>
   );
 
@@ -1172,7 +1172,7 @@ const ExploreScreen: React.FC = () => {
         />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search"
+          placeholder="search"
           placeholderTextColor={TEXT.DARK_GREY}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -1202,15 +1202,15 @@ const ExploreScreen: React.FC = () => {
           }
           const data: ListItem[] = [];
           if (spotlightFeed && spotlightFeed.length > 0) {
-            data.push({ type: 'section-header' as const, title: '🔥 Spotlight', key: 'spotlight-header' });
+            data.push({ type: 'section-header' as const, title: 'spotlight', key: 'spotlight-header' });
             data.push({ type: 'spotlight-videos' as const, videos: spotlightFeed, key: 'spotlight-videos' });
           }
           if (limitedSuggestedFeeds && limitedSuggestedFeeds.length > 0) {
-            data.push({ type: 'section-header' as const, title: 'Popular channels', key: 'feeds-header' });
+            data.push({ type: 'section-header' as const, title: 'popular channels', key: 'feeds-header' });
             data.push(...limitedSuggestedFeeds.map(item => ({ type: 'channel' as const, data: item, relevance: 0 })));
           }
           if (allSuggestions && allSuggestions.length > 0) {
-            data.push({ type: 'section-header' as const, title: 'Suggested Accounts', key: 'accounts-header' });
+            data.push({ type: 'section-header' as const, title: 'suggested accounts', key: 'accounts-header' });
             data.push(...allSuggestions.map(item => ({ type: 'profile' as const, data: item, relevance: 0 })));
           }
           return data;
@@ -1258,14 +1258,17 @@ const ExploreScreen: React.FC = () => {
                 return <VideoShimmer />;
               }
               if (item.type === 'section-header') {
+                // If title is missing, this is a shimmer placeholder item
+                if (!('title' in item) || !item.title) {
+                  return <SectionHeaderShimmer />;
+                }
                 return (
                   <View style={styles.sectionHeader}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      {item.title === '🔥 Spotlight' ? (
+                      {typeof item.title === 'string' && item.title.toLowerCase().includes('spotlight') ? (
                         <>
-                          <SpotlightIcon size={20} color={TEXT.PRIMARY} style={{ marginRight: 8 }} />
                           <Text style={styles.sectionTitle}>
-                            Spotlight
+                            spotlight
                           </Text>
                         </>
                       ) : (
@@ -1278,6 +1281,10 @@ const ExploreScreen: React.FC = () => {
                 );
               }
               if (item.type === 'spotlight-videos') {
+                // If videos are missing, this is a shimmer placeholder item
+                if (!('videos' in item) || !Array.isArray(item.videos)) {
+                  return <SpotlightVideosShimmer />;
+                }
                 return (
                   <View style={styles.spotlightContainer}>
                     <FlatList
@@ -1358,6 +1365,15 @@ const ExploreScreen: React.FC = () => {
                     />
                   </View>
                 );
+              }
+              // Handle item-level shimmers for profiles/channels/videos represented as objects without data
+              if (
+                (item.type === 'profile' || item.type === 'channel' || item.type === 'video') &&
+                !("data" in item)
+              ) {
+                if (item.type === 'profile') return <ProfileShimmer />;
+                if (item.type === 'channel') return <ChannelShimmer />;
+                return <VideoShimmer />;
               }
               if (isSearchResult(item)) {
                 return renderSearchResult({ item });
