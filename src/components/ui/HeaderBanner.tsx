@@ -43,9 +43,12 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress }) =
       onHeaderPress(header);
     } else {
       // Default behavior: open the destination URL
-      Linking.openURL(header.destinationUrl).catch(err => {
-        console.error('Error opening URL:', err);
-      });
+      const url = header?.destinationUrl;
+      if (typeof url === 'string' && url.trim().length > 0) {
+        Linking.openURL(url).catch(err => {
+          console.error('Error opening URL:', err);
+        });
+      }
     }
   };
 

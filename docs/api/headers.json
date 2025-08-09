@@ -33,13 +33,16 @@
       "titleOpacity": 1,
       "descriptionOpacity": 0.9,
       "textOrder": "title-first"
+    },
+    "localDevelopment": {
+      "verifyLocalEndpoint": "curl -s http://localhost:5173/api/headers.json | cat@headers.json"
     }
   },
   "headers": [
     {
       "id": "header_3.2_b",
       "imageUrl": "banners/warp.gif",
-      "destinationUrl": "https://getorbyt.com/",
+      "destinationUrl": null,
       "title": "orbyt",
       "description": "welcome to",
       "titleColor": "#ffffff",
@@ -47,9 +50,9 @@
       "titleFontFamily": "Firma-Black",
       "titleFontSize": 38,
       "descriptionFontFamily": "Firma-SemiBold",
-      "descriptionFontSize": 16,
+      "descriptionFontSize": 14,
       "titleOpacity": 1,
-      "descriptionOpacity": 1,
+      "descriptionOpacity": 0.8,
       "textOrder": "description-first"
     }
   ]

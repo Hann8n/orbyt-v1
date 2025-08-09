@@ -1,7 +1,7 @@
 interface Header {
   id: string;
   imageUrl: string;
-  destinationUrl: string;
+  destinationUrl?: string | null;
   title: string;
   description: string;
   // Optional custom colors
