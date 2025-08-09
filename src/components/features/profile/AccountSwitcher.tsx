@@ -17,7 +17,7 @@ import AuthorItem from '../../ui/AuthorItem';
 import AccountManager, { SavedAccount } from '../../../services/storage/AccountManager';
 import ProfileCache, { useProfile, CachedProfile } from '../../../services/cache/ProfileCache';
 import ChannelCache from '../../../services/cache/ChannelCache';
-import VideoPreloadManager from '../../../services/VideoPreloadManager';
+
 import { ModerationService } from '../../../services/ModerationService';
 import { feedService } from '../../../services/FeedService';
 import WatchHistory from '../../../services/WatchHistory';
@@ -164,14 +164,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       // Clear ChannelSubscriptionManager subscriptions
       await ChannelSubscriptionManager.clearAllSubscriptions();
       
-      // Reset VideoPreloadManager
-      VideoPreloadManager.reset();
+      // VideoPreloadManager removed
       
       // Switch account (this will handle authentication)
       await AccountManager.switchAccount(account.id);
       
-      // Reinitialize VideoPreloadManager for new account
-      VideoPreloadManager.initialize();
+      // VideoPreloadManager removed
       
       // Call the parent's onAccountSwitch callback
       onAccountSwitch(account);

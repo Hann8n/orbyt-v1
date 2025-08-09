@@ -119,6 +119,13 @@ const FeedRenderer: React.FC<FeedRendererProps> = ({
     ...queryOptions,
   });
 
+  // Force refetch when isRefreshing changes to true
+  useEffect(() => {
+    if (isRefreshing && !isSearchFeed) {
+      feedQuery.refetch();
+    }
+  }, [isRefreshing, isSearchFeed, feedQuery]);
+
   // Search feed hook
   const searchFeedQuery = useSearchFeed(
     searchHasNextPage,

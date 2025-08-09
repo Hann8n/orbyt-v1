@@ -11,7 +11,8 @@
     "postinstall": "pod-install",
     "build:dev": "node build-config.js && eas build --profile development",
     "build:preview": "node build-config.js && eas build --profile preview",
-    "build:prod": "node build-config.js && eas build --profile production"
+    "build:prod": "node build-config.js && eas build --profile production",
+    "serve:docs": "npx serve docs -l 5173 --single"
   },
   "dependencies": {
     "@atproto/api": "^0.15.19",
@@ -68,6 +69,7 @@
     "depcheck": "^1.4.7",
     "pod-install": "^0.3.7",
     "prop-types": "^15.8.1",
+    "serve": "^14.2.4",
     "typescript": "^5.1.6"
   },
   "private": true,

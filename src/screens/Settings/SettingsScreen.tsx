@@ -16,8 +16,13 @@ import { RootStackParamList, useLogout } from '../../navigation/types';
 import Icon, { TvIcon, BackArrowIcon } from '../../components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModerationDebug from '../../components/features/moderation/ModerationDebug';
-
 import AccountManager from '../../services/storage/AccountManager';
+
+// global flag for immediate effect without re-mounts
+declare global {
+  // eslint-disable-next-line no-var
+  var __ORBYT_FEED_DEBUG_OVERLAY__: boolean | undefined;
+}
 import { useQueryClient } from '@tanstack/react-query';
 
 type SettingsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
@@ -32,19 +37,24 @@ const SettingsScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExperimentalFeedsEnabled, setIsExperimentalFeedsEnabled] = useState(true);
+  const [isFeedDebugEnabled, setIsFeedDebugEnabled] = useState<boolean>(false);
   const insets = useSafeAreaInsets();
 
-  // Load experimental feeds setting on mount
+  // Load settings on mount
   useEffect(() => {
-    const loadExperimentalFeedsSetting = async () => {
+    const loadSettings = async () => {
       try {
         const enabled = await AccountManager.getExperimentalFeedsEnabled();
         setIsExperimentalFeedsEnabled(enabled);
+        const debugEnabled = await AccountManager.getFeedDebugOverlayEnabled();
+        setIsFeedDebugEnabled(debugEnabled);
+        // set global for immediate effect
+        (global as any).__ORBYT_FEED_DEBUG_OVERLAY__ = debugEnabled;
       } catch (error) {
-        console.error('Error loading experimental feeds setting:', error);
+        console.error('Error loading settings:', error);
       }
     };
-    loadExperimentalFeedsSetting();
+    loadSettings();
   }, []);
 
   const handleLogout = async () => {
@@ -93,6 +103,18 @@ const SettingsScreen: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['unifiedSearch'] });
     } catch (error) {
       console.error('Error saving experimental feeds setting:', error);
+      Alert.alert('Error', 'Failed to save setting. Please try again.');
+    }
+  };
+
+  const handleToggleFeedDebug = async (value: boolean) => {
+    try {
+      await AccountManager.setFeedDebugOverlayEnabled(value);
+      setIsFeedDebugEnabled(value);
+      // set global for immediate effect
+      (global as any).__ORBYT_FEED_DEBUG_OVERLAY__ = value;
+    } catch (error) {
+      console.error('Error saving feed debug overlay setting:', error);
       Alert.alert('Error', 'Failed to save setting. Please try again.');
     }
   };
@@ -252,6 +274,26 @@ const SettingsScreen: React.FC = () => {
                     onValueChange={handleToggleExperimentalFeeds}
                     trackColor={{ false: '#2A2A2A', true: '#4CAF50' }}
                     thumbColor={isExperimentalFeedsEnabled ? '#fff' : '#999'}
+                    ios_backgroundColor="#2A2A2A"
+                  />
+                </View>
+              )}
+              {section.title === 'App' && (
+                <View style={[styles.settingItem, styles.switchItem]}> 
+                  <View style={styles.settingItemLeft}>
+                    <View style={styles.iconContainer}>
+                      <Icon name="bug" size={20} color="#fff" />
+                    </View>
+                    <View style={styles.settingItemTextContainer}>
+                      <Text style={styles.settingItemText}>Feed Debug Overlay</Text>
+                      <Text style={styles.settingItemSubtitle}>Show realtime feed/debug info</Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={isFeedDebugEnabled}
+                    onValueChange={handleToggleFeedDebug}
+                    trackColor={{ false: '#2A2A2A', true: '#4CAF50' }}
+                    thumbColor={isFeedDebugEnabled ? '#fff' : '#999'}
                     ios_backgroundColor="#2A2A2A"
                   />
                 </View>

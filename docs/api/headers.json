@@ -1,0 +1,72 @@
+{
+  "_doc": {
+    "about": "Documentation for header banner JSON. This object is ignored by the app; only 'headers' is used.",
+    "fields": {
+      "id": "Unique string identifier for the header",
+      "imageUrl": "Image URL for the banner background. Can be absolute or relative (e.g., 'banners/header.png').",
+      "destinationUrl": "URL to open when the banner is tapped",
+      "title": "Primary text shown on the banner (optional)",
+      "description": "Secondary text shown on the banner (optional)",
+      "titleColor": "Hex color for title text (e.g., '#000000')",
+      "descriptionColor": "Hex color for description text",
+      "subtitleColor": "Deprecated alias for descriptionColor (still supported)",
+      "titleFontFamily": "Font family key loaded in app (e.g., 'Firma-Black')",
+      "titleFontSize": "Number font size for title (e.g., 28)",
+      "descriptionFontFamily": "Font family key for description (e.g., 'Firma-SemiBold')",
+      "descriptionFontSize": "Number font size for description (e.g., 16)",
+      "titleOpacity": "Number between 0 and 1 for title opacity (e.g., 1)",
+      "descriptionOpacity": "Number between 0 and 1 for description opacity (e.g., 0.9)",
+      "textOrder": "Order of text rendering: 'title-first' | 'description-first' (default 'description-first')"
+    },
+    "exampleHeader": {
+      "id": "example-1",
+      "imageUrl": "banners/header_3.2.png",
+      "destinationUrl": "https://getorbyt.com",
+      "title": "Orbyt",
+      "description": "a new video app for bluesky",
+      "titleColor": "#000000",
+      "descriptionColor": "#000000",
+      "titleFontFamily": "Firma-Black",
+      "titleFontSize": 28,
+      "descriptionFontFamily": "Firma-SemiBold",
+      "descriptionFontSize": 16,
+      "titleOpacity": 1,
+      "descriptionOpacity": 0.9,
+      "textOrder": "title-first"
+    }
+  },
+  "headers": [
+    {
+      "id": "header_3.2",
+      "imageUrl": "banners/header_3.2.png",
+      "destinationUrl": "https://getorbyt.com",
+      "title": "Orbyt",
+      "description": "a new video app for bluesky",
+      "titleColor": "#000000",
+      "descriptionColor": "#000000",
+      "titleFontFamily": "Firma-Black",
+      "titleFontSize": 28,
+      "descriptionFontFamily": "Firma-SemiBold",
+      "descriptionFontSize": 16,
+      "titleOpacity": 1,
+      "descriptionOpacity": 1,
+      "textOrder": "description-first"
+    },
+    {
+      "id": "header_3.2_b",
+      "imageUrl": "banners/warp.gif",
+      "destinationUrl": "https://getorbyt.com/",
+      "title": "Discover",
+      "description": "Popular channels and accounts",
+      "titleColor": "#ffffff",
+      "descriptionColor": "#ffffff",
+      "titleFontFamily": "Firma-Black",
+      "titleFontSize": 28,
+      "descriptionFontFamily": "Firma-SemiBold",
+      "descriptionFontSize": 16,
+      "titleOpacity": 1,
+      "descriptionOpacity": 0.9,
+      "textOrder": "title-first"
+    }
+  ]
+}

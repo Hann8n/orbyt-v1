@@ -177,7 +177,7 @@ class FeedService {
       case 'discover':
         return 'at://did:plc:tenurhgjptubkk5zf5qhi3og/app.bsky.feed.generator/discover-video';
       case 'following':
-        return null; // Handle specially with timeline feed logic
+        return 'at://did:plc:vpkhqolt662uhesyj6nxm7ys/app.bsky.feed.generator/tube';
       default:
         return null;
     }
@@ -210,9 +210,14 @@ class FeedService {
         console.warn(`[FeedService] Reposts feed requested but no userDid provided for option: ${feedOption}`);
         return { feed: [], cursor: null };
       } else if (feedOption === 'following') {
-        // Handle following feed specially - it uses timeline feed type
-        const feedType = 'timeline';
-        response = await AtprotoService.getFeed(cursor, null, {}, true, limit, feedType);
+        // Handle following feed as a custom feed using the specific feed URI
+        const feedLink = this.getFeedLink(feedOption);
+        if (!feedLink) {
+          console.warn(`[FeedService] No feed link found for option: ${feedOption}`);
+          return { feed: [], cursor: null };
+        }
+        // Disable video filtering since this should already be a video-only feed
+        response = await AtprotoService.getFeed(cursor, feedLink, {}, false, limit, 'custom');
       } else if (feedOption === 'profile' || feedOption === 'likes' || feedOption === 'reposts') {
         // These feed types require a userDid but none was provided
         console.warn(`[FeedService] ${feedOption} feed requires userDid but none provided`);
@@ -254,8 +259,7 @@ class FeedService {
           console.warn(`[FeedService] No feed link found for option: ${feedOption}`);
           return { feed: [], cursor: null };
         }
-        const feedType = feedOption === 'following' ? 'timeline' : 'custom';
-        response = await AtprotoService.getFeed(cursor, feedLink, {}, true, limit, feedType);
+        response = await AtprotoService.getFeed(cursor, feedLink, {}, true, limit, 'custom');
       }
 
       return {

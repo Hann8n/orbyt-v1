@@ -21,7 +21,7 @@ import { VideoCardRef } from './VideoCard';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import ProfileCache, { profileKeys, useProfileColors } from '../../../services/cache/ProfileCache';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import VideoPreloadManager from '../../../services/VideoPreloadManager';
+
 import Icon, { SlashIcon, HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon, TvIcon } from '../../ui/Icon';
 import { Avatar, Colors } from '../../ui/UI';
 import { createQueryKeys } from '../../../services/FeedService';

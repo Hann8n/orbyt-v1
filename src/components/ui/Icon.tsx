@@ -3,7 +3,7 @@ import { SvgXml } from 'react-native-svg';
 import { icons as pixelarticons } from '@iconify-json/pixelarticons';
 import { icons as streamlinePixel } from '@iconify-json/streamline-pixel';
 import { Colors } from './UI';
-import { StyleProp, ViewStyle, View, Image } from 'react-native';
+import { StyleProp, ViewStyle, View, Image, Animated, Easing } from 'react-native';
 import AtprotoService from '../../services/api/AtprotoService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProfile } from '../../services/cache/ProfileCache';
@@ -92,7 +92,7 @@ const REPORT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" heig
 
 const SEARCH_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M5.5 10a4.5 4.5 0 1 1 9 0a4.5 4.5 0 0 1-9 0M10 2.5a7.5 7.5 0 1 0 4.136 13.757l4.803 4.804a1.5 1.5 0 0 0 2.122-2.122l-4.804-4.803A7.5 7.5 0 0 0 10 2.5"/></g></svg>`;
 
-const LIGHTNING_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#fff" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.295 19.562L16 22m1-6l3.758 2.098M19 12.5l3.026-.598M7.61 6.3a3 3 0 0 0-3.92 1.3l-1.38 2.79a3 3 0 0 0 1.3 3.91l6.89 3.597a1 1 0 0 0 1.342-.447l3.106-6.211a1 1 0 0 0-.447-1.341zM8 9V2"/></svg>`;
+const SPOTLIGHT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#fff" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.295 19.562L16 22m1-6l3.758 2.098M19 12.5l3.026-.598M7.61 6.3a3 3 0 0 0-3.92 1.3l-1.38 2.79a3 3 0 0 0 1.3 3.91l6.89 3.597a1 1 0 0 0 1.342-.447l3.106-6.211a1 1 0 0 0-.447-1.341zM8 9V2"/></svg>`;
 
 const BACK_ARROW_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="#fff" d="M3.283 10.94a1.5 1.5 0 0 0 0 2.12l5.656 5.658a1.5 1.5 0 1 0 2.122-2.122L7.965 13.5H19.5a1.5 1.5 0 0 0 0-3H7.965l3.096-3.096a1.5 1.5 0 1 0-2.122-2.121z"/></g></svg>`;
 
@@ -372,6 +372,46 @@ export const ShareIcon: React.FC<{ size: number; color: string; style?: StylePro
   );
 };
 
+// Custom Loading 3 Fill Icon component (spinning)
+export const Loading3FillIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const rotation = React.useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(rotation, {
+        toValue: 1,
+        duration: 1000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    loop.start();
+    return () => {
+      rotation.stopAnimation();
+    };
+  }, [rotation]);
+
+  const spin = rotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  const xml = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+      <g fill="none" fill-rule="evenodd">
+        <path d="M12 4.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15M1.5 12C1.5 6.201 6.201 1.5 12 1.5S22.5 6.201 22.5 12 17.799 22.5 12 22.5 1.5 17.799 1.5 12" fill="${color}" opacity=".1"/>
+        <path d="M12 4.5a7.458 7.458 0 0 0-5.187 2.083 1.5 1.5 0 0 1-2.075-2.166A10.458 10.458 0 0 1 12 1.5a1.5 1.5 0 0 1 0 3" fill="${color}"/>
+      </g>
+    </svg>
+  `;
+
+  return (
+    <Animated.View style={[{ transform: [{ rotate: spin }] }, style]}>
+      <SvgXml xml={xml} width={size} height={size} />
+    </Animated.View>
+  );
+};
+
 // Custom Block Icon component
 export const BlockIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
   const svgXml = BLOCK_ICON_SVG.replace(/#fff/g, color);
@@ -409,9 +449,9 @@ export const SearchIcon: React.FC<{ size: number; color: string; style?: StylePr
   );
 };
 
-// Custom Lightning Icon component
-export const LightningIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
-  const svgXml = LIGHTNING_ICON_SVG.replace(/#fff/g, color);
+// Custom Spotlight Icon component
+export const SpotlightIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = SPOTLIGHT_ICON_SVG.replace(/#fff/g, color);
   return (
     <SvgXml 
       xml={svgXml} 
@@ -913,6 +953,9 @@ const Icon: React.FC<IconProps> = ({
 }) => {
   try {
     // Handle custom icons first
+    if (name === 'loading-3-fill') {
+      return <Loading3FillIcon size={size} color={color} style={style} />;
+    }
     if (name === 'insights') {
       return <InsightsIcon size={size} color={color} style={style} />;
     }

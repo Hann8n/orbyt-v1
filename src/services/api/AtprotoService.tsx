@@ -169,7 +169,7 @@ class AtprotoService {
     feedVariables: FeedParams = {},
     filterVideosOnly: boolean = true,
     limit: number = 100,
-    feedType?: 'timeline' | 'author' | 'likes' | 'reposts' | 'authorVideos' | 'custom'
+    feedType?: 'author' | 'likes' | 'reposts' | 'authorVideos' | 'custom'
   ): Promise<FeedResponse> {
     let retries = 3;
     
@@ -179,21 +179,7 @@ class AtprotoService {
         let response: any;
         
         // Unified feed handling based on feedType
-        if (feedType === 'timeline' || feedLink === 'at://following') {
-          // Timeline feed (following)
-          try {
-            const params: any = { 
-              limit: limit,
-              cursor: cursor || undefined,
-              algorithm: 'reverse-chronological',
-            };
-            
-            response = await this.agent.api.app.bsky.feed.getTimeline(params);
-          } catch (timelineError: any) {
-            console.warn('Timeline fetch error:', timelineError.message);
-            return { feed: [], cursor: null };
-          }
-        } else if (feedType === 'author' || feedType === 'authorVideos') {
+        if (feedType === 'author' || feedType === 'authorVideos') {
           // Author feed - use author filter
           const authorFilter = feedType === 'authorVideos' ? 'posts_with_video' : 'posts_with_media';
           try {
@@ -1930,8 +1916,8 @@ class AtprotoService {
           cursor: cursor || undefined
         });
       } else {
-        // Fallback to timeline for no query
-        response = await this.agent.api.app.bsky.feed.getTimeline(params);
+        // Return empty results when no query is provided
+        return { videos: [], cursor: null };
       }
       
       let posts = response?.data?.posts || response?.data?.feed || [];

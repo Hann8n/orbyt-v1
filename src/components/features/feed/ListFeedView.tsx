@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, SharedValue, runOnJS } from 'react-native-reanimated';
 import EmptyFeed from './EmptyFeed';
 import { MemoizedVideoItem } from './VideoItem';
-import VideoPreloadManager from '../../../services/VideoPreloadManager';
+
 import WatchHistory from '../../../services/WatchHistory';
 import { extractVideoUrl } from '../../../utils/helpers/video';
 import GridFeedView from './GridFeedView';
@@ -27,6 +27,8 @@ import type { ModerationDecision } from '../../../services/ModerationTypes';
 import Icon from '../../ui/Icon';
 import { useClearView } from '../../../services/ClearViewContext';
 import { updateHeaderVisibility, generateFeedKey } from '../../../hooks/useHeaderVisibility';
+import FeedDebugger from '../../../utils/helpers/FeedDebuger';
+import AccountManager from '../../../services/storage/AccountManager';
 
 // Header visibility system for medium/large screens
 
@@ -149,6 +151,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const { isClearViewMode, toggleClearViewMode, setClearViewMode } = useClearView();
   const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
+  const [isFeedDebugEnabled, setIsFeedDebugEnabled] = useState<boolean>(false);
   
   // Clear feed when refreshing and ensure no duplicates
   const displayFeed = useMemo(() => {
@@ -211,6 +214,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const positionSaveTimeout = useRef<NodeJS.Timeout | null>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollYShared = useSharedValue(0);
+  const lastScrollInfoRef = useRef({ scrollY: 0, progress: 0, nearEnd: false });
+  const [debugScrollInfo, setDebugScrollInfo] = useState<{ scrollY: number; scrollProgress: number; isNearEnd: boolean }>({ scrollY: 0, scrollProgress: 0, isNearEnd: false });
   
   // Performance optimization: Use refs to avoid unnecessary re-renders
   const visibleVideoRef = useRef<string | null>(null);
@@ -336,6 +341,21 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     scrollYShared.value = y;
     currentScrollOffset.current = y;
     
+    // Update debug scroll info (throttled)
+    try {
+      const { contentSize, layoutMeasurement } = event.nativeEvent;
+      const contentHeight = contentSize?.height || 0;
+      const screenHeight = layoutMeasurement?.height || 1;
+      const maxScrollY = Math.max(1, contentHeight - screenHeight);
+      const progress = Math.min(Math.max(y / maxScrollY, 0), 1);
+      const nearEnd = progress >= 0.9;
+      const last = lastScrollInfoRef.current;
+      if (Math.abs(last.scrollY - y) > 50 || Math.abs(last.progress - progress) > 0.05 || last.nearEnd !== nearEnd) {
+        lastScrollInfoRef.current = { scrollY: y, progress, nearEnd } as any;
+        setDebugScrollInfo({ scrollY: y, scrollProgress: progress, isNearEnd: nearEnd });
+      }
+    } catch {}
+    
     // Track scroll direction with reduced frequency
     const delta = y - lastOffset.current;
     if (Math.abs(delta) > 10) { // Increased threshold to reduce noise
@@ -414,6 +434,25 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     setScrollDirection(null);
   }, [onPositionChange]);
 
+  // Debug: poll the toggle value occasionally to reflect changes from Settings without remounts
+  useEffect(() => {
+    let mounted = true;
+    const apply = async () => {
+      try {
+        const globalVal = (global as any)?.__ORBYT_FEED_DEBUG_OVERLAY__;
+        if (typeof globalVal === 'boolean') {
+          if (mounted) setIsFeedDebugEnabled(globalVal);
+        } else {
+          const stored = await AccountManager.getFeedDebugOverlayEnabled();
+          if (mounted) setIsFeedDebugEnabled(stored);
+        }
+      } catch {}
+    };
+    apply();
+    const id = setInterval(apply, 2000);
+    return () => { mounted = false; clearInterval(id); };
+  }, []);
+
   /**
    * Optimized renderItem with minimal dependencies and memoization
    */
@@ -461,19 +500,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     setIsScrubbing
   ]);
 
-  /**
-   * Global video preloading: prioritize the next N videos after the visible one
-   * Preloaded videos will be rendered in paused state and unpaused when visible
-   */
-  useEffect(() => {
-    if (feed.length === 0 || visibleIndexRef.current < 0 || visibleIndexRef.current >= feed.length) return;
-    // Build a list of all video URIs in order
-    const allUris = feed.map(item => item.post.uri);
-    const currentUri = feed[visibleIndexRef.current]?.post?.uri;
-    if (currentUri) {
-      VideoPreloadManager.prioritizeNextVideos(currentUri, allUris, 3);
-    }
-  }, [feed, visibleIndexRef.current]);
+
 
   /**
    * Watch-history logic
@@ -860,6 +887,18 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           ) : null
         }
       />
+      {isFeedDebugEnabled && (
+        <FeedDebugger
+          feedOption={feedOption}
+          userDid={userDid}
+          isVisible={true}
+          scrollInfo={{
+            scrollY: debugScrollInfo.scrollY,
+            scrollProgress: debugScrollInfo.scrollProgress,
+            isNearEnd: debugScrollInfo.isNearEnd,
+          }}
+        />
+      )}
       
       {/* Clear View Exit Button - positioned at screen level */}
       {isSmallDevice && isClearViewMode && (

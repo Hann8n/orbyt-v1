@@ -23,7 +23,7 @@ import {
 import Video from 'react-native-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import VideoPreloadManager from '../../../services/VideoPreloadManager';
+
 import { useIsFocused, useNavigationState } from '@react-navigation/native';
 import WatchHistory from '../../../services/WatchHistory';
 import { extractVideoUrl } from '../../../utils/helpers/video';
@@ -261,44 +261,15 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
       }
     }, [shouldBlur, isVisible, isPlaying]);
 
-    // Preload video if needed - React Native compatible
+    // Handle video readiness
     useEffect(() => {
-      if (shouldPreload && videoUrl && !preloadCompleteRef.current) {
-        const preloadFn = async () => {
-          // Simple HTTP HEAD request to preload video metadata
-          return fetch(videoUrl, { method: 'HEAD' })
-            .then(response => {
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-              return response;
-            });
-        };
-        
-        VideoPreloadManager.addToPreloadQueue(videoUrl, preloadFn, false)
-          .then(() => {
-            setIsPreloadReady(true);
-            preloadCompleteRef.current = true;
-            // Make video ready immediately after preload
-            setIsReady(true);
-            videoStatusNotifiedRef.current = true;
-            onVideoStatus?.(post.uri, 'ready');
-          })
-          .catch(() => {
-            preloadCompleteRef.current = true;
-          });
-      }
-    }, [shouldPreload, videoUrl, post.uri, onVideoStatus]);
-
-    // Handle preloaded videos - they should be ready to play immediately
-    useEffect(() => {
-      if (isVisible && shouldPreload && isPreloadReady && !isReady) {
-        // Preloaded videos should be immediately ready
+      if (isVisible && shouldPreload && !isReady) {
+        // Make video ready when visible
         setIsReady(true);
         videoStatusNotifiedRef.current = true;
         onVideoStatus?.(post.uri, 'ready');
       }
-    }, [isVisible, shouldPreload, isPreloadReady, isReady, post.uri, onVideoStatus]);
+    }, [isVisible, shouldPreload, isReady, post.uri, onVideoStatus]);
 
     // Cleanup on unmount
     useEffect(() => {

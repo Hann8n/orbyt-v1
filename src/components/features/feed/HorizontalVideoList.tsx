@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { FeedItem } from './ListFeedView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import VideoPreloadManager from '../../../services/VideoPreloadManager';
+
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
 import { feedService } from '../../../services/FeedService';
 
@@ -96,34 +96,7 @@ const HorizontalVideoList: React.FC<HorizontalVideoListProps> = ({
   // Infinite scroll removed - handled by parent
   const onScroll = () => {};
 
-  useEffect(() => {
-    VideoPreloadManager.clearUnneededVideos([]);
-  }, [feedOption, userDid]);
 
-  useEffect(() => {
-    const processNewVideos = () => {
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const videosToPreload: string[] = [];
-            for (const item of feed) {
-              if (!item?.post?.uri) continue;
-              const videoUrl = extractVideoUrl(item.post.embed);
-              if (videoUrl) {
-                videosToPreload.push(videoUrl);
-              }
-            }
-            if (videosToPreload.length > 0) {
-              VideoPreloadManager.addVideosToPreloadQueue(videosToPreload, []);
-            }
-          } catch (error) {
-            console.warn('Error processing horizontal videos in background:', error);
-          }
-        }, 0);
-      });
-    };
-    processNewVideos();
-  }, [feed]);
 
   const renderItem = useCallback(
     ({ item, index }: { item: FeedItem; index: number }) => (

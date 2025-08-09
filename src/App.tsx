@@ -21,7 +21,7 @@ import * as Font from 'expo-font';
 import ProfileCache from '../src/services/cache/ProfileCache'; // import ProfileCache
 import { ClearViewProvider } from '../src/services/ClearViewContext';
 import StatusBarController from '../src/components/ui/StatusBarController';
-import VideoPreloadManager from './services/VideoPreloadManager';
+
 
 // Create a client
 const queryClient = new QueryClient({
@@ -66,12 +66,7 @@ const App: React.FC<{}> = () => {
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
       if (appState === 'active' && nextAppState.match(/inactive|background/)) {
-        // App has gone to the background - cleanup video manager
-        try {
-          VideoPreloadManager.cleanup();
-        } catch (error) {
-          console.error('Error during app background cleanup:', error);
-        }
+        // App has gone to the background - VideoPreloadManager removed
       }
       setAppState(nextAppState);
     };
@@ -154,8 +149,7 @@ const App: React.FC<{}> = () => {
       // Clear any cached state in React Query
       queryClient.clear();
       
-      // Clean up app services
-      VideoPreloadManager.cleanup();
+      // Clean up app services - VideoPreloadManager removed
       
       // Clear ProfileCache during logout
       ProfileCache.clearCache();

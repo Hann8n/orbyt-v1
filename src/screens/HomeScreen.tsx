@@ -1,8 +1,11 @@
-import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import SwipeableFeedContainer, { FeedOption } from '../components/features/feed/SwipeableFeedContainer';
 import { BRAND } from '../utils/formatting/Colors';
 import { FORCE_FEED_ERROR } from '../utils/helpers/errorDebug';
+import { useQueryClient } from '@tanstack/react-query';
+import { createQueryKeys } from '../services/FeedService';
+import { useNavigation } from '@react-navigation/native';
 
 // Define the ref interface for HomeScreen
 export interface HomeScreenRef {
@@ -16,23 +19,55 @@ const HomeScreen = forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
   const [currentFeed, setCurrentFeed] = useState<FeedOption>('yourMix');
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+  const navigation = useNavigation();
+
+  const triggerRefresh = useCallback(() => {
+    console.log('[HomeScreen] triggerRefresh()');
+    // Set refreshing state
+    setIsRefreshing(true);
+
+    // Clear cached feed data to ensure a truly fresh fetch across feeds
+    console.log('[HomeScreen] Removing feed queries to force fresh data');
+    queryClient.removeQueries({ queryKey: createQueryKeys.feed.all });
+
+    // Force a remount of the feed container so all queries initialize fresh
+    // This will now preserve the current feed since we pass currentFeed as initialFeed
+    console.log('[HomeScreen] Bumping refreshKey to remount SwipeableFeedContainer');
+    setRefreshKey(prev => prev + 1);
+
+    // Also explicitly refetch the currently visible feed
+    console.log(`[HomeScreen] Explicitly refetching feed: ${currentFeed}`);
+    queryClient.refetchQueries({ queryKey: createQueryKeys.feed.infinite(currentFeed) });
+
+    // Reset refreshing state after a short delay
+    setTimeout(() => {
+      console.log('[HomeScreen] Clearing refreshing state');
+      setIsRefreshing(false);
+    }, 2000); // Show loading for 2 seconds
+  }, [currentFeed, queryClient]);
 
   // Expose refresh method to parent components
   useImperativeHandle(ref, () => ({
     refresh: () => {
-      // Set refreshing state
-      setIsRefreshing(true);
-      
-      // Trigger refresh by changing the key to force re-render
-      setRefreshKey(prev => prev + 1);
-      
-      // Reset refreshing state after a short delay
-      setTimeout(() => {
-        setIsRefreshing(false);
-      }, 2000); // Show loading for 2 seconds
+      console.log('[HomeScreen] refresh() called');
+      triggerRefresh();
     },
     isRefreshing
-  }), [isRefreshing]);
+  }), [isRefreshing, triggerRefresh]);
+
+  // Listen for tab presses from the parent Tab Navigator to ensure the event is captured
+  useEffect(() => {
+    const parent = (navigation as any)?.getParent?.();
+    const unsubscribe = parent?.addListener?.('tabPress', (e: any) => {
+      const isFocused = (navigation as any).isFocused?.() === true;
+      console.log('[HomeScreen] parent.tabPress event. homeFocused=', isFocused, ' target=', e?.target);
+      if (isFocused) {
+        triggerRefresh();
+      }
+    });
+    return unsubscribe;
+  }, [navigation, triggerRefresh]);
 
   // Handle feed change from swipeable container
   const handleFeedChange = useCallback((newFeed: FeedOption) => {
@@ -43,7 +78,7 @@ const HomeScreen = forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
     <View style={styles.container}>
       <SwipeableFeedContainer
         key={refreshKey}
-        initialFeed="yourMix"
+        initialFeed={currentFeed}
         onFeedChange={handleFeedChange}
         isRefreshing={isRefreshing}
         forceError={FORCE_FEED_ERROR} // Use centralized error debugging flag

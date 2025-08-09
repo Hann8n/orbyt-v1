@@ -73,9 +73,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
   }, []);
   
   // State for current feed and positions
-  const [currentFeedIndex, setCurrentFeedIndex] = useState(
-    FEED_CONFIG[initialFeed]?.order ?? 1
-  );
+  const [currentFeedIndex, setCurrentFeedIndex] = useState(0);
   const [savedPositions, setSavedPositions] = useState<{ [key in FeedOption]?: number }>({});
   const [feedRetries, setFeedRetries] = useState<{ [key in FeedOption]?: number }>({});
 
@@ -115,6 +113,16 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
   const feedOptions = Object.keys(feedConfig).sort(
     (a, b) => feedConfig[a].order - feedConfig[b].order
   ) as FeedOption[];
+
+  // Set initial feed index when feed options are available
+  useEffect(() => {
+    if (feedOptions.length > 0) {
+      const initialIndex = feedOptions.findIndex(option => option === initialFeed);
+      if (initialIndex >= 0 && initialIndex !== currentFeedIndex) {
+        setCurrentFeedIndex(initialIndex);
+      }
+    }
+  }, [feedOptions, initialFeed, currentFeedIndex]);
 
   // Get current feed option from index
   const currentFeedOption = feedOptions[currentFeedIndex] || (feedOptions[0] || 'yourMix');

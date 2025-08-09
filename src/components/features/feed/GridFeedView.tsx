@@ -16,7 +16,7 @@ import type { RootStackParamList } from '../../../navigation/types';
 import { FeedItem } from './ListFeedView';
 import EmptyFeed from './EmptyFeed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import VideoPreloadManager from '../../../services/VideoPreloadManager';
+
 import VerificationBadge from '../verification/VerificationBadge';
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
 import { Avatar } from '../../ui/UI';
@@ -89,48 +89,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const viewableAreaHeight = screen.height - insets.top - bottomNavBarHeight;
 
-  /**
-   * Reset state when feed option changes to ensure independent behavior
-   */
-  useEffect(() => {
-    // Clear video preloading for the previous feed
-    VideoPreloadManager.clearUnneededVideos([]);
-  }, [feedOption, userDid]);
 
-  // Pre-process videos for streaming support - moved to background
-  useEffect(() => {
-    // For videos in the feed, preload them using streaming
-    const processNewVideos = () => {
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const videosToPreload: string[] = [];
-            
-            // Collect videos for batch streaming
-            for (const item of feed) {
-              if (!item?.post?.uri) continue;
-              
-              // Extract the video URL from the post embed
-              const videoUrl = extractVideoUrl(item.post.embed);
-              if (videoUrl) {
-                // Collect for batch streaming preload
-                videosToPreload.push(videoUrl);
-              }
-            }
-            
-            // Use simplified batch preload for all grid videos
-            if (videosToPreload.length > 0) {
-              VideoPreloadManager.addVideosToPreloadQueue(videosToPreload, []);
-            }
-          } catch (error) {
-            console.warn('Error processing grid videos in background:', error);
-          }
-        }, 0);
-      });
-    };
-    
-    processNewVideos();
-  }, [feed]);
 
   // Render each grid item - optimized with background processing
   const renderGridItem = useCallback(({ item, index }: { item: FeedItem; index: number }) => {

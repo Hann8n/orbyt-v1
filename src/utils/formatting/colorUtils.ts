@@ -91,6 +91,7 @@ const adjustColorForAAA = (color: string, background: string): string => {
 /**
  * Ensures a color is bright and vibrant for accent usage
  * If the color is too dark, it will be lightened to make it more vibrant
+ * Ensures the color is light enough to be visible against a black background
  */
 const ensureBrightAccentColor = (color: string): string => {
   // Convert hex to RGB
@@ -102,13 +103,38 @@ const ensureBrightAccentColor = (color: string): string => {
   // Calculate brightness (0-255)
   const brightness = (r * 299 + g * 587 + b * 114) / 1000;
   
-  // If the color is too dark (brightness < 100), lighten it
-  if (brightness < 100) {
-    // Increase brightness by 50% while maintaining color hue
-    const factor = 1.5;
+  // For visibility against black background, we need a higher brightness threshold
+  // WCAG AA requires contrast ratio of 4.5:1, which means brightness should be around 180+ for good visibility
+  const minBrightnessForBlackBackground = 180;
+  
+  // If the color is too dark for black background visibility, lighten it significantly
+  if (brightness < minBrightnessForBlackBackground) {
+    // Calculate how much we need to increase the brightness
+    const targetBrightness = minBrightnessForBlackBackground;
+    const brightnessDifference = targetBrightness - brightness;
+    
+    // Increase RGB values proportionally to reach target brightness
+    // Use a more aggressive approach to ensure good visibility
+    const factor = 1 + (brightnessDifference / brightness) * 0.8;
+    
     const newR = Math.min(255, Math.round(r * factor));
     const newG = Math.min(255, Math.round(g * factor));
     const newB = Math.min(255, Math.round(b * factor));
+    
+    // Verify the new brightness meets our requirements
+    const newBrightness = (newR * 299 + newG * 587 + newB * 114) / 1000;
+    
+    // If still not bright enough, push to even brighter values
+    if (newBrightness < minBrightnessForBlackBackground) {
+      const finalR = Math.min(255, newR + 50);
+      const finalG = Math.min(255, newG + 50);
+      const finalB = Math.min(255, newB + 50);
+      
+      return '#' + 
+        finalR.toString(16).padStart(2, '0') +
+        finalG.toString(16).padStart(2, '0') +
+        finalB.toString(16).padStart(2, '0');
+    }
     
     return '#' + 
       newR.toString(16).padStart(2, '0') +
@@ -304,6 +330,39 @@ function ensureAccessibleColors(backgroundColor: string, foregroundColor: string
   
   return { backgroundColor, foregroundColor };
 }
+
+/**
+ * Test function to verify accent color brightness for black background visibility
+ * This can be used for debugging and verification
+ */
+export const testAccentColorBrightness = (color: string): { 
+  original: string, 
+  originalBrightness: number, 
+  adjusted: string, 
+  adjustedBrightness: number,
+  isVisibleOnBlack: boolean 
+} => {
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const originalBrightness = (r * 299 + g * 587 + b * 114) / 1000;
+  
+  const adjustedColor = ensureBrightAccentColor(color);
+  const adjustedHex = adjustedColor.replace('#', '');
+  const adjustedR = parseInt(adjustedHex.substring(0, 2), 16);
+  const adjustedG = parseInt(adjustedHex.substring(2, 4), 16);
+  const adjustedB = parseInt(adjustedHex.substring(4, 6), 16);
+  const adjustedBrightness = (adjustedR * 299 + adjustedG * 587 + adjustedB * 114) / 1000;
+  
+  return {
+    original: color,
+    originalBrightness: Math.round(originalBrightness),
+    adjusted: adjustedColor,
+    adjustedBrightness: Math.round(adjustedBrightness),
+    isVisibleOnBlack: adjustedBrightness >= 180
+  };
+};
 
 export async function extractColorsFromImage(imageUrl: string) {
   try {

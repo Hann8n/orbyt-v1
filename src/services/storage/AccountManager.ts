@@ -328,6 +328,30 @@ class AccountManager {
     }
   }
 
+  /**
+   * Get feed debug overlay setting
+   */
+  static async getFeedDebugOverlayEnabled(): Promise<boolean> {
+    try {
+      const value = await SecureStore.getItemAsync('feed_debug_overlay_enabled');
+      return value === 'true' ? true : false; // Default to false
+    } catch (error) {
+      console.error('Error getting feed debug overlay setting:', error);
+      return false; // Default to false
+    }
+  }
+
+  /**
+   * Set feed debug overlay setting
+   */
+  static async setFeedDebugOverlayEnabled(enabled: boolean): Promise<void> {
+    try {
+      await SecureStore.setItemAsync('feed_debug_overlay_enabled', enabled.toString());
+    } catch (error) {
+      console.error('Error setting feed debug overlay setting:', error);
+    }
+  }
+
 
   /**
    * Clear all saved accounts (for logout)

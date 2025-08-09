@@ -8,14 +8,13 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   StatusBar,
   Platform,
   Keyboard,
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import AtprotoService from '../services/api/AtprotoService';
 import { useNavigation } from '@react-navigation/native';
 import ProfileCache, { CachedProfile, profileKeys } from '../services/cache/ProfileCache';
@@ -24,8 +23,9 @@ import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tansta
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Icon } from '../components/ui/UI';
+import HeaderBanner from '../components/ui/HeaderBanner';
 
-import { GridViewIcon, LightningIcon, SearchIcon } from '../components/ui/Icon';
+import { GridViewIcon, SpotlightIcon, SearchIcon } from '../components/ui/Icon';
 import { BRAND, TEXT, INTERACTIVE, UI, STATUS } from '../utils/formatting/Colors';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import EmptyFeed from '../components/features/feed/EmptyFeed';
@@ -36,6 +36,7 @@ import { extractVideoThumbnail } from '../utils/helpers/video';
 import { feedService } from '../services/FeedService';
 import { FORCE_SEARCH_ERROR, getForcedErrorMessage } from '../utils/helpers/errorDebug';
 import { formatNumber } from '../utils/helpers/formatNumber';
+import HeaderService, { Header } from '../services/HeaderService';
 // import { ModerationService } from '../services/ModerationService'; // Commented out since videos are disabled
 
 interface Profile {
@@ -268,6 +269,8 @@ const ExploreScreen: React.FC = () => {
   const [isScrolling, setIsScrolling] = useState(false);
   const [allSuggestions, setAllSuggestions] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'grid'>('grid');
+  const [headers, setHeaders] = useState<Header[]>([]);
+  const [isLoadingHeaders, setIsLoadingHeaders] = useState(false);
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -286,6 +289,30 @@ const ExploreScreen: React.FC = () => {
     };
     
     initializeCache();
+  }, []);
+
+  // Fetch headers
+  useEffect(() => {
+    const fetchHeaders = async () => {
+      setIsLoadingHeaders(true);
+      try {
+        const fetchedHeaders = await HeaderService.getHeaders();
+        // Convert relative URLs to absolute URLs
+        const processedHeaders = fetchedHeaders.map(header => ({
+          ...header,
+          imageUrl: HeaderService.getImageUrl(header.imageUrl)
+        }));
+        setHeaders(processedHeaders);
+      } catch (error) {
+        console.error('Error fetching headers:', error);
+        // Set empty headers on error to avoid showing loading state indefinitely
+        setHeaders([]);
+      } finally {
+        setIsLoadingHeaders(false);
+      }
+    };
+
+    fetchHeaders();
   }, []);
 
   // Debounce search query to avoid too many API calls
@@ -1021,21 +1048,21 @@ const ExploreScreen: React.FC = () => {
     staleTime: 60 * 1000, // 1 minute
   });
 
-  // Fetch orbyter spotlight reposts
+  // Fetch custom spotlight feed
   const {
-    data: orbyterReposts,
-    isLoading: isLoadingOrbyterReposts,
-    error: orbyterRepostsError,
-    refetch: refetchOrbyterReposts,
+    data: spotlightFeed,
+    isLoading: isLoadingSpotlightFeed,
+    error: spotlightFeedError,
+    refetch: refetchSpotlightFeed,
   } = useQuery({
-    queryKey: ['orbyterReposts'],
+    queryKey: ['spotlightFeed'],
     queryFn: async () => {
       // Force error if debug flag is enabled
       if (FORCE_SEARCH_ERROR) {
-        throw getForcedErrorMessage('orbyter reposts');
+        throw getForcedErrorMessage('spotlight feed');
       }
-      // Get orbyter's reposts (filtered for videos only)
-      const response = await AtprotoService.getFeed(null, 'did:plc:l3l3fjuwhv4mh4ih5y7ewrue', {}, true, 10, 'author');
+      // Get custom spotlight feed
+      const response = await AtprotoService.getFeed(null, 'at://did:plc:l3l3fjuwhv4mh4ih5y7ewrue/app.bsky.feed.generator/aaaiu3akzsv6q', {}, true, 10, 'custom');
       let feed = response.feed || [];
       
       // Apply moderation to spotlight videos
@@ -1082,17 +1109,62 @@ const ExploreScreen: React.FC = () => {
     }
   }, [suggestedFeeds]);
 
+  // Header is part of the FlatList now; keep it mounted when searching to avoid flicker
+  const isHeaderVisible = useMemo(
+    () => !isLoadingHeaders && headers.length > 0,
+    [isLoadingHeaders, headers.length]
+  );
+
+  // Stable header element to avoid remounts/reloads of the header image
+  const headerHeight = useMemo(() => Dimensions.get('window').height * 0.30, []);
+  const listHeaderElement = useMemo(() => {
+    // Show header only on main explore (no active search)
+    if (!isHeaderVisible || debouncedQuery.length > 0) return null;
+    return (
+      <View style={{ height: headerHeight, marginTop: -insets.top }}>
+        <HeaderBanner headers={headers} />
+      </View>
+    );
+  }, [isHeaderVisible, debouncedQuery.length, headerHeight, insets.top, headers]);
+
+  // Gradient should be visible when searching or when no banner is visible
+  const showTopGradient = useMemo(
+    () => debouncedQuery.length > 0 || !isHeaderVisible,
+    [debouncedQuery.length, isHeaderVisible]
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY} />
-      {/* Dark gradient below top safe area */}
-      <LinearGradient
-        colors={['rgba(0,0,0,1.0)', 'rgba(0,0,0,0.3)', 'transparent']}
-        style={[styles.topGradient, { top: insets.top }]}
-        pointerEvents="none"
+    <SafeAreaView
+      style={[
+        styles.container,
+        // Allow header to extend into the status bar area
+        Platform.OS === 'android' ? { paddingTop: 0 } : null
+      ]}
+      edges={['left', 'right', 'bottom']}
+    >
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={'transparent'}
+        translucent={true}
       />
-      {/* Search Bar */}
-              <View style={[styles.searchContainer, { top: insets.top + 10, zIndex: 10 }]}>
+      {showTopGradient && (
+        <View style={[styles.topSafeOverlay, { height: insets.top }]} />
+      )}
+      {showTopGradient && (
+        <LinearGradient
+          colors={['rgba(0,0,0,1.0)', 'rgba(0,0,0,0.3)', 'transparent']}
+          style={[styles.topGradient, { top: insets.top }]}
+          pointerEvents="none"
+        />
+      )}
+      {/* Search Bar overlays header */}
+      <View style={[
+        styles.searchContainer, 
+        { 
+          top: insets.top + 10, 
+          zIndex: 20 
+        }
+      ]}>
         <SearchIcon
           size={24}
           color={BRAND.PRIMARY}
@@ -1116,432 +1188,363 @@ const ExploreScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Suggested Accounts and Feeds (only when not searching) */}
-      {debouncedQuery.length === 0 && (
-        <View style={{ flex: 1 }}>
-          {isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingOrbyterReposts ? (
-            <FlatList
-              data={shimmerSuggestedItems}
-              keyExtractor={(item) => item.key}
-              renderItem={({ item }) => {
-                if (item.type === 'section-header') {
-                  return <SectionHeaderShimmer />;
-                } else if (item.type === 'spotlight-videos') {
-                  return <SpotlightVideosShimmer />;
-                } else if (item.type === 'channel') {
-                  return <ChannelShimmer />;
-                } else {
-                  return <ProfileShimmer />;
+      {/* Single FlatList for both suggestions and search results to keep header mounted and avoid flicker */}
+      {(() => {
+        const isSearching = debouncedQuery.length > 0;
+
+        // Build suggestions list data
+        const suggestionsList: any[] = (() => {
+          if (isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingSpotlightFeed) {
+            return shimmerSuggestedItems as unknown as any[];
+          }
+          if (suggestionsError || suggestedFeedsError || spotlightFeedError) {
+            return [];
+          }
+          const data: ListItem[] = [];
+          if (spotlightFeed && spotlightFeed.length > 0) {
+            data.push({ type: 'section-header' as const, title: '🔥 Spotlight', key: 'spotlight-header' });
+            data.push({ type: 'spotlight-videos' as const, videos: spotlightFeed, key: 'spotlight-videos' });
+          }
+          if (limitedSuggestedFeeds && limitedSuggestedFeeds.length > 0) {
+            data.push({ type: 'section-header' as const, title: 'Popular channels', key: 'feeds-header' });
+            data.push(...limitedSuggestedFeeds.map(item => ({ type: 'channel' as const, data: item, relevance: 0 })));
+          }
+          if (allSuggestions && allSuggestions.length > 0) {
+            data.push({ type: 'section-header' as const, title: 'Suggested Accounts', key: 'accounts-header' });
+            data.push(...allSuggestions.map(item => ({ type: 'profile' as const, data: item, relevance: 0 })));
+          }
+          return data;
+        })();
+
+        // Build search list data
+        const searchList: any[] = isLoadingResults
+          ? (shimmerTypes as unknown as any[])
+          : (organizedSearchResults as unknown as any[]);
+
+        const listData: any[] = isSearching ? searchList : suggestionsList;
+
+        return (
+          <FlatList
+            data={listData}
+            keyExtractor={(item, index) => {
+              if (typeof item === 'string') return `shimmer-${index}`;
+              if (item && typeof item === 'object' && 'type' in item) {
+                const anyItem: any = item as any;
+                if (anyItem.type === 'section-header') return anyItem.key || `${anyItem.title}-${index}`;
+                if (anyItem.type === 'spotlight-videos') return anyItem.key || `spotlight-${index}`;
+                if (anyItem.type === 'video-grid' || anyItem.type === 'load-more') return anyItem.key || `key-${index}`;
+                if (isSearchResult(anyItem)) {
+                  const searchResult = anyItem as SearchResult;
+                  if (searchResult.type === 'profile') {
+                    const profile = searchResult.data as Profile;
+                    return `search-profile-${profile.did || profile.handle || index}-${index}`;
+                  }
+                  if (searchResult.type === 'channel') {
+                    const channel = searchResult.data as Channel;
+                    return `search-channel-${channel.uri || channel.cid || index}-${index}`;
+                  }
+                  if (searchResult.type === 'video') {
+                    const video = (searchResult as any).data;
+                    return `search-video-${video?.uri || video?.cid || index}-${index}`;
+                  }
                 }
-              }}
-                              contentContainerStyle={[styles.listContainer, { paddingTop: 70, paddingBottom: getBottomNavBarHeight(insets)}]}
-              scrollEnabled={true}
-            />
-          ) : (suggestionsError || suggestedFeedsError || orbyterRepostsError) ? (
-            <View style={styles.errorContainer}>
-              <EmptyFeed type="no-connection" />
-              <TouchableOpacity style={styles.retryButton} onPress={() => {
-                refetchSuggestions();
-                refetchSuggestedFeeds();
-                refetchOrbyterReposts();
-              }}>
-                <Text style={styles.retryButtonText}>Try Again</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (allSuggestions && allSuggestions.length > 0) || (suggestedFeeds && suggestedFeeds.length > 0) || (orbyterReposts && orbyterReposts.length > 0) ? (
-            <FlatList
-              data={[
-                // Spotlight section for orbyter reposts
-                ...(orbyterReposts && orbyterReposts.length > 0 ? [
-                  { type: 'section-header' as const, title: '🔥 Spotlight', key: 'spotlight-header' },
-                  { type: 'spotlight-videos' as const, videos: orbyterReposts, key: 'spotlight-videos' }
-                ] : []),
-                // Section header for feeds
-                ...(limitedSuggestedFeeds && limitedSuggestedFeeds.length > 0 ? [
-                  { type: 'section-header' as const, title: 'Popular channels', key: 'feeds-header' },
-                  ...limitedSuggestedFeeds.map(item => ({ type: 'channel' as const, data: item, relevance: 0 }))
-                ] : []),
-                // Section header for accounts
-                ...(allSuggestions && allSuggestions.length > 0 ? [
-                  { type: 'section-header' as const, title: 'Suggested Accounts', key: 'accounts-header' },
-                  ...allSuggestions.map(item => ({ type: 'profile' as const, data: item, relevance: 0 }))
-                ] : [])
-              ] as ListItem[]}
-              keyExtractor={(item, index) => item.type === 'section-header' ? item.key : `${item.type}-${index}`}
-              renderItem={({ item }: { item: ListItem }) => {
-                if (item.type === 'section-header') {
-                  return (
-                    <View style={styles.sectionHeader}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        {item.title === '🔥 Spotlight' ? (
-                          <>
-                            <LightningIcon size={20} color={TEXT.PRIMARY} style={{ marginRight: 8 }} />
-                            <Text style={styles.sectionTitle}>
-                              Spotlight
-                            </Text>
-                          </>
-                        ) : (
+              }
+              return `item-${index}`;
+            }}
+            renderItem={({ item }) => {
+              if (typeof item === 'string') {
+                if (item === 'profile') return <ProfileShimmer />;
+                if (item === 'channel') return <ChannelShimmer />;
+                return <VideoShimmer />;
+              }
+              if (item.type === 'section-header') {
+                return (
+                  <View style={styles.sectionHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      {item.title === '🔥 Spotlight' ? (
+                        <>
+                          <SpotlightIcon size={20} color={TEXT.PRIMARY} style={{ marginRight: 8 }} />
                           <Text style={styles.sectionTitle}>
-                            {item.title}
+                            Spotlight
                           </Text>
-                        )}
-                      </View>
+                        </>
+                      ) : (
+                        <Text style={styles.sectionTitle}>
+                          {item.title}
+                        </Text>
+                      )}
                     </View>
-                  );
-                }
-                if (item.type === 'spotlight-videos') {
-                  return (
-                    <View style={styles.spotlightContainer}>
-                      <FlatList
-                        data={item.videos}
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.spotlightScrollContainer}
-                        keyExtractor={(video, index) => `spotlight-video-${video?.uri || index}`}
-                        renderItem={({ item: video }) => (
-                          <TouchableOpacity
-                            style={styles.spotlightVideoItem}
-                            onPress={() => {
+                  </View>
+                );
+              }
+              if (item.type === 'spotlight-videos') {
+                return (
+                  <View style={styles.spotlightContainer}>
+                    <FlatList
+                      data={item.videos}
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.spotlightScrollContainer}
+                      keyExtractor={(video, index) => `spotlight-video-${video?.uri || index}`}
+                      renderItem={({ item: video }) => (
+                        <TouchableOpacity
+                          style={styles.spotlightVideoItem}
+                          onPress={() => {
+                            const videoData = video.post || video;
+                            const videoUri = videoData.uri;
+                            if (videoUri) {
+                              const formattedFeed = item.videos.map((v: any) => {
+                                const vData = v.post || v;
+                                return {
+                                  post: vData,
+                                  shouldCache: true,
+                                  uniqueKey: vData.uri,
+                                  moderationDecision: v.moderationDecision,
+                                };
+                              });
+                              feedService.setCurrentFeed(formattedFeed);
+                              const index = formattedFeed.findIndex((v: any) => v.post.uri === videoUri);
+                              const finalIndex = index >= 0 ? index : 0;
+                              navigation.navigate('FeedModal', {
+                                initialIndex: finalIndex,
+                                initialUri: videoUri,
+                                feedOption: 'search',
+                                userDid: undefined,
+                                backgroundColor: 'transparent',
+                                secondaryColor: '#fff',
+                                searchQuery: '',
+                                hasNextPage: false,
+                                isFetchingNextPage: false
+                              });
+                            }
+                          }}
+                        >
+                          <View style={styles.spotlightVideoThumbnailContainer}>
+                            {(() => {
                               const videoData = video.post || video;
-                              const videoUri = videoData.uri;
-                              if (videoUri) {
-                                // Update FeedStore with spotlight videos in the correct format
-                                const formattedFeed = item.videos.map(v => {
-                                  const vData = v.post || v;
-                                  return {
-                                    post: vData,
-                                    shouldCache: true,
-                                    uniqueKey: vData.uri,
-                                    moderationDecision: v.moderationDecision,
-                                  };
-                                });
-                                feedService.setCurrentFeed(formattedFeed);
-                                
-                                // Find the index of this video in the formatted feed
-                                const index = formattedFeed.findIndex(v => v.post.uri === videoUri);
-                                const finalIndex = index >= 0 ? index : 0;
-                                
-                                navigation.navigate('FeedModal', {
-                                  initialIndex: finalIndex,
-                                  initialUri: videoUri,
-                                  feedOption: 'search', // Use 'search' to trigger FeedStore usage
-                                  userDid: undefined,
-                                  backgroundColor: 'transparent',
-                                  secondaryColor: '#fff',
-                                  searchQuery: '',
-                                  hasNextPage: false,
-                                  isFetchingNextPage: false
-                                });
+                              const thumbnailUrl = extractVideoThumbnail(videoData.embed);
+                              const shouldBlur = feedService.isVideoBlurred(videoData.uri, !!video.moderationDecision?.blur);
+                              if (thumbnailUrl) {
+                                return (
+                                  <>
+                                    <Image
+                                      source={{ uri: thumbnailUrl }}
+                                      style={styles.spotlightVideoThumbnail}
+                                      resizeMode="cover"
+                                      onError={() => {
+                                        console.warn('Failed to load spotlight thumbnail:', thumbnailUrl);
+                                      }}
+                                    />
+                                    {shouldBlur && (
+                                      <View style={styles.spotlightWarningOverlay}>
+                                        <Text style={styles.spotlightWarningText}>
+                                          {video.moderationDecision?.reason || 'Content Warning'}
+                                        </Text>
+                                      </View>
+                                    )}
+                                  </>
+                                );
+                              } else {
+                                return (
+                                  <View style={styles.spotlightVideoThumbnailPlaceholder}>
+                                    <Icon name="videocam" size={16} color={TEXT.TERTIARY} />
+                                  </View>
+                                );
                               }
-                            }}
-                          >
-                            <View style={styles.spotlightVideoThumbnailContainer}>
-                              {(() => {
-                                // For reposts, the video data is nested under video.post
-                                const videoData = video.post || video;
-                                const thumbnailUrl = extractVideoThumbnail(videoData.embed);
-                                const shouldBlur = feedService.isVideoBlurred(videoData.uri, !!video.moderationDecision?.blur);
-                                
-                                if (thumbnailUrl) {
-                                  return (
-                                    <>
-                                      <Image
-                                        source={{ uri: thumbnailUrl }}
-                                        style={styles.spotlightVideoThumbnail}
-                                        resizeMode="cover"
-                                        onError={() => {
-                                          console.warn('Failed to load spotlight thumbnail:', thumbnailUrl);
-                                        }}
-                                      />
-                                      {shouldBlur && (
-                                        <View style={styles.spotlightWarningOverlay}>
-                                          <Text style={styles.spotlightWarningText}>
-                                            {video.moderationDecision?.reason || 'Content Warning'}
-                                          </Text>
-                                        </View>
-                                      )}
-                                    </>
-                                  );
-                                } else {
-                                  return (
-                                    <View style={styles.spotlightVideoThumbnailPlaceholder}>
-                                      <Icon name="videocam" size={16} color={TEXT.TERTIARY} />
-                                    </View>
-                                  );
-                                }
-                              })()}
-                            </View>
-                          </TouchableOpacity>
-                        )}
-                      />
-                    </View>
-                  );
-                }
+                            })()}
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                );
+              }
+              if (isSearchResult(item)) {
                 return renderSearchResult({ item });
-              }}
-                              contentContainerStyle={[styles.listContainer, { paddingTop: 70, paddingBottom: getBottomNavBarHeight(insets) }]}
-              scrollEnabled={true}
-              showsVerticalScrollIndicator={false}
-              ListFooterComponent={null}
-            />
-          ) : (
-            <View style={styles.initialStateContainer}>
-              <Text style={styles.initialStateText}>No suggestions available</Text>
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* Initial State */}
-      {(!isLoadingResults && !error && searchResults.length === 0 && searchQuery.length === 0 && debouncedQuery.length > 0) && (
-        <View style={styles.initialStateContainer}>
-          <Text style={styles.initialStateText}>Search for users and channels</Text>
-        </View>
-      )}
-
-      {/* Results List or Loading State */}
-      {(organizedSearchResults.length > 0 || isLoadingResults || (searchQuery.length > 0 && debouncedQuery.length > 0)) && (
-        <FlatList
-          data={isLoadingResults ? (shimmerTypes as unknown as any[]) : organizedSearchResults}
-          keyExtractor={(item, index) => {
-            if (typeof item === 'string') return `shimmer-${index}`;
-            if (isSearchResult(item)) {
-              const searchResult = item as SearchResult;
-              if (searchResult.type === 'profile') {
-                const profile = searchResult.data as Profile;
-                return `search-profile-${profile.did || profile.handle || index}-${index}`;
               }
-              if (searchResult.type === 'channel') {
-                const channel = searchResult.data as Channel;
-                return `search-channel-${channel.uri || channel.cid || index}-${index}`;
-              }
-              if (searchResult.type === 'video') {
-                const video = searchResult.data;
-                return `search-video-${video?.uri || video?.cid || index}-${index}`;
-              }
-            }
-            if (item.type === 'video-grid' || item.type === 'section-header' || item.type === 'load-more') {
-              return item.key;
-            }
-            return `item-${index}`;
-          }}
-          renderItem={({ item }) => {
-            if (typeof item === 'string') {
-              if (item === 'profile') return <ProfileShimmer />;
-              if (item === 'channel') return <ChannelShimmer />;
-              return <VideoShimmer />;
-            }
-            if (isSearchResult(item)) {
-              return renderSearchResult({ item });
-            }
-
-            if (item.type === 'people-channels-section') {
-              return (
-                <View style={styles.peopleChannelsContainer}>
-                  {combinedResults.length > 0 ? (
-                    <>
-                      {combinedResults.map((result, index: number) => {
-                        if (result.type === 'profile') {
-                          const profile = result.data as Profile;
-                          return (
-                            <TouchableOpacity
-                              key={`combined-profile-${profile.did || profile.handle || index}-${index}`}
-                              style={styles.profileItem}
-                              onPress={() => {
-                                if (profile.handle) {
-                                  const handle = profile.handle.trim();
-                                  if (handle && handle.trim()) {
-                                    queryClient.prefetchQuery({
-                                      queryKey: profileKeys.detail(handle.trim()),
-                                      queryFn: () => ProfileCache.getProfile(handle.trim()),
-                                      staleTime: ProfileCache.cacheExpiry
-                                    }).finally(() => {
-                                      navigation.navigate('AuthorProfile', { handle: handle.trim() });
+              if (item.type === 'people-channels-section') {
+                return (
+                  <View style={styles.peopleChannelsContainer}>
+                    {combinedResults.length > 0 ? (
+                      <>
+                        {combinedResults.map((result, index: number) => {
+                          if (result.type === 'profile') {
+                            const profile = result.data as Profile;
+                            return (
+                              <TouchableOpacity
+                                key={`combined-profile-${profile.did || profile.handle || index}-${index}`}
+                                style={styles.profileItem}
+                                onPress={() => {
+                                  if (profile.handle) {
+                                    const handle = profile.handle.trim();
+                                    if (handle && handle.trim()) {
+                                      queryClient.prefetchQuery({
+                                        queryKey: profileKeys.detail(handle.trim()),
+                                        queryFn: () => ProfileCache.getProfile(handle.trim()),
+                                        staleTime: ProfileCache.cacheExpiry
+                                      }).finally(() => {
+                                        navigation.navigate('AuthorProfile', { handle: handle.trim() });
+                                      });
+                                    }
+                                  }
+                                }}
+                              >
+                                <Avatar
+                                  uri={profile.avatar}
+                                  type="profile"
+                                  size={40}
+                                  style={styles.profileImage}
+                                />
+                                <View style={styles.profileContent}>
+                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                    <Text style={styles.displayName}>
+                                      {profile.displayName || profile.handle || 'Unknown user'}
+                                    </Text>
+                                    {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
+                                      <VerificationBadge 
+                                        handle={profile.handle.trim()} 
+                                        textSize={14} 
+                                        textColor={TEXT.PRIMARY}
+                                      />
+                                    )}
+                                  </View>
+                                  <Text style={styles.handleText}>
+                                    @{profile.handle || 'unknown'}
+                                  </Text>
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          } else if (result.type === 'channel') {
+                            const channel = result.data as Channel;
+                            return (
+                              <TouchableOpacity
+                                key={`combined-channel-${channel.uri || channel.cid || index}-${index}`}
+                                style={styles.channelItem}
+                                onPress={() => {
+                                  if (channel.uri && channel.uri.trim()) {
+                                    navigation.navigate('Channel', {
+                                      uri: channel.uri.trim(),
+                                      title: channel.displayName || 'Unknown Channel',
+                                      description: channel.description || '',
+                                      avatar: channel.avatar || '',
+                                      creator: channel.creator || null,
                                     });
                                   }
-                                }
-                              }}
-                            >
-                              <Avatar
-                                uri={profile.avatar}
-                                type="profile"
-                                size={40}
-                                style={styles.profileImage}
-                              />
-                              <View style={styles.profileContent}>
-                                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                  <Text style={styles.displayName}>
-                                    {profile.displayName || profile.handle || 'Unknown user'}
+                                }}
+                              >
+                                <Avatar
+                                  uri={channel.avatar}
+                                  type="channel"
+                                  size={40}
+                                  style={styles.channelImage}
+                                />
+                                <View style={styles.channelContent}>
+                                  <Text style={styles.channelName}>
+                                    {channel.displayName || 'Unknown channel'}
                                   </Text>
-                                  {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
-                                    <VerificationBadge 
-                                      handle={profile.handle.trim()} 
-                                      textSize={14} 
-                                      textColor={TEXT.PRIMARY}
-                                    />
+                                  <Text style={styles.channelCreator}>
+                                    by @{channel.creator?.handle || 'unknown'}
+                                  </Text>
+                                  {channel.likeCount && channel.likeCount > 0 && (
+                                    <Text style={styles.channelStats}>
+                                      {formatNumber(channel.likeCount)} likes
+                                    </Text>
                                   )}
                                 </View>
-                                <Text style={styles.handleText}>
-                                  @{profile.handle || 'unknown'}
-                                </Text>
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        } else if (result.type === 'channel') {
-                          const channel = result.data as Channel;
-                          return (
-                            <TouchableOpacity
-                              key={`combined-channel-${channel.uri || channel.cid || index}-${index}`}
-                              style={styles.channelItem}
-                              onPress={() => {
-                                if (channel.uri && channel.uri.trim()) {
-                                  navigation.navigate('Channel', {
-                                    uri: channel.uri.trim(),
-                                    title: channel.displayName || 'Unknown Channel',
-                                    description: channel.description || '',
-                                    avatar: channel.avatar || '',
-                                    creator: channel.creator || null,
-                                  });
-                                }
-                              }}
-                            >
-                              <Avatar
-                                uri={channel.avatar}
-                                type="channel"
-                                size={40}
-                                style={styles.channelImage}
-                              />
-                              <View style={styles.channelContent}>
-                                <Text style={styles.channelName}>
-                                  {channel.displayName || 'Unknown channel'}
-                                </Text>
-                                <Text style={styles.channelCreator}>
-                                  by @{channel.creator?.handle || 'unknown'}
-                                </Text>
-                                {channel.likeCount && channel.likeCount > 0 && (
-                                  <Text style={styles.channelStats}>
-                                    {formatNumber(channel.likeCount)} likes
-                                  </Text>
-                                )}
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        }
-                        return null;
-                      })}
-                      {/* Infinite scroll loading indicator */}
-                      {isFetchingNextPage && (
-                        <View style={styles.loadingMoreContainer}>
-                          <ActivityIndicator size="small" color={TEXT.PRIMARY} />
-                        </View>
-                      )}
-                    </>
-                  ) : (
-                    <View style={styles.emptyTabContent}>
-                      <Text style={styles.emptyTabText}>No results found</Text>
+                              </TouchableOpacity>
+                            );
+                          }
+                          return null;
+                        })}
+                        {isFetchingNextPage && (
+                          <View style={styles.loadingMoreContainer}>
+                            <ActivityIndicator size="small" color={TEXT.PRIMARY} />
+                          </View>
+                        )}
+                      </>
+                    ) : (
+                      <View style={styles.emptyTabContent}>
+                        <Text style={styles.emptyTabText}>No results found</Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              }
+              return null;
+            }}
+            ListHeaderComponent={listHeaderElement ?? undefined}
+            contentContainerStyle={[
+              styles.listContainer,
+              {
+                // Use safe area + search bar height when searching OR when header not visible on main explore
+                paddingTop: (debouncedQuery.length > 0 || !isHeaderVisible)
+                  ? (insets.top + 10 + 55 + 10)
+                  : 60,
+                paddingBottom: getBottomNavBarHeight(insets),
+              },
+            ]}
+            showsVerticalScrollIndicator={false}
+            onScroll={({ nativeEvent }) => {
+              const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
+              preloadNextPage(contentOffset.y, contentSize.height, layoutMeasurement.height);
+            }}
+            scrollEventThrottle={16}
+            onScrollBeginDrag={handleScrollBeginDrag}
+            onScrollEndDrag={handleScrollEndDrag}
+            onMomentumScrollEnd={handleMomentumScrollEnd}
+            onEndReached={() => {
+              if (isSearching && hasNextPage && !isFetchingNextPage) {
+                fetchNextPage();
+              }
+            }}
+            onEndReachedThreshold={0.5}
+            removeClippedSubviews={Platform.OS === 'android'}
+            maxToRenderPerBatch={10}
+            windowSize={21}
+            initialNumToRender={15}
+            updateCellsBatchingPeriod={30}
+            maintainVisibleContentPosition={{ 
+              minIndexForVisible: 0, 
+              autoscrollToTopThreshold: null 
+            }}
+            viewabilityConfig={viewabilityConfig}
+            ListEmptyComponent={() => {
+              const isSearchingLocal = debouncedQuery.length > 0;
+              if (isSearchingLocal && !isLoadingResults) {
+                return (
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.noResults}>No results found for "{debouncedQuery}"</Text>
+                    <Text style={styles.noResultsSubtext}>Try searching for something else</Text>
+                  </View>
+                );
+              }
+              if (!isSearchingLocal && !(isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingSpotlightFeed)) {
+                if (suggestionsError || suggestedFeedsError || spotlightFeedError) {
+                  return (
+                    <View style={styles.errorContainer}>
+                      <EmptyFeed type="no-connection" />
+                      <TouchableOpacity style={styles.retryButton} onPress={() => {
+                        refetchSuggestions();
+                        refetchSuggestedFeeds();
+                        refetchSpotlightFeed();
+                      }}>
+                        <Text style={styles.retryButtonText}>Try Again</Text>
+                      </TouchableOpacity>
                     </View>
-                  )}
-                </View>
-              );
-            }
-
-            // Comment out video grid rendering
-            // if (item.type === 'video-grid') {
-            //   const formattedFeed = item.videos.map((video: any) => ({
-            //     post: video,
-            //     shouldCache: true,
-            //     uniqueKey: video.uri,
-            //     moderationDecision: video.moderationDecision,
-            //   }));
-
-            //   return (
-            //     <View style={styles.videoGridContainer}>
-            //       <GridFeedView
-            //         feed={formattedFeed}
-            //         headerComponent={<GridViewHeader />}
-            //         feedOption="search"
-            //         onLoadMore={() => {
-            //           if (hasNextPage && !isFetchingNextPage) {
-            //             fetchNextPage();
-            //           }
-            //         }}
-            //         hasNextPage={hasNextPage}
-            //         isFetchingNextPage={isFetchingNextPage}
-            //         onGridItemPress={(index) => {
-            //           const video = item.videos[index];
-            //           if (video?.uri) {
-            //             const videoIndex = allVideos.findIndex(v => v.uri === video.uri);
-            //             const finalIndex = videoIndex >= 0 ? videoIndex : 0;
-            //             
-            //             navigation.navigate('FeedModal', {
-            //               initialIndex: finalIndex,
-            //               initialUri: video.uri,
-            //               feedOption: 'search',
-            //               userDid: undefined,
-            //               backgroundColor: 'transparent',
-            //               secondaryColor: '#fff',
-            //               searchQuery: debouncedQuery,
-            //               hasNextPage: hasNextPage,
-            //               isFetchingNextPage: isFetchingNextPage,
-            //               fetchNextPage: fetchNextPage
-            //             });
-            //           }
-            //         }}
-            //       />
-            //     </View>
-            //   );
-            // }
-            return null;
-          }}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               contentContainerStyle={[
-               styles.listContainer, 
-               { paddingTop: 70, paddingBottom: getBottomNavBarHeight(insets) },
-               searchResults.length === 0 && !isLoadingResults && { flex: 1, justifyContent: 'center' }
-             ]}
-          showsVerticalScrollIndicator={false}
-          onScroll={({ nativeEvent }) => {
-            const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
-            preloadNextPage(contentOffset.y, contentSize.height, layoutMeasurement.height);
-          }}
-          scrollEventThrottle={16}
-          onScrollBeginDrag={handleScrollBeginDrag}
-          onScrollEndDrag={handleScrollEndDrag}
-          onMomentumScrollEnd={handleMomentumScrollEnd}
-          onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) {
-              fetchNextPage();
-            }
-          }}
-          onEndReachedThreshold={0.5}
-          removeClippedSubviews={Platform.OS === 'android'}
-          maxToRenderPerBatch={10}
-          windowSize={21}
-          initialNumToRender={15}
-          updateCellsBatchingPeriod={30}
-          maintainVisibleContentPosition={{ 
-            minIndexForVisible: 0, 
-            autoscrollToTopThreshold: null 
-          }}
-          viewabilityConfig={viewabilityConfig}
-          ListEmptyComponent={!isLoadingResults && searchQuery.length > 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.noResults}>No results found for "{debouncedQuery}"</Text>
-              <Text style={styles.noResultsSubtext}>Try searching for something else</Text>
-            </View>
-          ) : null}
-          ListFooterComponent={null}
-        />
-      )}
-
-      {/* Error State */}
-      {error && (
-        <View style={styles.errorContainer}>
-          <EmptyFeed type="no-connection" />
-          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+                  );
+                }
+                return (
+                  <View style={styles.initialStateContainer}>
+                    <Text style={styles.initialStateText}>No suggestions available</Text>
+                  </View>
+                );
+              }
+              return null;
+            }}
+            ListFooterComponent={null}
+          />
+        );
+      })()}
     </SafeAreaView>
   );
 };
@@ -1552,12 +1555,26 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND.PRIMARY,
     paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
   },
+  headerBannerContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 8,
+  },
   topGradient: {
     position: 'absolute',
     left: 0,
     right: 0,
     height: 100,
     zIndex: 5,
+  },
+  topSafeOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    backgroundColor: '#000',
+    zIndex: 6,
   },
 
   listContainer: {

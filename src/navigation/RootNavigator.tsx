@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { AppState } from 'react-native';
 import BottomTabNavigator from './BottomTabNavigator';
 import VideoPostScreen from '../screens/VideoPostScreen';
-import VideoPreloadManager from '../services/VideoPreloadManager';
+
 import FeedModal from '../screens/FeedModal';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import InsightsScreen from '../screens/InsightsScreen';
@@ -29,7 +29,7 @@ interface RootNavigatorProps {
 const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
   const navigation = useNavigation();
   
-  // VideoPreloadManager is self-initializing and doesn't need manual initialization calls
+  // VideoPreloadManager removed
 
   return (
     <LogoutContext.Provider value={onLogout}>
