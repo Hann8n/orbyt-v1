@@ -138,8 +138,6 @@ const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => (
         height: 40,
         borderRadius: 20,
         marginRight: 12,
-        borderWidth: 1,
-        borderColor: Colors.mediumGray,
       }}
     />
     <View style={{ flex: 1, justifyContent: 'center' }}>

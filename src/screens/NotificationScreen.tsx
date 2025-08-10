@@ -388,8 +388,6 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     marginRight: 12,
-    borderWidth: 1,
-    borderColor: Colors.gray,
   },
   notificationContent: {
     flex: 1,
@@ -398,14 +396,14 @@ const styles = StyleSheet.create({
   },
   authorName: {
     color: Colors.white,
-    fontSize: 14,
+    fontSize: 16,
     marginBottom: 2,
     fontFamily: 'Firma-SemiBold',
   },
   actionText: {
     color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontSize: 16,
+    fontFamily: 'Firma-Medium',
   },
   errorContainer: {
     flex: 1,
@@ -438,7 +436,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: {
-    color: Colors.gray,
+    color: Colors.lightGray,
     fontSize: 16,
     textAlign: 'center',
     fontFamily: 'Firma-Medium',

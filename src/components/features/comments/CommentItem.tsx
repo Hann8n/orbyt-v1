@@ -25,7 +25,7 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
-import { CommentHeartIcon } from '../../ui/Icon';
+import { HeartFillIcon } from '../../ui/Icon';
 import VerificationBadge from '../verification/VerificationBadge';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
@@ -352,16 +352,18 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
               shimmerColors={Colors.SHIMMER.PRIMARY}
             />
           )}
-          <Image
-            source={{ uri }}
-            style={[style, { opacity: isLoading ? 0 : 1 }]}
-            resizeMode="cover"
-            accessible={true}
-            accessibilityLabel={accessibilityLabel}
-            onLoadStart={() => setIsLoading(true)}
-            onLoad={handleLoad}
-            onError={handleError}
-          />
+          {!isLoading && (
+            <Image
+              source={{ uri }}
+              style={style}
+              resizeMode="cover"
+              accessible={true}
+              accessibilityLabel={accessibilityLabel}
+              onLoadStart={() => setIsLoading(true)}
+              onLoad={handleLoad}
+              onError={handleError}
+            />
+          )}
         </>
       );
     });
@@ -576,32 +578,29 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   height: 40,
                   borderRadius: 20,
                   marginRight: 12,
-                  borderWidth: 1,
-                  borderColor: Colors.mediumGray,
+                  borderWidth: 0,
                 }}
               />
             </TouchableOpacity>
             <View style={{ flex: 1, justifyContent: 'center' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ color: Colors.white, fontWeight: 'bold', fontSize: 14, marginBottom: 2 }}>
+                <Text style={{ color: Colors.white, fontSize: 16, marginBottom: 2, fontFamily: 'Firma-Bold' }}>
                   {authorName}
                 </Text>
                 {authorHandle && (
                   <VerificationBadge
                     handle={authorHandle}
-                    textSize={14}
+                    textSize={16}
                     textColor={Colors.white}
                     autoPosition={true}
                   />
                 )}
               </View>
-              <Text style={{ color: Colors.white, fontSize: 14 }}>
-                @{authorHandle}
-              </Text>
+
               {commentText ? (
                 <TextWithAuthorLinks
                   text={commentText}
-                  style={{ color: Colors.white, fontSize: 15, marginTop: 2 }}
+                  style={{ color: Colors.lightGray, fontSize: 16, marginTop: 2 }}
                   onAuthorPress={handleAuthorPress}
                 />
               ) : null}
@@ -621,10 +620,11 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   onPress={() => setRepliesVisible(v => !v)}
                   activeOpacity={0.7}
                 >
+                  <View style={styles.repliesToggleLine} />
                   <Text style={styles.repliesToggleText}>
                     {repliesVisible
-                      ? `Hide ${replyCount === 1 ? 'reply' : 'replies'}`
-                      : `View ${formatNumber(replyCount)} ${replyCount === 1 ? 'reply' : 'replies'}`}
+                      ? `hide ${replyCount === 1 ? 'reply' : 'replies'}`
+                      : `view ${formatNumber(replyCount)} ${replyCount === 1 ? 'reply' : 'replies'}`}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -633,9 +633,9 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           <View style={styles.commentActionsContainer}>
             <TouchableOpacity onPress={handleLikeComment} style={styles.likeButton}>
               <Animated.View style={heartAnimatedStyle}>
-                <CommentHeartIcon
+                <HeartFillIcon
                   size={22}
-                  color={isLiked ? UI.Colors.INTERACTIVE.HEART.ACTIVE : UI.Colors.INTERACTIVE.HEART.INACTIVE}
+                  color={isLiked ? Colors.lightRed : Colors.gray}
                 />
               </Animated.View>
             </TouchableOpacity>
@@ -703,7 +703,7 @@ const styles = StyleSheet.create({
   },
   commentThreadContainer: {
     marginBottom: 8,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: 'transparent',
   },
   commentItemContainer: {
     flexDirection: 'row',
@@ -726,11 +726,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   commentAuthorName: {
-    fontWeight: 'bold',
+    fontFamily: 'Firma-Bold',
     color: Colors.white,
   },
   commentAuthorNameNested: {
-    fontWeight: 'bold',
+    fontFamily: 'Firma-Bold',
     color: Colors.white,
     fontSize: 14,
   },
@@ -749,7 +749,7 @@ const styles = StyleSheet.create({
   },
   commentTimestamp: {
     fontSize: 12,
-    color: Colors.lightGray,
+    color: Colors.gray,
     marginRight: 12,
   },
   replyButton: {
@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
   replyButtonText: {
     fontSize: 12,
     color: UI.Colors.lightGray,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Firma-Bold',
   },
   commentActionsContainer: {
     alignItems: 'center',
@@ -783,7 +783,7 @@ const styles = StyleSheet.create({
     height: 16,
   },
   likeCount: {
-    color: UI.Colors.white,
+    color: Colors.lightGray,
     fontSize: 12.5,
     fontFamily: 'Firma-SemiBold',
     marginTop: 0,
@@ -801,9 +801,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'transparent',
   },
+  repliesToggleLine: {
+    width: 16,
+    height: 1,
+    backgroundColor: Colors.gray,
+    marginRight: 8,
+  },
   repliesToggleText: {
-    color: UI.Colors.lightGray,
-    fontSize: 14,
+    color: Colors.gray,
+    fontSize: 12,
     fontFamily: 'Firma-SemiBold',
     fontWeight: '600',
     letterSpacing: 0.1,

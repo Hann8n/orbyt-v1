@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   videoInfoLabel: {
     color: Colors.lightGray,
     fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Firma-Medium',
     marginBottom: 2,
   },
   videoInfoValue: {

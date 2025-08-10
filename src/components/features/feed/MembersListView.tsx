@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
   memberHandle: {
     color: Colors.lightGray,
     fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Firma-Medium',
   },
   memberDescription: {
     fontSize: 13,

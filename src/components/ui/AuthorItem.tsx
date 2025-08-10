@@ -25,6 +25,9 @@ interface AuthorItemProps {
   showFollowButton?: boolean;
   isFollowing?: boolean;
   onFollowPress?: () => void;
+  nameFontWeight?: 'Firma-Regular' | 'Firma-Medium' | 'Firma-SemiBold' | 'Firma-Bold' | 'Firma-Black';
+  handleFontWeight?: 'Firma-Regular' | 'Firma-Medium' | 'Firma-SemiBold' | 'Firma-Bold' | 'Firma-Black';
+  handleColor?: string;
 }
 
 const AuthorItem: React.FC<AuthorItemProps> = ({
@@ -42,6 +45,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   showFollowButton = false,
   isFollowing = false,
   onFollowPress,
+  nameFontWeight = 'Firma-SemiBold',
+  handleFontWeight = 'Firma-SemiBold',
+  handleColor,
 }) => {
   const navigation = useNavigation<NavigationProp<HomeStackParamList>>();
   
@@ -108,15 +114,16 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         />
         <View style={styles.textContainer}>
           <View style={styles.nameRow}>
-            <Text style={[
-              styles.name,
-              { 
-                color: textColor,
-                fontSize: config.nameFontSize,
-              }
-            ]} numberOfLines={1}>
-              {actualDisplayName}
-            </Text>
+                      <Text style={[
+            styles.name,
+            { 
+              color: textColor,
+              fontSize: config.nameFontSize,
+              fontFamily: nameFontWeight,
+            }
+          ]} numberOfLines={1}>
+            {actualDisplayName}
+          </Text>
             {handle && (
               <VerificationBadge
                 handle={handle}
@@ -128,8 +135,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           <Text style={[
             styles.handle,
             { 
-              color: Colors.lightGray,
+              color: handleColor || Colors.lightGray,
               fontSize: config.handleFontSize,
+              fontFamily: handleFontWeight,
             }
           ]} numberOfLines={1}>
             {showDate && date ? date : `@${handle}`}
@@ -190,11 +198,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   name: {
-    fontFamily: 'Firma-SemiBold',
     marginBottom: 1,
   },
   handle: {
-    fontFamily: 'Firma-Medium',
+    // Font family is now controlled via props
   },
   followButton: {
     borderWidth: 1,

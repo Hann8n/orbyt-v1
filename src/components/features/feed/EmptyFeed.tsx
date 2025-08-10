@@ -13,6 +13,7 @@ import AuthorItem from '../../ui/AuthorItem';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Use require for static RN asset to avoid TS module typing issues
 const UFOGif = require('../../../assets/UFO5504.gif');
+const LivingGif = require('../../../assets/livinga18.gif');
 
 interface EmptyFeedProps {
   secondaryColor?: string;
@@ -87,22 +88,22 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       case 'no-connection':
         return {
           icon: 'interface-essential-satellite',
-          defaultMessage: "Can't connect to feed"
+          defaultMessage: "can't connect to feed"
         };
       case 'error':
         return {
           icon: 'interface-essential-satellite',
-          defaultMessage: "Something went wrong"
+          defaultMessage: "something went wrong"
         };
       case 'no-following':
         return {
           icon: 'user-plus',
-          defaultMessage: "Follow accounts to see their posts here"
+          defaultMessage: "follow accounts to see their posts here"
         };
       case 'end':
         return {
           icon: 'video-movies-vintage-tv-1',
-          defaultMessage: "That's all for now"
+          defaultMessage: "that's all for now"
         };
       case 'no-videos':
       default:
@@ -184,7 +185,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           </Text>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: textColor }]}>
-              Suggested accounts
+              suggested accounts
             </Text>
           </View>
           <FlatList
@@ -209,13 +210,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           viewableAreaHeight ? { height: viewableAreaHeight } : {}
         ]}
       >
-        <View style={styles.contentContainer}>
+        <View style={[styles.contentContainer, { paddingTop: 40 }]}>
           <View style={styles.iconContainer}>
-            <Icon 
-              name={icon} 
-              size={72} 
-              color={iconColor} 
-            />
+            <Image source={LivingGif} style={styles.ufoGif} />
           </View>
           <Text style={[styles.emptyText, { color: textColor }]}> 
             {displayMessage}
