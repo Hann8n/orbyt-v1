@@ -3,7 +3,8 @@ import { View, Text, ActivityIndicator, Alert, StyleSheet, TouchableOpacity, Saf
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon, { BackArrowIcon } from '../../components/ui/Icon';
-import { BRAND, TEXT, UI, STATUS } from '../../utils/formatting/Colors';
+import { Colors } from '../../components/ui/UI';
+import UI from '../../components/ui/UI';
 import WatchHistory from '../../services/WatchHistory';
 import AtprotoService from '../../services/api/AtprotoService';
 import GridFeedView from '../../components/features/feed/GridFeedView';
@@ -146,27 +147,27 @@ const WatchHistoryScreen: React.FC = () => {
       feed: feedItems,
       initialIndex: index,
       feedOption: 'watchHistory',
-      backgroundColor: UI.BACKGROUND.PRIMARY,
-      secondaryColor: TEXT.PRIMARY,
+      backgroundColor: Colors.darkGray,
+      secondaryColor: Colors.white,
     });
   };
 
-  if (loading) {
+    if (loading) {
     return (
       <View style={[styles.safeArea, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-                  <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <BackArrowIcon size={24} color={TEXT.PRIMARY} />
-        </TouchableOpacity>
-          <Text style={styles.headerTitle}>Watch History</Text>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <BackArrowIcon size={28} color={Colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>watch history</Text>
           <View style={styles.headerRight} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BRAND.SECONDARY} />
+          <ActivityIndicator size="large" color={Colors.white} />
           <Text style={styles.loadingText}>Loading watch history...</Text>
         </View>
       </View>
@@ -181,9 +182,9 @@ const WatchHistoryScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <BackArrowIcon size={24} color={TEXT.PRIMARY} />
+          <BackArrowIcon size={28} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Watch History</Text>
+                  <Text style={styles.headerTitle}>watch history</Text>
         <TouchableOpacity
           style={styles.clearButton}
           onPress={handleClearHistory}
@@ -191,9 +192,9 @@ const WatchHistoryScreen: React.FC = () => {
           activeOpacity={0.7}
         >
           {clearingHistory ? (
-            <ActivityIndicator size="small" color={STATUS.ERROR} />
+            <ActivityIndicator size="small" color={UI.Colors.STATUS.ERROR} />
           ) : (
-            <Icon name="trash" size={20} color={STATUS.ERROR} />
+            <Icon name="trash" size={20} color={UI.Colors.STATUS.ERROR} />
           )}
         </TouchableOpacity>
       </View>
@@ -211,8 +212,8 @@ const WatchHistoryScreen: React.FC = () => {
       <GridFeedView
         feed={feedItems}
         feedOption="watchHistory"
-        backgroundColor={UI.BACKGROUND.PRIMARY}
-        secondaryColor={TEXT.PRIMARY}
+        backgroundColor={Colors.black}
+        secondaryColor={Colors.white}
         onGridItemPress={handleGridItemPress}
         onLoadMore={() => {}} // No pagination needed for watch history
         isFetchingNextPage={false}
@@ -227,7 +228,7 @@ const WatchHistoryScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: UI.BACKGROUND.PRIMARY,
+    backgroundColor: Colors.black,
   },
   header: {
     flexDirection: 'row',
@@ -236,21 +237,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
-    backgroundColor: UI.BACKGROUND.PRIMARY,
+    borderBottomColor: Colors.gray,
+    backgroundColor: Colors.darkGray,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: UI.BACKGROUND.SECONDARY,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
   },
   headerTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -262,36 +259,36 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: UI.BACKGROUND.SECONDARY,
+    backgroundColor: Colors.darkGray,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   statsContainer: {
-    backgroundColor: UI.BACKGROUND.SECONDARY,
+    backgroundColor: Colors.darkGray,
     marginHorizontal: 20,
     marginTop: 16,
     marginBottom: 8,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   statsText: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Medium',
     textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: UI.BACKGROUND.PRIMARY,
+    backgroundColor: Colors.darkGray,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
     marginTop: 12,

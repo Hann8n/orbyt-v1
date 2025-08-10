@@ -26,13 +26,12 @@ import type { ModerationDecision } from '../../../services/ModerationTypes';
 
 import Icon from '../../ui/Icon';
 import { useClearView } from '../../../services/ClearViewContext';
-import { updateHeaderVisibility, generateFeedKey } from '../../../hooks/useHeaderVisibility';
 import FeedDebugger from '../../../utils/helpers/FeedDebuger';
 import AccountManager from '../../../services/storage/AccountManager';
+import { Colors } from '../../ui/UI';
 
-// Header visibility system for medium/large screens
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+// Unified video snapping system
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export interface FeedItem {
   post: {
@@ -79,7 +78,7 @@ interface ListFeedViewProps {
   secondaryColor?: string;
   feedOption: 'yourMix' | 'following' | 'discover' | 'profile' | 'likes' | 'reposts' | string;
   userDid?: string;
-  onLoadMore: () => void; // Simplified callback for loading more content
+  onLoadMore: () => void;
   isFetchingNextPage: boolean;
   hasNextPage?: boolean;
   isLoading: boolean;
@@ -99,16 +98,20 @@ interface ListFeedViewProps {
   isProfileLoading?: boolean;
   onVisibleChange?: (index: number, video: string | null) => void;
   onScrubbingChange?: (isScrubbing: boolean) => void;
-  onScroll?: (event: { nativeEvent: any }) => void; // Infinite scroll handler
-  forceError?: boolean; // Add debug flag to force error responses
+  onScroll?: (event: { nativeEvent: any }) => void;
+  forceError?: boolean;
+  ListComponent?: any;
+  useAnimatedScroll?: boolean;
+  
+
 }
 
-// Constants for video preloading - balanced for performance and preloading
-const PREPARE_BUFFER = 1; // Keep some buffer for smooth scrolling
-const CACHE_BUFFER = 2; // Sufficient buffer for effective preloading
+// Unified snapping constants
+const PREPARE_BUFFER = 1;
+const CACHE_BUFFER = 2;
 const STREAMING_ENABLED = true;
 
-// Pure function component for CellRenderer with performance optimization
+// Pure function component for CellRenderer
 const CellRenderer = React.memo(({ children, style }: { children: React.ReactNode; style?: any }) => {
   return (
     <View style={[style, { overflow: 'hidden' }]}>
@@ -146,18 +149,88 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   onVisibleChange,
   onScrubbingChange,
   onScroll,
-  forceError = false, // Add debug flag to force error responses
+  forceError = false,
+  ListComponent,
+  useAnimatedScroll = true,
+
 }) => {
   const { isClearViewMode, toggleClearViewMode, setClearViewMode } = useClearView();
   const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
   const [isFeedDebugEnabled, setIsFeedDebugEnabled] = useState<boolean>(false);
   
-  // Clear feed when refreshing and ensure no duplicates
+  // Unified device detection
+  const isHeaderFeed = (
+    feedOption === 'profile' ||
+    feedOption === 'likes' ||
+    feedOption === 'reposts' ||
+    feedOption.startsWith('at://')
+  );
+  
+  const isCollapsibleTabView = ListComponent && (
+    ListComponent.name === 'TabsFlatList' || 
+    ListComponent.displayName === 'TabsFlatList' ||
+    (typeof ListComponent === 'function' && ListComponent.toString().includes('TabsFlatList'))
+  );
+  
+  // Unified viewport calculations - Restored original 9:16 card design with proper safe area handling
+  const viewportDimensions = useMemo(() => {
+    const { width, height } = Dimensions.get('window');
+    
+    // Calculate effective insets - All feeds need safe areas
+    const effectiveInsets = insets;
+    const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets);
+    
+    // Calculate viewport height (area available for videos)
+    let viewportHeight: number;
+    
+    if (isModal) {
+      // Modal: use full screen height
+      viewportHeight = height;
+    } else if (isSmallDevice) {
+      // Small devices: use full screen height
+      viewportHeight = height;
+    } else {
+      // Large devices: use proper card height that allows seeing previous/next videos
+      viewportHeight = height - bottomNavBarHeight - effectiveInsets.top;
+    }
+    
+    return {
+      width,
+      height: viewportHeight,
+      effectiveInsets,
+      bottomNavBarHeight,
+      isFullScreen: isModal || isSmallDevice,
+    };
+  }, [isHeaderFeed, isModal, isSmallDevice, insets]);
+  
+  // Unified card height calculation - Use 9:16 cards in modal to allow adjacent peeks
+  const cardHeight = useMemo(() => {
+    const screen = Dimensions.get('window');
+    const nineBySixteenHeight = Math.round((screen.width * 16) / 9);
+    if (isModal) {
+      // In modal, use 9:16 card height capped by available viewport height
+      return Math.min(viewportDimensions.height, nineBySixteenHeight);
+    }
+    if (isSmallDevice) {
+      // Small devices: use full screen height
+      return viewportDimensions.height;
+    }
+    // Large devices: use proper card height that maintains uniform spacing
+    return getVideoCardHeight(viewportDimensions.effectiveInsets);
+  }, [viewportDimensions.height, viewportDimensions.effectiveInsets, isModal, isSmallDevice]);
+
+  // Center padding so items are visually centered while allowing peeks above/below
+  const centerPadding = useMemo(() => {
+    if (!isModal) return 0;
+    const pad = Math.max(0, Math.floor((viewportDimensions.height - cardHeight) / 2));
+    return pad;
+  }, [isModal, viewportDimensions.height, cardHeight]);
+  
+  // Clear feed when refreshing
   const displayFeed = useMemo(() => {
     if (isRefreshing) return [];
     
-    // Final deduplication to ensure no duplicates are rendered
     const seenUris = new Set<string>();
     const seenCids = new Set<string>();
     
@@ -180,32 +253,28 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     });
   }, [feed, isRefreshing]);
 
-  // Force error state if forceError flag is enabled
+  // Force error state if enabled
   const forcedError = forceError ? new Error('Forced error for testing purposes') : null;
   const forcedIsError = forceError || isError;
   const forcedErrorState = forceError ? forcedError : error;
 
-  // Lock vertical scroll while scrubbing
+  // Unified state management
   const [isScrubbing, _setIsScrubbing] = useState(false);
   const setIsScrubbing = useCallback((val: boolean) => _setIsScrubbing(val), []);
 
-  // Propagate scrubbing state up if handler provided
   useEffect(() => {
     if (onScrubbingChange) onScrubbingChange(isScrubbing);
   }, [isScrubbing, onScrubbingChange]);
 
-  // State for tracking video visibility - optimized with refs to reduce re-renders
   const [visibleVideo, setVisibleVideo] = useState<string | null>(null);
   const [visibleIndex, setVisibleIndex] = useState<number>(0);
   const [visibleRange, setVisibleRange] = useState<{ min: number; max: number }>({
     min: 0,
-    max: 2, // Initialize with reasonable defaults for preloading
+    max: 2,
   });
-  const [headerHeight, setHeaderHeight] = useState<number>(0);
   const [scrollDirection, setScrollDirection] = useState<'up' | 'down' | null>(null);
-  const [isSnappedToTop, setIsSnappedToTop] = useState<boolean>(false);
 
-  // Refs for scroll handling - optimized to reduce state updates
+  // Unified refs
   const flatListRef = useRef<Animated.FlatList>(null);
   const userScrolled = useRef<boolean>(false);
   const lastOffset = useRef(0);
@@ -217,131 +286,70 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const lastScrollInfoRef = useRef({ scrollY: 0, progress: 0, nearEnd: false });
   const [debugScrollInfo, setDebugScrollInfo] = useState<{ scrollY: number; scrollProgress: number; isNearEnd: boolean }>({ scrollY: 0, scrollProgress: 0, isNearEnd: false });
   
-  // Performance optimization: Use refs to avoid unnecessary re-renders
   const visibleVideoRef = useRef<string | null>(null);
   const visibleIndexRef = useRef<number>(0);
-  const isSnappedToTopRef = useRef<boolean>(false);
 
-  // Use infinite scroll handler from props (provided by parent FeedRenderer)
+  // Unified infinite scroll handler
   const infiniteScrollHandler = onScroll || (() => {});
 
-  // Define common dimension logic
-  const bottomNavBarHeight = getBottomNavBarHeight(insets);
-  const viewableAreaHeight = Dimensions.get('window').height - insets.top - bottomNavBarHeight;
-  const cardHeight = isSmallDevice ? Dimensions.get('window').height : getVideoCardHeight(insets);
-  
-  // Memoize expensive calculations to prevent recreation
-  const memoizedCardHeight = useMemo(() => cardHeight, [cardHeight]);
-  const memoizedFeedOption = useMemo(() => feedOption as 'yourMix' | 'following' | 'discover', [feedOption]);
-  const memoizedIsVisible = useMemo(() => isVisible, [isVisible]);
-  const memoizedScrollYShared = useMemo(() => scrollYShared, [scrollYShared]);
-  const memoizedScrollDirection = useMemo(() => scrollDirection, [scrollDirection]);
-
-  // Determine if this is a header feed (profile, channel, etc.)
-  // Channel feeds (at:// URIs) should use header feed behavior only if they have a headerComponent
-  const isHeaderFeed = (
-    (feedOption === 'profile' ||
-     feedOption === 'likes' ||
-     feedOption === 'reposts' ||
-     feedOption.startsWith('at://'))
-    && !!headerComponent
-  );
-
-  // Disable clear view mode when snapped to top on header feeds
-  useEffect(() => {
-    if (isHeaderFeed && isSnappedToTop && isClearViewMode) {
-      setClearViewMode(false);
-    }
-  }, [isHeaderFeed, isSnappedToTop, isClearViewMode, setClearViewMode]);
-
-  // Memoize video status handler to prevent recreation
+  // Unified video status handler
   const handleVideoStatus = useCallback((uri: string, status: string) => {
-    // Handle video status changes - optimized to avoid blocking scroll
     if (status === 'ready' && uri === visibleVideoRef.current) {
       // Only update if this is the currently visible video
-      // This prevents unnecessary re-renders during scroll
     }
   }, []);
 
-  // Function to determine if a video should show its overlay - optimized
+  // Unified overlay visibility logic
   const shouldShowOverlay = useCallback((index: number) => {
-    if (!memoizedScrollDirection) {
-      // If no scroll direction, only show overlay for current video
+    if (!scrollDirection) {
       return index === visibleIndexRef.current;
     }
     
-    if (memoizedScrollDirection === 'down') {
-      // Scrolling down: show overlays for videos ahead (higher indices)
+    if (scrollDirection === 'down') {
       return index >= visibleIndexRef.current;
     } else {
-      // Scrolling up: show overlays for videos ahead (lower indices)
       return index <= visibleIndexRef.current;
     }
-  }, [memoizedScrollDirection]);
+  }, [scrollDirection]);
 
-  // Optimized viewable items changed handler - debounced to reduce frequency
+  // Unified viewable items changed handler
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
     if (viewableItems.length === 0) return;
 
-    // For fast scrolling, use the first visible item immediately
     const firstVisibleItem = viewableItems[0];
     const newVisibleVideo = firstVisibleItem?.item?.post?.uri || null;
     const newVisibleIndex = firstVisibleItem?.index || 0;
     
-    // Only update if values actually changed to prevent unnecessary re-renders
     if (newVisibleVideo !== visibleVideoRef.current || newVisibleIndex !== visibleIndexRef.current) {
       visibleVideoRef.current = newVisibleVideo;
       visibleIndexRef.current = newVisibleIndex;
       
-      // Batch state updates to reduce re-renders
       setVisibleVideo(newVisibleVideo);
       setVisibleIndex(newVisibleIndex);
 
-      // Notify parent if needed
       if (typeof onVisibleChange === 'function') {
         onVisibleChange(newVisibleIndex, newVisibleVideo);
       }
     }
 
-    // Update visible range for preloading - keep it simple for fast scrolling
     const minIndex = Math.min(...viewableItems.map(item => item.index));
     const maxIndex = Math.max(...viewableItems.map(item => item.index));
     
     setVisibleRange({ min: minIndex, max: maxIndex });
   }, [onVisibleChange]);
 
-  // Memoize header layout handler
-  const onHeaderLayout = useCallback((event: any) => {
-    const { height } = event.nativeEvent.layout;
-    setHeaderHeight(height);
-    
-    // Report header height for header visibility tracking
-    if (isHeaderFeed) {
-      // Use consistent feed key format based on feed type
-      let feedKey: string;
-      if (feedOption.startsWith('at://')) {
-        // For channel feeds, use the same format as ChannelScreen
-        feedKey = `channel-${feedOption}`;
-      } else {
-        // For other feeds, use the standard format
-        feedKey = generateFeedKey(feedOption, userDid);
-      }
-      updateHeaderVisibility(feedKey, { headerHeight: height });
-    }
-  }, [isHeaderFeed, feedOption, userDid]);
-
-  // Optimized scroll handler - debounced and batched
+  // Unified scroll handler
   const handleScroll = useCallback((event: any) => {
-    // Performance monitoring removed for simplification
-    
-    // Call infinite scroll handler first for loading more content
     infiniteScrollHandler(event);
     
     const y = event.nativeEvent.contentOffset.y;
+    
+
+    
     scrollYShared.value = y;
     currentScrollOffset.current = y;
     
-    // Update debug scroll info (throttled)
+    // Update debug scroll info
     try {
       const { contentSize, layoutMeasurement } = event.nativeEvent;
       const contentHeight = contentSize?.height || 0;
@@ -356,9 +364,9 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       }
     } catch {}
     
-    // Track scroll direction with reduced frequency
+    // Track scroll direction
     const delta = y - lastOffset.current;
-    if (Math.abs(delta) > 10) { // Increased threshold to reduce noise
+    if (Math.abs(delta) > 10) {
       const newDirection = delta > 0 ? 'down' : 'up';
       if (newDirection !== scrollDirection) {
         setScrollDirection(newDirection);
@@ -366,60 +374,17 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
     lastOffset.current = y;
     
-    // Check if snapped to top for header feeds - optimized
-    if (isHeaderFeed && headerHeight > 0) {
-      const threshold = Math.max(64, headerHeight - insets.top);
-      const isAtTop = y <= threshold;
-      if (isAtTop !== isSnappedToTopRef.current) {
-        isSnappedToTopRef.current = isAtTop;
-        setIsSnappedToTop(isAtTop);
-        
-        // Report header visibility state
-        let feedKey: string;
-        if (feedOption.startsWith('at://')) {
-          // For channel feeds, use the same format as ChannelScreen
-          feedKey = `channel-${feedOption}`;
-        } else {
-          // For other feeds, use the standard format
-          feedKey = generateFeedKey(feedOption, userDid);
-        }
-        updateHeaderVisibility(feedKey, { 
-          isSnappedToTop: isAtTop,
-          scrollY: y,
-          isShadowVisible: !isAtTop
-        });
-      }
-    }
-    
-    // Report vertical scroll position for feed bar visibility
     onVerticalScroll?.(y);
     
-    // Report scroll position for header visibility
-    if (isHeaderFeed) {
-      let feedKey: string;
-      if (feedOption.startsWith('at://')) {
-        // For channel feeds, use the same format as ChannelScreen
-        feedKey = `channel-${feedOption}`;
-      } else {
-        // For other feeds, use the standard format
-        feedKey = generateFeedKey(feedOption, userDid);
-      }
-      updateHeaderVisibility(feedKey, { scrollY: y });
-    }
-    
-    // Simplified user scroll detection for fast scrolling
     if (!userScrolled.current) {
       userScrolled.current = true;
     }
-    
-    // Performance monitoring removed for simplification
-  }, [infiniteScrollHandler, scrollYShared, onVerticalScroll, isHeaderFeed, headerHeight, scrollDirection]);
+  }, [infiniteScrollHandler, scrollYShared, onVerticalScroll, scrollDirection, viewportDimensions.effectiveInsets.top]);
 
-  // Memoize momentum scroll end handler
+  // Unified momentum scroll end handler
   const onMomentumScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetY = e.nativeEvent.contentOffset.y;
     
-    // Save position immediately when scrolling stops
     if (onPositionChange) {
       if (Math.abs(offsetY - lastSavedPosition.current) > 50) {
         onPositionChange(offsetY);
@@ -429,12 +394,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     
     lastOffset.current = offsetY;
     currentScrollOffset.current = offsetY;
-    
-    // Reset scroll direction when scrolling stops
     setScrollDirection(null);
   }, [onPositionChange]);
 
-  // Debug: poll the toggle value occasionally to reflect changes from Settings without remounts
+  // Debug polling
   useEffect(() => {
     let mounted = true;
     const apply = async () => {
@@ -453,143 +416,86 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     return () => { mounted = false; clearInterval(id); };
   }, []);
 
-  /**
-   * Optimized renderItem with minimal dependencies and memoization
-   */
+  // Unified render item
   const renderItem = useCallback(({ item, index }: { item: FeedItem; index: number }) => {
-    // Performance monitoring removed for simplification
-    
     const isActive = item.post.uri === visibleVideoRef.current;
     const shouldPreload = index >= visibleRange.min - CACHE_BUFFER && index <= visibleRange.max + CACHE_BUFFER;
     const shouldShowVideoOverlay = shouldShowOverlay(index);
-    // Fix: When isSnappedToTop is true, no video should be visible
-    const isItemVisible = !isSnappedToTopRef.current && (index === visibleIndexRef.current) && memoizedIsVisible;
+    const isItemVisible = (index === visibleIndexRef.current) && isVisible;
     
-    const result = (
+    return (
       <MemoizedVideoItem
         key={`${item.post.uri}-${index}`}
         post={item.post}
         feedItem={item}
         isPlaying={isActive && isItemVisible}
         handleVideoStatus={handleVideoStatus}
-        height={memoizedCardHeight}
+        height={cardHeight}
         shouldPreload={shouldPreload}
-        scrollY={memoizedScrollYShared}
-        feedOption={memoizedFeedOption}
+        scrollY={scrollYShared}
+        feedOption={feedOption as 'yourMix' | 'following' | 'discover'}
         isVisible={isItemVisible}
         moderationDecision={item.moderationDecision}
         isModal={isModal}
         onScrubbingChange={setIsScrubbing}
+
       />
     );
-    
-    // Track performance with video visibility info
-    // Performance monitoring removed for simplification
-    
-    return result;
   }, [
-    memoizedCardHeight, 
+    cardHeight, 
     visibleRange.min, 
     visibleRange.max, 
-    memoizedFeedOption, 
-    memoizedScrollYShared, 
-    memoizedIsVisible, 
+    feedOption, 
+    scrollYShared, 
+    isVisible, 
     handleVideoStatus,
     shouldShowOverlay,
     isModal,
-    setIsScrubbing
+    setIsScrubbing,
+
   ]);
 
-
-
-  /**
-   * Watch-history logic
-   */
+  // Watch history logic
   useEffect(() => {
     if (visibleVideoRef.current && feedOption === 'yourMix') {
       WatchHistory.addToWatchHistory(visibleVideoRef.current);
     }
   }, [visibleVideoRef.current, feedOption]);
 
-  // Compute snap offsets only when dependencies change to avoid recalculating on every render
-  const computedSnapToOffsets = useMemo(() => {
-    if (isHeaderFeed && headerHeight <= 0) return undefined;
-    if (feed.length === 0) return undefined;
-    
-    // Move offset calculations to background if this becomes heavy
-    try {
-      if (isHeaderFeed) {
-        // Original behavior for other profile pages and custom feeds
-        return feed.map((_, i) => Math.max(headerHeight, headerHeight + i * memoizedCardHeight));
-      }
-      
-      // For regular feeds, use snapToInterval instead of snapToOffsets
-      return undefined;
-    } catch (error) {
-      console.warn('Failed to calculate snap offsets:', error);
-      return undefined;
-    }
-  }, [headerHeight, memoizedCardHeight, feed.length, feedOption, insets.top, isHeaderFeed]);
-
-  // Memoized getItemLayout function to prevent recreation on every render
+  // Unified getItemLayout function
   const getItemLayout = useCallback((_: any, index: number) => {
     try {
       const safeIndex = Math.max(0, index || 0);
       
-      // For header feeds, adjust the layout to account for header height
-      if (isHeaderFeed && headerHeight > 0) {
-        // Original behavior for other header page types
-        return {
-          length: memoizedCardHeight,
-          offset: Math.max(headerHeight, headerHeight + memoizedCardHeight * safeIndex),
-          index: safeIndex,
-        };
-      }
-      
-      // For modals, each item takes full screen height
-      if (isModal) {
-        return {
-          length: memoizedCardHeight,
-          offset: memoizedCardHeight * safeIndex,
-          index: safeIndex,
-        };
-      }
-      
-      // Regular feed behavior
+      // For all cases, use simple card height calculation
       return {
-        length: memoizedCardHeight,
-        offset: memoizedCardHeight * safeIndex,
+        length: cardHeight,
+        offset: cardHeight * safeIndex,
         index: safeIndex,
       };
     } catch (error) {
       console.warn('Error calculating item layout:', error);
       return {
-        length: memoizedCardHeight,
-        offset: memoizedCardHeight * (index || 0),
+        length: cardHeight,
+        offset: cardHeight * (index || 0),
         index: index || 0,
       };
     }
-  }, [isHeaderFeed, headerHeight, feedOption, memoizedCardHeight, insets.top, isModal]);
+  }, [cardHeight]);
 
-  // Handle grid item press to navigate to the selected video
+  // Handle grid item press
   const handleGridItemPress = useCallback((index: number) => {
     if (viewMode === 'grid' && onViewModeChange && index >= 0 && index < feed.length) {
       try {
-        // First, switch to list view
         onViewModeChange('list');
         
-        // Then scroll to the item in list view after a short delay
         setTimeout(() => {
           if (flatListRef.current) {
             try {
-              const targetOffset = isHeaderFeed ? 
-                headerHeight + (memoizedCardHeight * index) : 
-                memoizedCardHeight * index;
+              const targetOffset = cardHeight * index;
               
-              // Scroll to the target position
               flatListRef.current.scrollToOffset({ offset: targetOffset, animated: true });
               
-              // Set this video as the visible one after scrolling completes
               setTimeout(() => {
                 const targetVideo = feed[index]?.post?.uri;
                 if (targetVideo) {
@@ -609,60 +515,13 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         console.warn('Error handling grid item press:', error);
       }
     }
-  }, [feed.length, memoizedCardHeight, headerHeight, viewMode, onViewModeChange, isHeaderFeed]);
+  }, [feed.length, cardHeight, viewMode, onViewModeChange]);
 
   // Find shouldDisablePlayback for the visible video
   let debugShouldDisablePlayback = false;
   if (feed[visibleIndexRef.current]) {
-    debugShouldDisablePlayback = (isHeaderFeed && isSnappedToTopRef.current) || (feed[visibleIndexRef.current].moderationDecision?.blur === true);
+    debugShouldDisablePlayback = (feed[visibleIndexRef.current].moderationDecision?.blur === true);
   }
-
-  // On mount and whenever isHeaderFeed or headerHeight changes, check if the initial scroll position is at the top. If so, set isSnappedToTop to true. This ensures that the snapped-to-top state is correct on first render, preventing the first video from playing when the header is visible.
-  useEffect(() => {
-    // On mount or when header changes, if the initial scroll position is at the top, set isSnappedToTop to true
-    if (isHeaderFeed && headerHeight > 0) {
-      const threshold = Math.max(64, headerHeight - insets.top);
-      if (currentScrollOffset.current <= threshold) {
-        isSnappedToTopRef.current = true;
-        setIsSnappedToTop(true);
-        
-        // Report initial header visibility state
-        let feedKey: string;
-        if (feedOption.startsWith('at://')) {
-          // For channel feeds, use the same format as ChannelScreen
-          feedKey = `channel-${feedOption}`;
-        } else {
-          // For other feeds, use the standard format
-          feedKey = generateFeedKey(feedOption, userDid);
-        }
-        updateHeaderVisibility(feedKey, { 
-          isSnappedToTop: true,
-          isShadowVisible: false
-        });
-      }
-    }
-  }, [isHeaderFeed, headerHeight, insets.top, feedOption, userDid]);
-
-  // Reset header visibility when feed changes to ensure header is visible on feed switch
-  useEffect(() => {
-    if (isHeaderFeed) {
-      isSnappedToTopRef.current = true;
-      setIsSnappedToTop(true);
-      // Report that header should be visible
-      let feedKey: string;
-      if (feedOption.startsWith('at://')) {
-        // For channel feeds, use the same format as ChannelScreen
-        feedKey = `channel-${feedOption}`;
-      } else {
-        // For other feeds, use the standard format
-        feedKey = generateFeedKey(feedOption, userDid);
-      }
-      updateHeaderVisibility(feedKey, { 
-        isSnappedToTop: true,
-        isShadowVisible: false
-      });
-    }
-  }, [feedOption, userDid, isHeaderFeed]); // Reset when feed option changes
 
   // Set initial visible index and video on mount (for modal)
   useEffect(() => {
@@ -678,17 +537,15 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       visibleVideoRef.current = displayFeed[targetIndex]?.post?.uri || null;
       setVisibleIndex(targetIndex);
       setVisibleVideo(displayFeed[targetIndex]?.post?.uri || null);
-      // Scroll to the correct index
       if (flatListRef.current) {
         flatListRef.current.scrollToIndex({ index: targetIndex, animated: false });
       }
     }
   }, [isModal, initialIndex, initialUri, displayFeed.length]);
 
-  // Listen for orientation/screen size changes and snap to visibleIndex
+  // Handle orientation/screen size changes
   useEffect(() => {
     const onChange = ({ window }: { window: ScaledSize }) => {
-      // Wait for layout to update, then scroll to visibleIndex
       setTimeout(() => {
         if (flatListRef.current && displayFeed.length > 0) {
           flatListRef.current.scrollToIndex({
@@ -727,9 +584,12 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     );
   }
 
+  // Calculate viewable area height for empty states
+  const viewableAreaHeight = viewportDimensions.height;
+
   // Render list view (default)
   return (
-    <View style={{ flex: 1, backgroundColor: backgroundColor || '#000' }}>
+    <View style={{ flex: 1, backgroundColor: Colors.black }}>
       {(typeof window !== 'undefined' && (window as any).__LIST_FEED_DEBUG__ === true) && (
         <View style={{
           position: 'absolute',
@@ -741,149 +601,130 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           borderRadius: 8,
           maxWidth: 320,
         }}>
-          <Text style={{ color: '#fff', fontSize: 12 }}>scrollY: {Math.round(currentScrollOffset.current)}</Text>
-          <Text style={{ color: '#fff', fontSize: 12 }}>isHeaderFeed: {String(isHeaderFeed)}</Text>
-          <Text style={{ color: '#fff', fontSize: 12 }}>headerHeight: {headerHeight}</Text>
-          <Text style={{ color: '#fff', fontSize: 12 }}>isSnappedToTop: {String(isSnappedToTopRef.current)}</Text>
-          <Text style={{ color: '#fff', fontSize: 12 }}>visibleIndex: {visibleIndexRef.current}</Text>
-          <Text style={{ color: '#fff', fontSize: 12 }}>visibleVideo: {visibleVideoRef.current}</Text>
-          {/* Improved bug warning: Only show if isSnappedToTop is true AND the logic would render any video as visible */}
-          {isSnappedToTopRef.current && (
-            <Text style={{ color: 'red', fontSize: 12, fontWeight: 'bold' }}>
-              {(() => {
-                // Simulate the logic used in renderItem for all indices
-                let anyVisible = false;
-                for (let i = 0; i < feed.length; i++) {
-                  const isItemVisible = !isSnappedToTopRef.current && (i === visibleIndexRef.current) && memoizedIsVisible;
-                  if (isItemVisible) {
-                    anyVisible = true;
-                    break;
-                  }
-                }
-                return anyVisible ? 'BUG: isSnappedToTop && isVisible === true' : '';
-              })()}
-            </Text>
-          )}
-          <Text style={{ color: '#fff', fontSize: 12 }}>shouldDisablePlayback: {String(debugShouldDisablePlayback)}</Text>
-          <Text style={{ color: '#fff', fontSize: 12 }}>forceError: {String(forceError)}</Text>
-          <Text style={{ color: '#fff', fontSize: 12 }}>forcedIsError: {String(forcedIsError)}</Text>
+          <Text style={{ color: Colors.white, fontSize: 12 }}>scrollY: {Math.round(currentScrollOffset.current)}</Text>
+          <Text style={{ color: Colors.white, fontSize: 12 }}>isHeaderFeed: {String(isHeaderFeed)}</Text>
+          <Text style={{ color: Colors.white, fontSize: 12 }}>visibleIndex: {visibleIndexRef.current}</Text>
+          <Text style={{ color: Colors.white, fontSize: 12 }}>visibleVideo: {visibleVideoRef.current}</Text>
+          <Text style={{ color: Colors.white, fontSize: 12 }}>isCollapsibleTabView: {String(isCollapsibleTabView)}</Text>
+          <Text style={{ color: Colors.white, fontSize: 12 }}>cardHeight: {cardHeight}</Text>
+          <Text style={{ color: Colors.white, fontSize: 12 }}>viewportHeight: {viewportDimensions.height}</Text>
+          <Text style={{ color: Colors.white, fontSize: 12 }}>isModal: {String(isModal)}</Text>
+          <Text style={{ color: Colors.white, fontSize: 12 }}>isSmallDevice: {String(isSmallDevice)}</Text>
+          <Text style={{ color: Colors.white, fontSize: 12 }}>shouldDisablePlayback: {String(debugShouldDisablePlayback)}</Text>
+          <Text style={{ color: Colors.white, fontSize: 12 }}>forceError: {String(forceError)}</Text>
+          <Text style={{ color: Colors.white, fontSize: 12 }}>forcedIsError: {String(forcedIsError)}</Text>
         </View>
       )}
-      <Animated.FlatList
-        ref={flatListRef}
-        key={`${feedOption}-${userDid || 'default'}`}
-        data={displayFeed}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => `${item.post.uri}_${item.post.cid}_${index}`}
-        pagingEnabled={!isHeaderFeed}
-        snapToInterval={isHeaderFeed ? undefined : memoizedCardHeight}
-        snapToOffsets={computedSnapToOffsets}
-        decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.85}
-        removeClippedSubviews={true} // Enable for better memory management
-        windowSize={5} // Optimal window size for video recycling
-        maxToRenderPerBatch={2} // Conservative batch size to prevent jank
-        updateCellsBatchingPeriod={50} // Standard React Native default
-        initialNumToRender={2} // Minimal initial render for faster load
-        showsVerticalScrollIndicator={false}
-        // Removing maintainVisibleContentPosition to avoid initial mount offsets with headers
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true, listener: handleScroll }
-        )}
-        directionalLockEnabled={true}
-        alwaysBounceVertical={false}
-        scrollEnabled={!isScrubbing}
-        nestedScrollEnabled={true}
-        onMomentumScrollEnd={onMomentumScrollEnd}
-        scrollEventThrottle={1} // Reduced for maximum responsiveness during fast scrolling
-
-        CellRendererComponent={CellRenderer}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{
-          itemVisiblePercentThreshold: 50, // Require 50% of video to be visible
-          minimumViewTime: 0, // No delay for instant detection
-        }}
-        getItemLayout={getItemLayout}
-        ListEmptyComponent={
-          // Force suggested accounts for timeline feed testing
-          isLoading ? (
-            <View style={styles.centeredLoadingContainer}>
-              <ActivityIndicator size="large" color={secondaryColor || "#FFFFFF"} />
-            </View>
-          ) : forcedIsError ? ( // Use forced error state
-            <EmptyFeed 
-              type="error"
-              secondaryColor={secondaryColor} 
-              profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
-              feedKey={`${feedOption}-${userDid || 'default'}`}
-              onRetry={onRetry}
-              isProfileFeed={isHeaderFeed}
-              viewableAreaHeight={viewableAreaHeight}
-              feedOption={feedOption}
-              headerHeight={isHeaderFeed ? headerHeight : 0}
-            />
-          ) : feedOption === 'following' ? (
-            // Force suggested accounts for timeline feed
-            <EmptyFeed 
-              type="no-following"
-              secondaryColor={secondaryColor} 
-              profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
-              feedKey={`${feedOption}-${userDid || 'default'}`}
-              isProfileFeed={isHeaderFeed}
-              viewableAreaHeight={viewableAreaHeight}
-              feedOption={feedOption}
-              headerHeight={isHeaderFeed ? headerHeight : 0}
-            />
-          ) : (
-            <EmptyFeed 
-              type="no-videos"
-              secondaryColor={secondaryColor} 
-              profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
-              feedKey={`${feedOption}-${userDid || 'default'}`}
-              isProfileFeed={isHeaderFeed}
-              viewableAreaHeight={viewableAreaHeight}
-              feedOption={feedOption}
-              headerHeight={isHeaderFeed ? headerHeight : 0}
-            />
-          )
-        }
-        ListHeaderComponent={
-          headerComponent ? (
-            <View 
-              onLayout={isHeaderFeed ? onHeaderLayout : undefined}
-              style={isSmallDevice ? { paddingTop: insets.top } : undefined}
-            >
-              {headerComponent}
-            </View>
-          ) : null
-        }
-        refreshControl={refreshControl as any}
-        style={[
-          styles.flatList,
-          {
-            paddingTop: isSmallDevice ? 0 : insets.top,
-            backgroundColor: backgroundColor || '#000',
-          },
-        ]}
-        contentContainerStyle={[
-          styles.contentContainer,
-          displayFeed.length === 0 && styles.emptyContentContainer,
-          displayFeed.length === 0 ? { flex: 1, paddingBottom: 0 } : { paddingBottom: bottomNavBarHeight }, // Remove padding when empty to allow full height
-        ]}
-        ListFooterComponent={
-          !isLoading && !isError && !isFetchingNextPage && !hasNextPage && displayFeed.length > 0 ? (
-            <EmptyFeed
-              type="end"
-              secondaryColor={secondaryColor}
-              profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
-              feedKey={`end-of-feed-${feedOption}-${userDid || 'default'}`}
-              viewableAreaHeight={120}
-              feedOption={feedOption}
-              headerHeight={isHeaderFeed ? headerHeight : 0}
-            />
-          ) : null
-        }
-      />
+      {(() => {
+        const ListEl: any = ListComponent || Animated.FlatList;
+        const scrollProps = ListComponent
+          ? { onScroll: handleScroll, scrollEventThrottle: 16 }
+          : {
+              onScroll: Animated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                { useNativeDriver: true, listener: handleScroll }
+              ),
+              // Reduce JS scroll event frequency to lower overhead
+              scrollEventThrottle: 16 as const,
+            };
+        return (
+          <ListEl
+            ref={flatListRef}
+            key={`${feedOption}-${userDid || 'default'}`}
+            data={displayFeed}
+            renderItem={renderItem}
+            keyExtractor={(item: FeedItem, index: number) => `${item.post.uri}_${item.post.cid}_${index}`}
+            // Unified snapping: use pagingEnabled for all cases
+            pagingEnabled={true}
+            // Use snapToInterval for consistent snapping across all devices
+            snapToInterval={cardHeight}
+            decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.85}
+            removeClippedSubviews={true}
+            windowSize={5}
+            maxToRenderPerBatch={2}
+            updateCellsBatchingPeriod={50}
+            initialNumToRender={2}
+            showsVerticalScrollIndicator={false}
+            {...scrollProps}
+            directionalLockEnabled={true}
+            alwaysBounceVertical={false}
+            scrollEnabled={!isScrubbing}
+            nestedScrollEnabled={true}
+            onMomentumScrollEnd={onMomentumScrollEnd}
+            CellRendererComponent={CellRenderer}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={{
+              itemVisiblePercentThreshold: 50,
+              minimumViewTime: 0,
+            }}
+            getItemLayout={getItemLayout}
+            ListEmptyComponent={
+              isLoading ? (
+                <View style={styles.centeredLoadingContainer}>
+                  <ActivityIndicator size="large" color={secondaryColor || Colors.white} />
+                </View>
+              ) : forcedIsError ? (
+                <EmptyFeed 
+                  type="error"
+                  secondaryColor={secondaryColor} 
+                  profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
+                  onRetry={onRetry}
+                  isProfileFeed={isHeaderFeed}
+                  viewableAreaHeight={viewableAreaHeight}
+                  feedOption={feedOption}
+                />
+              ) : feedOption === 'following' ? (
+                <EmptyFeed 
+                  type="no-following"
+                  secondaryColor={secondaryColor} 
+                  profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
+                  isProfileFeed={isHeaderFeed}
+                  viewableAreaHeight={viewableAreaHeight}
+                  feedOption={feedOption}
+                />
+              ) : (
+                <EmptyFeed 
+                  type="no-videos"
+                  secondaryColor={secondaryColor} 
+                  profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
+                  isProfileFeed={isHeaderFeed}
+                  viewableAreaHeight={viewableAreaHeight}
+                  feedOption={feedOption}
+                />
+              )
+            }
+            ListHeaderComponent={headerComponent}
+            refreshControl={refreshControl as any}
+            style={[
+              styles.flatList,
+              {
+                backgroundColor: Colors.black,
+              },
+            ]}
+            contentContainerStyle={[
+              styles.contentContainer,
+              displayFeed.length === 0 && styles.emptyContentContainer,
+              displayFeed.length === 0
+                ? { flex: 1, paddingBottom: 0 }
+                : (isModal
+                    ? { paddingTop: centerPadding, paddingBottom: centerPadding }
+                    : { paddingBottom: viewportDimensions.bottomNavBarHeight }
+                  ),
+            ]}
+            ListFooterComponent={
+              !isLoading && !isError && !isFetchingNextPage && !hasNextPage && displayFeed.length > 0 ? (
+                <EmptyFeed
+                  type="end"
+                  secondaryColor={secondaryColor}
+                  profileColors={secondaryColor ? { backgroundColor: backgroundColor || '#000', textColor: secondaryColor } : undefined}
+                  viewableAreaHeight={120}
+                  feedOption={feedOption}
+                />
+              ) : null
+            }
+          />
+        );
+      })()}
       {isFeedDebugEnabled && (
         <FeedDebugger
           feedOption={feedOption}
@@ -897,17 +738,17 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         />
       )}
       
-      {/* Clear View Exit Button - positioned at screen level */}
-      {isSmallDevice && isClearViewMode && (
+      {/* Zen Exit Button */}
+      {isClearViewMode && (
         <TouchableOpacity 
           style={styles.clearViewExitButton}
           onPress={toggleClearViewMode}
           activeOpacity={0.7}
         >
           <Icon 
-            name="section-x" 
+            name="zen" 
             size={24} 
-            color="#fff" 
+            color={Colors.white} 
           />
         </TouchableOpacity>
       )}
@@ -918,7 +759,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 const styles = StyleSheet.create({
   flatList: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   contentContainer: {
     flexGrow: 1,
@@ -939,7 +780,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   footerLoader: {
     paddingVertical: 20,
@@ -951,7 +792,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: Dimensions.get('window').height,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   feedLoadingContainer: {
     width: '100%',

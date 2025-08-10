@@ -19,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import VideoProcessingService from '../services/VideoProcessingService';
 import * as FileSystem from 'expo-file-system';
 import { useClearView } from '../services/ClearViewContext';
+import { Colors } from '../components/ui/UI';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -31,18 +32,31 @@ interface BottomTabNavigatorProps {
 const homeScreenRef = React.createRef<HomeScreenRef>();
 
 // Create stack navigators for each tab that needs author profile access
-const HomeStack = ({ onLogout }: { onLogout: () => Promise<void> }) => (
+const HomeStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Promise<void>; setIsOnStackedScreen: (value: boolean) => void }) => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="HomeScreen">
+    <Stack.Screen 
+      name="HomeScreen"
+      listeners={{
+        focus: () => setIsOnStackedScreen(false),
+      }}
+    >
       {(props) => <HomeScreen {...props} ref={homeScreenRef} />}
     </Stack.Screen>
     <Stack.Screen 
       name="AuthorProfile" 
       children={(props) => <ProfileScreen {...props} onLogout={onLogout} />}
+      listeners={{
+        transitionEnd: (e: any) => { if (!e.data?.closing) setIsOnStackedScreen(true); },
+        transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
+      }}
     />
     <Stack.Screen 
       name="Channel" 
       children={(props) => <ChannelScreen {...props} />}
+      listeners={{
+        transitionEnd: (e: any) => { if (!e.data?.closing) setIsOnStackedScreen(true); },
+        transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
+      }}
     />
   </Stack.Navigator>
 );
@@ -60,14 +74,16 @@ const ExploreStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Prom
       name="AuthorProfile" 
       children={(props) => <ProfileScreen {...props} onLogout={onLogout} />}
       listeners={{
-        focus: () => setIsOnStackedScreen(true),
+        transitionEnd: (e: any) => { if (!e.data?.closing) setIsOnStackedScreen(true); },
+        transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
       }}
     />
     <Stack.Screen 
       name="Channel" 
       children={(props) => <ChannelScreen {...props} />}
       listeners={{
-        focus: () => setIsOnStackedScreen(true),
+        transitionEnd: (e: any) => { if (!e.data?.closing) setIsOnStackedScreen(true); },
+        transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
       }}
     />
   </Stack.Navigator>
@@ -86,14 +102,16 @@ const NotificationsStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () =
       name="AuthorProfile" 
       children={(props) => <ProfileScreen {...props} onLogout={onLogout} />}
       listeners={{
-        focus: () => setIsOnStackedScreen(true),
+        transitionEnd: (e: any) => { if (!e.data?.closing) setIsOnStackedScreen(true); },
+        transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
       }}
     />
     <Stack.Screen 
       name="Channel" 
       children={(props) => <ChannelScreen {...props} />}
       listeners={{
-        focus: () => setIsOnStackedScreen(true),
+        transitionEnd: (e: any) => { if (!e.data?.closing) setIsOnStackedScreen(true); },
+        transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
       }}
     />
   </Stack.Navigator>
@@ -113,7 +131,8 @@ const ProfileStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Prom
       name="AuthorProfile" 
       children={(props) => <ProfileScreen {...props} onLogout={onLogout} />}
       listeners={{
-        focus: () => setIsOnStackedScreen(true),
+        transitionEnd: (e: any) => { if (!e.data?.closing) setIsOnStackedScreen(true); },
+        transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
       }}
     />
   </Stack.Navigator>
@@ -229,7 +248,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
             backgroundColor: 'transparent',
             alignItems: 'center',
             justifyContent: 'center',
-            shadowColor: '#000',
+            shadowColor: Colors.black,
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0,
             shadowRadius: 0,
@@ -243,7 +262,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
             height: 36,
             borderRadius: 18,
             borderWidth: 1.75,
-            borderColor: '#fff',
+            borderColor: Colors.white,
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: 'transparent',
@@ -266,7 +285,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
               justifyContent: 'center',
               borderRadius: 20,
             }}>
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={Colors.white} />
             </View>
           )}
         </TouchableOpacity>
@@ -282,7 +301,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
         detachInactiveScreens: false,
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          backgroundColor: isSmallDevice && !isOnStackedScreen && (route.name === 'Explore' || route.name === 'Notifications') ? '#000' : (isSmallDevice ? 'rgba(0, 0, 0, 0.025)' : '#000'),
+          backgroundColor: isSmallDevice && (route.name === 'Explore' || route.name === 'Notifications') ? '#000' : (isSmallDevice ? 'rgba(0, 0, 0, 0.025)' : '#000'),
           height: getBottomNavBarHeight(insets),
           paddingBottom: Platform.OS === 'ios' ? insets.bottom : 20,
           paddingTop: isSmallDevice ? 2 : 10,
@@ -291,8 +310,8 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
           elevation: 0,
           // Ensure transparency works properly
           position: 'absolute',
-          // Hide tab bar in clear view mode on small devices
-          display: isSmallDevice && isClearViewMode ? 'none' : 'flex',
+          // Hide tab bar on stacked screens (after transition completes). Also hide in clear view mode.
+          display: (isOnStackedScreen || isClearViewMode) ? 'none' : 'flex',
         },
         tabBarActiveTintColor: isSmallDevice ? '#fff' : '#fff',
         tabBarInactiveTintColor: isSmallDevice ? 'rgba(255, 255, 255, 0.6)' : '#666',
@@ -362,7 +381,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
     >
       <Tab.Screen 
         name="Home" 
-        children={() => <HomeStack onLogout={onLogout} />}
+        children={() => <HomeStack onLogout={onLogout} setIsOnStackedScreen={setIsOnStackedScreen} />}
         options={{
           tabBarLabel: 'Home',
         }}

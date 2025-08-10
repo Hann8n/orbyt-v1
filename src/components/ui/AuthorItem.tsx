@@ -5,10 +5,9 @@ import { Avatar } from './UI';
 import VerificationBadge from '../features/verification/VerificationBadge';
 import Icon from './Icon';
 import { hexToRGBA } from '../../utils/formatting/colorUtils';
-import { UI } from '../../utils/formatting/Colors';
+import { Colors } from './UI';
 import { HomeStackParamList } from '../../navigation/types';
 import { useProfile } from '../../services/cache/ProfileCache';
-import { Colors } from './UI';
 import { navigateToUserProfile } from '../../navigation/profileNavigation';
 
 interface AuthorItemProps {
@@ -104,7 +103,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           size={config.avatarSize}
           style={[
             styles.avatar,
-            { borderColor: UI.BORDER.PRIMARY },
+            { borderColor: Colors.gray },
           ]}
         />
         <View style={styles.textContainer}>
@@ -129,7 +128,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           <Text style={[
             styles.handle,
             { 
-              color: Colors.TEXT.SECONDARY,
+              color: Colors.lightGray,
               fontSize: config.handleFontSize,
             }
           ]} numberOfLines={1}>
@@ -205,7 +204,7 @@ const styles = StyleSheet.create({
     minWidth: 80,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,

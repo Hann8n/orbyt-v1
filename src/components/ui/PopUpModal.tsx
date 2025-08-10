@@ -93,17 +93,17 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: '80%',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
   modalTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
@@ -131,10 +131,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   primaryButton: {
-    backgroundColor: Colors.BRAND.ACCENT,
+    backgroundColor: Colors.darkGray,
   },
   actionButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
   },

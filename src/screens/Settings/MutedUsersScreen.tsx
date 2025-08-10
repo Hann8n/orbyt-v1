@@ -11,7 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon } from '../../components/ui/Icon';
-import { BRAND, TEXT, UI, STATUS } from '../../utils/formatting/Colors';
+import { Colors } from '../../components/ui/UI';
 import { ModerationService } from '../../services/ModerationService';
 import AtprotoService from '../../services/api/AtprotoService';
 
@@ -95,7 +95,7 @@ const MutedUsersScreen: React.FC = () => {
             {item.avatar ? (
               <Image source={{ uri: item.avatar }} style={styles.avatar} />
             ) : (
-              <Icon name="user" size={20} color={TEXT.SECONDARY} />
+              <Icon name="user" size={20} color={Colors.lightGray} />
             )}
           </View>
           <View style={styles.userDetails}>
@@ -115,10 +115,10 @@ const MutedUsersScreen: React.FC = () => {
           activeOpacity={0.7}
         >
           {isUnmuting ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={Colors.white} />
           ) : (
             <>
-              <Icon name="volume-2" size={16} color="#fff" />
+              <Icon name="volume-2" size={16} color={Colors.white} />
               <Text style={styles.unmuteButtonText}>Unmute</Text>
             </>
           )}
@@ -136,13 +136,13 @@ const MutedUsersScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <BackArrowIcon size={24} color={TEXT.PRIMARY} />
+          <BackArrowIcon size={28} color={Colors.white} />
         </TouchableOpacity>
-          <Text style={styles.headerTitle}>Muted Users</Text>
+          <Text style={styles.headerTitle}>muted users</Text>
           <View style={styles.headerRight} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BRAND.SECONDARY} />
+          <ActivityIndicator size="large" color={Colors.white} />
           <Text style={styles.loadingText}>Loading muted users...</Text>
         </View>
       </View>
@@ -157,9 +157,9 @@ const MutedUsersScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <BackArrowIcon size={24} color={TEXT.PRIMARY} />
+          <BackArrowIcon size={28} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Muted Users</Text>
+                  <Text style={styles.headerTitle}>muted users</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -171,10 +171,10 @@ const MutedUsersScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="volume-x" size={48} color={TEXT.SECONDARY} />
-            <Text style={styles.emptyTitle}>No Muted Users</Text>
+            <Icon name="volume-x" size={48} color={Colors.lightGray} />
+            <Text style={styles.emptyTitle}>no muted users</Text>
             <Text style={styles.emptyDescription}>
-              You haven't muted any users yet. Muted users' posts won't appear in your feed, but they can still see your content.
+              you haven't muted any users yet. muted users' posts won't appear in your feed, but they can still see your content.
             </Text>
           </View>
         }
@@ -186,7 +186,7 @@ const MutedUsersScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: UI.BACKGROUND.PRIMARY,
+    backgroundColor: Colors.black,
   },
   header: {
     flexDirection: 'row',
@@ -195,21 +195,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
-    backgroundColor: UI.BACKGROUND.PRIMARY,
+    borderBottomColor: Colors.gray,
+    backgroundColor: Colors.black,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: UI.BACKGROUND.SECONDARY,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
   },
   headerTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -226,12 +222,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: UI.BACKGROUND.SECONDARY,
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   userInfo: {
     flexDirection: 'row',
@@ -242,7 +238,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: UI.BACKGROUND.TERTIARY,
+    backgroundColor: Colors.mediumGray,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -256,13 +252,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   displayName: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
   },
   handle: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     marginTop: 2,
@@ -270,15 +266,15 @@ const styles = StyleSheet.create({
   unmuteButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: BRAND.ACCENT,
+    backgroundColor: Colors.darkGray,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 22,
     minWidth: 100,
     height: 40,
     borderWidth: 1,
-    borderColor: BRAND.ACCENT,
-    shadowColor: '#000',
+    borderColor: Colors.lightGray,
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -288,7 +284,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   unmuteButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Firma-Medium',
@@ -296,12 +292,12 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: UI.BACKGROUND.PRIMARY,
+    backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
     marginTop: 12,
@@ -314,7 +310,7 @@ const styles = StyleSheet.create({
     paddingTop: 120,
   },
   emptyTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 20,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -322,7 +318,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyDescription: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Regular',
     textAlign: 'center',

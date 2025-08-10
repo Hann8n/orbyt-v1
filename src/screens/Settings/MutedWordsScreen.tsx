@@ -10,7 +10,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon } from '../../components/ui/Icon';
-import { BRAND, TEXT, UI, STATUS } from '../../utils/formatting/Colors';
+import { Colors } from '../../components/ui/UI';
+import UI from '../../components/ui/UI';
 import { ModerationService } from '../../services/ModerationService';
 
 interface MutedWord {
@@ -79,7 +80,7 @@ const MutedWordsScreen: React.FC = () => {
       <View style={styles.wordItem}>
         <View style={styles.wordInfo}>
           <View style={styles.wordIconContainer}>
-            <Icon name="message-delete" size={24} color={TEXT.PRIMARY} />
+            <Icon name="message-delete" size={24} color={Colors.white} />
           </View>
           <View style={styles.wordDetails}>
             <Text style={styles.wordText}>{item.word}</Text>
@@ -98,10 +99,10 @@ const MutedWordsScreen: React.FC = () => {
           activeOpacity={0.7}
         >
           {isRemoving ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={Colors.white} />
           ) : (
             <>
-                              <Icon name="section-x" size={16} color="#fff" />
+                              <Icon name="section-x" size={16} color={Colors.white} />
               <Text style={styles.removeButtonText}>Remove</Text>
             </>
           )}
@@ -114,18 +115,18 @@ const MutedWordsScreen: React.FC = () => {
     return (
       <View style={[styles.safeArea, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <BackArrowIcon size={24} color={TEXT.PRIMARY} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Muted Words</Text>
+                  <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <BackArrowIcon size={28} color={Colors.white} />
+        </TouchableOpacity>
+          <Text style={styles.headerTitle}>muted words</Text>
           <View style={styles.headerRight} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BRAND.SECONDARY} />
+          <ActivityIndicator size="large" color={Colors.white} />
           <Text style={styles.loadingText}>Loading muted words...</Text>
         </View>
       </View>
@@ -140,9 +141,9 @@ const MutedWordsScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <BackArrowIcon size={24} color={TEXT.PRIMARY} />
+          <BackArrowIcon size={28} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Muted Words</Text>
+                  <Text style={styles.headerTitle}>muted words</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -154,10 +155,10 @@ const MutedWordsScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="message-delete" size={24} color={TEXT.PRIMARY} />
-            <Text style={styles.emptyTitle}>No Muted Words</Text>
+            <Icon name="message-delete" size={24} color={Colors.white} />
+            <Text style={styles.emptyTitle}>no muted words</Text>
             <Text style={styles.emptyDescription}>
-              You haven't muted any words yet. Posts containing muted words won't appear in your feed.
+              you haven't muted any words yet. posts containing muted words won't appear in your feed.
             </Text>
           </View>
         }
@@ -169,7 +170,7 @@ const MutedWordsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: UI.BACKGROUND.PRIMARY,
+    backgroundColor: Colors.black,
   },
   header: {
     flexDirection: 'row',
@@ -178,21 +179,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
-    backgroundColor: UI.BACKGROUND.PRIMARY,
+    borderBottomColor: Colors.gray,
+    backgroundColor: Colors.black,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: UI.BACKGROUND.SECONDARY,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
   },
   headerTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -209,12 +206,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: UI.BACKGROUND.SECONDARY,
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   wordInfo: {
     flexDirection: 'row',
@@ -225,7 +222,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: UI.BACKGROUND.TERTIARY,
+    backgroundColor: Colors.mediumGray,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -234,13 +231,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   wordText: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
   },
   wordDate: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     marginTop: 2,
@@ -248,15 +245,15 @@ const styles = StyleSheet.create({
   removeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: STATUS.ERROR,
+    backgroundColor: UI.Colors.STATUS.ERROR,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 22,
     minWidth: 100,
     height: 40,
     borderWidth: 1,
-    borderColor: STATUS.ERROR,
-    shadowColor: '#000',
+    borderColor: UI.Colors.STATUS.ERROR,
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -266,7 +263,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   removeButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Firma-Medium',
@@ -274,12 +271,12 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: UI.BACKGROUND.PRIMARY,
+    backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
     marginTop: 12,
@@ -292,7 +289,7 @@ const styles = StyleSheet.create({
     paddingTop: 120,
   },
   emptyTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 20,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -300,7 +297,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyDescription: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Regular',
     textAlign: 'center',

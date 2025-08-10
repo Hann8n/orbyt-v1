@@ -39,7 +39,8 @@ interface ChannelHeaderProps {
   onEdit?: (channelId: string) => void;
   onDelete?: (channelId: string) => void;
   children?: React.ReactNode;
-  feedKey?: string; // Feed-specific header visibility key
+  applySafeArea?: boolean;
+  headerStyle?: any;
 }
 
 
@@ -210,7 +211,8 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   onEdit,
   onDelete,
   children,
-  feedKey,
+  applySafeArea = false,
+  headerStyle,
 }) => {
   const navigation = useNavigation<any>();
 
@@ -281,7 +283,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
 
     // Create experimental badge if channel is experimental
     const experimentalBadge = channel.isExperimental ? (
-      <Icon name="bug" size={18} color="#4CAF50" style={styles.experimentalIcon} />
+      <Icon name="bug" size={18} color={Colors.lightGreen} style={styles.experimentalIcon} />
     ) : undefined;
 
 
@@ -315,7 +317,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           channel={channel}
           textColor={safeTextColor}
           backgroundColor={safeBackgroundColor}
-          accentColor={channelColors.accentColor || '#00D4FF'}
+          accentColor={channelColors.accentColor || '#000000'}
         />
       )}
       {children}
@@ -335,7 +337,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       skeleton={skeleton}
       showGradient={true} // Re-enable gradient for channels
       gradientType="channel" // Use channel-specific gradient
-      feedKey={feedKey}
+      applySafeArea={applySafeArea}
+      style={{ opacity: 1 }}
+      contentStyle={[headerStyle]}
     >
       {headerChildren}
     </UniversalHeader>

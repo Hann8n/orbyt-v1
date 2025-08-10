@@ -25,6 +25,7 @@ import { RootStackParamList } from '../navigation/types';
 import BottomToolBar from '../components/ui/BottomToolBar';
 import { isSmallScreen } from '../utils/helpers/screenSize';
 import VideoProcessingService, { VideoSegment as ProcessingVideoSegment } from '../services/VideoProcessingService';
+import { Colors } from '../components/ui/UI';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16;
@@ -335,7 +336,7 @@ const CreateScreen: React.FC = () => {
     if (!hasPermission) {
       return (
         <View style={styles.warningContainer}>
-          <Icon name="camera" size={64} color="#fff" style={styles.errorIcon} />
+          <Icon name="camera" size={64} color={Colors.white} style={styles.errorIcon} />
           <Text style={styles.warningText}>Please enable camera permissions</Text>
           <TouchableOpacity style={styles.button} activeOpacity={0.7} onPress={requestPermission}>
             <Text style={styles.buttonText}>Open Settings</Text>
@@ -347,7 +348,7 @@ const CreateScreen: React.FC = () => {
     if (!device) {
       return (
         <View style={styles.warningContainer}>
-          <Icon name="camera" size={64} color="#fff" style={styles.errorIcon} />
+          <Icon name="camera" size={64} color={Colors.white} style={styles.errorIcon} />
           <Text style={styles.warningText}>No Camera Found</Text>
           <TouchableOpacity style={styles.button} activeOpacity={0.7} onPress={() => Linking.openSettings()}>
             <Text style={styles.buttonText}>Open Settings</Text>
@@ -378,7 +379,7 @@ const CreateScreen: React.FC = () => {
                   style={{
                     width: `${(segment.duration / MAX_DURATION) * 100}%`,
                     height: '100%',
-                    backgroundColor: '#5a34df',
+                    backgroundColor: Colors.darkGray,
                   }}
                 />
               );
@@ -393,7 +394,7 @@ const CreateScreen: React.FC = () => {
                       style={{
                         width: `${currentSegmentProgress}%`,
                         height: '100%',
-                        backgroundColor: '#ff2d55',
+                        backgroundColor: Colors.red,
                       }}
                     />
                   )}
@@ -473,17 +474,17 @@ function useMediaLibraryPermissions() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   warningContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
-    backgroundColor: '#000',
+    backgroundColor: Colors.darkGray,
   },
   warningText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 20,
     fontFamily: 'Firma-Medium',
     textAlign: 'center',
@@ -495,7 +496,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   warningBackButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
     textAlign: 'center',
@@ -510,7 +511,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   text: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 18,
     fontFamily: 'Firma-Medium',
     textAlign: 'center',
@@ -519,23 +520,23 @@ const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.gray,
     marginTop: 20,
   },
   buttonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
   },
   combinedProgressBarContainer: {
     width: '100%',
     height: '100%',
-    backgroundColor: 'black',
+    backgroundColor: Colors.darkGray,
     position: 'relative',
     overflow: 'hidden',
     minHeight: isSmallScreen() ? 4 : 2,
@@ -551,7 +552,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -580,7 +581,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   doneButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
     fontFamily: 'Firma-Medium',
   },
@@ -598,14 +599,14 @@ const styles = StyleSheet.create({
   },
   segmentSeparator: {
     width: 0,
-    backgroundColor: '#000000',
+    backgroundColor: Colors.darkGray,
     height: '100%',
   },
   progressSegmentsContainer: {
     flexDirection: 'row',
     height: '100%',
     width: '100%',
-    backgroundColor: 'black',
+    backgroundColor: Colors.darkGray,
     minHeight: isSmallScreen() ? 4 : 2,
   },
   sideButton: {

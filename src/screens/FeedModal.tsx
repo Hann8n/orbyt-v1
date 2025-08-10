@@ -12,13 +12,17 @@ import Animated, {
   Extrapolate,
 } from 'react-native-reanimated';
 import FeedRenderer from '../components/features/feed/FeedRenderer';
-import Icon from '../components/ui/Icon';
+import { BackArrowIcon } from '../components/ui/Icon';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { feedService } from '../services/FeedService';
+import { getViewportDimensions } from '../utils/helpers/screenSize';
+import { Colors } from '../components/ui/UI';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const FeedModal: React.FC = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const route = useRoute<any>();
   const {
     feed: feedFromParams,
@@ -40,9 +44,12 @@ const FeedModal: React.FC = () => {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
 
+  // Get viewport dimensions for modal
+  const viewportDimensions = getViewportDimensions(true, false);
+  
   // Calculate initial scroll offset for the list
-  // Each video card takes up the full screen height
-  const initialPosition = initialIndexRaw * SCREEN_HEIGHT;
+  // Each video card takes up the full viewport height
+  const initialPosition = initialIndexRaw * viewportDimensions.height;
 
   // Dismiss modal
   const handleClose = () => {
@@ -109,7 +116,16 @@ const FeedModal: React.FC = () => {
   return (
     <PanGestureHandler onGestureEvent={gestureHandler}>
       <Animated.View style={[styles.container, animatedStyle]}>
-        {/* Removed grab bar/swipe indicator and X close button */}
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={handleClose}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={[styles.backButton, { top: insets.top + 15 }]}
+          activeOpacity={0.7}
+        >
+          <BackArrowIcon size={32} color={Colors.white} />
+        </TouchableOpacity>
         <FeedRenderer
           feedOption={feedOption}
           userDid={userDid}
@@ -133,7 +149,7 @@ const FeedModal: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent', // Make background transparent
+    backgroundColor: 'transparent',
   },
   closeButton: {
     position: 'absolute',
@@ -146,12 +162,8 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: 48,
-    left: 24,
+    left: 16,
     zIndex: 10,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 24,
-    padding: 8,
   },
   swipeIndicator: {
     position: 'absolute',

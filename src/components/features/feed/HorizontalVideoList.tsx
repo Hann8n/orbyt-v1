@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
 import { feedService } from '../../../services/FeedService';
+import { Colors } from '../../ui/UI';
 
 
 // Shared video item component (factored out from GridFeedView)
@@ -143,7 +144,7 @@ const HorizontalVideoList: React.FC<HorizontalVideoListProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'flex-start',
     width: '100%',
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
   gridItem: {
     width: ITEM_WIDTH,
     height: ITEM_HEIGHT,
-    backgroundColor: '#111',
+    backgroundColor: Colors.darkGray,
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 14,
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#1c1c1c',
+    backgroundColor: Colors.darkGray,
     borderRadius: 11,
   },
   warningOverlay: {
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   warningText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 12,
     textAlign: 'center',
     fontWeight: '600',

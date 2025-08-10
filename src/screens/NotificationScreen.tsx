@@ -20,9 +20,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
 import ProfileCache, { profileKeys } from '../services/cache/ProfileCache';
-import { Avatar, Icon } from '../components/ui/UI';
+import { Avatar, Icon, Colors } from '../components/ui/UI';
 import { NotificationIcon } from '../components/ui/Icon';
-import { BRAND, TEXT, UI } from '../utils/formatting/Colors';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import { getBottomNavBarHeight } from '../utils/helpers/screenSize';
 import { navigateToUserProfile } from '../navigation/profileNavigation';
@@ -31,19 +30,19 @@ const NotificationShimmer = () => (
   <View style={styles.notificationItem}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={[styles.profileImage, { borderWidth: 1, borderColor: UI.BORDER.PRIMARY }]}
-      shimmerColors={UI.SHIMMER}
+      style={[styles.profileImage, { borderWidth: 1, borderColor: Colors.gray }]}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.notificationContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: '40%', height: 16, marginBottom: 4, borderRadius: 2 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: '55%', height: 16, borderRadius: 2 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
   </View>
@@ -91,7 +90,7 @@ const ActivityHeader = () => (
   <View style={styles.headerContainer}>
     <NotificationIcon 
       size={24} 
-      color={TEXT.PRIMARY} 
+      color={Colors.white} 
     />
     <Text style={styles.header}>activity</Text>
   </View>
@@ -224,7 +223,7 @@ const NotificationScreen: React.FC = () => {
               <VerificationBadge 
                 handle={author.handle} 
                 textSize={14} 
-                textColor={TEXT.PRIMARY}
+                textColor={Colors.white}
               />
             )}
           </View>
@@ -276,14 +275,14 @@ const NotificationScreen: React.FC = () => {
   if (isError) {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY} />
+        <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
         <ActivityHeader />
         <View style={[styles.errorContainer, { paddingBottom: bottomNavBarHeight }]}>
           <Text style={styles.errorText}>
-            Something went wrong loading notifications.
+            something went wrong loading notifications.
           </Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
+            <Text style={styles.retryButtonText}>try again</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -292,7 +291,7 @@ const NotificationScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY} />
+      <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
       
       {/* Content */}
       <FlatList
@@ -317,7 +316,7 @@ const NotificationScreen: React.FC = () => {
           <RefreshControl
             refreshing={isRefetching && !isFetchingNextPage}
             onRefresh={refetch}
-            tintColor={TEXT.PRIMARY}
+            tintColor={Colors.white}
           />
         }
         onEndReached={() => {
@@ -339,12 +338,12 @@ const NotificationScreen: React.FC = () => {
         viewabilityConfig={viewabilityConfig}
         ListEmptyComponent={!isLoading ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No video activity yet</Text>
+            <Text style={styles.emptyText}>no video activity yet</Text>
           </View>
         ) : null}
         ListFooterComponent={isFetchingNextPage ? (
           <View style={styles.loadingMoreContainer}>
-            <ActivityIndicator size="small" color={TEXT.PRIMARY} />
+            <ActivityIndicator size="small" color={Colors.white} />
           </View>
         ) : null}
       />
@@ -355,7 +354,7 @@ const NotificationScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.PRIMARY,
+    backgroundColor: Colors.black,
   },
   headerContainer: {
     flexDirection: 'row',
@@ -363,10 +362,10 @@ const styles = StyleSheet.create({
     paddingRight: 20,
     paddingTop: 15,
     paddingBottom: 5,
-    backgroundColor: BRAND.PRIMARY,
+    backgroundColor: 'transparent',
   },
   header: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 30,
     fontFamily: 'Firma-Bold',
     marginLeft: 8,
@@ -390,7 +389,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   notificationContent: {
     flex: 1,
@@ -398,13 +397,13 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   authorName: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 14,
     marginBottom: 2,
     fontFamily: 'Firma-SemiBold',
   },
   actionText: {
-    color: TEXT.LIGHT_GREY,
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
   },
@@ -415,20 +414,20 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
     fontFamily: 'Firma-Medium',
   },
   retryButton: {
-    backgroundColor: BRAND.SECONDARY,
+    backgroundColor: Colors.white,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
   },
   retryButtonText: {
-    color: BRAND.PRIMARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-Bold',
@@ -439,7 +438,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: {
-    color: TEXT.TERTIARY,
+    color: Colors.gray,
     fontSize: 16,
     textAlign: 'center',
     fontFamily: 'Firma-Medium',

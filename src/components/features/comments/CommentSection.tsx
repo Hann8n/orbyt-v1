@@ -33,13 +33,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { createQueryKeys } from '../../../services/FeedService';
-import { INTERACTIVE, BRAND } from '../../../utils/formatting/Colors';
+import { Colors } from '../../ui/UI';
+import UI from '../../ui/UI';
+import Icon from '../../ui/Icon';
 import ProfileCache, { profileKeys } from '../../../services/cache/ProfileCache';
 import VerificationBadge from '../verification/VerificationBadge';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate, { formatPostDate } from '../../ui/RelativeDate';
-import UI from '../../ui/UI';
-import { Icon } from '../../ui/UI';
 import PopUpModal from '../../ui/PopUpModal';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView, NativeViewGestureHandler } from 'react-native-gesture-handler';
@@ -139,24 +139,24 @@ const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => (
         borderRadius: 20,
         marginRight: 12,
         borderWidth: 1,
-        borderColor: '#333',
+        borderColor: Colors.mediumGray,
       }}
     />
     <View style={{ flex: 1, justifyContent: 'center' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14, marginBottom: 2 }}>
+        <Text style={{ color: Colors.white, fontWeight: 'bold', fontSize: 14, marginBottom: 2 }}>
           {like.actor.displayName || like.actor.handle}
         </Text>
         {like.actor.handle && (
           <VerificationBadge
             handle={like.actor.handle}
             textSize={14}
-            textColor="#FFFFFF"
+            textColor={Colors.white}
             autoPosition={true}
           />
         )}
       </View>
-      <Text style={{ color: '#DDDDDD', fontSize: 14 }}>
+      <Text style={{ color: Colors.white, fontSize: 14 }}>
         @{like.actor.handle}
       </Text>
     </View>
@@ -296,8 +296,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, [onDismiss]);
 
   const tabOptions: TabOption[] = [
-    { id: 'comments', label: totalComments > 0 ? `comments ${formatNumber(totalComments)}` : 'Comments' },
-    { id: 'likes', label: totalLikes > 0 ? `likes ${formatNumber(totalLikes)}` : 'Likes' },
+    { id: 'comments', label: totalComments > 0 ? `comments ${formatNumber(totalComments)}` : 'comments' },
+    { id: 'likes', label: totalLikes > 0 ? `likes ${formatNumber(totalLikes)}` : 'likes' },
   ];
 
   const {
@@ -351,8 +351,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       styles.inputContainer,
       {
         paddingBottom: Math.max(insets.bottom, 12),
-        backgroundColor: '#000',
-        borderTopColor: '#333',
+        backgroundColor: Colors.black,
+        borderTopColor: Colors.mediumGray,
         alignItems: 'flex-start',
       },
     ]}>
@@ -364,7 +364,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               styles.input,
               {
                 backgroundColor: 'transparent',
-                color: '#fff',
+                color: Colors.white,
                 borderColor: 'transparent',
                 flex: 1,
                 borderTopRightRadius: 0,
@@ -377,8 +377,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 fontFamily: 'Firma-SemiBold',
               },
             ]}
-            placeholder={replyContext ? `Reply to ${replyContext.authorName}...` : (totalComments === 0 ? 'Add a comment...' : 'say something nice...')}
-            placeholderTextColor="#cfd6e8"
+            placeholder={replyContext ? `reply to ${replyContext.authorName}...` : (totalComments === 0 ? 'add a comment...' : 'say something nice...')}
+            placeholderTextColor={Colors.white}
             multiline
             value={newCommentText}
             onChangeText={setNewCommentText}
@@ -388,7 +388,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           />
           {(newCommentText.trim() || replyContext) && (
             <>
-              <View style={{ width: 1, backgroundColor: '#333', alignSelf: 'stretch', marginVertical: 6 }} />
+              <View style={{ width: 1, backgroundColor: Colors.mediumGray, alignSelf: 'stretch', marginVertical: 6 }} />
               <TouchableOpacity
                 style={{
                   paddingHorizontal: 10,
@@ -404,7 +404,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 <Icon 
                   name={replyContext && !newCommentText.trim() ? "close" : "send-plane-fill"} 
                   size={22} 
-                  color={isPosting || (!newCommentText.trim() && !replyContext) || charCount > MAX_COMMENT_LENGTH ? '#ccc' : '#fff'} 
+                  color={Colors.white} 
                 />
               </TouchableOpacity>
             </>
@@ -450,29 +450,29 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onClose={handleClose}
         keyboardBehavior="extend"
         style={{ zIndex: 100 }}
-        backgroundStyle={{ backgroundColor: '#000', borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTopWidth: 0.5, borderTopColor: '#333' }}
-        handleIndicatorStyle={{ backgroundColor: '#666', width: 40, height: 5 }}
+        backgroundStyle={{ backgroundColor: Colors.black, borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTopWidth: 0.5, borderTopColor: Colors.mediumGray }}
+        handleIndicatorStyle={{ backgroundColor: Colors.gray, width: 40, height: 5 }}
         enableDynamicSizing={false}
       >
-        <View style={{ width: '100%', backgroundColor: '#000', paddingHorizontal: 10, paddingTop: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
+        <View style={{ width: '100%', backgroundColor: Colors.black, paddingHorizontal: 10, paddingTop: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
           <TabNavigation
             tabs={tabOptions}
             activeTab={activeTab}
             onTabPress={handleTabPress as any}
-            textColor="#FFFFFF"
+            textColor={Colors.white}
             backgroundColor="transparent"
             style={{ marginBottom: 0, paddingVertical: 0, marginTop: 0 }}
           />
           <RelativeDate
             dateString={post.indexedAt}
-            style={{ color: '#888', fontSize: 15, marginLeft: 10 }}
+            style={{ color: Colors.lightGray, fontSize: 15, marginLeft: 10 }}
           />
         </View>
         {activeTab === 'comments' ? (
           totalComments === 0 ? (
             <View style={{ flex: 1, justifyContent: 'space-between', minHeight: 220, paddingHorizontal: 0 }}>
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
-                <Text style={{ color: '#cfd6e8', fontSize: 17, textAlign: 'center', fontWeight: '600', fontFamily: 'Firma-SemiBold' }}>No comments yet</Text>
+                <Text style={{ color: Colors.white, fontSize: 17, textAlign: 'center', fontWeight: '600', fontFamily: 'Firma-SemiBold' }}>no comments yet</Text>
               </View>
               {renderTextInput()}
             </View>
@@ -483,30 +483,30 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8, paddingHorizontal: 0 }}>
                   <ShimmerPlaceholder
                     LinearGradient={LinearGradient}
-                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, borderWidth: 1, borderColor: '#333' }}
-                    shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, borderWidth: 1, borderColor: Colors.mediumGray }}
+                    shimmerColors={Colors.SHIMMER.PRIMARY}
                   />
                   <View style={{ flex: 1, justifyContent: 'center' }}>
                     <ShimmerPlaceholder
                       LinearGradient={LinearGradient}
                       style={{ width: '50%', height: 14, borderRadius: 3, marginBottom: 2 }}
-                      shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                      shimmerColors={Colors.SHIMMER.PRIMARY}
                     />
                     <ShimmerPlaceholder
                       LinearGradient={LinearGradient}
                       style={{ width: '35%', height: 14, borderRadius: 3, marginBottom: 4 }}
-                      shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                      shimmerColors={Colors.SHIMMER.PRIMARY}
                     />
                     <ShimmerPlaceholder
                       LinearGradient={LinearGradient}
                       style={{ width: '85%', height: 15, borderRadius: 4, marginBottom: 6 }}
-                      shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                      shimmerColors={Colors.SHIMMER.PRIMARY}
                     />
                   </View>
                 </View>
               )}
               keyExtractor={(_, idx) => `shimmer-${idx}`}
-              contentContainerStyle={{ paddingBottom: 8, backgroundColor: '#000', paddingHorizontal: 10 }}
+              contentContainerStyle={{ paddingBottom: 8, backgroundColor: Colors.black, paddingHorizontal: 10 }}
             />
           ) : (
             <>
@@ -516,7 +516,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 getItemCount={(data) => data.length}
                 getItem={(data, index) => data[index]}
                 renderItem={renderCommentItem}
-                contentContainerStyle={{ paddingBottom: 8, backgroundColor: '#000', paddingHorizontal: 10 }}
+                contentContainerStyle={{ paddingBottom: 8, backgroundColor: Colors.black, paddingHorizontal: 10 }}
                 keyboardShouldPersistTaps="handled"
                 onEndReached={() => {
                   if (hasNextCommentsPage && !isFetchingNextCommentsPage) {
@@ -535,7 +535,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         ) : (
           totalLikes === 0 ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 220, paddingHorizontal: 24 }}>
-              <Text style={{ color: '#cfd6e8', fontSize: 17, textAlign: 'center', fontWeight: '600', fontFamily: 'Firma-SemiBold' }}>No likes yet</Text>
+                              <Text style={{ color: Colors.white, fontSize: 17, textAlign: 'center', fontWeight: '600', fontFamily: 'Firma-SemiBold' }}>no likes yet</Text>
             </View>
           ) : likesLoading ? (
             <BottomSheetFlatList
@@ -544,25 +544,25 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 0 }}>
                   <ShimmerPlaceholder
                     LinearGradient={LinearGradient}
-                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, borderWidth: 1, borderColor: '#333' }}
-                    shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, borderWidth: 1, borderColor: Colors.mediumGray }}
+                    shimmerColors={Colors.SHIMMER.PRIMARY}
                   />
                   <View style={{ flex: 1, justifyContent: 'center' }}>
                     <ShimmerPlaceholder
                       LinearGradient={LinearGradient}
                       style={{ width: '40%', height: 16, borderRadius: 2, marginBottom: 4 }}
-                      shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                      shimmerColors={Colors.SHIMMER.PRIMARY}
                     />
                     <ShimmerPlaceholder
                       LinearGradient={LinearGradient}
                       style={{ width: '55%', height: 16, borderRadius: 2 }}
-                      shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+                      shimmerColors={Colors.SHIMMER.PRIMARY}
                     />
                   </View>
                 </View>
               )}
               keyExtractor={(_, idx) => `shimmer-like-${idx}`}
-              contentContainerStyle={{ paddingBottom: 8, backgroundColor: '#000', paddingHorizontal: 10 }}
+              contentContainerStyle={{ paddingBottom: 8, backgroundColor: Colors.black, paddingHorizontal: 10 }}
             />
           ) : (
             <BottomSheetVirtualizedList
@@ -571,7 +571,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               getItemCount={(data) => data.length}
               getItem={(data, index) => data[index]}
               renderItem={renderLikeItem}
-              contentContainerStyle={{ paddingBottom: 8, backgroundColor: '#000', paddingHorizontal: 10 }}
+              contentContainerStyle={{ paddingBottom: 8, backgroundColor: Colors.black, paddingHorizontal: 10 }}
               onEndReached={() => {
                 if (hasNextLikesPage && !isFetchingNextLikesPage) {
                   fetchNextLikesPage();
@@ -625,7 +625,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 }
                 if (altText) {
                   return (
-                    <Text style={{ color: '#ccc', fontSize: 15, marginTop: 16, textAlign: 'center', maxWidth: '90%' }}>{altText}</Text>
+                    <Text style={{ color: Colors.white, fontSize: 15, marginTop: 16, textAlign: 'center', maxWidth: '90%' }}>{altText}</Text>
                   );
                 }
                 return null;
@@ -636,7 +636,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             style={{ position: 'absolute', top: 40, right: 24, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 8 }}
             onPress={() => setFullscreenImageUri(null)}
           >
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold' }}>✕</Text>
+            <Text style={{ color: Colors.white, fontSize: 20, fontWeight: 'bold' }}>✕</Text>
           </Pressable>
         </Pressable>
       </Modal>
@@ -651,15 +651,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 8,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.white,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#eee',
+    borderBottomColor: Colors.white,
     zIndex: 10,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#222',
+    color: Colors.darkGray,
   },
   closeButton: {
     padding: 8,
@@ -669,23 +669,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: UI.Colors.BACKGROUND.PRIMARY,
+    backgroundColor: Colors.darkGray,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: UI.Colors.BORDER.PRIMARY,
+    borderTopColor: Colors.gray,
   },
   input: {
     flex: 1,
     minHeight: 40,
     maxHeight: 120,
     fontSize: 15,
-    backgroundColor: UI.Colors.BACKGROUND.ITEM,
+    backgroundColor: Colors.darkGray,
     borderRadius: 18,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginRight: 8,
-    color: UI.Colors.TEXT.PRIMARY,
+    color: UI.Colors.white,
     borderWidth: 1,
-    borderColor: UI.Colors.BORDER.PRIMARY,
+    borderColor: Colors.gray,
     textAlignVertical: 'center',
   },
   sendButton: {

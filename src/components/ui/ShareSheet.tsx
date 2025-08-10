@@ -16,7 +16,7 @@ import Icon, { ShareIcon, BlockIcon, ReportIcon, InterestedIcon, NotInterestedIc
 import AtprotoService from '../../services/api/AtprotoService';
 import ProfileCache from '../../services/cache/ProfileCache';
 import { useClearView } from '../../services/ClearViewContext';
-import { isSmallScreen, isTablet } from '../../utils/helpers/screenSize';
+import { Colors } from './UI';
 
 interface ShareSheetProps {
   visible: boolean;
@@ -48,7 +48,6 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   };
   const queryClient = useQueryClient();
   const { isClearViewMode, toggleClearViewMode } = useClearView();
-  const isSmallDevice = isSmallScreen() || isTablet();
   const SCREEN_WIDTH = Dimensions.get('window').width;
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [feedbackSent, setFeedbackSent] = useState<string | null>(null);
@@ -122,27 +121,27 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       // For current user, handle mute chat functionality instead of block
       if (isCurrentUser) {
         Alert.alert(
-          'Mute Chats',
-          'Do you want to mute all comments for this post?',
+          'mute chats',
+          'do you want to mute all comments for this post?',
           [
             {
-              text: 'Cancel',
+              text: 'cancel',
               style: 'cancel'
             },
             {
-              text: 'Mute',
+              text: 'mute',
               onPress: async () => {
                 try {
                   const success = await AtprotoService.mutePostComments(postUri);
                   if (success) {
-                    Alert.alert('Success', 'Comments have been muted for this post.');
+                    Alert.alert('success', 'comments have been muted for this post.');
                   } else {
-                    Alert.alert('Error', 'Failed to mute comments. Please try again.');
+                    Alert.alert('error', 'failed to mute comments. please try again.');
                   }
                   onDismiss();
                 } catch (error) {
                   console.error('Error muting comments:', error);
-                  Alert.alert('Error', 'Failed to mute comments. Please try again.');
+                  Alert.alert('error', 'failed to mute comments. please try again.');
                 }
               }
             }
@@ -158,15 +157,15 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
         setIsBlocked(false);
       } else {
         Alert.alert(
-          'Block User',
-          'Are you sure you want to block this user? They will not be able to see your posts or interact with you.',
+          'block user',
+          'are you sure you want to block this user? they will not be able to see your posts or interact with you.',
           [
             {
-              text: 'Cancel',
+              text: 'cancel',
               style: 'cancel'
             },
             {
-              text: 'Block',
+              text: 'block',
               style: 'destructive',
               onPress: async () => {
                 await AtprotoService.blockUser(authorDid);
@@ -180,7 +179,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       }
     } catch (error) {
       console.error('Error toggling block status:', error);
-      Alert.alert('Error', 'Failed to update block status. Please try again.');
+      Alert.alert('error', 'failed to update block status. please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -223,7 +222,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       }
       
       console.error('Error handling feedback:', error);
-      Alert.alert('Error', 'Failed to save your feedback. Please try again.');
+      Alert.alert('error', 'failed to save your feedback. please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -234,31 +233,31 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     // For current user, show delete option
     if (isCurrentUser) {
       Alert.alert(
-        'Delete Post',
-        'Are you sure you want to delete this post? This action cannot be undone.',
+        'delete post',
+        'are you sure you want to delete this post? this action cannot be undone.',
         [
           {
-            text: 'Cancel',
+            text: 'cancel',
             style: 'cancel'
           },
           {
-            text: 'Delete',
+            text: 'delete',
             style: 'destructive',
             onPress: async () => {
               setIsSubmitting(true);
               try {
                 const success = await AtprotoService.deletePost(postUri);
                 if (success) {
-                  Alert.alert('Success', 'Your post has been deleted.');
+                  Alert.alert('success', 'your post has been deleted.');
                   // Invalidate any related queries to refresh feeds
                   queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
                   onDismiss();
                 } else {
-                  Alert.alert('Error', 'Failed to delete post. Please try again.');
+                  Alert.alert('error', 'failed to delete post. please try again.');
                 }
               } catch (error) {
                 console.error('Error deleting post:', error);
-                Alert.alert('Error', 'Failed to delete post. Please try again.');
+                Alert.alert('error', 'failed to delete post. please try again.');
               } finally {
                 setIsSubmitting(false);
               }
@@ -269,35 +268,35 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     } else {
       // For other users' content, show report option
       Alert.alert(
-        'Report Content',
-        'Please select a reason for reporting this content:',
+        'report content',
+        'please select a reason for reporting this content:',
         [
           {
-            text: 'Cancel',
+            text: 'cancel',
             style: 'cancel'
           },
           {
-            text: 'Spam',
+            text: 'spam',
             onPress: () => reportContent('spam')
           },
           {
-            text: 'Harmful Content',
+            text: 'harmful content',
             onPress: () => reportContent('violation')
           },
           {
-            text: 'Misleading',
+            text: 'misleading',
             onPress: () => reportContent('misleading')
           },
           {
-            text: 'Sexual Content',
+            text: 'sexual content',
             onPress: () => reportContent('sexual')
           },
           {
-            text: 'Rude/Offensive',
+            text: 'rude/offensive',
             onPress: () => reportContent('rude')
           },
           {
-            text: 'Other',
+            text: 'other',
             onPress: () => reportContent('other')
           }
         ]
@@ -313,14 +312,14 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     try {
       const success = await AtprotoService.reportContent(postUri, reasonType);
       if (success) {
-        Alert.alert('Thank you', 'This content has been reported for review.');
+        Alert.alert('thank you', 'this content has been reported for review.');
         onDismiss();
       } else {
-        Alert.alert('Error', 'Failed to submit report. Please try again.');
+        Alert.alert('error', 'failed to submit report. please try again.');
       }
     } catch (error) {
       console.error('Error reporting content:', error);
-      Alert.alert('Error', 'Failed to submit report. Please try again.');
+      Alert.alert('error', 'failed to submit report. please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -348,7 +347,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       await Share.share({
         message: Platform.OS === 'ios' ? '' : shareUrl,
         url: Platform.OS === 'ios' ? shareUrl : '',
-        title: 'Check out this post on Bluesky',
+        title: 'check out this post on bluesky',
       });
       
       // Close the sheet after successful share
@@ -363,41 +362,41 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     const options = [
       {
         id: 'share',
-        label: 'Share',
+        label: 'share',
         icon: 'share',
         onPress: handleShare,
-        color: '#fff'
+        color: Colors.white
       }
     ];
 
-    // Add Clear View option for small devices (only when not in clear view mode)
-    if (isSmallDevice && !isClearViewMode) {
+    // Add Zen option (only when not in zen mode)
+    if (!isClearViewMode) {
       options.push({
-        id: 'clearView',
-        label: 'Clear View',
-        icon: 'eye',
+        id: 'zen',
+        label: 'zen',
+        icon: 'zen',
         onPress: async () => toggleClearViewMode(),
-        color: '#fff'
+        color: Colors.white
       });
     }
 
     // Add Block/Mute option
     options.push({
       id: 'block',
-      label: isCurrentUser ? 'Mute' : (isBlocked ? 'Unblock' : 'Block'),
+      label: isCurrentUser ? 'mute' : (isBlocked ? 'unblock' : 'block'),
       icon: 'block',
       onPress: handleBlockToggle,
-      color: '#fff'
+      color: Colors.white
     });
 
     // Add Report/Delete option
     options.push({
       id: 'report',
-      label: isCurrentUser ? 'Delete' : 'Report',
+      label: isCurrentUser ? 'delete' : 'report',
       icon: 'report',
       onPress: async () => handleReportOrDelete(),
-      color: isCurrentUser ? '#000' : '#000',
-      buttonColor: isCurrentUser ? '#FE4359' : '#FE4359'
+      color: isCurrentUser ? Colors.black : Colors.black,
+      buttonColor: isCurrentUser ? Colors.red : Colors.red
     } as any);
 
     return options;
@@ -430,8 +429,8 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     []
   );
 
-  // Don't render the sheet if in clear view mode on small devices
-  if (isSmallDevice && isClearViewMode) {
+  // Don't render the sheet if in clear view mode
+  if (isClearViewMode) {
     return null;
   }
 
@@ -459,12 +458,12 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
                   onPress={() => handleInterestFeedback('interested')}
                   disabled={isSubmitting}
                 >
-                  <InterestedIcon size={24} color={feedbackSent === 'interested' ? '#000' : '#fff'} />
+                  <InterestedIcon size={24} color={feedbackSent === 'interested' ? Colors.black : Colors.white} />
                   <Text style={[
                     styles.feedbackButtonText,
                     feedbackSent === 'interested' && styles.feedbackButtonTextSelected
                   ]}>
-                    Interested
+                    interested
                   </Text>
                 </TouchableOpacity>
                 
@@ -476,12 +475,12 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
                   onPress={() => handleInterestFeedback('not_interested')}
                   disabled={isSubmitting}
                 >
-                  <NotInterestedIcon size={24} color={feedbackSent === 'not_interested' ? '#000' : '#fff'} />
+                  <NotInterestedIcon size={24} color={feedbackSent === 'not_interested' ? Colors.black : Colors.white} />
                   <Text style={[
                     styles.feedbackButtonText,
                     feedbackSent === 'not_interested' && styles.feedbackButtonTextSelected
                   ]}>
-                    Not Interested
+                    not interested
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -511,6 +510,9 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
                 {option.icon === 'eye' && (
                   <Icon name="eye" size={32} color={option.color} />
                 )}
+                {option.icon === 'zen' && (
+                  <Icon name="zen" size={32} color={option.color} />
+                )}
                 {option.icon === 'block' && (
                   <BlockIcon size={32} color={option.color} />
                 )}
@@ -529,7 +531,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
             activeOpacity={0.7}
             disabled={isSubmitting}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={styles.cancelButtonText}>cancel</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetView>
@@ -539,15 +541,15 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
 
 const styles = StyleSheet.create({
   bottomSheetBackground: {
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
     borderTopWidth: 0.5,
-    borderTopColor: '#333',
+    borderTopColor: Colors.mediumGray,
     // Square top corners - no border radius
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
   },
   handleIndicator: {
-    backgroundColor: '#666',
+    backgroundColor: Colors.gray,
     width: 40,
     height: 5,
   },
@@ -566,31 +568,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.gray,
     width: '48%',
   },
   feedbackButtonSelected: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
+    backgroundColor: Colors.white,
+    borderColor: Colors.white,
   },
   feedbackButtonText: {
-    color: '#fff',
+    color: Colors.white,
     marginLeft: 8,
     fontSize: 16,
     fontWeight: '500',
     fontFamily: 'Firma-Medium',
   },
   feedbackButtonTextSelected: {
-    color: '#000',
+    color: Colors.black,
   },
   divider: {
     height: 1,
-    backgroundColor: '#333',
+    backgroundColor: Colors.gray,
     marginVertical: 15,
   },
   optionsContainer: {
@@ -609,25 +611,25 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 16,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.gray,
   },
   reportOption: {
-    backgroundColor: '#FE4359',
+    backgroundColor: Colors.red,
   },
   clearViewOptionActive: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
+    backgroundColor: Colors.white,
+    borderColor: Colors.white,
   },
   cancelContainer: {
     alignItems: 'center',
     marginTop: 20,
   },
   cancelButton: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.gray,
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -635,14 +637,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelButtonText: {
-    color: 'white',
+    color: Colors.white,
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
     fontFamily: 'Firma-SemiBold',
   },
   optionText: {
-    color: 'white',
+    color: Colors.white,
     fontSize: 15,
     fontWeight: '600',
     marginTop: 12,

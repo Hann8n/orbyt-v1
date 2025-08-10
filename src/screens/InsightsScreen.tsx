@@ -18,11 +18,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import AtprotoService from '../services/api/AtprotoService';
-import { Avatar, Icon } from '../components/ui/UI';
-import { BackArrowIcon } from '../components/ui/Icon';
+import { Avatar } from '../components/ui/UI';
+import Icon, { BackArrowIcon } from '../components/ui/Icon';
 import { Card, Button, Badge, Divider, Loading } from '../components/ui/UI';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
-import { BRAND, TEXT, UI } from '../utils/formatting/Colors';
+import { Colors } from '../components/ui/UI';
 import { RootStackParamList } from '../navigation/types';
 import { createQueryKeys } from '../services/FeedService';
 import { extractVideoUrl, extractVideoThumbnail } from '../utils/helpers/video';
@@ -117,29 +117,29 @@ const UserCardShimmer = () => (
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 60, height: 60, borderRadius: 30, marginBottom: 12 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 120, height: 24, marginBottom: 8, borderRadius: 4 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 100, height: 16, marginBottom: 20, borderRadius: 3 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <View style={styles.accountStats}>
         <View style={styles.accountStat}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 40, height: 18, marginBottom: 4, borderRadius: 3 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 60, height: 12, borderRadius: 2 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
         <View style={styles.accountStatDivider} />
@@ -147,12 +147,12 @@ const UserCardShimmer = () => (
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 40, height: 18, marginBottom: 4, borderRadius: 3 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 60, height: 12, borderRadius: 2 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
       </View>
@@ -166,17 +166,17 @@ const MetricCardShimmer = () => (
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 20, height: 20, marginBottom: 6, borderRadius: 3 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 40, height: 20, marginBottom: 2, borderRadius: 3 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 50, height: 11, borderRadius: 2 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
   </Card>
@@ -187,7 +187,7 @@ const ChartCardShimmer = () => (
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
       style={{ width: 140, height: 18, marginBottom: 20, borderRadius: 4 }}
-      shimmerColors={UI.SHIMMER}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.improvedChartContent}>
       {Array(4).fill(0).map((_, index) => (
@@ -195,17 +195,17 @@ const ChartCardShimmer = () => (
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={styles.improvedChartBarContainer}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 40, height: 11, marginTop: 8, borderRadius: 2 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 20, height: 10, marginTop: 4, borderRadius: 2 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
       ))}
@@ -219,23 +219,23 @@ const TopPostCardShimmer = () => (
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 30, height: 16, borderRadius: 8 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 80, height: 12, borderRadius: 2 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
       style={{ width: '100%', height: 16, marginBottom: 8, borderRadius: 3 }}
-      shimmerColors={UI.SHIMMER}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
       style={{ width: '70%', height: 16, marginBottom: 16, borderRadius: 3 }}
-      shimmerColors={UI.SHIMMER}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.topPostStats}>
       {Array(3).fill(0).map((_, index) => (
@@ -243,12 +243,12 @@ const TopPostCardShimmer = () => (
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 16, height: 16, marginRight: 4, borderRadius: 2 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 30, height: 12, borderRadius: 2 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
       ))}
@@ -261,7 +261,7 @@ const EngagementCardShimmer = () => (
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
       style={{ width: 140, height: 18, marginBottom: 20, borderRadius: 4 }}
-      shimmerColors={UI.SHIMMER}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.engagementStats}>
       {Array(3).fill(0).map((_, index) => (
@@ -269,12 +269,12 @@ const EngagementCardShimmer = () => (
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 40, height: 20, marginBottom: 4, borderRadius: 3 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 80, height: 12, borderRadius: 2 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
       ))}
@@ -287,7 +287,7 @@ const AnalysisCardShimmer = () => (
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
       style={{ width: 160, height: 18, marginBottom: 20, borderRadius: 4 }}
-      shimmerColors={UI.SHIMMER}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.contentTypeStats}>
       {Array(3).fill(0).map((_, index) => (
@@ -296,18 +296,18 @@ const AnalysisCardShimmer = () => (
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
               style={{ width: 80, height: 14, borderRadius: 2 }}
-              shimmerColors={UI.SHIMMER}
+              shimmerColors={Colors.SHIMMER.PRIMARY}
             />
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
               style={{ width: 30, height: 14, borderRadius: 2 }}
-              shimmerColors={UI.SHIMMER}
+              shimmerColors={Colors.SHIMMER.PRIMARY}
             />
           </View>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ height: 8, borderRadius: 4, marginTop: 4 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
       ))}
@@ -318,17 +318,17 @@ const AnalysisCardShimmer = () => (
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
           style={{ width: 20, height: 20, marginRight: 12, borderRadius: 3 }}
-          shimmerColors={UI.SHIMMER}
+          shimmerColors={Colors.SHIMMER.PRIMARY}
         />
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
           style={{ width: '100%', height: 16, marginBottom: 4, borderRadius: 3 }}
-          shimmerColors={UI.SHIMMER}
+          shimmerColors={Colors.SHIMMER.PRIMARY}
         />
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
           style={{ width: '80%', height: 16, borderRadius: 3 }}
-          shimmerColors={UI.SHIMMER}
+          shimmerColors={Colors.SHIMMER.PRIMARY}
         />
       </View>
     </View>
@@ -340,7 +340,7 @@ const FunFactsCardShimmer = () => (
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
       style={{ width: 100, height: 18, marginBottom: 20, borderRadius: 4 }}
-      shimmerColors={UI.SHIMMER}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.funFactsGrid}>
       {Array(4).fill(0).map((_, index) => (
@@ -348,12 +348,12 @@ const FunFactsCardShimmer = () => (
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 80, height: 12, marginBottom: 6, borderRadius: 2 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 60, height: 16, borderRadius: 3 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
       ))}
@@ -366,36 +366,36 @@ const SocialScoreCardShimmer = () => (
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
       style={{ width: 120, height: 18, marginBottom: 20, borderRadius: 4 }}
-      shimmerColors={UI.SHIMMER}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.socialScoreContent}>
       <View style={styles.socialScoreMain}>
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
           style={{ width: 80, height: 80, borderRadius: 40, marginRight: 20 }}
-          shimmerColors={UI.SHIMMER}
+          shimmerColors={Colors.SHIMMER.PRIMARY}
         />
         <View style={styles.creatorLevelInfo}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 120, height: 18, marginBottom: 4, borderRadius: 4 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 140, height: 14, marginBottom: 12, borderRadius: 3 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <View style={styles.levelProgressContainer}>
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
               style={{ height: 6, borderRadius: 3, marginBottom: 4 }}
-              shimmerColors={UI.SHIMMER}
+              shimmerColors={Colors.SHIMMER.PRIMARY}
             />
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
               style={{ width: 80, height: 12, borderRadius: 2 }}
-              shimmerColors={UI.SHIMMER}
+              shimmerColors={Colors.SHIMMER.PRIMARY}
             />
           </View>
         </View>
@@ -409,7 +409,7 @@ const AchievementsCardShimmer = () => (
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
       style={{ width: 100, height: 18, marginBottom: 20, borderRadius: 4 }}
-      shimmerColors={UI.SHIMMER}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.achievementsGrid}>
       {Array(3).fill(0).map((_, index) => (
@@ -417,29 +417,29 @@ const AchievementsCardShimmer = () => (
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={{ width: 48, height: 48, borderRadius: 24, marginRight: 16 }}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <View style={styles.achievementContent}>
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
               style={{ width: 100, height: 16, marginBottom: 2, borderRadius: 3 }}
-              shimmerColors={UI.SHIMMER}
+              shimmerColors={Colors.SHIMMER.PRIMARY}
             />
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
               style={{ width: 120, height: 12, marginBottom: 8, borderRadius: 2 }}
-              shimmerColors={UI.SHIMMER}
+              shimmerColors={Colors.SHIMMER.PRIMARY}
             />
             <View style={styles.achievementProgress}>
               <ShimmerPlaceholder
                 LinearGradient={LinearGradient}
                 style={{ flex: 1, height: 4, marginRight: 8, borderRadius: 2 }}
-                shimmerColors={UI.SHIMMER}
+                shimmerColors={Colors.SHIMMER.PRIMARY}
               />
               <ShimmerPlaceholder
                 LinearGradient={LinearGradient}
                 style={{ width: 30, height: 10, borderRadius: 2 }}
-                shimmerColors={UI.SHIMMER}
+                shimmerColors={Colors.SHIMMER.PRIMARY}
               />
             </View>
           </View>
@@ -454,24 +454,24 @@ const StreakCardShimmer = () => (
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
       style={{ width: 120, height: 18, marginBottom: 20, borderRadius: 4 }}
-      shimmerColors={UI.SHIMMER}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.streakContent}>
       <View style={styles.streakInfo}>
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
           style={{ width: 60, height: 32, marginBottom: 4, borderRadius: 4 }}
-          shimmerColors={UI.SHIMMER}
+          shimmerColors={Colors.SHIMMER.PRIMARY}
         />
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
           style={{ width: 40, height: 14, marginBottom: 4, borderRadius: 2 }}
-          shimmerColors={UI.SHIMMER}
+          shimmerColors={Colors.SHIMMER.PRIMARY}
         />
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
           style={{ width: 120, height: 12, borderRadius: 2 }}
-          shimmerColors={UI.SHIMMER}
+          shimmerColors={Colors.SHIMMER.PRIMARY}
         />
       </View>
     </View>
@@ -741,7 +741,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
         title: 'Verified',
         description: 'Get your account verified',
         icon: 'verified-badge',
-        color: '#10B981',
+        color: Colors.lightGreen,
         unlocked: verificationProfile?.verification?.isVerified || false,
         progress: verificationProfile?.verification?.isVerified ? 1 : 0,
         target: 1
@@ -751,7 +751,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
         title: 'First Post',
         description: 'Share your first post',
         icon: 'article',
-        color: '#6366F1',
+        color: Colors.lightBlue,
         unlocked: totalPosts >= 1,
         progress: Math.min(totalPosts, 1),
         target: 1
@@ -761,7 +761,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
         title: 'Century Club',
         description: 'Reach 100 posts',
         icon: 'article-multiple',
-        color: '#FE4359',
+        color: Colors.red,
         unlocked: totalPosts >= 100,
         progress: Math.min(totalPosts, 100),
         target: 100
@@ -771,7 +771,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
         title: 'Liked by Many',
         description: 'Get 1,000 total likes',
         icon: 'heart',
-        color: '#00D4AA',
+        color: Colors.green,
         unlocked: totalLikes >= 1000,
         progress: Math.min(totalLikes, 1000),
         target: 1000
@@ -781,7 +781,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
         title: 'Growing Audience',
         description: 'Reach 100 followers',
         icon: 'users',
-        color: '#3797F0',
+        color: Colors.lightGray,
         unlocked: (profileData?.followersCount || 0) >= 100,
         progress: Math.min(profileData?.followersCount || 0, 100),
         target: 100
@@ -791,7 +791,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
         title: 'Consistent Creator',
         description: 'Post for 7 days straight',
         icon: 'calendar',
-        color: '#FFB800',
+        color: Colors.yellow,
         unlocked: false, // Will be calculated based on streak
         progress: 0,
         target: 7
@@ -901,7 +901,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
 
   // Don't return early for loading, instead render shimmer content
 
-  const renderMetricCard = (title: string, value: string | number, icon: string, color: string = '#6366F1') => (
+  const renderMetricCard = (title: string, value: string | number, icon: string, color: string = Colors.lightBlue) => (
     <Card style={styles.metricCard} backgroundColor="rgba(255, 255, 255, 0.05)">
       <View style={styles.metricContent}>
         <Icon name={icon} size={20} color={color} />
@@ -937,10 +937,10 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
   // Updated activity by hour chart with Morning, Noon, Evening, Night
   const renderActivityByHourChart = () => {
     const timeGroups = [
-      { label: 'Morning', hours: [6, 7, 8, 9, 10, 11], color: '#10B981' },
-      { label: 'Noon', hours: [12, 13, 14, 15, 16, 17], color: '#F59E0B' },
-      { label: 'Evening', hours: [18, 19, 20, 21, 22, 23], color: '#EF4444' },
-      { label: 'Night', hours: [0, 1, 2, 3, 4, 5], color: '#8B5CF6' },
+          { label: 'Morning', hours: [6, 7, 8, 9, 10, 11], color: Colors.lightGreen },
+    { label: 'Noon', hours: [12, 13, 14, 15, 16, 17], color: Colors.lightYellow },
+    { label: 'Evening', hours: [18, 19, 20, 21, 22, 23], color: Colors.lightRed },
+    { label: 'Night', hours: [0, 1, 2, 3, 4, 5], color: Colors.purple },
     ];
 
     const groupedData = timeGroups.map(group => 
@@ -1031,15 +1031,15 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
             
             <View style={styles.topVideoPostStats}>
               <View style={styles.topVideoPostStat}>
-                <Icon name="heart" size={12} color="#FE4359" />
+                <Icon name="heart" size={12} color={Colors.lightRed} />
                 <Text style={styles.topVideoPostStatText}>{formatNumber(post.likeCount)}</Text>
               </View>
               <View style={styles.topVideoPostStat}>
-                <Icon name="repeat" size={12} color="#00D4AA" />
+                <Icon name="repeat" size={12} color={Colors.green} />
                 <Text style={styles.topVideoPostStatText}>{formatNumber(post.repostCount)}</Text>
               </View>
               <View style={styles.topVideoPostStat}>
-                <Icon name="message" size={12} color="#3797F0" />
+                <Icon name="message" size={12} color={Colors.lightGray} />
                 <Text style={styles.topVideoPostStatText}>{formatNumber(post.replyCount)}</Text>
               </View>
             </View>
@@ -1062,10 +1062,11 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
         <TouchableOpacity 
           style={styles.backButton} 
           onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
         >
-          <BackArrowIcon size={20} color={TEXT.PRIMARY} />
+          <BackArrowIcon size={28} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Insights</Text>
+        <Text style={styles.headerTitle}>insights</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -1080,7 +1081,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
         {/* Last Updated Info - Top */}
         <View style={styles.lastUpdatedTop}>
           <Text style={styles.lastUpdatedTopText}>
-            Last updated: {new Date().toLocaleTimeString()}
+            last updated: {new Date().toLocaleTimeString()}
           </Text>
         </View>
 
@@ -1111,19 +1112,19 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
                   <Text style={styles.accountStatValue}>
                     {formatNumber(profileData?.followersCount || 0)}
                   </Text>
-                  <Text style={styles.accountStatLabel}>Followers</Text>
+                  <Text style={styles.accountStatLabel}>followers</Text>
                 </View>
                 <View style={styles.accountStatDivider} />
                 <View style={styles.accountStat}>
                   <Text style={styles.accountStatValue}>
                     {formatNumber(profileData?.followsCount || 0)}
                   </Text>
-                  <Text style={styles.accountStatLabel}>Following</Text>
+                  <Text style={styles.accountStatLabel}>following</Text>
                 </View>
               </View>
               
               <Text style={styles.lastUpdated}>
-                Joined {userData?.createdAt ? formatDate(userData.createdAt) : 'N/A'}
+                joined {userData?.createdAt ? formatDate(userData.createdAt) : 'n/a'}
               </Text>
             </View>
           </Card>
@@ -1131,7 +1132,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
 
         {/* Compact Key Metrics */}
         <View style={styles.metricsSection}>
-          <Text style={styles.sectionTitle}>Key Metrics</Text>
+          <Text style={styles.sectionTitle}>key metrics</Text>
           <View style={styles.metricsGrid}>
             {isLoading ? (
               <>
@@ -1142,10 +1143,10 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
               </>
             ) : (
               <>
-                {renderMetricCard('Posts', formatNumber(insights.totalPosts), 'article-multiple', '#6366F1')}
-                {renderMetricCard('Likes', formatNumber(insights.totalLikes), 'heart', '#FE4359')}
-                {renderMetricCard('Reposts', formatNumber(insights.totalReposts), 'repeat', '#00D4AA')}
-                {renderMetricCard('Replies', formatNumber(insights.totalReplies), 'message', '#3797F0')}
+                        {renderMetricCard('posts', formatNumber(insights.totalPosts), 'send-plane-fill', Colors.lightBlue)}
+        {renderMetricCard('likes', formatNumber(insights.totalLikes), 'heart', Colors.lightRed)}
+        {renderMetricCard('reposts', formatNumber(insights.totalReposts), 'repeat', Colors.green)}
+        {renderMetricCard('replies', formatNumber(insights.totalReplies), 'message', Colors.lightGray)}
               </>
             )}
           </View>
@@ -1191,19 +1192,19 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
                 insights.postsByType.original, 
                 insights.totalPosts, 
                 'Original Posts', 
-                '#6366F1'
+                Colors.lightBlue
               )}
               {renderActivityBar(
                 insights.postsByType.reposts, 
                 insights.totalPosts, 
                 'Reposts', 
-                '#00D4AA'
+                Colors.green
               )}
               {renderActivityBar(
                 insights.postsByType.replies, 
                 insights.totalPosts, 
                 'Replies', 
-                '#3797F0'
+                Colors.lightGray
               )}
             </View>
             
@@ -1212,25 +1213,25 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
             <View style={styles.analysisInsight}>
               {insights.postsByType.reposts > insights.postsByType.original && insights.postsByType.reposts > insights.postsByType.replies ? (
                 <View style={styles.insightContent}>
-                  <Icon name="share" size={20} color="#3797F0" />
+                  <Icon name="share" size={20} color={Colors.lightGray} />
                   <Text style={styles.insightText}>
-                    <Text style={[styles.insightHighlight, { color: '#3797F0' }]}>Content Sharer</Text>
+                    <Text style={[styles.insightHighlight, { color: Colors.lightGray }]}>Content Sharer</Text>
                     {'\n'}You mainly amplify existing content through reposts ({Math.round((insights.postsByType.reposts / insights.totalPosts) * 100)}%).
                   </Text>
                 </View>
               ) : insights.postsByType.original > insights.postsByType.reposts && insights.postsByType.original > insights.postsByType.replies ? (
                 <View style={styles.insightContent}>
-                  <Icon name="edit" size={20} color="#6366F1" />
+                  <Icon name="edit" size={20} color={Colors.lightBlue} />
                   <Text style={styles.insightText}>
-                    <Text style={[styles.insightHighlight, { color: '#6366F1' }]}>Content Creator</Text>
+                    <Text style={[styles.insightHighlight, { color: Colors.lightBlue }]}>Content Creator</Text>
                     {'\n'}You primarily share original content ({Math.round((insights.postsByType.original / insights.totalPosts) * 100)}%).
                   </Text>
                 </View>
               ) : (
                 <View style={styles.insightContent}>
-                  <Icon name="message" size={20} color="#3797F0" />
+                  <Icon name="message" size={20} color={Colors.lightGray} />
                   <Text style={styles.insightText}>
-                    <Text style={[styles.insightHighlight, { color: '#3797F0' }]}>Community Engager</Text>
+                    <Text style={[styles.insightHighlight, { color: Colors.lightGray }]}>Community Engager</Text>
                     {'\n'}You actively participate in conversations ({Math.round((insights.postsByType.replies / insights.totalPosts) * 100)}%).
                   </Text>
                 </View>
@@ -1254,7 +1255,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
             'Activity by Day',
             insights.postsByDay,
             ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-            ['#6366F1', '#FE4359', '#00D4AA', '#3797F0', '#FFB800', '#9C27B0', '#4CAF50']
+            [Colors.lightBlue, Colors.lightRed, Colors.green, Colors.lightGray, Colors.STATUS.WARNING, Colors.purple, Colors.lightGreen]
           )
         )}
 
@@ -1302,103 +1303,80 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
           </Card>
         )}
 
-        {/* Social Score & Creator Level */}
-        {isLoading ? (
-          <SocialScoreCardShimmer />
-        ) : (
-          <Card style={styles.socialScoreCard} backgroundColor="rgba(255, 255, 255, 0.05)">
-            <Text style={styles.cardTitle}>Creator Status</Text>
-            <View style={styles.socialScoreContent}>
-              <View style={styles.socialScoreMain}>
-                <View style={styles.socialScoreCircle}>
-                  <Text style={styles.socialScoreValue}>{insights.socialScore}</Text>
-                  <Text style={styles.socialScoreLabel}>Social Score</Text>
-                </View>
-                <View style={styles.creatorLevelInfo}>
-                  <Text style={styles.creatorLevelTitle}>{insights.creatorLevel.title}</Text>
-                  <Text style={styles.creatorLevelDescription}>{insights.creatorLevel.description}</Text>
-                  <View style={styles.levelProgressContainer}>
-                    <View style={styles.levelProgressBar}>
-                      <View 
-                        style={[
-                          styles.levelProgressFill, 
-                          { width: `${(insights.creatorLevel.progress / (insights.creatorLevel.nextLevel - insights.creatorLevel.level * 20)) * 100}%` }
-                        ]} 
-                      />
-                    </View>
-                    <Text style={styles.levelProgressText}>
-                      Level {insights.creatorLevel.level} → {insights.creatorLevel.nextLevel}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </Card>
-        )}
+        {/* Creator Status removed */}
 
-        {/* Achievements */}
+        {/* Achievements (hide if no progress/unlocked) */}
         {isLoading ? (
           <AchievementsCardShimmer />
-        ) : (
-          <Card style={styles.achievementsCard} backgroundColor="rgba(255, 255, 255, 0.05)">
-            <Text style={styles.cardTitle}>Achievements</Text>
-            <View style={styles.achievementsGrid}>
-              {insights.achievements.map((achievement, index) => (
-                <View key={achievement.id} style={styles.achievementItem}>
-                  <View style={[
-                    styles.achievementIcon, 
-                    { 
-                      backgroundColor: achievement.unlocked ? achievement.color : 'rgba(255, 255, 255, 0.1)',
-                      opacity: achievement.unlocked ? 1 : 0.5
-                    }
-                  ]}>
-                    {achievement.icon === 'verified-badge' ? (
-                      <VerificationBadge 
-                        handle={userData?.handle || ''} 
-                        size={28}
-                        textColor={achievement.unlocked ? '#FFFFFF' : TEXT.SECONDARY}
-                        borderColor={achievement.unlocked ? '#FFFFFF' : TEXT.SECONDARY}
-                      />
-                    ) : (
-                      <Icon 
-                        name={achievement.icon} 
-                        size={20} 
-                        color={achievement.unlocked ? '#FFFFFF' : TEXT.SECONDARY} 
-                      />
-                    )}
-                  </View>
-                  <View style={styles.achievementContent}>
-                    <Text style={[
-                      styles.achievementTitle,
-                      { color: achievement.unlocked ? TEXT.PRIMARY : TEXT.SECONDARY }
+        ) : (() => {
+          const achievementsWithProgress = (insights.achievements || []).filter(a => a.unlocked || (a.progress ?? 0) > 0);
+          if (achievementsWithProgress.length === 0) return null;
+          const sortedAchievements = achievementsWithProgress.slice().sort((a, b) => {
+            const au = a.unlocked ? 1 : 0;
+            const bu = b.unlocked ? 1 : 0;
+            return bu - au; // unlocked first
+          });
+          return (
+            <Card style={styles.achievementsCard} backgroundColor="rgba(255, 255, 255, 0.05)">
+              <Text style={styles.cardTitle}>Achievements</Text>
+              <View style={styles.achievementsGrid}>
+                {sortedAchievements.map((achievement) => (
+                  <View key={achievement.id} style={styles.achievementItem}>
+                    <View style={[
+                      styles.achievementIcon, 
+                      { 
+                        backgroundColor: achievement.unlocked ? achievement.color : 'rgba(255, 255, 255, 0.1)',
+                        opacity: achievement.unlocked ? 1 : 0.5
+                      }
                     ]}>
-                      {achievement.title}
-                    </Text>
-                    <Text style={styles.achievementDescription}>{achievement.description}</Text>
-                    {achievement.target > 1 && (
-                      <View style={styles.achievementProgress}>
-                        <View style={styles.achievementProgressBar}>
-                          <View 
-                            style={[
-                              styles.achievementProgressFill,
-                              { 
-                                width: `${(achievement.progress / achievement.target) * 100}%`,
-                                backgroundColor: achievement.color
-                              }
-                            ]} 
-                          />
+                      {achievement.icon === 'verified-badge' ? (
+                        <VerificationBadge 
+                          handle={userData?.handle || ''} 
+                          size={28}
+                          textColor={achievement.unlocked ? Colors.white : Colors.lightGray}
+                          borderColor={achievement.unlocked ? Colors.white : Colors.lightGray}
+                        />
+                      ) : (
+                        <Icon 
+                          name={achievement.icon} 
+                          size={20} 
+                          color={achievement.unlocked ? Colors.white : Colors.lightGray} 
+                        />
+                      )}
+                    </View>
+                    <View style={styles.achievementContent}>
+                      <Text style={[
+                        styles.achievementTitle,
+                        { color: achievement.unlocked ? Colors.white : Colors.lightGray }
+                      ]}>
+                        {achievement.title}
+                      </Text>
+                      <Text style={styles.achievementDescription}>{achievement.description}</Text>
+                      {achievement.target > 1 && !achievement.unlocked && ((achievement.progress ?? 0) < achievement.target) && (
+                        <View style={styles.achievementProgress}>
+                          <View style={styles.achievementProgressBar}>
+                            <View 
+                              style={[
+                                styles.achievementProgressFill,
+                                { 
+                                  width: `${(achievement.progress / achievement.target) * 100}%`,
+                                  backgroundColor: achievement.color
+                                }
+                              ]} 
+                            />
+                          </View>
+                          <Text style={styles.achievementProgressText}>
+                            {achievement.progress}/{achievement.target}
+                          </Text>
                         </View>
-                        <Text style={styles.achievementProgressText}>
-                          {achievement.progress}/{achievement.target}
-                        </Text>
-                      </View>
-                    )}
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
-            </View>
-          </Card>
-        )}
+                ))}
+              </View>
+            </Card>
+          );
+        })()}
 
         {/* Streak Counter */}
         {isLoading ? (
@@ -1446,9 +1424,9 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
         {/* Most Engaged Followers */}
         {insights.mostEngagedFollowers.length > 0 && (
           <Card style={styles.engagedFollowersCard} backgroundColor="rgba(255, 255, 255, 0.05)">
-            <Text style={styles.cardTitle}>Most Engaged Followers</Text>
+            <Text style={styles.cardTitle}>most engaged followers</Text>
             <Text style={styles.networkDescription}>
-              These followers interact with your content the most
+              these followers interact with your content the most
             </Text>
             <View style={styles.engagedFollowersList}>
               {insights.mostEngagedFollowers.slice(0, 3).map((follower, index) => (
@@ -1515,7 +1493,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.PRIMARY,
+    backgroundColor: Colors.black,
   },
   loadingContainer: {
     flex: 1,
@@ -1523,7 +1501,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
     marginTop: 12,
@@ -1535,20 +1513,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#333',
+    borderBottomColor: Colors.mediumGray,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1C1C1E',
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
   },
   headerTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -1576,13 +1550,13 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
     textAlign: 'center',
   },
   userHandle: {
     fontSize: 16,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
     marginTop: 4,
   },
@@ -1600,24 +1574,24 @@ const styles = StyleSheet.create({
   accountStatValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
   },
   accountStatLabel: {
     fontSize: 12,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
     marginTop: 2,
   },
   accountStatDivider: {
     width: 1,
     height: 30,
-    backgroundColor: '#333',
+    backgroundColor: Colors.mediumGray,
     marginHorizontal: 16,
   },
   lastUpdated: {
     fontSize: 12,
-    color: TEXT.TERTIARY,
+    color: Colors.gray,
     fontFamily: 'Firma-Regular',
     marginTop: 12,
   },
@@ -1628,7 +1602,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     marginBottom: 16,
     fontFamily: 'Firma-Bold',
   },
@@ -1648,13 +1622,13 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     marginTop: 6,
     fontFamily: 'Firma-Bold',
   },
   metricTitle: {
     fontSize: 11,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     marginTop: 2,
     textAlign: 'center',
     fontFamily: 'Firma-Regular',
@@ -1667,7 +1641,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     marginBottom: 20,
     fontFamily: 'Firma-Bold',
   },
@@ -1682,12 +1656,12 @@ const styles = StyleSheet.create({
   engagementValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
   },
   engagementLabel: {
     fontSize: 12,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     textAlign: 'center',
     marginTop: 4,
     fontFamily: 'Firma-Regular',
@@ -1710,12 +1684,12 @@ const styles = StyleSheet.create({
   },
   activityBarLabel: {
     fontSize: 14,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
   },
   activityBarValue: {
     fontSize: 14,
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
   },
   activityBarBackground: {
@@ -1740,7 +1714,7 @@ const styles = StyleSheet.create({
   },
   insightText: {
     fontSize: 14,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     marginLeft: 12,
     flex: 1,
     lineHeight: 20,
@@ -1758,7 +1732,7 @@ const styles = StyleSheet.create({
   chartTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     marginBottom: 20,
     fontFamily: 'Firma-Bold',
   },
@@ -1792,14 +1766,14 @@ const styles = StyleSheet.create({
   },
   chartLabel: {
     fontSize: 12,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     marginTop: 8,
     textAlign: 'center',
     fontFamily: 'Firma-Regular',
   },
   chartValue: {
     fontSize: 10,
-    color: '#6366F1',
+    color: Colors.lightBlue,
     marginTop: 4,
     textAlign: 'center',
     fontFamily: 'Firma-Bold',
@@ -1820,12 +1794,12 @@ const styles = StyleSheet.create({
   improvedChartBarContainer: {
     width: 36,
     height: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: Colors.overlayWhite10,
     borderRadius: 18,
     overflow: 'hidden',
     justifyContent: 'flex-end',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: Colors.overlayWhite10,
   },
   improvedChartBarFill: {
     width: '100%',
@@ -1835,14 +1809,14 @@ const styles = StyleSheet.create({
   },
   improvedChartLabel: {
     fontSize: 11,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     marginTop: 8,
     textAlign: 'center',
     fontFamily: 'Firma-Regular',
   },
   improvedChartValue: {
     fontSize: 10,
-    color: '#6366F1',
+    color: Colors.lightBlue,
     marginTop: 4,
     textAlign: 'center',
     fontFamily: 'Firma-Bold',
@@ -1862,12 +1836,12 @@ const styles = StyleSheet.create({
   },
   topPostDate: {
     fontSize: 12,
-    color: TEXT.TERTIARY,
+    color: Colors.gray,
     fontFamily: 'Firma-Regular',
   },
   topPostText: {
     fontSize: 14,
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     lineHeight: 20,
     marginBottom: 16,
     fontFamily: 'Firma-Regular',
@@ -1882,7 +1856,7 @@ const styles = StyleSheet.create({
   },
   topPostStatText: {
     fontSize: 12,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     marginLeft: 4,
     fontFamily: 'Firma-Regular',
   },
@@ -1903,7 +1877,7 @@ const styles = StyleSheet.create({
   },
   funFactLabel: {
     fontSize: 12,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     textAlign: 'center',
     marginBottom: 6,
     fontFamily: 'Firma-Regular',
@@ -1911,7 +1885,7 @@ const styles = StyleSheet.create({
   funFactValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     textAlign: 'center',
     fontFamily: 'Firma-Bold',
   },
@@ -1926,7 +1900,7 @@ const styles = StyleSheet.create({
   },
   lastUpdatedTopText: {
     fontSize: 12,
-    color: TEXT.TERTIARY,
+    color: Colors.gray,
     marginLeft: 4,
     fontFamily: 'Firma-Regular',
   },
@@ -1953,17 +1927,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#6366F1',
+    borderColor: Colors.lightBlue,
   },
   socialScoreValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
   },
   socialScoreLabel: {
     fontSize: 10,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
   },
   creatorLevelInfo: {
@@ -1973,13 +1947,13 @@ const styles = StyleSheet.create({
   creatorLevelTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
     marginBottom: 4,
   },
   creatorLevelDescription: {
     fontSize: 14,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
     marginBottom: 12,
   },
@@ -1995,12 +1969,12 @@ const styles = StyleSheet.create({
   },
   levelProgressFill: {
     height: '100%',
-    backgroundColor: '#6366F1',
+    backgroundColor: Colors.lightBlue,
     borderRadius: 3,
   },
   levelProgressText: {
     fontSize: 12,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
   },
   achievementsCard: {
@@ -2035,7 +2009,7 @@ const styles = StyleSheet.create({
   },
   achievementDescription: {
     fontSize: 12,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
     marginBottom: 8,
   },
@@ -2057,7 +2031,7 @@ const styles = StyleSheet.create({
   },
   achievementProgressText: {
     fontSize: 10,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
     minWidth: 30,
   },
@@ -2080,18 +2054,18 @@ const styles = StyleSheet.create({
   streakCount: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: Colors.orange,
     fontFamily: 'Firma-Bold',
   },
   streakLabel: {
     fontSize: 14,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
     marginBottom: 4,
   },
   streakDescription: {
     fontSize: 12,
-    color: TEXT.TERTIARY,
+    color: Colors.gray,
     fontFamily: 'Firma-Regular',
     textAlign: 'center',
   },
@@ -2102,7 +2076,7 @@ const styles = StyleSheet.create({
   },
   networkDescription: {
     fontSize: 14,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
     marginBottom: 16,
     textAlign: 'center',
@@ -2122,12 +2096,12 @@ const styles = StyleSheet.create({
   mutualConnectionName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
   },
   mutualConnectionHandle: {
     fontSize: 14,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
   },
   engagedFollowersCard: {
@@ -2147,7 +2121,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#6366F1',
+    backgroundColor: Colors.lightBlue,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -2155,7 +2129,7 @@ const styles = StyleSheet.create({
   engagedFollowerRankText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
   },
 
@@ -2165,12 +2139,12 @@ const styles = StyleSheet.create({
   engagedFollowerName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
   },
   engagedFollowerHandle: {
     fontSize: 14,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
   },
   engagedFollowerStats: {
@@ -2179,12 +2153,12 @@ const styles = StyleSheet.create({
   engagedFollowerCount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#6366F1',
+    color: Colors.lightBlue,
     fontFamily: 'Firma-Bold',
   },
   engagedFollowerLabel: {
     fontSize: 10,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
   },
   topCommentersCard: {
@@ -2204,7 +2178,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#3797F0',
+    backgroundColor: Colors.lightGray,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -2212,7 +2186,7 @@ const styles = StyleSheet.create({
   topCommenterRankText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
   },
 
@@ -2222,12 +2196,12 @@ const styles = StyleSheet.create({
   topCommenterName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
   },
   topCommenterHandle: {
     fontSize: 14,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
   },
   topCommenterStats: {
@@ -2236,12 +2210,12 @@ const styles = StyleSheet.create({
   topCommenterCount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#3797F0',
+    color: Colors.lightGray,
     fontFamily: 'Firma-Bold',
   },
   topCommenterLabel: {
     fontSize: 10,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
   },
   // Video list item styles (like notifications)
@@ -2250,13 +2224,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
+    borderBottomColor: Colors.gray,
   },
 
   topVideoPostRankText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
   },
   topVideoPostContent: {
@@ -2274,7 +2248,7 @@ const styles = StyleSheet.create({
   },
   topVideoPostDate: {
     fontSize: 12,
-    color: TEXT.TERTIARY,
+    color: Colors.gray,
     fontFamily: 'Firma-Regular',
     marginTop: 4,
     marginBottom: 8,
@@ -2283,11 +2257,11 @@ const styles = StyleSheet.create({
     width: 54,
     height: 96,
     borderRadius: 8,
-    backgroundColor: '#000000',
+    backgroundColor: Colors.darkGray,
   },
   topVideoPostText: {
     fontSize: 14,
-    color: TEXT.LIGHT_GREY,
+    color: Colors.lightGray,
     lineHeight: 18,
     marginBottom: 8,
     fontFamily: 'Firma-Regular',
@@ -2303,7 +2277,7 @@ const styles = StyleSheet.create({
   },
   topVideoPostStatText: {
     fontSize: 12,
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     marginLeft: 4,
     fontFamily: 'Firma-Regular',
   },

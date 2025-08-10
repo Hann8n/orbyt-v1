@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, StyleSheet } from 'react-native';
-import { TEXT } from '../../utils/formatting/Colors';
+import { Colors } from '../ui/UI';
 
 interface RelativeDateProps {
   dateString?: string;
@@ -107,7 +107,7 @@ export const formatPostDate = (dateString?: string): string => {
 
 const styles = StyleSheet.create({
   dateText: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 13,
     fontFamily: 'Firma-Regular',
   },

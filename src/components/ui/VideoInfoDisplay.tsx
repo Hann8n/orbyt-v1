@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { VideoInfo } from '../../services/VideoProcessingService';
 import Icon from './Icon';
+import { Colors } from './UI';
 
 interface VideoInfoDisplayProps {
   videoInfo: VideoInfo;
@@ -23,31 +24,31 @@ const VideoInfoDisplay: React.FC<VideoInfoDisplayProps> = ({
     <View style={[styles.videoSizeContainer, style]}>
       {/* Original Video Info */}
       <View style={styles.videoInfoSection}>
-        <Text style={styles.videoInfoTitle}>Video Details</Text>
+        <Text style={styles.videoInfoTitle}>video details</Text>
         <View style={styles.videoInfoGrid}>
           <View style={styles.videoInfoItem}>
-            <Text style={styles.videoInfoLabel}>Resolution</Text>
+            <Text style={styles.videoInfoLabel}>resolution</Text>
             <Text style={styles.videoInfoValue}>{videoInfo.resolution}</Text>
           </View>
           <View style={styles.videoInfoItem}>
-            <Text style={styles.videoInfoLabel}>Quality</Text>
+            <Text style={styles.videoInfoLabel}>quality</Text>
             <Text style={styles.videoInfoValue}>{videoInfo.qualityStandard}</Text>
           </View>
           <View style={styles.videoInfoItem}>
-            <Text style={styles.videoInfoLabel}>Duration</Text>
+            <Text style={styles.videoInfoLabel}>duration</Text>
             <Text style={styles.videoInfoValue}>{videoInfo.durationFormatted}</Text>
           </View>
           <View style={styles.videoInfoItem}>
-            <Text style={styles.videoInfoLabel}>Size</Text>
+            <Text style={styles.videoInfoLabel}>size</Text>
             <Text style={styles.videoInfoValue}>{videoInfo.sizeFormatted}</Text>
           </View>
           <View style={styles.videoInfoItem}>
-            <Text style={styles.videoInfoLabel}>Aspect Ratio</Text>
+            <Text style={styles.videoInfoLabel}>aspect ratio</Text>
             <Text style={styles.videoInfoValue}>{videoInfo.aspectRatio}</Text>
           </View>
           <View style={styles.videoInfoItem}>
-            <Text style={styles.videoInfoLabel}>Codec</Text>
-            <Text style={styles.videoInfoValue}>{videoInfo.codec.toUpperCase()}</Text>
+            <Text style={styles.videoInfoLabel}>codec</Text>
+            <Text style={styles.videoInfoValue}>{videoInfo.codec}</Text>
           </View>
 
           {/* Compression Stats - Only show if compression has been performed */}
@@ -71,12 +72,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   videoSizeText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
     fontFamily: 'Firma-Medium',
   },
   compressionNote: {
-    color: '#FF9800',
+    color: Colors.lightYellow,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
     marginTop: 4,
@@ -86,7 +87,7 @@ const styles = StyleSheet.create({
     marginBottom: 4, // reduce space beneath video info
   },
   videoInfoTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
     marginBottom: 10,
@@ -101,13 +102,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   videoInfoLabel: {
-    color: '#999',
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
     marginBottom: 2,
   },
   videoInfoValue: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
     fontFamily: 'Firma-Medium',
   },
@@ -121,7 +122,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   compressionOptionsTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
     fontFamily: 'Firma-SemiBold',
     marginBottom: 8,
@@ -139,12 +140,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   compressionOptionLabel: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
     fontFamily: 'Firma-Medium',
   },
   compressionOptionQuality: {
-    color: '#4CAF50',
+    color: Colors.lightGreen,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
   },
@@ -153,12 +154,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   compressionOptionSize: {
-    color: '#999',
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
   },
   compressionOptionTime: {
-    color: '#999',
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
   },
@@ -166,14 +167,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#5a34df',
+    backgroundColor: Colors.lightBlue,
     borderRadius: 8,
     padding: 12,
     marginTop: 10,
     gap: 8,
   },
   compressButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
     fontFamily: 'Firma-Medium',
   },

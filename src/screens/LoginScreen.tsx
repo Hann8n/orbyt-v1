@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, PlusIcon, AtLineIcon, MailLineIcon, Key2LineIcon } from '../components/ui/Icon';
-import { BRAND, TEXT, UI } from '../utils/formatting/Colors';
+import { Colors } from '../components/ui/UI';
 import AccountManager from '../services/storage/AccountManager';
 import AccountSwitcher from '../components/features/profile/AccountSwitcher';
 import { SavedAccount } from '../services/storage/AccountManager';
@@ -39,7 +39,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
   const handleLogin = async () => {
     if (!handle || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('error', 'please fill in all fields');
       return;
     }
 
@@ -47,7 +47,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     try {
       await onLogin(handle, password);
     } catch (error) {
-      Alert.alert('Login Failed', (error as Error).message);
+      Alert.alert('login failed', (error as Error).message);
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +90,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         await onAccountSwitch(account);
       }
     } catch (error) {
-      Alert.alert('Login Failed', (error as Error).message);
+      Alert.alert('login failed', (error as Error).message);
     } finally {
       setSwitchingAccount(null);
     }
@@ -119,9 +119,9 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
             >
               {switchingAccount === account.id ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator color={BRAND.SECONDARY} size="small" />
+                  <ActivityIndicator color={Colors.white} size="small" />
                   <Text style={styles.loadingText}>
-                    Logging in <Text style={styles.loadingAccountName}>{account.displayName || account.handle}</Text>
+                    logging in <Text style={styles.loadingAccountName}>{account.displayName || account.handle}</Text>
                   </Text>
                 </View>
               ) : (
@@ -130,7 +130,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                     <Image source={{ uri: account.avatar }} style={styles.accountAvatar} />
                   ) : (
                     <View style={styles.accountAvatarPlaceholder}>
-                      <Icon name="user" size={20} color={TEXT.MEDIUM_GREY} />
+                      <Icon name="user" size={20} color={Colors.gray} />
                     </View>
                   )}
                   <View style={styles.accountInfo}>
@@ -149,9 +149,9 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
             activeOpacity={0.7}
           >
             <View style={styles.manualLoginIcon}>
-              <PlusIcon size={16} color={BRAND.ACCENT} strokeWidth={2.0} />
+              <PlusIcon size={16} color={Colors.lightGray} strokeWidth={2.0} />
             </View>
-            <Text style={styles.manualLoginText}>Login with different account</Text>
+            <Text style={styles.manualLoginText}>login with different account</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -162,14 +162,14 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     <View style={styles.formContainer}>
       <View style={styles.inputContainer}>
         {handle.includes('@') ? (
-          <MailLineIcon size={20} color={TEXT.DARK_GREY} style={styles.inputIcon} />
+          <MailLineIcon size={20} color={Colors.gray} style={styles.inputIcon} />
         ) : (
-          <AtLineIcon size={20} color={TEXT.DARK_GREY} style={styles.inputIcon} />
+          <AtLineIcon size={20} color={Colors.gray} style={styles.inputIcon} />
         )}
         <TextInput
           style={styles.input}
-          placeholder="Bluesky Handle or Email"
-          placeholderTextColor={TEXT.DARK_GREY}
+          placeholder="bluesky handle or email"
+          placeholderTextColor={Colors.gray}
           value={handle}
           onChangeText={setHandle}
           autoCapitalize="none"
@@ -181,11 +181,11 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       </View>
 
       <View style={styles.inputContainer}>
-        <Key2LineIcon size={20} color={TEXT.DARK_GREY} style={styles.inputIcon} />
+        <Key2LineIcon size={20} color={Colors.gray} style={styles.inputIcon} />
         <TextInput
           style={[styles.input, styles.passwordInput]}
-          placeholder="Password"
-          placeholderTextColor={TEXT.DARK_GREY}
+          placeholder="password"
+          placeholderTextColor={Colors.gray}
           value={password}
           onChangeText={setPassword}
           secureTextEntry={secureTextEntry}
@@ -205,7 +205,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           <Icon
             name={secureTextEntry ? 'eye-closed' : 'eye'}
             size={20}
-            color={TEXT.DARK_GREY}
+            color={Colors.gray}
           />
         </TouchableOpacity>
       </View>
@@ -221,25 +221,25 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       >
         {isLoading ? (
           <View style={styles.buttonLoadingContainer}>
-            <ActivityIndicator color={BRAND.SECONDARY} size="small" />
-            <Text style={styles.buttonLoadingText}>Logging in...</Text>
+            <ActivityIndicator color={Colors.white} size="small" />
+            <Text style={styles.buttonLoadingText}>logging in...</Text>
           </View>
         ) : (
           <Text style={[
             styles.loginButtonText,
             (!handle || !password) && styles.loginButtonTextDisabled
           ]}>
-            Login
+            login
           </Text>
         )}
       </TouchableOpacity>
 
       <View style={styles.appPasswordContainer}>
         <Text style={styles.appPasswordText}>
-          You need an app password to login.
+          you need an app password to login.
         </Text>
         <Text style={[styles.appPasswordText, styles.appPasswordLink]} onPress={openAppPasswordsPage}>
-          Create one here
+          create one here
         </Text>
       </View>
 
@@ -249,8 +249,8 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           onPress={() => setShowManualLogin(false)}
           activeOpacity={0.7}
         >
-          <BackArrowIcon size={16} color={BRAND.ACCENT} style={styles.backIcon} />
-          <Text style={styles.backToAccountsText}>Back to saved accounts</Text>
+          <BackArrowIcon size={16} color={Colors.lightGray} style={styles.backIcon} />
+          <Text style={styles.backToAccountsText}>back to saved accounts</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -288,7 +288,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.PRIMARY,
+    backgroundColor: Colors.black,
     justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 20,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   appName: {
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontSize: 42,
     fontWeight: 'bold',
     fontFamily: 'Firma-Black',
@@ -318,20 +318,20 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: UI.BACKGROUND.ITEM,
+    backgroundColor: Colors.darkGray,
     borderRadius: 16,
     marginBottom: 20,
     paddingHorizontal: 20,
     height: 56,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   inputIcon: {
     marginRight: 12,
   },
   input: {
     flex: 1,
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontSize: 16,
     height: '100%',
     fontFamily: 'Firma-Regular',
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loginButton: {
-    backgroundColor: BRAND.ACCENT,
+            backgroundColor: Colors.darkGray,
     height: 56,
     width: '100%',
     borderRadius: 16,
@@ -356,37 +356,37 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: BRAND.ACCENT,
+    borderColor: Colors.lightGray,
   },
   loginButtonDisabled: {
     opacity: 0.5,
-    backgroundColor: UI.BACKGROUND.ITEM,
-    borderColor: UI.BORDER.PRIMARY,
+    backgroundColor: Colors.darkGray,
+    borderColor: Colors.gray,
   },
   loginButtonLoading: {
     opacity: 0.7,
   },
   loginButtonText: {
-    color: BRAND.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 17,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
   },
   loginButtonTextDisabled: {
-    color: TEXT.MEDIUM_GREY,
+    color: Colors.gray,
   },
   appPasswordContainer: {
     marginBottom: 24,
   },
   appPasswordText: {
-    color: TEXT.MEDIUM_GREY,
+    color: Colors.gray,
     fontSize: 14,
     textAlign: 'center',
     fontFamily: 'Firma-Regular',
     lineHeight: 20,
   },
   appPasswordLink: {
-    color: BRAND.ACCENT,
+    color: Colors.lightGray,
     textDecorationLine: 'underline',
     fontFamily: 'Firma-Medium',
   },
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   savedAccountsTitle: {
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 12,
@@ -427,15 +427,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 8,
-    backgroundColor: UI.BACKGROUND.ITEM,
+    backgroundColor: Colors.darkGray,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
     borderRadius: 14,
   },
   activeAccountItem: {
-    borderColor: BRAND.SECONDARY,
+    borderColor: Colors.white,
     borderWidth: 2,
-    backgroundColor: UI.BACKGROUND.ITEM,
+    backgroundColor: Colors.darkGray,
   },
   accountAvatar: {
     width: 44,
@@ -448,24 +448,24 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     marginRight: 12,
-    backgroundColor: UI.BACKGROUND.ITEM,
+    backgroundColor: Colors.darkGray,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   accountInfo: {
     flex: 1,
   },
   accountDisplayName: {
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 2,
     fontFamily: 'Firma-Bold',
   },
   accountHandle: {
-    color: TEXT.MEDIUM_GREY,
+    color: Colors.gray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
   },
@@ -478,14 +478,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: BRAND.ACCENT,
+    borderColor: Colors.lightGray,
     backgroundColor: 'transparent',
   },
   manualLoginIcon: {
     marginRight: 16,
   },
   manualLoginText: {
-    color: BRAND.ACCENT,
+    color: Colors.lightGray,
     fontSize: 17,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
@@ -499,14 +499,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: BRAND.ACCENT,
+    borderColor: Colors.lightGray,
     backgroundColor: 'transparent',
   },
   backIcon: {
     marginRight: 12,
   },
   backToAccountsText: {
-    color: BRAND.ACCENT,
+    color: Colors.lightGray,
     fontSize: 17,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   loadingText: {
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
     marginLeft: 12,
@@ -530,14 +530,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonLoadingText: {
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontSize: 17,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
     marginLeft: 12,
   },
   loadingAccountName: {
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
     fontWeight: 'bold',
   },

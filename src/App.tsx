@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, StatusBar, Appearance, AppState, LogBox } from 'react-native';
+import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+
+// Configure Reanimated logger to disable strict mode warnings
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false, // Disable strict mode to suppress warnings from third-party libraries
+});
 
 // Ignore multiformats warnings - using broader patterns to catch all variations
 LogBox.ignoreLogs([
@@ -21,6 +28,7 @@ import * as Font from 'expo-font';
 import ProfileCache from '../src/services/cache/ProfileCache'; // import ProfileCache
 import { ClearViewProvider } from '../src/services/ClearViewContext';
 import StatusBarController from '../src/components/ui/StatusBarController';
+import { Colors } from './components/ui/UI';
 
 
 // Create a client
@@ -170,8 +178,8 @@ const App: React.FC<{}> = () => {
   if (isLoading || !fontsLoaded) {
     return (
       <View style={styles.loadingContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
-        <ActivityIndicator size="large" color="#fff" />
+        <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
+        <ActivityIndicator size="large" color={Colors.white} />
       </View>
     );
   }

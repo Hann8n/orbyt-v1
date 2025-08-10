@@ -11,6 +11,7 @@ import {
   QueryFunction
 } from '@tanstack/react-query';
 import { useCallback } from 'react';
+import { Colors } from '../../components/ui/UI';
 
 export interface CachedChannel {
   uri: string;
@@ -210,25 +211,25 @@ class ChannelCache {
                 channelColors = {
                   backgroundColor: extractedColors.backgroundColor,
                   foregroundColor: '#FFFFFF', // Always use white text for channels
-                  accentColor: extractedColors.accentColor || '#00D4FF', // Use vibrant accent color for UI elements
+                  accentColor: extractedColors.accentColor || '#000000', // Accent to black
                   statusBarStyle: 'light' as const
                 };
               } catch (e) {
                 console.error('[ChannelCache] Error extracting colors:', e);
                 // Set fallback colors if extraction fails
                 channelColors = {
-                  backgroundColor: '#000000',
+                  backgroundColor: Colors.black,
                   foregroundColor: '#FFFFFF',
-                  accentColor: '#00D4FF', // Bright cyan fallback accent
+                  accentColor: '#000000', // Accent to black
                   statusBarStyle: 'light' as const
                 };
               }
             } else {
               // Set fallback colors if no avatar
               channelColors = {
-                backgroundColor: '#000000',
+                backgroundColor: Colors.black,
                 foregroundColor: '#FFFFFF',
-                accentColor: '#00D4FF', // Bright cyan fallback accent
+                accentColor: '#000000', // Accent to black
                 statusBarStyle: 'light' as const
               };
             }
@@ -269,7 +270,7 @@ class ChannelCache {
                   ? channelColors.statusBarStyle 
                   : 'light',
               } : {
-                backgroundColor: '#000000',
+                backgroundColor: Colors.black,
                 foregroundColor: '#FFFFFF',
                 accentColor: '#00D4FF',
                 statusBarStyle: 'light' as const
@@ -400,7 +401,7 @@ class ChannelCache {
                                       channelColors = {
                     backgroundColor: extractedColors.backgroundColor,
                     foregroundColor: '#FFFFFF', // Always use white text for channels
-                    accentColor: extractedColors.accentColor || '#00D4FF', // Use vibrant accent color for UI elements
+                    accentColor: extractedColors.accentColor || '#000000', // Accent to black
                     statusBarStyle: 'light' as const
                   };
                   }
@@ -610,12 +611,12 @@ export function useChannelColors(uri: string | null | undefined) {
   if (!uri || !uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
     return {
       colors: {
-        backgroundColor: '#000000',
+        backgroundColor: Colors.black,
         foregroundColor: '#FFFFFF',
-        textColor: '#FFFFFF',
+        textColor: Colors.white,
         primaryColor: '#000000',
-        secondaryColor: '#FFFFFF',
-        accentColor: '#00D4FF',
+        secondaryColor: Colors.white,
+        accentColor: '#000000',
         statusBarStyle: 'light' as const,
       },
       isLoading: false,
@@ -635,10 +636,10 @@ export function useChannelColors(uri: string | null | undefined) {
   const colors: ChannelColorScheme = {
     backgroundColor: channel?.channelColors?.backgroundColor || '#000000',
     foregroundColor: '#FFFFFF', // Always use white text for channels
-    textColor: '#FFFFFF', // Always use white text for channels
+    textColor: Colors.white, // Always use white text for channels
     primaryColor: channel?.channelColors?.backgroundColor || '#000000',
-    secondaryColor: '#FFFFFF', // Always use white text for channels
-    accentColor: channel?.channelColors?.accentColor || '#00D4FF', // Add accent color for vibrant UI elements
+    secondaryColor: Colors.white, // Always use white text for channels
+    accentColor: channel?.channelColors?.accentColor || '#000000', // Accent to black
     statusBarStyle: 'light', // Always use light status bar for channels
   };
   

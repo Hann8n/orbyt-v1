@@ -14,7 +14,7 @@ interface HeaderSkeletonProps {
 }
 
 const HeaderSkeleton: React.FC<HeaderSkeletonProps> = ({
-  textColor = Colors.TEXT.PRIMARY,
+  textColor = Colors.white,
   showAvatar = true,
   showDescription = true,
   avatarStyle = 'circle',
@@ -32,7 +32,7 @@ const HeaderSkeleton: React.FC<HeaderSkeletonProps> = ({
             style={[
               styles.skeletonAvatar,
               avatarStyle === 'rounded-square' && styles.skeletonAvatarRoundedSquare,
-              { borderWidth: 1, borderColor: Colors.BORDER.PRIMARY }
+              { borderWidth: 1, borderColor: Colors.gray }
             ]}
             shimmerColors={shimmerColors}
           />

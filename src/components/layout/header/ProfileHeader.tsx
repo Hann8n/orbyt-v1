@@ -24,7 +24,8 @@ interface ProfileHeaderProps {
   onSwitchAccount?: () => void;
   forceLoading?: boolean;
   children?: React.ReactNode;
-  feedKey?: string; // Feed-specific header visibility key
+  applySafeArea?: boolean;
+  headerStyle?: any;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -36,7 +37,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   onSwitchAccount,
   forceLoading = false,
   children,
-  feedKey,
+  applySafeArea = false,
+  headerStyle,
 }) => {
   const navigation = useNavigation<any>();
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
@@ -255,7 +257,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             buttons: [
               {
                 id: 'edit',
-                label: 'Edit',
+                label: 'edit',
                 customIcon: (
                   <ProfileEditIcon 
                     size={16} 
@@ -273,7 +275,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       const isFollowing = !!profileData.isFollowing;
       const isFollowedBy = !!profileData.isFollowedBy;
 
-      let label = 'Follow';
+      let label = 'follow';
       let icon: string | undefined = undefined;
       let customIcon: React.ReactNode | undefined = (
         <FollowIcon 
@@ -283,7 +285,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       );
 
       if (isFollowing && isFollowedBy) {
-        label = 'Mutuals';
+        label = 'mutuals';
         icon = undefined;
         customIcon = (
           <MutualHeartIcon 
@@ -292,7 +294,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           />
         );
       } else if (isFollowing) {
-        label = 'Following';
+        label = 'following';
         icon = undefined;
         customIcon = (
           <CheckIcon 
@@ -408,7 +410,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         isLoading={forceLoading || (isProfileLoading && !profileData)}
         skeleton={skeleton}
         showGradient={false}
-        feedKey={feedKey}
+        applySafeArea={applySafeArea}
+        style={{ opacity: 1 }}
+        contentStyle={[headerStyle]}
       >
         {customDescription}
         {children}

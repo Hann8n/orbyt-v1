@@ -63,7 +63,7 @@ import { Colors } from './UI';
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: Colors.BACKGROUND.PRIMARY,
+    backgroundColor: Colors.darkGray,
   },
   safeAreaSmall: {
     backgroundColor: 'transparent',
@@ -71,9 +71,9 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     height: 60,
-    backgroundColor: Colors.BACKGROUND.PRIMARY,
+    backgroundColor: Colors.darkGray,
     borderTopWidth: 0.5,
-    borderTopColor: Colors.BORDER.PRIMARY,
+    borderTopColor: Colors.gray,
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingHorizontal: 10,
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   toolLabel: {
-    color: Colors.TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 12,
     marginTop: 4,
     fontFamily: 'Firma-Regular',

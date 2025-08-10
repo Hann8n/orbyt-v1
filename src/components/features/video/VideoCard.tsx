@@ -31,6 +31,7 @@ import { isSmallScreen, isTablet, getVideoCardHeight } from '../../../utils/help
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import Icon from '../../ui/Icon';
 import { feedService } from '../../../services/FeedService';
+import { Colors } from '../../ui/UI';
 
 export interface VideoEmbed {
   $type: string;
@@ -61,6 +62,7 @@ interface CachedVideoCardProps {
   height?: number;
   moderationDecision?: ModerationDecision;
   shouldDisablePlayback?: boolean;
+
 }
 
 interface VideoCardProps extends CachedVideoCardProps {
@@ -131,7 +133,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
       return 0;
     }, [shouldBlur, customDimLevel]);
 
-    // Simplified play state management - removed redundant isLoaded and isPlayerValid
+        // Simplified play state management - removed redundant isLoaded and isPlayerValid
     useEffect(() => {
       const shouldPlay = !shouldDisablePlayback && 
                         !shouldBlur && 
@@ -330,12 +332,12 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
             <Animated.View style={[styles.dimOverlay, { opacity: overlayOpacity }]} pointerEvents="none" />
             {isVisible && !isReady && (
               <View style={styles.loadingOverlay} pointerEvents="none">
-                <ActivityIndicator size="large" color="#fff" />
+                <ActivityIndicator size="large" color={Colors.white} />
               </View>
             )}
             {shouldBlur && (
               <BlurView intensity={80} style={styles.blurOverlay} pointerEvents="box-none">
-                <Icon name="hidden" size={60} color="#fff" style={styles.warningIcon} />
+                <Icon name="hidden" size={60} color={Colors.white} style={styles.warningIcon} />
                 <Text style={styles.blurText}>
                   {moderationDecision?.reason || 'This video is flagged as sensitive or explicit.'}
                 </Text>
@@ -365,19 +367,20 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
     const insets = useSafeAreaInsets();
     const isSmallDevice = isSmallScreen() || isTablet();
     
-    const cardHeight = isSmallDevice ? screenHeight : getVideoCardHeight(insets);
+    // Prefer explicit height when provided (e.g., modal provides full viewport height)
+    const cardHeight = typeof height === 'number' && height > 0
+      ? height
+      : (isSmallDevice ? screenHeight : getVideoCardHeight(insets));
     const cardWidth = screenWidth;
 
     const containerStyle = {
       width: cardWidth,
       height: cardHeight,
-      position: 'absolute' as 'absolute',
-      top: isSmallDevice ? 0 : 0,
-      left: 0,
       margin: 0,
       padding: 0,
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
+      backgroundColor: Colors.black,
     };
 
     if (!shouldCache) return null;
@@ -400,7 +403,7 @@ const VideoCard = forwardRef<VideoCardRef, VideoCardProps>(
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -415,7 +418,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
     zIndex: 1,
   },
   loadingOverlay: {
@@ -440,7 +443,7 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   blurText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
     textAlign: 'center',
@@ -456,7 +459,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.3)',
   },
   showAnywayButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 15,
     fontFamily: 'Firma-Medium',
     fontWeight: '600',

@@ -376,7 +376,7 @@ export async function extractColorsFromImage(imageUrl: string) {
     }
 
     const result = await ImageColors.getColors(uri, {
-      fallback: Colors.BRAND.PRIMARY,
+      fallback: Colors.lightGray,
       cache: true,
       key: imageUrl,
     });
@@ -400,11 +400,11 @@ export async function extractColorsFromImage(imageUrl: string) {
   } catch (error) {
           // console.error('Error extracting colors from image:', error);
     return {
-      backgroundColor: Colors.BRAND.PRIMARY,
-      foregroundColor: Colors.TEXT.PRIMARY,
-      textColor: Colors.TEXT.PRIMARY,
-      secondaryColor: Colors.TEXT.SECONDARY,
-      accentColor: '#00D4FF', // Bright cyan fallback accent color
+      backgroundColor: Colors.darkGray,
+      foregroundColor: Colors.white,
+      textColor: Colors.white,
+      secondaryColor: Colors.lightGray,
+      accentColor: '#000000', // Accent to black
       statusBarStyle: 'light' as const,
     };
   }

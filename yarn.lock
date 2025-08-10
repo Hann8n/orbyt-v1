@@ -1135,25 +1135,6 @@
   dependencies:
     nanoid "^3.3.1"
 
-"@iconify-json/pixelarticons@^1.2.2":
-  version "1.2.2"
-  resolved "https://registry.yarnpkg.com/@iconify-json/pixelarticons/-/pixelarticons-1.2.2.tgz#0e8e47a4e2f82de617592659b109ceba96a968ab"
-  integrity sha512-BAAzqfT0XKUc/a8MgTxOH1aSm44InW9abUIQ1qu5dBntKlYuJP/dN0JfK4WEpUS78T/7HP8w9v1nSQjENLyjFg==
-  dependencies:
-    "@iconify/types" "*"
-
-"@iconify-json/streamline-pixel@^1.2.0":
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/@iconify-json/streamline-pixel/-/streamline-pixel-1.2.0.tgz#34e66ec17fc27e3fce76f2b363ddd6434f43f752"
-  integrity sha512-0Vv7j68c92+eLWWS9agrdmSzdVlu8NpG5R3kphGK3lejlgjSHYcdg2B2lR8I1S78FPbKbiK15XZj5d67ItvlCA==
-  dependencies:
-    "@iconify/types" "*"
-
-"@iconify/types@*":
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/@iconify/types/-/types-2.0.0.tgz#ab0e9ea681d6c8a1214f30cd741fe3a20cc57f57"
-  integrity sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==
-
 "@isaacs/cliui@^8.0.2":
   version "8.0.2"
   resolved "https://registry.yarnpkg.com/@isaacs/cliui/-/cliui-8.0.2.tgz#b37667b7bc181c168782259bab42474fbf52b550"

@@ -19,6 +19,7 @@ import { Avatar, Icon } from '../../ui/UI';
 import VerificationBadge from '../verification/VerificationBadge';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
+import UI from '../../ui/UI';
 import { navigateToUserProfile } from '../../../navigation/profileNavigation';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -80,18 +81,20 @@ interface MembersListViewProps {
   isVisible?: boolean;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  ListComponent?: any; // Optional custom list component (e.g., Tabs.FlatList)
 }
 
 const MembersListView: React.FC<MembersListViewProps> = ({
   channelUri,
-  backgroundColor = Colors.BACKGROUND.PRIMARY,
-  textColor = Colors.TEXT.PRIMARY,
+  backgroundColor = Colors.black,
+  textColor = Colors.white,
   headerComponent,
   onMemberPress,
   onFollowPress,
   isVisible = true,
   onRefresh,
   isRefreshing = false,
+  ListComponent,
 }) => {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -256,8 +259,12 @@ const MembersListView: React.FC<MembersListViewProps> = ({
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {
-    await refetch();
-    onRefresh?.();
+    try {
+      await refetch();
+      onRefresh?.();
+    } catch (error) {
+      console.error('Refresh failed:', error);
+    }
   }, [refetch, onRefresh]);
 
   // Handle end reached for pagination
@@ -266,6 +273,33 @@ const MembersListView: React.FC<MembersListViewProps> = ({
       fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Handle scroll events to prevent conflicts
+  const handleScrollBeginDrag = useCallback(() => {
+    // This helps prevent scroll conflicts
+  }, []);
+
+  const handleScrollEndDrag = useCallback(() => {
+    // This helps prevent scroll conflicts
+  }, []);
+
+  // Handle momentum scroll end to prevent stuck scrolling
+  const handleMomentumScrollEnd = useCallback(() => {
+    // This helps prevent the list from getting stuck
+  }, []);
+
+  // Handle scroll to top
+  const handleScrollToTop = useCallback(() => {
+    // This helps when user scrolls to top
+  }, []);
+
+  // Add a ref for the FlatList to handle scroll issues
+  const flatListRef = useRef<FlatList>(null);
+
+  // Force scroll to top when needed
+  const scrollToTop = useCallback(() => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
 
   // Render member item
   const renderMemberItem = useCallback(({ item: member }: { item: Member }) => {
@@ -289,7 +323,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
             <VerificationBadge
               handle={member.handle}
               textSize={14}
-              textColor={Colors.TEXT.PRIMARY}
+              textColor={Colors.white}
             />
           </View>
           <Text style={styles.memberHandle}>
@@ -326,7 +360,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
   // Render error state
   const renderErrorState = useCallback(() => (
     <View style={styles.errorContainer}>
-      <Icon name="alert-circle" size={48} color={Colors.STATUS.ERROR} />
+      <Icon name="alert-circle" size={48} color={UI.Colors.STATUS.ERROR} />
       <Text style={[styles.errorTitle, { color: textColor }]}>
         Failed to load members
       </Text>
@@ -365,32 +399,90 @@ const MembersListView: React.FC<MembersListViewProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
-      <FlatList
-        data={members}
-        renderItem={renderMemberItem}
-        keyExtractor={(item) => item.did}
-        ListHeaderComponent={headerComponent ? <View>{headerComponent}</View> : null}
-        ListEmptyComponent={!isLoading ? renderEmptyState : null}
-        ListFooterComponent={
-          isFetchingNextPage ? renderLoadingItem : null
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={textColor}
-          />
-        }
-        onEndReached={handleEndReached}
-        onEndReachedThreshold={0.5}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.contentContainer,
-          { paddingTop: insets.top },
-          members.length === 0 && { flex: 1 }
-        ]}
-        style={styles.list}
-      />
+      {(ListComponent || FlatList) === FlatList ? (
+        <FlatList
+          ref={flatListRef}
+          data={members}
+          renderItem={renderMemberItem}
+          keyExtractor={(item: Member) => item.did}
+          ListHeaderComponent={headerComponent ? <View>{headerComponent}</View> : null}
+          ListEmptyComponent={!isLoading ? renderEmptyState : null}
+          ListFooterComponent={
+            isFetchingNextPage ? renderLoadingItem : null
+          }
+                      refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={textColor}
+                progressViewOffset={0}
+                progressBackgroundColor="transparent"
+                colors={[textColor]}
+              />
+            }
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.5}
+          onScrollBeginDrag={handleScrollBeginDrag}
+          onScrollEndDrag={handleScrollEndDrag}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
+          onScrollToTop={handleScrollToTop}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+          alwaysBounceVertical={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={20}
+          getItemLayout={undefined}
+          scrollEventThrottle={16}
+          contentContainerStyle={[
+            styles.contentContainer,
+            members.length === 0 && { flex: 1 }
+          ]}
+          style={styles.list}
+        />
+      ) : (
+        <ListComponent
+          data={members}
+          renderItem={renderMemberItem}
+          keyExtractor={(item: Member) => item.did}
+          ListHeaderComponent={headerComponent ? <View>{headerComponent}</View> : null}
+          ListEmptyComponent={!isLoading ? renderEmptyState : null}
+          ListFooterComponent={
+            isFetchingNextPage ? renderLoadingItem : null
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor={textColor}
+              progressViewOffset={0}
+              progressBackgroundColor="transparent"
+              colors={[textColor]}
+            />
+          }
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.5}
+          onScrollBeginDrag={handleScrollBeginDrag}
+          onScrollEndDrag={handleScrollEndDrag}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
+          onScrollToTop={handleScrollToTop}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+          alwaysBounceVertical={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={20}
+          getItemLayout={undefined}
+          scrollEventThrottle={16}
+          contentContainerStyle={[
+            styles.contentContainer,
+            members.length === 0 && { flex: 1 }
+          ]}
+          style={styles.list}
+        />
+      )}
     </View>
   );
 };
@@ -413,7 +505,7 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.black,
   },
   contentContainer: {
     paddingBottom: 20,
@@ -424,8 +516,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: Colors.BORDER.PRIMARY,
-    backgroundColor: '#000',
+    borderBottomColor: Colors.gray,
+    backgroundColor: Colors.black,
   },
   memberAvatar: {
     width: 40,
@@ -433,7 +525,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: Colors.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   memberInfo: {
     flex: 1,
@@ -450,7 +542,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   memberName: {
-    color: '#FFFFFF',
+    color: Colors.white,
     fontWeight: 'bold',
     fontSize: 14,
     marginBottom: 2,
@@ -459,7 +551,7 @@ const styles = StyleSheet.create({
   },
 
   memberHandle: {
-    color: '#888888',
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
   },

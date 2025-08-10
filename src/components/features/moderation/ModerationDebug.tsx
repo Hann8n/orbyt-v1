@@ -11,6 +11,7 @@ import {
 import { ModerationService } from '../../../services/ModerationService';
 import { ModerationDecision } from '../../../services/ModerationTypes';
 import Icon, { BackArrowIcon } from '../../ui/Icon';
+import { Colors } from '../../ui/UI';
 
 interface ModerationDebugProps {
   visible: boolean;
@@ -54,7 +55,7 @@ const ModerationDebug: React.FC<ModerationDebugProps> = ({ visible, onClose }) =
             onPress={onClose}
             activeOpacity={0.7}
           >
-            <BackArrowIcon size={24} color="#fff" />
+            <BackArrowIcon size={24} color={Colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Debug Moderation</Text>
         </View>
@@ -106,7 +107,7 @@ const ModerationDebug: React.FC<ModerationDebugProps> = ({ visible, onClose }) =
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   header: {
     flexDirection: 'row',
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#333',
+    borderBottomColor: Colors.mediumGray,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -126,14 +127,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
   },
   headerTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -149,14 +150,14 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   sectionTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 15,
     fontFamily: 'Firma-SemiBold',
   },
   testResult: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   testUri: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
     fontFamily: 'Firma-Medium',
     flex: 1,
@@ -179,37 +180,37 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   decisionText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 12,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
   },
   reasonText: {
-    color: '#FFAA00',
+    color: Colors.yellow,
     fontSize: 12,
     marginBottom: 5,
     fontFamily: 'Firma-Regular',
   },
   sourceText: {
-    color: '#999',
+    color: Colors.lightGray,
     fontSize: 12,
     marginBottom: 5,
     fontFamily: 'Firma-Regular',
   },
   informsText: {
-    color: '#44AAFF',
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
   },
   actionButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: Colors.lightGray,
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,
     alignItems: 'center',
   },
   actionButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',

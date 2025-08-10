@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Icon from '../../../ui/Icon';
 import { isSmallScreen, isTablet } from '../../../../utils/helpers/screenSize';
-import { BRAND } from '../../../../utils/formatting/Colors';
+import { Colors } from '../../../ui/UI';
 import VideoCard from '../VideoCard';
 import VideoOverlay from '../VideoOverlay';
 import { useSharedValue } from 'react-native-reanimated';
@@ -142,10 +142,10 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
         <StatusBar barStyle="light-content" backgroundColor="transparent" />
         <View style={styles.container}>
           <TouchableOpacity onPress={handleClose} style={styles.floatingCloseButton}>
-            <Ionicons name="close" size={28} color="#fff" />
+            <Ionicons name="close" size={28} color={Colors.white} />
           </TouchableOpacity>
           <View style={styles.errorContainer}>
-            <Icon name="alert-circle" size={60} color="#fff" />
+            <Icon name="alert-circle" size={60} color={Colors.white} />
             <Text style={styles.errorText}>{videoError}</Text>
             <Text style={styles.errorSubtext}>Please try again or select a different video.</Text>
           </View>
@@ -165,7 +165,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
       {isSmallDevice ? (
         <View style={styles.container}>
           <TouchableOpacity onPress={handleClose} style={styles.floatingCloseButton}>
-            <Ionicons name="close" size={28} color="#fff" />
+            <Ionicons name="close" size={28} color={Colors.white} />
           </TouchableOpacity>
           <View style={styles.videoContainer}>
             <VideoCard
@@ -188,7 +188,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
             </View>
             {!isVideoReady && (
               <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color="#fff" />
+                <ActivityIndicator size="large" color={Colors.white} />
                 <Text style={styles.loadingText}>Loading video...</Text>
               </View>
             )}
@@ -198,7 +198,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
         <SafeAreaView style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color="#fff" />
+              <Ionicons name="close" size={28} color={Colors.white} />
             </TouchableOpacity>
           </View>
           <View style={styles.videoContainer}>
@@ -222,7 +222,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
             </View>
             {!isVideoReady && (
               <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color="#fff" />
+                <ActivityIndicator size="large" color={Colors.white} />
                 <Text style={styles.loadingText}>Loading video...</Text>
               </View>
             )}
@@ -236,7 +236,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   header: {
     flexDirection: 'row',
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   loadingText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     marginTop: 10,
     textAlign: 'center',
@@ -306,14 +306,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   errorText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 18,
     fontWeight: 'bold',
     marginTop: 20,
     textAlign: 'center',
   },
   errorSubtext: {
-    color: '#ccc',
+    color: Colors.white,
     fontSize: 14,
     marginTop: 10,
     textAlign: 'center',

@@ -1,13 +1,16 @@
 declare let window: any;
 
-import React, { memo, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image, Animated } from 'react-native';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, MoreFillIcon } from '../../ui/Icon';
 import { useNavigation } from '@react-navigation/native';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import { Avatar } from '../../ui/UI';
-import { useHeaderVisibility } from '../../../hooks/useHeaderVisibility';
+import { Colors } from '../../ui/UI';
+import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
 
 // Types for the universal header system
 export interface HeaderAction {
@@ -60,6 +63,7 @@ export interface UniversalHeaderProps {
   skeleton?: React.ReactNode;
   children?: React.ReactNode;
   style?: any;
+  contentStyle?: any;
   showGradient?: boolean;
   gradientType?: 'default' | 'channel';
   mixIcon?: {
@@ -67,7 +71,7 @@ export interface UniversalHeaderProps {
     isExcluded: boolean;
     onPress: () => void;
   };
-  feedKey?: string; // Feed-specific header visibility key
+  applySafeArea?: boolean;
 }
 
 // Memoized action button component for performance
@@ -251,9 +255,8 @@ const HeaderContentComponent = memo<{
         name="shuffle" 
         size={20} 
         color={
-          mixIcon.isExcluded ? '#FE4359' : 
-          mixIcon.isInMix && !mixIcon.isExcluded ? '#4CAF50' : 
-          hexToRGBA(textColor, 0.6)
+          mixIcon.isExcluded ? Colors.red : 
+          (mixIcon.isInMix && !mixIcon.isExcluded ? Colors.lightGreen : hexToRGBA(textColor, 0.6))
         } 
       />
     </TouchableOpacity>
@@ -343,14 +346,15 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   skeleton,
   children,
   style,
+  contentStyle,
   showGradient = true,
   gradientType = 'default',
   mixIcon,
-  feedKey,
+  applySafeArea = false,
 }) => {
   const navigation = useNavigation();
-  const headerVisibility = useHeaderVisibility(feedKey);
-  const opacityAnim = useRef(new Animated.Value(1)).current;
+  const insets = useSafeAreaInsets();
+  const isSmallDevice = isSmallScreen() || isTablet();
 
   const handleBackPress = useCallback(() => {
     if (onBackPress) {
@@ -362,26 +366,13 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
 
   const headerStyle = useMemo(() => [
     styles.header,
-    { backgroundColor },
-    style,
-  ], [backgroundColor, style]);
-
-  // Animate opacity based on header visibility (excluding shadow)
-  useEffect(() => {
-    const toValue = headerVisibility.isSnappedToTop ? 1 : 0;
-    Animated.timing(opacityAnim, {
-      toValue,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [headerVisibility.isSnappedToTop, opacityAnim]);
-
-  const animatedHeaderStyle = useMemo(() => [
-    headerStyle,
-    {
-      opacity: opacityAnim,
+    { 
+      backgroundColor,
+      // Apply safe area padding only if requested and device uses full screen mode
+      ...(applySafeArea && isSmallDevice && { paddingTop: insets.top }),
     },
-  ], [headerStyle, opacityAnim]);
+    style,
+  ], [backgroundColor, style, applySafeArea, isSmallDevice, insets.top]);
 
   // Extract custom description from children
   const customDescription = useMemo(() => {
@@ -440,7 +431,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   }, [gradientType]);
 
   return (
-    <View style={headerStyle}>
+    <Animated.View style={headerStyle} pointerEvents="box-none">
       {/* Fade to black gradient - conditionally visible */}
       {showGradient && (
         <LinearGradient
@@ -449,8 +440,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
           pointerEvents="none"
         />
       )}
-      {/* Animated content container */}
-      <Animated.View style={[styles.animatedContent, { opacity: opacityAnim }]}>
+      {/* Content container */}
+      <Animated.View style={[styles.content, contentStyle]} pointerEvents="box-none">
         {/* Navigation and Action Buttons */}
         <View style={styles.topRow}>
         <View style={styles.leftSection}>
@@ -505,7 +496,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       {/* Additional Children */}
       {additionalChildren}
       </Animated.View>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -514,6 +505,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     position: 'relative',
     width: '100%',
+    backgroundColor: 'transparent',
+    // Add layout stability to prevent jitter
+    minHeight: 120,
   },
   topRow: {
     flexDirection: 'row',
@@ -522,6 +516,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     position: 'relative',
     minHeight: 40,
+    // Add layout stability to prevent jitter
+    zIndex: 2,
   },
   leftSection: {
     flexDirection: 'row',
@@ -548,7 +544,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    shadowColor: '#000',
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -663,12 +659,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: Colors.white,
   },
   editAvatarOverlayRoundedSquare: {
     borderRadius: 16,
   },
-  animatedContent: {
+  content: {
     width: '100%',
     zIndex: 1,
   },

@@ -16,8 +16,10 @@ import HiddenPostsScreen from '../screens/Settings/HiddenPostsScreen';
 import WatchHistoryScreen from '../screens/Settings/WatchHistoryScreen';
 import ChannelManagementScreen from '../screens/Settings/ChannelManagementScreen';
 import AboutScreen from '../screens/Settings/AboutScreen';
+import ColorPaletteScreen from '../screens/Settings/ColorPaletteScreen';
 import CreateScreen from '../screens/CreateScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import ChannelScreen from '../screens/ChannelScreen';
 import { RootStackParamList, LogoutContext } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -141,6 +143,22 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
         <Stack.Screen
           name="About"
           component={AboutScreen}
+          options={{
+            animation: 'slide_from_right',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="ColorPalette"
+          component={ColorPaletteScreen}
+          options={{
+            animation: 'slide_from_right',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Channel"
+          component={ChannelScreen}
           options={{
             animation: 'slide_from_right',
             headerShown: false,

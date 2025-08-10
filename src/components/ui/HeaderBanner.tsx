@@ -11,7 +11,7 @@ import {
   FlatList,
 } from 'react-native';
 import type { FlatListProps } from 'react-native';
-import { TEXT } from '../../utils/formatting/Colors';
+import { Colors } from '../ui/UI';
 import { Header } from '../../services/HeaderService';
 import Animated, {
   useAnimatedScrollHandler,
@@ -86,7 +86,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress }) =
     const realColors = headers.map((h) => {
       const titleCol = h.titleColor as string | undefined;
       const subCol = h.subtitleColor as string | undefined;
-      return (titleCol || subCol || TEXT.PRIMARY) as string;
+      return (titleCol || subCol || Colors.white) as string;
     });
     if (headers.length <= 1) return realColors;
     const firstColor = realColors[0];
@@ -98,7 +98,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress }) =
   const colorAnimatedStyle = useAnimatedStyle(() => {
     // Avoid interpolation when there is only one slide
     if (!isCarousel) {
-      const firstColor = (slideColors && slideColors[0]) || TEXT.PRIMARY;
+      const firstColor = (slideColors && slideColors[0]) || Colors.white;
       return {
         backgroundColor: firstColor as any,
       };
@@ -395,13 +395,13 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   headerTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 24,
     fontFamily: 'Firma-Black',
     marginBottom: 2,
   },
   headerSubtitle: {
-    color: TEXT.LIGHT_GREY,
+    color: Colors.lightGray,
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
   },

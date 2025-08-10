@@ -19,7 +19,7 @@ import CommentSection from '../../features/comments/CommentSection';
 import ShareSheet from '../../ui/ShareSheet';
 import { VideoCardRef } from './VideoCard';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import ProfileCache, { profileKeys, useProfileColors } from '../../../services/cache/ProfileCache';
+import ProfileCache, { profileKeys, useProfileColors, useFollowMutation } from '../../../services/cache/ProfileCache';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import Icon, { SlashIcon, HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon, TvIcon } from '../../ui/Icon';
@@ -33,7 +33,6 @@ import Animated, {
   withSequence,
   runOnJS
 } from 'react-native-reanimated';
-import { TEXT, BRAND, INTERACTIVE, PROFILE, OVERLAY } from '../../../utils/formatting/Colors';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import VerificationBadge from '../verification/VerificationBadge';
 import { extractVideoUrl } from '../../../utils/helpers/video';
@@ -114,7 +113,7 @@ interface VideoOverlayProps {
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-const DEFAULT_PROFILE_COLOR = PROFILE.DEFAULT_RING;
+const DEFAULT_PROFILE_COLOR = Colors.PROFILE.DEFAULT_RING;
 
 
 
@@ -134,7 +133,7 @@ const getFeedDisplayName = (uri: string): string => {
     case 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids':
       return 'for your consideration';
     case 'at://following':
-      return 'Following';
+      return 'following';
 
     default:
       // For custom feeds, try to extract a readable name
@@ -196,29 +195,10 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     borderRadius: 2,
   }));
 
-  // Poll progress and duration from videoRef - optimized for scroll performance
+  // Poll progress and duration from videoRef - disabled
   useEffect(() => {
-    if (!videoRef?.current || !isVisible || isScrubbing) return;
-    
-    let interval: NodeJS.Timeout | null = null;
-    interval = setInterval(() => {
-      if (videoRef?.current && typeof videoRef.current.getProgress === 'function') {
-        const p = videoRef.current.getProgress();
-        if (!isNaN(p)) {
-          setProgress(Math.max(0, Math.min(1, p)));
-        }
-      }
-      if (videoRef?.current && typeof videoRef.current.getDuration === 'function') {
-        const d = videoRef.current.getDuration();
-        if (!isNaN(d) && d > 0) {
-          setDuration(d);
-        }
-      }
-    }, 200); // Reduced frequency for better performance
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    // Progress polling disabled
+    return;
   }, [videoRef, isVisible, isScrubbing]);
 
   // Ensure duration is set when scrubbing starts
@@ -365,11 +345,20 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
   
   // Simplified overlay visibility - no animation for better scroll performance
   const overlayOpacity = useMemo(() => {
-    if (isSmallDevice && isClearViewMode) return 0;
+    if (isClearViewMode) return 0;
     if (isSmallDevice) return 1;
     return isVisible ? 1 : 0;
   }, [isVisible, isSmallDevice, isClearViewMode]);
   
+  // Get current user data
+  const { data: userData } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      return await AtprotoService.getCurrentUser();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
   // Optimized profile query with better caching
   const { data: profileData } = useQuery({
     queryKey: author.handle ? profileKeys.detail(author.handle) : ['profiles', 'detail', ''],
@@ -383,6 +372,29 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     enabled: Boolean(author.handle),
     initialData: () => author.handle ? queryClient.getQueryData(profileKeys.detail(author.handle)) : null
   });
+
+  // Follow mutation hook
+  const followMutation = useFollowMutation();
+
+  // Check if current user is following the author
+  const isFollowing = useMemo(() => {
+    return !!profileData?.isFollowing;
+  }, [profileData?.isFollowing]);
+
+  // Check if this is the current user's own post
+  const isOwnPost = useMemo(() => {
+    return userData?.did === author.did;
+  }, [userData?.did, author.did]);
+
+  // Handle follow/unfollow action
+  const handleFollowPress = useCallback(() => {
+    if (!author.handle) return;
+    
+    followMutation.mutate({
+      handle: author.handle,
+      isFollowing: !isFollowing,
+    });
+  }, [author.handle, isFollowing, followMutation]);
 
   // Memoize text collapsing logic
   useEffect(() => {
@@ -528,18 +540,18 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
   // Memoized UI components
   const likeIcon = useMemo(() => (
     <Animated.View style={isLiked ? heartAnimatedStyle : undefined}>
-      <HeartFillIcon size={isTabletDevice ? 38 : 34} color={isLiked ? INTERACTIVE.HEART.ACTIVE : BRAND.SECONDARY} />
+      <HeartFillIcon size={isTabletDevice ? 38 : 34} color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.white} />
     </Animated.View>
   ), [isLiked, heartAnimatedStyle, isTabletDevice]);
 
   const repostIcon = useMemo(() => (
     <Animated.View style={isReposted ? repostAnimatedStyle : undefined}>
-      <RefreshFillIcon size={isTabletDevice ? 38 : 34} color={isReposted ? INTERACTIVE.REPOST.ACTIVE : INTERACTIVE.REPOST.INACTIVE} />
+      <RefreshFillIcon size={isTabletDevice ? 38 : 34} color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE} />
     </Animated.View>
   ), [isReposted, repostAnimatedStyle, isTabletDevice]);
 
   const commentIcon = useMemo(() => (
-    <ChatFillIcon size={isTabletDevice ? 38 : 34} color={INTERACTIVE.COMMENT} />
+    <ChatFillIcon size={isTabletDevice ? 38 : 34} color={Colors.INTERACTIVE.COMMENT} />
   ), [isTabletDevice]);
 
   // Cleanup on unmount
@@ -666,7 +678,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                       <View style={styles.expandedRow}>
                         {post.record?.metadata?.orbyt === true && (
                           <View style={styles.expandedPlatformRow}>
-                            <TvIcon size={isTabletDevice ? 22 : 18} color="#FFD600" />
+                            <TvIcon size={isTabletDevice ? 22 : 18} color={Colors.yellow} />
                             <Text style={isTabletDevice ? styles.expandedPlatformTextTablet : styles.expandedPlatformText}>
                               {post.record?.metadata?.platform || 'Posted via orbyt'}
                             </Text>
@@ -720,8 +732,30 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                       handle={author.handle} 
                       textSize={isTabletDevice ? 16 : 14} 
                       autoPosition={true}
-                      textColor={BRAND.SECONDARY}
+                      textColor={Colors.white}
                     />}
+                    {/* Dot separator and follow/following text */}
+                    {author.handle && !isOwnPost && (
+                      <>
+                        <Text style={styles.dotSeparator}>•</Text>
+                        <TouchableOpacity
+                          onPress={handleFollowPress}
+                          activeOpacity={0.7}
+                        >
+                          <Text 
+                            style={
+                              isTabletDevice
+                                ? styles.followTextTablet
+                                : isSmallDevice
+                                  ? styles.followTextSmallScreen
+                                  : styles.followText
+                            }
+                          >
+                            {isFollowing ? 'following' : 'follow'}
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
                   </View>
                   {/* Show source indicator instead of author handle in your mix feed */}
                   {feedOption === 'yourMix' && sourceDisplayName ? (
@@ -744,7 +778,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                                                                     <View style={{ marginRight: 4 }}>
                         <TvIcon 
                           size={isTabletDevice ? 16 : 14}
-                          color={sourceDisplayName === 'for your consideration' ? Colors.TEXT.SECONDARY : channelColors.accentColor}
+                          color={sourceDisplayName === 'for your consideration' ? Colors.lightGray : channelColors.accentColor}
                         />
                       </View>
                       <Text style={[
@@ -753,7 +787,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                           : isSmallDevice
                             ? styles.sourceTextSmallScreen
                             : styles.sourceText,
-                        { color: sourceDisplayName === 'for your consideration' ? Colors.TEXT.SECONDARY : '#cfd6e8' }
+                        { color: sourceDisplayName === 'for your consideration' ? Colors.lightGray : '#cfd6e8' }
                       ]}>
                         {sourceDisplayName}
                       </Text>
@@ -776,7 +810,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                 activeOpacity={0.7}
               >
                 <View style={styles.iconContainer}>
-                  <MoreFillIcon size={isTabletDevice ? 32 : 28} color={BRAND.SECONDARY} />
+                  <MoreFillIcon size={isTabletDevice ? 32 : 28} color={Colors.white} />
                 </View>
               </TouchableOpacity>
 
@@ -854,7 +888,8 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
           </Text>
         </View>
       )}
-      {/* Progress Bar Divider (Touchable for scrubbing) - hide in clear view mode and for short videos */}
+      {/* Progress Bar Divider disabled */}
+      {/*
       {!isClearViewMode && duration >= 16 && (
         <PanGestureHandler
           onGestureEvent={handlePanGesture}
@@ -865,7 +900,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
         >
           <View
             ref={progressBarRef}
-            onLayout={handleProgressBarLayout} // NEW: cache width
+            onLayout={handleProgressBarLayout}
             style={[
               styles.progressBarTouchableArea,
               {
@@ -896,6 +931,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
           </View>
         </PanGestureHandler>
       )}
+      */}
       
       <Modal
         animationType="none"
@@ -997,7 +1033,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     resizeMode: 'contain',
-    tintColor: INTERACTIVE.REPOST.ACTIVE,
+    tintColor: Colors.INTERACTIVE.REPOST.ACTIVE,
     marginRight: 8,
   },
   repostIndicatorText: {
@@ -1009,13 +1045,13 @@ const styles = StyleSheet.create({
   descriptionContainer: {
     marginBottom: 4,
     paddingRight: 10,
-    shadowColor: BRAND.PRIMARY,
+    shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
   descriptionText: {
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Regular',
     textShadowColor: 'rgba(0, 0, 0, 0.15)',
@@ -1025,7 +1061,7 @@ const styles = StyleSheet.create({
   authorInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: BRAND.PRIMARY,
+    shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -1046,7 +1082,7 @@ const styles = StyleSheet.create({
     marginRight: 20,
   },
   authorName: {
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontWeight: 'bold',
     fontSize: 16,
     fontFamily: 'Firma-Black',
@@ -1058,7 +1094,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   authorNameSmallScreen: {
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontWeight: 'bold',
     fontSize: 15,
     fontFamily: 'Firma-Black',
@@ -1090,7 +1126,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     marginLeft: 5,
     marginBottom: -6,
-    shadowColor: BRAND.PRIMARY,
+    shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -1098,7 +1134,7 @@ const styles = StyleSheet.create({
   actionButton: {
     alignItems: 'center',
     marginVertical: 5,
-    shadowColor: BRAND.PRIMARY,
+    shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -1107,7 +1143,7 @@ const styles = StyleSheet.create({
   actionButtonSmallScreen: {
     alignItems: 'center',
     marginVertical: 3,
-    shadowColor: BRAND.PRIMARY,
+    shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -1120,7 +1156,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: {
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontSize: 12.5,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
@@ -1177,15 +1213,15 @@ const styles = StyleSheet.create({
     height: 18,
     marginRight: 4,
     resizeMode: 'contain',
-    tintColor: '#FFD600',
+    tintColor: Colors.yellow,
   },
   expandedPlatformText: {
-    color: '#FFD600',
+    color: Colors.yellow,
     fontSize: 13,
     fontFamily: 'Firma-SemiBold',
   },
   authorNameTablet: {
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontWeight: 'bold',
     fontSize: 19, // was 26
     fontFamily: 'Firma-Black',
@@ -1207,14 +1243,14 @@ const styles = StyleSheet.create({
   actionButtonTablet: {
     alignItems: 'center',
     marginVertical: 7, // was 10
-    shadowColor: BRAND.PRIMARY,
+    shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     width: 44, // was 60
   },
   actionTextTablet: {
-    color: BRAND.SECONDARY,
+    color: Colors.white,
     fontSize: 15, // was 22
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
@@ -1253,7 +1289,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   expandedPlatformTextTablet: {
-    color: '#FFD600',
+    color: Colors.yellow,
     fontSize: 15, // was 20
     fontFamily: 'Firma-SemiBold',
   },
@@ -1279,7 +1315,7 @@ const styles = StyleSheet.create({
     zIndex: 200,
   },
   scrubInfoText: {
-    color: '#FFD600',
+    color: Colors.yellow,
     fontSize: 16,
     fontWeight: 'bold',
     backgroundColor: 'rgba(0,0,0,0.7)',
@@ -1306,7 +1342,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   timeCurrent: {
-    color: '#fff',
+    color: Colors.white,
     opacity: 1,
     fontSize: 22,
     fontWeight: 'bold',
@@ -1358,6 +1394,51 @@ const styles = StyleSheet.create({
   sourceTextTablet: {
     fontSize: 15,
     fontFamily: 'Firma-SemiBold',
+  },
+  followText: {
+    color: Colors.white,
+    fontWeight: 'bold',
+    fontSize: 16,
+    fontFamily: 'Firma-Black',
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    lineHeight: 22,
+    includeFontPadding: false,
+    flexShrink: 1,
+  },
+  followTextSmallScreen: {
+    color: Colors.white,
+    fontWeight: 'bold',
+    fontSize: 15,
+    fontFamily: 'Firma-Black',
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    lineHeight: 18,
+    includeFontPadding: false,
+    flexShrink: 1,
+  },
+  followTextTablet: {
+    color: Colors.white,
+    fontWeight: 'bold',
+    fontSize: 19,
+    fontFamily: 'Firma-Black',
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    lineHeight: 25,
+    includeFontPadding: false,
+    flexShrink: 1,
+  },
+  dotSeparator: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.6)',
+    marginHorizontal: 8,
+    fontFamily: 'Firma-Regular',
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
 });

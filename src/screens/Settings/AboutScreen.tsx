@@ -13,7 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon } from '../../components/ui/Icon';
 import AuthorItem from '../../components/ui/AuthorItem';
-import { TEXT, UI, BRAND } from '../../utils/formatting/Colors';
+import { Colors } from '../../components/ui/UI';
 import Constants from 'expo-constants';
 import { useProfile } from '../../services/cache/ProfileCache';
 
@@ -44,28 +44,28 @@ const AboutScreen: React.FC = () => {
   const aboutItems: AboutItem[] = [
     {
       id: 'website',
-      label: 'Website',
+      label: 'website',
       value: 'getorbyt.com',
-      icon: 'link',
+      icon: 'link-fill',
       onPress: () => handleOpenLink('https://getorbyt.com'),
       showChevron: true,
-      description: 'Visit our official website'
+      description: 'visit our official website'
     },
     {
       id: 'privacy',
-      label: 'Privacy Policy',
-      icon: 'shield',
+      label: 'privacy policy',
+      icon: 'safe-shield-2-fill',
       onPress: () => handleOpenLink('https://orbyt.app/privacy'),
       showChevron: true,
-      description: 'Learn how we protect your data'
+      description: 'learn how we protect your data'
     },
     {
       id: 'terms',
-      label: 'Terms of Service',
-      icon: 'file-alt',
+      label: 'terms of service',
+      icon: 'paper-fill',
       onPress: () => handleOpenLink('https://orbyt.app/terms'),
       showChevron: true,
-      description: 'Read our terms and conditions'
+      description: 'read our terms and conditions'
     }
   ];
 
@@ -78,9 +78,9 @@ const AboutScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <BackArrowIcon size={24} color="#fff" />
+          <BackArrowIcon size={28} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>About Orbyt</Text>
+        <Text style={styles.headerTitle}>about orbyt</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -100,14 +100,14 @@ const AboutScreen: React.FC = () => {
               <Text style={styles.versionText}>v{appVersion}</Text>
             </View>
           </View>
-          <Text style={styles.appName}>Orbyt</Text>
+          <Text style={styles.appName}>orbyt</Text>
           <Text style={styles.appTagline}>a new video app for bluesky</Text>
-          <Text style={styles.buildInfo}>Build {buildNumber}</Text>
+                      <Text style={styles.buildInfo}>build {buildNumber}</Text>
         </View>
 
         {/* Orbyt Profile Card */}
         <View style={styles.profileCard}>
-          <Text style={styles.sectionTitle}>Official Account</Text>
+          <Text style={styles.sectionTitle}>official account</Text>
           <AuthorItem
             handle="getorbyt.com"
             displayName={orbytProfile?.displayName || "Orbyt"}
@@ -120,7 +120,7 @@ const AboutScreen: React.FC = () => {
 
         {/* Links Section */}
         <View style={styles.linksSection}>
-          <Text style={styles.sectionTitle}>Links & Legal</Text>
+          <Text style={styles.sectionTitle}>links & legal</Text>
           <View style={styles.linksContainer}>
             {aboutItems.map((item, itemIndex) => (
               <TouchableOpacity
@@ -135,7 +135,7 @@ const AboutScreen: React.FC = () => {
               >
                 <View style={styles.linkItemLeft}>
                   <View style={styles.linkIconContainer}>
-                    <Icon name={item.icon} size={24} color="#fff" />
+                    <Icon name={item.icon} size={24} color={Colors.white} />
                   </View>
                   <View style={styles.linkTextContainer}>
                     <Text style={styles.linkItemText}>{item.label}</Text>
@@ -147,7 +147,7 @@ const AboutScreen: React.FC = () => {
                 <View style={styles.linkItemRight}>
                   
                   {item.showChevron && (
-                    <Icon name="chevron-right" size={20} color="#666" />
+                    <Icon name="chevron-right" size={20} color={Colors.gray} />
                   )}
                 </View>
               </TouchableOpacity>
@@ -158,12 +158,15 @@ const AboutScreen: React.FC = () => {
         {/* Footer */}
         <View style={styles.footer}>
           <View style={styles.footerContent}>
-            <Text style={styles.footerText}>
-              © {new Date().getFullYear()} Orbyt. All rights reserved.
-            </Text>
-            <Text style={styles.footerSubtext}>
-              Built with ❤️ for the Bluesky community
-            </Text>
+            <View style={styles.footerHeartContainer}>
+              <Text style={styles.footerSubtext}>
+                built with{' '}
+              </Text>
+              <Icon name="heart" size={16} color={Colors.lightRed} />
+              <Text style={styles.footerSubtext}>
+                {' '}for the bluesky community
+              </Text>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -174,7 +177,7 @@ const AboutScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   header: {
     flexDirection: 'row',
@@ -183,20 +186,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#333',
+    borderBottomColor: Colors.mediumGray,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1C1C1E',
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
   },
   headerTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -223,12 +222,12 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 24,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#333',
-    shadowColor: '#000',
+    borderColor: Colors.mediumGray,
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -243,35 +242,35 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -8,
     right: -25,
-    backgroundColor: '#333',
+    backgroundColor: Colors.mediumGray,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#000',
+    borderColor: Colors.black,
   },
   versionText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 12,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
   },
   appName: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 32,
     fontWeight: '700',
     fontFamily: 'Firma-Bold',
     marginBottom: 8,
   },
   appTagline: {
-    color: '#666',
+    color: Colors.gray,
     fontSize: 18,
     fontFamily: 'Firma-Medium',
     textAlign: 'center',
     marginBottom: 8,
   },
   buildInfo: {
-    color: '#666',
+    color: Colors.gray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     textAlign: 'center',
@@ -281,7 +280,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -290,7 +289,7 @@ const styles = StyleSheet.create({
   orbytAuthorItem: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
     borderRadius: 16,
     padding: 16,
   },
@@ -299,10 +298,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   linksContainer: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
     overflow: 'hidden',
   },
   linkItem: {
@@ -312,7 +311,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingHorizontal: 20,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#333',
+    borderBottomColor: Colors.mediumGray,
   },
   lastItem: {
     borderBottomWidth: 0,
@@ -330,7 +329,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#333',
+    backgroundColor: Colors.mediumGray,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -339,19 +338,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   linkItemText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '500',
     fontFamily: 'Firma-Medium',
     marginBottom: 2,
   },
   linkItemDescription: {
-    color: '#666',
+    color: Colors.gray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
   },
   linkItemValue: {
-    color: '#666',
+    color: Colors.gray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     marginRight: 8,
@@ -365,17 +364,22 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   footerText: {
-    color: '#666',
+    color: Colors.gray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     textAlign: 'center',
     marginBottom: 8,
   },
   footerSubtext: {
-    color: '#444',
+    color: Colors.mediumGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
     textAlign: 'center',
+  },
+  footerHeartContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList } from 'react-native';
-import Icon, { TelescopeIcon } from '../../ui/Icon';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList, Image } from 'react-native';
+import Icon from '../../ui/Icon';
 import { Colors } from '../../ui/UI';
 import { useQuery } from '@tanstack/react-query';
 import AtprotoService from '../../../services/api/AtprotoService';
@@ -11,6 +11,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import ProfileCache, { useFollowMutation } from '../../../services/cache/ProfileCache';
 import AuthorItem from '../../ui/AuthorItem';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// Use require for static RN asset to avoid TS module typing issues
+const UFOGif = require('../../../assets/UFO5504.gif');
 
 interface EmptyFeedProps {
   secondaryColor?: string;
@@ -20,12 +22,11 @@ interface EmptyFeedProps {
     backgroundColor: string;
     textColor: string;
   };
-  feedKey?: string;
+
   onRetry?: () => void;
   isProfileFeed?: boolean;
   viewableAreaHeight?: number;
   feedOption?: string;
-  headerHeight?: number; // Add header height prop for profile screens
 }
 
 interface SuggestedUser {
@@ -45,12 +46,10 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   message,
   type = 'no-videos',
   profileColors,
-  feedKey,
   onRetry,
   isProfileFeed = false,
   viewableAreaHeight,
-  feedOption,
-  headerHeight = 0
+  feedOption
 }) => {
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
@@ -61,6 +60,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const isFollowingFeed = feedOption === 'following';
   // Force suggested accounts for timeline feed testing
   const shouldShowSuggestions = isFollowingFeed;
+
+  // Simple unified empty message for no-videos state
+  const getNoVideosMessage = (): string => 'nothing here yet...';
 
   const { data: suggestedAccounts, isLoading: isLoadingSuggestions } = useQuery({
     queryKey: ['suggestedAccounts', 5],
@@ -106,7 +108,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       default:
         return {
           icon: isProfileFeed ? 'telescope' : 'interface-essential-search-binocular',
-          defaultMessage: isProfileFeed ? "No videos posted yet" : "Nothing to see here yet..."
+          defaultMessage: getNoVideosMessage()
         };
     }
   };
@@ -114,9 +116,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const { icon, defaultMessage } = getIconAndMessage();
   const displayMessage = message || defaultMessage;
   
-  // Use profile colors if available, otherwise fall back to secondaryColor or default
-  const iconColor = profileColors ? profileColors.textColor : (secondaryColor || Colors.TEXT.SECONDARY);
-  const textColor = profileColors ? profileColors.textColor : (secondaryColor || Colors.TEXT.SECONDARY);
+  // Icon can still vary by theme, but message text should always use brand secondary color
+  const iconColor = profileColors ? profileColors.textColor : (secondaryColor || Colors.lightGray);
+  const textColor = Colors.white;
 
   // Render suggested user item using AuthorItem component
   const renderSuggestedUser = ({ item }: { item: SuggestedUser }) => {
@@ -141,31 +143,34 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     );
   };
 
+  // Calculate top offset so content appears around the top third of the available area
+  const containerHeight = viewableAreaHeight
+    ? viewableAreaHeight
+    : Dimensions.get('window').height - insets.top - insets.bottom;
+  const shouldOffsetTop = type !== 'end';
+  const topThirdOffset = shouldOffsetTop ? Math.max(0, Math.floor(containerHeight / 5)) : 0;
+
   // Show suggested users for following feed with no videos
   if (shouldShowSuggestions && suggestedUsers.length > 0) {
     return (
       <View 
-        key={feedKey ? `empty-feed-${feedKey}` : undefined}
         style={[
           styles.emptyContainer,
           viewableAreaHeight
             ? { height: viewableAreaHeight }
             : {
                 minHeight: isProfileFeed
-                  ? Dimensions.get('window').height - insets.top - insets.bottom - headerHeight
+                  ? Dimensions.get('window').height - insets.top - insets.bottom
                   : Dimensions.get('window').height - insets.top - insets.bottom,
                 paddingTop: insets.top,
                 paddingBottom: insets.bottom,
               }
         ]}
       >
-        <View style={styles.contentContainer}>
+        <View style={[styles.contentContainer, shouldOffsetTop && { paddingTop: topThirdOffset }]}>
           <View style={styles.iconContainer}>
             {isProfileFeed && type === 'no-videos' ? (
-              <TelescopeIcon 
-                size={72} 
-                color={iconColor} 
-              />
+              <Image source={UFOGif} style={styles.ufoGif} />
             ) : (
               <Icon 
                 name={icon} 
@@ -198,9 +203,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   if (type === 'end') {
     return (
       <View 
-        key={feedKey ? `empty-feed-${feedKey}` : undefined}
         style={[
           styles.emptyContainer,
+          { justifyContent: 'center' },
           viewableAreaHeight ? { height: viewableAreaHeight } : {}
         ]}
       >
@@ -210,7 +215,6 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
               name={icon} 
               size={72} 
               color={iconColor} 
-              iconSet="streamline-pixel"
             />
           </View>
           <Text style={[styles.emptyText, { color: textColor }]}> 
@@ -223,33 +227,28 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   
   return (
     <View 
-      key={feedKey ? `empty-feed-${feedKey}` : undefined}
       style={[
         styles.emptyContainer,
         viewableAreaHeight
           ? { height: viewableAreaHeight }
           : {
               minHeight: isProfileFeed
-                ? Dimensions.get('window').height - insets.top - insets.bottom - headerHeight
+                ? Dimensions.get('window').height - insets.top - insets.bottom
                 : Dimensions.get('window').height - insets.top - insets.bottom,
               paddingTop: insets.top,
               paddingBottom: insets.bottom,
             }
       ]}
     >
-              <View style={styles.contentContainer}>
+              <View style={[styles.contentContainer, shouldOffsetTop && { paddingTop: topThirdOffset }]}>
           <View style={styles.iconContainer}>
             {isProfileFeed && type === 'no-videos' ? (
-              <TelescopeIcon 
-                size={72} 
-                color={iconColor} 
-              />
+              <Image source={UFOGif} style={styles.ufoGif} />
             ) : (
               <Icon 
                 name={icon} 
                 size={72} 
                 color={iconColor} 
-                iconSet={type === 'no-following' ? 'pixelarticons' : 'streamline-pixel'}
               />
             )}
           </View>
@@ -273,12 +272,12 @@ const styles = StyleSheet.create({
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000',
+    justifyContent: 'flex-start',
+    backgroundColor: Colors.black,
   },
   contentContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: 20,
     width: '100%',
     flex: 1,
@@ -295,6 +294,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+  },
+  ufoGif: {
+    width: 72,
+    height: 72,
+    resizeMode: 'contain',
   },
   retryButton: {
     borderWidth: 1,
@@ -340,7 +344,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: Colors.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   profileContent: {
     flex: 1,

@@ -24,16 +24,16 @@ import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, TextOverlay } from '../navigation/types';
-import { BRAND, TEXT, INTERACTIVE, UI } from '../utils/formatting/Colors';
+import { Colors } from '../components/ui/UI';
 import AtprotoService from '../services/api/AtprotoService';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import VideoPreviewModal from '../components/features/video/Preview/VideoPreviewModal';
 import { useProfile, useProfileColors } from '../services/cache/ProfileCache';
-import { Avatar, Colors } from '../components/ui/UI';
+import { Avatar } from '../components/ui/UI';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import ProfileCache from '../services/cache/ProfileCache';
-import Icon, { BackArrowIcon } from '../components/ui/Icon';
+import Icon, { BackArrowIcon, DownloadIcon, ChevronDownIcon, ChevronUpIcon } from '../components/ui/Icon';
 import VideoProcessingService from '../services/VideoProcessingService';
 import { VideoInfoDisplay } from '../components/ui';
 import AuthorItem from '../components/ui/AuthorItem';
@@ -131,6 +131,9 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
   const [accountModalVisible, setAccountModalVisible] = useState(false);
   const [accounts, setAccounts] = useState<SavedAccount[]>([]);
   const [activeAccount, setActiveAccount] = useState<SavedAccount | null>(null);
+
+  const otherAccounts = accounts.filter(item => item.id !== activeAccount?.id);
+  const hasOtherAccounts = otherAccounts.length > 0;
 
   // Use ProfileCache hooks for user profile data (must be after activeAccount is declared)
   const {
@@ -231,7 +234,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
       setVideoSizeInfo(newSizeInfo);
       
     } catch (error) {
-      Alert.alert('Compression Error', 'Failed to compress video. Please try again.');
+        Alert.alert('compression error', 'failed to compress video. please try again.');
     } finally {
       setIsCompressing(false);
     }
@@ -289,7 +292,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
     if (isPosting) return;
     
     if (!video?.path) {
-      Alert.alert('Error', 'No video selected');
+      Alert.alert('error', 'no video selected');
       return;
     }
 
@@ -297,11 +300,11 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
     try {
       const fileInfo = await FileSystem.getInfoAsync(video.path.replace('file://', ''));
       if (!fileInfo.exists) {
-        Alert.alert('Error', 'Video file not found. Please try again.');
+        Alert.alert('error', 'video file not found. please try again.');
         return;
       }
     } catch (error) {
-      Alert.alert('Error', 'Unable to access video file. Please try again.');
+      Alert.alert('error', 'unable to access video file. please try again.');
       return;
     }
 
@@ -373,8 +376,8 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
       }
       
       Alert.alert(
-        'Error', 
-        errorMessage,
+        'error', 
+        errorMessage.toLowerCase(),
         [{ text: 'OK' }]
       );
     } finally {
@@ -385,11 +388,11 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
 
   const handleCancel = () => {
     Alert.alert(
-      'Discard changes?',
-      'Are you sure you want to discard this post?',
+      'discard changes?',
+      'are you sure you want to discard this post?',
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() }
+        { text: 'cancel', style: 'cancel' },
+        { text: 'discard', style: 'destructive', onPress: () => navigation.goBack() }
       ]
     );
   };
@@ -398,16 +401,16 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission required', 'Please grant camera roll permissions to download the video');
+        Alert.alert('permission required', 'please grant camera roll permissions to download the video');
         return;
       }
       const asset = await MediaLibrary.createAssetAsync(video.path);
       if (asset) {
-        Alert.alert('Success', 'Video successfully downloaded to camera roll.');
+        Alert.alert('success', 'video successfully downloaded to camera roll.');
       }
     } catch (error) {
       console.error('Download error:', error);
-      Alert.alert('Error', 'Failed to download video. Please try again.');
+      Alert.alert('error', 'failed to download video. please try again.');
     }
   };
 
@@ -481,17 +484,17 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
   if (orientation === 'landscape' && isTablet()) {
     return (
       <View style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY} />
+        <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
         <View style={styles.landscapeContainer}>
           {/* Left: Info Side */}
           <View style={styles.landscapeInfoSide}>
             <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 0 }]}>
               <View style={styles.header}>
                 <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-                  <BackArrowIcon size={32} color="#fff" />
+                  <BackArrowIcon size={32} color={Colors.white} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleDownloadToCameraRoll} style={styles.headerButton}>
-                  <Icon name="download" size={32} color="#fff" />
+                  <DownloadIcon size={32} color={Colors.white} />
                 </TouchableOpacity>
               </View>
               {/* Description Section */}
@@ -499,7 +502,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                 <View style={styles.sectionHeader}>
                   <TouchableOpacity
                     style={[styles.userInfoContainer, { flex: 1 }]}
-                    onPress={() => setAccountModalVisible((v) => !v)}
+                    onPress={() => { if (hasOtherAccounts) setAccountModalVisible((v) => !v); }}
                     activeOpacity={0.8}
                   >
                     <Avatar
@@ -512,8 +515,8 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                     <View style={styles.userTextContainer}>
                       {isProfileLoading && !profileData ? (
                         <View style={styles.loadingContainer}>
-                          <ActivityIndicator size="small" color="#fff" />
-                          <Text style={styles.loadingText}>Loading profile...</Text>
+                          <ActivityIndicator size="small" color={Colors.white} />
+                          <Text style={styles.loadingText}>loading profile...</Text>
                         </View>
                       ) : (
                         <>
@@ -525,7 +528,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                               <VerificationBadge
                                 handle={activeAccount?.handle || profileData?.handle || ''}
                                 textSize={16}
-                                textColor={TEXT.PRIMARY}
+                                textColor={Colors.white}
                                 customMargin={2}
                               />
                             )}
@@ -538,27 +541,32 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                         </>
                       )}
                     </View>
-                    <Icon name={accountModalVisible ? 'chevron-up' : 'chevron-down'} size={24} color="#fff" style={{ marginLeft: 8 }} />
+                    {hasOtherAccounts && (
+                      accountModalVisible ? (
+                        <ChevronUpIcon size={24} color={Colors.white} style={{ marginLeft: 8 }} />
+                      ) : (
+                        <ChevronDownIcon size={24} color={Colors.white} style={{ marginLeft: 8 }} />
+                      )
+                    )}
                   </TouchableOpacity>
                 </View>
                 {/* Dropdown list of accounts, shown if accountModalVisible */}
-                {accountModalVisible && (
+                {accountModalVisible && hasOtherAccounts && (
                   <View style={{
-                    backgroundColor: UI.BACKGROUND.CARD,
+                    backgroundColor: Colors.darkGray,
                     borderRadius: 12,
                     marginTop: 4,
                     marginBottom: 12,
                     borderWidth: 1,
-                    borderColor: UI.BORDER.PRIMARY,
+                    borderColor: Colors.gray,
                     paddingVertical: 0,
-                    shadowColor: '#000',
+                    shadowColor: Colors.lightGray,
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.1,
                     shadowRadius: 8,
                     elevation: 3,
                   }}>
-                    {accounts
-                      .filter(item => item.id !== activeAccount?.id)
+                    {otherAccounts
                       .map((item, idx, filteredAccounts) => (
                         <AuthorItem
                           key={item.id}
@@ -570,21 +578,21 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                           onPress={() => handleSwitchAccount(item)}
                           style={{
                             borderBottomWidth: idx !== filteredAccounts.length - 1 ? 0.5 : 0,
-                            borderBottomColor: UI.BORDER.PRIMARY,
+                            borderBottomColor: Colors.gray,
                             backgroundColor: 'transparent',
                             borderRadius: 0,
                             borderWidth: 0,
                           }}
-                          textColor={TEXT.PRIMARY}
+                          textColor={Colors.white}
                           backgroundColor="transparent"
                         />
                       ))}
                   </View>
                 )}
                 <TextInput
-                  style={styles.descriptionInput}
-                  placeholder="Write a description..."
-                  placeholderTextColor="#777"
+              style={styles.descriptionInput}
+              placeholder="add a description for your video..."
+                  placeholderTextColor={Colors.lightGray}
                   multiline
                   maxLength={300}
                   value={description}
@@ -597,15 +605,19 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
               {/* Content Warnings */}
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Content Warnings</Text>
+                  <Text style={styles.sectionTitle}>content warnings</Text>
                   <TouchableOpacity onPress={() => setContentWarningsCollapsed(!contentWarningsCollapsed)}>
-                    <Icon name={contentWarningsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
+                    {contentWarningsCollapsed ? (
+                      <ChevronDownIcon size={24} color={Colors.white} />
+                    ) : (
+                      <ChevronUpIcon size={24} color={Colors.white} />
+                    )}
                   </TouchableOpacity>
                 </View>
                 {!contentWarningsCollapsed && (
                   <>
                     <Text style={styles.sectionSubtitle}>
-                      Add appropriate warnings if your video contains sensitive content.
+                      add appropriate warnings if your video contains sensitive content.
                     </Text>
                     {CONTENT_WARNINGS.map(warning => (
                       <TouchableOpacity 
@@ -613,13 +625,13 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                         style={styles.optionRow}
                         onPress={() => toggleContentWarning(warning.id)}
                       >
-                        <Text style={styles.optionText}>{warning.label}</Text>
+                        <Text style={styles.optionText}>{warning.label.toLowerCase()}</Text>
                         <View style={[
                           styles.checkbox,
                           selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
                         ]}>
                           {selectedContentWarnings.includes(warning.id) && (
-                            <Ionicons name="checkmark" size={16} color="#fff" />
+                            <Icon name="checkmark" size={16} color={Colors.white} />
                           )}
                         </View>
                       </TouchableOpacity>
@@ -628,21 +640,21 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                       style={styles.optionRow}
                       onPress={() => setShowContentWarningInput(!showContentWarningInput)}
                     >
-                      <Text style={styles.optionText}>Other warning</Text>
+                      <Text style={styles.optionText}>other warning</Text>
                       <View style={[
                         styles.checkbox,
                         showContentWarningInput && styles.checkboxSelected
                       ]}>
                         {showContentWarningInput && (
-                          <Ionicons name="checkmark" size={16} color="#fff" />
+                          <Icon name="checkmark" size={16} color={Colors.white} />
                         )}
                       </View>
                     </TouchableOpacity>
                     {showContentWarningInput && (
                       <TextInput
                         style={styles.otherWarningInput}
-                        placeholder="Specify content warning"
-                        placeholderTextColor="#777"
+                        placeholder="specify content warning"
+                        placeholderTextColor={Colors.lightGray}
                         value={otherWarning}
                         onChangeText={setOtherWarning}
                       />
@@ -653,15 +665,19 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
               {/* Comment Filtering */}
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Comment Settings</Text>
+                  <Text style={styles.sectionTitle}>comment settings</Text>
                   <TouchableOpacity onPress={() => setCommentSettingsCollapsed(!commentSettingsCollapsed)}>
-                    <Icon name={commentSettingsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
+                    {commentSettingsCollapsed ? (
+                      <ChevronDownIcon size={24} color={Colors.white} />
+                    ) : (
+                      <ChevronUpIcon size={24} color={Colors.white} />
+                    )}
                   </TouchableOpacity>
                 </View>
                 {!commentSettingsCollapsed && (
                   <>
                     <Text style={styles.sectionSubtitle}>
-                      Control who can comment on your video.
+                      control who can comment on your video.
                     </Text>
                     {COMMENT_FILTERS.map(filter => (
                       <TouchableOpacity 
@@ -674,13 +690,13 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                           <Ionicons
                             name={commentFilter === filter.id ? 'radio-button-on' : 'radio-button-off'}
                             size={22}
-                            color={commentFilter === filter.id ? BRAND.PRIMARY : '#777'}
+                            color={commentFilter === filter.id ? Colors.lightGray : Colors.lightGray}
                           />
                           {commentFilter === filter.id && (
                             <Icon
                               name="checkmark"
                               size={16}
-                              color="#fff"
+                              color={Colors.white}
                               style={styles.radioCheckmark}
                             />
                           )}
@@ -707,7 +723,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
               >
                 {isPosting ? (
                   <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#000" />
+                    <ActivityIndicator size="small" color={Colors.lightGray} />
                     <Text style={styles.floatingButtonLoadingText}>
                       {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
                         uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
@@ -727,8 +743,8 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
             <View style={styles.previewSection}>
               <TouchableOpacity onPress={handleEditVideo} activeOpacity={0.8} style={[styles.videoContainer, { width: '100%', aspectRatio: aspectRatio, maxHeight: '90%' }]}> 
                 {videoLoading && (
-                  <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: '#111' }]}> 
-                    <ActivityIndicator size="large" color="#fff" />
+                  <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: Colors.darkGray }]}> 
+                    <ActivityIndicator size="large" color={Colors.white} />
                   </View>
                 )}
                 <View style={{ width: '100%', aspectRatio: aspectRatio, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
@@ -766,8 +782,8 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                   />
                 </View>
                 {videoError && (
-                  <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 3, backgroundColor: '#111' }]}> 
-                    <Text style={{ color: '#fff', fontSize: 16 }}>{videoError}</Text>
+                  <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 3, backgroundColor: Colors.darkGray }]}> 
+                    <Text style={{ color: Colors.white, fontSize: 16 }}>{videoError && videoError.toLowerCase()}</Text>
                   </View>
                 )}
                 {!videoLoading && !videoError && textOverlays && textOverlays.length > 0 && textOverlays.map((overlay: TextOverlay) => (
@@ -817,18 +833,18 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY} />
+      <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-            <BackArrowIcon size={32} color="#fff" />
+            <BackArrowIcon size={32} color={Colors.white} />
           </TouchableOpacity>
           {/* Remove the account avatar/user icon button here */}
           <TouchableOpacity onPress={handleDownloadToCameraRoll} style={styles.headerButton}>
-            <Icon name="download" size={32} color="#fff" />
+            <DownloadIcon size={32} color={Colors.white} />
           </TouchableOpacity>
         </View>
   
@@ -838,8 +854,8 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
             <TouchableOpacity onPress={handleEditVideo} activeOpacity={0.8} style={[styles.videoContainer, { width: containerWidth, height: containerHeight }]}>
               {/* Show loading indicator while video is loading */}
               {videoLoading && (
-                <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: '#111' }]}> 
-                  <ActivityIndicator size="large" color="#fff" />
+                <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: Colors.darkGray }]}> 
+                  <ActivityIndicator size="large" color={Colors.white} />
                 </View>
               )}
               <View style={{ width: containerWidth, height: containerHeight, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
@@ -879,8 +895,8 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
               </View>
               {/* Error message if video fails to load */}
               {videoError && (
-                <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 3, backgroundColor: '#111' }]}> 
-                  <Text style={{ color: '#fff', fontSize: 16 }}>{videoError}</Text>
+                <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 3, backgroundColor: Colors.darkGray }]}> 
+                  <Text style={{ color: Colors.white, fontSize: 16 }}>{videoError}</Text>
                 </View>
               )}
               {/* Text Overlays - only show if they exist */}
@@ -917,7 +933,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
             <View style={styles.sectionHeader}>
               <TouchableOpacity
                 style={[styles.userInfoContainer, { flex: 1 }]}
-                onPress={() => setAccountModalVisible((v) => !v)}
+                onPress={() => { if (hasOtherAccounts) setAccountModalVisible((v) => !v); }}
                 activeOpacity={0.8}
               >
                 <Avatar
@@ -930,8 +946,8 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                 <View style={styles.userTextContainer}>
                   {isProfileLoading && !profileData ? (
                     <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="small" color="#fff" />
-                      <Text style={styles.loadingText}>Loading profile...</Text>
+                          <ActivityIndicator size="small" color={Colors.white} />
+                          <Text style={styles.loadingText}>loading profile...</Text>
                     </View>
                   ) : (
                     <>
@@ -943,7 +959,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                           <VerificationBadge
                             handle={activeAccount?.handle || profileData?.handle || ''}
                             textSize={16}
-                            textColor={TEXT.PRIMARY}
+                            textColor={Colors.white}
                             customMargin={2}
                           />
                         )}
@@ -956,14 +972,19 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                     </>
                   )}
                 </View>
-                <Icon name={accountModalVisible ? 'chevron-up' : 'chevron-down'} size={24} color="#fff" style={{ marginLeft: 8 }} />
+                {hasOtherAccounts && (
+                  accountModalVisible ? (
+                    <ChevronUpIcon size={24} color={Colors.white} style={{ marginLeft: 8 }} />
+                  ) : (
+                    <ChevronDownIcon size={24} color={Colors.white} style={{ marginLeft: 8 }} />
+                  )
+                )}
               </TouchableOpacity>
             </View>
             {/* Dropdown list of accounts, shown if accountModalVisible */}
-            {accountModalVisible && (
-              <View style={{ backgroundColor: UI.BACKGROUND.CARD, borderRadius: 12, marginTop: 12, marginBottom: 12, borderWidth: 1, borderColor: UI.BORDER.PRIMARY, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}>
-                {accounts
-                  .filter(item => item.id !== activeAccount?.id)
+            {accountModalVisible && hasOtherAccounts && (
+              <View style={{ backgroundColor: Colors.darkGray, borderRadius: 12, marginTop: 12, marginBottom: 12, borderWidth: 1, borderColor: Colors.gray, paddingVertical: 6, shadowColor: Colors.black, shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}>
+                {otherAccounts
                   .map((item, idx, filteredAccounts) => (
                     <AuthorItem
                       key={item.id}
@@ -975,11 +996,11 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                       onPress={() => handleSwitchAccount(item)}
                       style={{
                         borderBottomWidth: idx !== filteredAccounts.length - 1 ? 1 : 0,
-                        borderBottomColor: '#222',
+                        borderBottomColor: Colors.darkGray,
                         borderRadius: 0,
                         borderWidth: 0,
                       }}
-                      textColor="#fff"
+                      textColor={Colors.white}
                       backgroundColor="transparent"
                     />
                   ))}
@@ -987,31 +1008,35 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
             )}
             <TextInput
               style={styles.descriptionInput}
-              placeholder="Write a description..."
-              placeholderTextColor="#777"
+              placeholder="write a caption..."
+              placeholderTextColor={Colors.gray}
               multiline
               maxLength={300}
               value={description}
               onChangeText={setDescription}
             />
             
-            <Text style={styles.charCount}>
-              {description.length}/300
-            </Text>
+                 <Text style={styles.charCount}>
+                   {description.length}/300
+                 </Text>
           </View>
           
           {/* Content Warning Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Content Warnings</Text>
+                  <Text style={styles.sectionTitle}>content warnings</Text>
               <TouchableOpacity onPress={() => setContentWarningsCollapsed(!contentWarningsCollapsed)}>
-                <Icon name={contentWarningsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
+                {contentWarningsCollapsed ? (
+                  <ChevronDownIcon size={24} color={Colors.white} />
+                ) : (
+                  <ChevronUpIcon size={24} color={Colors.white} />
+                )}
               </TouchableOpacity>
             </View>
             {!contentWarningsCollapsed && (
               <>
-                <Text style={styles.sectionSubtitle}>
-                  Add appropriate warnings if your video contains sensitive content.
+                    <Text style={styles.sectionSubtitle}>
+                      add appropriate warnings if your video contains sensitive content.
                 </Text>
                 {CONTENT_WARNINGS.map(warning => (
                   <TouchableOpacity 
@@ -1019,13 +1044,13 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                     style={styles.optionRow}
                     onPress={() => toggleContentWarning(warning.id)}
                   >
-                    <Text style={styles.optionText}>{warning.label}</Text>
+                         <Text style={styles.optionText}>{warning.label.toLowerCase()}</Text>
                     <View style={[
                       styles.checkbox,
                       selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
                     ]}>
                       {selectedContentWarnings.includes(warning.id) && (
-                        <Ionicons name="checkmark" size={16} color="#fff" />
+                        <Icon name="checkmark" size={16} color={Colors.white} />
                       )}
                     </View>
                   </TouchableOpacity>
@@ -1034,13 +1059,13 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                   style={styles.optionRow}
                   onPress={() => setShowContentWarningInput(!showContentWarningInput)}
                 >
-                  <Text style={styles.optionText}>Other warning</Text>
+                       <Text style={styles.optionText}>other warning</Text>
                   <View style={[
                     styles.checkbox,
                     showContentWarningInput && styles.checkboxSelected
                   ]}>
                     {showContentWarningInput && (
-                      <Ionicons name="checkmark" size={16} color="#fff" />
+                      <Icon name="checkmark" size={16} color={Colors.white} />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -1048,7 +1073,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                   <TextInput
                     style={styles.otherWarningInput}
                     placeholder="Specify content warning"
-                    placeholderTextColor="#777"
+                    placeholderTextColor={Colors.gray}
                     value={otherWarning}
                     onChangeText={setOtherWarning}
                   />
@@ -1060,15 +1085,19 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
           {/* Comment Filtering Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Comment Settings</Text>
+                 <Text style={styles.sectionTitle}>comment settings</Text>
               <TouchableOpacity onPress={() => setCommentSettingsCollapsed(!commentSettingsCollapsed)}>
-                <Icon name={commentSettingsCollapsed ? 'chevron-down' : 'chevron-up'} size={24} color="#fff" />
+                {commentSettingsCollapsed ? (
+                  <ChevronDownIcon size={24} color={Colors.white} />
+                ) : (
+                  <ChevronUpIcon size={24} color={Colors.white} />
+                )}
               </TouchableOpacity>
             </View>
             {!commentSettingsCollapsed && (
               <>
-                <Text style={styles.sectionSubtitle}>
-                  Control who can comment on your video.
+                    <Text style={styles.sectionSubtitle}>
+                      control who can comment on your video.
                 </Text>
                 {COMMENT_FILTERS.map(filter => (
                   <TouchableOpacity 
@@ -1076,18 +1105,18 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                     style={styles.optionRow}
                     onPress={() => setCommentFilter(filter.id)}
                   >
-                    <Text style={styles.optionText}>{filter.label}</Text>
+                         <Text style={styles.optionText}>{filter.label.toLowerCase()}</Text>
                     <View style={styles.radioContainer}>
                       <Ionicons
                         name={commentFilter === filter.id ? 'radio-button-on' : 'radio-button-off'}
                         size={22}
-                        color={commentFilter === filter.id ? BRAND.PRIMARY : '#777'}
+                        color={commentFilter === filter.id ? Colors.lightGray : Colors.gray}
                       />
                       {commentFilter === filter.id && (
                         <Icon
                           name="checkmark"
                           size={16}
-                          color="#fff"
+                          color={Colors.white}
                           style={styles.radioCheckmark}
                         />
                       )}
@@ -1119,7 +1148,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
         >
           {isPosting ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#000" />
+              <ActivityIndicator size="small" color={Colors.black} />
               <Text style={styles.floatingButtonLoadingText}>
                 {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
                  uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
@@ -1127,9 +1156,9 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
               </Text>
             </View>
           ) : (
-            <Text style={styles.floatingPostButtonText}>
-              Post
-            </Text>
+                   <Text style={styles.floatingPostButtonText}>
+                     post
+                   </Text>
           )}
         </TouchableOpacity>
       </KeyboardAvoidingView>
@@ -1154,11 +1183,11 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   header: {
     flexDirection: 'row',
@@ -1167,7 +1196,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   headerTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
   },
@@ -1178,15 +1207,15 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: Colors.overlayBlack50,
     marginHorizontal: 2,
   },
   postButton: {
-    backgroundColor: BRAND.PRIMARY,
+    backgroundColor: Colors.darkGray,
     paddingHorizontal: 15,
   },
   postButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
     fontSize: 16,
   },
@@ -1201,7 +1230,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   videoContainer: {
-    backgroundColor: '#111',
+    backgroundColor: Colors.darkGray,
     position: 'relative',
     overflow: 'hidden',
     alignSelf: 'center',
@@ -1218,11 +1247,11 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   textOverlay: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 22,
     fontFamily: 'Firma-Bold',
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: Colors.overlayBlack50,
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
     padding: 4,
@@ -1236,7 +1265,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: Colors.overlayBlack60,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
@@ -1248,7 +1277,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: Colors.overlayBlack50,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
@@ -1264,13 +1293,13 @@ const styles = StyleSheet.create({
   },
   progressBarBackground: {
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: Colors.overlayWhite30,
     borderRadius: 2,
     overflow: 'hidden',
   },
   progressBar: {
     height: 4,
-    backgroundColor: BRAND.PRIMARY,
+    backgroundColor: Colors.darkGray,
   },
   timeContainer: {
     flexDirection: 'row',
@@ -1278,14 +1307,14 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   timeText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
   },
   descriptionSection: {
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: Colors.overlayWhite10,
   },
   userInfoContainer: {
     flexDirection: 'row',
@@ -1304,19 +1333,19 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   username: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Black',
     marginRight: 3,
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowColor: Colors.overlayBlack50,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   userHandle: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: Colors.overlayWhite80,
     fontSize: 14,
     fontFamily: 'Firma-SemiBold',
-    textShadowColor: 'rgba(2, 2, 2, 0.15)',
+    textShadowColor: Colors.overlayBlack50,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -1327,12 +1356,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loadingText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
     fontFamily: 'Firma-Medium',
   },
   descriptionInput: {
-    color: '#fff',
+    color: Colors.white,
     fontFamily: 'Firma-Regular',
     fontSize: 16,
     minHeight: 80,
@@ -1341,7 +1370,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   charCount: {
-    color: '#777',
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
     textAlign: 'right',
@@ -1350,10 +1379,10 @@ const styles = StyleSheet.create({
   section: {
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: Colors.overlayWhite10,
   },
   sectionTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
     marginBottom: 8,
@@ -1365,7 +1394,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionSubtitle: {
-    color: '#999',
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     marginBottom: 15,
@@ -1377,7 +1406,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   optionText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
   },
@@ -1386,37 +1415,37 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#777',
+    borderColor: Colors.lightGray,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxSelected: {
-    backgroundColor: BRAND.PRIMARY,
-    borderColor: BRAND.PRIMARY,
+    backgroundColor: Colors.darkGray,
+    borderColor: Colors.lightGray,
   },
   radioButton: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#777',
+    borderColor: Colors.lightGray,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioButtonSelected: {
-    borderColor: BRAND.PRIMARY,
+    borderColor: Colors.lightGray,
   },
   radioButtonInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: BRAND.PRIMARY,
+    backgroundColor: Colors.darkGray,
   },
   otherWarningInput: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: Colors.darkGray,
     borderRadius: 8,
     padding: 12,
-    color: '#fff',
+    color: Colors.white,
     marginTop: 5,
     marginBottom: 10,
     fontFamily: 'Firma-Regular',
@@ -1426,19 +1455,19 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.white,
     height: 60,
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
   },
   floatingPostButtonText: {
-    color: '#000',
+    color: Colors.lightGray,
     fontSize: 18,
     fontFamily: 'Firma-Black',
   },
@@ -1446,7 +1475,7 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   floatingButtonLoadingText: {
-    color: '#000',
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
   },
@@ -1467,12 +1496,12 @@ const styles = StyleSheet.create({
   landscapeContainer: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#000',
+    backgroundColor: Colors.darkGray,
   },
   landscapeInfoSide: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#000',
+    backgroundColor: Colors.darkGray,
     justifyContent: 'flex-start',
     minWidth: 0,
   },
@@ -1481,7 +1510,7 @@ const styles = StyleSheet.create({
   },
   landscapeVideoSide: {
     flex: 1,
-    backgroundColor: '#111',
+    backgroundColor: Colors.darkGray,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 0,
@@ -1489,12 +1518,12 @@ const styles = StyleSheet.create({
   },
   landscapePostButton: {
     marginTop: 24,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.white,
     height: 60,
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,

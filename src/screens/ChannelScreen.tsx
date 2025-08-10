@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Text,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Tabs } from 'react-native-collapsible-tab-view';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import AtprotoService from '../services/api/AtprotoService';
@@ -15,7 +17,7 @@ import { createQueryKeys } from '../services/FeedService';
 import ChannelHeader from '../components/layout/header/ChannelHeader';
 import FeedRenderer from '../components/features/feed/FeedRenderer';
 import MembersListView from '../components/features/feed/MembersListView';
-import { BRAND, TEXT } from '../utils/formatting/Colors';
+import { Colors } from '../components/ui/UI';
 import EmptyFeed from '../components/features/feed/EmptyFeed';
 import { useChannelColors, useChannel, useChannelColorsMutation } from '../services/cache/ChannelCache';
 import { extractColorsFromImage } from '../utils/formatting/colorUtils';
@@ -23,6 +25,8 @@ import { TabNavigation, TabOption } from '../components/layout/header';
 import { useSubscribedChannels } from '../hooks/useSubscribedChannels';
 import { useFeed } from '../hooks/useFeed';
 import Icon from '../components/ui/Icon';
+import { isSmallScreen, isTablet } from '../utils/helpers/screenSize';
+import { useHeaderVisibility } from '../hooks/useHeaderVisibility';
 
 interface ChannelScreenProps {
   route: any;
@@ -32,6 +36,8 @@ interface ChannelScreenProps {
 const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
   const navigation = useNavigation();
   const { uri, title, description, avatar, creator } = route.params || {};
+  const insets = useSafeAreaInsets();
+  const isSmallDevice = isSmallScreen() || isTablet();
   const [refreshing, setRefreshing] = useState(false);
   const { 
     addToMix,
@@ -41,6 +47,13 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
     channelsInMix,
     excludedChannels,
   } = useSubscribedChannels();
+
+  // Header visibility hook for smooth fade
+  const { headerVisible, headerOpacity, headerAnimatedStyle, updateHeaderVisibility, HeaderVisibilityTracker } = useHeaderVisibility({
+    headerHeight: 280,
+    fadeThreshold: 0.6,
+    feedId: uri || 'channel',
+  });
 
   // Use channel cache system
   const {
@@ -100,8 +113,6 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
   const isExcluded = useMemo(() => {
     return excludedChannels.some(ch => ch.uri === uri);
   }, [excludedChannels, uri]);
-
-
 
   // Handle mix controls
   const handleAddToMix = useCallback(async () => {
@@ -168,8 +179,6 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
     }
   }, [colorsMutation]);
 
-
-
   // Extract colors when channel data is available
   useEffect(() => {
     if (channelData && channelData.avatar && !channelData.channelColors) {
@@ -199,8 +208,6 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
     if (!channelData) return null;
 
     const likeCount = channelData.likeCount || 0;
-
-
 
     return {
       id: uri,
@@ -261,26 +268,45 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
     { id: 'members', label: 'members' },
   ];
 
+  // Tracker is provided by hook now
 
+  const showErrorScreen = !!channelError && !refreshing;
 
-  if (channelError) {
-    return (
-      <View style={[styles.errorContainer, { backgroundColor: channelColors.backgroundColor }]}>
-        <EmptyFeed type="error" />
-      </View>
-    );
-  }
+  const renderErrorScreen = () => (
+    <View style={[styles.errorContainer, { backgroundColor: channelColors.backgroundColor || '#000' }]}> 
+      <Icon name="user-x" size={48} color={channelColors.textColor || '#fff'} style={styles.errorIcon} />
+      <Text style={[styles.errorText, { color: channelColors.textColor || '#fff' }]}>Channel Not Found</Text>
+      <Text style={styles.errorSubtext}>
+        {title ? `We couldn't find the channel "${title}"` : "We couldn't retrieve this channel information"}
+      </Text>
+      <TouchableOpacity
+        style={[styles.errorButton, { borderColor: (channelColors.textColor || '#fff') + '44' }]}
+        activeOpacity={0.7}
+        onPress={onRefresh}
+      >
+        <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>Try Again</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.errorButton, styles.secondaryButton, { borderColor: (channelColors.textColor || '#fff') + '44' }]}
+        activeOpacity={0.7}
+        onPress={() => navigation.goBack()}
+      >
+        <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>Go Back</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   // Render header component
   const headerComponent = (
-    <View style={styles.headerContainer}>
+    <View style={styles.headerContainer} pointerEvents="box-none">
       <ChannelHeader
         channel={channelHeaderData}
         showBackButton={true}
         onBackPress={handleBackPress}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        feedKey={`channel-${uri || 'default'}`}
+        applySafeArea={isSmallDevice}
+        headerStyle={headerAnimatedStyle}
       >
         {channelData && (
           <>
@@ -302,39 +328,77 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: channelColors.backgroundColor }]}>
-      {activeTab === 'posts' ? (
-                        <FeedRenderer
-          feedOption={feedOption}
-          userDid={undefined}
-          headerComponent={headerComponent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={channelColors.textColor}
-            />
-          }
-          backgroundColor={channelColors.backgroundColor}
-          secondaryColor={channelColors.textColor}
-          isProfileLoading={isLoadingChannel && !channelData}
-          isRefreshing={refreshing}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          isVisible={true}
-          onPositionChange={handlePositionChange}
-          initialPosition={undefined}
-        />
+    <View style={[
+      styles.container, 
+      { 
+        backgroundColor: channelColors.backgroundColor, 
+        // Only apply safe area padding if NOT a full screen device
+        ...(isSmallDevice ? {} : { paddingTop: insets.top })
+      }
+    ]}>
+      {showErrorScreen ? (
+        renderErrorScreen()
       ) : (
-        <MembersListView
-          channelUri={uri || ''}
-          backgroundColor={channelColors.backgroundColor}
-          textColor={channelColors.textColor}
-          headerComponent={headerComponent}
-          isVisible={true}
-          onRefresh={onRefresh}
-          isRefreshing={refreshing}
-        />
+      <Tabs.Container
+        renderHeader={() => headerComponent}
+        headerHeight={280}
+        headerContainerStyle={{
+          backgroundColor: 'transparent',
+          marginBottom: 0,
+          paddingBottom: 0,
+          borderBottomWidth: 0,
+        }}
+        containerStyle={{
+          backgroundColor: 'transparent',
+        }}
+        renderTabBar={() => null}
+        // Optimize header behavior to reduce jitter
+        revealHeaderOnScroll={false}
+        snapThreshold={0.5}
+        allowHeaderOverscroll={false}
+              >
+          {activeTab === 'posts' ? (
+            <Tabs.Tab name="posts">
+              <HeaderVisibilityTracker />
+              <FeedRenderer
+                feedOption={feedOption}
+              userDid={undefined}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={channelColors.textColor}
+                />
+              }
+              backgroundColor={channelColors.backgroundColor}
+              secondaryColor={channelColors.textColor}
+              isProfileLoading={isLoadingChannel && !channelData}
+              isRefreshing={refreshing}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onPositionChange={handlePositionChange}
+              initialPosition={undefined}
+              // Use Tabs.FlatList so header collapses
+              ListComponent={Tabs.FlatList}
+              // Pass combined visibility: feed is visible AND header is not visible
+              isVisible={!headerVisible}
+            />
+          </Tabs.Tab>
+        ) : (
+          <Tabs.Tab name="members">
+            <HeaderVisibilityTracker />
+            <MembersListView
+              channelUri={uri || ''}
+              backgroundColor={channelColors.backgroundColor}
+              textColor={channelColors.textColor}
+              isVisible={true}
+              onRefresh={onRefresh}
+              isRefreshing={refreshing}
+              ListComponent={Tabs.FlatList}
+            />
+          </Tabs.Tab>
+        )}
+      </Tabs.Container>
       )}
     </View>
   );
@@ -344,27 +408,61 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     minHeight: '100%', 
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
     overflow: 'hidden'
   },
   headerContainer: {
     minHeight: 280,
+    backgroundColor: 'transparent',
+    marginBottom: 0,
+    paddingBottom: 0,
   },
   errorContainer: {
     flex: 1, 
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
     height: Dimensions.get('window').height,
   },
+  errorIcon: {
+    marginBottom: 16,
+    opacity: 0.8,
+  },
   errorText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     textAlign: 'center',
     fontFamily: 'Firma-Medium',
   },
-
+  errorSubtext: {
+    color: Colors.lightGray,
+    fontSize: 16,
+    fontFamily: 'Firma-Medium',
+    textAlign: 'center',
+    marginBottom: 24,
+    maxWidth: '80%',
+  },
+  errorButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.darkGray,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    marginTop: 20,
+    minWidth: 150,
+  },
+  errorButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontFamily: 'Firma-SemiBold',
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderColor: Colors.mediumGray,
+  },
 });
 
 export default ChannelScreen;

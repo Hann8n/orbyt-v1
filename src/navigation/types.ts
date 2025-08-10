@@ -72,6 +72,7 @@ export type RootStackParamList = {
   WatchHistory: undefined;
   ChannelManagement: undefined;
   About: undefined;
+  ColorPalette: undefined;
   AuthorProfile: { handle: string };
 };
 

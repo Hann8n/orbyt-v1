@@ -1,11 +1,13 @@
 import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SwipeableFeedContainer, { FeedOption } from '../components/features/feed/SwipeableFeedContainer';
-import { BRAND } from '../utils/formatting/Colors';
+import { Colors } from '../components/ui/UI';
 import { FORCE_FEED_ERROR } from '../utils/helpers/errorDebug';
 import { useQueryClient } from '@tanstack/react-query';
 import { createQueryKeys } from '../services/FeedService';
 import { useNavigation } from '@react-navigation/native';
+import { isSmallScreen, isTablet } from '../utils/helpers/screenSize';
 
 // Define the ref interface for HomeScreen
 export interface HomeScreenRef {
@@ -21,6 +23,8 @@ const HomeScreen = forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const queryClient = useQueryClient();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const isSmallDevice = isSmallScreen() || isTablet();
 
   const triggerRefresh = useCallback(() => {
     console.log('[HomeScreen] triggerRefresh()');
@@ -75,13 +79,20 @@ const HomeScreen = forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[
+      styles.container, 
+      { 
+        // Only apply safe area padding if NOT a full screen device
+        ...(isSmallDevice ? {} : { paddingTop: insets.top })
+      }
+    ]}>
       <SwipeableFeedContainer
         key={refreshKey}
         initialFeed={currentFeed}
         onFeedChange={handleFeedChange}
         isRefreshing={isRefreshing}
         forceError={FORCE_FEED_ERROR} // Use centralized error debugging flag
+        applySafeArea={isSmallDevice}
       />
     </View>
   );
@@ -90,7 +101,7 @@ const HomeScreen = forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.PRIMARY,
+    backgroundColor: Colors.black,
   },
 });
 

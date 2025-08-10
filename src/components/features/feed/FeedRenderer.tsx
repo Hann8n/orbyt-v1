@@ -11,6 +11,7 @@ import GridFeedView from './GridFeedView';
 import EmptyFeed from './EmptyFeed';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
+import { Colors } from '../../ui/UI';
 
 // Types
 export interface Post {
@@ -79,6 +80,9 @@ interface FeedRendererProps {
   
   // Debug flag
   forceError?: boolean;
+  ListComponent?: any; // Optional custom list component for integration with collapsible tabs
+  
+
 }
 
 // Main Feed Renderer Component
@@ -108,6 +112,8 @@ const FeedRenderer: React.FC<FeedRendererProps> = ({
   isFetchingNextPage: searchIsFetchingNextPage,
   fetchNextPage: searchFetchNextPage,
   forceError = false,
+  ListComponent,
+
 }) => {
   // Use appropriate hook based on feed type
   const isSearchFeed = feedOption === 'search';
@@ -175,7 +181,6 @@ const FeedRenderer: React.FC<FeedRendererProps> = ({
           type="error"
           secondaryColor={secondaryColor}
           profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
-          feedKey={`${feedOption}-${userDid || 'default'}`}
           onRetry={handleRetry}
           feedOption={feedOption}
         />
@@ -191,7 +196,6 @@ const FeedRenderer: React.FC<FeedRendererProps> = ({
           type="no-connection"
           secondaryColor={secondaryColor}
           profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
-          feedKey={`${feedOption}-${userDid || 'default'}`}
           onRetry={handleRetry}
           feedOption={feedOption}
         />
@@ -226,6 +230,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = ({
     isModal,
     onScrubbingChange,
     onScroll,
+    ListComponent,
   };
 
   return (
@@ -253,7 +258,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
     paddingHorizontal: 20,
   },
 });

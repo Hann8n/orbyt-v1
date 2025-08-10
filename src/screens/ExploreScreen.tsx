@@ -27,7 +27,7 @@ import HeaderBanner from '../components/ui/HeaderBanner';
 import { navigateToUserProfile } from '../navigation/profileNavigation';
 
 import { GridViewIcon, SearchIcon } from '../components/ui/Icon';
-import { BRAND, TEXT, INTERACTIVE, UI, STATUS } from '../utils/formatting/Colors';
+import { Colors } from '../components/ui/UI';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import EmptyFeed from '../components/features/feed/EmptyFeed';
 import { createQueryKeys } from '../services/FeedService';
@@ -129,19 +129,19 @@ const ProfileShimmer = () => (
   <View style={styles.profileItem}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={[styles.profileImage, { borderWidth: 1, borderColor: UI.BORDER.PRIMARY }]}
-      shimmerColors={UI.SHIMMER}
+      style={[styles.profileImage, { borderWidth: 1, borderColor: Colors.gray }]}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.profileContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 120, height: 16, marginBottom: 4, borderRadius: 3 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 80, height: 14, marginBottom: 4, borderRadius: 2 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
   </View>
@@ -152,24 +152,24 @@ const ChannelShimmer = () => (
   <View style={styles.channelItem}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={[styles.channelImage, { borderWidth: 1, borderColor: UI.BORDER.PRIMARY }]}
-      shimmerColors={UI.SHIMMER}
+      style={[styles.channelImage, { borderWidth: 1, borderColor: Colors.gray }]}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.channelContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 140, height: 16, marginBottom: 4, borderRadius: 3 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 100, height: 14, marginBottom: 4, borderRadius: 2 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 60, height: 12, borderRadius: 2 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
   </View>
@@ -180,24 +180,24 @@ const FeedShimmer = () => (
   <View style={styles.feedItem}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={[styles.feedImage, { borderWidth: 1, borderColor: UI.BORDER.PRIMARY }]}
-      shimmerColors={UI.SHIMMER}
+      style={[styles.feedImage, { borderWidth: 1, borderColor: Colors.gray }]}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.feedContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 120, height: 16, marginBottom: 4, borderRadius: 3 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 80, height: 14, marginBottom: 4, borderRadius: 2 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 60, height: 12, borderRadius: 2 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
   </View>
@@ -209,7 +209,7 @@ const SectionHeaderShimmer = () => (
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
       style={{ width: 120, height: 16, borderRadius: 3 }}
-      shimmerColors={UI.SHIMMER}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
   </View>
 );
@@ -227,8 +227,8 @@ const SpotlightVideosShimmer = () => (
         <View style={styles.spotlightVideoItem}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={[styles.spotlightVideoThumbnail, { borderWidth: 1, borderColor: UI.BORDER.PRIMARY }]}
-            shimmerColors={UI.SHIMMER}
+            style={styles.spotlightVideoThumbnail}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
       )}
@@ -241,24 +241,24 @@ const VideoShimmer = () => (
   <View style={styles.feedItem}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={[styles.feedImage, { borderWidth: 1, borderColor: UI.BORDER.PRIMARY }]}
-      shimmerColors={UI.SHIMMER}
+      style={[styles.feedImage, { borderWidth: 1, borderColor: Colors.gray }]}
+      shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.feedContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 120, height: 16, marginBottom: 4, borderRadius: 3 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 80, height: 14, marginBottom: 4, borderRadius: 2 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={{ width: 60, height: 12, borderRadius: 2 }}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
   </View>
@@ -805,7 +805,7 @@ const ExploreScreen: React.FC = () => {
                     <VerificationBadge 
                       handle={profile.handle.trim()} 
                       textSize={14} 
-                      textColor={TEXT.PRIMARY}
+                      textColor={Colors.white}
                     />
                   )}
                 </View>
@@ -829,7 +829,8 @@ const ExploreScreen: React.FC = () => {
               style={styles.channelItem}
               onPress={() => {
                 if (channel.uri && channel.uri.trim()) {
-                  navigation.navigate('Channel', {
+                  // Navigate via root navigator so Channel overlays the tab bar
+                  (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('Channel', {
                     uri: channel.uri.trim(),
                     title: channel.displayName || 'Unknown Channel',
                     description: channel.description || '',
@@ -851,7 +852,7 @@ const ExploreScreen: React.FC = () => {
                     {channel.displayName || 'Unknown channel'}
                   </Text>
                   {channel.isExperimental && (
-                    <Icon name="bug" size={12} color="#4CAF50" style={styles.experimentalIcon} />
+                    <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
                   )}
                 </View>
                 <Text style={styles.channelCreator}>
@@ -888,7 +889,7 @@ const ExploreScreen: React.FC = () => {
                     feedOption: 'search',
                     userDid: undefined,
                     backgroundColor: 'transparent',
-                    secondaryColor: '#fff',
+                    secondaryColor: Colors.white,
                     searchQuery: debouncedQuery,
                     hasNextPage: hasNextPage,
                     isFetchingNextPage: isFetchingNextPage,
@@ -918,7 +919,7 @@ const ExploreScreen: React.FC = () => {
                   </>
                 ) : (
                   <View style={styles.videoThumbnailPlaceholder}>
-                    <Icon name="videocam" size={16} color={TEXT.TERTIARY} />
+                    <Icon name="videocam" size={16} color={Colors.gray} />
                   </View>
                 )}
               </View>
@@ -1168,13 +1169,13 @@ const ExploreScreen: React.FC = () => {
       ]}>
         <SearchIcon
           size={24}
-          color={BRAND.PRIMARY}
+          color={Colors.black}
           style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }}
         />
         <TextInput
           style={styles.searchInput}
           placeholder="search"
-          placeholderTextColor={TEXT.DARK_GREY}
+          placeholderTextColor={Colors.gray}
           value={searchQuery}
           onChangeText={setSearchQuery}
           autoCapitalize="none"
@@ -1184,7 +1185,7 @@ const ExploreScreen: React.FC = () => {
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={handleClearSearch} style={styles.clearButton}>
-            <Icon name="close-circle" size={22.5} color="#0d0d11" />
+            <Icon name="close-circle" size={22.5} color={Colors.darkGray} />
           </TouchableOpacity>
         )}
       </View>
@@ -1319,7 +1320,7 @@ const ExploreScreen: React.FC = () => {
                                 feedOption: 'search',
                                 userDid: undefined,
                                 backgroundColor: 'transparent',
-                                secondaryColor: '#fff',
+                                secondaryColor: Colors.white,
                                 searchQuery: '',
                                 hasNextPage: false,
                                 isFetchingNextPage: false
@@ -1355,7 +1356,7 @@ const ExploreScreen: React.FC = () => {
                               } else {
                                 return (
                                   <View style={styles.spotlightVideoThumbnailPlaceholder}>
-                                    <Icon name="videocam" size={16} color={TEXT.TERTIARY} />
+                                    <Icon name="videocam" size={16} color={Colors.gray} />
                                   </View>
                                 );
                               }
@@ -1421,7 +1422,7 @@ const ExploreScreen: React.FC = () => {
                                       <VerificationBadge 
                                         handle={profile.handle.trim()} 
                                         textSize={14} 
-                                        textColor={TEXT.PRIMARY}
+                                        textColor={Colors.white}
                                       />
                                     )}
                                   </View>
@@ -1475,7 +1476,7 @@ const ExploreScreen: React.FC = () => {
                         })}
                         {isFetchingNextPage && (
                           <View style={styles.loadingMoreContainer}>
-                            <ActivityIndicator size="small" color={TEXT.PRIMARY} />
+                            <ActivityIndicator size="small" color={Colors.white} />
                           </View>
                         )}
                       </>
@@ -1567,7 +1568,7 @@ const ExploreScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.PRIMARY,
+    backgroundColor: Colors.black,
   },
   headerBannerContainer: {
     position: 'absolute',
@@ -1587,7 +1588,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
     zIndex: 6,
   },
 
@@ -1605,13 +1606,13 @@ const styles = StyleSheet.create({
     right: 15,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: BRAND.SECONDARY,
+    backgroundColor: Colors.white,
     borderRadius: 17,
     paddingHorizontal: 15,
     height: 55,
     zIndex: 10,
     elevation: 5,
-    shadowColor: '#000',
+    shadowColor: Colors.black,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -1621,7 +1622,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: BRAND.PRIMARY,
+    color: Colors.lightGray,
     fontSize: 20,
     height: '100%',
     fontFamily: 'Firma-SemiBold',
@@ -1642,21 +1643,21 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   profileContent: {
     flex: 1,
     justifyContent: 'center',
   },
   displayName: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 14,
     marginBottom: 2,
     fontFamily: 'Firma-SemiBold',
     flexShrink: 1,
   },
   handleText: {
-    color: TEXT.LIGHT_GREY,
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
   },
@@ -1672,38 +1673,38 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   channelContent: {
     flex: 1,
     justifyContent: 'center',
   },
   channelName: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 14,
     marginBottom: 2,
     fontFamily: 'Firma-SemiBold',
     flexShrink: 1,
   },
   channelCreator: {
-    color: TEXT.LIGHT_GREY,
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
     marginBottom: 2,
   },
   channelStats: {
-    color: TEXT.TERTIARY,
+    color: Colors.gray,
     fontSize: 11,
     fontFamily: 'Firma-Regular',
   },
   noResults: {
-    color: TEXT.TERTIARY,
+    color: Colors.gray,
     textAlign: 'center',
     fontSize: 16,
     fontFamily: 'Firma-Medium',
   },
   noResultsSubtext: {
-    color: TEXT.TERTIARY,
+    color: Colors.gray,
     textAlign: 'center',
     fontSize: 14,
     fontFamily: 'Firma-Medium',
@@ -1715,7 +1716,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   initialStateText: {
-    color: TEXT.TERTIARY,
+    color: Colors.gray,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
   },
@@ -1733,13 +1734,13 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: 20,
-    backgroundColor: BRAND.SECONDARY,
+    backgroundColor: Colors.white,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
   },
   retryButtonText: {
-    color: BRAND.PRIMARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Bold',
   },
@@ -1754,7 +1755,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   sectionTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Bold',
   },
@@ -1767,7 +1768,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 0, // Take up full width
   },
   spotlightTitle: {
-    color: '#FF6B35',
+    color: Colors.orange,
     fontSize: 20,
     fontFamily: 'Firma-Bold',
   },
@@ -1778,7 +1779,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
+    borderBottomColor: Colors.gray,
   },
   feedImage: {
     width: 40,
@@ -1786,7 +1787,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   feedContent: {
     flex: 1,
@@ -1798,7 +1799,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
+    borderBottomColor: Colors.gray,
   },
   videoThumbnailContainer: {
     position: 'relative',
@@ -1809,7 +1810,7 @@ const styles = StyleSheet.create({
     height: 80, // 9:16 aspect ratio (45 * 16/9)
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
     overflow: 'hidden' as const,
   },
   videoThumbnailPlaceholder: {
@@ -1817,8 +1818,8 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
-    backgroundColor: UI.BACKGROUND.SECONDARY,
+    borderColor: Colors.gray,
+    backgroundColor: Colors.darkGray,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1828,20 +1829,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   videoTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 14,
     marginBottom: 4,
     fontFamily: 'Firma-SemiBold',
     flexShrink: 1,
   },
   videoAuthor: {
-    color: TEXT.LIGHT_GREY,
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
     marginBottom: 2,
   },
   videoStats: {
-    color: TEXT.TERTIARY,
+    color: Colors.gray,
     fontSize: 11,
     fontFamily: 'Firma-Regular',
   },
@@ -1857,7 +1858,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   videoWarningText: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 12,
     fontFamily: 'Firma-Medium',
     textAlign: 'center',
@@ -1887,17 +1888,13 @@ const styles = StyleSheet.create({
     width: 85,
     height: 151, // 9:16 aspect ratio (85 * 16/9)
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
     overflow: 'hidden' as const,
   },
   spotlightVideoThumbnailPlaceholder: {
     width: 85,
     height: 151, // 9:16 aspect ratio (85 * 16/9)
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
-    backgroundColor: UI.BACKGROUND.SECONDARY,
+    backgroundColor: Colors.darkGray,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1913,14 +1910,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   spotlightWarningText: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 10,
     fontFamily: 'Firma-Medium',
     textAlign: 'center',
     paddingHorizontal: 8,
   },
   spotlightVideoTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 11,
     fontFamily: 'Firma-Medium',
     lineHeight: 14,
@@ -1932,10 +1929,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
+    borderBottomColor: Colors.gray,
   },
   gridHeaderTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Bold',
   },
@@ -1953,7 +1950,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   emptyTabText: {
-    color: TEXT.TERTIARY,
+    color: Colors.gray,
     fontSize: 16,
     fontFamily: 'Firma-Regular',
   },

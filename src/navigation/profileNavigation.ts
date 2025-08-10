@@ -51,26 +51,32 @@ export async function navigateToUserProfile(
       return;
     }
 
-    // Navigate to other user's profile
+    // Navigate to other user's profile using root navigator so it overlays the tab bar
     if (targetHandle) {
-      const parentNav = navigation?.getParent?.() || navigation;
+      let rootNav: any = navigation;
+      while (rootNav?.getParent?.()) {
+        rootNav = rootNav.getParent();
+      }
       if (options.isModal) {
         navigation?.goBack?.();
-        setTimeout(() => parentNav?.navigate?.('AuthorProfile', { handle: targetHandle }), options.delayMs ?? 150);
+        setTimeout(() => rootNav?.navigate?.('AuthorProfile', { handle: targetHandle }), options.delayMs ?? 150);
       } else {
-        parentNav?.navigate?.('AuthorProfile', { handle: targetHandle });
+        rootNav?.navigate?.('AuthorProfile', { handle: targetHandle });
       }
       return;
     }
 
     // If only DID was provided and it's not self, attempt best-effort: send DID as handle param
     if (targetDid) {
-      const parentNav = navigation?.getParent?.() || navigation;
+      let rootNav: any = navigation;
+      while (rootNav?.getParent?.()) {
+        rootNav = rootNav.getParent();
+      }
       if (options.isModal) {
         navigation?.goBack?.();
-        setTimeout(() => parentNav?.navigate?.('AuthorProfile', { handle: targetDid }), options.delayMs ?? 150);
+        setTimeout(() => rootNav?.navigate?.('AuthorProfile', { handle: targetDid }), options.delayMs ?? 150);
       } else {
-        parentNav?.navigate?.('AuthorProfile', { handle: targetDid });
+        rootNav?.navigate?.('AuthorProfile', { handle: targetDid });
       }
     }
   } catch (error) {

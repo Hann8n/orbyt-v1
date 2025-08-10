@@ -18,122 +18,93 @@ import {
 } from 'react-native';
 import { Modal as RNModal } from 'react-native';
 import { SvgXml } from 'react-native-svg';
-import { icons as pixelarticons } from '@iconify-json/pixelarticons';
-import { icons as streamlinePixel } from '@iconify-json/streamline-pixel';
 import Icon from './Icon';
 
 
 // ============================================================================
-// ENHANCED COLOR SYSTEM
+// SIMPLIFIED COLOR SYSTEM (12 Core Colors)
 // ============================================================================
 
 /**
- * Comprehensive color palette with improved accuracy and accessibility
+ * Streamlined color palette with 12 core colors that can be reused across all contexts
  * All colors are tested for WCAG AA compliance and proper contrast ratios
  */
 
 export const Colors = {
-  // Brand Colors - Core identity colors
-  BRAND: {
-    PRIMARY: '#000000',          // Primary brand color (pure black)
-    SECONDARY: '#FFFFFF',        // Secondary brand color (pure white)
-    ACCENT: '#cfd6e8',           // Primary accent (light blue-gray)
-    ACCENT_DARK: '#2A7CD6',      // Darker variant for hover states
-    ACCENT_LIGHT: '#5BA8F4',     // Lighter variant for disabled states
-  },
+  // Basic Colors
+  black: '#000000',
+  white: '#FFFFFF',
+  red: '#FE4359',
+  green: '#00D4AA',
+  blue: '#6366F1', // Vibrant purple-blue
+  yellow: '#FFD700', // Bright gold/yellow
+  purple: '#8B5CF6',
+  orange: '#FF6B35',
+  gray: '#818896', // Base gray
+  
+  // Gray Shades (lightest to darkest)
+  lightGray: '#CFD6E8',
+  mediumGray: '#53565D',
+  darkGray: '#292B2E',
+  
+  // Blue/Purple Shades
+  lightBlue: '#00E5FF', // Bright cyan
+  darkBlue: '#4C1D95', // Deep purple-blue
+  
+  // Green Shades
+  lightGreen: '#00FFA3', // Bright mint green
+  darkGreen: '#00B894', // Teal green
+  
+  // Red Shades
+  lightRed: '#FF6B9D', // Pink-red
+  darkRed: '#DC2626',
+  
+  // Yellow/Orange Shades
+  lightYellow: '#FFEB3B', // Bright yellow
+  darkYellow: '#FF9800', // Orange-yellow
 
-  // Text Colors - Hierarchical text system
-  TEXT: {
-    PRIMARY: '#FFFFFF',          // Primary text (white)
-    SECONDARY: '#cfd6e8',        // Secondary text (light blue-gray)
-    TERTIARY: '#848895',         // Tertiary text (medium gray)
-    BRIGHT: '#FDFCFA',           // Extra bright for emphasis
-    DISABLED: '#666666',         // Disabled text
-    PLACEHOLDER: '#999999',      // Placeholder text
-    INVERSE: '#000000',          // Text on light backgrounds
-    LIGHT_GREY: '#DDDDDD',       // Light grey text
-    MEDIUM_GREY: '#AAAAAA',      // Medium grey text
-    DARK_GREY: '#666666',        // Dark grey text for placeholders
-  },
+  // Additional vibrant colors
+  neonPink: '#FF0080', // Hot pink
+  electricBlue: '#00BFFF', // Electric blue
+  vibrantTeal: '#00E6CC', // Bright teal
+  glowGreen: '#39FF14', // Neon green
+  cosmicPurple: '#9D4EDD', // Deep purple
+  sunsetOrange: '#FF4500', // Bright orange
+  
+  // Overlay Colors
+  overlayBlack50: 'rgba(0, 0, 0, 0.5)',
+  overlayBlack60: 'rgba(0, 0, 0, 0.6)',
+  overlayWhite10: 'rgba(255, 255, 255, 0.1)',
+  overlayWhite30: 'rgba(255, 255, 255, 0.3)',
+  overlayWhite80: 'rgba(255, 255, 255, 0.8)',
 
-  // UI Background Colors - Layered background system
-  BACKGROUND: {
-    PRIMARY: '#000000',          // Main app background
-    SECONDARY: '#1A1A1A',        // Secondary background (cards, modals)
-    TERTIARY: '#2A2A2A',         // Tertiary background (inputs, buttons)
-    ITEM: '#1C1C1E',             // Item background (form fields)
-    OVERLAY: '#111111',          // Overlay backgrounds
-    CARD: '#1C1C1E',             // Card backgrounds
-    MODAL: '#1C1C1E',            // Modal backgrounds
-  },
+  // Legacy alias blocks removed. Use direct colors from this object instead.
 
-  // Border Colors - Consistent border system
-  BORDER: {
-    PRIMARY: '#333333',          // Primary borders
-    SECONDARY: '#2A2A2A',        // Secondary borders
-    ACCENT: '#3797F0',           // Accent borders
-    LIGHT: '#444444',            // Light borders
-    DARK: '#222222',             // Dark borders
-  },
-
-  // Interactive Elements - State-based colors
   INTERACTIVE: {
-    // Heart/Like interactions
     HEART: {
-      ACTIVE: '#FE4359',         // Active heart (pink/red)
-      INACTIVE: '#848895',       // Inactive heart (gray)
-      HOVER: '#E6394F',          // Hover state
+      ACTIVE: '#FE4359',     // red
+      INACTIVE: '#CFD6E8',   // gray
     },
-    // Repost interactions
     REPOST: {
-      ACTIVE: '#00D4AA',         // Active repost (teal)
-      INACTIVE: '#FFFFFF',       // Inactive repost (white)
-      HOVER: '#00B894',          // Hover state
+      ACTIVE: '#00D4AA',     // green
+      INACTIVE: '#FFFFFF',   // white
     },
-    // Comment interactions
-    COMMENT: '#FFFFFF',          // Comment icon color
-    // Follow button
-    FOLLOW: {
-      BUTTON: 'rgba(255, 255, 255, 0.2)', // Follow button background
-      TEXT: '#FFFFFF',           // Follow button text
-      ACTIVE: '#00D4AA',         // Following state
-      HOVER: 'rgba(255, 255, 255, 0.3)', // Hover state
-    },
-    // Links
-    LINK: '#3797F0',             // Link color
-    LINK_HOVER: '#2A7CD6',       // Link hover state
+    COMMENT: '#FFFFFF',      // white
   },
 
-  // Status Colors - Semantic color system
   STATUS: {
-    SUCCESS: '#00D4AA',          // Success (teal)
-    ERROR: '#FE4359',            // Error (red)
-    WARNING: '#FFB800',          // Warning (amber)
-    INFO: '#3797F0',             // Info (blue)
-    SUCCESS_DARK: '#00B894',     // Dark success
-    ERROR_DARK: '#E6394F',       // Dark error
-    WARNING_DARK: '#E6A800',     // Dark warning
+    SUCCESS: '#00D4AA',      // green
+    ERROR: '#FE4359',        // red
+    WARNING: '#FFD700',      // yellow
+    INFO: '#6366F1',         // blue
   },
 
-  // Profile Colors - User profile theming
   PROFILE: {
-    DEFAULT_RING: '#D1D1E1',     // Default profile ring
-    VERIFIED: '#3797F0',         // Verified badge
-    PREMIUM: '#FFB800',          // Premium badge
+    DEFAULT_RING: '#E8EAED', // lightGray
   },
 
-  // Overlay Colors - Modal and overlay system
-  OVERLAY: {
-    BACKDROP: 'rgba(0, 0, 0, 0.6)', // Modal backdrop
-    DIM: 'rgba(0, 0, 0, 0.55)',     // Dimming overlay
-    LIGHT: 'rgba(255, 255, 255, 0.1)', // Light overlay
-    DARK: 'rgba(0, 0, 0, 0.8)',     // Dark overlay
-  },
-
-  // Shimmer Colors - Loading states
   SHIMMER: {
-    PRIMARY: ['#1A1A1A', '#2A2A2A', '#1A1A1A'],
-    SECONDARY: ['#2A2A2A', '#3A3A3A', '#2A2A2A'],
+    PRIMARY: ['#292B2E', '#53565D', '#292B2E'], // darkGray, mediumGray, darkGray
   },
 };
 
@@ -264,28 +235,28 @@ export const Button: React.FC<ButtonProps> = ({
 
     const variantStyles: Record<ButtonVariant, ViewStyle> = {
       primary: {
-        backgroundColor: Colors.BRAND.ACCENT,
-        borderColor: Colors.BRAND.ACCENT,
+        backgroundColor: Colors.lightGray,
+        borderColor: Colors.lightGray,
       },
-      secondary: {
-        backgroundColor: Colors.BACKGROUND.TERTIARY,
-        borderColor: Colors.BORDER.PRIMARY,
-      },
+              secondary: {
+          backgroundColor: Colors.mediumGray,
+          borderColor: Colors.gray,
+        },
       outline: {
         backgroundColor: 'transparent',
-        borderColor: Colors.BRAND.ACCENT,
+        borderColor: Colors.lightGray,
       },
       ghost: {
         backgroundColor: 'transparent',
         borderColor: 'transparent',
       },
       danger: {
-        backgroundColor: Colors.STATUS.ERROR,
-        borderColor: Colors.STATUS.ERROR,
+        backgroundColor: Colors.red,
+        borderColor: Colors.red,
       },
       success: {
-        backgroundColor: Colors.STATUS.SUCCESS,
-        borderColor: Colors.STATUS.SUCCESS,
+        backgroundColor: Colors.green,
+        borderColor: Colors.green,
       },
     };
 
@@ -310,12 +281,12 @@ export const Button: React.FC<ButtonProps> = ({
     };
 
     const variantStyles: Record<ButtonVariant, TextStyle> = {
-      primary: { color: Colors.TEXT.PRIMARY },
-      secondary: { color: Colors.TEXT.PRIMARY },
-      outline: { color: Colors.BRAND.ACCENT },
-      ghost: { color: Colors.TEXT.PRIMARY },
-      danger: { color: Colors.TEXT.PRIMARY },
-      success: { color: Colors.TEXT.PRIMARY },
+      primary: { color: Colors.white },
+      secondary: { color: Colors.white },
+      outline: { color: Colors.lightGray },
+      ghost: { color: Colors.white },
+      danger: { color: Colors.white },
+      success: { color: Colors.white },
     };
 
     return {
@@ -335,7 +306,7 @@ export const Button: React.FC<ButtonProps> = ({
       {loading ? (
         <ActivityIndicator 
           size="small" 
-          color={variant === 'outline' ? Colors.BRAND.ACCENT : Colors.TEXT.PRIMARY} 
+          color={variant === 'outline' ? Colors.lightGray : Colors.white} 
         />
       ) : (
         <>
@@ -380,7 +351,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   size = 40,
   style,
   fallbackIcon,
-  fallbackIconColor = Colors.TEXT.LIGHT_GREY,
+  fallbackIconColor = Colors.lightGray,
   fallbackIconSize,
   ringColor,
   profileColors,
@@ -404,7 +375,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     height: size,
     borderRadius: getBorderRadius(),
     borderWidth: 2,
-    borderColor: ringColor || (profileColors?.textColor || Colors.BORDER.PRIMARY),
+    borderColor: ringColor || (profileColors?.textColor || Colors.gray),
   };
 
   if (uri) {
@@ -440,7 +411,7 @@ export const Card: React.FC<CardProps> = ({
   style,
   padding = 16,
   margin = 0,
-  backgroundColor = Colors.BACKGROUND.CARD,
+  backgroundColor = Colors.darkGray,
 }) => {
   return (
     <View
@@ -451,8 +422,8 @@ export const Card: React.FC<CardProps> = ({
           padding,
           margin,
           borderWidth: 1,
-          borderColor: Colors.BORDER.PRIMARY,
-          shadowColor: Colors.BRAND.PRIMARY,
+          borderColor: Colors.gray,
+          shadowColor: Colors.lightGray,
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.1,
           shadowRadius: 8,
@@ -580,7 +551,7 @@ export const Input: React.FC<InputProps> = ({
             onPress={onIconPress}
             disabled={!onIconPress}
           >
-            <Icon name={icon} size={20} color={Colors.TEXT.TERTIARY} />
+                         <Icon name={icon} size={20} color={Colors.gray} />
           </TouchableOpacity>
         )}
         <TextInput
@@ -592,7 +563,7 @@ export const Input: React.FC<InputProps> = ({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={Colors.TEXT.PLACEHOLDER}
+                     placeholderTextColor={Colors.lightGray}
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
@@ -618,7 +589,7 @@ interface LoadingProps {
 
 export const Loading: React.FC<LoadingProps> = ({
   size = 'large',
-  color = Colors.BRAND.ACCENT,
+  color = Colors.lightGray,
   text,
   style,
 }) => {
@@ -641,7 +612,7 @@ interface DividerProps {
 }
 
 export const Divider: React.FC<DividerProps> = ({
-  color = Colors.BORDER.PRIMARY,
+  color = Colors.gray,
   thickness = 1,
   margin = 16,
   style,
@@ -688,11 +659,11 @@ export const Badge: React.FC<BadgeProps> = ({
     };
 
     const variantStyles: Record<BadgeProps['variant'], ViewStyle> = {
-      primary: { backgroundColor: Colors.BRAND.ACCENT },
-      secondary: { backgroundColor: Colors.BACKGROUND.TERTIARY },
-      success: { backgroundColor: Colors.STATUS.SUCCESS },
-      error: { backgroundColor: Colors.STATUS.ERROR },
-      warning: { backgroundColor: Colors.STATUS.WARNING },
+      primary: { backgroundColor: Colors.lightGray },
+      secondary: { backgroundColor: Colors.mediumGray },
+      success: { backgroundColor: Colors.green },
+      error: { backgroundColor: Colors.red },
+      warning: { backgroundColor: Colors.yellow },
     };
 
     return {
@@ -706,7 +677,7 @@ export const Badge: React.FC<BadgeProps> = ({
     const baseStyle: TextStyle = {
       fontFamily: 'Firma-Medium',
       fontWeight: '600',
-      color: Colors.TEXT.PRIMARY,
+      color: Colors.white,
     };
 
     const sizeStyles: Record<BadgeProps['size'], TextStyle> = {
@@ -736,7 +707,7 @@ const styles = StyleSheet.create({
   // Modal styles
   modalBackdrop: {
     flex: 1,
-    backgroundColor: Colors.OVERLAY.BACKDROP,
+    backgroundColor: Colors.overlayBlack60, // Changed from BACKDROP to BLACK_60
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -744,14 +715,14 @@ const styles = StyleSheet.create({
     width: '85%',
     maxWidth: 400,
   },
-  modalTitle: {
-    color: Colors.TEXT.PRIMARY,
+      modalTitle: {
+      color: Colors.white,
     fontSize: 20,
     fontFamily: 'Firma-Bold',
     marginBottom: 8,
   },
-  modalSubtitle: {
-    color: Colors.TEXT.SECONDARY,
+      modalSubtitle: {
+      color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Regular',
     marginBottom: 16,
@@ -772,16 +743,16 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.BACKGROUND.ITEM,
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.BORDER.PRIMARY,
+    borderColor: Colors.gray,
     paddingHorizontal: 16,
     minHeight: 48,
   },
-  input: {
-    flex: 1,
-    color: Colors.TEXT.PRIMARY,
+      input: {
+      flex: 1,
+      color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Regular',
     paddingVertical: 12,
@@ -793,7 +764,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   inputError: {
-    color: Colors.STATUS.ERROR,
+    color: Colors.red,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     marginTop: 4,
@@ -808,7 +779,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loadingText: {
-    color: Colors.TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
     marginTop: 12,

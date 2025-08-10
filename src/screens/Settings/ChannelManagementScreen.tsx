@@ -13,6 +13,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Icon } from '../../components/ui/UI';
+import { Colors } from '../../components/ui/UI';
 import { BackArrowIcon, PlusIcon } from '../../components/ui/Icon';
 import { useSubscribedChannels } from '../../hooks/useSubscribedChannels';
 import { SubscribedChannel } from '../../services/storage/ChannelSubscriptionManager';
@@ -189,7 +190,7 @@ const ChannelManagementScreen: React.FC = () => {
               onPress={() => handleUnsubscribe(channel)}
               activeOpacity={0.7}
             >
-              <Icon name="trash" size={20} color="#000" />
+              <Icon name="trash" size={20} color={Colors.black} />
             </TouchableOpacity>
           ) : (
             <View style={[
@@ -201,7 +202,7 @@ const ChannelManagementScreen: React.FC = () => {
                   <Icon 
                     name={isFollowing ? "users" : "shuffle"} 
                     size={20} 
-                    color="#999" 
+                    color={Colors.lightGray} 
                   />
                 </View>
               ) : (
@@ -240,8 +241,8 @@ const ChannelManagementScreen: React.FC = () => {
                     name="shuffle" 
                     size={16} 
                     color={
-                      channel.isExcluded ? '#FE4359' : 
-                      channel.inMix && !channel.isExcluded ? '#4CAF50' : '#666'
+                      channel.isExcluded ? Colors.red : 
+                      (channel.inMix && !channel.isExcluded ? Colors.lightGreen : Colors.gray)
                     } 
                   />
                 </TouchableOpacity>
@@ -286,7 +287,7 @@ const ChannelManagementScreen: React.FC = () => {
                       disabled={index === 2 || isReordering}
                       activeOpacity={0.7}
                     >
-                      <Icon name="chevron-up" size={20} color={(index === 2 || isReordering) ? "#666" : "#fff"} />
+                      <Icon name="chevron-up" size={20} color={(index === 2 || isReordering) ? Colors.gray : Colors.white} />
                     </TouchableOpacity>
                     <TouchableOpacity
                                            style={[
@@ -303,7 +304,7 @@ const ChannelManagementScreen: React.FC = () => {
                      disabled={index === draftChannels.length - 1 || isReordering}
                      activeOpacity={0.7}
                    >
-                     <Icon name="chevron-down" size={20} color={(index === draftChannels.length - 1 || isReordering) ? "#666" : "#fff"} />
+                     <Icon name="chevron-down" size={20} color={(index === draftChannels.length - 1 || isReordering) ? Colors.gray : Colors.white} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -334,7 +335,7 @@ const ChannelManagementScreen: React.FC = () => {
         onPress={() => handleRestoreDefault(channel)}
         activeOpacity={0.7}
       >
-        <PlusIcon size={16} color="#4CAF50" strokeWidth={2.0} />
+        <PlusIcon size={16} color={Colors.lightGreen} strokeWidth={2.0} />
       </TouchableOpacity>
     </View>
   ), [handleRestoreDefault]);
@@ -422,20 +423,20 @@ const ChannelManagementScreen: React.FC = () => {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <BackArrowIcon size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Manage Channels</Text>
+                  <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <BackArrowIcon size={28} color={Colors.white} />
+        </TouchableOpacity>
+          <Text style={styles.headerTitle}>manage channels</Text>
           <View style={styles.headerSpacer} />
         </View>
         
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.loadingText}>Loading channels...</Text>
+          <ActivityIndicator size="large" color={Colors.white} />
+          <Text style={styles.loadingText}>loading channels...</Text>
         </View>
       </View>
     );
@@ -474,9 +475,9 @@ const ChannelManagementScreen: React.FC = () => {
           }}
           activeOpacity={0.7}
         >
-                      <BackArrowIcon size={24} color="#fff" />
+                      <BackArrowIcon size={28} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Manage Channels</Text>
+        <Text style={styles.headerTitle}>manage channels</Text>
         <TouchableOpacity 
           style={[styles.editButton, isEditMode && styles.editButtonActive]}
           onPress={() => {
@@ -492,7 +493,7 @@ const ChannelManagementScreen: React.FC = () => {
           activeOpacity={0.7}
         >
           <Text style={[styles.editButtonText, isEditMode && styles.editButtonTextActive]}>
-            {isEditMode ? 'Done' : 'Edit'}
+            {isEditMode ? 'done' : 'edit'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -513,7 +514,7 @@ const ChannelManagementScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   header: {
     flexDirection: 'row',
@@ -522,20 +523,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#333',
+    borderBottomColor: Colors.mediumGray,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1C1C1E',
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
   },
   headerTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -547,22 +544,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
   },
   editButtonActive: {
-    backgroundColor: '#1C1C1E',
-    borderColor: '#333',
+    backgroundColor: Colors.darkGray,
+    borderColor: Colors.mediumGray,
   },
   editButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
   },
   editButtonTextActive: {
-    color: '#4CAF50',
+    color: Colors.lightGreen,
   },
   loadingContainer: {
     flex: 1,
@@ -570,7 +567,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     marginTop: 16,
     fontFamily: 'Firma-Medium',
@@ -586,14 +583,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 20,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
     marginBottom: 8,
   },
   sectionDescription: {
-    color: '#666',
+    color: Colors.gray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     lineHeight: 20,
@@ -601,25 +598,25 @@ const styles = StyleSheet.create({
   channelItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
   },
   builtInChannelItem: {
-    backgroundColor: '#1A1A1A',
-    borderColor: '#444',
+    backgroundColor: Colors.darkGray,
+    borderColor: Colors.mediumGray,
     borderWidth: 1.5,
   },
   availableChannelItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
   },
   channelInfo: {
     flex: 1,
@@ -638,11 +635,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: Colors.mediumGray,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: Colors.mediumGray,
   },
 
   channelDetails: {
@@ -655,7 +652,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   builtInChannelName: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '700',
     fontFamily: 'Firma-Bold',
@@ -664,52 +661,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
-    backgroundColor: '#333',
+    backgroundColor: Colors.mediumGray,
   },
   followingBadge: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: Colors.lightGreen,
   },
   yourMixBadge: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: Colors.orange,
   },
   builtInBadgeText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 10,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
   },
   channelName: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
     marginBottom: 4,
   },
   channelDescription: {
-    color: '#999',
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     marginBottom: 4,
   },
   memberCount: {
-    color: '#666',
+    color: Colors.gray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
   },
   builtInMemberCount: {
-    color: '#999',
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
     fontStyle: 'italic',
   },
   followingMemberCount: {
-    color: '#4CAF50',
+    color: Colors.lightGreen,
   },
   yourMixMemberCount: {
-    color: '#FF6B35',
+    color: Colors.orange,
   },
   builtInChannelDescription: {
-    color: '#BBB',
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     marginBottom: 4,
@@ -723,11 +720,11 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#FE4359',
+    borderColor: Colors.red,
   },
   reorderButtons: {
     flexDirection: 'column',
@@ -748,11 +745,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#4CAF50',
+    borderColor: Colors.lightGreen,
   },
   mixIconButton: {
     width: 24,
@@ -765,17 +762,17 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
   },
   deleteButton: {
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#FE4359',
+    backgroundColor: Colors.red,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,

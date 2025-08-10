@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { BottomSheetModal, BottomSheetFlatList, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon } from '../../ui/UI';
+import Icon from '../../ui/Icon';
 import { PlusIcon } from '../../ui/Icon';
 import AuthorItem from '../../ui/AuthorItem';
 import AccountManager, { SavedAccount } from '../../../services/storage/AccountManager';
@@ -23,7 +23,8 @@ import { feedService } from '../../../services/FeedService';
 import WatchHistory from '../../../services/WatchHistory';
 import ChannelSubscriptionManager from '../../../services/storage/ChannelSubscriptionManager';
 import { AtprotoService } from '../../../services/api/AtprotoService';
-import { BRAND, TEXT, UI } from '../../../utils/formatting/Colors';
+import { Colors, hexToRGBA } from '../../ui/UI';
+import UI from '../../ui/UI';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface AccountSwitcherProps {
@@ -161,8 +162,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       // Clear WatchHistory
       await WatchHistory.clearWatchHistory();
       
-      // Clear ChannelSubscriptionManager subscriptions
-      await ChannelSubscriptionManager.clearAllSubscriptions();
+      // Keep ChannelSubscriptionManager subscriptions per-user via scoped keys
       
       // VideoPreloadManager removed
       
@@ -281,10 +281,10 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         >
           <View style={styles.addAccountContent}>
             <View style={styles.addAccountIcon}>
-              <PlusIcon size={20} color={TEXT.SECONDARY} strokeWidth={2.0} />
+              <PlusIcon size={20} color={Colors.lightGray} strokeWidth={2.0} />
             </View>
             <View style={styles.addAccountTextContainer}>
-              <Text style={styles.addAccountText}>Add Account</Text>
+              <Text style={styles.addAccountText}>add account</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -306,8 +306,8 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           handle={handle}
           displayName={displayName}
           avatar={avatar}
-          textColor={TEXT.PRIMARY}
-          backgroundColor={isActive ? (customColors?.backgroundColor || UI.BACKGROUND.ITEM) : UI.BACKGROUND.ITEM}
+          textColor={Colors.white}
+          backgroundColor={isActive ? (customColors?.backgroundColor || Colors.darkGray) : Colors.darkGray}
           size="large"
           showArrow={false}
           onPress={() => !isActive && !editMode && handleSwitchAccount(account)}
@@ -322,12 +322,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             onPress={() => handleRemoveAccount(account)}
             activeOpacity={0.7}
           >
-            <Icon name="trash" size={16} color="#FE4359" />
+            <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
           </TouchableOpacity>
         )}
         {isSwitching && (
           <View style={styles.switchingIndicator}>
-            <ActivityIndicator size="small" color={TEXT.SECONDARY} />
+            <ActivityIndicator size="small" color={Colors.lightGray} />
           </View>
         )}
       </View>
@@ -367,7 +367,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <Text style={styles.title}>
-            Switch Account
+            switch account
           </Text>
         </View>
         <View style={styles.headerActions}>
@@ -377,7 +377,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               onPress={() => setEditMode(true)}
               activeOpacity={0.7}
             >
-              <Text style={styles.editButtonText}>Edit</Text>
+              <Text style={styles.editButtonText}>edit</Text>
             </TouchableOpacity>
           )}
           {editMode && (
@@ -386,7 +386,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               onPress={() => setEditMode(false)}
               activeOpacity={0.7}
             >
-              <Text style={styles.doneButtonText}>Done</Text>
+              <Text style={styles.doneButtonText}>done</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -394,7 +394,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={TEXT.SECONDARY} />
+          <ActivityIndicator size="large" color={Colors.lightGray} />
         </View>
       ) : (
         <>
@@ -411,7 +411,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               onPress={onDismiss}
               activeOpacity={0.7}
             >
-              <Text style={styles.closeButtonText}>Cancel</Text>
+              <Text style={styles.closeButtonText}>cancel</Text>
             </TouchableOpacity>
           </View>
         </>
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontFamily: 'Firma-Bold',
   },
   headerActions: {
@@ -459,13 +459,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   editButtonText: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
   },
   doneButtonText: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -489,25 +489,29 @@ const styles = StyleSheet.create({
   },
   activeAccountItem: {
     borderWidth: 2,
-    borderColor: TEXT.SECONDARY,
+    borderColor: Colors.lightGray,
   },
   deleteButton: {
     position: 'absolute',
     right: 16,
     top: '50%',
-    transform: [{ translateY: -12 }],
+    transform: [{ translateY: -16 }],
     padding: 8,
-    backgroundColor: 'rgba(254, 67, 89, 0.1)',
+    backgroundColor: hexToRGBA(UI.Colors.STATUS.ERROR, 0.1),
     borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   switchingIndicator: {
     position: 'absolute',
     right: 16,
     top: '50%',
-    transform: [{ translateY: -8 }],
+    transform: [{ translateY: -12 }],
     padding: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: hexToRGBA(Colors.white, 0.1),
     borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   addAccountItem: {
     marginTop: 8,
@@ -518,16 +522,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: UI.BACKGROUND.ITEM,
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: hexToRGBA(Colors.white, 0.1),
   },
   addAccountIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: hexToRGBA(Colors.white, 0.05),
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -538,7 +542,7 @@ const styles = StyleSheet.create({
   addAccountText: {
     fontSize: 16,
     fontWeight: '600',
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontFamily: 'Firma-SemiBold',
   },
   closeButtonContainer: {
@@ -546,9 +550,9 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   closeButton: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.mediumGray,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.gray,
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -556,21 +560,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   closeButtonText: {
-    color: 'white',
+    color: Colors.white,
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
     fontFamily: 'Firma-SemiBold',
   },
   bottomSheetBackground: {
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
     borderTopWidth: 0.5,
-    borderTopColor: '#333',
+    borderTopColor: Colors.mediumGray,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
   },
   handleIndicator: {
-    backgroundColor: '#666',
+    backgroundColor: Colors.lightGray,
     width: 40,
     height: 5,
   },

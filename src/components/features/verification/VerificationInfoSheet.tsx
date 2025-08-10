@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import ProfileCache from '../../../services/cache/ProfileCache';
-import { BRAND, TEXT, UI } from '../../../utils/formatting/Colors';
+import { Colors } from '../../ui/UI';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { useNavigation } from '@react-navigation/native';
 import { Avatar } from '../../ui/UI';
@@ -51,20 +51,20 @@ const VerifiedByShimmer = () => (
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
         style={styles.issuerAvatarShimmer}
-        shimmerColors={UI.SHIMMER}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <View style={styles.issuerTextContainer}>
         <View style={styles.issuerNameRow}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
             style={styles.issuerNameShimmer}
-            shimmerColors={UI.SHIMMER}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
           style={styles.issuerHandleShimmer}
-          shimmerColors={UI.SHIMMER}
+          shimmerColors={Colors.SHIMMER.PRIMARY}
         />
       </View>
     </View>
@@ -198,20 +198,20 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     >
       <BottomSheetView style={styles.content}>
           {isLoading ? (
-            <ActivityIndicator size="small" color={BRAND.PRIMARY} style={styles.loadingIndicator} />
+            <ActivityIndicator size="small" color={Colors.lightGray} style={styles.loadingIndicator} />
           ) : verification ? (
             isTrustedVerifier ? renderTrustedVerifierContent() : renderVerifiedAccountContent()
           ) : (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>
-                Could not load verification information
+                could not load verification information
               </Text>
               <TouchableOpacity 
                 style={styles.closeButton} 
                 onPress={onDismiss}
                 activeOpacity={0.7}
               >
-                <Text style={styles.closeButtonText}>Close</Text>
+                <Text style={styles.closeButtonText}>close</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -229,10 +229,10 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             handle={handle}
             textSize={32}
             badgeType="auto"
-            textColor="#FFFFFF"
+            textColor={Colors.white}
           />
           <Text style={styles.verificationTitle}>
-            Trusted Verifier
+            trusted verifier
           </Text>
         </View>
 
@@ -240,7 +240,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
             <Text style={styles.highlightedText}>{profile?.displayName || handle}</Text>
-            <Text> is a trusted verifier on Bluesky. Trusted verifiers can verify other accounts on the network.</Text>
+            <Text> is a trusted verifier on bluesky. trusted verifiers can verify other accounts on the network.</Text>
           </Text>
         </View>
           
@@ -248,7 +248,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         {verification?.verifications?.[0]?.createdAt && (
           <View style={styles.statusDateContainer}>
             <Text style={styles.statusText}>
-              Since {new Date(verification.verifications[0].createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              since {new Date(verification.verifications[0].createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </Text>
           </View>
         )}
@@ -259,7 +259,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           onPress={onDismiss}
           activeOpacity={0.7}
         >
-          <Text style={styles.closeButtonText}>Close</Text>
+          <Text style={styles.closeButtonText}>close</Text>
         </TouchableOpacity>
       </>
     );
@@ -288,24 +288,24 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             handle={handle}
             textSize={28}
             badgeType="auto"
-            textColor="#FFFFFF"
+            textColor={Colors.white}
           />
           <Text style={styles.verificationTitle}>
-            Verified Account
+            verified account
           </Text>
         </View>
 
         {/* Simplified Info Container */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
-            A verification badge indicates this is an authentic account representing the person or organization it claims to be.
+            a verification badge indicates this is an authentic account representing the person or organization it claims to be.
           </Text>
         </View>
 
         {/* Verified By: Issuer Profile Card */}
         {(actualIssuerHandle || issuerProfile || verifierDid) && (
           <>
-            <Text style={styles.verifiedByLabel}>Verified by:</Text>
+            <Text style={styles.verifiedByLabel}>verified by:</Text>
             {isIssuerLoading ? (
               <VerifiedByShimmer />
             ) : (
@@ -314,11 +314,11 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
                 displayName={
                   issuerProfile?.displayName || 
                   actualIssuerHandle || 
-                  (isOfficialVerification ? 'Bluesky' : 
-                   (verifierDid ? `Verifier (${verifierDid.slice(0, 8)}...)` : 'Verifier'))
+                  (isOfficialVerification ? 'bluesky' : 
+                   (verifierDid ? `verifier (${verifierDid.slice(0, 8)}...)` : 'verifier'))
                 }
                 avatar={issuerProfile?.avatar}
-                textColor="#FFFFFF"
+                textColor={Colors.white}
                 size="medium"
                 showDate={true}
                 date={issuerCreatedAt ? new Date(issuerCreatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : undefined}
@@ -341,7 +341,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           onPress={onDismiss}
           activeOpacity={0.7}
         >
-          <Text style={styles.closeButtonText}>Close</Text>
+          <Text style={styles.closeButtonText}>close</Text>
         </TouchableOpacity>
       </>
     );
@@ -350,14 +350,14 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 
 const styles = StyleSheet.create({
   bottomSheetBackground: {
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
     borderTopWidth: 0.5,
-    borderTopColor: '#333',
+    borderTopColor: Colors.mediumGray,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
   },
   handleIndicator: {
-    backgroundColor: '#666',
+    backgroundColor: Colors.gray,
     width: 40,
     height: 5,
   },
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   verificationTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 20,
     fontFamily: 'Firma-Bold',
     marginLeft: 6,
@@ -389,18 +389,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   infoText: {
-    color: TEXT.MEDIUM_GREY,
+    color: Colors.gray,
     fontSize: 16,
     lineHeight: 22,
     textAlign: 'center',
     fontFamily: 'Firma-Regular',
   },
   highlightedText: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontFamily: 'Firma-Medium',
   },
   verifiedByLabel: {
-    color: TEXT.LIGHT_GREY,
+    color: Colors.lightGray,
     fontSize: 15,
     fontFamily: 'Firma-Medium',
     marginTop: 15,
@@ -415,28 +415,28 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   // Date section styling
   dateSection: {
     marginVertical: 15,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     padding: 12,
   },
   labelText: {
-    color: TEXT.LIGHT_GREY,
+    color: Colors.lightGray,
     fontSize: 13,
     fontFamily: 'Firma-Regular',
     marginBottom: 4,
   },
   valueText: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 15,
     fontFamily: 'Firma-Medium',
   },
   dateValueText: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 15,
     fontFamily: 'Firma-Medium',
     textAlign: 'center',
@@ -444,11 +444,11 @@ const styles = StyleSheet.create({
     // Legacy styles preserved for backward compatibility
   verifierCard: {
     marginVertical: 15,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     padding: 15,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
   },
   verifierContent: {
     flexDirection: 'row',
@@ -464,12 +464,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   verifierName: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
   },
   verifierHandle: {
-    color: TEXT.LIGHT_GREY,
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     marginTop: 2,
@@ -479,16 +479,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
-    color: TEXT.LIGHT_GREY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Regular',
     marginBottom: 20,
     textAlign: 'center',
   },
   closeButton: {
-    backgroundColor: UI.BACKGROUND.ITEM,
+    backgroundColor: Colors.darkGray,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusText: {
-    color: TEXT.LIGHT_GREY,
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     textAlign: 'center',

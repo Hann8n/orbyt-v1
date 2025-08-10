@@ -1,6 +1,6 @@
 /**
  * VideoItem Component
- * Extracted from FeedRenderer to break circular dependency
+ * Updated for unified snapping system
  */
 
 import React, { useCallback, useEffect, useRef, useMemo } from 'react';
@@ -12,8 +12,9 @@ import VideoOverlay from '../video/VideoOverlay';
 import { extractVideoEmbedAndUrl } from '../../../utils/helpers/video';
 import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
+import { Colors } from '../../ui/UI';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Types
 export interface Post {
@@ -46,6 +47,7 @@ export interface VideoItemProps {
   moderationDecision?: ModerationDecision;
   onScrubbingChange?: (isScrubbing: boolean) => void;
   isModal?: boolean;
+
 }
 
 const VideoItem: React.FC<VideoItemProps> = ({
@@ -61,15 +63,40 @@ const VideoItem: React.FC<VideoItemProps> = ({
   moderationDecision,
   isModal = false,
   onScrubbingChange,
+
 }) => {
   const videoRef = useRef<VideoCardRef>(null);
   const localScrollY = useSharedValue(0);
   const scrollY = externalScrollY || localScrollY;
 
   const isSmallDevice = isSmallScreen() || isTablet();
-  const itemHeight = height || SCREEN_HEIGHT;
+  
+  // Unified height calculation - Restored original 9:16 design
+  const itemHeight = useMemo(() => {
+    if (height) return height;
+    
+    // Use the provided height or fallback to screen height
+    // This maintains the original design where videos have uniform spacing
+    return SCREEN_HEIGHT;
+  }, [height]);
+  
+  // Determine if this is a full screen card
   const isFullScreenCard = itemHeight >= SCREEN_HEIGHT - 1;
-  const progressBarAtCardBottom = isModal || (!isSmallDevice && !isFullScreenCard);
+  
+  // Progress bar positioning logic - Restored original logic
+  const progressBarAtCardBottom = useMemo(() => {
+    // In modals, always put progress bar at bottom
+    if (isModal) return true;
+    
+    // For small devices, always put progress bar at bottom
+    if (isSmallDevice) return true;
+    
+    // For large devices with full screen cards, put progress bar at bottom
+    if (isFullScreenCard) return true;
+    
+    // For large devices with smaller cards, put progress bar at top of navigation
+    return false;
+  }, [isModal, isSmallDevice, isFullScreenCard]);
 
   // Memoized video data
   const { videoEmbed, videoUrl, hasVideo } = useMemo(() => {
@@ -85,7 +112,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
       width: '100%' as const,
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
-      backgroundColor: '#000'
+      backgroundColor: Colors.black
     }
   ], [itemHeight]);
 
@@ -99,7 +126,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
     return null;
   }
 
-  // Optimized video status handler - removed requestAnimationFrame for better scroll performance
+  // Optimized video status handler
   const handleVideoStatusChange = useCallback((uri: string, status: string) => {
     handleVideoStatus?.(uri, status);
   }, [handleVideoStatus]);
@@ -124,6 +151,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
         onVideoStatus={handleVideoStatusChange}
         height={itemHeight}
         moderationDecision={moderationDecision}
+
       />
       <View style={overlayContainerStyle}>
         <VideoOverlay 
@@ -143,13 +171,13 @@ const VideoItem: React.FC<VideoItemProps> = ({
   );
 };
 
-// Optimized memo comparison - balanced for performance and functionality
+// Optimized memo comparison
 const MemoizedVideoItem = React.memo(VideoItem, (prevProps, nextProps) => {
   // Critical props that affect rendering
   if (prevProps.post.uri !== nextProps.post.uri) return false;
   if (prevProps.isVisible !== nextProps.isVisible) return false;
   if (prevProps.isPlaying !== nextProps.isPlaying) return false;
-  if (prevProps.shouldPreload !== nextProps.shouldPreload) return false; // Important for preloading
+  if (prevProps.shouldPreload !== nextProps.shouldPreload) return false;
   if (prevProps.height !== nextProps.height) return false;
   if (prevProps.isModal !== nextProps.isModal) return false;
   
@@ -162,7 +190,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     margin: 0,
     padding: 0,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
   },

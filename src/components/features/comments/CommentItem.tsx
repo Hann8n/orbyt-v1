@@ -23,6 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { navigateToUserProfile } from '../../../navigation/profileNavigation';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
+import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
 import { CommentHeartIcon } from '../../ui/Icon';
 import VerificationBadge from '../verification/VerificationBadge';
@@ -348,7 +349,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
               style={style}
-              shimmerColors={UI.Colors.SHIMMER.PRIMARY}
+              shimmerColors={Colors.SHIMMER.PRIMARY}
             />
           )}
           <Image
@@ -384,23 +385,23 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       return (
         <Pressable
           onPress={handlePress}
-          style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#181818', borderRadius: 10, borderWidth: 1, borderColor: '#333', marginTop: 8, marginBottom: 4, overflow: 'hidden' }}
-          android_ripple={{ color: '#222' }}
+          style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.darkGray, borderRadius: 10, borderWidth: 1, borderColor: Colors.mediumGray, marginTop: 8, marginBottom: 4, overflow: 'hidden' }}
+          android_ripple={{ color: Colors.darkGray }}
         >
           {thumbUrl && (
             <ShimmerImage
               uri={thumbUrl}
-              style={{ width: 64, height: 64, borderTopLeftRadius: 10, borderBottomLeftRadius: 10, backgroundColor: '#222' }}
+              style={{ width: 64, height: 64, borderTopLeftRadius: 10, borderBottomLeftRadius: 10, backgroundColor: Colors.darkGray }}
             />
           )}
           <View style={{ flex: 1, padding: 8, minWidth: 0 }}>
             {external.title && (
-              <Text numberOfLines={2} style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>{external.title}</Text>
+              <Text numberOfLines={2} style={{ color: Colors.white, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>{external.title}</Text>
             )}
             {external.description && (
-              <Text numberOfLines={2} style={{ color: '#aaa', fontSize: 13 }}>{external.description}</Text>
+              <Text numberOfLines={2} style={{ color: Colors.lightGray, fontSize: 13 }}>{external.description}</Text>
             )}
-            <Text numberOfLines={1} style={{ color: '#4A90E2', fontSize: 12, marginTop: 2 }}>{external.uri.replace(/^https?:\/\//, '')}</Text>
+            <Text numberOfLines={1} style={{ color: Colors.lightGray, fontSize: 12, marginTop: 2 }}>{external.uri.replace(/^https?:\/\//, '')}</Text>
           </View>
         </Pressable>
       );
@@ -576,31 +577,31 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   borderRadius: 20,
                   marginRight: 12,
                   borderWidth: 1,
-                  borderColor: '#333',
+                  borderColor: Colors.mediumGray,
                 }}
               />
             </TouchableOpacity>
             <View style={{ flex: 1, justifyContent: 'center' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14, marginBottom: 2 }}>
+                <Text style={{ color: Colors.white, fontWeight: 'bold', fontSize: 14, marginBottom: 2 }}>
                   {authorName}
                 </Text>
                 {authorHandle && (
                   <VerificationBadge
                     handle={authorHandle}
                     textSize={14}
-                    textColor="#FFFFFF"
+                    textColor={Colors.white}
                     autoPosition={true}
                   />
                 )}
               </View>
-              <Text style={{ color: '#DDDDDD', fontSize: 14 }}>
+              <Text style={{ color: Colors.white, fontSize: 14 }}>
                 @{authorHandle}
               </Text>
               {commentText ? (
                 <TextWithAuthorLinks
                   text={commentText}
-                  style={{ color: '#fff', fontSize: 15, marginTop: 2 }}
+                  style={{ color: Colors.white, fontSize: 15, marginTop: 2 }}
                   onAuthorPress={handleAuthorPress}
                 />
               ) : null}
@@ -681,7 +682,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 6,
-    backgroundColor: '#eee',
+    backgroundColor: Colors.white,
   },
   moreImagesIndicator: {
     position: 'absolute',
@@ -693,7 +694,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   moreImagesText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -702,7 +703,7 @@ const styles = StyleSheet.create({
   },
   commentThreadContainer: {
     marginBottom: 8,
-    backgroundColor: UI.Colors.BACKGROUND.PRIMARY,
+    backgroundColor: Colors.darkGray,
   },
   commentItemContainer: {
     flexDirection: 'row',
@@ -726,19 +727,19 @@ const styles = StyleSheet.create({
   },
   commentAuthorName: {
     fontWeight: 'bold',
-    color: '#fff',
+    color: Colors.white,
   },
   commentAuthorNameNested: {
     fontWeight: 'bold',
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
   },
   commentText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 15,
   },
   commentTextNested: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
   },
   commentMetaContainer: {
@@ -748,7 +749,7 @@ const styles = StyleSheet.create({
   },
   commentTimestamp: {
     fontSize: 12,
-    color: '#888',
+    color: Colors.lightGray,
     marginRight: 12,
   },
   replyButton: {
@@ -757,7 +758,7 @@ const styles = StyleSheet.create({
   },
   replyButtonText: {
     fontSize: 12,
-    color: UI.Colors.TEXT.SECONDARY,
+    color: UI.Colors.lightGray,
     fontFamily: 'Firma-SemiBold',
   },
   commentActionsContainer: {
@@ -782,7 +783,7 @@ const styles = StyleSheet.create({
     height: 16,
   },
   likeCount: {
-    color: UI.Colors.BRAND.SECONDARY,
+    color: UI.Colors.white,
     fontSize: 12.5,
     fontFamily: 'Firma-SemiBold',
     marginTop: 0,
@@ -801,7 +802,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   repliesToggleText: {
-    color: UI.Colors.TEXT.SECONDARY,
+    color: UI.Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-SemiBold',
     fontWeight: '600',

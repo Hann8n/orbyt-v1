@@ -1,6 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../services/api/AtprotoService';
+import { Tabs } from 'react-native-collapsible-tab-view';
 import FeedRenderer from '../components/features/feed/FeedRenderer';
 import { extractColorsFromImage } from '../utils/formatting/colorUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,8 +18,12 @@ import Icon from '../components/ui/Icon';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { ProfileHeader, TabNavigation, TabOption } from '../components/layout/header';
+import { useHeaderVisibility } from '../hooks/useHeaderVisibility';
 import AccountSwitcher from '../components/features/profile/AccountSwitcher';
 import AccountManager, { SavedAccount } from '../services/storage/AccountManager';
+import { isSmallScreen, isTablet } from '../utils/helpers/screenSize';
+import { Colors } from '../components/ui/UI';
+ 
 
 type RootParamList = {
   Main: undefined;
@@ -36,6 +42,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const route = useRoute<any>();
   const navigation = useNavigation<NavigationProp<RootParamList>>();
   const providedHandle = route.params?.handle || null;
+  const insets = useSafeAreaInsets();
+  const isSmallDevice = isSmallScreen() || isTablet();
+  
+  // Track header visibility to pause feed while header is visible
+  const { headerVisible, headerAnimatedStyle, HeaderVisibilityTracker } = useHeaderVisibility({
+    headerHeight: 280,
+    fadeThreshold: 0.6,
+    feedId: 'profile',
+  });
 
   // State for the current user's handle (loaded from storage or fetched)
   const [userHandle, setUserHandle] = useState<string | null>(null);
@@ -271,6 +286,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
     ...(providedHandle ? [] : [{ id: 'likes', label: 'likes' }]),
   ];
 
+
+
+
   // Determine if the error screen should be shown
   const showErrorScreen = (isProfileFetchError || profileError) && !refreshing;
 
@@ -304,21 +322,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: profileColors.backgroundColor }]}>
+    <View style={[
+      styles.container,
+      {
+        backgroundColor: profileColors.backgroundColor,
+        // Only apply safe area padding if NOT a full screen device
+        ...(isSmallDevice ? {} : { paddingTop: insets.top })
+      }
+    ]}>
       {showErrorScreen ? (
         renderErrorScreen()
       ) : (
-        <FeedRenderer
-          feedOption={
-            activeTab === 'profile' ? 'profile' :
-            activeTab === 'reposts' ? 'reposts' : 'likes'
-          }
-          userDid={profileData?.did}
-          queryOptions={{
-            enabled: !!profileData?.did
-          }}
-          headerComponent={
-            <View style={styles.headerContainer}>
+        <Tabs.Container
+          renderHeader={() => (
+            <View style={styles.headerContainer} pointerEvents="box-none">
               <ProfileHeader
                 handle={targetHandle}
                 showBackButton={!!providedHandle}
@@ -326,7 +343,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                 onLogout={handleLogout}
                 onSwitchAccount={() => setShowAccountSwitcher(true)}
                 forceLoading={isProfileLoadingForced}
-                feedKey={`profile-${profileData?.did || 'default'}`}
+                applySafeArea={isSmallDevice}
+                headerStyle={headerAnimatedStyle}
               >
                 {profileData && (
                   <TabNavigation
@@ -342,22 +360,47 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
                 )}
               </ProfileHeader>
             </View>
-          }
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={profileColors.textColor}
+          )}
+          headerHeight={280}
+          headerContainerStyle={{
+            backgroundColor: 'transparent',
+            marginBottom: 0,
+            paddingBottom: 0,
+            borderBottomWidth: 0,
+          }}
+          containerStyle={{ backgroundColor: 'transparent' }}
+          renderTabBar={() => null}
+          revealHeaderOnScroll={false}
+          allowHeaderOverscroll={false}
+        >
+          <Tabs.Tab name="feed">
+            <HeaderVisibilityTracker />
+            <FeedRenderer
+              feedOption={
+                activeTab === 'profile' ? 'profile' :
+                activeTab === 'reposts' ? 'reposts' : 'likes'
+              }
+              userDid={profileData?.did}
+              queryOptions={{ enabled: !!profileData?.did }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={profileColors.textColor}
+                />
+              }
+              backgroundColor={profileColors.backgroundColor}
+              secondaryColor={profileColors.textColor}
+              isProfileLoading={isProfileLoading && !profileData}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              ListComponent={Tabs.FlatList}
+              isVisible={!headerVisible}
             />
-          }
-          backgroundColor={profileColors.backgroundColor}
-          secondaryColor={profileColors.textColor}
-          isProfileLoading={isProfileLoading && !profileData}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-        />
+          </Tabs.Tab>
+        </Tabs.Container>
       )}
-      
+
       {/* Account Switcher Modal */}
       <AccountSwitcher
         visible={showAccountSwitcher}
@@ -365,7 +408,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
         onAccountSwitch={handleAccountSwitch}
         onAddAccount={async () => {
           setShowAccountSwitcher(false);
-          // Log out but do not clear all accounts, just go to login screen
           await handleLogout(false);
         }}
         onLogout={onLogout}
@@ -382,6 +424,9 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     minHeight: 280,
+    backgroundColor: 'transparent',
+    marginBottom: 0,
+    paddingBottom: 0,
   },
   errorContainer: {
     flex: 1, 
@@ -399,7 +444,7 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   errorSubtext: {
-    color: '#aaa', 
+    color: Colors.lightGray, 
     fontSize: 16,
     fontFamily: 'Firma-Medium',
     textAlign: 'center',
@@ -409,7 +454,7 @@ const styles = StyleSheet.create({
   errorButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -418,13 +463,13 @@ const styles = StyleSheet.create({
     minWidth: 150,
   },
   errorButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
   },
   secondaryButton: {
     backgroundColor: 'transparent',
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
   },
 });
 

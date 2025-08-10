@@ -13,7 +13,7 @@ import {
   TextInput
 } from 'react-native';
 import Video, { VideoRef } from 'react-native-video';
-import { BRAND } from '../../../utils/formatting/Colors';
+import { Colors } from '../../ui/UI';
 import VideoProcessingService from '../../../services/VideoProcessingService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -280,7 +280,7 @@ const VideoEditorComponent: React.FC<VideoEditorComponentProps> = ({
       {/* Button to add/edit overlay text */}
       <View style={styles.addTextButtonContainer}>
         <TouchableOpacity onPress={openTextModal} style={styles.addTextButton}>
-          <Text style={styles.addTextButtonLabel}>{overlayText ? 'Edit Text' : 'Add Text'}</Text>
+          <Text style={styles.addTextButtonLabel}>{overlayText ? 'edit text' : 'add text'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -298,7 +298,7 @@ const VideoEditorComponent: React.FC<VideoEditorComponentProps> = ({
               value={tempOverlayText}
               onChangeText={setTempOverlayText}
               placeholder="Type your text here..."
-              placeholderTextColor="#888"
+              placeholderTextColor={Colors.lightGray}
             />
             <View style={styles.modalButtonsContainer}>
               <TouchableOpacity
@@ -343,7 +343,7 @@ const VideoEditorComponent: React.FC<VideoEditorComponentProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   video: {
     flex: 1,
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   overlayText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 24,
     fontWeight: '600',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   addTextButtonLabel: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
   },
   controlsContainer: {
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
   controlText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 18,
   },
   timeIndicator: {
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   timeText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 12,
   },
   modalBackground: {
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: '80%',
-    backgroundColor: '#fff',
+    backgroundColor: Colors.white,
     borderRadius: 8,
     padding: 20,
     alignItems: 'center',
@@ -432,16 +432,16 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     marginBottom: 12,
-    color: '#333',
+    color: Colors.mediumGray,
   },
   modalTextInput: {
     width: '100%',
-    borderColor: '#ccc',
+    borderColor: Colors.white,
     borderWidth: 1,
     borderRadius: 4,
     padding: 10,
     marginBottom: 20,
-    color: '#333',
+    color: Colors.mediumGray,
   },
   modalButtonsContainer: {
     flexDirection: 'row',
@@ -452,12 +452,12 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 5,
     paddingVertical: 10,
-    backgroundColor: BRAND.PRIMARY,  // Using the app's brand color for consistency
+    backgroundColor: Colors.darkGray,  // Using the app's brand color for consistency
     borderRadius: 4,
     alignItems: 'center',
   },
   modalButtonLabel: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
   },
 });

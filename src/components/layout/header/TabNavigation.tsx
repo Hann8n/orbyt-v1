@@ -127,18 +127,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     marginTop: 4,
-
     backgroundColor: 'transparent',
+    // Add layout stability to prevent jitter
+    minHeight: 48,
   },
   tabsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8, // reduced from 20 to 8
+    // Add layout stability
+    flex: 1,
   },
   tabOption: {
-
-
     paddingRight: 8,
+    // Add layout stability to prevent jitter
+    minHeight: 36,
+    justifyContent: 'center',
   },
   tabText: {
     fontSize: 17,

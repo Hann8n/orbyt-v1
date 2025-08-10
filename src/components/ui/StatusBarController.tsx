@@ -1,19 +1,18 @@
 import React from 'react';
 import { StatusBar } from 'react-native';
 import { useClearView } from '../../services/ClearViewContext';
-import { isSmallScreen, isTablet } from '../../utils/helpers/screenSize';
+import { Colors } from './UI';
 
 const StatusBarController: React.FC = () => {
   const { isClearViewMode } = useClearView();
-  const isSmallDevice = isSmallScreen() || isTablet();
 
-  // Hide status bar when in clear view mode on small devices/tablets
-  const shouldHideStatusBar = isSmallDevice && isClearViewMode;
+  // Hide status bar when in clear view mode
+  const shouldHideStatusBar = isClearViewMode;
 
   return (
     <StatusBar 
       barStyle="light-content" 
-      backgroundColor="#000" 
+      backgroundColor={Colors.black} 
       hidden={shouldHideStatusBar}
     />
   );

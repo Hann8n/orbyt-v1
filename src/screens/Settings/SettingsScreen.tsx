@@ -24,6 +24,7 @@ declare global {
   var __ORBYT_FEED_DEBUG_OVERLAY__: boolean | undefined;
 }
 import { useQueryClient } from '@tanstack/react-query';
+import { Colors } from '../../components/ui/UI';
 
 type SettingsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 type SettingsScreenRouteProp = RouteProp<RootStackParamList, 'Settings'>;
@@ -61,23 +62,23 @@ const SettingsScreen: React.FC = () => {
     if (isSubmitting) return;
     
     Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out?',
+      'log out',
+      'are you sure you want to log out?',
       [
         {
-          text: 'Cancel',
+          text: 'cancel',
           style: 'cancel',
         },
         {
-          text: 'Log Out',
+          text: 'log out',
           style: 'destructive',
           onPress: async () => {
             setIsSubmitting(true);
             try {
               await onLogout();
             } catch (error) {
-              console.error('Error during logout:', error);
-              Alert.alert('Error', 'Failed to log out. Please try again.');
+              console.error('error during logout:', error);
+              Alert.alert('error', 'failed to log out. please try again.');
             } finally {
               setIsSubmitting(false);
             }
@@ -88,7 +89,7 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handlePlaceholderAction = (action: string) => {
-    Alert.alert('Coming Soon', `${action} will be available in a future update.`);
+    Alert.alert('coming soon', `${action.toLowerCase()} will be available in a future update.`);
   };
 
 
@@ -102,8 +103,8 @@ const SettingsScreen: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['suggestedFeeds'] });
       queryClient.invalidateQueries({ queryKey: ['unifiedSearch'] });
     } catch (error) {
-      console.error('Error saving experimental feeds setting:', error);
-      Alert.alert('Error', 'Failed to save setting. Please try again.');
+      console.error('error saving experimental feeds setting:', error);
+      Alert.alert('error', 'failed to save setting. please try again.');
     }
   };
 
@@ -114,25 +115,25 @@ const SettingsScreen: React.FC = () => {
       // set global for immediate effect
       (global as any).__ORBYT_FEED_DEBUG_OVERLAY__ = value;
     } catch (error) {
-      console.error('Error saving feed debug overlay setting:', error);
-      Alert.alert('Error', 'Failed to save setting. Please try again.');
+      console.error('error saving feed debug overlay setting:', error);
+      Alert.alert('error', 'failed to save setting. please try again.');
     }
   };
 
   const settingsSections = [
     {
-      title: 'Account',
+      title: 'account',
       items: [
         {
           id: 'moderation',
-          label: 'Content Moderation',
+                      label: 'content moderation',
           icon: 'mingcute:safe-shield-2-fill',
           onPress: () => navigation.navigate({ name: 'ModerationControls', params: {} }),
           showChevron: true
         },
         {
           id: 'channels',
-          label: 'Manage Channels',
+          label: 'manage channels',
           icon: 'device-tv',
           onPress: () => navigation.navigate('ChannelManagement'),
           showChevron: true
@@ -147,11 +148,11 @@ const SettingsScreen: React.FC = () => {
       ]
     },
     {
-      title: 'Content',
+      title: 'content',
       items: [
         {
           id: 'watch-history',
-          label: 'Watch History',
+          label: 'watch history',
           icon: 'mingcute:history-anticlockwise-line',
           onPress: () => navigation.navigate('WatchHistory'),
           showChevron: true
@@ -173,11 +174,18 @@ const SettingsScreen: React.FC = () => {
       ]
     },
     {
-      title: 'App',
+      title: 'app',
       items: [
         {
+          id: 'color-palette',
+          label: 'color palette',
+          icon: 'color-picker-fill',
+          onPress: () => navigation.navigate('ColorPalette'),
+          showChevron: true
+        },
+        {
           id: 'about',
-          label: 'About Orbyt',
+          label: 'about orbyt',
           icon: 'device-tv',
           onPress: () => navigation.navigate('About'),
           showChevron: true
@@ -197,6 +205,10 @@ const SettingsScreen: React.FC = () => {
         //   showChevron: true
         // }
       ]
+    },
+    {
+      title: 'debug',
+      items: []
     }
   ];
 
@@ -209,9 +221,9 @@ const SettingsScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <BackArrowIcon size={24} color="#fff" />
+          <BackArrowIcon size={28} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.headerTitle}>settings</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -239,9 +251,9 @@ const SettingsScreen: React.FC = () => {
                   <View style={styles.settingItemLeft}>
                     <View style={styles.iconContainer}>
                       {item.icon === 'device-tv' ? (
-                        <TvIcon size={20} color="#fff" />
+                        <TvIcon size={20} color={Colors.white} />
                       ) : (
-                        <Icon name={item.icon} size={20} color="#fff" />
+                        <Icon name={item.icon} size={20} color={Colors.white} />
                       )}
                     </View>
                     <View style={styles.settingItemTextContainer}>
@@ -252,49 +264,49 @@ const SettingsScreen: React.FC = () => {
                     </View>
                   </View>
                   {item.showChevron && (
-                    <Icon name="chevron-right" size={20} color="#666" />
+                    <Icon name="chevron-right" size={20} color={Colors.gray} />
                   )}
                 </TouchableOpacity>
               ))}
               
-              {/* Experimental Feeds Toggle (only in Content section) */}
-              {section.title === 'Content' && (
-                <View style={[styles.settingItem, styles.switchItem]}> 
+              {/* Experimental Feeds Toggle (only in content section) */}
+              {section.title === 'content' && (
+                <View style={[styles.settingItem, { borderBottomWidth: 0.5, borderBottomColor: Colors.mediumGray }]}> 
                   <View style={styles.settingItemLeft}>
                     <View style={styles.iconContainer}>
-                      <Icon name="experimental-feeds" size={20} color="#fff" />
+                      <Icon name="experimental-feeds" size={20} color={Colors.white} />
                     </View>
                     <View style={styles.settingItemTextContainer}>
-                      <Text style={styles.settingItemText}>Experimental Feeds</Text>
-                      <Text style={styles.settingItemSubtitle}>Show non-video feeds</Text>
+                      <Text style={styles.settingItemText}>experimental feeds</Text>
+                      <Text style={styles.settingItemSubtitle}>show non-video feeds</Text>
                     </View>
                   </View>
                   <Switch
                     value={isExperimentalFeedsEnabled}
                     onValueChange={handleToggleExperimentalFeeds}
-                    trackColor={{ false: '#2A2A2A', true: '#4CAF50' }}
-                    thumbColor={isExperimentalFeedsEnabled ? '#fff' : '#999'}
-                    ios_backgroundColor="#2A2A2A"
+                    trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
+                    thumbColor={isExperimentalFeedsEnabled ? Colors.white : Colors.lightGray}
+                    ios_backgroundColor={Colors.mediumGray}
                   />
                 </View>
               )}
-              {section.title === 'App' && (
-                <View style={[styles.settingItem, styles.switchItem]}> 
+              {section.title === 'debug' && (
+                <View style={[styles.settingItem]}> 
                   <View style={styles.settingItemLeft}>
                     <View style={styles.iconContainer}>
-                      <Icon name="bug" size={20} color="#fff" />
+                      <Icon name="bug" size={20} color={Colors.white} />
                     </View>
                     <View style={styles.settingItemTextContainer}>
-                      <Text style={styles.settingItemText}>Feed Debug Overlay</Text>
-                      <Text style={styles.settingItemSubtitle}>Show realtime feed/debug info</Text>
+                                      <Text style={styles.settingItemText}>feed debug overlay</Text>
+                <Text style={styles.settingItemSubtitle}>show realtime feed/debug info</Text>
                     </View>
                   </View>
                   <Switch
                     value={isFeedDebugEnabled}
                     onValueChange={handleToggleFeedDebug}
-                    trackColor={{ false: '#2A2A2A', true: '#4CAF50' }}
-                    thumbColor={isFeedDebugEnabled ? '#fff' : '#999'}
-                    ios_backgroundColor="#2A2A2A"
+                    trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
+                    thumbColor={isFeedDebugEnabled ? Colors.white : Colors.lightGray}
+                    ios_backgroundColor={Colors.mediumGray}
                   />
                 </View>
               )}
@@ -310,8 +322,8 @@ const SettingsScreen: React.FC = () => {
             activeOpacity={0.7}
             disabled={isSubmitting}
           >
-            <Icon name="logout" size={20} color="#FE4359" />
-            <Text style={styles.logoutButtonText}>Log Out</Text>
+            <Icon name="logout" size={20} color={Colors.black} />
+            <Text style={styles.logoutButtonText}>log out</Text>
           </TouchableOpacity>
         </View>
 
@@ -325,7 +337,7 @@ const SettingsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   header: {
     flexDirection: 'row',
@@ -334,22 +346,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#333',
+    borderBottomColor: Colors.mediumGray,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1C1C1E',
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
   },
   headerTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 18,
-    fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
   },
   headerSpacer: {
@@ -365,7 +372,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   sectionTitle: {
-    color: '#666',
+    color: Colors.gray,
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -375,13 +382,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   sectionContent: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     marginHorizontal: 20,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
     overflow: 'hidden',
   },
+
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -389,7 +397,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#333',
+    borderBottomColor: Colors.mediumGray,
   },
   lastItem: {
     borderBottomWidth: 0,
@@ -403,7 +411,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#333',
+    backgroundColor: Colors.mediumGray,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -412,13 +420,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingItemText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '500',
     fontFamily: 'Firma-Medium',
   },
   settingItemSubtitle: {
-    color: '#666',
+    color: Colors.gray,
     fontSize: 12,
     fontWeight: '400',
     fontFamily: 'Firma-Regular',
@@ -436,15 +444,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1C1C1E',
-    borderWidth: 1,
-    borderColor: '#FE4359',
+    backgroundColor: Colors.red,
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 20,
   },
   logoutButtonText: {
-    color: '#FE4359',
+    color: Colors.black,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',

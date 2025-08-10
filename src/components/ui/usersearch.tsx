@@ -14,6 +14,7 @@ import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { createQueryKeys } from '../../services/FeedService';
 import AtprotoService from '../../services/api/AtprotoService';
 import { Avatar } from './UI';
+import { Colors } from './UI';
 import VerificationBadge from '../features/verification/VerificationBadge';
 
 // Animated shimmer component
@@ -44,7 +45,7 @@ const ProfileShimmer = () => {
           width: 36, 
           height: 36, 
           borderRadius: 18, 
-          backgroundColor: '#333',
+          backgroundColor: Colors.mediumGray,
           marginRight: 12,
           opacity: shimmerOpacity,
         }} 
@@ -54,7 +55,7 @@ const ProfileShimmer = () => {
           style={{ 
             width: 120, 
             height: 16, 
-            backgroundColor: '#333', 
+            backgroundColor: Colors.mediumGray, 
             borderRadius: 4, 
             marginBottom: 4,
             opacity: shimmerOpacity,
@@ -64,7 +65,7 @@ const ProfileShimmer = () => {
           style={{ 
             width: 80, 
             height: 12, 
-            backgroundColor: '#333', 
+            backgroundColor: Colors.mediumGray, 
             borderRadius: 4,
             opacity: shimmerOpacity,
           }} 
@@ -176,7 +177,7 @@ export function UserSearchModal({
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Text style={styles.displayName}>{item.displayName || item.handle}</Text>
                     {item.handle && (
-                      <VerificationBadge handle={item.handle} textSize={14} textColor="#FFFFFF" />
+                      <VerificationBadge handle={item.handle} textSize={14} textColor={Colors.white} />
                     )}
                   </View>
                   <Text style={styles.handle}>@{item.handle}</Text>
@@ -284,12 +285,12 @@ const styles = StyleSheet.create({
     pointerEvents: 'box-none',
   },
   modal: {
-    backgroundColor: '#181818',
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     marginHorizontal: 16,
     paddingVertical: 4,
     paddingHorizontal: 0,
-    shadowColor: '#000',
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -304,19 +305,19 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#222',
+    borderBottomColor: Colors.darkGray,
   },
   avatar: {
     marginRight: 12,
   },
   displayName: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 15,
     fontWeight: 'bold',
     fontFamily: 'Firma-SemiBold',
   },
   handle: {
-    color: '#aaa',
+    color: Colors.lightGray,
     fontSize: 13,
     fontFamily: 'Firma-Regular',
   },
@@ -326,11 +327,11 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   errorText: {
-    color: '#f66',
+    color: Colors.red,
     fontSize: 15,
   },
   emptyText: {
-    color: '#aaa',
+    color: Colors.lightGray,
     fontSize: 15,
   },
 });

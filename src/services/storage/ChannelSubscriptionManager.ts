@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { FEED_CONFIG } from '../FeedService';
+import AccountManager from '../storage/AccountManager';
 
 export interface SubscribedChannel {
   uri: string;
@@ -31,16 +32,59 @@ class ChannelSubscriptionManager {
   private static REMOVED_DEFAULTS_KEY = 'removed_default_channels_v1';
 
   /**
+   * Build a user-scoped key by appending the active DID.
+   * Falls back to the base key if no DID is available.
+   */
+  private static async getUserScopedKey(baseKey: string): Promise<string> {
+    try {
+      const activeAccount = await AccountManager.getActiveAccount();
+      if (activeAccount?.id) {
+        return `${baseKey}_${activeAccount.id}`;
+      }
+
+      const did = activeAccount?.did;
+      if (did) {
+        const sanitizedDid = did.replace(/[^a-zA-Z0-9._-]/g, '_');
+        return `${baseKey}_${sanitizedDid}`;
+      }
+
+      // Fallback: try session if AccountManager not set
+      const sessionStr = await SecureStore.getItemAsync('session');
+      const session = sessionStr ? JSON.parse(sessionStr) : null;
+      if (session?.did) {
+        const sanitizedDid = String(session.did).replace(/[^a-zA-Z0-9._-]/g, '_');
+        return `${baseKey}_${sanitizedDid}`;
+      }
+    } catch {
+      // ignore and fallback
+    }
+    return baseKey;
+  }
+
+  /**
    * Get all subscribed channels including defaults
    */
   static async getSubscribedChannels(): Promise<SubscribedChannel[]> {
     try {
-      const channelsStr = await SecureStore.getItemAsync(this.SUBSCRIBED_CHANNELS_KEY);
+      const scopedKey = await this.getUserScopedKey(this.SUBSCRIBED_CHANNELS_KEY);
+      let channelsStr = await SecureStore.getItemAsync(scopedKey);
+
+      // One-time migration from legacy global key to user-scoped key
+      if (!channelsStr) {
+        const legacyStr = await SecureStore.getItemAsync(this.SUBSCRIBED_CHANNELS_KEY);
+        if (legacyStr) {
+          await SecureStore.setItemAsync(scopedKey, legacyStr);
+          await SecureStore.deleteItemAsync(this.SUBSCRIBED_CHANNELS_KEY);
+          channelsStr = legacyStr;
+        }
+      }
       
       const savedChannels: SubscribedChannel[] = channelsStr ? JSON.parse(channelsStr) : [];
       
       // Get removed default channels
-      const removedDefaultsStr = await SecureStore.getItemAsync(this.REMOVED_DEFAULTS_KEY);
+      const removedDefaultsStr = await SecureStore.getItemAsync(
+        await this.getUserScopedKey(this.REMOVED_DEFAULTS_KEY)
+      );
       const removedDefaults: string[] = removedDefaultsStr ? JSON.parse(removedDefaultsStr) : [];
       
       // Filter out removed default channels
@@ -93,7 +137,9 @@ class ChannelSubscriptionManager {
    */
   static async getMixSettings(): Promise<ChannelMixSettings[]> {
     try {
-      const settingsStr = await SecureStore.getItemAsync(this.MIX_SETTINGS_KEY);
+      const settingsStr = await SecureStore.getItemAsync(
+        await this.getUserScopedKey(this.MIX_SETTINGS_KEY)
+      );
       return settingsStr ? JSON.parse(settingsStr) : [];
     } catch (error) {
       console.error('Error getting mix settings:', error);
@@ -119,7 +165,10 @@ class ChannelSubscriptionManager {
         });
       }
       
-      await SecureStore.setItemAsync(this.MIX_SETTINGS_KEY, JSON.stringify(currentSettings));
+      await SecureStore.setItemAsync(
+        await this.getUserScopedKey(this.MIX_SETTINGS_KEY),
+        JSON.stringify(currentSettings)
+      );
     } catch (error) {
       console.error('Error updating mix settings:', error);
       throw error;
@@ -196,7 +245,10 @@ class ChannelSubscriptionManager {
       
       // Save only non-default channels
       const savedChannels = channels.filter(ch => !ch.isDefault);
-      await SecureStore.setItemAsync(this.SUBSCRIBED_CHANNELS_KEY, JSON.stringify(savedChannels));
+      await SecureStore.setItemAsync(
+        await this.getUserScopedKey(this.SUBSCRIBED_CHANNELS_KEY),
+        JSON.stringify(savedChannels)
+      );
     } catch (error) {
       console.error('Error subscribing to channel:', error);
       throw error;
@@ -217,18 +269,26 @@ class ChannelSubscriptionManager {
 
       if (channelToRemove.isDefault) {
         // For default channels, add to removed defaults list
-        const removedDefaultsStr = await SecureStore.getItemAsync(this.REMOVED_DEFAULTS_KEY);
+        const removedDefaultsStr = await SecureStore.getItemAsync(
+          await this.getUserScopedKey(this.REMOVED_DEFAULTS_KEY)
+        );
         const removedDefaults: string[] = removedDefaultsStr ? JSON.parse(removedDefaultsStr) : [];
         
         if (!removedDefaults.includes(uri)) {
           removedDefaults.push(uri);
-          await SecureStore.setItemAsync(this.REMOVED_DEFAULTS_KEY, JSON.stringify(removedDefaults));
+          await SecureStore.setItemAsync(
+            await this.getUserScopedKey(this.REMOVED_DEFAULTS_KEY),
+            JSON.stringify(removedDefaults)
+          );
         }
       } else {
         // For non-default channels, remove from saved channels
         const filteredChannels = channels.filter(ch => ch.uri !== uri);
         const savedChannels = filteredChannels.filter(ch => !ch.isDefault);
-        await SecureStore.setItemAsync(this.SUBSCRIBED_CHANNELS_KEY, JSON.stringify(savedChannels));
+        await SecureStore.setItemAsync(
+          await this.getUserScopedKey(this.SUBSCRIBED_CHANNELS_KEY),
+          JSON.stringify(savedChannels)
+        );
       }
     } catch (error) {
       console.error('Error unsubscribing from channel:', error);
@@ -270,7 +330,10 @@ class ChannelSubscriptionManager {
       
       // Save only non-default channels
       const savedChannels = reorderedChannels.filter(ch => !ch.isDefault);
-      await SecureStore.setItemAsync(this.SUBSCRIBED_CHANNELS_KEY, JSON.stringify(savedChannels));
+      await SecureStore.setItemAsync(
+        await this.getUserScopedKey(this.SUBSCRIBED_CHANNELS_KEY),
+        JSON.stringify(savedChannels)
+      );
     } catch (error) {
       console.error('Error reordering channels:', error);
       throw error;
@@ -295,11 +358,16 @@ class ChannelSubscriptionManager {
    */
   static async restoreDefaultChannel(uri: string): Promise<void> {
     try {
-      const removedDefaultsStr = await SecureStore.getItemAsync(this.REMOVED_DEFAULTS_KEY);
+      const removedDefaultsStr = await SecureStore.getItemAsync(
+        await this.getUserScopedKey(this.REMOVED_DEFAULTS_KEY)
+      );
       const removedDefaults: string[] = removedDefaultsStr ? JSON.parse(removedDefaultsStr) : [];
       
       const updatedRemovedDefaults = removedDefaults.filter(removedUri => removedUri !== uri);
-      await SecureStore.setItemAsync(this.REMOVED_DEFAULTS_KEY, JSON.stringify(updatedRemovedDefaults));
+      await SecureStore.setItemAsync(
+        await this.getUserScopedKey(this.REMOVED_DEFAULTS_KEY),
+        JSON.stringify(updatedRemovedDefaults)
+      );
     } catch (error) {
       console.error('Error restoring default channel:', error);
       throw error;
@@ -311,7 +379,9 @@ class ChannelSubscriptionManager {
    */
   static async getAvailableDefaultChannels(): Promise<SubscribedChannel[]> {
     try {
-      const removedDefaultsStr = await SecureStore.getItemAsync(this.REMOVED_DEFAULTS_KEY);
+      const removedDefaultsStr = await SecureStore.getItemAsync(
+        await this.getUserScopedKey(this.REMOVED_DEFAULTS_KEY)
+      );
       const removedDefaults: string[] = removedDefaultsStr ? JSON.parse(removedDefaultsStr) : [];
       
       return this.DEFAULT_CHANNELS.filter(ch => removedDefaults.includes(ch.uri));
@@ -322,12 +392,16 @@ class ChannelSubscriptionManager {
   }
 
   /**
-   * Clear all subscribed channels (except defaults)
+   * Refresh all subscribed channels
    */
   static async clearAllSubscriptions(): Promise<void> {
     try {
-      await SecureStore.deleteItemAsync(this.SUBSCRIBED_CHANNELS_KEY);
-      await SecureStore.deleteItemAsync(this.REMOVED_DEFAULTS_KEY);
+      await SecureStore.deleteItemAsync(
+        await this.getUserScopedKey(this.SUBSCRIBED_CHANNELS_KEY)
+      );
+      await SecureStore.deleteItemAsync(
+        await this.getUserScopedKey(this.REMOVED_DEFAULTS_KEY)
+      );
     } catch (error) {
       console.error('Error clearing subscriptions:', error);
       throw error;

@@ -76,26 +76,26 @@ const GridFeedShimmer: React.FC<GridFeedShimmerProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   topDivider: {
     width: '100%',
     height: ITEM_MARGIN,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   gridContainer: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   row: {
     flexDirection: 'row',
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   gridItem: {
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 0,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   shimmerItem: {
     width: '100%',

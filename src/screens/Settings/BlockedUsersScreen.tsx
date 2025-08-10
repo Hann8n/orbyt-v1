@@ -11,7 +11,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon } from '../../components/ui/Icon';
-import { BRAND, TEXT, UI, STATUS } from '../../utils/formatting/Colors';
+import { Colors } from '../../components/ui/UI';
+import UI from '../../components/ui/UI';
 import { ModerationService } from '../../services/ModerationService';
 import AtprotoService from '../../services/api/AtprotoService';
 
@@ -95,7 +96,7 @@ const BlockedUsersScreen: React.FC = () => {
             {item.avatar ? (
               <Image source={{ uri: item.avatar }} style={styles.avatar} />
             ) : (
-              <Icon name="user" size={24} color={TEXT.PRIMARY} />
+              <Icon name="user" size={24} color={Colors.white} />
             )}
           </View>
           <View style={styles.userDetails}>
@@ -115,10 +116,10 @@ const BlockedUsersScreen: React.FC = () => {
           activeOpacity={0.7}
         >
           {isUnblocking ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={Colors.white} />
           ) : (
             <>
-              <Icon name="user-check" size={16} color="#fff" />
+              <Icon name="user-check" size={16} color={Colors.white} />
               <Text style={styles.unblockButtonText}>Unblock</Text>
             </>
           )}
@@ -136,13 +137,13 @@ const BlockedUsersScreen: React.FC = () => {
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
-            <BackArrowIcon size={24} color={TEXT.PRIMARY} />
+            <BackArrowIcon size={28} color={Colors.white} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Blocked Users</Text>
+          <Text style={styles.headerTitle}>blocked users</Text>
           <View style={styles.headerRight} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BRAND.SECONDARY} />
+          <ActivityIndicator size="large" color={Colors.white} />
           <Text style={styles.loadingText}>Loading blocked users...</Text>
         </View>
       </View>
@@ -157,9 +158,9 @@ const BlockedUsersScreen: React.FC = () => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <BackArrowIcon size={24} color={TEXT.PRIMARY} />
+          <BackArrowIcon size={28} color={Colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Blocked Users</Text>
+                  <Text style={styles.headerTitle}>blocked users</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -171,10 +172,10 @@ const BlockedUsersScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Icon name="shield-off" size={24} color={TEXT.PRIMARY} />
-            <Text style={styles.emptyTitle}>No Blocked Users</Text>
+            <Icon name="shield-shape-fill" size={24} color={Colors.white} />
+            <Text style={styles.emptyTitle}>no blocked users</Text>
             <Text style={styles.emptyDescription}>
-              You haven't blocked any users yet. Blocked users won't be able to see your content or interact with you.
+              you haven't blocked any users yet. blocked users won't be able to see your content or interact with you.
             </Text>
           </View>
         }
@@ -186,7 +187,7 @@ const BlockedUsersScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: UI.BACKGROUND.PRIMARY,
+    backgroundColor: Colors.black,
   },
   header: {
     flexDirection: 'row',
@@ -195,21 +196,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: UI.BORDER.PRIMARY,
-    backgroundColor: UI.BACKGROUND.PRIMARY,
+    borderBottomColor: Colors.gray,
+    backgroundColor: Colors.black,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: UI.BACKGROUND.SECONDARY,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
   },
   headerTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -226,12 +223,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: UI.BACKGROUND.SECONDARY,
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: UI.BORDER.PRIMARY,
+    borderColor: Colors.gray,
   },
   userInfo: {
     flexDirection: 'row',
@@ -242,7 +239,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: UI.BACKGROUND.TERTIARY,
+    backgroundColor: Colors.mediumGray,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -256,13 +253,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   displayName: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
   },
   handle: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     marginTop: 2,
@@ -270,15 +267,15 @@ const styles = StyleSheet.create({
   unblockButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: STATUS.SUCCESS,
+    backgroundColor: UI.Colors.STATUS.SUCCESS,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 22,
     minWidth: 100,
     height: 40,
     borderWidth: 1,
-    borderColor: STATUS.SUCCESS,
-    shadowColor: '#000',
+    borderColor: UI.Colors.STATUS.SUCCESS,
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -288,7 +285,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   unblockButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Firma-Medium',
@@ -296,12 +293,12 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: UI.BACKGROUND.PRIMARY,
+    backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
     marginTop: 12,
@@ -314,7 +311,7 @@ const styles = StyleSheet.create({
     paddingTop: 120,
   },
   emptyTitle: {
-    color: TEXT.PRIMARY,
+    color: Colors.white,
     fontSize: 20,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -322,7 +319,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyDescription: {
-    color: TEXT.SECONDARY,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Regular',
     textAlign: 'center',

@@ -19,6 +19,7 @@ import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/
 import Icon from '../../ui/Icon';
 import AtprotoService from '../../../services/api/AtprotoService';
 import ProfileCache from '../../../services/cache/ProfileCache';
+import { Colors } from '../../ui/UI';
 
 interface ProfileMenuProps {
   visible: boolean;
@@ -92,15 +93,15 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         setIsBlocked(false);
       } else {
         Alert.alert(
-          'Block User',
-          'Are you sure you want to block this user? They will not be able to see your posts or interact with you.',
+          'block user',
+          'are you sure you want to block this user? they will not be able to see your posts or interact with you.',
           [
             {
-              text: 'Cancel',
+              text: 'cancel',
               style: 'cancel'
             },
             {
-              text: 'Block',
+              text: 'block',
               style: 'destructive',
               onPress: async () => {
                 await AtprotoService.blockUser(profile.did);
@@ -114,7 +115,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       }
     } catch (error) {
       console.error('Error toggling block status:', error);
-      Alert.alert('Error', 'Failed to update block status. Please try again.');
+      Alert.alert('error', 'failed to update block status. please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -125,35 +126,35 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     if (!profile?.did) return;
 
     Alert.alert(
-      'Report User',
-      'Please select a reason for reporting this user:',
+      'report user',
+      'please select a reason for reporting this user:',
       [
         {
-          text: 'Cancel',
+          text: 'cancel',
           style: 'cancel'
         },
         {
-          text: 'Spam',
+          text: 'spam',
           onPress: () => reportUser('spam')
         },
         {
-          text: 'Harmful Content',
+          text: 'harmful content',
           onPress: () => reportUser('violation')
         },
         {
-          text: 'Misleading',
+          text: 'misleading',
           onPress: () => reportUser('misleading')
         },
         {
-          text: 'Sexual Content',
+          text: 'sexual content',
           onPress: () => reportUser('sexual')
         },
         {
-          text: 'Rude/Offensive',
+          text: 'rude/offensive',
           onPress: () => reportUser('rude')
         },
         {
-          text: 'Other',
+          text: 'other',
           onPress: () => reportUser('other')
         }
       ]
@@ -170,14 +171,14 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     try {
       const success = await AtprotoService.reportContent(profile.did, reasonType);
       if (success) {
-        Alert.alert('Thank you', 'This user has been reported for review.');
+        Alert.alert('thank you', 'this user has been reported for review.');
         onDismiss();
       } else {
-        Alert.alert('Error', 'Failed to submit report. Please try again.');
+        Alert.alert('error', 'failed to submit report. please try again.');
       }
     } catch (error) {
       console.error('Error reporting user:', error);
-      Alert.alert('Error', 'Failed to submit report. Please try again.');
+      Alert.alert('error', 'failed to submit report. please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -191,7 +192,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       await Share.share({
         message: Platform.OS === 'ios' ? '' : shareUrl,
         url: Platform.OS === 'ios' ? shareUrl : '',
-        title: `Check out @${handle} on Bluesky`,
+        title: `check out @${handle} on bluesky`,
       });
       
       onDismiss();
@@ -217,15 +218,15 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   // Logout handler
   const handleLogout = useCallback(() => {
     Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out?',
+      'log out',
+      'are you sure you want to log out?',
       [
         {
-          text: 'Cancel',
+          text: 'cancel',
           style: 'cancel'
         },
         {
-          text: 'Log Out',
+          text: 'log out',
           style: 'destructive',
           onPress: async () => {
             setIsSubmitting(true);
@@ -242,7 +243,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
               // Note: The actual logout navigation should be handled by the parent component
             } catch (error) {
               console.error('Error during logout:', error);
-              Alert.alert('Error', 'Failed to log out. Please try again.');
+              Alert.alert('error', 'failed to log out. please try again.');
             } finally {
               setIsSubmitting(false);
             }
@@ -271,69 +272,69 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       return [
         {
           id: 'share',
-          label: 'Share',
+          label: 'share',
           icon: 'share',
           onPress: handleShare,
-          color: '#fff'
+          color: Colors.white
         },
         {
           id: 'insights',
-          label: 'Insights',
+          label: 'insights',
           icon: 'insights',
           onPress: () => {
             onDismiss();
             navigation.navigate({ name: 'Insights', params: {} });
           },
-          color: '#fff'
+          color: Colors.white
         },
         {
           id: 'switch',
-          label: 'Switch',
+          label: 'switch',
           icon: 'user-3',
           onPress: handleSwitchAccount,
-          color: '#fff'
+          color: Colors.white
         },
         {
           id: 'settings',
-          label: 'Settings',
+          label: 'settings',
           icon: 'settings',
           onPress: handleSettings,
-          color: '#fff'
+          color: Colors.white
         }
       ];
     } else {
       return [
         {
           id: 'share',
-          label: 'Share',
+          label: 'share',
           icon: 'link',
           onPress: handleShare,
-          color: '#fff'
+          color: Colors.white
         },
         {
           id: 'mute',
-          label: 'Mute',
-          icon: 'volume',
+          label: 'mute',
+          icon: 'volume-x',
           onPress: () => {
-            Alert.alert('Mute', 'Mute functionality will be implemented in a future update.');
+            Alert.alert('mute', 'mute functionality will be implemented in a future update.');
             onDismiss();
           },
-          color: '#fff'
+          color: Colors.white
         },
         {
           id: 'block',
-          label: isBlocked ? 'Unblock' : 'Block',
-          icon: 'user-x',
+          label: isBlocked ? 'unblock' : 'block',
+          icon: 'block',
           onPress: handleBlockToggle,
-          color: '#fff'
+          color: Colors.white
         },
         {
           id: 'report',
-          label: 'Report',
-          icon: 'warning-box',
+          label: 'report',
+          icon: 'report',
           onPress: handleReport,
-          color: '#fff',
-          buttonColor: '#FE4359'
+          color: Colors.black,
+          buttonColor: Colors.red
         }
       ];
     }
@@ -394,7 +395,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             activeOpacity={0.7}
             disabled={isSubmitting}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={styles.cancelButtonText}>cancel</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetView>
@@ -404,15 +405,15 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
 const styles = StyleSheet.create({
   bottomSheetBackground: {
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
     borderTopWidth: 0.5,
-    borderTopColor: '#333',
+    borderTopColor: Colors.mediumGray,
     // Square top corners - no border radius
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
   },
   handleIndicator: {
-    backgroundColor: '#666',
+    backgroundColor: Colors.gray,
     width: 40,
     height: 5,
   },
@@ -436,18 +437,18 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 16,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
   },
   cancelContainer: {
     alignItems: 'center',
     marginTop: 20,
   },
   cancelButton: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 20,

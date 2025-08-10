@@ -7,6 +7,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { feedService, createQueryKeys } from '../../services/FeedService';
+import { Colors } from '../../components/ui/UI';
+import UI from '../../components/ui/UI';
 import ProfileCache from '../../services/cache/ProfileCache';
 import ChannelCache from '../../services/cache/ChannelCache';
 
@@ -145,11 +147,11 @@ const FeedDebugger: React.FC<FeedDebuggerProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'fetching': return '#FFA500';
-      case 'queued': return '#00B2FF';
-      case 'error': return '#FF0000';
-      case 'success': return '#00FF00';
-      default: return '#888888';
+      case 'fetching': return UI.Colors.STATUS.WARNING;
+      case 'queued': return Colors.lightGray;
+      case 'error': return Colors.red;
+      case 'success': return Colors.green;
+      default: return Colors.gray;
     }
   };
 
@@ -181,20 +183,20 @@ const FeedDebugger: React.FC<FeedDebuggerProps> = ({
           {/* Infinite Query State */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🔄 Infinite Query</Text>
-            <Text style={[styles.infoText, { color: debugInfo.hasNextPage ? '#00FF00' : '#FF0000' }]}>
+            <Text style={[styles.infoText, { color: debugInfo.hasNextPage ? Colors.green : Colors.red }]}>
               Has Next Page: {debugInfo.hasNextPage ? 'Yes' : 'No'}
             </Text>
-            <Text style={[styles.infoText, { color: debugInfo.isFetchingNextPage ? '#FFA500' : '#888888' }]}>
+            <Text style={[styles.infoText, { color: debugInfo.isFetchingNextPage ? UI.Colors.STATUS.WARNING : Colors.gray }]}>
               Fetching Next: {debugInfo.isFetchingNextPage ? 'Yes' : 'No'}
             </Text>
-            <Text style={[styles.infoText, { color: debugInfo.isFetching ? '#FFA500' : '#888888' }]}>
+            <Text style={[styles.infoText, { color: debugInfo.isFetching ? UI.Colors.STATUS.WARNING : Colors.gray }]}>
               Is Fetching: {debugInfo.isFetching ? 'Yes' : 'No'}
             </Text>
-            <Text style={[styles.infoText, { color: debugInfo.isError ? '#FF0000' : '#00FF00' }]}>
+            <Text style={[styles.infoText, { color: debugInfo.isError ? Colors.red : Colors.green }]}>
               Has Error: {debugInfo.isError ? 'Yes' : 'No'}
             </Text>
             {debugInfo.error && (
-              <Text style={[styles.infoText, { color: '#FF0000' }]}>
+              <Text style={[styles.infoText, { color: Colors.red }]}>
                 Error: {debugInfo.error}
               </Text>
             )}
@@ -205,7 +207,7 @@ const FeedDebugger: React.FC<FeedDebuggerProps> = ({
             <Text style={styles.sectionTitle}>📏 Scroll Position</Text>
             <Text style={styles.infoText}>Scroll Y: {Math.round(debugInfo.scrollY)}</Text>
             <Text style={styles.infoText}>Progress: {(debugInfo.scrollProgress * 100).toFixed(1)}%</Text>
-            <Text style={[styles.infoText, { color: debugInfo.isNearEnd ? '#FFA500' : '#888888' }]}>
+            <Text style={[styles.infoText, { color: debugInfo.isNearEnd ? UI.Colors.STATUS.WARNING : Colors.gray }]}>
               Near End: {debugInfo.isNearEnd ? 'Yes' : 'No'}
             </Text>
           </View>
@@ -301,10 +303,10 @@ const styles = StyleSheet.create({
     right: 10,
     width: 300,
     maxHeight: 400,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    backgroundColor: Colors.overlayBlack60,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: Colors.overlayWhite10,
     zIndex: 1000,
   },
   header: {
@@ -313,15 +315,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    borderBottomColor: Colors.overlayWhite10,
   },
   headerText: {
-    color: '#FFFFFF',
+    color: Colors.white,
     fontSize: 12,
     fontWeight: 'bold',
   },
   toggleText: {
-    color: '#FFFFFF',
+    color: Colors.white,
     fontSize: 12,
   },
   content: {
@@ -330,32 +332,32 @@ const styles = StyleSheet.create({
   section: {
     padding: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: Colors.overlayWhite10,
   },
   sectionTitle: {
-    color: '#FFFFFF',
+    color: Colors.white,
     fontSize: 11,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   infoText: {
-    color: '#FFFFFF',
+    color: Colors.white,
     fontSize: 10,
     marginBottom: 2,
   },
   cacheKeyText: {
-    color: '#CCCCCC',
+    color: Colors.lightGray,
     fontSize: 9,
     marginBottom: 1,
   },
   actionButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: Colors.overlayWhite10,
     padding: 6,
     borderRadius: 4,
     marginBottom: 4,
   },
   actionButtonText: {
-    color: '#FFFFFF',
+    color: Colors.white,
     fontSize: 10,
     textAlign: 'center',
   },

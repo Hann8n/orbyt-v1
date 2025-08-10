@@ -13,7 +13,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon, { BackArrowIcon } from '../../ui/Icon';
 import { ModerationService } from '../../../services/ModerationService';
 import { ModerationSettings, LabelPreference } from '../../../services/ModerationTypes';
-import { BRAND, STATUS } from '../../../utils/formatting/Colors';
+import { Colors } from '../../ui/UI';
+import UI from '../../ui/UI';
 import { RootStackParamList, useLogout } from '../../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -260,9 +261,9 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
             onPress={onClose}
             activeOpacity={0.7}
           >
-            <BackArrowIcon size={24} color="#fff" />
+            <BackArrowIcon size={28} color={Colors.white} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Content Moderation</Text>
+          <Text style={styles.headerTitle}>content moderation</Text>
         </View>
       </View>
 
@@ -281,7 +282,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
             {/* Statistics Section */}
             {stats && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Moderation Statistics</Text>
+                <Text style={styles.sectionTitle}>moderation statistics</Text>
                 <View style={styles.statsGrid}>
                   <TouchableOpacity 
                     style={styles.statItem}
@@ -319,45 +320,45 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
 
             {/* General Settings */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>General Settings</Text>
+              <Text style={styles.sectionTitle}>general settings</Text>
               <View style={styles.sectionContent}>
                 <View style={styles.settingItem}>
                   <View style={styles.settingItemLeft}>
                     <View style={styles.iconContainer}>
-                      <Icon name="block" size={24} color="#fff" />
+                      <Icon name="block" size={24} color={Colors.white} />
                     </View>
                     <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingItemText}>Hide Blocked Users</Text>
+                      <Text style={styles.settingItemText}>hide blocked users</Text>
                       <Text style={styles.settingItemDescription}>
-                        Hide content from users you've blocked
+                        hide content from users you've blocked
                       </Text>
                     </View>
                   </View>
                   <Switch
                     value={generalSettings.hideBlockedUsers}
                     onValueChange={(value) => updateGeneralSetting('hideBlockedUsers', value)}
-                    trackColor={{ false: '#333', true: '#4CAF50' }}
-                    thumbColor={generalSettings.hideBlockedUsers ? '#fff' : '#666'}
+                    trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
+                    thumbColor={generalSettings.hideBlockedUsers ? Colors.white : Colors.gray}
                   />
                 </View>
 
                 <View style={styles.settingItem}>
                   <View style={styles.settingItemLeft}>
                     <View style={styles.iconContainer}>
-                      <Icon name="muted-users" size={24} color="#fff" />
+                      <Icon name="muted-users" size={24} color={Colors.white} />
                     </View>
                     <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingItemText}>Hide Muted Users</Text>
+                      <Text style={styles.settingItemText}>hide muted users</Text>
                       <Text style={styles.settingItemDescription}>
-                        Hide content from users you've muted
+                        hide content from users you've muted
                       </Text>
                     </View>
                   </View>
                   <Switch
                     value={generalSettings.hideMutedUsers}
                     onValueChange={(value) => updateGeneralSetting('hideMutedUsers', value)}
-                    trackColor={{ false: '#333', true: '#4CAF50' }}
-                    thumbColor={generalSettings.hideMutedUsers ? '#fff' : '#666'}
+                    trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
+                    thumbColor={generalSettings.hideMutedUsers ? Colors.white : Colors.gray}
                   />
                 </View>
               </View>
@@ -374,7 +375,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                   <View style={styles.settingItem}>
                     <View style={styles.settingItemLeft}>
                       <View style={styles.iconContainer}>
-                        <Icon name="sensitive-content" size={24} color="#fff" />
+                        <Icon name="sensitive-content" size={24} color={Colors.white} />
                       </View>
                       <View style={styles.settingTextContainer}>
                         <Text style={styles.settingItemText}>Sensitive Content</Text>
@@ -386,8 +387,8 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                     <Switch
                       value={generalSettings.adultContentEnabled}
                       onValueChange={(value) => updateGeneralSetting('adultContentEnabled', value)}
-                      trackColor={{ false: '#333', true: '#4CAF50' }}
-                      thumbColor={generalSettings.adultContentEnabled ? '#fff' : '#666'}
+                      trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
+                      thumbColor={generalSettings.adultContentEnabled ? Colors.white : Colors.gray}
                     />
                   </View>
                 )}
@@ -423,7 +424,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                           <TouchableOpacity
                             style={[
                               styles.toggleButton,
-                              option.preference === 'ignore' && [styles.toggleButtonActive, { backgroundColor: STATUS.SUCCESS, borderRightColor: STATUS.SUCCESS }]
+                              option.preference === 'ignore' && [styles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.SUCCESS, borderRightColor: UI.Colors.STATUS.SUCCESS }]
                             ]}
                             onPress={() => {
                               console.log('Show button pressed for:', option.id);
@@ -441,7 +442,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                           <TouchableOpacity
                             style={[
                               styles.toggleButton,
-                              option.preference === 'warn' && [styles.toggleButtonActive, { backgroundColor: STATUS.WARNING, borderRightColor: STATUS.WARNING }]
+                              option.preference === 'warn' && [styles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.WARNING, borderRightColor: UI.Colors.STATUS.WARNING }]
                             ]}
                             onPress={() => {
                               console.log('Warn button pressed for:', option.id);
@@ -460,7 +461,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                             style={[
                               styles.toggleButton,
                               styles.toggleButtonLast,
-                              option.preference === 'hide' && [styles.toggleButtonActive, { backgroundColor: STATUS.ERROR, borderRightColor: STATUS.ERROR }]
+                              option.preference === 'hide' && [styles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.ERROR, borderRightColor: UI.Colors.STATUS.ERROR }]
                             ]}
                             onPress={() => {
                               console.log('Hide button pressed for:', option.id);
@@ -490,7 +491,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                 onPress={() => ModerationService.openBlueskyModerationSettings()}
                 activeOpacity={0.7}
               >
-                <Icon name="external-link" size={24} color="#fff" />
+                <Icon name="external-link" size={24} color={Colors.white} />
                 <Text style={styles.webSettingsTextButtonText}>
                   adjust settings on bsky.app
                 </Text>
@@ -506,7 +507,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: Colors.black,
   },
   header: {
     flexDirection: 'row',
@@ -515,7 +516,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#333',
+    borderBottomColor: Colors.mediumGray,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -523,17 +524,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1C1C1E',
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
   },
   headerTitle: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -552,7 +549,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   loadingText: {
-    color: '#666',
+    color: Colors.gray,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
   },
@@ -560,7 +557,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   sectionTitle: {
-    color: '#666',
+    color: Colors.gray,
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -570,18 +567,18 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   sectionDescription: {
-    color: '#999',
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
     marginBottom: 12,
     paddingHorizontal: 20,
   },
   sectionContent: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     marginHorizontal: 20,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
     overflow: 'hidden',
   },
   settingItem: {
@@ -591,13 +588,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#333',
+    borderBottomColor: Colors.mediumGray,
   },
   contentOptionItem: {
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#333',
+    borderBottomColor: Colors.mediumGray,
   },
   lastItem: {
     borderBottomWidth: 0,
@@ -611,7 +608,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#333',
+    backgroundColor: Colors.mediumGray,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -620,13 +617,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingItemText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '500',
     fontFamily: 'Firma-Medium',
   },
   settingItemDescription: {
-    color: '#999',
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
     marginTop: 2,
@@ -643,10 +640,10 @@ const styles = StyleSheet.create({
   },
   toggleButtonGroup: {
     flexDirection: 'row',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
     flex: 1,
     maxWidth: 300,
     overflow: 'hidden',
@@ -658,21 +655,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
-    borderRightColor: '#333',
+    borderRightColor: Colors.mediumGray,
   },
   toggleButtonActive: {
-    backgroundColor: STATUS.SUCCESS,
-    borderRightColor: STATUS.SUCCESS,
+    backgroundColor: UI.Colors.STATUS.SUCCESS,
+    borderRightColor: UI.Colors.STATUS.SUCCESS,
   },
   toggleButtonText: {
     fontSize: 13,
     fontWeight: '500',
     fontFamily: 'Firma-Medium',
-    color: '#999',
+    color: Colors.lightGray,
   },
   toggleButtonTextActive: {
-    color: '#fff',
-    fontWeight: '600',
+    color: Colors.black,
+    fontFamily: 'Firma-Bold',
+    fontWeight: '700',
   },
   toggleButtonLast: {
     borderRightWidth: 0,
@@ -685,19 +683,19 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   disabledIcon: {
-    backgroundColor: '#444',
+    backgroundColor: Colors.mediumGray,
   },
   disabledText: {
-    color: '#666',
+    color: Colors.gray,
   },
   disabledToggleGroup: {
     opacity: 0.5,
   },
   disabledToggleButton: {
-    backgroundColor: '#444',
+    backgroundColor: Colors.mediumGray,
   },
   disabledToggleText: {
-    color: '#666',
+    color: Colors.gray,
   },
   infoSection: {
     marginTop: 24,
@@ -706,14 +704,14 @@ const styles = StyleSheet.create({
   infoContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
   },
   infoText: {
-    color: '#999',
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
     marginLeft: 12,
@@ -727,28 +725,28 @@ const styles = StyleSheet.create({
   },
   statItem: {
     width: '31%',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.darkGray,
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: Colors.mediumGray,
   },
   statContent: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   statValue: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
     textAlign: 'center',
   },
   statLabel: {
-    color: '#999',
+    color: Colors.lightGray,
     fontSize: 12,
     marginTop: 5,
     fontFamily: 'Firma-Regular',
@@ -775,14 +773,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   webSettingsTextButtonText: {
-    color: '#fff',
+    color: Colors.white,
     fontSize: 14,
     fontWeight: '500',
     fontFamily: 'Firma-Medium',
     marginLeft: 6,
   },
   webSettingsDescription: {
-    color: '#999',
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
     textAlign: 'center',

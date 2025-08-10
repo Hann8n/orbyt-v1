@@ -11,16 +11,14 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { useSharedValue } from 'react-native-reanimated';
 import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
-import { BRAND } from '../../../utils/formatting/Colors';
+import { Colors } from '../../ui/UI';
 import FeedRenderer from './FeedRenderer';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
 import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
-
-// Remove static SCREEN_WIDTH
-// const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Define the feed options type
 export type FeedOption = string;
@@ -34,6 +32,7 @@ interface SwipeableFeedContainerProps {
   isRefreshing?: boolean;
   onScrubbingChange?: (isScrubbing: boolean) => void;
   forceError?: boolean; // Add debug flag to force error responses
+  applySafeArea?: boolean;
 }
 
 const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
@@ -42,12 +41,13 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
   isRefreshing = false,
   onScrubbingChange,
   forceError = false, // Add debug flag to force error responses
+  applySafeArea = false,
 }) => {
-  const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
   const indicatorScrollViewRef = useRef<ScrollView>(null);
   const { channels: subscribedChannels, isLoading: isLoadingChannels } = useSubscribedChannels();
   const isSmallDevice = isSmallScreen() || isTablet();
+  const insets = useSafeAreaInsets();
 
   // Scrubbing lock state
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -56,7 +56,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
     onScrubbingChange?.(scrubbing);
   };
 
-  // Add state for screen dimensions
+  // Unified screen dimensions handling
   const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
   const screenWidth = screenDims.width;
   const screenHeight = screenDims.height;
@@ -251,8 +251,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
     }));
   }, [currentFeedOption, feedRetries]);
 
-  
-
   // Handle horizontal scroll for gradual transitions
   const handleHorizontalScroll = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
@@ -277,7 +275,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
       setCurrentFeedIndex(currentIndex);
       const newFeedOption = feedOptions[currentIndex];
       onFeedChange?.(newFeedOption);
-      
       
       // Scroll indicator to follow the feed change
       scrollIndicatorToActive(currentIndex);
@@ -332,7 +329,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
     
     return (
       <View style={[styles.feedPage, { width: screenWidth, height: '100%' }]}> 
-        {/* width is set dynamically above; removed inline comment to avoid text node error */}
         <FeedRenderer
           feedOption={String(feedOption)}
           onRetryFeed={handleRetryFeed}
@@ -378,7 +374,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
     }
     
     return {
-      color: isActive ? BRAND.SECONDARY : 'rgba(255, 255, 255, 0.6)',
+      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.6)',
       fontSize: 16,
       marginRight: 8,
       fontWeight: 'bold' as const,
@@ -391,17 +387,16 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
     };
   }, [currentFeedOption, currentScrollProgress, feedConfig, feedOptions, initialFeed]);
 
-
   return (
     <GestureHandlerRootView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY} />
+      <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
       
       {/* Animated Feed Indicators with horizontal scrolling */}
       <Animated.View 
         style={[
           styles.feedSwitcher, 
           { 
-            top: isSmallDevice ? insets.top + 12 : insets.top + 12,
+            top: applySafeArea && isSmallDevice ? 12 + insets.top : 12,
             opacity: feedBarOpacity,
             transform: [{ translateY: feedBarTranslateY }],
           }
@@ -465,7 +460,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BRAND.PRIMARY,
+    backgroundColor: Colors.black,
   },
   feedSwitcher: {
     position: 'absolute',
@@ -473,7 +468,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 2,
     // Subtle shadow for better visibility
-    shadowColor: '#000',
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

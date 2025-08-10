@@ -31,6 +31,13 @@
       "ios": {
         "simulator": true
       }
+    },
+    "ios-ipa": {
+      "extends": "preview",
+      "ios": {
+        "distribution": "internal",
+        "buildConfiguration": "Release"
+      }
     }
   },
   "submit": {

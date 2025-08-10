@@ -1,9 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ChannelSubscriptionManager, { SubscribedChannel, ChannelMixSettings } from '../services/storage/ChannelSubscriptionManager';
+import AccountManager from '../services/storage/AccountManager';
 
 export const useSubscribedChannels = () => {
   const queryClient = useQueryClient();
+  const [did, setDid] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const active = await AccountManager.getActiveAccount();
+        if (mounted) setDid(active?.did || null);
+      } catch {
+        if (mounted) setDid(null);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const {
     data: channels = [],
@@ -11,8 +26,9 @@ export const useSubscribedChannels = () => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['subscribedChannels'],
+    queryKey: ['subscribedChannels', did],
     queryFn: () => ChannelSubscriptionManager.getSubscribedChannels.call(ChannelSubscriptionManager),
+    enabled: did !== null, 
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -21,8 +37,9 @@ export const useSubscribedChannels = () => {
     isLoading: isLoadingMix,
     refetch: refetchMix,
   } = useQuery({
-    queryKey: ['channelsInMix'],
+    queryKey: ['channelsInMix', did],
     queryFn: () => ChannelSubscriptionManager.getChannelsInMix.call(ChannelSubscriptionManager),
+    enabled: did !== null,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -31,8 +48,9 @@ export const useSubscribedChannels = () => {
     isLoading: isLoadingExcluded,
     refetch: refetchExcluded,
   } = useQuery({
-    queryKey: ['excludedChannels'],
+    queryKey: ['excludedChannels', did],
     queryFn: () => ChannelSubscriptionManager.getExcludedChannels.call(ChannelSubscriptionManager),
+    enabled: did !== null,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
