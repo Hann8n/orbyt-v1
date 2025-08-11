@@ -50,8 +50,8 @@ const HOME_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height
 
 const EXPLORE_ICON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path 
-    d="M5.5 10a4.5 4.5 0 1 1 9 0a4.5 4.5 0 0 1-9 0M10 2.5a7.5 7.5 0 1 0 4.136 13.757l4.803 4.804a1.5 1.5 0 0 0 2.122-2.122l-4.804-4.803A7.5 7.5 0 0 0 10 2.5" 
-    fill="white"
+    d="M5.5 11a4.5 4.5 0 1 1 9 0a4.5 4.5 0 0 1-9 0M10 3.5a7.5 7.5 0 1 0 4.136 13.757l4.803 4.804a1.5 1.5 0 0 0 2.122-2.122l-4.804-4.803A7.5 7.5 0 0 0 10 3.5" 
+    fill="#fff"
   />
 </svg>`;
 
@@ -204,7 +204,7 @@ export const HomeIcon: React.FC<{ size: number; color: string }> = ({ size, colo
 
 // Custom Explore Icon component using the provided SVG
 export const ExploreIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
-  const svgXml = EXPLORE_ICON_SVG.replace(/white/g, color);
+  const svgXml = EXPLORE_ICON_SVG.replace(/#fff/g, color);
   return (
     <SvgXml 
       xml={svgXml} 

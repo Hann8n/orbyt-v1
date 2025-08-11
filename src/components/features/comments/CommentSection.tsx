@@ -449,8 +449,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         keyboardBehavior="extend"
         style={{ zIndex: 100 }}
         backgroundStyle={{ backgroundColor: Colors.black, borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTopWidth: 0.5, borderTopColor: Colors.mediumGray }}
-        handleIndicatorStyle={{ backgroundColor: Colors.gray, width: 40, height: 5 }}
         enableDynamicSizing={false}
+        handleComponent={null}
       >
         <View style={{ width: '100%', backgroundColor: Colors.black, paddingHorizontal: 10, paddingTop: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
           <TabNavigation
@@ -459,7 +459,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             onTabPress={handleTabPress as any}
             textColor={Colors.white}
             backgroundColor="transparent"
-            style={{ marginBottom: 0, paddingVertical: 0, marginTop: 0 }}
+            style={{ marginBottom: 0, paddingVertical: 0, marginTop: 5 }}
           />
           <RelativeDate
             dateString={post.indexedAt}

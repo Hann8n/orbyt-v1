@@ -242,8 +242,8 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
           onPress={handleGalleryPick}
           activeOpacity={0.8}
           style={{
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             borderRadius: 20,
             backgroundColor: 'transparent',
             alignItems: 'center',
@@ -258,9 +258,9 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
         >
           {/* Custom circle within a circle design */}
           <View style={{
-            width: 36,
-            height: 36,
-            borderRadius: 18,
+            width: 42,
+            height: 42,
+            borderRadius: 30,
             borderWidth: 1.75,
             borderColor: Colors.white,
             alignItems: 'center',
@@ -268,9 +268,9 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
             backgroundColor: 'transparent',
           }}>
             <View style={{
-              width: 28,
-              height: 28,
-              borderRadius: 14,
+              width: 34,
+              height: 34,
+              borderRadius: 17,
               backgroundColor: isPreparing ? 'rgba(255, 255, 255, 0.5)' : '#fff',
             }} />
           </View>
@@ -324,13 +324,13 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
             case 'Home':
               return (
                 isHomeRefreshing
-                  ? <Icon name="loading-3-fill" size={24} color={color} />
-                  : <HomeIcon size={32} color={color} />
+                  ? <Icon name="loading-3-fill" size={28} color={color} />
+                  : <HomeIcon size={34} color={color} />
               );
             case 'Explore':
               return (
                 <ExploreIcon 
-                  size={32} 
+                  size={34} 
                   color={color}
                   style={{ transform: [{ scaleX: -1 }] }}
                 />
@@ -338,14 +338,14 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
             case 'Notifications':
               return (
                 <NotificationIcon 
-                  size={30} 
+                  size={32} 
                   color={color}
                 />
               );
             case 'Profile':
               return (
                 <ProfileIcon 
-                  size={32} 
+                  size={34} 
                   color={color}
                 />
               );

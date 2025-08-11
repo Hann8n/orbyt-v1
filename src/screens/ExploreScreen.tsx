@@ -809,9 +809,6 @@ const ExploreScreen: React.FC = () => {
                     />
                   )}
                 </View>
-                <Text style={styles.handleText}>
-                  @{profile.handle || 'unknown'}
-                </Text>
               </View>
             </TouchableOpacity>
           );
@@ -855,9 +852,6 @@ const ExploreScreen: React.FC = () => {
                     <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
                   )}
                 </View>
-                <Text style={styles.channelCreator}>
-                  by @{channel.creator?.handle || 'unknown'}
-                </Text>
               </View>
             </TouchableOpacity>
           );
@@ -1622,7 +1616,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: Colors.lightGray,
+    color: 'black',
     fontSize: 20,
     height: '100%',
     fontFamily: 'Firma-SemiBold',
@@ -1651,15 +1645,15 @@ const styles = StyleSheet.create({
   },
   displayName: {
     color: Colors.white,
-    fontSize: 14,
+    fontSize: 16,
     marginBottom: 2,
     fontFamily: 'Firma-SemiBold',
     flexShrink: 1,
   },
   handleText: {
     color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    fontSize: 16,
+    fontFamily: 'Firma-Medium',
   },
   channelItem: {
     flexDirection: 'row',
@@ -1681,30 +1675,30 @@ const styles = StyleSheet.create({
   },
   channelName: {
     color: Colors.white,
-    fontSize: 14,
+    fontSize: 16,
     marginBottom: 2,
     fontFamily: 'Firma-SemiBold',
     flexShrink: 1,
   },
   channelCreator: {
     color: Colors.lightGray,
-    fontSize: 12,
-    fontFamily: 'Firma-Regular',
+    fontSize: 16,
+    fontFamily: 'Firma-Medium',
     marginBottom: 2,
   },
   channelStats: {
-    color: Colors.gray,
+    color: Colors.lightGray,
     fontSize: 11,
     fontFamily: 'Firma-Regular',
   },
   noResults: {
-    color: Colors.gray,
+    color: Colors.lightGray,
     textAlign: 'center',
     fontSize: 16,
     fontFamily: 'Firma-Medium',
   },
   noResultsSubtext: {
-    color: Colors.gray,
+    color: Colors.lightGray,
     textAlign: 'center',
     fontSize: 14,
     fontFamily: 'Firma-Medium',
@@ -1716,7 +1710,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   initialStateText: {
-    color: Colors.gray,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
   },
@@ -1756,7 +1750,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: Colors.white,
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: 'Firma-Bold',
   },
 
@@ -1769,7 +1763,7 @@ const styles = StyleSheet.create({
   },
   spotlightTitle: {
     color: Colors.orange,
-    fontSize: 20,
+    fontSize: 24,
     fontFamily: 'Firma-Bold',
   },
 
