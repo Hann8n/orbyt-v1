@@ -1,7 +1,6 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
-import { AppState } from 'react-native';
+// Removed useNavigation here since this component is a navigator, not a screen
 import BottomTabNavigator from './BottomTabNavigator';
 import VideoPostScreen from '../screens/VideoPostScreen';
 
@@ -21,6 +20,7 @@ import CreateScreen from '../screens/CreateScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ChannelScreen from '../screens/ChannelScreen';
 import { RootStackParamList, LogoutContext } from './types';
+// Navigation tracking is handled at the NavigationContainer level
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -29,9 +29,7 @@ interface RootNavigatorProps {
 }
 
 const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
-  const navigation = useNavigation();
-  
-  // VideoPreloadManager removed
+  // Navigation state tracking moved to NavigationContainer.onStateChange
 
   return (
     <LogoutContext.Provider value={onLogout}>

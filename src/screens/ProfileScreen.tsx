@@ -17,11 +17,11 @@ import Icon from '../components/ui/Icon';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { ProfileHeader, TabNavigation, TabOption } from '../components/layout/header';
-import { useHeaderVisibility } from '../hooks/useHeaderVisibility';
 import AccountSwitcher from '../components/features/profile/AccountSwitcher';
 import AccountManager, { SavedAccount } from '../services/storage/AccountManager';
  
 import { Colors } from '../components/ui/UI';
+import DebugBoundary from '../components/ui/DebugBoundary';
  
 
 type RootParamList = {
@@ -43,12 +43,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const providedHandle = route.params?.handle || null;
   
   
-  // Track header visibility to pause feed while header is visible
-  const { headerVisible, headerAnimatedStyle, HeaderVisibilityTracker, updateHeaderVisibility } = useHeaderVisibility({
-    headerHeight: 280,
-    fadeThreshold: 0.6,
-    feedId: 'profile',
-  });
+  // Removed header visibility hook and janky fade logic; header remains static and always visible
 
   // State for the current user's handle (loaded from storage or fetched)
   const [userHandle, setUserHandle] = useState<string | null>(null);
@@ -88,15 +83,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'reposts' | 'likes'>('profile');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
-  // Ensure header is always visible in grid view
-  useEffect(() => {
-    if (viewMode === 'grid') {
-      updateHeaderVisibility(true);
-    }
-  }, [viewMode, updateHeaderVisibility]);
+  // Header visibility logic removed
 
   // Ensure profile data is immediately available from cache
   const profileData = cachedProfile || (targetHandle ? ProfileCache.getProfileFromCacheSync(targetHandle) : null);
+
+  // Dev-only: allow pausing execution on first mount when a global flag is set
+  useEffect(() => {
+    const shouldBreakOnMount = __DEV__ && (globalThis as any).ORBYT_DEBUG_SCREENS === true;
+    if (shouldBreakOnMount) {
+      // eslint-disable-next-line no-debugger
+      debugger;
+    }
+  }, []);
 
   // Memoized query options for profile feed
   const queryOptions = useMemo(() => ({ 
@@ -360,6 +359,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   ]);
 
   return (
+    <DebugBoundary label="ProfileScreen">
     <View style={[
       styles.container,
       {
@@ -369,48 +369,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       {showErrorScreen ? (
         renderErrorScreen
       ) : (
-        <Tabs.Container
-          renderHeader={() => (
-            <View style={styles.headerContainer} pointerEvents="box-none">
-              <ProfileHeader
-                handle={targetHandle}
-                showBackButton={!!providedHandle}
-                isOwnProfile={isOwnProfileView}
-                onLogout={handleLogout}
-                onSwitchAccount={() => setShowAccountSwitcher(true)}
-                forceLoading={isProfileLoadingForced}
-                 applySafeArea={true}
-                headerStyle={headerAnimatedStyle}
-              >
-                {profileData && (
-                  <TabNavigation
-                    tabs={tabOptions}
-                    activeTab={activeTab}
-                    onTabPress={(tabId) => setActiveTab(tabId as any)}
-                    textColor={profileColors.textColor}
-                    backgroundColor="transparent"
-                    viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                    showViewToggle={true}
-                  />
-                )}
-              </ProfileHeader>
-            </View>
-          )}
-          headerHeight={280}
-          headerContainerStyle={{
-            backgroundColor: 'transparent',
-            marginBottom: 0,
-            paddingBottom: 0,
-            borderBottomWidth: 0,
-          }}
-          containerStyle={{ backgroundColor: 'transparent' }}
-          renderTabBar={() => null}
-          revealHeaderOnScroll={false}
-          allowHeaderOverscroll={false}
-        >
+        <Tabs.Container renderTabBar={() => null}>
           <Tabs.Tab name="feed">
-            {viewMode === 'list' && <HeaderVisibilityTracker />}
             <FeedRenderer
               feedOption={
                 activeTab === 'profile' ? 'profile' :
@@ -418,6 +378,30 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               }
               userDid={profileData?.did}
               queryOptions={queryOptions}
+              headerComponent={(
+                <View style={styles.headerContainer} pointerEvents="box-none">
+                  <ProfileHeader
+                    handle={targetHandle}
+                    showBackButton={!!providedHandle}
+                    isOwnProfile={isOwnProfileView}
+                    onLogout={handleLogout}
+                    onSwitchAccount={() => setShowAccountSwitcher(true)}
+                    forceLoading={isProfileLoadingForced}
+                     applySafeArea={true}
+                  >
+                    <TabNavigation
+                      tabs={tabOptions}
+                      activeTab={activeTab}
+                      onTabPress={(tabId) => setActiveTab(tabId as any)}
+                      textColor={profileColors.textColor}
+                      backgroundColor="transparent"
+                      viewMode={viewMode}
+                      onViewModeChange={setViewMode}
+                      showViewToggle={true}
+                    />
+                  </ProfileHeader>
+                </View>
+              )}
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
@@ -431,7 +415,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               ListComponent={Tabs.FlashList}
-              isVisible={viewMode === 'grid' ? true : !headerVisible}
+              isVisible={true}
             />
           </Tabs.Tab>
         </Tabs.Container>
@@ -449,6 +433,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         onLogout={onLogout}
       />
     </View>
+    </DebugBoundary>
   );
 });
 

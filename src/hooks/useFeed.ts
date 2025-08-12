@@ -10,14 +10,17 @@ import { NativeScrollEvent } from 'react-native';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useSubscribedChannels } from './useSubscribedChannels';
 
-// FlashList v2 optimization constants
-const FLASHLIST_FEED_CONFIG = {
-  STALE_TIME: 7 * 60 * 1000,     // 7 minutes - longer for v2 efficiency
-  GC_TIME: 15 * 60 * 1000,       // 15 minutes for v2's better memory management
-  RETRY_DELAY: 800,              // Faster retry for v2's performance
+// Feed configuration constants - centralized for consistency across hooks
+export const FEED_CONFIG = {
+  // Cache and performance settings
+  STALE_TIME: 7 * 60 * 1000,     // 7 minutes stale time 
+  GC_TIME: 15 * 60 * 1000,       // 15 minutes before garbage collection
+  RETRY_DELAY: 800,              // Milliseconds between retry attempts
   MAX_RETRIES: 3,                // Maximum retry attempts
-  THROTTLE_MS: 80,               // Reduced throttling for v2's efficiency
-  PREFETCH_THRESHOLD: 0.75,      // Earlier prefetch for v2's smarter loading
+  
+  // Scroll and prefetch settings
+  THROTTLE_MS: 80,               // Scroll event throttling in milliseconds
+  PREFETCH_THRESHOLD: 0.75,      // Prefetch when within 75% of visible content
 } as const;
 
 interface UseFeedOptions {
@@ -74,13 +77,13 @@ export function useFeed(
     feedService.setSubscribedChannels(subscribedChannels);
   }, [subscribedChannels]);
 
-  // Create FlashList-optimized infinite query
+  // Create optimized infinite query with centralized configuration
   const query = feedService.createInfiniteQuery(feedOption, userDid, {
     enabled,
-    staleTime: FLASHLIST_FEED_CONFIG.STALE_TIME,
-    gcTime: FLASHLIST_FEED_CONFIG.GC_TIME,
-    retry: FLASHLIST_FEED_CONFIG.MAX_RETRIES,
-    retryDelay: FLASHLIST_FEED_CONFIG.RETRY_DELAY,
+    staleTime: FEED_CONFIG.STALE_TIME,
+    gcTime: FEED_CONFIG.GC_TIME,
+    retry: FEED_CONFIG.MAX_RETRIES,
+    retryDelay: FEED_CONFIG.RETRY_DELAY,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: true,
@@ -93,14 +96,14 @@ export function useFeed(
   // Infinite scroll state
   const isNearEndRef = useRef(false);
 
-  // Create FlashList-optimized scroll handler with aggressive throttling
+  // Create optimized scroll handler with centralized configuration
   const onScroll = useCallback(
     feedService.createInfiniteScrollHandler({
-      threshold: FLASHLIST_FEED_CONFIG.PREFETCH_THRESHOLD,
+      threshold: FEED_CONFIG.PREFETCH_THRESHOLD,
       hasNextPage: query.hasNextPage,
       isFetchingNextPage: query.isFetchingNextPage,
       onLoadMore: query.fetchNextPage,
-      debounceMs: FLASHLIST_FEED_CONFIG.THROTTLE_MS,
+      debounceMs: FEED_CONFIG.THROTTLE_MS,
     }),
     [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]
   );
@@ -136,6 +139,7 @@ export function useFeed(
 
 /**
  * Hook specifically for search feeds that use the global feed state
+ * Streamlined to use the same config constants as useFeed
  */
 export function useSearchFeed(
   hasNextPage?: boolean,
@@ -143,22 +147,21 @@ export function useSearchFeed(
   fetchNextPage?: () => void,
   options: UseFeedOptions = {}
 ) {
-  const {
-    threshold = 0.3,
-    debounceMs = 100,
-  } = options;
+  // Use the same default threshold for consistency
+  const threshold = options.threshold ?? FEED_CONFIG.PREFETCH_THRESHOLD;
+  const debounceMs = options.debounceMs ?? FEED_CONFIG.THROTTLE_MS;
 
   // Get search feed from global state
   const feed = feedService.getCurrentFeed();
   const isNearEndRef = useRef(false);
 
-  // Create scroll handler for search
+  // Create scroll handler with same configuration as main feed
   const onScroll = useCallback(
     feedService.createInfiniteScrollHandler({
       threshold,
-      hasNextPage: hasNextPage ?? false,
-      isFetchingNextPage: isFetchingNextPage ?? false,
-      onLoadMore: fetchNextPage ?? (() => {}),
+      hasNextPage: !!hasNextPage,
+      isFetchingNextPage: !!isFetchingNextPage,
+      onLoadMore: fetchNextPage || (() => {}),
       debounceMs,
     }),
     [threshold, hasNextPage, isFetchingNextPage, fetchNextPage, debounceMs]
@@ -168,9 +171,9 @@ export function useSearchFeed(
     feed,
     onScroll,
     isNearEnd: isNearEndRef.current,
-    hasNextPage: hasNextPage ?? false,
-    isFetchingNextPage: isFetchingNextPage ?? false,
-    fetchNextPage: fetchNextPage ?? (() => {}),
+    hasNextPage: !!hasNextPage,
+    isFetchingNextPage: !!isFetchingNextPage,
+    fetchNextPage: fetchNextPage || (() => {}),
   };
 }
 

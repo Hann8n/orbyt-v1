@@ -51,69 +51,64 @@ export const getScreenDimensions = () => ({
 });
 
 /**
- * Get the appropriate video card height based on screen size and context
- * Restored original 9:16 design with uniform spacing
+ * Constants for layout calculations
  */
-export const getVideoCardHeight = (insets: { top: number; bottom: number }): number => {
-  if (isSmallScreen()) {
-    // For small screens, use full screen height without safe areas
-    return SCREEN_HEIGHT;
-  } else {
-    // For medium/large screens, use the original logic that allows seeing previous/next videos
-    const tabNavigatorHeight = 92;
-    return SCREEN_HEIGHT - tabNavigatorHeight - insets.top;
-  }
+export const LAYOUT = {
+  TAB_NAV_HEIGHT: 45,
+  SMALL_SCREEN_NAV_HEIGHT: 40,
+  TABLET_NAV_HEIGHT: 40
 };
 
 /**
  * Get the appropriate bottom navigation bar height based on screen size
- * Updated for unified snapping system
+ * Consolidated for better consistency
  */
 export const getBottomNavBarHeight = (insets: { bottom: number }): number => {
-  if (isSmallScreen()) {
-    // For small screens, use a compact height and include safe area
-    return 40 + (insets.bottom || 0);
-  } else if (isTablet()) {
-    // For tablets, use a compact height
-    return 40 + (insets.bottom || 0);
+  const safeAreaBottom = insets.bottom || 0;
+  
+  if (isSmallScreen() || isTablet()) {
+    return LAYOUT.SMALL_SCREEN_NAV_HEIGHT + safeAreaBottom;
   } else {
-    // For medium/large screens, use a standard height
-    return 45 + (insets.bottom || 0);
+    return LAYOUT.TAB_NAV_HEIGHT + safeAreaBottom;
+  }
+};
+
+/**
+ * Get the appropriate video card height based on screen size and context
+ * Uses the bottomNavBarHeight calculation for consistency
+ */
+export const getVideoCardHeight = (insets: { top: number; bottom: number }): number => {
+  if (isSmallScreen()) {
+    return SCREEN_HEIGHT;
+  } else {
+    const navHeight = getBottomNavBarHeight(insets) + 20; // 20px additional padding
+    return SCREEN_HEIGHT - navHeight - insets.top;
   }
 };
 
 /**
  * Get viewport dimensions for video snapping
- * Returns the available area for videos based on device type and context
- * Restored original 9:16 design with uniform spacing and proper safe area handling
+ * Simplified logic with fewer branches
  */
 export const getViewportDimensions = (isModal: boolean = false, isHeaderFeed: boolean = false, insets?: { top: number; bottom: number; left: number; right: number }) => {
   const { width, height } = Dimensions.get('window');
   
-  // Calculate effective insets - All feeds need safe areas
+  // Default insets
   const effectiveInsets = insets || { top: 0, bottom: 0, left: 0, right: 0 };
   const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets);
   
-  // Calculate viewport height based on device type
-  let viewportHeight: number;
-  
-  if (isModal) {
-    // Modal: use full screen height
-    viewportHeight = height;
-  } else if (isSmallScreen()) {
-    // Small devices: use full screen height
-    viewportHeight = height;
-  } else {
-    // Large devices: account for navigation and safe areas
-    viewportHeight = height - bottomNavBarHeight - effectiveInsets.top;
-  }
+  // Use full height for modals and small screens, otherwise account for navigation
+  const useFullScreen = isModal || isSmallScreen();
+  const viewportHeight = useFullScreen 
+    ? height 
+    : height - bottomNavBarHeight - effectiveInsets.top;
   
   return {
     width,
     height: viewportHeight,
     effectiveInsets,
     bottomNavBarHeight,
-    isFullScreen: isModal || isSmallScreen(),
+    isFullScreen: useFullScreen,
   };
 };
 

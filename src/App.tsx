@@ -22,13 +22,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import RootNavigator from '../src/navigation/RootNavigator'; // adjust path if needed
+import DebugBoundary from './components/ui/DebugBoundary';
 import LoginScreen from '../src/screens/LoginScreen';
 import { AtprotoService } from '../src/services/api/AtprotoService';
 import * as Font from 'expo-font';
 import ProfileCache from '../src/services/cache/ProfileCache'; // import ProfileCache
-import { ClearViewProvider } from '../src/services/ClearViewContext';
 import StatusBarController from '../src/components/ui/StatusBarController';
 import { Colors } from './components/ui/UI';
+import { useAppStore } from '@stores/appStore';
+import { useNavigationUpdate } from '@stores/visibilityStore';
 
 
 // Create a client
@@ -49,10 +51,19 @@ const queryClient = new QueryClient({
 Appearance.setColorScheme('dark');
 
 const App: React.FC<{}> = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [fontsLoaded, setFontsLoaded] = useState<boolean>(false);
-  const [appState, setAppState] = useState<string>(AppState.currentState);
+  const { 
+    isLoggedIn, 
+    isLoading, 
+    fontsLoaded, 
+    appState,
+    setLoggedIn,
+    setLoading,
+    setFontsLoaded,
+    setAppState,
+    completeLogin,
+    completeLogout
+  } = useAppStore();
+  const updateNavigation = useNavigationUpdate();
 
   // Load fonts
   useEffect(() => {
@@ -110,19 +121,19 @@ const App: React.FC<{}> = () => {
               await ProfileCache.cacheProfiles([user]);
               ProfileCache.setCurrentUserDid(user.did);
             }
-            setIsLoggedIn(true);
+            completeLogin();
           } else {
             await SecureStore.deleteItemAsync('session');
-            setIsLoggedIn(false);
+            completeLogout();
           }
         } else {
-          setIsLoggedIn(false);
+          completeLogout();
         }
       } catch (error: any) {
         console.error('Error verifying session:', error);
-        setIsLoggedIn(false);
+        completeLogout();
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     }
     checkLogin();
@@ -131,7 +142,7 @@ const App: React.FC<{}> = () => {
   const handleLogin = async (handle: string, password: string) => {
     try {
       await AtprotoService.login(handle, password, true); // Save account by default
-      setIsLoggedIn(true);
+      completeLogin();
       return Promise.resolve();
     } catch (error) {
       console.error('Login error:', error);
@@ -144,7 +155,7 @@ const App: React.FC<{}> = () => {
       // The account switching is already handled by AccountManager.switchAccount
       // which calls AtprotoService.login internally
       // Data clearing is now handled in AccountSwitcher component
-      setIsLoggedIn(true);
+      completeLogin();
       return Promise.resolve();
     } catch (error) {
       console.error('Account switch error:', error);
@@ -165,8 +176,8 @@ const App: React.FC<{}> = () => {
       // Log out from the service
       await AtprotoService.logout(clearAllAccounts);
       
-      // Update local state to trigger re-render to login screen
-      setIsLoggedIn(false);
+      // Update store state to trigger re-render to login screen
+      completeLogout();
       
       return Promise.resolve();
     } catch (error) {
@@ -188,14 +199,14 @@ const App: React.FC<{}> = () => {
     return (
       <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <QueryClientProvider client={queryClient}>
-          <ClearViewProvider>
-            <StatusBarController />
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <BottomSheetModalProvider>
+          <StatusBarController />
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <BottomSheetModalProvider>
+              <DebugBoundary label="LoginFlow">
                 <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
-              </BottomSheetModalProvider>
-            </GestureHandlerRootView>
-          </ClearViewProvider>
+              </DebugBoundary>
+            </BottomSheetModalProvider>
+          </GestureHandlerRootView>
         </QueryClientProvider>
       </SafeAreaProvider>
     );
@@ -204,16 +215,34 @@ const App: React.FC<{}> = () => {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <QueryClientProvider client={queryClient}>
-        <ClearViewProvider>
-          <NavigationContainer>
-            <StatusBarController />
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <BottomSheetModalProvider>
+        <NavigationContainer
+          onStateChange={(state) => {
+            try {
+              const getActiveRouteName = (navState: any): string | undefined => {
+                if (!navState) return undefined;
+                let route = navState.routes?.[navState.index ?? 0];
+                while (route?.state && route.state.routes) {
+                  route = route.state.routes[route.state.index ?? 0];
+                }
+                return route?.name;
+              };
+
+              const routeName = getActiveRouteName(state) || state?.routes?.[state?.index ?? 0]?.name;
+              if (routeName) {
+                updateNavigation(routeName);
+              }
+            } catch {}
+          }}
+        >
+          <StatusBarController />
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <BottomSheetModalProvider>
+              <DebugBoundary label="RootNavigator">
                 <RootNavigator onLogout={handleLogout} />
-              </BottomSheetModalProvider>
-            </GestureHandlerRootView>
-          </NavigationContainer>
-        </ClearViewProvider>
+              </DebugBoundary>
+            </BottomSheetModalProvider>
+          </GestureHandlerRootView>
+        </NavigationContainer>
       </QueryClientProvider>
     </SafeAreaProvider>
   );

@@ -18,7 +18,8 @@ import {
 } from 'react-native';
 import { Modal as RNModal } from 'react-native';
 import { SvgXml } from 'react-native-svg';
-import Icon from './Icon';
+// Import Icon dynamically to avoid circular dependency
+const Icon = React.lazy(() => import('./Icon').then(module => ({ default: module.default })));
 
 
 // ============================================================================
@@ -109,6 +110,18 @@ export const Colors = {
     PRIMARY: ['#181c22', '#3E414B', '#181c22'], // darkGray → mediumGray → darkGray for improved contrast on dark backgrounds
   },
 };
+
+// Dev global toggles
+declare global {
+  // eslint-disable-next-line no-var
+  var ORBYT_DEBUG_SCREENS: boolean | undefined;
+}
+
+if (__DEV__) {
+  if (typeof globalThis.ORBYT_DEBUG_SCREENS === 'undefined') {
+    globalThis.ORBYT_DEBUG_SCREENS = false;
+  }
+}
 
 // ============================================================================
 // COLOR UTILITY FUNCTIONS
@@ -314,10 +327,14 @@ export const Button: React.FC<ButtonProps> = ({
         <>
           <Text style={[getTextStyle(), textStyle]}>{title}</Text>
           {icon && iconPosition === 'left' && (
-            <Icon name={icon} size={16} color={getTextStyle().color as string} style={{ marginLeft: 8 }} strokeWidth={2.5} />
+            <React.Suspense fallback={<View style={{ width: 16, height: 16 }} />}>
+              <Icon name={icon} size={16} color={getTextStyle().color as string} style={{ marginLeft: 8 }} strokeWidth={2.5} />
+            </React.Suspense>
           )}
           {icon && iconPosition === 'right' && (
-            <Icon name={icon} size={16} color={getTextStyle().color as string} style={{ marginLeft: 8 }} strokeWidth={2.5} />
+            <React.Suspense fallback={<View style={{ width: 16, height: 16 }} />}>
+              <Icon name={icon} size={16} color={getTextStyle().color as string} style={{ marginLeft: 8 }} strokeWidth={2.5} />
+            </React.Suspense>
           )}
         </>
       )}
@@ -553,7 +570,9 @@ export const Input: React.FC<InputProps> = ({
             onPress={onIconPress}
             disabled={!onIconPress}
           >
-                         <Icon name={icon} size={20} color={Colors.gray} />
+            <React.Suspense fallback={<View style={{ width: 20, height: 20 }} />}>
+              <Icon name={icon} size={20} color={Colors.gray} />
+            </React.Suspense>
           </TouchableOpacity>
         )}
         <TextInput

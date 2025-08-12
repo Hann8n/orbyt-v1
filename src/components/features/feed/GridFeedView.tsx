@@ -15,6 +15,7 @@ import { FeedItem } from './ListFeedView';
 import EmptyFeed from './EmptyFeed';
 
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
+import { VideoGridItem } from './HorizontalVideoList';
 import { Colors } from '../../ui/UI';
 import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
 import { feedService } from '../../../services/FeedService';
@@ -93,21 +94,20 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   const effectiveInsets = { top: 0, bottom: 0, left: 0, right: 0 } as const;
   const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets);
   const viewableAreaHeight = screen.height - effectiveInsets.top - bottomNavBarHeight;
+  // When used inside Tabs.Container (collapsible header), subtract header height
+  const headerHeightForTabs = ListComponent ? 280 : 0;
+  const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
 
 
 
   // Render each grid item - optimized with background processing
   const renderGridItem = useCallback(({ item, index }: { item: FeedItem; index: number }) => {
-    // Skip non-video posts
-    const videoUrl = extractVideoUrl(item.post.embed);
-    const thumbnailUrl = extractVideoThumbnail(item.post.embed);
-    if (!videoUrl) return null;
-    
-    // Check if it's a repost
-    const isRepost = item.reason && item.reason.$type === 'app.bsky.feed.defs#reasonRepost';
+    // Calculate if this is the last column or last row for spacing
+    const isLastColumn = (index + 1) % numColumns === 0;
+    const isLastRow = Math.floor(index / numColumns) === Math.floor((feed.length - 1) / numColumns);
+    const isFirstColumn = index % numColumns === 0;
 
-    // Handle press: prefer parent callback when provided, else navigate to FeedScreen
-    const handlePress = () => {
+    const onPress = () => {
       if (onGridItemPress) {
         onGridItemPress(index);
         return;
@@ -123,43 +123,18 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
       });
     };
 
-    // Check if this item should be blurred due to moderation
-    const shouldBlur = feedService.isVideoBlurred(item.post.uri, !!item.moderationDecision?.blur);
-    
-
-
-    // Calculate if this is the last column or last row
-    const isLastColumn = (index + 1) % numColumns === 0;
-    const isLastRow = Math.floor(index / numColumns) === Math.floor((feed.length - 1) / numColumns);
-    const isFirstColumn = index % numColumns === 0;
-    const isFirstRow = index < numColumns;
     return (
-      <TouchableOpacity
+      <VideoGridItem
+        item={item}
+        index={index}
+        onPress={onPress}
         style={[
-          styles.gridItem,
           { width: itemWidth, height: itemHeight },
           !isLastColumn && { marginRight: ITEM_MARGIN },
           !isLastRow && { marginBottom: ITEM_MARGIN },
           isFirstColumn && { marginLeft: ITEM_MARGIN },
-          // remove top margin on first row to avoid gap under header
         ]}
-        activeOpacity={0.7}
-        onPress={handlePress}
-      >
-        {/* Video preview - use video URL directly */}
-        <Image
-          source={{ uri: thumbnailUrl || videoUrl }}
-          style={styles.thumbnail}
-          resizeMode="cover"
-        />
-        {/* Moderation Blur Overlay (matches list feed) */}
-        {shouldBlur && (
-          <BlurView intensity={80} style={styles.blurOverlay}>
-            <Icon name="hidden" size={45} color="rgba(255, 255, 255, 0.7)" style={styles.warningIcon} />
-          </BlurView>
-        )}
-        {/* Overlay with author info removed as requested */}
-      </TouchableOpacity>
+      />
     );
   }, [onGridItemPress, feed, numColumns, itemWidth, itemHeight, navigation, feedOption, userDid, backgroundColor, secondaryColor]);
 
@@ -201,7 +176,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
                   profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
                   onRetry={onRetry}
                   isProfileFeed={isProfileFeed || isHeaderFeed}
-                  viewableAreaHeight={viewableAreaHeight}
+                  viewableAreaHeight={emptyComponentHeight}
                   feedOption={feedOption}
                 />
               ) : (
@@ -210,7 +185,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
                   secondaryColor={secondaryColor} 
                   profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
                   isProfileFeed={isProfileFeed || isHeaderFeed}
-                  viewableAreaHeight={viewableAreaHeight}
+                  viewableAreaHeight={emptyComponentHeight}
                   feedOption={feedOption}
                 />
               ) as React.ReactElement
@@ -218,6 +193,8 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
             refreshControl={refreshControl as any}
             onScroll={handleScroll}
             scrollEventThrottle={16}
+            // Disable scrolling when there are no items
+            scrollEnabled={feed.length > 0}
             ListFooterComponent={isFetchingNextPage ? (
               <View style={styles.footerLoader}>
                 <ActivityIndicator size="small" color={secondaryColor} />

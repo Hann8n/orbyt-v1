@@ -68,34 +68,17 @@ const VideoItem: React.FC<VideoItemProps> = ({
   const localScrollY = useSharedValue(0);
   const scrollY = externalScrollY || localScrollY;
 
-  const isSmallDevice = isSmallScreen() || isTablet();
+  // Memoize device size checks to avoid repeated calls
+  const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
   
-  // Unified height calculation - Restored original 9:16 design
-  const itemHeight = useMemo(() => {
-    if (height) return height;
-    
-    // Use the provided height or fallback to screen height
-    // This maintains the original design where videos have uniform spacing
-    return SCREEN_HEIGHT;
-  }, [height]);
+  // Simplified height calculation
+  const itemHeight = useMemo(() => height || SCREEN_HEIGHT, [height]);
   
-  // Determine if this is a full screen card
-  const isFullScreenCard = itemHeight >= SCREEN_HEIGHT - 1;
-  
-  // Progress bar positioning logic - Restored original logic
-  const progressBarAtCardBottom = useMemo(() => {
-    // In modals, always put progress bar at bottom
-    if (isModal) return true;
-    
-    // For small devices, always put progress bar at bottom
-    if (isSmallDevice) return true;
-    
-    // For large devices with full screen cards, put progress bar at bottom
-    if (isFullScreenCard) return true;
-    
-    // For large devices with smaller cards, put progress bar at top of navigation
-    return false;
-  }, [isModal, isSmallDevice, isFullScreenCard]);
+  // Simplified progress bar positioning with fewer conditions
+  const progressBarAtCardBottom = useMemo(() => 
+    isModal || isSmallDevice || itemHeight >= SCREEN_HEIGHT - 1, 
+    [isModal, isSmallDevice, itemHeight]
+  );
 
   // Simplified video data extraction
   const { videoEmbed, videoUrl, hasVideo } = useMemo(() => {
@@ -114,27 +97,21 @@ const VideoItem: React.FC<VideoItemProps> = ({
     }
   });
 
-  // Memoized styles
+  // Simplified memoized styles
   const containerStyle = useMemo(() => [
     styles.videoContainer, 
-    { 
-      height: itemHeight,
-      width: '100%' as const,
-      justifyContent: 'center' as const,
-      alignItems: 'center' as const,
-      backgroundColor: Colors.black
-    }
+    { height: itemHeight }
   ], [itemHeight]);
 
+  // Removed duplicate style with overlayContainerSmallScreen as it's redundant
   const overlayContainerStyle = useMemo(() => [
     styles.overlayContainer,
-    isSmallDevice && styles.overlayContainerSmallScreen,
-    { height: itemHeight } // Fix: Ensure overlay covers full height
-  ], [isSmallDevice, itemHeight]);
+    { height: itemHeight }
+  ], [itemHeight]);
 
-  // Early return if no video
+  // Early return if no video, but guard FlashList crashes by rendering a placeholder
   if (!hasVideo) {
-    return null;
+    return <View style={containerStyle} />;
   }
 
   // Simplified video status handler
@@ -206,17 +183,12 @@ const styles = StyleSheet.create({
   },
   overlayContainer: {
     position: 'absolute',
-    top: 0, // Fix: Start from top to cover full video
+    top: 0,
     bottom: 0,
     left: 0,
     right: 0,
-    zIndex: 10, // Fix: Ensure overlay appears above video
-  },
-  overlayContainerSmallScreen: {
-    top: 0,
-    bottom: 0,
     zIndex: 10,
-  },
+  }
 });
 
 export default VideoItem;

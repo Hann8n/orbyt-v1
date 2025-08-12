@@ -44,7 +44,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
 import RelativeDate from '../../ui/RelativeDate';
 import { format } from 'date-fns';
-import { useClearView } from '../../../services/ClearViewContext';
+import { useClearView } from '@stores/uiStore';
 import { useChannelColors, useChannel } from '../../../services/cache/ChannelCache';
  
 
@@ -358,12 +358,12 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     }
   }, [gradientHeightShared]);
   
-  // Decide if we should render overlay - always render when visible unless in clear view mode
+  // Decide if we should render overlay - render regardless of visibility unless in clear view mode
   const shouldRenderOverlay = useMemo(() => {
     if (isClearViewMode) return false;
-    // Always show overlay when video is visible, regardless of device type
-    return isVisible;
-  }, [isVisible, isClearViewMode]);
+    // Always render overlays so they can appear before visibility flips on
+    return true;
+  }, [isClearViewMode]);
   
   // Get current user data
   const { data: userData } = useQuery({
@@ -751,13 +751,14 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                 <View style={styles.authorTextContainer}>
                   <View style={{flexDirection: 'row', alignItems: 'center'}}>
                     <Text 
-                      style={
+                      style={[
+                        styles.baseText,
                         isTabletDevice
                           ? styles.authorNameTablet
                           : isSmallDevice
                             ? styles.authorNameSmallScreen
                             : styles.authorName
-                      }
+                      ]}
                       numberOfLines={1}
                       ellipsizeMode="tail"
                     >
@@ -779,13 +780,14 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                             activeOpacity={0.7}
                           >
                             <Text
-                              style={
+                              style={[
+                                styles.baseText,
                                 isTabletDevice
                                   ? styles.followTextTablet
                                   : isSmallDevice
                                     ? styles.followTextSmallScreen
                                     : styles.followText
-                              }
+                              ]}
                               numberOfLines={1}
                               ellipsizeMode="tail"
                             >
@@ -794,13 +796,14 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                           </TouchableOpacity>
                         ) : (
                           <Text
-                            style={
+                            style={[
+                              styles.baseText,
                               isTabletDevice
                                 ? styles.followTextTablet
                                 : isSmallDevice
                                   ? styles.followTextSmallScreen
                                   : styles.followText
-                            }
+                            ]}
                             numberOfLines={1}
                             ellipsizeMode="tail"
                           >
@@ -852,13 +855,14 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
             
             <View style={styles.actionsContainer} pointerEvents="box-none">
               <TouchableOpacity 
-                style={
+                style={[
+                  styles.baseActionButton,
                   isTabletDevice
                     ? styles.actionButtonTablet
                     : isSmallDevice
                       ? styles.actionButtonSmallScreen
                       : styles.actionButton
-                } 
+                ]} 
                 onPress={handleSharePress}
                 activeOpacity={0.7}
               >
@@ -869,6 +873,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
 
               <TouchableOpacity 
                 style={[
+                  styles.baseActionButton,
                   isTabletDevice
                     ? styles.actionButtonTablet
                     : isSmallDevice
@@ -885,13 +890,14 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={
+                style={[
+                  styles.baseActionButton,
                   isTabletDevice
                     ? styles.actionButtonTablet
                     : isSmallDevice
                       ? styles.actionButtonSmallScreen
                       : styles.actionButton
-                } 
+                ]} 
                 onPress={handleCommentPress}
                 activeOpacity={0.7}
               >
@@ -901,6 +907,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
               
               <TouchableOpacity 
                 style={[
+                  styles.baseActionButton,
                   isTabletDevice
                     ? styles.actionButtonTablet
                     : isSmallDevice
@@ -1040,6 +1047,15 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
 };
 
 const styles = StyleSheet.create({
+  // Base styles for reuse
+  baseText: {
+    color: Colors.white,
+    fontWeight: 'bold',
+    fontFamily: 'Firma-Medium',
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
   container: {
     position: 'absolute',
     top: 0,
@@ -1136,6 +1152,7 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
   },
+  // Used for small screens with appropriate sizing
   profilePictureSmallScreen: {
     width: 46,
     height: 46,
@@ -1147,25 +1164,15 @@ const styles = StyleSheet.create({
     marginRight: 20,
   },
   authorName: {
-    color: Colors.white,
-    fontWeight: 'bold',
     fontSize: 16,
     fontFamily: 'Firma-Black',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
     lineHeight: 22,
     includeFontPadding: false,
     flexShrink: 1,
   },
   authorNameSmallScreen: {
-    color: Colors.white,
-    fontWeight: 'bold',
     fontSize: 15,
     fontFamily: 'Firma-Black',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
     lineHeight: 18,
     includeFontPadding: false,
     flexShrink: 1,
@@ -1196,23 +1203,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
-  actionButton: {
+  // Base action button style
+  baseActionButton: {
     alignItems: 'center',
-    marginVertical: 5,
     shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     width: 36.5,
   },
+  actionButton: {
+    marginVertical: 5,
+  },
   actionButtonSmallScreen: {
-    alignItems: 'center',
     marginVertical: 3,
-    shadowColor: Colors.lightGray,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    width: 36.5,
   },
   iconContainer: {
     width: 34.5,
@@ -1286,13 +1290,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
   },
   authorNameTablet: {
-    color: Colors.white,
-    fontWeight: 'bold',
-    fontSize: 19, // was 26
+    fontSize: 19,
     fontFamily: 'Firma-Black',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
     lineHeight: 25,
     includeFontPadding: false,
     flexShrink: 1,
@@ -1306,13 +1305,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   actionButtonTablet: {
-    alignItems: 'center',
-    marginVertical: 7, // was 10
-    shadowColor: Colors.lightGray,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    width: 44, // was 60
+    marginVertical: 7,
+    width: 44, // Wider for tablets
   },
   actionTextTablet: {
     color: Colors.white,
@@ -1461,37 +1455,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
   },
   followText: {
-    color: Colors.white,
-    fontWeight: 'bold',
     fontSize: 16,
     fontFamily: 'Firma-Black',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
     lineHeight: 22,
     includeFontPadding: false,
     flexShrink: 1,
   },
   followTextSmallScreen: {
-    color: Colors.white,
-    fontWeight: 'bold',
     fontSize: 15,
     fontFamily: 'Firma-Black',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
     lineHeight: 18,
     includeFontPadding: false,
     flexShrink: 1,
   },
   followTextTablet: {
-    color: Colors.white,
-    fontWeight: 'bold',
     fontSize: 19,
     fontFamily: 'Firma-Black',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
     lineHeight: 25,
     includeFontPadding: false,
     flexShrink: 1,

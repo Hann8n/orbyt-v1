@@ -18,7 +18,7 @@ import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../utils/helpers
 import * as ImagePicker from 'expo-image-picker';
 import VideoProcessingService from '../services/VideoProcessingService';
 import * as FileSystem from 'expo-file-system';
-import { useClearView } from '../services/ClearViewContext';
+import { useClearView } from '@stores/uiStore';
 import { Colors } from '../components/ui/UI';
 
 const Tab = createBottomTabNavigator();

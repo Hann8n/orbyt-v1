@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
@@ -338,7 +338,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       textColor={safeTextColor}
       isLoading={!channel}
       skeleton={skeleton}
-      showGradient={true} // Re-enable gradient for channels
+      showGradient={false}
       gradientType="channel" // Use channel-specific gradient
       applySafeArea={applySafeArea}
       style={{ opacity: 1 }}
@@ -400,4 +400,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ChannelHeader; 
+export default memo(ChannelHeader); 

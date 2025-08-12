@@ -433,11 +433,10 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     styles.header,
     { 
       backgroundColor,
-      // Apply safe area padding whenever requested
       ...(applySafeArea && { paddingTop: insets.top }),
     },
     style,
-  ], [backgroundColor, style, applySafeArea, isSmallDevice, insets.top]);
+  ], [backgroundColor, style, applySafeArea, insets.top]);
 
   // Extract custom description from children
   const customDescription = useMemo(() => {
@@ -496,7 +495,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   }, [gradientType]);
 
   return (
-    <Animated.View style={headerStyle} pointerEvents="box-none">
+    <Animated.View style={headerStyle} pointerEvents="box-none" collapsable={false}>
       {/* Fade to black gradient - conditionally visible */}
       {showGradient && (
         <LinearGradient
@@ -506,7 +505,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
         />
       )}
       {/* Content container */}
-      <Animated.View style={[styles.content, contentStyle]} pointerEvents="box-none">
+      <Animated.View style={[styles.content, contentStyle]} pointerEvents="box-none" collapsable={false}>
         {/* Navigation and Action Buttons */}
         <View style={styles.topRow}>
         <View style={styles.leftSection}>
@@ -571,7 +570,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
     backgroundColor: 'transparent',
-    // Add layout stability to prevent jitter
     minHeight: 120,
   },
   topRow: {

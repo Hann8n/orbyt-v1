@@ -16,7 +16,7 @@ import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/
 import Icon, { ShareIcon, BlockIcon, ReportIcon, InterestedIcon, NotInterestedIcon } from './Icon';
 import AtprotoService from '../../services/api/AtprotoService';
 import ProfileCache from '../../services/cache/ProfileCache';
-import { useClearView } from '../../services/ClearViewContext';
+import { useClearView } from '@stores/uiStore';
 import { Colors } from './UI';
 
 interface ShareSheetProps {

@@ -19,64 +19,70 @@ const videoCache = new Map<string, { videoEmbed: any; videoUrl: string | null }>
 const MAX_CACHE_SIZE = 100;
 
 /**
+ * Helper function to get the actual video embed object from any embed type
+ * @param embed The embed object from a post
+ * @returns The actual video embed or null
+ */
+function getActualVideoEmbed(embed: any): any | null {
+  if (!embed) return null;
+  
+  if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
+    const recordEmbed = embed as VideoEmbed;
+    if (recordEmbed.media?.$type && recordEmbed.media.$type.includes('video')) {
+      return recordEmbed.media;
+    }
+    return null;
+  } 
+  
+  if (embed.$type && embed.$type.includes('video')) {
+    return embed;
+  }
+  
+  return null;
+}
+
+/**
  * Extracts the video URL from a post embed object.
  * @param embed The embed object from a post
  * @returns The video URL string, or null if not found
  */
 export function extractVideoUrl(embed: any): string | null {
-  if (!embed) return null;
-  if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-    const recordEmbed = embed as VideoEmbed;
-    if (recordEmbed.media?.$type && recordEmbed.media.$type.includes('video')) {
-      const videoEmbed = recordEmbed.media;
-      return Array.isArray(videoEmbed.playlist)
-        ? videoEmbed.playlist[0]
-        : videoEmbed.playlist || null;
-    }
-  } else if (embed.$type && embed.$type.includes('video')) {
-    return Array.isArray(embed.playlist)
-      ? embed.playlist[0]
-      : embed.playlist || null;
-  }
-  return null;
+  const videoEmbed = getActualVideoEmbed(embed);
+  if (!videoEmbed) return null;
+  
+  return Array.isArray(videoEmbed.playlist)
+    ? videoEmbed.playlist[0]
+    : videoEmbed.playlist || null;
 }
 
 /**
  * Extract video embed and URL from a post in a single operation
+ * Uses shared helper function to avoid duplication
  * @param post The post object
  * @returns Object containing videoEmbed and videoUrl
  */
 export function extractVideoEmbedAndUrl(post: any): { videoEmbed: any; videoUrl: string | null } {
   const cacheKey = post?.uri;
   
-  // Check cache first
-  if (videoCache.has(cacheKey)) {
+  // Check cache first for better performance
+  if (cacheKey && videoCache.has(cacheKey)) {
     return videoCache.get(cacheKey)!;
   }
   
-  let videoEmbed: any = null;
-  
-  if (post?.embed) {
-    if (post.embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-      const recordEmbed = post.embed;
-      if (recordEmbed.media?.$type && recordEmbed.media.$type.includes('video')) {
-        videoEmbed = recordEmbed.media;
-      }
-    } else {
-      videoEmbed = post.embed;
-    }
-  }
-
+  // Use our shared helper to get the actual video embed
+  const videoEmbed = post?.embed ? getActualVideoEmbed(post.embed) : null;
   const videoUrl = extractVideoUrl(videoEmbed);
   const result = { videoEmbed, videoUrl };
   
-  // Simple cache management
-  if (videoCache.size >= MAX_CACHE_SIZE) {
-    const firstKey = videoCache.keys().next().value;
-    videoCache.delete(firstKey);
+  // Cache management - remove oldest items when cache gets too big
+  if (cacheKey) {
+    if (videoCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = videoCache.keys().next().value;
+      videoCache.delete(firstKey);
+    }
+    videoCache.set(cacheKey, result);
   }
   
-  videoCache.set(cacheKey, result);
   return result;
 }
 
@@ -116,18 +122,8 @@ export function debugVideoExtraction(embed: any): {
  * @returns The thumbnail URL string, or null if not found
  */
 export function extractVideoThumbnail(embed: any): string | null {
-  if (!embed) return null;
-  // Handle recordWithMedia wrapper
-  if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-    const recordEmbed = embed as VideoEmbed;
-    if (recordEmbed.media?.$type && recordEmbed.media.$type.includes('video')) {
-      const videoEmbed = recordEmbed.media;
-      return videoEmbed.thumbnail || null;
-    }
-  } else if (embed.$type && embed.$type.includes('video')) {
-    return embed.thumbnail || null;
-  }
-  return null;
+  const videoEmbed = getActualVideoEmbed(embed);
+  return videoEmbed?.thumbnail || null;
 }
 
 // Simple utility functions

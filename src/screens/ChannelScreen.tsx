@@ -16,14 +16,13 @@ import ChannelHeader from '../components/layout/header/ChannelHeader';
 import FeedRenderer from '../components/features/feed/FeedRenderer';
 import MembersListView from '../components/features/feed/MembersListView';
 import { Colors } from '../components/ui/UI';
+import DebugBoundary from '../components/ui/DebugBoundary';
 
 import { useChannelColors, useChannel, useChannelColorsMutation } from '../services/cache/ChannelCache';
 import { extractColorsFromImage } from '../utils/formatting/colorUtils';
 import { TabNavigation, TabOption } from '../components/layout/header';
 import { useSubscribedChannels } from '../hooks/useSubscribedChannels';
 import Icon from '../components/ui/Icon';
- 
-import { useHeaderVisibility } from '../hooks/useHeaderVisibility';
 
 interface ChannelScreenProps {
   route: any;
@@ -44,12 +43,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
     excludedChannels,
   } = useSubscribedChannels();
 
-  // Header visibility hook for smooth fade
-  const { headerVisible, headerOpacity, headerAnimatedStyle, updateHeaderVisibility, HeaderVisibilityTracker } = useHeaderVisibility({
-    headerHeight: 280,
-    fadeThreshold: 0.6,
-    feedId: uri || 'channel',
-  });
+  // Removed header visibility hook; header remains static and always visible
 
   // Use channel cache system
   const {
@@ -83,15 +77,19 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
   const [activeTab, setActiveTab] = useState<'posts' | 'members'>('posts');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
-  // Ensure header is always visible in grid view
-  useEffect(() => {
-    if (viewMode === 'grid') {
-      updateHeaderVisibility(true);
-    }
-  }, [viewMode, updateHeaderVisibility]);
+  // Header visibility logic removed
 
   // Use feed query only for posts tab
   const feedOption = uri || '';
+
+  // Dev-only: allow pausing execution on first mount when a global flag is set
+  useEffect(() => {
+    const shouldBreakOnMount = __DEV__ && (globalThis as any).ORBYT_DEBUG_SCREENS === true;
+    if (shouldBreakOnMount) {
+      // eslint-disable-next-line no-debugger
+      debugger;
+    }
+  }, []);
   
   // Ensure channel data is immediately available from cache
   const channelDataForFeed = channelData;
@@ -285,7 +283,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
     </View>
   );
 
-  // Render header component
+  // Render header component (will be provided to Feed/List as ListHeaderComponent - non-sticky)
   const headerComponent = (
     <View style={styles.headerContainer} pointerEvents="box-none">
       <ChannelHeader
@@ -295,28 +293,24 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
         onEdit={handleEdit}
         onDelete={handleDelete}
         applySafeArea={true}
-        headerStyle={headerAnimatedStyle}
       >
-        {channelData && (
-          <>
-            <TabNavigation
-              tabs={tabOptions}
-              activeTab={activeTab}
-              onTabPress={(tabId) => setActiveTab(tabId as any)}
-              textColor={channelColors.textColor}
-              backgroundColor="transparent"
-              accentColor={channelColors.accentColor}
-              viewMode={viewMode}
-              onViewModeChange={activeTab === 'posts' ? setViewMode : undefined}
-              showViewToggle={activeTab === 'posts'}
-            />
-          </>
-        )}
+        <TabNavigation
+          tabs={tabOptions}
+          activeTab={activeTab}
+          onTabPress={(tabId) => setActiveTab(tabId as any)}
+          textColor={channelColors.textColor}
+          backgroundColor="transparent"
+          accentColor={channelColors.accentColor}
+          viewMode={viewMode}
+          onViewModeChange={activeTab === 'posts' ? setViewMode : undefined}
+          showViewToggle={activeTab === 'posts'}
+        />
       </ChannelHeader>
     </View>
   );
 
   return (
+    <DebugBoundary label="ChannelScreen">
     <View style={[
       styles.container, 
       { 
@@ -326,29 +320,14 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
       {showErrorScreen ? (
         renderErrorScreen()
       ) : (
-      <Tabs.Container
-        renderHeader={() => headerComponent}
-        headerHeight={280}
-        headerContainerStyle={{
-          backgroundColor: 'transparent',
-          marginBottom: 0,
-          paddingBottom: 0,
-          borderBottomWidth: 0,
-        }}
-        containerStyle={{
-          backgroundColor: 'transparent',
-        }}
-        renderTabBar={() => null}
-        revealHeaderOnScroll={false}
-        allowHeaderOverscroll={false}
-              >
+      <Tabs.Container renderTabBar={() => null}>
           {activeTab === 'posts' ? (
             <Tabs.Tab name="posts">
-              {viewMode === 'list' && <HeaderVisibilityTracker />}
               {channelDataForFeed && feedOption.startsWith('at://') ? (
                 <FeedRenderer
                 feedOption={feedOption.startsWith('at://') ? feedOption : ''}
                 userDid={channelDataForFeed?.did}
+                headerComponent={headerComponent}
                 refreshControl={
                   <RefreshControl
                     refreshing={refreshing}
@@ -364,12 +343,12 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
                 onViewModeChange={setViewMode}
                 onPositionChange={handlePositionChange}
                 initialPosition={undefined}
-                // Use Tabs.FlashList for FlashList v2 compatibility
+                // Use Tabs.FlashList for FlashList v2 compatibility; header passed to list
                 ListComponent={Tabs.FlashList}
                 // Pass memoized query options
                 queryOptions={queryOptions}
-                // Pass combined visibility: feed is visible AND header is not visible
-                isVisible={viewMode === 'grid' ? true : !headerVisible}
+                // Header always visible; keep feed active
+                isVisible={true}
               />
               ) : (
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -383,6 +362,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
               channelUri={uri || ''}
               backgroundColor={channelColors.backgroundColor}
               textColor={channelColors.textColor}
+              headerComponent={headerComponent}
               isVisible={true}
               onRefresh={onRefresh}
               isRefreshing={refreshing}
@@ -393,6 +373,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
       </Tabs.Container>
       )}
     </View>
+    </DebugBoundary>
   );
 });
 

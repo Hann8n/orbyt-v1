@@ -3,6 +3,15 @@ module.exports = function (api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
+      [
+        'module-resolver',
+        {
+          alias: {
+            '@stores': './src/stores',
+          },
+          extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+        },
+      ],
       'react-native-worklets-core/plugin',
       // Reanimated plugin must be listed last
       'react-native-reanimated/plugin',

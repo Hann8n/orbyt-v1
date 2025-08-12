@@ -18,7 +18,11 @@
     "noImplicitReturns": false,
     "noImplicitThis": false,
     "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "noUnusedParameters": false,
+    "baseUrl": ".",
+    "paths": {
+      "@stores/*": ["src/stores/*"]
+    }
   },
   "extends": "expo/tsconfig.base",
   "include": [

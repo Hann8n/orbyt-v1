@@ -8,6 +8,8 @@ import React, {
   useMemo,
   memo,
 } from 'react';
+import { useVideoPlaybackState } from '@stores/visibilityStore';
+import { usePlaybackStore } from '@stores/playbackStore';
 import {
   View,
   Text,
@@ -24,7 +26,7 @@ import Video from 'react-native-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 
-import { useIsFocused, useNavigationState } from '@react-navigation/native';
+// Navigation state handled by visibility store
 import { useRecyclingState } from '@shopify/flash-list';
 import WatchHistory from '../../../services/WatchHistory';
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
@@ -34,11 +36,13 @@ import Icon from '../../ui/Icon';
 import { feedService } from '../../../services/FeedService';
 import { Colors } from '../../ui/UI';
 
-// Simplified video configuration for immediate playback
+// Import buffering strategies
+import { MOBILE_BUFFER_CONFIG, createInitialBufferState, updateBufferState } from '../../../utils/helpers/videoBuffering';
+
+// Video configuration 
 const VIDEO_CONFIG = {
   PROGRESS_UPDATE_INTERVAL: 250,
-  MIN_BUFFER_MS: 500,
-  MAX_BUFFER_MS: 3000,
+  BUFFER_CONFIG: MOBILE_BUFFER_CONFIG,
 } as const;
 
 export interface VideoEmbed {
@@ -104,43 +108,76 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
   }, ref) => {
     const isSmallDevice = isSmallScreen() || isTablet();
     
-    // Simplified state management for immediate playback
-    const [hasError, setHasError] = useState<boolean>(false);
-    const [userPaused, setUserPaused] = useState<boolean>(false);
-    const [isReady, setIsReady] = useState<boolean>(false);
-    const [isBuffering, setIsBuffering] = useState<boolean>(false);
-    const [progress, setProgress] = useState<number>(0);
-    const [duration, setDuration] = useState<number>(0);
-    const [currentPosition, setCurrentPosition] = useState<number>(0);
-    const [hasMarkedAsWatched, setHasMarkedAsWatched] = useState<boolean>(false);
-    const [customDimLevel, setCustomDimLevel] = useState<number>(0);
-    const [isPlaying, setIsPlaying] = useState<boolean>(false);
+    // Register video with playback store
+    const { 
+      registerVideo, 
+      unregisterVideo, 
+      setVideoPlaying, 
+      setVideoBuffering, 
+      updateVideoProgress,
+      markVideoAsWatched,
+      getVideoState: getPlaybackState 
+    } = usePlaybackStore();
+    
+    // Consolidated state management with buffer state tracking
+    const [videoState, setVideoState] = useState({
+      hasError: false,
+      userPaused: false,
+      isReady: false,
+      isBuffering: false,
+      progress: 0,
+      duration: 0,
+      currentPosition: 0,
+      hasMarkedAsWatched: false,
+      customDimLevel: 0,
+      isPlaying: false,
+      // Buffer state tracking
+      bufferState: createInitialBufferState(),
+      connectionQuality: 'good' as 'poor' | 'moderate' | 'good' | 'excellent'
+    });
 
-    // Reset state when post changes
+    // Reset state when post changes and register/unregister video
     useEffect(() => {
-      setHasError(false);
-      setIsBuffering(false);
-      setProgress(0);
-      setDuration(0);
-      setCurrentPosition(0);
-      setHasMarkedAsWatched(false);
-      setCustomDimLevel(0);
-      setUserPaused(false);
-      setIsReady(false);
+      const videoUrl = extractVideoUrl(post.embed);
+      if (videoUrl) {
+        // Register video in playback store
+        registerVideo(post.uri, videoUrl);
+      }
+      
+      setVideoState({
+        hasError: false,
+        userPaused: false,
+        isReady: false,
+        isBuffering: false,
+        progress: 0,
+        duration: 0,
+        currentPosition: 0,
+        hasMarkedAsWatched: false,
+        customDimLevel: 0,
+        isPlaying: false,
+        // Reset buffer tracking state
+        bufferState: createInitialBufferState(),
+        connectionQuality: videoState.connectionQuality // Keep connection quality assessment
+      });
       if (playerRef.current) {
         try { playerRef.current.seek(0); } catch {}
       }
-    }, [post.uri]);
+      
+      // Cleanup function to unregister video
+      return () => {
+        unregisterVideo(post.uri);
+      };
+    }, [post.uri, registerVideo, unregisterVideo]);
     
     const wasPlayingBeforeBlur = useRef<boolean>(false);
     const playerRef = useRef<any>(null);
     const videoEmbed = getVideoEmbed(post.embed);
     const insets = useSafeAreaInsets();
-    const isScreenFocused = useIsFocused();
+    // Screen focus is handled by the visibility store automatically
     const videoStatusNotifiedRef = useRef(false);
     const previousVisibilityRef = useRef(isVisible);
     const appStateRef = useRef(AppState.currentState);
-    const navigationState = useNavigationState(state => state);
+    // Navigation state is handled by the visibility store
     const [, forceRerender] = useState(0);
 
     // Memoize computed values for display size
@@ -162,82 +199,122 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     // Calculate overlay opacity based on various factors - optimized for scroll performance
     const overlayOpacity = useMemo(() => {
       if (shouldBlur) return 1;
-      if (customDimLevel > 0) return customDimLevel;
+      if (videoState.customDimLevel > 0) return videoState.customDimLevel;
       return 0;
-    }, [shouldBlur, customDimLevel]);
+    }, [shouldBlur, videoState.customDimLevel]);
 
-    // Ultra-simplified video state - just check if we should play
-    const shouldPlayVideo = shouldPlay && isVisible && isReady && !shouldDisablePlayback && !shouldBlur;
+    // Determine playback state based on multiple factors including tab visibility
+    const { shouldPlay: shouldPlayFromTab } = useVideoPlaybackState(isVisible);
+    const shouldPlayVideo = shouldPlay && isVisible && !shouldDisablePlayback && !shouldBlur && shouldPlayFromTab;
 
     // Direct state update without complex effects
     useEffect(() => {
-      setIsPlaying(shouldPlayVideo);
+      setVideoState(prev => ({ ...prev, isPlaying: shouldPlayVideo }));
+      // Sync with playback store
+      setVideoPlaying(post.uri, shouldPlayVideo);
+      
       if (shouldPlayVideo) {
         onVideoStatus?.(post.uri, 'playing');
       } else {
         onVideoStatus?.(post.uri, 'paused');
       }
-    }, [shouldPlayVideo, post.uri, onVideoStatus]);
+    }, [shouldPlayVideo, post.uri, onVideoStatus, setVideoPlaying]);
 
-    // Simple video status handling
+    // Simple video status handling with consolidated state
     const handleVideoStatus = useCallback((status: string) => {
       if (status === 'ready') {
-        setIsReady(true);
+        setVideoState(prev => ({ ...prev, isReady: true }));
         onVideoStatus?.(post.uri, 'ready');
       } else if (status === 'error') {
-        setHasError(true);
+        setVideoState(prev => ({ ...prev, hasError: true }));
         onVideoStatus?.(post.uri, 'error');
       }
     }, [post.uri, onVideoStatus]);
 
-    // Simplified buffer handling
+    // Enhanced buffer handling with performance tracking
     const handleBuffer = useCallback((data: any) => {
-      setIsBuffering(data.isBuffering);
+      setVideoState(prev => {
+        // Update buffer state tracking
+        const newBufferState = updateBufferState(prev.bufferState, data.isBuffering);
+        
+        // Dynamically adjust connection quality based on buffering patterns
+        let connectionQuality = prev.connectionQuality;
+        
+        if (newBufferState.bufferingCount > 3) {
+          // If buffering frequently, downgrade quality estimate
+          if (newBufferState.lastBufferingDuration > 3000) {
+            connectionQuality = 'poor';
+          } else if (newBufferState.lastBufferingDuration > 1000) {
+            connectionQuality = 'moderate';
+          }
+        }
+        
+        return { 
+          ...prev, 
+          isBuffering: data.isBuffering,
+          bufferState: newBufferState,
+          connectionQuality
+        };
+      });
+      
+      // Sync with playback store
+      setVideoBuffering(post.uri, data.isBuffering);
+      
       if (data.isBuffering) {
         onVideoStatus?.(post.uri, 'buffering');
+      } else {
+        onVideoStatus?.(post.uri, 'playing');
       }
-    }, [post.uri, onVideoStatus]);
+    }, [post.uri, onVideoStatus, setVideoBuffering]);
 
-    // Simplified progress handling
+    // Simplified progress handling with consolidated state
     const handleProgress = useCallback((data: any) => {
       const newProgress = data.currentTime / data.playableDuration;
-      setProgress(newProgress);
-      setCurrentPosition(data.currentTime);
-      setDuration(data.playableDuration);
-    }, []);
+      setVideoState(prev => ({ 
+        ...prev, 
+        progress: newProgress,
+        currentPosition: data.currentTime,
+        duration: data.playableDuration
+      }));
+      
+      // Sync with playback store
+      updateVideoProgress(post.uri, newProgress, data.currentTime, data.playableDuration);
+    }, [post.uri, updateVideoProgress]);
 
-    // Handle video end
+    // Handle video end with consolidated state
     const handleEnd = useCallback(() => {
-      if (!hasMarkedAsWatched) {
+      if (!videoState.hasMarkedAsWatched) {
         WatchHistory.addToWatchHistory(post.uri);
-        setHasMarkedAsWatched(true);
+        setVideoState(prev => ({ ...prev, hasMarkedAsWatched: true }));
+        // Sync with playback store
+        markVideoAsWatched(post.uri);
       }
-    }, [post.uri, hasMarkedAsWatched]);
+    }, [post.uri, videoState.hasMarkedAsWatched, markVideoAsWatched]);
 
-    // Expose methods via ref
+    // Expose methods via ref with consolidated state
     useImperativeHandle(ref, () => ({
       playPause: (shouldPlay: boolean) => {
-        setUserPaused(!shouldPlay);
+        setVideoState(prev => ({ ...prev, userPaused: !shouldPlay }));
       },
       unload: () => {
         if (playerRef.current) {
           playerRef.current.seek(0);
         }
       },
-      getProgress: () => progress,
-      getDuration: () => duration,
+      getProgress: () => videoState.progress,
+      getDuration: () => videoState.duration,
       seek: async (fraction: number) => {
-        if (playerRef.current && duration > 0) {
-          const targetTime = duration * fraction;
+        if (playerRef.current && videoState.duration > 0) {
+          const targetTime = videoState.duration * fraction;
           playerRef.current.seek(targetTime);
         }
       },
-      getCurrentTime: () => currentPosition,
+      getCurrentTime: () => videoState.currentPosition,
       setDimLevel: (level: number) => {
-        setCustomDimLevel(level);
+        setVideoState(prev => ({ ...prev, customDimLevel: level }));
       },
-      getPlayState: () => isPlaying,
-    }), [progress, duration, currentPosition, isPlaying]);
+      getPlayState: () => videoState.isPlaying,
+    }), [videoState]);
 
     // Simple visibility tracking - no complex logic
     useEffect(() => {
@@ -256,10 +333,10 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
       return () => subscription.remove();
     }, []);
 
-    // Simple blur handling
+    // Simple blur handling with consolidated state
     useEffect(() => {
       if (shouldBlur) {
-        setUserPaused(true);
+        setVideoState(prev => ({ ...prev, userPaused: true }));
       }
     }, [shouldBlur]);
 
@@ -281,7 +358,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
 
     return (
       <View style={[styles.container, { width: displayWidth, height: displayHeight }]}>
-        <TouchableWithoutFeedback onPress={() => setUserPaused(!userPaused)}>
+        <TouchableWithoutFeedback onPress={() => setVideoState(prev => ({ ...prev, userPaused: !prev.userPaused }))}>
           <View style={styles.videoContainer} pointerEvents="box-none">
             {videoUrl && (
               <Video
@@ -290,21 +367,21 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                 source={{ uri: videoUrl }}
                 style={{ width: displayWidth, height: displayHeight }}
                 repeat={true}
-                paused={!isPlaying}
+                paused={!videoState.isPlaying}
                 onLoad={() => handleVideoStatus('ready')}
                 onReadyForDisplay={() => handleVideoStatus('ready')}
                 onError={err => {
-                  setHasError(true);
+                  setVideoState(prev => ({ ...prev, hasError: true }));
                   onVideoStatus?.(post.uri, 'error');
                 }}
                 onBuffer={handleBuffer}
                 onProgress={handleProgress}
                 onEnd={handleEnd}
                 bufferConfig={{
-                  minBufferMs: VIDEO_CONFIG.MIN_BUFFER_MS,
-                  maxBufferMs: VIDEO_CONFIG.MAX_BUFFER_MS,
-                  bufferForPlaybackMs: 250,
-                  bufferForPlaybackAfterRebufferMs: 500,
+                  minBufferMs: VIDEO_CONFIG.BUFFER_CONFIG.minBufferMs,
+                  maxBufferMs: VIDEO_CONFIG.BUFFER_CONFIG.maxBufferMs,
+                  bufferForPlaybackMs: VIDEO_CONFIG.BUFFER_CONFIG.bufferForPlaybackMs,
+                  bufferForPlaybackAfterRebufferMs: VIDEO_CONFIG.BUFFER_CONFIG.bufferForPlaybackAfterRebufferMs,
                 }}
                 muted={false}
                 controls={false}
@@ -320,13 +397,13 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                 allowsExternalPlayback={false}
                 preventsDisplaySleepDuringVideoPlayback={false}
                 poster={posterUrl}
-                posterResizeMode="cover"
-                resizeMode="cover"
+                posterResizeMode="contain"
+                resizeMode="contain"
                 hideShutterView={true}
               />
             )}
             <Animated.View style={[styles.dimOverlay, { opacity: overlayOpacity }]} pointerEvents="none" />
-            {isVisible && !isReady && !posterUrl && (
+            {isVisible && !videoState.isReady && !posterUrl && (
               <View style={styles.loadingOverlay} pointerEvents="none">
                 <ActivityIndicator size="large" color={Colors.white} />
               </View>
@@ -340,8 +417,8 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                 <TouchableWithoutFeedback onPress={() => {
                   feedService.setVideoBlurState(post.uri, false);
                   forceRerender(n => n + 1);
-                  if (playerRef.current && isReady && isVisible && !userPaused) {
-                    setUserPaused(false);
+                  if (playerRef.current && videoState.isReady && isVisible && !videoState.userPaused) {
+                    setVideoState(prev => ({ ...prev, userPaused: false }));
                   }
                 }}>
                   <View style={styles.showAnywayButton}>

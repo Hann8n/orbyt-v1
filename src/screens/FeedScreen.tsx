@@ -105,11 +105,6 @@ const FeedScreen: React.FC = memo(() => {
           enabled: true, // Always enabled in modal
           staleTime: 5 * 60 * 1000, // 5 minutes
         }), [])}
-        // Collapsible header demo
-        useCollapsibleHeader={useCollapsibleHeader}
-        renderTabsHeader={useCollapsibleHeader ? renderDemoHeader : undefined}
-        headerHeight={280}
-        tabName="demo-feed"
         ListComponent={useCollapsibleHeader ? Tabs.FlashList : undefined}
       />
     </View>

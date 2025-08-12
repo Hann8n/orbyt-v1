@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useState } from 'react';
+import React, { memo, useMemo, useCallback, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Modal, TouchableWithoutFeedback, ActivityIndicator, TextInput, Alert, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -429,4 +429,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ProfileHeader; 
+export default memo(ProfileHeader); 
