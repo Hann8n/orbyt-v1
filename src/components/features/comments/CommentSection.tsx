@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -35,8 +35,8 @@ import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanst
 import { createQueryKeys } from '../../../services/FeedService';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
-import Icon from '../../ui/Icon';
-import ProfileCache, { profileKeys } from '../../../services/cache/ProfileCache';
+import Icon, { HeartFillIcon, MoreFillIcon } from '../../ui/Icon';
+import ProfileCache, { profileKeys, useProfile } from '../../../services/cache/ProfileCache';
 import VerificationBadge from '../verification/VerificationBadge';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate, { formatPostDate } from '../../ui/RelativeDate';
@@ -53,6 +53,7 @@ import { formatNumber } from '../../../utils/helpers/formatNumber';
 import { useUserSearchTrigger, UserSearchModal } from '../../ui/usersearch';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import CommentItem, { Comment, Like } from './CommentItem';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -126,7 +127,7 @@ const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => (
   <View style={{
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingHorizontal: 0,
   }}>
     <UI.Avatar
@@ -138,11 +139,12 @@ const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => (
         height: 40,
         borderRadius: 20,
         marginRight: 12,
+        borderWidth: 0,
       }}
     />
     <View style={{ flex: 1, justifyContent: 'center' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Text style={{ color: Colors.white, fontWeight: 'bold', fontSize: 14, marginBottom: 2 }}>
+        <Text style={{ color: Colors.white, fontSize: 16, marginBottom: 2, fontFamily: 'Firma-Bold' }}>
           {like.actor.displayName || like.actor.handle}
         </Text>
         {like.actor.handle && (
@@ -154,9 +156,6 @@ const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => (
           />
         )}
       </View>
-      <Text style={{ color: Colors.white, fontSize: 14 }}>
-        @{like.actor.handle}
-      </Text>
     </View>
   </View>
 ));
@@ -169,6 +168,11 @@ interface CommentSectionProps {
   visible: boolean;
   totalLikes?: number;
   totalComments?: number;
+  isLiked?: boolean;
+  onOpenShareSheet?: () => void;
+  postedAt?: string;
+  onToggleLike?: () => void;
+  isLikePending?: boolean;
 }
 
 const CommentSection: React.FC<CommentSectionProps> = ({
@@ -177,7 +181,20 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   visible,
   totalLikes = 0,
   totalComments = 0,
+  isLiked,
+  onOpenShareSheet,
+  postedAt,
+  onToggleLike,
+  isLikePending,
 }) => {
+  const handleHeaderSharePress = useCallback(() => {
+    // Fast transition: open share sheet immediately, close comments sheet
+    onOpenShareSheet?.();
+    try {
+      bottomSheetRef.current?.close();
+    } catch {}
+    onDismiss?.();
+  }, [onOpenShareSheet, onDismiss]);
   const insets = useSafeAreaInsets();
   const [newCommentText, setNewCommentText] = useState('');
   const [activeTab, setActiveTab] = useState<'comments' | 'likes'>('comments');
@@ -199,6 +216,32 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   } | null>(null);
 
   const inputRef = useRef<any>(null);
+
+  // Get current user's profile for avatar
+  const [currentUserHandle, setCurrentUserHandle] = useState<string | null>(null);
+  const { data: currentUserProfile } = useProfile(currentUserHandle);
+
+  // Load current user handle
+  useEffect(() => {
+    const loadCurrentUserHandle = async () => {
+      try {
+        const storedHandle = await AsyncStorage.getItem('CURRENT_USER_HANDLE');
+        if (storedHandle) {
+          setCurrentUserHandle(storedHandle);
+        } else {
+          // Fallback to fetching current user
+          const user = await AtprotoService.getCurrentUser();
+          if (user?.handle) {
+            setCurrentUserHandle(user.handle);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading current user handle for comment input:', error);
+      }
+    };
+
+    loadCurrentUserHandle();
+  }, []);
 
   const handleReplyPress = useCallback((comment: Comment) => {
     const properUri = comment?.uri || comment?.post?.uri;
@@ -289,13 +332,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, []);
 
   const handleClose = useCallback(() => {
-    if (onDismiss) onDismiss();
-    bottomSheetRef.current?.close();
+    onDismiss?.();
   }, [onDismiss]);
 
   const tabOptions: TabOption[] = [
-    { id: 'comments', label: totalComments > 0 ? `comments ${formatNumber(totalComments)}` : 'comments' },
-    { id: 'likes', label: totalLikes > 0 ? `likes ${formatNumber(totalLikes)}` : 'likes' },
+    { id: 'comments', label: totalComments > 0 ? `${formatNumber(totalComments)} Comments` : 'Comments' },
+    { id: 'likes', label: totalLikes > 0 ? `${formatNumber(totalLikes)} Likes` : 'Likes' },
   ];
 
   const {
@@ -350,11 +392,26 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       {
         paddingBottom: Math.max(insets.bottom, 12),
         backgroundColor: Colors.black,
-        borderTopColor: Colors.mediumGray,
         alignItems: 'flex-start',
       },
     ]}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', width: '100%' }}>
+        {/* Current user avatar */}
+        {currentUserProfile?.avatar && (
+          <View style={{ marginRight: 12, marginTop: 2 }}>
+            <UI.Avatar
+              uri={currentUserProfile.avatar}
+              type="profile"
+              size={42}
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 21,
+                borderWidth: 0,
+              }}
+            />
+          </View>
+        )}
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-start', backgroundColor: 'transparent', borderRadius: 18, borderWidth: 0, borderColor: 'transparent', position: 'relative' }}>
           <BottomSheetTextInput
             {...mentionInputProps}
@@ -370,13 +427,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 minHeight: 40,
                 maxHeight: 120,
                 paddingRight: 0,
+                paddingTop: 10,
                 textAlignVertical: 'center',
-                fontWeight: '600',
-                fontFamily: 'Firma-SemiBold',
+                fontFamily: 'Firma-Regular',
+                fontSize: 18,
               },
             ]}
-            placeholder={replyContext ? `reply to ${replyContext.authorName}...` : (totalComments === 0 ? 'add a comment...' : 'say something nice...')}
-            placeholderTextColor={Colors.white}
+            placeholder={replyContext ? `reply to ${replyContext.authorName}...` : (totalComments === 0 ? 'add a comment...' : 'Say something nice...')}
+            placeholderTextColor={Colors.gray}
             multiline
             value={newCommentText}
             onChangeText={setNewCommentText}
@@ -385,27 +443,25 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             maxLength={MAX_COMMENT_LENGTH + 25}
           />
           {(newCommentText.trim() || replyContext) && (
-            <>
-              <View style={{ width: 1, backgroundColor: Colors.mediumGray, alignSelf: 'stretch', marginVertical: 6 }} />
-              <TouchableOpacity
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
-                  alignSelf: 'flex-start',
-                  justifyContent: 'center',
-                  borderTopRightRadius: 18,
-                  borderBottomRightRadius: 18,
-                }}
-                onPress={replyContext && !newCommentText.trim() ? handleCancelReply : handleSendComment}
-                disabled={isPosting || (!newCommentText.trim() && !replyContext) || charCount > MAX_COMMENT_LENGTH}
-              >
-                <Icon 
-                  name={replyContext && !newCommentText.trim() ? "close" : "send-plane-fill"} 
-                  size={22} 
-                  color={Colors.white} 
-                />
-              </TouchableOpacity>
-            </>
+            <TouchableOpacity
+              style={{
+                paddingHorizontal: 6,
+                paddingVertical: 8,
+                alignSelf: 'flex-start',
+                justifyContent: 'center',
+                marginTop: 2,
+                borderTopRightRadius: 18,
+                borderBottomRightRadius: 18,
+              }}
+              onPress={replyContext && !newCommentText.trim() ? handleCancelReply : handleSendComment}
+              disabled={isPosting || (!newCommentText.trim() && !replyContext) || charCount > MAX_COMMENT_LENGTH}
+            >
+              <Icon 
+                name={replyContext && !newCommentText.trim() ? "close" : "send-plane-fill"} 
+                size={26} 
+                color={Colors.white} 
+              />
+            </TouchableOpacity>
           )}
           {showCharCount && (
             <View
@@ -434,7 +490,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       </View>
       <UserSearchModal {...userSearchModalProps} />
     </View>
-  ), [mentionInputProps, replyContext, totalComments, newCommentText, isPosting, charCount, showCharCount, handleCancelReply, handleSendComment, userSearchModalProps, insets.bottom]);
+  ), [mentionInputProps, replyContext, totalComments, newCommentText, isPosting, charCount, showCharCount, handleCancelReply, handleSendComment, userSearchModalProps, insets.bottom, currentUserProfile]);
 
   if (!visible) return null;
 
@@ -452,25 +508,46 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         enableDynamicSizing={false}
         handleComponent={null}
       >
-        <View style={{ width: '100%', backgroundColor: Colors.black, paddingHorizontal: 10, paddingTop: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
-          <TabNavigation
-            tabs={tabOptions}
-            activeTab={activeTab}
-            onTabPress={handleTabPress as any}
-            textColor={Colors.white}
-            backgroundColor="transparent"
-            style={{ marginBottom: 0, paddingVertical: 0, marginTop: 5 }}
-          />
-          <RelativeDate
-            dateString={post.indexedAt}
-            style={{ color: Colors.lightGray, fontSize: 15, marginLeft: 10 }}
-          />
+        <View style={{ width: '100%', backgroundColor: Colors.black, paddingHorizontal: 10, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', marginBottom: 0 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <TabNavigation
+              tabs={tabOptions}
+              activeTab={activeTab}
+              onTabPress={handleTabPress as any}
+              textColor={Colors.white}
+              backgroundColor="transparent"
+              style={{ marginBottom: 0, paddingVertical: 0, marginTop: 0 }}
+            />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' }}>
+            <RelativeDate
+              dateString={postedAt || post.indexedAt}
+              style={{ color: Colors.gray, fontSize: 15, marginRight: 8 }}
+            />
+            <BottomSheetTouchableOpacity
+              onPress={handleHeaderSharePress}
+              activeOpacity={0.7}
+              style={{ padding: 6, marginRight: 6 }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <MoreFillIcon size={20} color={Colors.lightGray} />
+            </BottomSheetTouchableOpacity>
+            <BottomSheetTouchableOpacity
+              onPress={onToggleLike}
+              activeOpacity={0.7}
+              disabled={!!isLikePending}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ padding: 6, paddingRight: 0 }}
+            >
+              <HeartFillIcon size={26} color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.gray} />
+            </BottomSheetTouchableOpacity>
+          </View>
         </View>
         {activeTab === 'comments' ? (
           totalComments === 0 ? (
             <View style={{ flex: 1, justifyContent: 'space-between', minHeight: 220, paddingHorizontal: 0 }}>
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
-                <Text style={{ color: Colors.white, fontSize: 17, textAlign: 'center', fontWeight: '600', fontFamily: 'Firma-SemiBold' }}>no comments yet</Text>
+                <Text style={{ color: Colors.white, fontSize: 17, textAlign: 'center', fontFamily: 'Firma-SemiBold' }}>no comments yet</Text>
               </View>
               {renderTextInput()}
             </View>
@@ -481,23 +558,18 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8, paddingHorizontal: 0 }}>
                   <ShimmerPlaceholder
                     LinearGradient={LinearGradient}
-                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, borderWidth: 1, borderColor: Colors.mediumGray }}
+                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, borderWidth: 0 }}
                     shimmerColors={Colors.SHIMMER.PRIMARY}
                   />
                   <View style={{ flex: 1, justifyContent: 'center' }}>
                     <ShimmerPlaceholder
                       LinearGradient={LinearGradient}
-                      style={{ width: '50%', height: 14, borderRadius: 3, marginBottom: 2 }}
+                      style={{ width: '55%', height: 18, borderRadius: 3, marginBottom: 2 }}
                       shimmerColors={Colors.SHIMMER.PRIMARY}
                     />
                     <ShimmerPlaceholder
                       LinearGradient={LinearGradient}
-                      style={{ width: '35%', height: 14, borderRadius: 3, marginBottom: 4 }}
-                      shimmerColors={Colors.SHIMMER.PRIMARY}
-                    />
-                    <ShimmerPlaceholder
-                      LinearGradient={LinearGradient}
-                      style={{ width: '85%', height: 15, borderRadius: 4, marginBottom: 6 }}
+                      style={{ width: '85%', height: 16, borderRadius: 4, marginTop: 2 }}
                       shimmerColors={Colors.SHIMMER.PRIMARY}
                     />
                   </View>
@@ -533,27 +605,22 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         ) : (
           totalLikes === 0 ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 220, paddingHorizontal: 24 }}>
-                              <Text style={{ color: Colors.white, fontSize: 17, textAlign: 'center', fontWeight: '600', fontFamily: 'Firma-SemiBold' }}>no likes yet</Text>
+                              <Text style={{ color: Colors.white, fontSize: 17, textAlign: 'center', fontFamily: 'Firma-SemiBold' }}>no likes yet</Text>
             </View>
           ) : likesLoading ? (
             <BottomSheetFlatList
               data={Array.from({ length: totalLikes > 0 ? totalLikes : 4 })}
               renderItem={() => (
-                <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 0 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 0 }}>
                   <ShimmerPlaceholder
                     LinearGradient={LinearGradient}
-                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, borderWidth: 1, borderColor: Colors.mediumGray }}
+                    style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12, borderWidth: 0 }}
                     shimmerColors={Colors.SHIMMER.PRIMARY}
                   />
                   <View style={{ flex: 1, justifyContent: 'center' }}>
                     <ShimmerPlaceholder
                       LinearGradient={LinearGradient}
-                      style={{ width: '40%', height: 16, borderRadius: 2, marginBottom: 4 }}
-                      shimmerColors={Colors.SHIMMER.PRIMARY}
-                    />
-                    <ShimmerPlaceholder
-                      LinearGradient={LinearGradient}
-                      style={{ width: '55%', height: 16, borderRadius: 2 }}
+                      style={{ width: '55%', height: 18, borderRadius: 3, marginBottom: 0 }}
                       shimmerColors={Colors.SHIMMER.PRIMARY}
                     />
                   </View>
@@ -634,7 +701,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             style={{ position: 'absolute', top: 40, right: 24, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 8 }}
             onPress={() => setFullscreenImageUri(null)}
           >
-            <Text style={{ color: Colors.white, fontSize: 20, fontWeight: 'bold' }}>✕</Text>
+            <Text style={{ color: Colors.white, fontSize: 20 }}>✕</Text>
           </Pressable>
         </Pressable>
       </Modal>
@@ -656,7 +723,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
     color: Colors.darkGray,
   },
   closeButton: {
@@ -668,8 +734,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: Colors.darkGray,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.gray,
   },
   input: {
     flex: 1,

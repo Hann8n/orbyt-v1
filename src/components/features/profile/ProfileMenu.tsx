@@ -16,7 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import Icon from '../../ui/Icon';
+import Icon, { ShareIcon } from '../../ui/Icon';
 import AtprotoService from '../../../services/api/AtprotoService';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
@@ -275,7 +275,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           label: 'share',
           icon: 'share',
           onPress: handleShare,
-          color: Colors.white
+          color: Colors.lightGray
         },
         {
           id: 'insights',
@@ -285,21 +285,21 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             onDismiss();
             navigation.navigate({ name: 'Insights', params: {} });
           },
-          color: Colors.white
+          color: Colors.lightGray
         },
         {
           id: 'switch',
           label: 'switch',
           icon: 'user-3',
           onPress: handleSwitchAccount,
-          color: Colors.white
+          color: Colors.lightGray
         },
         {
           id: 'settings',
           label: 'settings',
           icon: 'settings',
           onPress: handleSettings,
-          color: Colors.white
+          color: Colors.lightGray
         }
       ];
     } else {
@@ -307,9 +307,9 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         {
           id: 'share',
           label: 'share',
-          icon: 'link',
+          icon: 'share',
           onPress: handleShare,
-          color: Colors.white
+          color: Colors.lightGray
         },
         {
           id: 'mute',
@@ -319,22 +319,22 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             Alert.alert('mute', 'mute functionality will be implemented in a future update.');
             onDismiss();
           },
-          color: Colors.white
+          color: Colors.lightGray
         },
         {
           id: 'block',
           label: isBlocked ? 'unblock' : 'block',
           icon: 'block',
           onPress: handleBlockToggle,
-          color: Colors.white
+          color: Colors.lightGray
         },
         {
           id: 'report',
           label: 'report',
           icon: 'report',
           onPress: handleReport,
-          color: Colors.black,
-          buttonColor: Colors.red
+          color: Colors.lightGray,
+          buttonColor: Colors.darkRed
         }
       ];
     }
@@ -362,7 +362,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       backdropComponent={renderBackdrop}
       onDismiss={onDismiss}
       backgroundStyle={styles.bottomSheetBackground}
-      handleIndicatorStyle={styles.handleIndicator}
+      handleIndicatorStyle={{ display: 'none' }}
     >
       <BottomSheetView style={styles.content}>
         {/* Options */}
@@ -378,11 +378,16 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
                 activeOpacity={0.7}
                 disabled={isSubmitting}
               >
-                <Icon 
-                  name={option.icon} 
-                  size={32} 
-                  color={option.color} 
-                />
+                {option.icon === 'share' && (
+                  <ShareIcon size={32} color={option.color} />
+                )}
+                {option.icon !== 'share' && (
+                  <Icon 
+                    name={option.icon} 
+                    size={32} 
+                    color={option.color} 
+                  />
+                )}
               </TouchableOpacity>
               <Text style={styles.optionText}>{option.label}</Text>
             </View>
@@ -412,11 +417,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
   },
-  handleIndicator: {
-    backgroundColor: Colors.gray,
-    width: 40,
-    height: 5,
-  },
+
   content: {
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 20 : 30,
@@ -434,12 +435,10 @@ const styles = StyleSheet.create({
   option: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    width: 70,
+    height: 70,
+    borderRadius: 20,
     backgroundColor: Colors.darkGray,
-    borderWidth: 1,
-    borderColor: Colors.mediumGray,
   },
   cancelContainer: {
     alignItems: 'center',
@@ -448,22 +447,22 @@ const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: Colors.darkGray,
     borderWidth: 1,
-    borderColor: Colors.mediumGray,
-    borderRadius: 16,
+    borderColor: Colors.gray,
+    borderRadius: 50,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButtonText: {
-    color: 'white',
+    color: Colors.lightGray,
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
     fontFamily: 'Firma-SemiBold',
   },
   optionText: {
-    color: 'white',
+    color: Colors.lightGray,
     fontSize: 15,
     fontWeight: '600',
     marginTop: 12,

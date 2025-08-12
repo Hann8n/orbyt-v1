@@ -119,7 +119,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   
   // Icon can still vary by theme, but message text should always use brand secondary color
   const iconColor = profileColors ? profileColors.textColor : (secondaryColor || Colors.lightGray);
-  const textColor = Colors.white;
+  const textColor = Colors.lightGray;
 
   // Render suggested user item using AuthorItem component
   const renderSuggestedUser = ({ item }: { item: SuggestedUser }) => {
@@ -210,7 +210,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           viewableAreaHeight ? { height: viewableAreaHeight } : {}
         ]}
       >
-        <View style={[styles.contentContainer, { paddingTop: 40 }]}>
+        <View style={[styles.contentContainer, { justifyContent: 'center' }]}>
           <View style={styles.iconContainer}>
             <Image source={LivingGif} style={styles.ufoGif} />
           </View>

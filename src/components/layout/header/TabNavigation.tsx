@@ -60,7 +60,10 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             <Text
               style={[
                 styles.tabText,
-                { color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.7) },
+                { 
+                  color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.7),
+                  fontFamily: activeTab === tab.id ? 'Firma-Bold' : 'Firma-SemiBold'
+                },
                 activeTab === tab.id && styles.activeTabText,
                 tab.disabled && styles.disabledTabText,
               ]}
@@ -147,7 +150,6 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 17,
     fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
     opacity: 0.7,
   },
   activeTabText: {

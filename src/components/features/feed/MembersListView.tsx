@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   Dimensions,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -20,31 +20,26 @@ import VerificationBadge from '../verification/VerificationBadge';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
-import { navigateToUserProfile } from '../../../navigation/profileNavigation';
+ 
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Shimmer component for member items
+// Shimmer component for member items (match likes item skeleton)
 const MemberItemShimmer = () => (
   <View style={styles.memberItem}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={[styles.memberAvatar, { borderRadius: 20 }]}
+      style={[styles.memberAvatar, { borderRadius: 20, borderWidth: 0, borderColor: 'transparent' }]}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.memberDetails}>
       <View style={styles.memberNameRow}>
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
-          style={{ width: 120, height: 16, borderRadius: 4, marginBottom: 4 }}
+          style={{ width: '55%', height: 18, borderRadius: 3, marginBottom: 0 }}
           shimmerColors={Colors.SHIMMER.PRIMARY}
         />
       </View>
-      <ShimmerPlaceholder
-        LinearGradient={LinearGradient}
-        style={{ width: 80, height: 14, borderRadius: 3 }}
-        shimmerColors={Colors.SHIMMER.PRIMARY}
-      />
     </View>
   </View>
 );
@@ -81,7 +76,7 @@ interface MembersListViewProps {
   isVisible?: boolean;
   onRefresh?: () => void;
   isRefreshing?: boolean;
-  ListComponent?: any; // Optional custom list component (e.g., Tabs.FlatList)
+  ListComponent?: any; // Optional custom list component (e.g., Tabs.FlashList)
 }
 
 const MembersListView: React.FC<MembersListViewProps> = ({
@@ -239,7 +234,13 @@ const MembersListView: React.FC<MembersListViewProps> = ({
       onMemberPress(member);
     } else {
       // Navigate to profile
-      navigateToUserProfile(navigation, { handle: member.handle });
+      const target = (member.handle || '').trim();
+      if (!target) return;
+      let rootNav: any = navigation as any;
+      while (rootNav?.getParent?.()) {
+        rootNav = rootNav.getParent();
+      }
+      rootNav?.navigate?.('AuthorProfile', { handle: target });
     }
   }, [onMemberPress, navigation]);
 
@@ -293,13 +294,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     // This helps when user scrolls to top
   }, []);
 
-  // Add a ref for the FlatList to handle scroll issues
-  const flatListRef = useRef<FlatList>(null);
-
-  // Force scroll to top when needed
-  const scrollToTop = useCallback(() => {
-    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-  }, []);
+  // FlashList does not require manual ref handling for scroll-to-top here
 
   // Render member item
   const renderMemberItem = useCallback(({ item: member }: { item: Member }) => {
@@ -313,7 +308,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
           uri={member.avatar}
           type="profile"
           size={40}
-          style={styles.memberAvatar}
+          style={[styles.memberAvatar, { borderWidth: 0, borderColor: 'transparent' }]}
         />
         <View style={styles.memberDetails}>
           <View style={styles.memberNameRow}>
@@ -326,9 +321,6 @@ const MembersListView: React.FC<MembersListViewProps> = ({
               textColor={Colors.white}
             />
           </View>
-          <Text style={styles.memberHandle}>
-            @{member.handle}
-          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -397,92 +389,43 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     );
   }
 
+  const ListEl: any = ListComponent || FlashList;
+
   return (
-    <View style={[styles.container, { backgroundColor }]}>
-      {(ListComponent || FlatList) === FlatList ? (
-        <FlatList
-          ref={flatListRef}
-          data={members}
-          renderItem={renderMemberItem}
-          keyExtractor={(item: Member) => item.did}
-          ListHeaderComponent={headerComponent ? <View>{headerComponent}</View> : null}
-          ListEmptyComponent={!isLoading ? renderEmptyState : null}
-          ListFooterComponent={
-            isFetchingNextPage ? renderLoadingItem : null
-          }
-                      refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                tintColor={textColor}
-                progressViewOffset={0}
-                progressBackgroundColor="transparent"
-                colors={[textColor]}
-              />
-            }
-          onEndReached={handleEndReached}
-          onEndReachedThreshold={0.5}
-          onScrollBeginDrag={handleScrollBeginDrag}
-          onScrollEndDrag={handleScrollEndDrag}
-          onMomentumScrollEnd={handleMomentumScrollEnd}
-          onScrollToTop={handleScrollToTop}
-          showsVerticalScrollIndicator={false}
-          bounces={true}
-          alwaysBounceVertical={false}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          windowSize={10}
-          initialNumToRender={20}
-          getItemLayout={undefined}
-          scrollEventThrottle={16}
-          contentContainerStyle={[
-            styles.contentContainer,
-            members.length === 0 && { flex: 1 }
-          ]}
-          style={styles.list}
-        />
-      ) : (
-        <ListComponent
-          data={members}
-          renderItem={renderMemberItem}
-          keyExtractor={(item: Member) => item.did}
-          ListHeaderComponent={headerComponent ? <View>{headerComponent}</View> : null}
-          ListEmptyComponent={!isLoading ? renderEmptyState : null}
-          ListFooterComponent={
-            isFetchingNextPage ? renderLoadingItem : null
-          }
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              tintColor={textColor}
-              progressViewOffset={0}
-              progressBackgroundColor="transparent"
-              colors={[textColor]}
-            />
-          }
-          onEndReached={handleEndReached}
-          onEndReachedThreshold={0.5}
-          onScrollBeginDrag={handleScrollBeginDrag}
-          onScrollEndDrag={handleScrollEndDrag}
-          onMomentumScrollEnd={handleMomentumScrollEnd}
-          onScrollToTop={handleScrollToTop}
-          showsVerticalScrollIndicator={false}
-          bounces={true}
-          alwaysBounceVertical={false}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          windowSize={10}
-          initialNumToRender={20}
-          getItemLayout={undefined}
-          scrollEventThrottle={16}
-          contentContainerStyle={[
-            styles.contentContainer,
-            members.length === 0 && { flex: 1 }
-          ]}
-          style={styles.list}
-        />
-      )}
+    <View style={[styles.container, { backgroundColor }]}> 
+      <ListEl
+        data={members}
+        renderItem={renderMemberItem}
+        keyExtractor={(item: Member) => item.did}
+        ListHeaderComponent={headerComponent ? <View>{headerComponent}</View> : null}
+        ListEmptyComponent={!isLoading ? renderEmptyState : null}
+        ListFooterComponent={isFetchingNextPage ? renderLoadingItem : null}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={textColor}
+            progressViewOffset={0}
+            progressBackgroundColor="transparent"
+            colors={[textColor]}
+          />
+        }
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.5}
+        onScrollBeginDrag={handleScrollBeginDrag}
+        onScrollEndDrag={handleScrollEndDrag}
+        onMomentumScrollEnd={handleMomentumScrollEnd}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+        alwaysBounceVertical={false}
+        removeClippedSubviews={false}
+        estimatedItemSize={64}
+        contentContainerStyle={[
+          styles.contentContainer,
+          members.length === 0 && { flex: 1 }
+        ]}
+        style={styles.list}
+      />
     </View>
   );
 };
@@ -515,8 +458,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.gray,
+    borderBottomWidth: 0,
+    borderBottomColor: 'transparent',
     backgroundColor: Colors.black,
   },
   memberAvatar: {
@@ -524,8 +467,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     marginRight: 12,
-    borderWidth: 1,
-    borderColor: Colors.gray,
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   memberInfo: {
     flex: 1,
@@ -543,17 +486,10 @@ const styles = StyleSheet.create({
   },
   memberName: {
     color: Colors.white,
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginBottom: 2,
-    fontFamily: 'Firma-SemiBold',
+    fontSize: 16,
+    marginBottom: 0,
+    fontFamily: 'Firma-Bold',
     flexShrink: 1,
-  },
-
-  memberHandle: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Firma-Medium',
   },
   memberDescription: {
     fontSize: 13,

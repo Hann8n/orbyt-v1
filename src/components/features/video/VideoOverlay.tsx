@@ -18,8 +18,8 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import CommentSection from '../../features/comments/CommentSection';
 import ShareSheet from '../../ui/ShareSheet';
 import { VideoCardRef } from './VideoCard';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
-import ProfileCache, { profileKeys, useProfileColors, useFollowMutation } from '../../../services/cache/ProfileCache';
+import { useNavigation, NavigationProp, useRoute } from '@react-navigation/native';
+import ProfileCache, { profileKeys, useProfileColors, useFollowMutation, type CachedProfile } from '../../../services/cache/ProfileCache';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import Icon, { SlashIcon, HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon, TvIcon } from '../../ui/Icon';
@@ -31,7 +31,10 @@ import Animated, {
   withTiming,
   withSpring,
   withSequence,
-  runOnJS
+  runOnJS,
+  Easing,
+  FadeIn,
+  FadeOut,
 } from 'react-native-reanimated';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import VerificationBadge from '../verification/VerificationBadge';
@@ -43,7 +46,7 @@ import RelativeDate from '../../ui/RelativeDate';
 import { format } from 'date-fns';
 import { useClearView } from '../../../services/ClearViewContext';
 import { useChannelColors, useChannel } from '../../../services/cache/ChannelCache';
-import { navigateToUserProfile } from '../../../navigation/profileNavigation';
+ 
 
 // Define RootParamList type for navigation
 type RootParamList = {
@@ -155,10 +158,19 @@ const getFeedDisplayName = (uri: string): string => {
 // Optimized VideoOverlay component with reduced state and memoization
 const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, scrollY, prefetchProfile, feedOption, sourceFeed, isModal, onScrubbingChange, progressBarAtCardBottom }) => {
   const isTabletDevice = isTablet();
-  const isSmallDevice = isSmallScreen() || isTablet();
+  const isSmallDevice = isSmallScreen(); // Fix: Remove || isTablet() to fix small device detection
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const { isClearViewMode } = useClearView();
+  const route = useRoute();
+
+  // Only avoid the tab bar on screens that actually show it (tab roots)
+  const shouldAvoidTabBar = useMemo(() => {
+    const routeName = (route as any)?.name as string | undefined;
+    if (!routeName) return false;
+    const tabRootScreens = new Set(['HomeScreen', 'ExploreScreen', 'NotificationsScreen', 'ProfileScreen']);
+    return tabRootScreens.has(routeName) && !isClearViewMode;
+  }, [route, isClearViewMode]);
   
   // --- Progress Bar State ---
   const [progress, setProgress] = useState(0); // 0-1 float
@@ -319,6 +331,9 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
   const heartAnimationTimer = useRef<NodeJS.Timeout | null>(null);
   const heartScale = useSharedValue(1);
   const repostScale = useSharedValue(1);
+  // Show transient "following" indicator only right after user follows
+  const [justFollowedVisible, setJustFollowedVisible] = useState<boolean>(false);
+  const justFollowedTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Ref for content measurement
   const contentRef = useRef<View>(null);
@@ -343,12 +358,12 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     }
   }, [gradientHeightShared]);
   
-  // Simplified overlay visibility - no animation for better scroll performance
-  const overlayOpacity = useMemo(() => {
-    if (isClearViewMode) return 0;
-    if (isSmallDevice) return 1;
-    return isVisible ? 1 : 0;
-  }, [isVisible, isSmallDevice, isClearViewMode]);
+  // Decide if we should render overlay - always render when visible unless in clear view mode
+  const shouldRenderOverlay = useMemo(() => {
+    if (isClearViewMode) return false;
+    // Always show overlay when video is visible, regardless of device type
+    return isVisible;
+  }, [isVisible, isClearViewMode]);
   
   // Get current user data
   const { data: userData } = useQuery({
@@ -360,7 +375,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
   });
 
   // Optimized profile query with better caching
-  const { data: profileData } = useQuery({
+  const { data: profileData } = useQuery<CachedProfile | null>({
     queryKey: author.handle ? profileKeys.detail(author.handle) : ['profiles', 'detail', ''],
     queryFn: async () => {
       if (!author.handle) return null;
@@ -370,7 +385,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     staleTime: ProfileCache.cacheExpiry,
     gcTime: 5 * 60 * 1000,
     enabled: Boolean(author.handle),
-    initialData: () => author.handle ? queryClient.getQueryData(profileKeys.detail(author.handle)) : null
+    initialData: () => author.handle ? (queryClient.getQueryData<CachedProfile>(profileKeys.detail(author.handle)) ?? null) : null
   });
 
   // Follow mutation hook
@@ -381,6 +396,8 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     return !!profileData?.isFollowing;
   }, [profileData?.isFollowing]);
 
+  // No cross-state tracking needed; we show transient text when the follow button is pressed
+
   // Check if this is the current user's own post
   const isOwnPost = useMemo(() => {
     return userData?.did === author.did;
@@ -390,10 +407,18 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
   const handleFollowPress = useCallback(() => {
     if (!author.handle) return;
     
-    followMutation.mutate({
-      handle: author.handle,
-      isFollowing: !isFollowing,
-    });
+    // If currently not following, show a brief "following" indicator on this overlay
+    if (!isFollowing) {
+      setJustFollowedVisible(true);
+      if (justFollowedTimerRef.current) {
+        clearTimeout(justFollowedTimerRef.current);
+      }
+      justFollowedTimerRef.current = setTimeout(() => {
+        setJustFollowedVisible(false);
+      }, 2000);
+    }
+
+    followMutation.mutate({ handle: author.handle, isFollowing: !isFollowing });
   }, [author.handle, isFollowing, followMutation]);
 
   // Memoize text collapsing logic
@@ -507,8 +532,12 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
   const navigateToAuthorProfile = useCallback((targetHandle?: string | null) => {
     const cleanHandle = (targetHandle || '').trim();
     if (!cleanHandle) return;
-    navigateToUserProfile(navigation, { handle: cleanHandle }, { isModal });
-  }, [isModal, navigation]);
+    let rootNav: any = navigation as any;
+    while (rootNav?.getParent?.()) {
+      rootNav = rootNav.getParent();
+    }
+    rootNav?.navigate?.('AuthorProfile', { handle: cleanHandle });
+  }, [navigation]);
 
   const handleRepostAuthorPress = useCallback(() => {
     if (post.repostedBy?.handle) {
@@ -533,9 +562,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     transform: [{ scale: repostScale.value }]
   }));
 
-  const overlayStyle = useMemo(() => ({
-    opacity: overlayOpacity
-  }), [overlayOpacity]);
+  // No per-frame opacity style needed; use built-in entering/exiting for smoother fades
 
   // Memoized UI components
   const likeIcon = useMemo(() => (
@@ -559,6 +586,9 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     return () => {
       if (heartAnimationTimer.current) {
         clearTimeout(heartAnimationTimer.current);
+      }
+      if (justFollowedTimerRef.current) {
+        clearTimeout(justFollowedTimerRef.current);
       }
     };
   }, []);
@@ -585,8 +615,13 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     return null;
   }, [shouldUseSourceFeed, sourceFeed, sourceChannel?.displayName]);
 
-  return (
-    <View style={[styles.container, overlayStyle]} pointerEvents="box-none">
+  return shouldRenderOverlay ? (
+      <Animated.View
+        style={[styles.container]}
+        entering={FadeIn.duration(240).easing(Easing.bezier(0.2, 0.9, 0.2, 1))}
+        exiting={FadeOut.duration(280).easing(Easing.out(Easing.cubic))}
+        pointerEvents="box-none"
+      >
       {/* Hide overlay content while scrubbing */}
       {!isScrubbing && (
         <>
@@ -607,8 +642,8 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
             onLayout={handleContentLayout}
             style={[
               styles.overlayContentContainer,
-              isModal ? { bottom: 0 } : (isSmallDevice ? { bottom: bottomNavBarHeight } : {}),
-              progressBarAtCardBottom ? { paddingBottom: 15 } : {},
+              isModal ? { bottom: 0 } : (isSmallDevice && shouldAvoidTabBar ? { bottom: bottomNavBarHeight } : {}),
+              progressBarAtCardBottom ? { paddingBottom: 10 } : {},
             ]} 
             pointerEvents="box-none"
           >
@@ -734,15 +769,31 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                       autoPosition={true}
                       textColor={Colors.white}
                     />}
-                    {/* Dot separator and follow/following text */}
-                    {author.handle && !isOwnPost && (
+                    {/* Follow CTA only when not following; show "following" only right after a follow */}
+                    {author.handle && !isOwnPost && (!isFollowing || justFollowedVisible) && (
                       <>
                         <Text style={styles.dotSeparator}>•</Text>
-                        <TouchableOpacity
-                          onPress={handleFollowPress}
-                          activeOpacity={0.7}
-                        >
-                          <Text 
+                        {!isFollowing ? (
+                          <TouchableOpacity
+                            onPress={handleFollowPress}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={
+                                isTabletDevice
+                                  ? styles.followTextTablet
+                                  : isSmallDevice
+                                    ? styles.followTextSmallScreen
+                                    : styles.followText
+                              }
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
+                            >
+                              {'follow'}
+                            </Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <Text
                             style={
                               isTabletDevice
                                 ? styles.followTextTablet
@@ -750,10 +801,12 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
                                   ? styles.followTextSmallScreen
                                   : styles.followText
                             }
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
                           >
-                            {isFollowing ? 'following' : 'follow'}
+                            {'following'}
                           </Text>
-                        </TouchableOpacity>
+                        )}
                       </>
                     )}
                   </View>
@@ -874,7 +927,13 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
               position: 'absolute',
               left: 0,
               right: 0,
-              bottom: progressBarAtCardBottom ? 36 : (isTabletDevice ? bottomNavBarHeight + 36 : insets.bottom + bottomNavBarHeight + 36), // above progress bar
+              bottom: progressBarAtCardBottom
+                ? 36
+                : (
+                    isTabletDevice
+                      ? (shouldAvoidTabBar ? bottomNavBarHeight : 0) + 36
+                      : insets.bottom + (shouldAvoidTabBar ? bottomNavBarHeight : 0) + 36
+                  ), // above progress bar
               zIndex: 1000,
               alignItems: 'center',
             },
@@ -957,6 +1016,11 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
             visible={showComments}
             totalLikes={likeCount}
             totalComments={post.replyCount || 0}
+            isLiked={isLiked}
+            onOpenShareSheet={() => setShowShareSheet(true)}
+            postedAt={post.record?.createdAt}
+            onToggleLike={handleLike}
+            isLikePending={isLikePending}
           />
         </View>
       </Modal>
@@ -967,11 +1031,12 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
         postUri={post.uri}
         postCid={post.cid}
         authorDid={post.author?.did || ''}
+        authorName={post.author?.displayName || post.author?.handle}
         feedOption={feedOption}
         sourceFeed={sourceFeed}
       />
-    </View>
-  );
+      </Animated.View>
+  ) : null;
 };
 
 const styles = StyleSheet.create({

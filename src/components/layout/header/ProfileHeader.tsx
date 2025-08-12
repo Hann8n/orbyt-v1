@@ -5,15 +5,12 @@ import * as ImagePicker from 'expo-image-picker';
 import UniversalHeader, { HeaderAction, HeaderContent, CustomActionLayout } from './UniversalHeader';
 import HeaderSkeleton from './HeaderSkeleton';
 import { useProfile, useProfileColors, useFollowMutation, useProfileUpdateMutation } from '../../../services/cache/ProfileCache';
-import { TextWithLinks } from '../../ui/TextWithLinks';
 import VerificationBadge from '../../features/verification/VerificationBadge';
 import VerificationInfoSheet from '../../features/verification/VerificationInfoSheet';
 import ProfileMenu from '../../features/profile/ProfileMenu';
 import ProfileCache from '../../../services/cache/ProfileCache';
-import AtprotoService from '../../../services/api/AtprotoService';
-import Icon, { PlusIcon, CheckIcon, FollowIcon, MutualHeartIcon, ProfileEditIcon, MoreFillIcon } from '../../ui/Icon';
+import { FollowIcon, MutualHeartIcon, ProfileEditIcon} from '../../ui/Icon';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
-import { navigateToUserProfile } from '../../../navigation/profileNavigation';
 
 interface ProfileHeaderProps {
   handle: string | null;
@@ -86,7 +83,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   // Handle avatar selection
   const handleAvatarPress = useCallback(async () => {
     try {
-      // Request camera permissions first
       const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
       const { status: mediaLibraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
@@ -99,7 +95,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         return;
       }
 
-      // Show action sheet for camera or gallery
       Alert.alert(
         'Choose Photo',
         'Select a photo from your camera or photo library',
@@ -170,7 +165,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         }
       });
       
-      // Exit edit mode
       exitEditMode();
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -185,7 +179,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     try {
       const isCurrentlyFollowing = !!profileData.isFollowing;
       
-      // Use the follow mutation which handles both follow and unfollow
       followMutation.mutate({
         handle: profileData.handle,
         isFollowing: !isCurrentlyFollowing,
@@ -194,11 +187,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       console.error('Error during follow/unfollow:', error);
     }
   }, [profileData, followMutation]);
-
-  // Handle author navigation
-  const handleAuthorPress = useCallback((authorHandle: string) => {
-    navigateToUserProfile(navigation, { handle: authorHandle });
-  }, [navigation]);
 
   // Handle menu button press
   const handleMenuPress = useCallback(() => {
@@ -225,13 +213,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               primary: {
                 id: 'save',
                 label: profileUpdateMutation.isPending ? 'Saving...' : 'Save',
-                customIcon: (
-                  <CheckIcon 
-                    size={16} 
-                    color={profileColors.textColor} 
-                    strokeWidth={2.0}
-                  />
-                ),
                 onPress: handleSaveProfile,
                 disabled: profileUpdateMutation.isPending,
                 loading: profileUpdateMutation.isPending,
@@ -240,7 +221,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               secondary: {
                 id: 'cancel',
                 label: 'Cancel',
-                icon: 'x',
                 onPress: exitEditMode,
                 variant: 'secondary' as const,
               },
@@ -271,7 +251,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         ];
       }
     } else {
-      // Non-own profile: follow button and menu
       const isFollowing = !!profileData.isFollowing;
       const isFollowedBy = !!profileData.isFollowedBy;
 
@@ -285,7 +264,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       );
 
       if (isFollowing && isFollowedBy) {
-        label = 'mutuals';
+        label = 'Mutuals';
         icon = undefined;
         customIcon = (
           <MutualHeartIcon 
@@ -294,15 +273,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           />
         );
       } else if (isFollowing) {
-        label = 'following';
-        icon = undefined;
-        customIcon = (
-          <CheckIcon 
-            size={16} 
-            color={profileColors.backgroundColor} 
-            strokeWidth={2.0}
-          />
-        );
+        label = 'Following';
+        icon = 'check';
+        customIcon = undefined;
       }
 
       return [
@@ -337,7 +310,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     return {
       avatar: editAvatar || profileData.avatar || undefined,
       title: isEditMode ? editDisplayName : (profileData.displayName || profileData.handle || 'Unknown User'),
-      subtitle: profileData.handle ? `@${profileData.handle}` : undefined,
+      onTitleChange: isEditMode ? setEditDisplayName : undefined,
+      subtitle: isEditMode ? undefined : (profileData.handle ? profileData.handle : undefined),
       description: isEditMode ? undefined : profileData.description,
       badge: profileData.handle ? (
         <VerificationBadge
@@ -363,17 +337,19 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     />
   ), [profileColors.textColor, profileColors.backgroundColor]);
 
-  // Custom description component with TextWithLinks or TextInput for edit mode
+  // Only render custom description in edit mode; view mode is handled by UniversalHeader
   const customDescription = useMemo(() => {
-    if (isEditMode) {
-      return (
+    if (!isEditMode) return null;
+
+    return (
+      <View>
+        <Text style={[styles.editSubheader, { color: hexToRGBA(profileColors.textColor, 0.67) }]}>ABOUT</Text>
         <TextInput
           style={[
             styles.description,
             styles.editDescription,
             { 
               color: profileColors.textColor + 'DD',
-              borderColor: hexToRGBA(profileColors.textColor, 0.3),
             }
           ]}
           value={editDescription}
@@ -384,26 +360,17 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           maxLength={256}
           textAlignVertical="top"
         />
-      );
-    } else if (profileData?.description) {
-      return (
-        <TextWithLinks
-          text={profileData.description}
-          style={[styles.description, { color: profileColors.textColor + 'DD' }]}
-          onAuthorPress={handleAuthorPress}
-        />
-      );
-    }
-    return null;
-  }, [isEditMode, profileData?.description, editDescription, profileColors.textColor, handleAuthorPress]);
+      </View>
+    );
+  }, [isEditMode, editDescription, profileColors.textColor]);
 
   return (
     <>
       <UniversalHeader
         content={headerContent}
-        actions={[]} // Hide default actions, use custom layout
+        actions={[]}
         customActions={customActions}
-        showBackButton={showBackButton}
+        showBackButton={showBackButton && !isEditMode}
         onBackPress={onBackPress}
         backgroundColor={profileColors.backgroundColor}
         textColor={profileColors.textColor}
@@ -418,44 +385,47 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         {children}
       </UniversalHeader>
 
-      {/* Verification Info Sheet */}
       {profileData?.handle && (
-              <VerificationInfoSheet
-                visible={showVerificationInfo}
-                handle={profileData.handle}
-                onDismiss={() => setShowVerificationInfo(false)}
-              />
+        <VerificationInfoSheet
+          visible={showVerificationInfo}
+          handle={profileData.handle}
+          onDismiss={() => setShowVerificationInfo(false)}
+        />
       )}
 
-      {/* Profile Menu Sheet */}
-            <ProfileMenu
-              visible={showProfileMenu}
-              onDismiss={() => setShowProfileMenu(false)}
-              handle={handle || ''}
-              isOwnProfile={isOwnProfile}
-              onLogout={handleLogoutFromMenu}
-              onSwitchAccount={onSwitchAccount}
-            />
+      <ProfileMenu
+        visible={showProfileMenu}
+        onDismiss={() => setShowProfileMenu(false)}
+        handle={handle || ''}
+        isOwnProfile={isOwnProfile}
+        onLogout={handleLogoutFromMenu}
+        onSwitchAccount={onSwitchAccount}
+      />
     </>
   );
 };
 
 const styles = StyleSheet.create({
   description: { 
-    fontSize: 16, 
-    marginTop: 12,
+    fontSize: 18, 
+    marginTop: 4,
     flexShrink: 1,
     flexWrap: 'wrap',
     fontFamily: 'Firma-Regular'
   },
   editDescription: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
+    padding: 0,
     minHeight: 80,
     fontFamily: 'Firma-Regular',
     backgroundColor: 'transparent',
-    borderStyle: 'dashed',
+  },
+  editSubheader: {
+    fontFamily: 'Firma-Bold',
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+    marginTop: 12,
   },
 });
 

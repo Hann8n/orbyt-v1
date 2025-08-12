@@ -20,7 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
-import { navigateToUserProfile } from '../../../navigation/profileNavigation';
+ 
 import AtprotoService from '../../../services/api/AtprotoService';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
 import { Colors } from '../../ui/UI';
@@ -262,7 +262,11 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       const navState: any = navigation.getState?.();
       const topRouteName: string | undefined = navState?.routes?.[navState?.index || 0]?.name;
 
-      navigateToUserProfile(navigation, { handle: cleanHandle }, { isModal: topRouteName === 'FeedModal' });
+      let rootNav: any = navigation as any;
+      while (rootNav?.getParent?.()) {
+        rootNav = rootNav.getParent();
+      }
+      rootNav?.navigate?.('AuthorProfile', { handle: cleanHandle });
     }, [navigation, onDismiss]);
 
     const handleAuthorPress = useCallback(

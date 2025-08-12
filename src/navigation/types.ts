@@ -32,7 +32,7 @@ export type RootStackParamList = {
     video: CustomVideoFile;
     textOverlays?: TextOverlay[];
   };
-  FeedModal: {
+  FeedScreen: {
     feed?: any[]; // FeedItem[] type, but import if needed
     initialIndex: number;
     initialUri?: string;

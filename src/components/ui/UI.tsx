@@ -44,20 +44,20 @@ export const Colors = {
   
   // Gray Shades (lightest to darkest)
   lightGray: '#CFD6E8',
-  mediumGray: '#53565D',
-  darkGray: '#292B2E',
+  mediumGray: '#3E414B',
+  darkGray: '#181c22',
   
   // Blue/Purple Shades
   lightBlue: '#00E5FF', // Bright cyan
-  darkBlue: '#4C1D95', // Deep purple-blue
+  darkBlue: '#20004C', // New dark purple
   
   // Green Shades
   lightGreen: '#00FFA3', // Bright mint green
-  darkGreen: '#00B894', // Teal green
+  darkGreen: '#021C14', // New dark green
   
   // Red Shades
   lightRed: '#FF6B9D', // Pink-red
-  darkRed: '#DC2626',
+  darkRed: '#3C000D', // New dark red
   
   // Yellow/Orange Shades
   lightYellow: '#FFEB3B', // Bright yellow
@@ -70,6 +70,8 @@ export const Colors = {
   glowGreen: '#39FF14', // Neon green
   cosmicPurple: '#9D4EDD', // Deep purple
   sunsetOrange: '#FF4500', // Bright orange
+  
+
   
   // Overlay Colors
   overlayBlack50: 'rgba(0, 0, 0, 0.5)',
@@ -100,11 +102,11 @@ export const Colors = {
   },
 
   PROFILE: {
-    DEFAULT_RING: '#E8EAED', // lightGray
+    DEFAULT_RING: '#CFD6E8', // lightGray
   },
 
   SHIMMER: {
-    PRIMARY: ['#292B2E', '#53565D', '#292B2E'], // darkGray, mediumGray, darkGray
+    PRIMARY: ['#181c22', '#3E414B', '#181c22'], // darkGray → mediumGray → darkGray for improved contrast on dark backgrounds
   },
 };
 
@@ -375,7 +377,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     height: size,
     borderRadius: getBorderRadius(),
     borderWidth: 2,
-    borderColor: ringColor || (profileColors?.textColor || Colors.gray),
+    borderColor: ringColor || (profileColors?.textColor || Colors.lightGray),
   };
 
   if (uri) {

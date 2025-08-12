@@ -33,7 +33,7 @@ const homeScreenRef = React.createRef<HomeScreenRef>();
 
 // Create stack navigators for each tab that needs author profile access
 const HomeStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Promise<void>; setIsOnStackedScreen: (value: boolean) => void }) => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
     <Stack.Screen 
       name="HomeScreen"
       listeners={{
@@ -62,7 +62,7 @@ const HomeStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Promise
 );
 
 const ExploreStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Promise<void>; setIsOnStackedScreen: (value: boolean) => void }) => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
     <Stack.Screen 
       name="ExploreScreen" 
       component={ExploreScreen}
@@ -90,7 +90,7 @@ const ExploreStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Prom
 );
 
 const NotificationsStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Promise<void>; setIsOnStackedScreen: (value: boolean) => void }) => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
     <Stack.Screen 
       name="NotificationsScreen" 
       component={NotificationScreen}
@@ -119,7 +119,7 @@ const NotificationsStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () =
 
 // Profile tab with its own stack
 const ProfileStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Promise<void>; setIsOnStackedScreen: (value: boolean) => void }) => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
     <Stack.Screen 
       name="ProfileScreen" 
       children={() => <ProfileScreen onLogout={onLogout} />}
@@ -242,9 +242,9 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
           onPress={handleGalleryPick}
           activeOpacity={0.8}
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: 20,
+            width: 40,
+            height: 40,
+            borderRadius: 19,
             backgroundColor: 'transparent',
             alignItems: 'center',
             justifyContent: 'center',
@@ -253,24 +253,25 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
             shadowOpacity: 0,
             shadowRadius: 0,
             elevation: 0,
+
           }}
           disabled={isPreparing}
         >
           {/* Custom circle within a circle design */}
           <View style={{
-            width: 42,
-            height: 42,
-            borderRadius: 30,
-            borderWidth: 1.75,
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            borderWidth: 1.5,
             borderColor: Colors.white,
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: 'transparent',
           }}>
             <View style={{
-              width: 34,
-              height: 34,
-              borderRadius: 17,
+              width: 30,
+              height: 30,
+              borderRadius: 15,
               backgroundColor: isPreparing ? 'rgba(255, 255, 255, 0.5)' : '#fff',
             }} />
           </View>
@@ -294,17 +295,17 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
   };
 
   return (
-    <Tab.Navigator
+    <Tab.Navigator id={undefined}
       backBehavior="initialRoute"
             screenOptions={({ route }) => ({
         headerShown: false,
         detachInactiveScreens: false,
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          backgroundColor: isSmallDevice && (route.name === 'Explore' || route.name === 'Notifications') ? '#000' : (isSmallDevice ? 'rgba(0, 0, 0, 0.025)' : '#000'),
+          backgroundColor: (route.name === 'Explore' || route.name === 'Notifications') ? Colors.black : 'transparent',
           height: getBottomNavBarHeight(insets),
-          paddingBottom: Platform.OS === 'ios' ? insets.bottom : 20,
-          paddingTop: isSmallDevice ? 2 : 10,
+          paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 4) : 4,
+          paddingTop: isSmallDevice ? 2 : 6,
           shadowOpacity: 0,
           borderTopWidth: 0,
           elevation: 0,
@@ -313,24 +314,27 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
           // Hide tab bar on stacked screens (after transition completes). Also hide in clear view mode.
           display: (isOnStackedScreen || isClearViewMode) ? 'none' : 'flex',
         },
-        tabBarActiveTintColor: isSmallDevice ? '#fff' : '#fff',
-        tabBarInactiveTintColor: isSmallDevice ? 'rgba(255, 255, 255, 0.6)' : '#666',
+        tabBarItemStyle: {
+
+        },
+        tabBarActiveTintColor: '#fff',
+        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
         tabBarShowLabel: false,
         tabBarIcon: ({ color, focused }) => {
           let iconName = '';
-          let iconSize = 28;
+          let iconSize = 26;
 
           switch (route.name) {
             case 'Home':
               return (
                 isHomeRefreshing
-                  ? <Icon name="loading-3-fill" size={28} color={color} />
-                  : <HomeIcon size={34} color={color} />
+                  ? <Icon name="loading-3-fill" size={26} color={color} />
+                  : <HomeIcon size={30} color={color} />
               );
             case 'Explore':
               return (
                 <ExploreIcon 
-                  size={34} 
+                  size={30} 
                   color={color}
                   style={{ transform: [{ scaleX: -1 }] }}
                 />
@@ -338,14 +342,14 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
             case 'Notifications':
               return (
                 <NotificationIcon 
-                  size={32} 
+                  size={28} 
                   color={color}
                 />
               );
             case 'Profile':
               return (
                 <ProfileIcon 
-                  size={34} 
+                  size={30} 
                   color={color}
                 />
               );
@@ -362,11 +366,10 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
           );
         },
         listeners: ({ navigation }: { navigation: any }) => ({
-          tabPress: (e: any) => {
+          tabPress: (_e: any) => {
             console.log(`[BottomTabNavigator] tabPress listener fired for ${route.name}`);
             // Prevent default behavior for home tab when already on home
             if (route.name === 'Home' && currentTab === 'Home') {
-              e.preventDefault();
               handleTabPress(route.name);
             } else {
               handleTabPress(route.name);
@@ -404,7 +407,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
         }}
         listeners={{
           tabPress: (e) => {
-            e.preventDefault();
+            try { (e as any)?.preventDefault?.(); } catch {}
             // Do nothing, handled by custom button
           },
         }}

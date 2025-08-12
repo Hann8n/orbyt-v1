@@ -24,13 +24,13 @@ import { Avatar, Icon, Colors } from '../components/ui/UI';
 import { NotificationIcon } from '../components/ui/Icon';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import { getBottomNavBarHeight } from '../utils/helpers/screenSize';
-import { navigateToUserProfile } from '../navigation/profileNavigation';
+ 
 
 const NotificationShimmer = () => (
   <View style={styles.notificationItem}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={[styles.profileImage, { borderWidth: 1, borderColor: Colors.gray }]}
+      style={[styles.profileImage, { borderWidth: 0, borderColor: 'transparent' }]}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.notificationContent}>
@@ -203,7 +203,8 @@ const NotificationScreen: React.FC = () => {
               staleTime: ProfileCache.cacheExpiry
             }).finally(() => {
               // Navigate regardless of prefetch success
-              navigateToUserProfile(navigation, { handle });
+              const target = handle.trim();
+              if (target) { (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('AuthorProfile', { handle: target }); }
             });
           }
         }}

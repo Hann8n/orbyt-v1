@@ -14,6 +14,7 @@ import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { createQueryKeys } from '../../services/FeedService';
 import AtprotoService from '../../services/api/AtprotoService';
 import { Avatar } from './UI';
+import AuthorItem from './AuthorItem';
 import { Colors } from './UI';
 import VerificationBadge from '../features/verification/VerificationBadge';
 
@@ -135,7 +136,13 @@ export function UserSearchModal({
     hasNextPage,
     error,
     refetch,
-  } = useInfiniteQuery<{ profiles: UserProfile[]; cursor: string | null }, Error, { profiles: UserProfile[]; cursor: string | null }, ReturnType<typeof createQueryKeys.search.profiles>, string | null>({
+  } = useInfiniteQuery<
+    { profiles: UserProfile[]; cursor: string | null },
+    Error,
+    InfiniteData<{ profiles: UserProfile[]; cursor: string | null }, string | null>,
+    ReturnType<typeof createQueryKeys.search.profiles>,
+    string | null
+  >({
     queryKey: createQueryKeys.search.profiles(searchQuery),
     queryFn: async ({ pageParam }) => {
       return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
@@ -146,7 +153,7 @@ export function UserSearchModal({
     staleTime: 30 * 1000,
   });
 
-  const profiles = (data as InfiniteData<{ profiles: UserProfile[]; cursor: string | null }, string | null> | undefined)?.pages.flatMap((page) => page.profiles) || [];
+  const profiles = data?.pages.flatMap((page) => page.profiles) || [];
 
   if (!visible) return null;
 
@@ -168,21 +175,17 @@ export function UserSearchModal({
             data={profiles}
             keyExtractor={item => item.did}
             renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.item}
+              <AuthorItem
+                handle={item.handle}
+                displayName={item.displayName}
+                avatar={item.avatar}
+                textColor={Colors.white}
+                backgroundColor={Colors.darkGray}
+                size="medium"
+                hideHandleLine={true}
+                showArrow={false}
                 onPress={() => onSelect(item)}
-              >
-                <Avatar uri={item.avatar} type="profile" size={36} style={styles.avatar} />
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={styles.displayName}>{item.displayName || item.handle}</Text>
-                    {item.handle && (
-                      <VerificationBadge handle={item.handle} textSize={14} textColor={Colors.white} />
-                    )}
-                  </View>
-                  <Text style={styles.handle}>@{item.handle}</Text>
-                </View>
-              </TouchableOpacity>
+              />
             )}
             onEndReached={() => {
               if (hasNextPage && !isFetchingNextPage) fetchNextPage();

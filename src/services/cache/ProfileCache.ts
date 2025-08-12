@@ -535,6 +535,51 @@ class ProfileCache {
   }
 
   /**
+   * Apply a server-updated profile response into cache for a given handle
+   * Ensures UI reflects the change immediately without waiting for refetch
+   */
+  static async applyServerProfile(handle: string, serverProfile: any): Promise<void> {
+    if (!handle || !serverProfile) return;
+
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        setTimeout(async () => {
+          try {
+            const normalizedHandle = (serverProfile.handle || handle).toLowerCase();
+
+            // Start from existing cached profile to preserve derived fields like colors/verification if absent
+            let cachedProfile = this.memoryCache.get(normalizedHandle) || await this.getProfileFromCache(normalizedHandle);
+
+            const isFollowing = serverProfile.viewer ? !!serverProfile.viewer.following : cachedProfile?.isFollowing;
+            const isFollowedBy = serverProfile.viewer ? !!serverProfile.viewer.followedBy : cachedProfile?.isFollowedBy;
+
+            const merged: CachedProfile = {
+              did: serverProfile.did || cachedProfile?.did || '',
+              handle: serverProfile.handle || cachedProfile?.handle || normalizedHandle,
+              displayName: serverProfile.displayName ?? cachedProfile?.displayName,
+              avatar: serverProfile.avatar ?? cachedProfile?.avatar,
+              description: serverProfile.description ?? cachedProfile?.description,
+              isFollowing,
+              isFollowedBy,
+              profileColors: cachedProfile?.profileColors, // keep existing colors
+              verification: cachedProfile?.verification,   // verification already extracted during fetch
+              lastUpdated: Date.now(),
+            };
+
+            this.memoryCache.set(normalizedHandle, merged);
+            await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(merged));
+            this.notifyProfileUpdated(normalizedHandle);
+          } catch (error) {
+            console.error('[ProfileCache] Error applying server profile:', error);
+          } finally {
+            resolve();
+          }
+        }, 0);
+      });
+    });
+  }
+
+  /**
    * Check verification status for a profile
    * Uses cached profile data - verification data is already included in profile responses
    */
@@ -1153,20 +1198,58 @@ export function useProfileUpdateMutation() {
       }
     }) => {
       const updatedProfile = await AtprotoService.updateProfile(updates);
+      // Immediately apply to local cache for fast UI reflection
+      try {
+        await ProfileCache.applyServerProfile(handle, updatedProfile);
+      } catch {}
       return { handle, updatedProfile };
     },
-    onSuccess: (_, { handle }) => {
-      // Invalidate the specific profile query to refetch with new data
-      queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
-      
-      // Also invalidate the current user profile if it's the same handle
-      const currentUserDid = ProfileCache.getCurrentUserDid();
-      if (currentUserDid) {
-        queryClient.invalidateQueries({ queryKey: profileKeys.detail(currentUserDid) });
+    onMutate: async ({ handle, updates }) => {
+      await queryClient.cancelQueries({ queryKey: profileKeys.detail(handle) });
+
+      const previousProfile = queryClient.getQueryData<CachedProfile>(profileKeys.detail(handle));
+
+      // Optimistically update the query cache
+      if (previousProfile) {
+        const optimistic: CachedProfile = {
+          ...previousProfile,
+          ...(updates.displayName !== undefined ? { displayName: updates.displayName } : {}),
+          ...(updates.description !== undefined ? { description: updates.description } : {}),
+          ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {}),
+          lastUpdated: Date.now(),
+        };
+        queryClient.setQueryData(profileKeys.detail(handle), optimistic);
       }
+
+      return { previousProfile };
     },
-    onError: (error) => {
+    onSuccess: ({ updatedProfile }, { handle }) => {
+      // Merge server-updated fields into the query cache immediately
+      const prev = queryClient.getQueryData<CachedProfile>(profileKeys.detail(handle));
+      const merged: CachedProfile | undefined = prev ? {
+        ...prev,
+        did: updatedProfile?.did ?? prev.did,
+        handle: updatedProfile?.handle ?? prev.handle,
+        displayName: updatedProfile?.displayName ?? prev.displayName,
+        avatar: updatedProfile?.avatar ?? prev.avatar,
+        description: updatedProfile?.description ?? prev.description,
+        isFollowing: (updatedProfile?.viewer ? !!updatedProfile.viewer.following : prev.isFollowing),
+        isFollowedBy: (updatedProfile?.viewer ? !!updatedProfile.viewer.followedBy : prev.isFollowedBy),
+        lastUpdated: Date.now(),
+      } : undefined;
+
+      if (merged) {
+        queryClient.setQueryData(profileKeys.detail(handle), merged);
+      }
+
+      // Still invalidate to ensure freshness against server
+      queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
+    },
+    onError: (error, { handle }, context) => {
       console.error('Profile update failed:', error);
+      if (context?.previousProfile) {
+        queryClient.setQueryData(profileKeys.detail(handle), context.previousProfile);
+      }
     },
   });
 }

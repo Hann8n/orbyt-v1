@@ -1,6 +1,6 @@
 /**
- * Streamlined Video Utilities
- * Consolidated and optimized video processing functions
+ * Simplified Video Utilities
+ * Optimized for immediate playback when visible
  */
 
 export interface VideoEmbed {
@@ -8,36 +8,15 @@ export interface VideoEmbed {
   playlist?: string | string[];
   media?: VideoEmbed;
   thumbnail?: string;
+  aspectRatio?: {
+    width: number;
+    height: number;
+  };
 }
 
-// Optimized cache for video extraction results
-const videoExtractionCache = new Map<string, { videoEmbed: any; videoUrl: string | null }>();
-
-// Performance monitoring for video operations
-class VideoPerformanceMonitor {
-  private static metrics = new Map<string, number>();
-  
-  static startTimer(operation: string): number {
-    const startTime = performance.now();
-    this.metrics.set(operation, startTime);
-    return startTime;
-  }
-  
-  static endTimer(operation: string): number {
-    const startTime = this.metrics.get(operation);
-    if (!startTime) return 0;
-    
-    const duration = performance.now() - startTime;
-    this.metrics.delete(operation);
-    return duration;
-  }
-  
-  static logPerformance(operation: string, duration: number) {
-    if (__DEV__ && duration > 10) { // Log only slow operations
-      console.log(`[VideoPerformance] ${operation}: ${duration.toFixed(2)}ms`);
-    }
-  }
-}
+// Simple cache for video extraction - only cache what's needed
+const videoCache = new Map<string, { videoEmbed: any; videoUrl: string | null }>();
+const MAX_CACHE_SIZE = 100;
 
 /**
  * Extracts the video URL from a post embed object.
@@ -68,15 +47,11 @@ export function extractVideoUrl(embed: any): string | null {
  * @returns Object containing videoEmbed and videoUrl
  */
 export function extractVideoEmbedAndUrl(post: any): { videoEmbed: any; videoUrl: string | null } {
-  const startTime = VideoPerformanceMonitor.startTimer('extractVideoEmbedAndUrl');
-  
-  // Create a cache key based on post URI and embed
-  const cacheKey = `${post?.uri}-${JSON.stringify(post?.embed)}`;
+  const cacheKey = post?.uri;
   
   // Check cache first
-  if (videoExtractionCache.has(cacheKey)) {
-    VideoPerformanceMonitor.endTimer('extractVideoEmbedAndUrl');
-    return videoExtractionCache.get(cacheKey)!;
+  if (videoCache.has(cacheKey)) {
+    return videoCache.get(cacheKey)!;
   }
   
   let videoEmbed: any = null;
@@ -95,20 +70,13 @@ export function extractVideoEmbedAndUrl(post: any): { videoEmbed: any; videoUrl:
   const videoUrl = extractVideoUrl(videoEmbed);
   const result = { videoEmbed, videoUrl };
   
-  // Cache the result
-  videoExtractionCache.set(cacheKey, result);
-  
-  // Limit cache size to prevent memory leaks
-  if (videoExtractionCache.size > 1000) {
-    const firstKey = videoExtractionCache.keys().next().value;
-    if (firstKey !== undefined) {
-      videoExtractionCache.delete(firstKey);
-    }
+  // Simple cache management
+  if (videoCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = videoCache.keys().next().value;
+    videoCache.delete(firstKey);
   }
   
-  const duration = VideoPerformanceMonitor.endTimer('extractVideoEmbedAndUrl');
-  VideoPerformanceMonitor.logPerformance('extractVideoEmbedAndUrl', duration);
-  
+  videoCache.set(cacheKey, result);
   return result;
 }
 
@@ -160,5 +128,18 @@ export function extractVideoThumbnail(embed: any): string | null {
     return embed.thumbnail || null;
   }
   return null;
+}
+
+// Simple utility functions
+export function clearVideoCache(): void {
+  videoCache.clear();
+}
+
+export function preloadVideoData(posts: any[]): void {
+  posts.slice(0, 5).forEach(post => {
+    if (post?.embed) {
+      extractVideoEmbedAndUrl(post);
+    }
+  });
 }
 

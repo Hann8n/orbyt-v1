@@ -31,8 +31,7 @@ const HeaderSkeleton: React.FC<HeaderSkeletonProps> = ({
             LinearGradient={LinearGradient}
             style={[
               styles.skeletonAvatar,
-              avatarStyle === 'rounded-square' && styles.skeletonAvatarRoundedSquare,
-              { borderWidth: 1, borderColor: Colors.gray }
+              avatarStyle === 'rounded-square' && styles.skeletonAvatarRoundedSquare
             ]}
             shimmerColors={shimmerColors}
           />
@@ -88,10 +87,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     width: '100%',
     paddingVertical: 8,
-    marginTop: -8,
+    marginTop: -4,
   },
   avatarContainer: {
-    marginBottom: 6,
+    marginBottom: 12,
     alignSelf: 'flex-start',
   },
   skeletonAvatar: {

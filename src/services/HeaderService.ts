@@ -25,6 +25,8 @@ interface Header {
   titleOpacity?: number;
   /** Opacity for subtitle text. */
   subtitleOpacity?: number;
+  /** Optional per-header height ratio override (0-1 of screen height). */
+  heightRatio?: number;
 }
 
 interface HeadersResponse {

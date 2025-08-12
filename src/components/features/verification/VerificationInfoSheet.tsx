@@ -21,7 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import VerificationBadge from './VerificationBadge';
 import AuthorItem from '../../ui/AuthorItem';
-import { navigateToUserProfile } from '../../../navigation/profileNavigation';
+ 
 
 interface VerificationInfoSheetProps {
   visible: boolean;
@@ -40,9 +40,6 @@ interface VerificationData {
   isOfficial?: boolean;
   isVerified?: boolean;
 }
-
-const SCREEN_HEIGHT = 500; // This constant is no longer needed for the custom Animated.View
-const DISMISS_THRESHOLD = 150; // pixels to drag down before dismissing
 
 // Shimmer component for verified by profile
 const VerifiedByShimmer = () => (
@@ -121,8 +118,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     refetchOnWindowFocus: false
   });
 
-
-
   // Get the verifier DID from the valid verification's issuer
   const validVerification = verification?.verifications?.find(v => v.isValid);
   const verifierDid = validVerification?.issuer || verification?.verifiedBy;
@@ -183,9 +178,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     []
   );
 
-  // Don't render anything if not visible (let BottomSheetModal handle it)
-  // But we must always render the modal for controlled presentation
-
   return (
     <BottomSheetModal
       ref={bottomSheetRef}
@@ -194,27 +186,49 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
       backdropComponent={renderBackdrop}
       onDismiss={onDismiss}
       backgroundStyle={styles.bottomSheetBackground}
-      handleIndicatorStyle={styles.handleIndicator}
+      handleIndicatorStyle={{ display: 'none' }}
     >
       <BottomSheetView style={styles.content}>
-          {isLoading ? (
-            <ActivityIndicator size="small" color={Colors.lightGray} style={styles.loadingIndicator} />
-          ) : verification ? (
-            isTrustedVerifier ? renderTrustedVerifierContent() : renderVerifiedAccountContent()
-          ) : (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>
-                could not load verification information
-              </Text>
-              <TouchableOpacity 
-                style={styles.closeButton} 
-                onPress={onDismiss}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.closeButtonText}>close</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+        {/* Header with badge, title and close button */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerTitle}>
+              {isTrustedVerifier ? 'Trusted Verifier' : 'Verified'}
+            </Text>
+            <VerificationBadge
+              handle={handle}
+              textSize={20}
+              badgeType="auto"
+              textColor={Colors.white}
+            />
+          </View>
+          <TouchableOpacity 
+            style={styles.closeButton} 
+            onPress={onDismiss}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.closeButtonText}>×</Text>
+          </TouchableOpacity>
+        </View>
+
+        {isLoading ? (
+          <ActivityIndicator size="small" color={Colors.lightGray} style={styles.loadingIndicator} />
+        ) : verification ? (
+          isTrustedVerifier ? renderTrustedVerifierContent() : renderVerifiedAccountContent()
+        ) : (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>
+              could not load verification information
+            </Text>
+            <TouchableOpacity 
+              style={styles.cancelButton} 
+              onPress={onDismiss}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelButtonText}>close</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </BottomSheetView>
     </BottomSheetModal>
   );
@@ -223,23 +237,10 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   function renderTrustedVerifierContent() {
     return (
       <>
-        {/* Verification Badge and Status */}
-        <View style={styles.verificationHeader}>
-          <VerificationBadge
-            handle={handle}
-            textSize={32}
-            badgeType="auto"
-            textColor={Colors.white}
-          />
-          <Text style={styles.verificationTitle}>
-            trusted verifier
-          </Text>
-        </View>
-
         {/* Info Container */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
-            <Text style={styles.highlightedText}>{profile?.displayName || handle}</Text>
+            <Text>{profile?.displayName || handle}</Text>
             <Text> is a trusted verifier on bluesky. trusted verifiers can verify other accounts on the network.</Text>
           </Text>
         </View>
@@ -253,14 +254,16 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           </View>
         )}
 
-        {/* Close Button */}
-        <TouchableOpacity 
-          style={styles.closeButton} 
-          onPress={onDismiss}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.closeButtonText}>close</Text>
-        </TouchableOpacity>
+        {/* Cancel Button */}
+        <View style={styles.cancelContainer}>
+          <TouchableOpacity 
+            style={styles.cancelButton} 
+            onPress={onDismiss}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cancelButtonText}>close</Text>
+          </TouchableOpacity>
+        </View>
       </>
     );
   }
@@ -282,20 +285,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     
     return (
       <>
-        {/* Verification Badge and Status */}
-        <View style={styles.verificationHeader}>
-          <VerificationBadge
-            handle={handle}
-            textSize={28}
-            badgeType="auto"
-            textColor={Colors.white}
-          />
-          <Text style={styles.verificationTitle}>
-            verified account
-          </Text>
-        </View>
-
-        {/* Simplified Info Container */}
+        {/* Info Container */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
             a verification badge indicates this is an authentic account representing the person or organization it claims to be.
@@ -319,15 +309,24 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
                 }
                 avatar={issuerProfile?.avatar}
                 textColor={Colors.white}
-                size="medium"
+                backgroundColor="transparent"
+                size="large"
                 showDate={true}
                 date={issuerCreatedAt ? new Date(issuerCreatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : undefined}
+                nameFontWeight="Firma-Bold"
+                handleFontWeight="Firma-Bold"
                 style={styles.issuerListItem}
                 onPress={() => {
                   onDismiss();
                   // Slightly delay navigation to allow for smooth dismissal animation
                   setTimeout(() => {
-                    navigateToUserProfile(navigation, { handle: issuerProfile?.handle || actualIssuerHandle || verifierDid });
+                    const target = (issuerProfile?.handle || actualIssuerHandle || verifierDid || '').trim();
+                    if (!target) return;
+                    let rootNav: any = navigation as any;
+                    while (rootNav?.getParent?.()) {
+                      rootNav = rootNav.getParent();
+                    }
+                    rootNav?.navigate?.('AuthorProfile', { handle: target });
                   }, 300);
                 }}
               />
@@ -335,14 +334,16 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           </>
         )}
 
-        {/* Close Button */}
-        <TouchableOpacity 
-          style={styles.closeButton} 
-          onPress={onDismiss}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.closeButtonText}>close</Text>
-        </TouchableOpacity>
+        {/* Cancel Button */}
+        <View style={styles.cancelContainer}>
+          <TouchableOpacity 
+            style={styles.cancelButton} 
+            onPress={onDismiss}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cancelButtonText}>close</Text>
+          </TouchableOpacity>
+        </View>
       </>
     );
   }
@@ -351,48 +352,54 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 const styles = StyleSheet.create({
   bottomSheetBackground: {
     backgroundColor: Colors.black,
-    borderTopWidth: 0.5,
-    borderTopColor: Colors.mediumGray,
+    // Square top corners - no border radius
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
   },
-  handleIndicator: {
-    backgroundColor: Colors.gray,
-    width: 40,
-    height: 5,
-  },
   content: {
-    paddingHorizontal: 25,
+    paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 20 : 30,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    color: Colors.white,
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'left',
+    fontFamily: 'Firma-Black',
+  },
+  closeButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonText: {
+    color: Colors.lightGray,
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   loadingIndicator: {
     marginVertical: 40,
     alignSelf: 'center',
   },
-  verificationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 5,
-    marginBottom: 5,
-  },
-  verificationTitle: {
-    color: Colors.white,
-    fontSize: 20,
-    fontFamily: 'Firma-Bold',
-    marginLeft: 6,
-  },
-
   infoContainer: {
-    marginTop: 5,
-    marginBottom: 15,
-    paddingHorizontal: 5,
+    marginBottom: 30,
   },
   infoText: {
-    color: Colors.gray,
+    color: Colors.lightGray,
     fontSize: 16,
     lineHeight: 22,
-    textAlign: 'center',
+    textAlign: 'left',
     fontFamily: 'Firma-Regular',
   },
   highlightedText: {
@@ -400,79 +407,58 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Medium',
   },
   verifiedByLabel: {
-    color: Colors.lightGray,
+    color: Colors.gray,
     fontSize: 15,
-    fontFamily: 'Firma-Medium',
-    marginTop: 15,
+    fontFamily: 'Firma-Regular',
     marginBottom: 5,
-    paddingHorizontal: 5,
   },
   issuerListItem: {
     marginVertical: 4,
+  },
+  issuerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  issuerTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  issuerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
   },
   issuerAvatarShimmer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.gray,
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
-  // Date section styling
-  dateSection: {
-    marginVertical: 15,
-    backgroundColor: Colors.darkGray,
-    borderRadius: 12,
-    padding: 12,
+  issuerNameShimmer: {
+    width: 120,
+    height: 14,
+    borderRadius: 3,
+    marginRight: 8,
   },
-  labelText: {
-    color: Colors.lightGray,
-    fontSize: 13,
-    fontFamily: 'Firma-Regular',
-    marginBottom: 4,
+  issuerHandleShimmer: {
+    width: 80,
+    height: 12,
+    borderRadius: 2,
   },
-  valueText: {
-    color: Colors.white,
-    fontSize: 15,
-    fontFamily: 'Firma-Medium',
-  },
-  dateValueText: {
-    color: Colors.white,
-    fontSize: 15,
-    fontFamily: 'Firma-Medium',
-    textAlign: 'center',
-  },
-    // Legacy styles preserved for backward compatibility
-  verifierCard: {
-    marginVertical: 15,
-    backgroundColor: Colors.darkGray,
-    borderRadius: 12,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: Colors.mediumGray,
-  },
-  verifierContent: {
-    flexDirection: 'row',
+  statusDateContainer: {
+    marginBottom: 20,
     alignItems: 'center',
   },
-  verifierAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginRight: 12,
-  },
-  verifierTextContainer: {
-    flex: 1,
-  },
-  verifierName: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-Medium',
-  },
-  verifierHandle: {
+  statusText: {
     color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
-    marginTop: 2,
+    textAlign: 'center',
   },
   errorContainer: {
     padding: 30,
@@ -485,108 +471,25 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  closeButton: {
+  cancelContainer: {
+    alignItems: 'center',
+    marginTop: 30,
+  },
+  cancelButton: {
     backgroundColor: Colors.darkGray,
-    borderWidth: 1,
-    borderColor: Colors.gray,
-    borderRadius: 16,
+    borderRadius: 50,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center',
-    marginTop: 20,
-    minWidth: 120,
   },
-  closeButtonText: {
-    color: 'white',
+  cancelButtonText: {
+    color: Colors.lightGray,
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
     fontFamily: 'Firma-SemiBold',
   },
-  statusDateContainer: {
-    marginTop: 5,
-    marginBottom: 15,
-    alignItems: 'center',
-  },
-  statusText: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    paddingVertical: 20,
-  },
-  badgeShimmer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-  },
-  titleShimmer: {
-    width: 120,
-    height: 20,
-    borderRadius: 4,
-    marginLeft: 6,
-  },
-  infoShimmer: {
-    width: '100%',
-    height: 60,
-    borderRadius: 8,
-  },
-  closeButtonShimmer: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  buttonShimmer: {
-    width: 120,
-    height: 44,
-    borderRadius: 16,
-  },
-  issuerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  issuerTextContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  issuerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  issuerNameShimmer: {
-    width: 120,
-    height: 14,
-    borderRadius: 3,
-    marginRight: 8,
-  },
-  issuerBadgeShimmer: {
-    width: 16,
-    height: 14,
-    borderRadius: 7,
-  },
-  issuerHandleShimmer: {
-    width: 80,
-    height: 12,
-    borderRadius: 2,
-  },
-  issuerArrowShimmer: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-  },
-
 });
 
 export default VerificationInfoSheet;

@@ -1,28 +1,22 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
-  Dimensions, 
-  Image, 
-  Text,
+import React, { useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Dimensions,
+  Image,
   ActivityIndicator,
-  Platform
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../navigation/types';
 import { FeedItem } from './ListFeedView';
 import EmptyFeed from './EmptyFeed';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import VerificationBadge from '../verification/VerificationBadge';
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
-import { Avatar } from '../../ui/UI';
 import { Colors } from '../../ui/UI';
 import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
-import type { ModerationDecision } from '../../../services/ModerationTypes';
 import { feedService } from '../../../services/FeedService';
 import { BlurView } from 'expo-blur';
 import Icon from '../../ui/Icon';
@@ -47,7 +41,7 @@ interface GridFeedViewProps {
   isError?: boolean;
   error?: Error | null;
   onRetry?: () => void;
-  ListComponent?: any; // Optional custom list component (e.g., Tabs.FlatList)
+  ListComponent?: any; // Optional custom list component (e.g., Tabs.FlashList)
 }
 
 const GridFeedView: React.FC<GridFeedViewProps> = ({
@@ -69,9 +63,8 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   onRetry,
   ListComponent,
 }) => {
-  const insets = useSafeAreaInsets();
+  // Safe area removed for grid feed view
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [, forceRerender] = useState(0);
 
   // Determine if this is a header feed (profile, channel, etc.)
   const isHeaderFeed = (
@@ -96,8 +89,8 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   const itemWidth = (screen.width - (ITEM_MARGIN * (numColumns - 1))) / numColumns;
   const itemHeight = itemWidth * (16 / 9);
 
-  // Remove safe area insets for header feeds
-  const effectiveInsets = (isProfileFeed || isHeaderFeed) ? { top: 0, bottom: 0, left: 0, right: 0 } : insets;
+  // Remove safe area insets for all grid views
+  const effectiveInsets = { top: 0, bottom: 0, left: 0, right: 0 } as const;
   const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets);
   const viewableAreaHeight = screen.height - effectiveInsets.top - bottomNavBarHeight;
 
@@ -113,12 +106,16 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
     // Check if it's a repost
     const isRepost = item.reason && item.reason.$type === 'app.bsky.feed.defs#reasonRepost';
 
-    // Handle press: use the callback provided by parent
+    // Handle press: prefer parent callback when provided, else navigate to FeedScreen
     const handlePress = () => {
+      if (onGridItemPress) {
+        onGridItemPress(index);
+        return;
+      }
       feedService.setCurrentFeed(feed);
-      navigation.navigate('FeedModal', {
+      navigation.navigate('FeedScreen', {
         initialUri: item.post.uri,
-        initialIndex: index, // keep for fallback
+        initialIndex: index,
         feedOption,
         userDid,
         backgroundColor,
@@ -144,7 +141,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
           !isLastColumn && { marginRight: ITEM_MARGIN },
           !isLastRow && { marginBottom: ITEM_MARGIN },
           isFirstColumn && { marginLeft: ITEM_MARGIN },
-          isFirstRow && { marginTop: ITEM_MARGIN },
+          // remove top margin on first row to avoid gap under header
         ]}
         activeOpacity={0.7}
         onPress={handlePress}
@@ -164,18 +161,17 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
         {/* Overlay with author info removed as requested */}
       </TouchableOpacity>
     );
-  }, [onGridItemPress, extractVideoUrl, feed, numColumns, itemWidth, itemHeight, forceRerender]);
+  }, [onGridItemPress, feed, numColumns, itemWidth, itemHeight, navigation, feedOption, userDid, backgroundColor, secondaryColor]);
 
   // Combine scroll handlers for infinite scroll and other scroll events
   // Scroll handling removed - should be handled by parent component
   const handleScroll = useCallback(() => {}, []);
 
-  // Use FlatList to render the grid with appropriate numColumns
+  // Use FlashList to render the grid with appropriate numColumns
   return (
-    <View style={styles.container}> 
-      <View style={styles.topDivider} />
+    <View style={[styles.container, { backgroundColor }]}> 
       {(() => {
-        const ListEl: any = ListComponent || FlatList;
+        const ListEl: any = ListComponent || FlashList;
         return (
           <ListEl
             key={`grid-${feedOption}-${userDid || 'default'}`}
@@ -187,22 +183,22 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
               styles.listContent,
               feed.length === 0 && styles.emptyContentContainer,
               feed.length === 0
-                ? { paddingBottom: 0, backgroundColor: Colors.black }
-                : { paddingBottom: bottomNavBarHeight + 20, backgroundColor: Colors.black }
+                ? { paddingBottom: 0, backgroundColor }
+                : { paddingBottom: bottomNavBarHeight + 20, backgroundColor }
             ]}
-            columnWrapperStyle={styles.columnWrapper}
+            columnWrapperStyle={[styles.columnWrapper, { backgroundColor }]}
             showsVerticalScrollIndicator={false}
-            contentInsetAdjustmentBehavior="automatic"
+            contentInsetAdjustmentBehavior="never"
             ListHeaderComponent={headerComponent}
             ListEmptyComponent={
               isProfileLoading ? (
-                <View style={[styles.loadingContainer, { backgroundColor: Colors.black }]}> 
+                <View style={[styles.loadingContainer, { backgroundColor }]}> 
                 </View>
               ) : isError ? (
                 <EmptyFeed 
                   type="error" 
                   secondaryColor={secondaryColor} 
-                  profileColors={secondaryColor ? { backgroundColor: Colors.black, textColor: secondaryColor } : undefined}
+                  profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
                   onRetry={onRetry}
                   isProfileFeed={isProfileFeed || isHeaderFeed}
                   viewableAreaHeight={viewableAreaHeight}
@@ -212,7 +208,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
                 <EmptyFeed 
                   type={feedOption === 'following' ? 'no-following' : 'no-videos'} 
                   secondaryColor={secondaryColor} 
-                  profileColors={secondaryColor ? { backgroundColor: Colors.black, textColor: secondaryColor } : undefined}
+                  profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
                   isProfileFeed={isProfileFeed || isHeaderFeed}
                   viewableAreaHeight={viewableAreaHeight}
                   feedOption={feedOption}
@@ -222,26 +218,13 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
             refreshControl={refreshControl as any}
             onScroll={handleScroll}
             scrollEventThrottle={16}
-            ListFooterComponent={
-              isFetchingNextPage ? (
-                <View style={styles.footerLoader}>
-                  <ActivityIndicator size="small" color={secondaryColor} />
-                </View>
-              ) : (!isError && !hasNextPage && feed.length > 0 ? (
-                <EmptyFeed
-                  type="end"
-                  secondaryColor={secondaryColor}
-                  profileColors={secondaryColor ? { backgroundColor: Colors.black, textColor: secondaryColor } : undefined}
-                  viewableAreaHeight={120}
-                  feedOption={feedOption}
-                />
-              ) : null)
-            }
-            removeClippedSubviews={true}
-            maxToRenderPerBatch={5}
-            windowSize={7}
-            updateCellsBatchingPeriod={50}
-            initialNumToRender={15}
+            ListFooterComponent={isFetchingNextPage ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={secondaryColor} />
+              </View>
+            ) : null}
+            removeClippedSubviews={false}
+            estimatedItemSize={itemHeight}
           />
         );
       })()}
@@ -264,7 +247,7 @@ const styles = StyleSheet.create({
   },
   columnWrapper: {
     marginBottom: ITEM_MARGIN,
-    backgroundColor: Colors.black, // Changed to black
+    backgroundColor: Colors.black, // default; overridden by prop
   },
   gridItem: {
     position: 'relative',
@@ -348,11 +331,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
   },
-  topDivider: {
-    width: '100%',
-    height: ITEM_MARGIN,
-    backgroundColor: Colors.black, // Changed back to black
-  },
+  // removed topDivider to eliminate gap under header
   blurOverlay: {
     position: 'absolute',
     top: 0,

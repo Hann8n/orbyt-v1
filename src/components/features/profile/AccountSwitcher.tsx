@@ -359,7 +359,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       backdropComponent={renderBackdrop}
       onDismiss={onDismiss}
       backgroundStyle={styles.bottomSheetBackground}
-      handleIndicatorStyle={styles.handleIndicator}
+      handleIndicatorStyle={{ display: 'none' }}
       enablePanDownToClose={true}
       enableOverDrag={false}
       enableDynamicSizing={false}
@@ -550,17 +550,17 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   closeButton: {
-    backgroundColor: Colors.mediumGray,
+    backgroundColor: Colors.darkGray,
     borderWidth: 1,
     borderColor: Colors.gray,
-    borderRadius: 16,
+    borderRadius: 50,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeButtonText: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
@@ -570,14 +570,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     borderTopWidth: 0.5,
     borderTopColor: Colors.mediumGray,
+    // Square top corners - no border radius
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
   },
-  handleIndicator: {
-    backgroundColor: Colors.lightGray,
-    width: 40,
-    height: 5,
-  },
+
 });
 
 export default AccountSwitcher; 

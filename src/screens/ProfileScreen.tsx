@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../services/api/AtprotoService';
 import { Tabs } from 'react-native-collapsible-tab-view';
 import FeedRenderer from '../components/features/feed/FeedRenderer';
@@ -21,7 +20,7 @@ import { ProfileHeader, TabNavigation, TabOption } from '../components/layout/he
 import { useHeaderVisibility } from '../hooks/useHeaderVisibility';
 import AccountSwitcher from '../components/features/profile/AccountSwitcher';
 import AccountManager, { SavedAccount } from '../services/storage/AccountManager';
-import { isSmallScreen, isTablet } from '../utils/helpers/screenSize';
+ 
 import { Colors } from '../components/ui/UI';
  
 
@@ -38,15 +37,14 @@ interface ProfileScreenProps {
   onLogout: (clearAllAccounts?: boolean) => Promise<void>;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const route = useRoute<any>();
   const navigation = useNavigation<NavigationProp<RootParamList>>();
   const providedHandle = route.params?.handle || null;
-  const insets = useSafeAreaInsets();
-  const isSmallDevice = isSmallScreen() || isTablet();
+  
   
   // Track header visibility to pause feed while header is visible
-  const { headerVisible, headerAnimatedStyle, HeaderVisibilityTracker } = useHeaderVisibility({
+  const { headerVisible, headerAnimatedStyle, HeaderVisibilityTracker, updateHeaderVisibility } = useHeaderVisibility({
     headerHeight: 280,
     fadeThreshold: 0.6,
     feedId: 'profile',
@@ -90,8 +88,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'reposts' | 'likes'>('profile');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
+  // Ensure header is always visible in grid view
+  useEffect(() => {
+    if (viewMode === 'grid') {
+      updateHeaderVisibility(true);
+    }
+  }, [viewMode, updateHeaderVisibility]);
+
   // Ensure profile data is immediately available from cache
   const profileData = cachedProfile || (targetHandle ? ProfileCache.getProfileFromCacheSync(targetHandle) : null);
+
+  // Memoized query options for profile feed
+  const queryOptions = useMemo(() => ({ 
+    enabled: !!profileData?.did
+  }), [profileData?.did]);
 
   // Load current user handle from AsyncStorage on mount
   useEffect(() => {
@@ -279,21 +289,41 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
     }
   };
 
-  // Create tab options
-  const tabOptions: TabOption[] = [
+  // Determine if the currently viewed profile is the active account
+  const isOwnProfileView = useMemo(() => {
+    // If we're in the tab (no providedHandle), it's own profile
+    if (!providedHandle) return true;
+    const normalizedTarget = (targetHandle || '').trim().toLowerCase();
+    const normalizedSelfHandle = (userHandle || '').trim().toLowerCase();
+    if (normalizedTarget && normalizedSelfHandle && normalizedTarget === normalizedSelfHandle) {
+      return true;
+    }
+    const currentDid = ProfileCache.getCurrentUserDid?.();
+    if (currentDid && profileData?.did) {
+      return currentDid === profileData.did;
+    }
+    return false;
+  }, [providedHandle, targetHandle, userHandle, profileData?.did]);
+
+  // Memoized tab options to prevent recreation
+  const tabOptions: TabOption[] = useMemo(() => [
     { id: 'profile', label: 'videos' },
     { id: 'reposts', label: 'reposts' },
-    ...(providedHandle ? [] : [{ id: 'likes', label: 'likes' }]),
-  ];
+    ...(isOwnProfileView ? [{ id: 'likes', label: 'likes' }] : []),
+  ], [isOwnProfileView]);
 
 
 
 
-  // Determine if the error screen should be shown
-  const showErrorScreen = (isProfileFetchError || profileError) && !refreshing;
+  // Memoized error screen state
+  const showErrorScreen = useMemo(() => 
+    (isProfileFetchError || profileError) && !refreshing,
+    [isProfileFetchError, profileError, refreshing]
+  );
 
-  // Error screen component
-  const renderErrorScreen = () => (
+  // Memoized error screen component
+  const renderErrorScreen = useMemo(() => {
+    return (
     <View style={[styles.errorContainer, { backgroundColor: profileColors.backgroundColor || '#000' }]}>
       <Icon name="user-x" size={48} color={profileColors.textColor || '#fff'} style={styles.errorIcon} />
       <Text style={[styles.errorText, { color: profileColors.textColor || '#fff' }]}>Profile Not Found</Text>
@@ -319,19 +349,25 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
         </TouchableOpacity>
       )}
     </View>
-  );
+    );
+  }, [
+    profileColors.backgroundColor,
+    profileColors.textColor,
+    providedHandle,
+    profileError,
+    onRefresh,
+    navigation,
+  ]);
 
   return (
     <View style={[
       styles.container,
       {
         backgroundColor: profileColors.backgroundColor,
-        // Only apply safe area padding if NOT a full screen device
-        ...(isSmallDevice ? {} : { paddingTop: insets.top })
       }
     ]}>
       {showErrorScreen ? (
-        renderErrorScreen()
+        renderErrorScreen
       ) : (
         <Tabs.Container
           renderHeader={() => (
@@ -339,11 +375,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
               <ProfileHeader
                 handle={targetHandle}
                 showBackButton={!!providedHandle}
-                isOwnProfile={!providedHandle}
+                isOwnProfile={isOwnProfileView}
                 onLogout={handleLogout}
                 onSwitchAccount={() => setShowAccountSwitcher(true)}
                 forceLoading={isProfileLoadingForced}
-                applySafeArea={isSmallDevice}
+                 applySafeArea={true}
                 headerStyle={headerAnimatedStyle}
               >
                 {profileData && (
@@ -374,14 +410,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
           allowHeaderOverscroll={false}
         >
           <Tabs.Tab name="feed">
-            <HeaderVisibilityTracker />
+            {viewMode === 'list' && <HeaderVisibilityTracker />}
             <FeedRenderer
               feedOption={
                 activeTab === 'profile' ? 'profile' :
                 activeTab === 'reposts' ? 'reposts' : 'likes'
               }
               userDid={profileData?.did}
-              queryOptions={{ enabled: !!profileData?.did }}
+              queryOptions={queryOptions}
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
@@ -394,8 +430,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
               isProfileLoading={isProfileLoading && !profileData}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
-              ListComponent={Tabs.FlatList}
-              isVisible={!headerVisible}
+              ListComponent={Tabs.FlashList}
+              isVisible={viewMode === 'grid' ? true : !headerVisible}
             />
           </Tabs.Tab>
         </Tabs.Container>
@@ -414,8 +450,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onLogout }) => {
       />
     </View>
   );
-};
+});
 
+// Optimized StyleSheet creation outside component
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 

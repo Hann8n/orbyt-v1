@@ -1,12 +1,23 @@
 /**
- * Unified Feed Service
- * Consolidates all feed-related functionality into a single service
- * Replaces: FeedStore.ts, FeedConfig.ts, and parts of AtprotoService.tsx
+ * FlashList v2-Optimized Feed Service
+ * Consolidates all feed-related functionality with FlashList v2 performance optimizations
+ * Enhanced memory management and caching for optimal video playback
+ * Takes advantage of v2's automatic sizing and maintainVisibleContentPosition
  */
 
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import AtprotoService from './api/AtprotoService';
 import type { ModerationDecision } from './ModerationTypes';
+
+// FlashList v2 optimization constants
+const FLASHLIST_PERFORMANCE_CONFIG = {
+  CACHE_CLEANUP_INTERVAL: 25000, // 25 seconds - more frequent for v2
+  MAX_CACHE_SIZE: 150,           // Increased cache size for v2's better memory management
+  STALE_TIME: 7 * 60 * 1000,     // 7 minutes - longer cache for v2 efficiency
+  GC_TIME: 15 * 60 * 1000,       // 15 minutes for garbage collection
+  PREFETCH_DISTANCE: 2,          // Reduced for v2's smarter prefetching
+  MEMORY_WARNING_THRESHOLD: 0.85, // Higher threshold for v2's efficiency
+} as const;
 
 // Types
 export interface Post {
@@ -67,10 +78,34 @@ const FEED_CONFIG = {
   cacheTime: 30 * 60 * 1000, // 30 minutes
 } as const;
 
-// Global feed state management
+// FlashList-optimized feed state management
 class FeedStateManager {
   private currentFeed: FeedItem[] = [];
   private videoBlurState = new Map<string, boolean>();
+  
+  // FlashList-optimized caching with memory management
+  private feedCache = new Map<string, { 
+    data: FeedItem[]; 
+    timestamp: number; 
+    cursor?: string | null;
+    accessCount: number;
+    lastAccessed: number;
+  }>();
+  private readonly CACHE_TTL = FLASHLIST_PERFORMANCE_CONFIG.STALE_TIME;
+  
+  // Performance metrics for optimization tracking
+  private performanceMetrics = {
+    cacheHits: 0,
+    cacheMisses: 0,
+    memoryCleanups: 0,
+  };
+  
+  // Memory management
+  private cleanupInterval: NodeJS.Timeout | null = null;
+  
+  constructor() {
+    this.startMemoryManagement();
+  }
 
   setCurrentFeed(feed: FeedItem[]) {
     this.currentFeed = feed;
@@ -93,6 +128,104 @@ class FeedStateManager {
       return this.videoBlurState.get(uri)!;
     }
     return moderationBlur;
+  }
+
+  // FlashList-optimized cache management with performance tracking
+  getCachedFeed(cacheKey: string): { data: FeedItem[]; cursor?: string | null } | null {
+    const cached = this.feedCache.get(cacheKey);
+    
+    if (!cached) {
+      this.performanceMetrics.cacheMisses++;
+      return null;
+    }
+    
+    if (Date.now() - cached.timestamp < this.CACHE_TTL) {
+      // Update access tracking for LRU-style management
+      cached.accessCount++;
+      cached.lastAccessed = Date.now();
+      this.performanceMetrics.cacheHits++;
+      return { data: cached.data, cursor: cached.cursor };
+    }
+    
+    // Remove expired data
+    this.feedCache.delete(cacheKey);
+    this.performanceMetrics.cacheMisses++;
+    return null;
+  }
+
+  setCachedFeed(cacheKey: string, data: FeedItem[], cursor?: string | null): void {
+    // Implement cache size limit for memory management
+    if (this.feedCache.size >= FLASHLIST_PERFORMANCE_CONFIG.MAX_CACHE_SIZE) {
+      this.performLRUCleanup();
+    }
+    
+    this.feedCache.set(cacheKey, { 
+      data, 
+      timestamp: Date.now(), 
+      cursor,
+      accessCount: 1,
+      lastAccessed: Date.now(),
+    });
+  }
+
+  clearFeedCache(): void {
+    this.feedCache.clear();
+    this.performanceMetrics.memoryCleanups++;
+  }
+  
+  // FlashList memory management methods
+  private startMemoryManagement(): void {
+    this.cleanupInterval = setInterval(() => {
+      this.performMemoryCleanup();
+    }, FLASHLIST_PERFORMANCE_CONFIG.CACHE_CLEANUP_INTERVAL);
+  }
+  
+  private performMemoryCleanup(): void {
+    const now = Date.now();
+    const expiredKeys: string[] = [];
+    
+    // Remove expired entries
+    for (const [key, value] of this.feedCache.entries()) {
+      if (now - value.timestamp > this.CACHE_TTL) {
+        expiredKeys.push(key);
+      }
+    }
+    
+    expiredKeys.forEach(key => this.feedCache.delete(key));
+    
+    if (expiredKeys.length > 0) {
+      this.performanceMetrics.memoryCleanups++;
+    }
+  }
+  
+  private performLRUCleanup(): void {
+    // Remove least recently used items when cache is full
+    const entries = Array.from(this.feedCache.entries());
+    entries.sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
+    
+    // Remove oldest 20% of entries
+    const removeCount = Math.floor(entries.length * 0.2);
+    for (let i = 0; i < removeCount; i++) {
+      this.feedCache.delete(entries[i][0]);
+    }
+  }
+  
+  getPerformanceMetrics() {
+    return {
+      ...this.performanceMetrics,
+      cacheSize: this.feedCache.size,
+      hitRate: this.performanceMetrics.cacheHits / 
+               (this.performanceMetrics.cacheHits + this.performanceMetrics.cacheMisses) || 0,
+      memoryUsage: this.feedCache.size / FLASHLIST_PERFORMANCE_CONFIG.MAX_CACHE_SIZE,
+    };
+  }
+  
+  destroy(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    this.clearFeedCache();
   }
 }
 
@@ -136,6 +269,7 @@ const createQueryKeys = {
       [...createQueryKeys.feed.byUser(feedOption, userDid), 'infinite'] as const,
     batch: (feedOption: string, userDid?: string) => 
       [...createQueryKeys.feed.byUser(feedOption, userDid), 'batch'] as const,
+    search: (query: string) => [...createQueryKeys.feed.all, 'search', query] as const,
   },
   feeds: {
     all: ['feeds'] as const,
@@ -184,6 +318,20 @@ class FeedService {
   }
 
   async fetchFeed(feedOption: FeedOption, userDid?: string, cursor?: string): Promise<APIResponse> {
+    // Create cache key for this specific feed request
+    const cacheKey = `${feedOption}_${userDid || 'anonymous'}_${cursor || 'initial'}`;
+    
+    // Check cache first for performance (only for initial loads)
+    if (!cursor) {
+      const cachedResult = feedStateManager.getCachedFeed(cacheKey);
+      if (cachedResult) {
+        return {
+          feed: cachedResult.data,
+          cursor: cachedResult.cursor,
+        };
+      }
+    }
+
     try {
       const limit = FEED_CONFIG.defaultLimit;
       let response;
@@ -244,6 +392,64 @@ class FeedService {
             }));
           }
         }
+      } else if (feedOption.startsWith('search:')) {
+        // Handle search feeds
+        const searchQuery = feedOption.substring(7); // Remove 'search:' prefix
+        if (!searchQuery || searchQuery.trim() === '') {
+          return { feed: [], cursor: null };
+        }
+
+        try {
+          // Search for profiles and channels in parallel
+          const [profilesResponse, channelsResponse] = await Promise.all([
+            AtprotoService.searchProfilesPaginated(searchQuery, cursor as string | null),
+            AtprotoService.searchPopularFeeds(searchQuery, 15)
+          ]);
+
+          // Convert to feed items format
+          const feedItems: FeedItem[] = [];
+          
+          // Add profiles
+          profilesResponse.profiles.forEach(profile => {
+            feedItems.push({
+              post: {
+                uri: `at://${profile.did}/profile`,
+                cid: profile.cid || '',
+                author: {
+                  did: profile.did,
+                  handle: profile.handle,
+                  displayName: profile.displayName,
+                  avatar: profile.avatar,
+                },
+                viewer: profile.viewer,
+              } as any,
+              shouldCache: true,
+              uniqueKey: profile.did,
+            });
+          });
+
+          // Add channels
+          channelsResponse.forEach(channel => {
+            feedItems.push({
+              post: {
+                uri: channel.uri,
+                cid: channel.cid,
+                author: channel.creator,
+                text: channel.displayName,
+              } as any,
+              shouldCache: true,
+              uniqueKey: channel.uri,
+            });
+          });
+
+          return {
+            feed: feedItems,
+            cursor: profilesResponse.cursor,
+          };
+        } catch (error) {
+          console.error('Error performing search:', error);
+          return { feed: [], cursor: null };
+        }
       } else if (feedOption === 'search') {
         // Return current search feed from state
         return {
@@ -260,10 +466,17 @@ class FeedService {
         response = await AtprotoService.getFeed(cursor, feedLink, {}, true, limit, 'custom');
       }
 
-      return {
+      const result = {
         feed: response.feed || [],
         cursor: response.cursor,
       };
+
+      // Cache successful responses for initial loads only
+      if (!cursor && result.feed.length > 0) {
+        feedStateManager.setCachedFeed(cacheKey, result.feed, result.cursor);
+      }
+
+      return result;
     } catch (error) {
       console.error(`[FeedService] Error fetching ${feedOption} feed:`, error);
       return { feed: [], cursor: null };
@@ -344,6 +557,11 @@ class FeedService {
   clearCurrentFeed = feedStateManager.clearCurrentFeed.bind(feedStateManager);
   setVideoBlurState = feedStateManager.setVideoBlurState.bind(feedStateManager);
   isVideoBlurred = feedStateManager.isVideoBlurred.bind(feedStateManager);
+  
+  // Cache management methods for performance optimization
+  clearFeedCache = feedStateManager.clearFeedCache.bind(feedStateManager);
+  getCachedFeed = feedStateManager.getCachedFeed.bind(feedStateManager);
+  setCachedFeed = feedStateManager.setCachedFeed.bind(feedStateManager);
 }
 
 // Export singleton instance

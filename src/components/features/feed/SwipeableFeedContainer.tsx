@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useState, useMemo, useLayoutEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState, useMemo, useLayoutEffect, memo } from 'react';
 import {
   View,
   StyleSheet,
@@ -35,7 +35,7 @@ interface SwipeableFeedContainerProps {
   applySafeArea?: boolean;
 }
 
-const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
+const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   initialFeed = 'yourMix',
   onFeedChange,
   isRefreshing = false,
@@ -49,17 +49,19 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
   const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
 
-  // Scrubbing lock state
+  // Optimized scrubbing state management
   const [isScrubbing, setIsScrubbing] = useState(false);
-  const handleScrubbingChange = (scrubbing: boolean) => {
+  const handleScrubbingChange = useCallback((scrubbing: boolean) => {
     setIsScrubbing(scrubbing);
     onScrubbingChange?.(scrubbing);
-  };
+  }, [onScrubbingChange]);
 
-  // Unified screen dimensions handling
+  // Memoized screen dimensions handling
   const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
-  const screenWidth = screenDims.width;
-  const screenHeight = screenDims.height;
+  const { screenWidth, screenHeight } = useMemo(() => ({
+    screenWidth: screenDims.width,
+    screenHeight: screenDims.height,
+  }), [screenDims.width, screenDims.height]);
 
   // Listen for orientation/screen size changes
   useEffect(() => {
@@ -95,8 +97,8 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
   const [currentScrollProgress, setCurrentScrollProgress] = useState(0);
   const [hasUserScrolled, setHasUserScrolled] = useState(false);
 
-  // Build feed configuration from subscribed channels
-  const buildFeedConfig = () => {
+  // Memoized feed configuration from subscribed channels
+  const feedConfig = useMemo(() => {
     const config: { [key: string]: { label: string; order: number } } = {};
     subscribedChannels.forEach(channel => {
       config[channel.uri] = {
@@ -105,14 +107,15 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
       };
     });
     return config;
-  };
+  }, [subscribedChannels]);
 
-  const feedConfig = buildFeedConfig();
-
-  // Get all feed options in order
-  const feedOptions = Object.keys(feedConfig).sort(
-    (a, b) => feedConfig[a].order - feedConfig[b].order
-  ) as FeedOption[];
+  // Memoized feed options in order
+  const feedOptions = useMemo(() => 
+    Object.keys(feedConfig).sort(
+      (a, b) => feedConfig[a].order - feedConfig[b].order
+    ) as FeedOption[],
+    [feedConfig]
+  );
 
   // Scroll indicator to keep active feed visible (defined early to avoid use-before-declare)
   const scrollIndicatorToActive = useCallback((index: number) => {
@@ -323,34 +326,55 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
     scrollIndicatorToActive(currentFeedIndex);
   }, [currentFeedIndex, scrollIndicatorToActive]);
 
-  // Render individual feed
+  // Memoized query options for feed rendering
+  const memoizedQueryOptions = useMemo(() => ({
+    enabled: true, // Always enable to preload feeds
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  }), []);
+
+  // Optimized feed page styles
+  const feedPageStyle = useMemo(() => ({
+    ...styles.feedPage,
+    width: screenWidth,
+    height: '100%' as const,
+  }), [screenWidth]);
+
+  // Render individual feed with comprehensive memoization
   const renderFeed = useCallback(({ item: feedOption, index }: { item: FeedOption; index: number }) => {
     const isVisible = index === currentFeedIndex;
     
     return (
-      <View style={[styles.feedPage, { width: screenWidth, height: '100%' }]}> 
+      <View style={feedPageStyle}> 
         <FeedRenderer
           feedOption={String(feedOption)}
           onRetryFeed={handleRetryFeed}
           onPositionChange={handlePositionChange}
           initialPosition={savedPositions[feedOption]}
-          queryOptions={{
-            enabled: true, // Always enable to preload feeds
-            staleTime: 5 * 60 * 1000, // 5 minutes
-            refetchOnMount: false,
-            refetchOnWindowFocus: false,
-          }}
-          // Pass visibility state to control video playback
+          queryOptions={memoizedQueryOptions}
+          // Pass visibility state to control video playback and fetching
           isVisible={isVisible}
           // Pass scroll handler for feed bar visibility
           onVerticalScroll={(scrollY) => handleVerticalScroll(scrollY, index)}
           isRefreshing={isRefreshing}
           onScrubbingChange={handleScrubbingChange}
-          forceError={forceError} // Pass the forceError prop to FeedFetcher
+          forceError={forceError}
         />
       </View>
     );
-  }, [currentFeedIndex, handleRetryFeed, handlePositionChange, savedPositions, handleVerticalScroll, isRefreshing, screenWidth, handleScrubbingChange, forceError]);
+  }, [
+    currentFeedIndex,
+    feedPageStyle,
+    handleRetryFeed,
+    handlePositionChange,
+    savedPositions,
+    memoizedQueryOptions,
+    handleVerticalScroll,
+    isRefreshing,
+    handleScrubbingChange,
+    forceError,
+  ]);
 
   // Get indicator style with gradual opacity based on scroll progress
   const getIndicatorStyle = useCallback((feedOption: FeedOption) => {
@@ -396,7 +420,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
         style={[
           styles.feedSwitcher, 
           { 
-            top: applySafeArea && isSmallDevice ? 12 + insets.top : 12,
+            top: applySafeArea ? 12 + insets.top : 12,
             opacity: feedBarOpacity,
             transform: [{ translateY: feedBarTranslateY }],
           }
@@ -455,7 +479,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = ({
       />
     </GestureHandlerRootView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -491,4 +515,15 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SwipeableFeedContainer; 
+// Performance comparison for memo
+const areEqual = (prevProps: SwipeableFeedContainerProps, nextProps: SwipeableFeedContainerProps) => {
+  // Critical props that affect visibility and performance
+  if (prevProps.initialFeed !== nextProps.initialFeed) return false;
+  if (prevProps.isRefreshing !== nextProps.isRefreshing) return false;
+  if (prevProps.forceError !== nextProps.forceError) return false;
+  if (prevProps.applySafeArea !== nextProps.applySafeArea) return false;
+  
+  return true;
+};
+
+export default memo(SwipeableFeedContainer, areEqual); 

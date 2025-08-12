@@ -1,6 +1,7 @@
 /**
- * Unified Feed Hook
- * Consolidates useFeedQuery and useInfiniteScroll functionality
+ * FlashList v2-Optimized Feed Hook
+ * Enhanced for FlashList v2 performance with advanced caching and memory management
+ * Takes advantage of v2's automatic sizing and maintainVisibleContentPosition
  * Replaces: useFeedQuery.tsx, useInfiniteScroll.tsx
  */
 
@@ -8,6 +9,16 @@ import { useCallback, useRef, useEffect } from 'react';
 import { NativeScrollEvent } from 'react-native';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useSubscribedChannels } from './useSubscribedChannels';
+
+// FlashList v2 optimization constants
+const FLASHLIST_FEED_CONFIG = {
+  STALE_TIME: 7 * 60 * 1000,     // 7 minutes - longer for v2 efficiency
+  GC_TIME: 15 * 60 * 1000,       // 15 minutes for v2's better memory management
+  RETRY_DELAY: 800,              // Faster retry for v2's performance
+  MAX_RETRIES: 3,                // Maximum retry attempts
+  THROTTLE_MS: 80,               // Reduced throttling for v2's efficiency
+  PREFETCH_THRESHOLD: 0.75,      // Earlier prefetch for v2's smarter loading
+} as const;
 
 interface UseFeedOptions {
   enabled?: boolean;
@@ -63,9 +74,16 @@ export function useFeed(
     feedService.setSubscribedChannels(subscribedChannels);
   }, [subscribedChannels]);
 
-  // Create infinite query
+  // Create FlashList-optimized infinite query
   const query = feedService.createInfiniteQuery(feedOption, userDid, {
     enabled,
+    staleTime: FLASHLIST_FEED_CONFIG.STALE_TIME,
+    gcTime: FLASHLIST_FEED_CONFIG.GC_TIME,
+    retry: FLASHLIST_FEED_CONFIG.MAX_RETRIES,
+    retryDelay: FLASHLIST_FEED_CONFIG.RETRY_DELAY,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: true,
     ...queryOptions
   });
 
@@ -75,16 +93,16 @@ export function useFeed(
   // Infinite scroll state
   const isNearEndRef = useRef(false);
 
-  // Create scroll handler
+  // Create FlashList-optimized scroll handler with aggressive throttling
   const onScroll = useCallback(
     feedService.createInfiniteScrollHandler({
-      threshold,
+      threshold: FLASHLIST_FEED_CONFIG.PREFETCH_THRESHOLD,
       hasNextPage: query.hasNextPage,
       isFetchingNextPage: query.isFetchingNextPage,
       onLoadMore: query.fetchNextPage,
-      debounceMs,
+      debounceMs: FLASHLIST_FEED_CONFIG.THROTTLE_MS,
     }),
-    [threshold, query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage, debounceMs]
+    [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]
   );
 
   // Determine if this is a profile feed

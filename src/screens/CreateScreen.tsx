@@ -67,13 +67,11 @@ const CreateScreen: React.FC = () => {
   const device = useCameraDevice(isFrontCamera ? 'front' : 'back');
   const navigation = useNavigation<CreateScreenNavigationProp>();
 
-  // Request necessary permissions on mount
+  // Request camera and gallery permissions on mount; defer microphone until recording
   useEffect(() => {
     const checkPermissions = async () => {
       if (!hasPermission) await requestPermission();
       if (!hasGalleryPermission) await requestGalleryPermission();
-      const micPermission = await Camera.requestMicrophonePermission();
-      setHasMicPermission(micPermission === 'granted');
     };
     checkPermissions();
   }, [hasPermission, hasGalleryPermission, requestPermission, requestGalleryPermission]);
@@ -111,6 +109,16 @@ const CreateScreen: React.FC = () => {
 
   const startRecording = useCallback(async () => {
     if (cameraRef.current && !isRecording && totalDuration < MAX_DURATION) {
+      // Ensure microphone permission only when needed
+      if (!hasMicPermission) {
+        const micPermission = await Camera.requestMicrophonePermission();
+        const granted = micPermission === 'granted';
+        setHasMicPermission(granted);
+        if (!granted) {
+          Alert.alert('Microphone Permission', 'Please enable microphone access to record video with sound.');
+          return;
+        }
+      }
       setIsRecording(true);
       recButtonScale.value = withSpring(1.2);
       segmentStartTime.current = Date.now();
@@ -411,6 +419,7 @@ const CreateScreen: React.FC = () => {
             device={device}
             isActive={isActive || false}
             enableZoomGesture
+            audio={hasMicPermission}
             video
           />
           <View style={styles.centerButtonContainer}>

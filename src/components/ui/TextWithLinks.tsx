@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Text, Alert, Linking } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import ProfileCache from '../../services/cache/ProfileCache';
+import ProfileCache, { profileKeys, PROFILE_CACHE_EXPIRY } from '../../services/cache/ProfileCache';
 import { StyleSheet } from 'react-native';
 
 // Common interfaces
@@ -290,6 +290,36 @@ export const TextWithLinks: React.FC<TextWithLinksProps> = ({
     }
 
     setTextParts(parts);
+
+    // Prefetch valid author profiles in the background for faster navigation
+    try {
+      const handlesToPrefetch = Array.from(
+        new Set(
+          mentions
+            .filter(m => m.isValid && !!m.handle)
+            .map(m => m.handle.toLowerCase())
+        )
+      );
+
+      if (handlesToPrefetch.length > 0) {
+        requestAnimationFrame(() => {
+          setTimeout(async () => {
+            try {
+              await Promise.allSettled(
+                handlesToPrefetch.map(handle =>
+                  queryClient.prefetchQuery({
+                    queryKey: profileKeys.detail(handle),
+                    queryFn: () => ProfileCache.getProfile(handle),
+                    staleTime: PROFILE_CACHE_EXPIRY,
+                    gcTime: PROFILE_CACHE_EXPIRY * 2,
+                  })
+                )
+              );
+            } catch {}
+          }, 0);
+        });
+      }
+    } catch {}
   }, [text, queryClient, parseUrls]);
 
   return (

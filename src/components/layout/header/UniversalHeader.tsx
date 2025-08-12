@@ -1,7 +1,7 @@
 declare let window: any;
 
 import React, { memo, useCallback, useMemo, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image, TextInput } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import { Avatar } from '../../ui/UI';
 import { Colors } from '../../ui/UI';
 import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
+import { TextWithLinks } from '../../ui/TextWithLinks';
 
 // Types for the universal header system
 export interface HeaderAction {
@@ -27,6 +28,7 @@ export interface HeaderAction {
 export interface HeaderContent {
   avatar?: string;
   title: string;
+  onTitleChange?: (text: string) => void;
   subtitle?: string;
   description?: string;
   badge?: React.ReactNode;
@@ -82,12 +84,13 @@ const ActionButton = memo<{
   size?: 'small' | 'medium' | 'large';
 }>(({ action, textColor, backgroundColor, size = 'medium' }) => {
   const getButtonStyle = useCallback(() => {
-    // Check if this is a following state (Following, Mutuals, etc.)
+    // Check if this is a following state (Following, Mutuals, etc.) or save button in edit mode
     const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
+    const isSaveButton = action.id === 'save';
     
     const baseStyle = {
-      backgroundColor: isFollowingState ? textColor : hexToRGBA(textColor, 0.2),
-      borderColor: isFollowingState ? textColor : hexToRGBA(textColor, 0.3),
+      backgroundColor: (isFollowingState || isSaveButton) ? textColor : hexToRGBA(textColor, 0.2),
+      borderColor: (isFollowingState || isSaveButton) ? textColor : hexToRGBA(textColor, 0.3),
     };
 
     switch (action.variant) {
@@ -101,7 +104,7 @@ const ActionButton = memo<{
       default:
         return baseStyle;
     }
-  }, [action.variant, textColor, action.label]);
+  }, [action.variant, textColor, action.label, action.id]);
 
   const getButtonSize = useCallback(() => {
     switch (size) {
@@ -122,11 +125,15 @@ const ActionButton = memo<{
       activeOpacity={0.7}
     >
       {action.loading ? (
-        <ActivityIndicator size="small" color={textColor} />
+        <ActivityIndicator 
+          size="small" 
+          color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
+        />
       ) : (
         <View style={styles.actionContent}>
           <Text style={[styles.actionText, { 
-            color: (action.label === 'Following' || action.label === 'Mutuals') ? backgroundColor : textColor 
+            color: (action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor,
+            fontFamily: (action.variant === 'secondary' || action.id === 'save') ? 'Firma-Bold' : 'Firma-SemiBold'
           }]}>
             {action.label}
           </Text>
@@ -136,7 +143,7 @@ const ActionButton = memo<{
             <Icon 
               name={action.icon} 
               size={16} 
-              color={(action.label === 'Following' || action.label === 'Mutuals') ? backgroundColor : textColor} 
+              color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
               strokeWidth={2.5} 
             />
           ) : null}
@@ -193,13 +200,14 @@ const CustomActionLayout = memo<{
               action={layout.buttonGroup.secondary}
               textColor={textColor}
               backgroundColor={backgroundColor}
-              size="small"
+              size="medium"
             />
           )}
           <ActionButton
             action={layout.buttonGroup.primary}
             textColor={textColor}
             backgroundColor={backgroundColor}
+            size="medium"
           />
         </View>
       );
@@ -240,6 +248,18 @@ const HeaderContentComponent = memo<{
 }>(({ content, textColor, backgroundColor, isLoading, skeleton, customDescription, mixIcon }) => {
   const navigation = useNavigation();
 
+  const navigateToAuthorProfile = useCallback((handle: string) => {
+    const clean = handle.trim();
+    // Require a dot to resemble a valid Bluesky handle (e.g., name.bsky.social)
+    if (!clean || !clean.includes('.')) return;
+    
+    let rootNav: any = navigation;
+    while (rootNav?.getParent?.()) {
+      rootNav = rootNav.getParent();
+    }
+    rootNav?.navigate?.('AuthorProfile', { handle: clean });
+  }, [navigation]);
+
   if (isLoading && skeleton) {
     return skeleton;
   }
@@ -264,47 +284,89 @@ const HeaderContentComponent = memo<{
 
   return (
     <View style={styles.contentContainer}>
-      <TouchableOpacity
-        style={[
-          styles.avatar, 
-          content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare
-        ]}
-        onPress={content.onAvatarPress}
-        activeOpacity={content.onAvatarPress ? 0.7 : 1}
-      >
-        <Avatar
-          uri={content.avatar}
-          type={content.avatarStyle === 'rounded-square' ? 'channel' : 'profile'}
-          size={80}
-          profileColors={{ backgroundColor, textColor, foregroundColor: textColor }}
+            <View style={styles.avatarContainer}>
+        <TouchableOpacity
           style={[
-            styles.avatarImage,
-            content.avatarStyle === 'rounded-square' && styles.avatarImageRoundedSquare
+            styles.avatar, 
+            content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare
           ]}
-        />
+          onPress={content.onAvatarPress}
+          activeOpacity={content.onAvatarPress ? 0.7 : 1}
+        >
+          <Avatar
+            uri={content.avatar}
+            type={content.avatarStyle === 'rounded-square' ? 'channel' : 'profile'}
+            size={100}
+            profileColors={{ backgroundColor, textColor, foregroundColor: textColor }}
+            style={[
+              styles.avatarImage,
+              content.avatarStyle === 'rounded-square' && styles.avatarImageRoundedSquare,
+              { borderWidth: 3 }
+            ]}
+          />
+        </TouchableOpacity>
         {content.onAvatarPress && (
-          <View style={[
-            styles.editAvatarOverlay, 
-            { backgroundColor: hexToRGBA(textColor, 0.8) },
-            content.avatarStyle === 'rounded-square' && styles.editAvatarOverlayRoundedSquare
-          ]}>
-            <Icon name="camera" size={20} color={backgroundColor} />
+          <View style={styles.uploadSection}>
+            <Text style={[styles.editSubheader, { color: hexToRGBA(textColor, 0.75) }]}>
+              PROFILE PICTURE
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: hexToRGBA(textColor, 0.2),
+                  borderColor: hexToRGBA(textColor, 0.3),
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  minWidth: 90,
+                  height: 44,
+                }
+              ]}
+              onPress={content.onAvatarPress}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.actionText, { color: textColor }]}>
+                Upload
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
-      </TouchableOpacity>
+      </View>
+      
+      {content.isEditMode && (
+        <View style={[styles.dividerContainer, { marginLeft: -20, marginRight: -20 }]}>
+          <View style={[styles.divider, { backgroundColor: hexToRGBA(textColor, 0.2) }]} />
+        </View>
+      )}
       
       <View style={styles.textContainer}>
-        <TouchableOpacity
-          style={styles.titleRow}
-          onPress={content.onTitlePress}
-          activeOpacity={content.onTitlePress ? 0.7 : 1}
-        >
-          <Text style={[styles.title, { color: textColor }]}>
-            {content.title}
+        {content.isEditMode && (
+          <Text style={[styles.editSubheader, { color: hexToRGBA(textColor, 0.67) }]}>
+            DISPLAY NAME
           </Text>
-          {mixIconBadge}
-          {content.badge}
-        </TouchableOpacity>
+        )}
+        {content.isEditMode ? (
+          <TextInput
+            style={[styles.title, styles.editTitle, { color: textColor, marginTop: 2 }]}
+            value={content.title}
+            placeholder="Enter display name..."
+            placeholderTextColor={hexToRGBA(textColor, 0.5)}
+            maxLength={64}
+            onChangeText={content.onTitleChange}
+          />
+        ) : (
+          <TouchableOpacity
+            style={styles.titleRow}
+            onPress={content.onTitlePress}
+            activeOpacity={content.onTitlePress ? 0.7 : 1}
+          >
+            <Text style={[styles.title, { color: textColor }]}>
+              {content.title}
+            </Text>
+            {mixIconBadge}
+            {content.badge}
+          </TouchableOpacity>
+        )}
         
         {content.subtitle && (
           <TouchableOpacity
@@ -312,7 +374,7 @@ const HeaderContentComponent = memo<{
             onPress={content.onTitlePress}
             activeOpacity={content.onTitlePress ? 0.7 : 1}
           >
-            <Text style={[styles.subtitle, { color: hexToRGBA(textColor, 0.67) }]}>
+            <Text style={[styles.subtitle, { color: hexToRGBA(textColor, 0.67) }]} numberOfLines={1}>
               {content.subtitle}
             </Text>
             {content.onTitlePress && (
@@ -324,9 +386,12 @@ const HeaderContentComponent = memo<{
         )}
         
         {customDescription || (content.description && (
-          <Text style={[styles.description, { color: hexToRGBA(textColor, 0.87) }]}>
-            {content.description}
-          </Text>
+          <TextWithLinks
+            text={content.description}
+            style={[styles.description, { color: hexToRGBA(textColor, 0.75) }]}
+            onAuthorPress={navigateToAuthorProfile}
+            parseUrls={true}
+          />
         ))}
       </View>
     </View>
@@ -368,8 +433,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     styles.header,
     { 
       backgroundColor,
-      // Apply safe area padding only if requested and device uses full screen mode
-      ...(applySafeArea && isSmallDevice && { paddingTop: insets.top }),
+      // Apply safe area padding whenever requested
+      ...(applySafeArea && { paddingTop: insets.top }),
     },
     style,
   ], [backgroundColor, style, applySafeArea, isSmallDevice, insets.top]);
@@ -560,7 +625,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
     textAlign: 'center',
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 17,
   },
   customActionsLayout: {
     flexDirection: 'row',
@@ -586,6 +651,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
   },
   contentContainer: {
     flexDirection: 'column',
@@ -593,11 +660,16 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: -4,
   },
+  avatarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 20,
+  },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 6,
+    width: 112,
+    height: 112,
+    borderRadius: 112 / 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -607,7 +679,7 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 50,
+    borderRadius: 112 / 2,
   },
   avatarImageRoundedSquare: {
     borderRadius: 14,
@@ -630,29 +702,31 @@ const styles = StyleSheet.create({
   chevronContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 0,
+    marginLeft: 4,
   },
   title: {
     fontFamily: 'Firma-Black',
     fontWeight: 'bold',
-    fontSize: 24,
+    fontSize: 28,
   },
   subtitle: {
     marginTop: 4,
+    marginBottom: 15,
     fontFamily: 'Firma-Medium',
-    fontSize: 17,
+    fontSize: 18,
   },
   description: {
     marginTop: 12,
     flexShrink: 1,
     flexWrap: 'wrap',
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Firma-Medium',
     fontSize: 16,
   },
   editAvatarOverlay: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
+    top: '50%',
+    right: -16,
     width: 32,
     height: 32,
     borderRadius: 50,
@@ -660,9 +734,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: Colors.white,
+    transform: [{ translateY: -16 }],
+  },
+  uploadSection: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+  },
+  uploadLabel: {
+    fontFamily: 'Firma-Bold',
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingLeft: 4,
+  },
+  editAvatarButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.white,
   },
   editAvatarOverlayRoundedSquare: {
     borderRadius: 16,
+    top: '50%',
+    right: -16,
+    transform: [{ translateY: -16 }],
   },
   content: {
     width: '100%',
@@ -678,6 +777,27 @@ const styles = StyleSheet.create({
   },
   mixIconContainer: {
     marginLeft: 8,
+  },
+  dividerContainer: {
+    marginTop: 6,
+    marginBottom: 6,
+  },
+  divider: {
+    height: 1,
+    width: '100%',
+  },
+  editSubheader: {
+    fontFamily: 'Firma-Bold',
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+    marginTop: 12,
+  },
+  editTitle: {
+    backgroundColor: 'transparent',
+    padding: 0,
+    margin: 0,
   },
 });
 

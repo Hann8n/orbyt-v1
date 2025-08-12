@@ -6,12 +6,10 @@ import HeaderSkeleton from './HeaderSkeleton';
 import { useChannelColors } from '../../../services/cache/ChannelCache';
 import Icon, { PlusIcon, CheckIcon } from '../../ui/Icon';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
-import { Avatar, Colors } from '../../ui/UI';
-import { HomeStackParamList } from '../../../navigation/types';
-import { useProfile } from '../../../services/cache/ProfileCache';
+import { Colors } from '../../ui/UI';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
-import { navigateToUserProfile } from '../../../navigation/profileNavigation';
+ 
 
 
 interface ChannelData {
@@ -277,8 +275,13 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     }
 
     const handleCreatorPress = channel.creator?.handle ? () => {
-      // Navigate to creator profile
-      navigateToUserProfile(navigation, { handle: channel.creator!.handle });
+      const clean = channel.creator!.handle.trim();
+      if (!clean) return;
+      let rootNav: any = navigation as any;
+      while (rootNav?.getParent?.()) {
+        rootNav = rootNav.getParent();
+      }
+      rootNav?.navigate?.('AuthorProfile', { handle: clean });
     } : undefined;
 
     // Create experimental badge if channel is experimental
@@ -291,7 +294,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     return {
       avatar: channel.avatar,
       title: channel.name,
-      subtitle: channel.creator?.handle ? `@${channel.creator.handle}` : undefined,
+      subtitle: channel.creator?.handle ? channel.creator.handle : undefined,
       description: channel.description,
       badge: experimentalBadge,
       avatarStyle: 'rounded-square' as const,

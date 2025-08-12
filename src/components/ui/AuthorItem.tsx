@@ -8,7 +8,7 @@ import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { Colors } from './UI';
 import { HomeStackParamList } from '../../navigation/types';
 import { useProfile } from '../../services/cache/ProfileCache';
-import { navigateToUserProfile } from '../../navigation/profileNavigation';
+ 
 
 interface AuthorItemProps {
   handle: string;
@@ -28,6 +28,7 @@ interface AuthorItemProps {
   nameFontWeight?: 'Firma-Regular' | 'Firma-Medium' | 'Firma-SemiBold' | 'Firma-Bold' | 'Firma-Black';
   handleFontWeight?: 'Firma-Regular' | 'Firma-Medium' | 'Firma-SemiBold' | 'Firma-Bold' | 'Firma-Black';
   handleColor?: string;
+  hideHandleLine?: boolean;
 }
 
 const AuthorItem: React.FC<AuthorItemProps> = ({
@@ -48,6 +49,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   nameFontWeight = 'Firma-SemiBold',
   handleFontWeight = 'Firma-SemiBold',
   handleColor,
+  hideHandleLine,
 }) => {
   const navigation = useNavigation<NavigationProp<HomeStackParamList>>();
   
@@ -57,21 +59,21 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
       avatarSize: 32,
       textSize: 12,
       badgeTextSize: 12,
-      nameFontSize: 12,
+      nameFontSize: 13,
       handleFontSize: 10,
     },
     medium: {
       avatarSize: 40,
       textSize: 14,
       badgeTextSize: 14,
-      nameFontSize: 14,
+      nameFontSize: 15,
       handleFontSize: 12,
     },
     large: {
       avatarSize: 48,
       textSize: 16,
       badgeTextSize: 16,
-      nameFontSize: 16,
+      nameFontSize: 17,
       handleFontSize: 14,
     },
   };
@@ -88,7 +90,13 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
     if (onPress) {
       onPress();
     } else if (handle) {
-      navigateToUserProfile(navigation, { handle });
+      const clean = handle.trim();
+      if (!clean) return;
+      let rootNav: any = navigation as any;
+      while (rootNav?.getParent?.()) {
+        rootNav = rootNav.getParent();
+      }
+      rootNav?.navigate?.('AuthorProfile', { handle: clean });
     }
   };
 
@@ -114,7 +122,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         />
         <View style={styles.textContainer}>
           <View style={styles.nameRow}>
-                      <Text style={[
+          <Text style={[ 
             styles.name,
             { 
               color: textColor,
@@ -132,16 +140,18 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
               />
             )}
           </View>
-          <Text style={[
-            styles.handle,
-            { 
-              color: handleColor || Colors.lightGray,
-              fontSize: config.handleFontSize,
-              fontFamily: handleFontWeight,
-            }
-          ]} numberOfLines={1}>
-            {showDate && date ? date : `@${handle}`}
-          </Text>
+          {!hideHandleLine && (
+            <Text style={[ 
+              styles.handle,
+              { 
+                color: handleColor || Colors.lightGray,
+                fontSize: config.handleFontSize,
+                fontFamily: handleFontWeight,
+              }
+            ]} numberOfLines={1}>
+              {showDate && date ? date : handle}
+            </Text>
+          )}
         </View>
         {showFollowButton ? (
           <TouchableOpacity
@@ -162,7 +172,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         ) : showArrow && (
           <Icon 
             name="chevron-right" 
-            size={config.textSize} 
+            size={config.textSize + 4} 
             color={hexToRGBA(textColor, 0.5)} 
           />
         )}
@@ -202,6 +212,7 @@ const styles = StyleSheet.create({
   },
   handle: {
     // Font family is now controlled via props
+    fontWeight: '600',
   },
   followButton: {
     borderWidth: 1,

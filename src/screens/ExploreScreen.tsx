@@ -13,8 +13,8 @@ import {
   Keyboard,
   Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Tabs } from 'react-native-collapsible-tab-view';
 import AtprotoService from '../services/api/AtprotoService';
 import { useNavigation } from '@react-navigation/native';
 import ProfileCache, { CachedProfile, profileKeys } from '../services/cache/ProfileCache';
@@ -24,20 +24,21 @@ import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Icon } from '../components/ui/UI';
 import HeaderBanner from '../components/ui/HeaderBanner';
-import { navigateToUserProfile } from '../navigation/profileNavigation';
+// Explore uses a custom collapsible header setup; no shared header visibility logic needed
+ 
 
-import { GridViewIcon, SearchIcon } from '../components/ui/Icon';
+import { SearchIcon } from '../components/ui/Icon';
 import { Colors } from '../components/ui/UI';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import EmptyFeed from '../components/features/feed/EmptyFeed';
-import { createQueryKeys } from '../services/FeedService';
+import { createQueryKeys, feedService } from '../services/FeedService';
 import { getBottomNavBarHeight } from '../utils/helpers/screenSize';
 import GridFeedView from '../components/features/feed/GridFeedView';
 import { extractVideoThumbnail } from '../utils/helpers/video';
-import { feedService } from '../services/FeedService';
 import { FORCE_SEARCH_ERROR, getForcedErrorMessage } from '../utils/helpers/errorDebug';
 import { formatNumber } from '../utils/helpers/formatNumber';
 import HeaderService, { Header } from '../services/HeaderService';
+import { useFeed } from '../hooks/useFeed';
 // import { ModerationService } from '../services/ModerationService'; // Commented out since videos are disabled
 
 interface Profile {
@@ -129,7 +130,7 @@ const ProfileShimmer = () => (
   <View style={styles.profileItem}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={[styles.profileImage, { borderWidth: 1, borderColor: Colors.gray }]}
+      style={[styles.profileImage, { borderWidth: 0, borderColor: 'transparent' }]}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.profileContent}>
@@ -152,7 +153,7 @@ const ChannelShimmer = () => (
   <View style={styles.channelItem}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={[styles.channelImage, { borderWidth: 1, borderColor: Colors.gray }]}
+      style={[styles.channelImage, { borderWidth: 0, borderColor: 'transparent' }]}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.channelContent}>
@@ -180,7 +181,7 @@ const FeedShimmer = () => (
   <View style={styles.feedItem}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={[styles.feedImage, { borderWidth: 1, borderColor: Colors.gray }]}
+      style={[styles.feedImage, { borderWidth: 0, borderColor: 'transparent' }]}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.feedContent}>
@@ -241,7 +242,7 @@ const VideoShimmer = () => (
   <View style={styles.feedItem}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={[styles.feedImage, { borderWidth: 1, borderColor: Colors.gray }]}
+      style={[styles.feedImage, { borderWidth: 0, borderColor: 'transparent' }]}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.feedContent}>
@@ -337,99 +338,89 @@ const ExploreScreen: React.FC = () => {
 
 
 
-  // Unified search function that combines profiles, channels, and videos
-  const performUnifiedSearch = useCallback(async (query: string, pageParam?: string | null) => {
-    if (!query || query.trim() === '') {
-      return { results: [], cursor: null };
+  // Use FeedService for search functionality
+  const searchFeedOption = useMemo(() => {
+    if (!debouncedQuery || debouncedQuery.trim() === '') {
+      return null;
+    }
+    return `search:${debouncedQuery}`;
+  }, [debouncedQuery]);
+
+  // Use the standardized useFeed hook for search
+  const {
+    feed: searchFeed,
+    isLoading: isSearchLoading,
+    isError: isSearchError,
+    error: searchError,
+    isFetchingNextPage: isSearchFetchingNextPage,
+    hasNextPage: hasSearchNextPage,
+    fetchNextPage: fetchSearchNextPage,
+    refetch: refetchSearch,
+    onScroll: onSearchScroll,
+  } = useFeed(searchFeedOption || 'yourMix', undefined, {
+    enabled: !!searchFeedOption,
+    staleTime: 30 * 1000, // 30 seconds for search
+    refetchOnMount: false,
+  });
+
+  // Process search results for display
+  const searchResults = useMemo(() => {
+    if (!searchFeedOption || !searchFeed.length) {
+      return [];
     }
 
-    try {
-      // Search for profiles and channels in parallel (videos commented out)
-      let profilesResponse, channelsResponse;
-      try {
-        [profilesResponse, channelsResponse] = await Promise.all([
-          AtprotoService.searchProfilesPaginated(query, pageParam as string | null),
-          // AtprotoService.searchVideosPaginated(query, pageParam as string | null) // Commented out video support
-          AtprotoService.searchPopularFeeds(query, 15) // Get channels instead
-        ]);
-      } catch (error) {
-        console.error('Error in parallel search:', error);
-        profilesResponse = { profiles: [], cursor: null };
-        channelsResponse = [];
+    // Convert feed items to search results format
+    return searchFeed.map((feedItem, index) => {
+      const post = feedItem.post;
+      
+      // Determine result type based on post content
+      if (post.author) {
+        return {
+          type: 'profile' as const,
+          data: {
+            did: (post.author as any).did || '',
+            handle: post.author.handle || '',
+            displayName: post.author.displayName || '',
+            avatar: post.author.avatar || '',
+            description: (post as any).text || '',
+            isFollowing: !!(post as any).viewer?.following,
+          } as Profile,
+          relevance: 10 - index, // Higher relevance for earlier results
+        };
       }
-
-      // Process profiles
-      const processedProfiles = profilesResponse.profiles.map(profile => ({
+      
+      // For channel-like content
+      if (post.embed?.$type === 'app.bsky.embed.record') {
+        return {
+          type: 'channel' as const,
+          data: {
+            uri: post.uri,
+            cid: post.cid,
+            displayName: (post as any).text || 'Unknown channel',
+            description: (post as any).text || '',
+            creator: post.author || {},
+          } as Channel,
+          relevance: 10 - index,
+        };
+      }
+      
+      // Default to profile
+      return {
         type: 'profile' as const,
         data: {
-          ...profile,
-          isFollowing: !!profile.viewer?.following
+          did: (post.author as any)?.did || '',
+          handle: post.author?.handle || '',
+          displayName: post.author?.displayName || '',
+          avatar: post.author?.avatar || '',
+          description: (post as any).text || '',
+          isFollowing: !!(post as any).viewer?.following,
         } as Profile,
-        relevance: calculateRelevance(profile, query, 'profile')
-      }));
-
-      // Process channels
-      const processedChannels = channelsResponse.map(channel => ({
-        type: 'channel' as const,
-        data: channel as Channel,
-        relevance: calculateRelevance(channel, query, 'channel')
-      }));
-
-      // Comment out video processing
-      // let moderatedVideos = videosResponse.videos || [];
-      // if (moderatedVideos.length > 0) {
-      //   try {
-      //     const feedItems = moderatedVideos.map(video => ({
-      //       post: video,
-      //       shouldCache: true,
-      //       uniqueKey: video.uri,
-      //     }));
-      //     
-      //     const moderationResult = await ModerationService.batchModeratePosts(feedItems);
-      //     moderatedVideos = moderationResult.filteredPosts.map(item => item.post);
-      //     
-      //     const moderationMap = moderationResult.moderationDecisions;
-      //     moderatedVideos = moderatedVideos.map(video => {
-      //       const uri = video?.uri;
-      //       return uri && moderationMap.has(uri)
-      //         ? { ...video, moderationDecision: moderationMap.get(uri) }
-      //         : video;
-      //     });
-      //   } catch (error) {
-      //     console.warn('Error applying moderation to search videos:', error);
-      //   }
-      // }
-
-      // const processedVideos = moderatedVideos.map(video => {
-      //   if (!video.uri) {
-      //     console.warn('Video missing URI:', video);
-      //   }
-      //   return {
-      //     type: 'video' as const,
-      //     data: video,
-      //     relevance: calculateRelevance(video, query, 'video')
-      //   };
-      // });
-
-      // Combine all results and sort by relevance
-      const allResults: ListItem[] = [
-        ...processedProfiles,
-        ...processedChannels,
-        // ...processedVideos // Commented out video results
-      ];
-      allResults.sort((a, b) => (b as SearchResult).relevance - (a as SearchResult).relevance);
-
-      return {
-        results: allResults,
-        cursor: profilesResponse.cursor // Use profile cursor for pagination
+        relevance: 10 - index,
       };
-    } catch (error) {
-      console.error('Error performing unified search:', error);
-      return { results: [], cursor: null };
-    }
-  }, []);
+    });
+  }, [searchFeedOption, searchFeed]);
 
-  // Calculate relevance score for search results
+  // Calculate relevance score for search results (simplified for FeedService approach)
   const calculateRelevance = (item: any, query: string, type: 'profile' | 'channel' | 'video'): number => {
     const queryLower = query.toLowerCase();
     let score = 0;
@@ -447,50 +438,9 @@ const ExploreScreen: React.FC = () => {
       if (item.creator?.handle?.toLowerCase().includes(queryLower)) score += 6;
       // Removed popularity boost to focus on search relevance
     }
-    // Comment out video relevance scoring since videos are disabled
-    // else if (type === 'video') {
-    //   // Video relevance scoring
-    //   const videoText = item.text || item.record?.text || '';
-    //   if (videoText.toLowerCase().includes(queryLower)) score += 10;
-    //   if (item.author?.displayName?.toLowerCase().includes(queryLower)) score += 6;
-    //   if (item.author?.handle?.toLowerCase().includes(queryLower)) score += 5;
-    //   if (item.labels && item.labels.some((l: any) => l.val?.toLowerCase().includes(queryLower))) score += 3;
-    //   if (item.likeCount && item.likeCount > 10) score += 2;
-    // }
 
     return score;
   };
-
-  // Use Infinite Query to fetch unified search results with pagination
-  const {
-    data: searchData,
-    isLoading,
-    error,
-    isFetching,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-    refetch,
-  } = useInfiniteQuery({
-    queryKey: unifiedSearchKeys.infiniteSearch(debouncedQuery),
-    queryFn: async ({ pageParam }) => {
-      // Force error if debug flag is enabled
-      if (FORCE_SEARCH_ERROR) {
-        throw getForcedErrorMessage('search');
-      }
-      return await performUnifiedSearch(debouncedQuery, pageParam as string | null);
-    },
-    getNextPageParam: (lastPage) => lastPage.cursor,
-    initialPageParam: null as string | null,
-    enabled: debouncedQuery.length > 0,
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 2 * 60 * 1000, // 2 minutes
-  });
-
-  // Flatten results from all pages
-  const searchResults = useMemo(() => {
-    return searchData?.pages.flatMap(page => page.results) || [];
-  }, [searchData]);
 
   // Comment out video-related useEffect since videos are disabled
   // useEffect(() => {
@@ -514,11 +464,11 @@ const ExploreScreen: React.FC = () => {
   useEffect(() => {
     if (searchResults.length > 0) {
       const profiles = searchResults
-        .filter((result): result is SearchResult => result.type === 'profile')
+        .filter((result): result is any => result.type === 'profile')
         .map(result => result.data as Profile);
       
       const channels = searchResults
-        .filter((result): result is SearchResult => result.type === 'channel')
+        .filter((result): result is any => result.type === 'channel')
         .map(result => result.data as Channel);
       
       if (profiles.length > 0) {
@@ -674,11 +624,11 @@ const ExploreScreen: React.FC = () => {
   const preloadNextPage = useCallback(
     (currentOffset: number, contentHeight: number, containerHeight: number) => {
       const isCloseToBottom = (contentHeight - currentOffset - containerHeight) / contentHeight < 0.25;
-      if (isCloseToBottom && hasNextPage && !isFetchingNextPage) {
-        fetchNextPage();
+      if (isCloseToBottom && hasSearchNextPage && !isSearchFetchingNextPage) {
+        fetchSearchNextPage();
       }
     },
-    [hasNextPage, isFetchingNextPage, fetchNextPage]
+    [hasSearchNextPage, isSearchFetchingNextPage, fetchSearchNextPage]
   );
 
   // For shimmer loading, define a discriminated union type
@@ -784,7 +734,8 @@ const ExploreScreen: React.FC = () => {
                       queryFn: () => ProfileCache.getProfile(handle.trim()),
                       staleTime: ProfileCache.cacheExpiry
                       }).finally(() => {
-                        navigateToUserProfile(navigation, { handle: handle.trim() });
+                        const target = handle.trim();
+                        if (target) { (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('AuthorProfile', { handle: target }); }
                       });
                   }
                 }
@@ -794,6 +745,7 @@ const ExploreScreen: React.FC = () => {
                 uri={profile.avatar}
                 type="profile"
                 size={40}
+                ringColor="transparent"
                 style={styles.profileImage}
               />
               <View style={styles.profileContent}>
@@ -841,6 +793,7 @@ const ExploreScreen: React.FC = () => {
                 uri={channel.avatar}
                 type="channel"
                 size={40}
+                ringColor="transparent"
                 style={styles.channelImage}
               />
               <View style={styles.channelContent}>
@@ -877,7 +830,7 @@ const ExploreScreen: React.FC = () => {
                   
                   // FeedStore is already updated with formatted data from useEffect
                   
-                  navigation.navigate('FeedModal', {
+                  navigation.navigate('FeedScreen', {
                     initialIndex: index,
                     initialUri: video.uri,
                     feedOption: 'search',
@@ -885,9 +838,9 @@ const ExploreScreen: React.FC = () => {
                     backgroundColor: 'transparent',
                     secondaryColor: Colors.white,
                     searchQuery: debouncedQuery,
-                    hasNextPage: hasNextPage,
-                    isFetchingNextPage: isFetchingNextPage,
-                    fetchNextPage: fetchNextPage
+                    hasNextPage: hasSearchNextPage,
+                    isFetchingNextPage: isSearchFetchingNextPage,
+                    fetchNextPage: fetchSearchNextPage
                   });
                 }
               }}
@@ -936,7 +889,7 @@ const ExploreScreen: React.FC = () => {
       }
     }
     return null;
-  }, [navigation, queryClient, debouncedQuery, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [navigation, queryClient, debouncedQuery, hasSearchNextPage, isSearchFetchingNextPage, fetchSearchNextPage]);
 
   // Organize search results into sections
   const organizedSearchResults = useMemo(() => {
@@ -944,14 +897,14 @@ const ExploreScreen: React.FC = () => {
     
     // Separate profiles and channels (videos commented out)
     const profiles = searchResults
-      .filter((result): result is SearchResult => result.type === 'profile')
+      .filter((result): result is any => result.type === 'profile')
       .map(result => result.data as Profile)
       .filter((profile, index, self) => 
         index === self.findIndex(p => p.did === profile.did)
       );
     
     const channels = searchResults
-      .filter((result): result is SearchResult => result.type === 'channel')
+      .filter((result): result is any => result.type === 'channel')
       .map(result => result.data as Channel)
       .filter((channel, index, self) => 
         index === self.findIndex(c => c.uri === channel.uri)
@@ -988,11 +941,11 @@ const ExploreScreen: React.FC = () => {
     
     // Get the original search results to preserve relevance ordering
     const profileResults = searchResults
-      .filter((result): result is SearchResult => result.type === 'profile')
+      .filter((result): result is any => result.type === 'profile')
       .map(result => ({ type: 'profile' as const, data: result.data as Profile, relevance: result.relevance }));
     
     const channelResults = searchResults
-      .filter((result): result is SearchResult => result.type === 'channel')
+      .filter((result): result is any => result.type === 'channel')
       .map(result => ({ type: 'channel' as const, data: result.data as Channel, relevance: result.relevance }));
     
     // Combine and sort by relevance to mix profiles and channels together
@@ -1003,7 +956,7 @@ const ExploreScreen: React.FC = () => {
   }, [organizedSearchResults, searchResults]);
 
 
-  const isLoadingResults = isLoading || isFetching && !isFetchingNextPage;
+  const isLoadingResults = isSearchLoading || isSearchError;
 
   // Fetch suggested accounts when there is no search query
   const {
@@ -1105,44 +1058,61 @@ const ExploreScreen: React.FC = () => {
     }
   }, [suggestedFeeds]);
 
-  // Header is part of the FlatList now; keep it mounted when searching to avoid flicker
+  // Collapsible header setup (custom for Explore)
   const isHeaderVisible = useMemo(
     () => !isLoadingHeaders && headers.length > 0,
     [isLoadingHeaders, headers.length]
   );
-
-  // Stable header element to avoid remounts/reloads of the header image
-  const headerHeight = useMemo(() => Dimensions.get('window').height * 0.30, []);
-  const listHeaderElement = useMemo(() => {
-    // Show header only on main explore (no active search)
-    if (!isHeaderVisible || debouncedQuery.length > 0) return null;
-    return (
-      <View style={{ height: headerHeight, marginTop: -insets.top }}>
-        <HeaderBanner headers={headers} />
-      </View>
-    );
-  }, [isHeaderVisible, debouncedQuery.length, headerHeight, insets.top, headers]);
+  const isSearching = debouncedQuery.length > 0;
+  const computedHeaderHeight = useMemo(() => {
+    // When searching or header not visible, reserve space for the search bar area so content starts below it
+    if (isSearching || !isHeaderVisible) {
+      return insets.top + 10 + 55 + 10; // safe area + top margin + search height + bottom margin
+    }
+    // Allow per-header custom ratio via HeaderService metadata; fallback to 30%
+    const ratio = Math.max(0.2, Math.min(0.5, headers?.[0]?.heightRatio ?? 0.30));
+    return Math.round(Dimensions.get('window').height * ratio);
+  }, [isSearching, isHeaderVisible, insets.top, headers]);
 
   // Gradient should be visible when searching or when no banner is visible
   const showTopGradient = useMemo(
-    () => debouncedQuery.length > 0 || !isHeaderVisible,
-    [debouncedQuery.length, isHeaderVisible]
+    () => isSearching || !isHeaderVisible,
+    [isSearching, isHeaderVisible]
   );
 
+  const suggestionsList: any[] = (() => {
+    if (isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingSpotlightFeed) {
+      return shimmerSuggestedItems as unknown as any[];
+    }
+    if (suggestionsError || suggestedFeedsError || spotlightFeedError) {
+      return [];
+    }
+    const data: ListItem[] = [];
+    if (spotlightFeed && spotlightFeed.length > 0) {
+      data.push({ type: 'section-header' as const, title: 'spotlight', key: 'spotlight-header' });
+      data.push({ type: 'spotlight-videos' as const, videos: spotlightFeed, key: 'spotlight-videos' });
+    }
+    if (limitedSuggestedFeeds && limitedSuggestedFeeds.length > 0) {
+      data.push({ type: 'section-header' as const, title: 'popular channels', key: 'feeds-header' });
+      data.push(...limitedSuggestedFeeds.map(item => ({ type: 'channel' as const, data: item, relevance: 0 })));
+    }
+    if (allSuggestions && allSuggestions.length > 0) {
+      data.push({ type: 'section-header' as const, title: 'suggested accounts', key: 'accounts-header' });
+      data.push(...allSuggestions.map(item => ({ type: 'profile' as const, data: item, relevance: 0 })));
+    }
+    return data;
+  })();
+
+  const searchList: any[] = isLoadingResults
+    ? (shimmerTypes as unknown as any[])
+    : (organizedSearchResults as unknown as any[]);
+
+  const listData: any[] = isSearching ? searchList : suggestionsList;
+
   return (
-    <SafeAreaView
-      style={[
-        styles.container,
-        // Allow header to extend into the status bar area
-        Platform.OS === 'android' ? { paddingTop: 0 } : null
-      ]}
-      edges={['left', 'right', 'bottom']}
-    >
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={'transparent'}
-        translucent={true}
-      />
+    <View style={[styles.container, Platform.OS === 'android' ? { paddingTop: 0 } : null]}>
+      <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
+
       {showTopGradient && (
         <View style={[styles.topSafeOverlay, { height: insets.top }]} />
       )}
@@ -1153,19 +1123,18 @@ const ExploreScreen: React.FC = () => {
           pointerEvents="none"
         />
       )}
+
       {/* Search Bar overlays header */}
-      <View style={[
-        styles.searchContainer, 
-        { 
-          top: insets.top + 10, 
-          zIndex: 20 
-        }
-      ]}>
-        <SearchIcon
-          size={24}
-          color={Colors.black}
-          style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }}
-        />
+      <View
+        style={[
+          styles.searchContainer,
+          {
+            top: insets.top + 10,
+            zIndex: 20,
+          },
+        ]}
+      >
+        <SearchIcon size={24} color={Colors.black} style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }} />
         <TextInput
           style={styles.searchInput}
           placeholder="search"
@@ -1184,43 +1153,26 @@ const ExploreScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Single FlatList for both suggestions and search results to keep header mounted and avoid flicker */}
-      {(() => {
-        const isSearching = debouncedQuery.length > 0;
-
-        // Build suggestions list data
-        const suggestionsList: any[] = (() => {
-          if (isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingSpotlightFeed) {
-            return shimmerSuggestedItems as unknown as any[];
-          }
-          if (suggestionsError || suggestedFeedsError || spotlightFeedError) {
-            return [];
-          }
-          const data: ListItem[] = [];
-          if (spotlightFeed && spotlightFeed.length > 0) {
-            data.push({ type: 'section-header' as const, title: 'spotlight', key: 'spotlight-header' });
-            data.push({ type: 'spotlight-videos' as const, videos: spotlightFeed, key: 'spotlight-videos' });
-          }
-          if (limitedSuggestedFeeds && limitedSuggestedFeeds.length > 0) {
-            data.push({ type: 'section-header' as const, title: 'popular channels', key: 'feeds-header' });
-            data.push(...limitedSuggestedFeeds.map(item => ({ type: 'channel' as const, data: item, relevance: 0 })));
-          }
-          if (allSuggestions && allSuggestions.length > 0) {
-            data.push({ type: 'section-header' as const, title: 'suggested accounts', key: 'accounts-header' });
-            data.push(...allSuggestions.map(item => ({ type: 'profile' as const, data: item, relevance: 0 })));
-          }
-          return data;
-        })();
-
-        // Build search list data
-        const searchList: any[] = isLoadingResults
-          ? (shimmerTypes as unknown as any[])
-          : (organizedSearchResults as unknown as any[]);
-
-        const listData: any[] = isSearching ? searchList : suggestionsList;
-
-        return (
-          <FlatList
+      <Tabs.Container
+        renderHeader={() => (
+          <View style={{ height: computedHeaderHeight }} pointerEvents="box-none">
+            {!isSearching && isHeaderVisible ? (
+              <HeaderBanner headers={headers} height={computedHeaderHeight} />
+            ) : (
+              // Empty spacer when searching or no header, height already reserved
+              <View style={{ height: computedHeaderHeight }} />
+            )}
+          </View>
+        )}
+        headerHeight={computedHeaderHeight}
+        headerContainerStyle={{ backgroundColor: 'transparent', marginBottom: 0, paddingBottom: 0, borderBottomWidth: 0 }}
+        containerStyle={{ backgroundColor: 'transparent' }}
+        renderTabBar={() => null}
+        revealHeaderOnScroll={false}
+        allowHeaderOverscroll={false}
+      >
+        <Tabs.Tab name="explore">
+          <Tabs.FlashList
             data={listData}
             keyExtractor={(item, index) => {
               if (typeof item === 'string') return `shimmer-${index}`;
@@ -1254,7 +1206,6 @@ const ExploreScreen: React.FC = () => {
                 return <VideoShimmer />;
               }
               if (item.type === 'section-header') {
-                // If title is missing, this is a shimmer placeholder item
                 if (!('title' in item) || !item.title) {
                   return <SectionHeaderShimmer />;
                 }
@@ -1262,22 +1213,15 @@ const ExploreScreen: React.FC = () => {
                   <View style={styles.sectionHeader}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       {typeof item.title === 'string' && item.title.toLowerCase().includes('spotlight') ? (
-                        <>
-                          <Text style={styles.sectionTitle}>
-                            spotlight
-                          </Text>
-                        </>
+                        <Text style={styles.sectionTitle}>spotlight</Text>
                       ) : (
-                        <Text style={styles.sectionTitle}>
-                          {item.title}
-                        </Text>
+                        <Text style={styles.sectionTitle}>{item.title}</Text>
                       )}
                     </View>
                   </View>
                 );
               }
               if (item.type === 'spotlight-videos') {
-                // If videos are missing, this is a shimmer placeholder item
                 if (!('videos' in item) || !Array.isArray(item.videos)) {
                   return <SpotlightVideosShimmer />;
                 }
@@ -1308,7 +1252,7 @@ const ExploreScreen: React.FC = () => {
                               feedService.setCurrentFeed(formattedFeed);
                               const index = formattedFeed.findIndex((v: any) => v.post.uri === videoUri);
                               const finalIndex = index >= 0 ? index : 0;
-                              navigation.navigate('FeedModal', {
+                              navigation.navigate('FeedScreen', {
                                 initialIndex: finalIndex,
                                 initialUri: videoUri,
                                 feedOption: 'search',
@@ -1317,7 +1261,7 @@ const ExploreScreen: React.FC = () => {
                                 secondaryColor: Colors.white,
                                 searchQuery: '',
                                 hasNextPage: false,
-                                isFetchingNextPage: false
+                                isFetchingNextPage: false,
                               });
                             }
                           }}
@@ -1347,13 +1291,12 @@ const ExploreScreen: React.FC = () => {
                                     )}
                                   </>
                                 );
-                              } else {
-                                return (
-                                  <View style={styles.spotlightVideoThumbnailPlaceholder}>
-                                    <Icon name="videocam" size={16} color={Colors.gray} />
-                                  </View>
-                                );
                               }
+                              return (
+                                <View style={styles.spotlightVideoThumbnailPlaceholder}>
+                                  <Icon name="videocam" size={16} color={Colors.gray} />
+                                </View>
+                              );
                             })()}
                           </View>
                         </TouchableOpacity>
@@ -1362,7 +1305,6 @@ const ExploreScreen: React.FC = () => {
                   </View>
                 );
               }
-              // Handle item-level shimmers for profiles/channels/videos represented as objects without data
               if (
                 (item.type === 'profile' || item.type === 'channel' || item.type === 'video') &&
                 !("data" in item)
@@ -1393,40 +1335,30 @@ const ExploreScreen: React.FC = () => {
                                       queryClient.prefetchQuery({
                                         queryKey: profileKeys.detail(handle.trim()),
                                         queryFn: () => ProfileCache.getProfile(handle.trim()),
-                                        staleTime: ProfileCache.cacheExpiry
+                                        staleTime: ProfileCache.cacheExpiry,
                                       }).finally(() => {
-                                        navigateToUserProfile(navigation, { handle: handle.trim() });
+                                        const target = handle.trim();
+                                        if (target) { (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('AuthorProfile', { handle: target }); }
                                       });
                                     }
                                   }
                                 }}
                               >
-                                <Avatar
-                                  uri={profile.avatar}
-                                  type="profile"
-                                  size={40}
-                                  style={styles.profileImage}
-                                />
+                                <Avatar uri={profile.avatar} type="profile" size={40} ringColor="transparent" style={styles.profileImage} />
                                 <View style={styles.profileContent}>
-                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     <Text style={styles.displayName}>
                                       {profile.displayName || profile.handle || 'Unknown user'}
                                     </Text>
                                     {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
-                                      <VerificationBadge 
-                                        handle={profile.handle.trim()} 
-                                        textSize={14} 
-                                        textColor={Colors.white}
-                                      />
+                                      <VerificationBadge handle={profile.handle.trim()} textSize={14} textColor={Colors.white} />
                                     )}
                                   </View>
-                                  <Text style={styles.handleText}>
-                                    @{profile.handle || 'unknown'}
-                                  </Text>
                                 </View>
                               </TouchableOpacity>
                             );
-                          } else if (result.type === 'channel') {
+                          }
+                          if (result.type === 'channel') {
                             const channel = result.data as Channel;
                             return (
                               <TouchableOpacity
@@ -1434,7 +1366,8 @@ const ExploreScreen: React.FC = () => {
                                 style={styles.channelItem}
                                 onPress={() => {
                                   if (channel.uri && channel.uri.trim()) {
-                                    navigation.navigate('Channel', {
+                                    // Navigate via root navigator so Channel overlays the tab bar
+                                    (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('Channel', {
                                       uri: channel.uri.trim(),
                                       title: channel.displayName || 'Unknown Channel',
                                       description: channel.description || '',
@@ -1444,31 +1377,23 @@ const ExploreScreen: React.FC = () => {
                                   }
                                 }}
                               >
-                                <Avatar
-                                  uri={channel.avatar}
-                                  type="channel"
-                                  size={40}
-                                  style={styles.channelImage}
-                                />
+                                <Avatar uri={channel.avatar} type="channel" size={40} ringColor="transparent" style={styles.channelImage} />
                                 <View style={styles.channelContent}>
-                                  <Text style={styles.channelName}>
-                                    {channel.displayName || 'Unknown channel'}
-                                  </Text>
-                                  <Text style={styles.channelCreator}>
-                                    by @{channel.creator?.handle || 'unknown'}
-                                  </Text>
-                                  {channel.likeCount && channel.likeCount > 0 && (
-                                    <Text style={styles.channelStats}>
-                                      {formatNumber(channel.likeCount)} likes
+                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                    <Text style={styles.channelName} numberOfLines={1}>
+                                      {channel.displayName || 'Unknown channel'}
                                     </Text>
-                                  )}
+                                    {channel.isExperimental && (
+                                      <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
+                                    )}
+                                  </View>
                                 </View>
                               </TouchableOpacity>
                             );
                           }
                           return null;
                         })}
-                        {isFetchingNextPage && (
+                        {isSearchFetchingNextPage && (
                           <View style={styles.loadingMoreContainer}>
                             <ActivityIndicator size="small" color={Colors.white} />
                           </View>
@@ -1484,17 +1409,7 @@ const ExploreScreen: React.FC = () => {
               }
               return null;
             }}
-            ListHeaderComponent={listHeaderElement ?? undefined}
-            contentContainerStyle={[
-              styles.listContainer,
-              {
-                // Use safe area + search bar height when searching OR when header not visible on main explore
-                paddingTop: (debouncedQuery.length > 0 || !isHeaderVisible)
-                  ? (insets.top + 10 + 55 + 10)
-                  : insets.top,
-                paddingBottom: getBottomNavBarHeight(insets),
-              },
-            ]}
+            contentContainerStyle={[styles.listContainer, { paddingBottom: getBottomNavBarHeight(insets) }]}
             showsVerticalScrollIndicator={false}
             onScroll={({ nativeEvent }) => {
               const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
@@ -1505,18 +1420,12 @@ const ExploreScreen: React.FC = () => {
             onScrollEndDrag={handleScrollEndDrag}
             onMomentumScrollEnd={handleMomentumScrollEnd}
             onEndReached={() => {
-              if (isSearching && hasNextPage && !isFetchingNextPage) {
-                fetchNextPage();
+              if (isSearching && hasSearchNextPage && !isSearchFetchingNextPage) {
+                fetchSearchNextPage();
               }
             }}
             onEndReachedThreshold={0.5}
-            removeClippedSubviews={Platform.OS === 'android'}
-            maxToRenderPerBatch={10}
-            windowSize={21}
-            initialNumToRender={15}
-            updateCellsBatchingPeriod={30}
-            // Removing maintainVisibleContentPosition to avoid initial offset issues on Android/iOS
-            // maintainVisibleContentPosition can cause lists to mount with an unintended scroll offset
+            removeClippedSubviews={false}
             viewabilityConfig={viewabilityConfig}
             ListEmptyComponent={() => {
               const isSearchingLocal = debouncedQuery.length > 0;
@@ -1533,11 +1442,14 @@ const ExploreScreen: React.FC = () => {
                   return (
                     <View style={styles.errorContainer}>
                       <EmptyFeed type="no-connection" />
-                      <TouchableOpacity style={styles.retryButton} onPress={() => {
-                        refetchSuggestions();
-                        refetchSuggestedFeeds();
-                        refetchSpotlightFeed();
-                      }}>
+                      <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={() => {
+                          refetchSuggestions();
+                          refetchSuggestedFeeds();
+                          refetchSpotlightFeed();
+                        }}
+                      >
                         <Text style={styles.retryButtonText}>Try Again</Text>
                       </TouchableOpacity>
                     </View>
@@ -1551,11 +1463,10 @@ const ExploreScreen: React.FC = () => {
               }
               return null;
             }}
-            ListFooterComponent={null}
           />
-        );
-      })()}
-    </SafeAreaView>
+        </Tabs.Tab>
+      </Tabs.Container>
+    </View>
   );
 };
 
@@ -1636,8 +1547,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     marginRight: 12,
-    borderWidth: 1,
-    borderColor: Colors.gray,
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   profileContent: {
     flex: 1,
@@ -1666,8 +1577,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 12,
     marginRight: 12,
-    borderWidth: 1,
-    borderColor: Colors.gray,
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   channelContent: {
     flex: 1,
@@ -1780,8 +1691,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 12,
     marginRight: 12,
-    borderWidth: 1,
-    borderColor: Colors.gray,
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   feedContent: {
     flex: 1,
@@ -1803,16 +1714,16 @@ const styles = StyleSheet.create({
     width: 45,
     height: 80, // 9:16 aspect ratio (45 * 16/9)
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: Colors.gray,
+    borderWidth: 0,
+    borderColor: 'transparent',
     overflow: 'hidden' as const,
   },
   videoThumbnailPlaceholder: {
     width: 45,
     height: 80,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: Colors.gray,
+    borderWidth: 0,
+    borderColor: 'transparent',
     backgroundColor: Colors.darkGray,
     justifyContent: 'center',
     alignItems: 'center',

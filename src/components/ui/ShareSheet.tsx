@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { Animated } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKeys } from '../../services/FeedService';
 import {
@@ -24,6 +25,7 @@ interface ShareSheetProps {
   postUri: string;
   postCid?: string;
   authorDid: string;
+  authorName?: string; // Add author name prop
   feedOption?: 'yourMix' | 'following' | 'discover';
   sourceFeed?: string; // Add sourceFeed prop to determine if feedback is available
 }
@@ -39,6 +41,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   postUri, 
   postCid,
   authorDid,
+  authorName,
   feedOption,
   sourceFeed
 }) => {
@@ -54,9 +57,13 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   const [isBlocked, setIsBlocked] = useState<boolean>(false);
   const [isCurrentUser, setIsCurrentUser] = useState<boolean>(false);
 
+  // Animated values for smooth transitions
+  const interestedAnimation = useRef(new Animated.Value(0)).current;
+  const notInterestedAnimation = useRef(new Animated.Value(0)).current;
+
   // Bottom sheet ref and snap points
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['50%'], []);
+  const snapPoints = useMemo(() => ['70%'], []);
 
   // Check if the current user is the author
   useEffect(() => {
@@ -86,6 +93,8 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     enabled: visible && !!authorDid && !isCurrentUser,
     initialData: false
   });
+
+
 
   // Update isBlocked state when blockStatus changes
   useEffect(() => {
@@ -195,11 +204,40 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     try {
       setIsSubmitting(true);
       
-      // Optimistically update UI
+      // Animate the transition
+      const targetAnimation = type === 'interested' ? interestedAnimation : notInterestedAnimation;
+      const otherAnimation = type === 'interested' ? notInterestedAnimation : interestedAnimation;
+      
       if (feedbackSent === type) {
+        // Deselecting - animate to 0
+        Animated.parallel([
+          Animated.timing(targetAnimation, {
+            toValue: 0,
+            duration: 100,
+            useNativeDriver: false,
+          }),
+          Animated.timing(otherAnimation, {
+            toValue: 0,
+            duration: 100,
+            useNativeDriver: false,
+          })
+        ]).start();
         setFeedbackSent(null);
         feedbackStateMap.delete(postUri);
       } else {
+        // Selecting - animate to 1
+        Animated.parallel([
+          Animated.timing(targetAnimation, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: false,
+          }),
+          Animated.timing(otherAnimation, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: false,
+          })
+        ]).start();
         setFeedbackSent(type);
         feedbackStateMap.set(postUri, type);
       }
@@ -226,7 +264,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [postUri, feedbackSent, isSubmitting]);
+  }, [postUri, feedbackSent, isSubmitting, interestedAnimation, notInterestedAnimation]);
 
   // Report or delete post handler
   const handleReportOrDelete = useCallback(() => {
@@ -365,7 +403,8 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
         label: 'share',
         icon: 'share',
         onPress: handleShare,
-        color: Colors.white
+        color: '#d140fc',
+        buttonColor: Colors.darkBlue
       }
     ];
 
@@ -376,18 +415,10 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
         label: 'zen',
         icon: 'zen',
         onPress: async () => toggleClearViewMode(),
-        color: Colors.white
+        color: Colors.green,
+        buttonColor: Colors.darkGreen
       });
     }
-
-    // Add Block/Mute option
-    options.push({
-      id: 'block',
-      label: isCurrentUser ? 'mute' : (isBlocked ? 'unblock' : 'block'),
-      icon: 'block',
-      onPress: handleBlockToggle,
-      color: Colors.white
-    });
 
     // Add Report/Delete option
     options.push({
@@ -395,8 +426,8 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       label: isCurrentUser ? 'delete' : 'report',
       icon: 'report',
       onPress: async () => handleReportOrDelete(),
-      color: isCurrentUser ? Colors.black : Colors.black,
-      buttonColor: isCurrentUser ? Colors.red : Colors.red
+      color: Colors.red,
+      buttonColor: Colors.darkRed
     } as any);
 
     return options;
@@ -404,17 +435,8 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
 
   const menuOptions = getMenuOptions();
 
-  // Calculate dynamic spacing based on screen width and number of options
-  const calculateSpacing = () => {
-    const optionWidth = 64; // Width of each option button
-    const totalOptionsWidth = menuOptions.length * optionWidth;
-    const availableWidth = SCREEN_WIDTH - 60; // Account for horizontal padding
-    const remainingSpace = availableWidth - totalOptionsWidth;
-    const spacing = Math.max(20, remainingSpace / (menuOptions.length + 1)); // Minimum 20px spacing
-    return spacing;
-  };
-
-  const dynamicSpacing = calculateSpacing();
+  // Use fixed spacing instead of dynamic calculation
+  const fixedSpacing = 16;
 
   // Backdrop component
   const renderBackdrop = useCallback(
@@ -442,57 +464,27 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       backdropComponent={renderBackdrop}
       onDismiss={onDismiss}
       backgroundStyle={styles.bottomSheetBackground}
-      handleIndicatorStyle={styles.handleIndicator}
+      handleIndicatorStyle={{ display: 'none' }}
     >
       <BottomSheetView style={styles.content}>
-        {/* Interest feedback buttons - only show for yourMix feed from thevids source and not current user's content */}
-        {feedOption === 'yourMix' && canSendFeedback(sourceFeed) && !isCurrentUser && (
-          <>
-            <View style={styles.feedbackContainer}>
-              <View style={styles.feedbackOptions}>
-                <TouchableOpacity 
-                  style={[
-                    styles.feedbackButton,
-                    feedbackSent === 'interested' && styles.feedbackButtonSelected
-                  ]} 
-                  onPress={() => handleInterestFeedback('interested')}
-                  disabled={isSubmitting}
-                >
-                  <InterestedIcon size={24} color={feedbackSent === 'interested' ? Colors.black : Colors.white} />
-                  <Text style={[
-                    styles.feedbackButtonText,
-                    feedbackSent === 'interested' && styles.feedbackButtonTextSelected
-                  ]}>
-                    interested
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[
-                    styles.feedbackButton,
-                    feedbackSent === 'not_interested' && styles.feedbackButtonSelected
-                  ]} 
-                  onPress={() => handleInterestFeedback('not_interested')}
-                  disabled={isSubmitting}
-                >
-                  <NotInterestedIcon size={24} color={feedbackSent === 'not_interested' ? Colors.black : Colors.white} />
-                  <Text style={[
-                    styles.feedbackButtonText,
-                    feedbackSent === 'not_interested' && styles.feedbackButtonTextSelected
-                  ]}>
-                    not interested
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            {/* Divider - only show when feedback buttons are visible */}
-            <View style={styles.divider} />
-          </>
+        {/* Author name and close button */}
+        {authorName && (
+          <View style={styles.authorContainer}>
+            <Text style={styles.authorName} numberOfLines={1}>
+              video by {authorName}
+            </Text>
+            <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={onDismiss}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.closeButtonText}>×</Text>
+            </TouchableOpacity>
+          </View>
         )}
         
         {/* Options */}
-        <View style={[styles.optionsContainer, { gap: dynamicSpacing }]}>
+        <View style={[styles.optionsContainer, { gap: fixedSpacing }]}>
           {menuOptions.map((option) => (
             <View key={option.id} style={styles.optionWrapper}>
               <TouchableOpacity 
@@ -505,25 +497,98 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
                 disabled={isSubmitting}
               >
                 {option.icon === 'share' && (
-                  <ShareIcon size={32} color={option.color} />
+                  <ShareIcon size={40} color={option.color} />
                 )}
                 {option.icon === 'eye' && (
-                  <Icon name="eye" size={32} color={option.color} />
+                  <Icon name="eye" size={40} color={option.color} />
                 )}
                 {option.icon === 'zen' && (
-                  <Icon name="zen" size={32} color={option.color} />
+                  <Icon name="zen" size={40} color={option.color} />
                 )}
                 {option.icon === 'block' && (
-                  <BlockIcon size={32} color={option.color} />
+                  <BlockIcon size={40} color={option.color} />
                 )}
                 {option.icon === 'report' && (
-                  <ReportIcon size={32} color={option.color} />
+                  <ReportIcon size={40} color={option.color} />
                 )}
               </TouchableOpacity>
               <Text style={styles.optionText}>{option.label}</Text>
             </View>
           ))}
         </View>
+
+        {/* Interest feedback buttons - only show for yourMix feed from thevids source and not current user's content */}
+        {feedOption === 'yourMix' && canSendFeedback(sourceFeed) && !isCurrentUser && (
+          <>
+            <View style={styles.feedbackContainer}>
+              <View style={styles.feedbackOptions}>
+                                  <Animated.View style={[
+                    styles.feedbackButton,
+                    {
+                      backgroundColor: interestedAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [Colors.darkGray, Colors.lightGray],
+                      }),
+                    }
+                  ]}>
+                  <TouchableOpacity 
+                    style={styles.feedbackButtonTouchable}
+                    onPress={() => handleInterestFeedback('interested')}
+                    disabled={isSubmitting}
+                  >
+                    <InterestedIcon 
+                      size={24} 
+                      color={feedbackSent === 'interested' ? Colors.black : Colors.lightGray} 
+                    />
+                    <Animated.Text style={[
+                      styles.feedbackButtonText,
+                      {
+                        color: interestedAnimation.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [Colors.lightGray, Colors.black],
+                        }),
+                      }
+                    ]}>
+                      interested
+                    </Animated.Text>
+                  </TouchableOpacity>
+                </Animated.View>
+                
+                <Animated.View style={[
+                  styles.feedbackButton,
+                  {
+                    backgroundColor: notInterestedAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [Colors.darkGray, Colors.lightGray],
+                    }),
+                  }
+                ]}>
+                  <TouchableOpacity 
+                    style={styles.feedbackButtonTouchable}
+                    onPress={() => handleInterestFeedback('not_interested')}
+                    disabled={isSubmitting}
+                  >
+                    <NotInterestedIcon 
+                      size={24} 
+                      color={feedbackSent === 'not_interested' ? Colors.black : Colors.lightGray} 
+                    />
+                    <Animated.Text style={[
+                      styles.feedbackButtonText,
+                      {
+                        color: notInterestedAnimation.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [Colors.lightGray, Colors.black],
+                        }),
+                      }
+                    ]}>
+                      not interested
+                    </Animated.Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              </View>
+            </View>
+          </>
+        )}
         <View style={styles.cancelContainer}>
           <TouchableOpacity 
             style={[styles.cancelButton]} 
@@ -542,8 +607,6 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
 const styles = StyleSheet.create({
   bottomSheetBackground: {
     backgroundColor: Colors.black,
-    borderTopWidth: 0.5,
-    borderTopColor: Colors.mediumGray,
     // Square top corners - no border radius
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
@@ -557,7 +620,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 20 : 30,
   },
+  authorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  authorName: {
+    color: Colors.lightGray,
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'left',
+    fontFamily: 'Firma-Bold',
+  },
+  closeButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonText: {
+    color: Colors.lightGray,
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
   feedbackContainer: {
+    marginTop: 20,
+    marginBottom: 20,
   },
   feedbackOptions: {
     flexDirection: 'row',
@@ -569,19 +658,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: 20,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: Colors.gray,
     width: '48%',
   },
+  feedbackButtonTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
   feedbackButtonSelected: {
-    backgroundColor: Colors.white,
-    borderColor: Colors.white,
+    backgroundColor: Colors.lightGray,
+    borderColor: Colors.lightGray,
   },
   feedbackButtonText: {
-    color: Colors.white,
+    color: Colors.lightGray,
     marginLeft: 8,
     fontSize: 16,
     fontWeight: '500',
@@ -597,7 +690,7 @@ const styles = StyleSheet.create({
   },
   optionsContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'flex-start',
     marginTop: 0,
   },
@@ -608,12 +701,10 @@ const styles = StyleSheet.create({
   option: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    width: 80,
+    height: 80,
+    borderRadius: 20,
     backgroundColor: Colors.darkGray,
-    borderWidth: 1,
-    borderColor: Colors.gray,
   },
   reportOption: {
     backgroundColor: Colors.red,
@@ -628,28 +719,25 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: Colors.darkGray,
-    borderWidth: 1,
-    borderColor: Colors.gray,
-    borderRadius: 16,
+    borderRadius: 50,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButtonText: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
     fontFamily: 'Firma-SemiBold',
   },
   optionText: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 15,
-    fontWeight: '600',
     marginTop: 12,
     textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Firma-Medium',
   },
 });
 

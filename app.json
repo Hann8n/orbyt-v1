@@ -4,9 +4,9 @@
     "slug": "byte-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/icon-prod.png",
+    "icon": "./src/assets/icon-dev.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./src/assets/adaptive-icon.png",
       "resizeMode": "contain",
@@ -76,4 +76,4 @@
     },
     "owner": "orbyt"
   }
-} 
+}

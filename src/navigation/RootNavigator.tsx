@@ -5,7 +5,7 @@ import { AppState } from 'react-native';
 import BottomTabNavigator from './BottomTabNavigator';
 import VideoPostScreen from '../screens/VideoPostScreen';
 
-import FeedModal from '../screens/FeedModal';
+import FeedScreen from '../screens/FeedScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import InsightsScreen from '../screens/InsightsScreen';
 import ModerationControlsScreen from '../screens/Settings/ModerationControlsScreen';
@@ -35,7 +35,7 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
 
   return (
     <LogoutContext.Provider value={onLogout}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
         <Stack.Screen 
           name="Main" 
           children={() => <BottomTabNavigator onLogout={onLogout} />}
@@ -59,13 +59,11 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
           }}
         />
         <Stack.Screen
-          name="FeedModal"
-          component={FeedModal}
+          name="FeedScreen"
+          component={FeedScreen}
           options={{
-            presentation: 'transparentModal',
-            animation: 'slide_from_bottom',
+            animation: 'slide_from_right',
             headerShown: false,
-            contentStyle: { backgroundColor: 'transparent' },
           }}
         />
         <Stack.Screen

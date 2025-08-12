@@ -1,9 +1,10 @@
 /**
- * Simplified Feed Renderer
+ * Optimized Feed Renderer with Comprehensive Visibility System
  * Provides a single component for rendering feeds with video items
+ * Enhanced with React.memo, useCallback, useMemo for performance
  */
 
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, memo } from 'react';
 import { View, StyleSheet } from 'react-native';
 
 import ListFeedView from './ListFeedView';
@@ -81,12 +82,10 @@ interface FeedRendererProps {
   // Debug flag
   forceError?: boolean;
   ListComponent?: any; // Optional custom list component for integration with collapsible tabs
-  
-
 }
 
-// Main Feed Renderer Component
-const FeedRenderer: React.FC<FeedRendererProps> = ({
+// Memoized Feed Renderer Component with Performance Optimizations
+const FeedRenderer: React.FC<FeedRendererProps> = memo(({
   feedOption,
   userDid,
   headerComponent,
@@ -113,98 +112,157 @@ const FeedRenderer: React.FC<FeedRendererProps> = ({
   fetchNextPage: searchFetchNextPage,
   forceError = false,
   ListComponent,
-
 }) => {
-  // Use appropriate hook based on feed type
-  const isSearchFeed = feedOption === 'search';
+  // Memoized feed type detection
+  const isSearchFeed = useMemo(() => feedOption === 'search', [feedOption]);
   
-  // Regular feed hook
-  const feedQuery = useFeed(feedOption, userDid, {
-    enabled: !isSearchFeed,
+  // Memoized query options to prevent unnecessary hook recreations
+  const memoizedQueryOptions = useMemo(() => ({
+    enabled: !isSearchFeed, // Always enable when not a search feed
     staleTime: 10 * 60 * 1000, // 10 minutes
     ...queryOptions,
-  });
+  }), [isSearchFeed, queryOptions]);
+  
+  // Regular feed hook with memoized options
+  const feedQuery = useFeed(feedOption, userDid, memoizedQueryOptions);
 
-  // Force refetch when isRefreshing changes to true
+  // Optimized refetch effect with proper dependencies
   useEffect(() => {
     if (isRefreshing && !isSearchFeed) {
       feedQuery.refetch();
     }
-  }, [isRefreshing, isSearchFeed, feedQuery]);
+  }, [isRefreshing, isSearchFeed, feedQuery.refetch]);
 
-  // Search feed hook
+  // Memoized search feed hook with visibility control
   const searchFeedQuery = useSearchFeed(
     searchHasNextPage,
     searchIsFetchingNextPage,
     searchFetchNextPage,
-    queryOptions
+    memoizedQueryOptions
   );
 
-  // Extract data based on feed type
-  const feed = isSearchFeed ? searchFeedQuery.feed : feedQuery.feed;
-  const isLoading = isSearchFeed ? false : feedQuery.isLoading;
-  const isError = isSearchFeed ? false : feedQuery.isError;
-  const error = isSearchFeed ? null : feedQuery.error;
-  const isFetchingNextPage = isSearchFeed ? searchFeedQuery.isFetchingNextPage : feedQuery.isFetchingNextPage;
-  const hasNextPage = isSearchFeed ? searchFeedQuery.hasNextPage : feedQuery.hasNextPage;
-  const fetchNextPage = isSearchFeed ? searchFeedQuery.fetchNextPage : feedQuery.fetchNextPage;
-  const refetch = isSearchFeed ? (() => {}) : feedQuery.refetch;
-  const isPaused = isSearchFeed ? false : feedQuery.isPaused;
-  const isProfileFeed = isSearchFeed ? false : feedQuery.isProfileFeed;
-  const onScroll = isSearchFeed ? searchFeedQuery.onScroll : feedQuery.onScroll;
+  // Memoized data extraction to prevent unnecessary recalculations
+  const feedData = useMemo(() => ({
+    feed: isSearchFeed ? searchFeedQuery.feed : feedQuery.feed,
+    isLoading: isSearchFeed ? false : feedQuery.isLoading,
+    isError: isSearchFeed ? false : feedQuery.isError,
+    error: isSearchFeed ? null : feedQuery.error,
+    isFetchingNextPage: isSearchFeed ? searchFeedQuery.isFetchingNextPage : feedQuery.isFetchingNextPage,
+    hasNextPage: isSearchFeed ? searchFeedQuery.hasNextPage : feedQuery.hasNextPage,
+    fetchNextPage: isSearchFeed ? searchFeedQuery.fetchNextPage : feedQuery.fetchNextPage,
+    refetch: isSearchFeed ? (() => {}) : feedQuery.refetch,
+    isPaused: isSearchFeed ? false : feedQuery.isPaused,
+    isProfileFeed: isSearchFeed ? false : feedQuery.isProfileFeed,
+    onScroll: isSearchFeed ? searchFeedQuery.onScroll : feedQuery.onScroll,
+  }), [
+    isSearchFeed,
+    searchFeedQuery.feed,
+    searchFeedQuery.isFetchingNextPage,
+    searchFeedQuery.hasNextPage,
+    searchFeedQuery.fetchNextPage,
+    searchFeedQuery.onScroll,
+    feedQuery.feed,
+    feedQuery.isLoading,
+    feedQuery.isError,
+    feedQuery.error,
+    feedQuery.isFetchingNextPage,
+    feedQuery.hasNextPage,
+    feedQuery.fetchNextPage,
+    feedQuery.refetch,
+    feedQuery.isPaused,
+    feedQuery.isProfileFeed,
+    feedQuery.onScroll,
+  ]);
 
-  // Force error state if enabled
-  const finalError = forceError ? new Error('Forced error for testing') : error;
-  const finalIsError = forceError || isError;
+  // Destructure memoized data
+  const {
+    feed,
+    isLoading,
+    isError,
+    error,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+    isPaused,
+    isProfileFeed,
+    onScroll,
+  } = feedData;
 
-  // Show loader when feed is empty, especially for yourMix
-  const shouldShowLoader = isLoading || (feed.length === 0 && feedOption === 'yourMix');
+  // Memoized error state calculation
+  const errorState = useMemo(() => ({
+    finalError: forceError ? new Error('Forced error for testing') : error,
+    finalIsError: forceError || isError,
+  }), [forceError, error, isError]);
 
-  // Handle retry
+  // Memoized loading state calculation
+  const shouldShowLoader = useMemo(() => 
+    isLoading || (feed.length === 0 && feedOption === 'yourMix'),
+    [isLoading, feed.length, feedOption]
+  );
+
+  // Memoized callback for retry - prevents recreation on every render
   const handleRetry = useCallback(() => {
     refetch();
-    if (onRetryFeed) onRetryFeed();
+    onRetryFeed?.();
   }, [refetch, onRetryFeed]);
 
-  // Handle load more
+  // Memoized callback for load more - prevents recreation on every render
   const handleLoadMore = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
+    if (hasNextPage && !isFetchingNextPage && isVisible) {
       fetchNextPage();
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [hasNextPage, isFetchingNextPage, isVisible, fetchNextPage]);
 
-  // Error state
-  if (finalIsError && !isSearchFeed) {
-    return (
-      <View style={[styles.errorContainer, { backgroundColor }]}>
-        <EmptyFeed 
-          type="error"
-          secondaryColor={secondaryColor}
-          profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
-          onRetry={handleRetry}
-          feedOption={feedOption}
-        />
-      </View>
-    );
+  // Memoized error state render
+  const errorStateRender = useMemo(() => {
+    if (errorState.finalIsError && !isSearchFeed) {
+      return (
+        <View style={[styles.errorContainer, { backgroundColor }]}>
+          <EmptyFeed 
+            type="error"
+            secondaryColor={secondaryColor}
+            profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
+            onRetry={handleRetry}
+            feedOption={feedOption}
+          />
+        </View>
+      );
+    }
+
+    // Offline state
+    if (isPaused && !isSearchFeed) {
+      return (
+        <View style={[styles.errorContainer, { backgroundColor }]}>
+          <EmptyFeed 
+            type="no-connection"
+            secondaryColor={secondaryColor}
+            profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
+            onRetry={handleRetry}
+            feedOption={feedOption}
+          />
+        </View>
+      );
+    }
+
+    return null;
+  }, [
+    errorState.finalIsError,
+    isSearchFeed,
+    backgroundColor,
+    secondaryColor,
+    handleRetry,
+    feedOption,
+    isPaused,
+  ]);
+
+  // Early return for error states
+  if (errorStateRender) {
+    return errorStateRender;
   }
 
-  // Offline state
-  if (isPaused && !isSearchFeed) {
-    return (
-      <View style={[styles.errorContainer, { backgroundColor }]}>
-        <EmptyFeed 
-          type="no-connection"
-          secondaryColor={secondaryColor}
-          profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
-          onRetry={handleRetry}
-          feedOption={feedOption}
-        />
-      </View>
-    );
-  }
-
-  // Common props for both view modes
-  const commonProps = {
+  // Memoized common props to prevent recreation on every render
+  const commonProps = useMemo(() => ({
     feed,
     headerComponent,
     refreshControl,
@@ -231,29 +289,76 @@ const FeedRenderer: React.FC<FeedRendererProps> = ({
     onScrubbingChange,
     onScroll,
     ListComponent,
-  };
+  }), [
+    feed,
+    headerComponent,
+    refreshControl,
+    backgroundColor,
+    secondaryColor,
+    feedOption,
+    userDid,
+    handleLoadMore,
+    isFetchingNextPage,
+    hasNextPage,
+    handleRetry,
+    isProfileLoading,
+    isProfileFeed,
+    onPositionChange,
+    initialPosition,
+    initialIndex,
+    initialUri,
+    isVisible,
+    viewMode,
+    onViewModeChange,
+    onVerticalScroll,
+    isRefreshing,
+    isModal,
+    onScrubbingChange,
+    onScroll,
+    ListComponent,
+  ]);
 
-  return (
-    <View style={{ flex: 1, backgroundColor }}>
-      {viewMode === 'grid' ? (
+  // Memoized view selection to prevent unnecessary re-renders
+  const feedView = useMemo(() => {
+    if (viewMode === 'grid') {
+      return (
         <GridFeedView
           {...commonProps}
-          isError={isSearchFeed ? false : finalIsError}
-          error={isSearchFeed ? null : finalError}
+          isError={isSearchFeed ? false : errorState.finalIsError}
+          error={isSearchFeed ? null : errorState.finalError}
         />
-      ) : (
-        <ListFeedView
-          {...commonProps}
-          isLoading={isSearchFeed ? false : shouldShowLoader}
-          isError={isSearchFeed ? false : finalIsError}
-          error={isSearchFeed ? null : finalError}
-        />
-      )}
+      );
+    }
+    
+    return (
+      <ListFeedView
+        {...commonProps}
+        isLoading={isSearchFeed ? false : shouldShowLoader}
+        isError={isSearchFeed ? false : errorState.finalIsError}
+        error={isSearchFeed ? null : errorState.finalError}
+      />
+    );
+  }, [
+    viewMode,
+    commonProps,
+    isSearchFeed,
+    errorState.finalIsError,
+    errorState.finalError,
+    shouldShowLoader,
+  ]);
+
+  return (
+    <View style={styles.container}>
+      {feedView}
     </View>
   );
-};
+});
 
+// Optimized StyleSheet creation outside component to prevent recreation
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -263,4 +368,24 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FeedRenderer;
+// Performance comparison for memo
+const areEqual = (prevProps: FeedRendererProps, nextProps: FeedRendererProps) => {
+  // Critical props that affect rendering performance
+  if (prevProps.feedOption !== nextProps.feedOption) return false;
+  if (prevProps.isVisible !== nextProps.isVisible) return false;
+  if (prevProps.viewMode !== nextProps.viewMode) return false;
+  if (prevProps.isRefreshing !== nextProps.isRefreshing) return false;
+  if (prevProps.backgroundColor !== nextProps.backgroundColor) return false;
+  if (prevProps.secondaryColor !== nextProps.secondaryColor) return false;
+  if (prevProps.userDid !== nextProps.userDid) return false;
+  if (prevProps.initialIndex !== nextProps.initialIndex) return false;
+  if (prevProps.initialUri !== nextProps.initialUri) return false;
+  if (prevProps.forceError !== nextProps.forceError) return false;
+  
+  // Shallow comparison for query options
+  if (JSON.stringify(prevProps.queryOptions) !== JSON.stringify(nextProps.queryOptions)) return false;
+  
+  return true;
+};
+
+export default memo(FeedRenderer, areEqual);

@@ -1,13 +1,12 @@
-import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef, useEffect, useMemo, memo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SwipeableFeedContainer, { FeedOption } from '../components/features/feed/SwipeableFeedContainer';
 import { Colors } from '../components/ui/UI';
 import { FORCE_FEED_ERROR } from '../utils/helpers/errorDebug';
 import { useQueryClient } from '@tanstack/react-query';
 import { createQueryKeys } from '../services/FeedService';
 import { useNavigation } from '@react-navigation/native';
-import { isSmallScreen, isTablet } from '../utils/helpers/screenSize';
+ 
 
 // Define the ref interface for HomeScreen
 export interface HomeScreenRef {
@@ -17,14 +16,16 @@ export interface HomeScreenRef {
 
 interface HomeScreenProps {}
 
-const HomeScreen = forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
+const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
   const [currentFeed, setCurrentFeed] = useState<FeedOption>('yourMix');
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const queryClient = useQueryClient();
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
-  const isSmallDevice = isSmallScreen() || isTablet();
+  
+
+  // Memoized refresh delay timeout to prevent recreation
+  const refreshTimeout = useMemo(() => 2000, []);
 
   const triggerRefresh = useCallback(() => {
     console.log('[HomeScreen] triggerRefresh()');
@@ -48,8 +49,8 @@ const HomeScreen = forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
     setTimeout(() => {
       console.log('[HomeScreen] Clearing refreshing state');
       setIsRefreshing(false);
-    }, 2000); // Show loading for 2 seconds
-  }, [currentFeed, queryClient]);
+    }, refreshTimeout);
+  }, [currentFeed, queryClient, refreshTimeout]);
 
   // Expose refresh method to parent components
   useImperativeHandle(ref, () => ({
@@ -73,31 +74,26 @@ const HomeScreen = forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
     return unsubscribe;
   }, [navigation, triggerRefresh]);
 
-  // Handle feed change from swipeable container
+  // Memoized feed change handler
   const handleFeedChange = useCallback((newFeed: FeedOption) => {
     setCurrentFeed(newFeed);
   }, []);
 
   return (
-    <View style={[
-      styles.container, 
-      { 
-        // Only apply safe area padding if NOT a full screen device
-        ...(isSmallDevice ? {} : { paddingTop: insets.top })
-      }
-    ]}>
+    <View style={styles.container}>
       <SwipeableFeedContainer
         key={refreshKey}
         initialFeed={currentFeed}
         onFeedChange={handleFeedChange}
         isRefreshing={isRefreshing}
-        forceError={FORCE_FEED_ERROR} // Use centralized error debugging flag
-        applySafeArea={isSmallDevice}
+        forceError={FORCE_FEED_ERROR}
+        applySafeArea={true}
       />
     </View>
   );
-});
+}));
 
+// Optimized StyleSheet creation outside component
 const styles = StyleSheet.create({
   container: {
     flex: 1,

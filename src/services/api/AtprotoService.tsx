@@ -73,8 +73,33 @@ type AuthorFilter =
 class AtprotoService {
   static agent = new AtpAgent({ service: SERVICE_URL });
   private static _sessionPromise: Promise<any> | null = null;
+  
+  // Performance caching for frequently accessed data
+  private static _feedCache = new Map<string, { data: any; timestamp: number }>();
+  private static _profileCache = new Map<string, { data: any; timestamp: number }>();
+  private static _channelCache = new Map<string, { data: any; timestamp: number }>();
+  private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+  // Cache utility methods
+  private static getCachedData(cache: Map<string, { data: any; timestamp: number }>, key: string): any | null {
+    const cached = cache.get(key);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.data;
+    }
+    if (cached) {
+      cache.delete(key); // Remove expired data
+    }
+    return null;
+  }
 
+  private static setCachedData(cache: Map<string, { data: any; timestamp: number }>, key: string, data: any): void {
+    cache.set(key, { data, timestamp: Date.now() });
+    // Cleanup old entries if cache gets too large
+    if (cache.size > 100) {
+      const oldestKey = cache.keys().next().value;
+      cache.delete(oldestKey);
+    }
+  }
 
   static async login(identifier: string, appPassword: string, saveAccount: boolean = true): Promise<any> {
     try {
@@ -920,20 +945,31 @@ class AtprotoService {
   }
 
   /**
-   * Get profile by handle
+   * Get profile by handle with caching for performance
    * @param handle - User handle
    * @returns Profile data
    */
   static async getProfile(handle: string): Promise<any> {
+    // Check cache first
+    const cacheKey = `profile_${handle}`;
+    const cachedProfile = this.getCachedData(this._profileCache, cacheKey);
+    if (cachedProfile) {
+      return cachedProfile;
+    }
+
     await this.ensureSession();
     try {
       const response = await this.agent.api.app.bsky.actor.getProfile({
         actor: handle,
       });
       
+      // Cache the profile data
+      const profileData = response.data;
+      this.setCachedData(this._profileCache, cacheKey, profileData);
+      
       // The profile response already includes verification data
       // No need for separate API calls - verification data is included in the profile
-      return response.data;
+      return profileData;
     } catch (error: any) {
       // console.error('Error getting profile:', error);
       return null;
@@ -1333,6 +1369,15 @@ class AtprotoService {
   }
 
   /**
+   * Clear all caches - useful for logout or account switching
+   */
+  static clearAllCaches(): void {
+    this._feedCache.clear();
+    this._profileCache.clear();
+    this._channelCache.clear();
+  }
+
+  /**
    * Log out the current user
    * Efficiently cleans up all session data and resets the agent state
    */
@@ -1340,6 +1385,9 @@ class AtprotoService {
     try {
       // Cancel any pending session checks
       this._sessionPromise = null;
+      
+      // Clear all caches for performance and privacy
+      this.clearAllCaches();
       
       // Create a new clean agent first to avoid using stale credentials
       this.agent = new AtpAgent({ service: SERVICE_URL });

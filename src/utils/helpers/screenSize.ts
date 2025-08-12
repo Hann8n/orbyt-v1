@@ -71,14 +71,14 @@ export const getVideoCardHeight = (insets: { top: number; bottom: number }): num
  */
 export const getBottomNavBarHeight = (insets: { bottom: number }): number => {
   if (isSmallScreen()) {
-    // For small screens, use minimal height for transparent nav bar
-    return 45;
+    // For small screens, use a compact height and include safe area
+    return 40 + (insets.bottom || 0);
   } else if (isTablet()) {
-    // For tablets, use a reduced height
-    return 48 + (insets.bottom || 0);
+    // For tablets, use a compact height
+    return 40 + (insets.bottom || 0);
   } else {
-    // For medium/large screens, use existing logic
-    return 60 + (insets.bottom || 0);
+    // For medium/large screens, use a standard height
+    return 45 + (insets.bottom || 0);
   }
 };
 

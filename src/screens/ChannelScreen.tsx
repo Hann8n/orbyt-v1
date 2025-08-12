@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,24 +8,21 @@ import {
   TouchableOpacity,
   Text,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs } from 'react-native-collapsible-tab-view';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import AtprotoService from '../services/api/AtprotoService';
-import { createQueryKeys } from '../services/FeedService';
+
+
 import ChannelHeader from '../components/layout/header/ChannelHeader';
 import FeedRenderer from '../components/features/feed/FeedRenderer';
 import MembersListView from '../components/features/feed/MembersListView';
 import { Colors } from '../components/ui/UI';
-import EmptyFeed from '../components/features/feed/EmptyFeed';
+
 import { useChannelColors, useChannel, useChannelColorsMutation } from '../services/cache/ChannelCache';
 import { extractColorsFromImage } from '../utils/formatting/colorUtils';
 import { TabNavigation, TabOption } from '../components/layout/header';
 import { useSubscribedChannels } from '../hooks/useSubscribedChannels';
-import { useFeed } from '../hooks/useFeed';
 import Icon from '../components/ui/Icon';
-import { isSmallScreen, isTablet } from '../utils/helpers/screenSize';
+ 
 import { useHeaderVisibility } from '../hooks/useHeaderVisibility';
 
 interface ChannelScreenProps {
@@ -33,11 +30,10 @@ interface ChannelScreenProps {
   navigation?: any;
 }
 
-const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
+const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
   const navigation = useNavigation();
   const { uri, title, description, avatar, creator } = route.params || {};
-  const insets = useSafeAreaInsets();
-  const isSmallDevice = isSmallScreen() || isTablet();
+  
   const [refreshing, setRefreshing] = useState(false);
   const { 
     addToMix,
@@ -87,23 +83,23 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
   const [activeTab, setActiveTab] = useState<'posts' | 'members'>('posts');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
+  // Ensure header is always visible in grid view
+  useEffect(() => {
+    if (viewMode === 'grid') {
+      updateHeaderVisibility(true);
+    }
+  }, [viewMode, updateHeaderVisibility]);
+
   // Use feed query only for posts tab
   const feedOption = uri || '';
-  const {
-    feed,
-    isProfileFeed,
-    error: feedError,
-    isLoading: isLoadingFeed,
-    isFetchingNextPage,
-    fetchNextPage,
-    hasNextPage,
-    refetch: refetchFeed,
-    isPaused,
-    isError: isFeedError
-  } = useFeed(feedOption, undefined, {
-    enabled: !!uri && activeTab === 'posts',
-    staleTime: 2 * 60 * 1000, // 2 minutes
-  });
+  
+  // Ensure channel data is immediately available from cache
+  const channelDataForFeed = channelData;
+  
+  // Memoized query options - always enable when tab is selected
+  const queryOptions = useMemo(() => ({ 
+    enabled: !!feedOption && feedOption.startsWith('at://') && !!channelDataForFeed?.did
+  }), [feedOption, channelDataForFeed?.did]);
 
   // Check if channel is in mix or excluded
   const isInMix = useMemo(() => {
@@ -232,29 +228,22 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
     setRefreshing(true);
     try {
       await refetchChannel();
-      
-      // Only refetch feed if we're on the posts tab
-      if (activeTab === 'posts') {
-        await refetchFeed();
-      }
     } catch (error) {
       console.error('Error during refresh:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [refetchChannel, refetchFeed, activeTab]);
+  }, [refetchChannel]);
 
   // Handle end reached for pagination
   const handleEndReached = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+    // Feed pagination is handled by FeedRenderer
+  }, []);
 
   // Handle retry
   const handleRetry = useCallback(() => {
-    refetchFeed();
-  }, [refetchFeed]);
+    // Feed retry is handled by FeedRenderer
+  }, []);
 
   // Handle position change for scroll tracking
   const handlePositionChange = useCallback((position: number) => {
@@ -262,11 +251,11 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
     // This can be used to restore the user's position when they return to the screen
   }, []);
 
-  // Create tab options
-  const tabOptions: TabOption[] = [
+  // Memoized tab options
+  const tabOptions: TabOption[] = useMemo(() => [
     { id: 'posts', label: 'posts' },
     { id: 'members', label: 'members' },
-  ];
+  ], []);
 
   // Tracker is provided by hook now
 
@@ -305,7 +294,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
         onBackPress={handleBackPress}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        applySafeArea={isSmallDevice}
+        applySafeArea={true}
         headerStyle={headerAnimatedStyle}
       >
         {channelData && (
@@ -332,8 +321,6 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
       styles.container, 
       { 
         backgroundColor: channelColors.backgroundColor, 
-        // Only apply safe area padding if NOT a full screen device
-        ...(isSmallDevice ? {} : { paddingTop: insets.top })
       }
     ]}>
       {showErrorScreen ? (
@@ -352,41 +339,46 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
           backgroundColor: 'transparent',
         }}
         renderTabBar={() => null}
-        // Optimize header behavior to reduce jitter
         revealHeaderOnScroll={false}
-        snapThreshold={0.5}
         allowHeaderOverscroll={false}
               >
           {activeTab === 'posts' ? (
             <Tabs.Tab name="posts">
-              <HeaderVisibilityTracker />
-              <FeedRenderer
-                feedOption={feedOption}
-              userDid={undefined}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  tintColor={channelColors.textColor}
-                />
-              }
-              backgroundColor={channelColors.backgroundColor}
-              secondaryColor={channelColors.textColor}
-              isProfileLoading={isLoadingChannel && !channelData}
-              isRefreshing={refreshing}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              onPositionChange={handlePositionChange}
-              initialPosition={undefined}
-              // Use Tabs.FlatList so header collapses
-              ListComponent={Tabs.FlatList}
-              // Pass combined visibility: feed is visible AND header is not visible
-              isVisible={!headerVisible}
-            />
+              {viewMode === 'list' && <HeaderVisibilityTracker />}
+              {channelDataForFeed && feedOption.startsWith('at://') ? (
+                <FeedRenderer
+                feedOption={feedOption.startsWith('at://') ? feedOption : ''}
+                userDid={channelDataForFeed?.did}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={channelColors.textColor}
+                  />
+                }
+                backgroundColor={channelColors.backgroundColor}
+                secondaryColor={channelColors.textColor}
+                isProfileLoading={isLoadingChannel && !channelDataForFeed}
+                isRefreshing={refreshing}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                onPositionChange={handlePositionChange}
+                initialPosition={undefined}
+                // Use Tabs.FlashList for FlashList v2 compatibility
+                ListComponent={Tabs.FlashList}
+                // Pass memoized query options
+                queryOptions={queryOptions}
+                // Pass combined visibility: feed is visible AND header is not visible
+                isVisible={viewMode === 'grid' ? true : !headerVisible}
+              />
+              ) : (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ color: channelColors.textColor }}>Loading channel...</Text>
+                </View>
+              )}
           </Tabs.Tab>
         ) : (
           <Tabs.Tab name="members">
-            <HeaderVisibilityTracker />
             <MembersListView
               channelUri={uri || ''}
               backgroundColor={channelColors.backgroundColor}
@@ -394,7 +386,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
               isVisible={true}
               onRefresh={onRefresh}
               isRefreshing={refreshing}
-              ListComponent={Tabs.FlatList}
+              ListComponent={Tabs.FlashList}
             />
           </Tabs.Tab>
         )}
@@ -402,8 +394,9 @@ const ChannelScreen: React.FC<ChannelScreenProps> = ({ route }) => {
       )}
     </View>
   );
-};
+});
 
+// Optimized StyleSheet creation outside component
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
