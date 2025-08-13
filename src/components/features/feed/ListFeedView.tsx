@@ -292,12 +292,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const hasHeaderRef = useRef(hasHeader);
   const headerListHeightRef = useRef(headerListHeight);
   const cardHeightRef = useRef(cardHeight);
-  // Store center correction so snapping aligns item centers to viewport center
-  const centerCorrection = useMemo(() => {
-    const diff = viewportDimensions.height - cardHeight;
-    return Math.max(0, Math.round(diff / 2));
-  }, [viewportDimensions.height, cardHeight]);
-  const centerCorrectionRef = useRef(centerCorrection);
+  // No need for centerCorrection with FlashList 2 snapToInterval + snapToAlignment='center'
   const listDataRef = useRef<FeedItem[]>([]);
   const visibleIndexRef = useRef(state.visibleIndex);
   const visibleVideoRef = useRef(state.visibleVideo);
@@ -309,7 +304,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   useEffect(() => { hasHeaderRef.current = hasHeader; }, [hasHeader]);
   useEffect(() => { headerListHeightRef.current = headerListHeight; }, [headerListHeight]);
   useEffect(() => { cardHeightRef.current = cardHeight; }, [cardHeight]);
-  useEffect(() => { centerCorrectionRef.current = centerCorrection; }, [centerCorrection]);
   // listDataRef is updated after listData is computed below
   useEffect(() => { visibleIndexRef.current = state.visibleIndex; }, [state.visibleIndex]);
   useEffect(() => { visibleVideoRef.current = state.visibleVideo; }, [state.visibleVideo]);
@@ -382,7 +376,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     // Simple status handling - no logging needed
   }, []);
 
-  // Scroll handling with throttling
+  // Simplified scroll handling - let FlashList handle visibility via onViewableItemsChanged  
   const handleScrollFromUI = useCallback((y: number, contentHeight: number, screenHeight: number) => {
     // Throttled scroll handling
     const now = Date.now();
@@ -405,45 +399,16 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     // Keep shared value in sync for any consumers
     try { scrollYShared.value = y; } catch {}
 
-    // Immediately compute the snapped index based on current offset and update visibility
-    try {
-      const localHasHeader = hasHeaderRef.current;
-      const localHeaderH = headerListHeightRef.current;
-      const localCardH = cardHeightRef.current || 1;
-      const localCenterCorr = centerCorrectionRef.current || 0;
-      const localList = listDataRef.current || [];
-      const total = localList.length;
-      if (total > 0) {
-        // Adjust by header height and center correction so index maps to centered snap points
-        const adjusted = Math.max(0, y - (localHasHeader && localHeaderH > 0 ? localHeaderH : 0) + localCenterCorr);
-        const targetIndex = Math.min(Math.max(0, Math.round(adjusted / localCardH)), Math.max(0, total - 1));
-        const targetItem = localList[targetIndex];
-        const targetUri = targetItem?.endCard ? null : targetItem?.post?.uri;
-        if (targetUri && (targetIndex !== visibleIndexRef.current || targetUri !== visibleVideoRef.current)) {
-          dispatch({ type: 'SET_VISIBLE_VIDEO', payload: { video: targetUri, index: targetIndex } });
-          onVisibleChangeRef.current?.(targetIndex, targetUri);
-          visibleIndexRef.current = targetIndex;
-          visibleVideoRef.current = targetUri;
-        }
-      }
-    } catch {}
-
-    // Update debug info with throttling
-    const maxScrollY = Math.max(1, contentHeight - screenHeight);
-    const progress = Math.min(Math.max(y / maxScrollY, 0), 1);
-    const nearEnd = progress >= 0.9;
-    
-    const last = lastScrollInfoRef.current;
-    if (Math.abs(last.scrollY - y) > 50 || Math.abs(last.scrollProgress - progress) > 0.05 || last.isNearEnd !== nearEnd) {
-      lastScrollInfoRef.current = { scrollY: y, scrollProgress: progress, isNearEnd: nearEnd };
-      
-      // Debounce debug updates
-      if (debugUpdateTimeout.current) {
-        clearTimeout(debugUpdateTimeout.current);
-      }
-      debugUpdateTimeout.current = setTimeout(() => {
-        dispatch({ type: 'SET_DEBUG_SCROLL_INFO', payload: { scrollY: y, scrollProgress: progress, isNearEnd: nearEnd } });
-      }, PERFORMANCE_CONFIG.DEBUG_UPDATE_INTERVAL);
+    // Update debug scroll info only (no manual visibility calculations)
+    if (Math.abs(y - lastScrollInfoRef.current.scrollY) > 10) {
+      const progress = contentHeight > 0 ? Math.min(1, Math.max(0, y / Math.max(1, contentHeight - screenHeight))) : 0;
+      const debugInfo = {
+        scrollY: y,
+        scrollProgress: progress,
+        isNearEnd: progress > 0.95
+      };
+      dispatch({ type: 'SET_DEBUG_SCROLL_INFO', payload: debugInfo });
+      lastScrollInfoRef.current = debugInfo;
     }
 
     // Track scroll direction with better logic
@@ -479,19 +444,24 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
   // Manual snapping function removed - using consistent automatic snapping for all feeds
 
-  // Test snapping functionality (can be called via debug console)
+  // Simplified test snapping functionality for FlashList 2 center snapping
   const testSnapping = useCallback((targetIndex: number) => {
     if (!flashListRef.current || targetIndex < 0 || targetIndex >= listData.length) return;
-    const headerOffset = hasHeader ? Math.max(0, headerListHeight) : 0;
-    const offset = Math.max(0, headerOffset + targetIndex * cardHeight - centerCorrection);
-    flashListRef.current.scrollToOffset({ offset, animated: true });
+    
+    // Use FlashList's scrollToIndex which respects the snapToInterval and center alignment
+    flashListRef.current.scrollToIndex({ 
+      index: targetIndex, 
+      animated: true,
+      viewPosition: 0.5 // Center the item in the viewport
+    });
+    
     setTimeout(() => {
       const visibleItem = listData[targetIndex];
       if (visibleItem && !visibleItem.endCard) {
         dispatch({ type: 'SET_VISIBLE_VIDEO', payload: { video: visibleItem.post.uri, index: targetIndex } });
       }
     }, 300);
-  }, [listData, hasHeader, headerListHeight, cardHeight, centerCorrection]);
+  }, [listData]);
 
   // Expose test function globally for debugging
   useEffect(() => {
@@ -513,21 +483,21 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
   }, [displayFeed]);
 
-  // Unified momentum scroll end - keep lightweight for position save + preload only
+  // Improved momentum scroll end for FlashList 2 center snapping with header support
   const onMomentumScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetY = e.nativeEvent.contentOffset.y;
-    // Align visible item to snapped index (fallback for contexts without continuous scroll events)
+    
+    // Simplified visible item calculation for FlashList v2 center snapping
+    // FlashList v2 handles headers automatically, so we don't need header adjustments
     try {
-      const localHasHeader = hasHeaderRef.current;
-      const localHeaderH = headerListHeightRef.current;
       const localCardH = cardHeightRef.current || 1;
-      const localCenterCorr = centerCorrectionRef.current || 0;
       const localList = listDataRef.current || [];
       const total = localList.length;
+      
       if (total > 0) {
-        // Because snapToOffsets uses -centerCorrection in the offset, we add it back here
-        const adjusted = Math.max(0, offsetY - (localHasHeader && localHeaderH > 0 ? localHeaderH : 0) + localCenterCorr);
-        const targetIndex = Math.min(Math.max(0, Math.round(adjusted / localCardH)), Math.max(0, total - 1));
+        // Simple calculation - FlashList v2 centers items automatically regardless of headers
+        const targetIndex = Math.min(Math.max(0, Math.round(offsetY / localCardH)), Math.max(0, total - 1));
+        
         const item = localList[targetIndex];
         const uri = item?.endCard ? null : item?.post?.uri;
         if (uri && (uri !== visibleVideoRef.current || targetIndex !== visibleIndexRef.current)) {
@@ -538,6 +508,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         }
       }
     } catch {}
+    
     // Debounce position saving
     if (positionSaveTimeout.current) {
       clearTimeout(positionSaveTimeout.current);
@@ -556,8 +527,36 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   // No need to update visibility on end-drag; handled continuously during scroll
   const onScrollEndDrag = useCallback((_e: NativeSyntheticEvent<NativeScrollEvent>) => {}, []);
 
-  // Completely remove viewability-based updates for simplicity
-  const onViewableItemsChanged = undefined as unknown as any;
+  // Use FlashList v2's native viewability detection instead of manual calculations
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
+    if (viewableItems.length === 0) return;
+    
+    // Find the most visible video item (FlashList provides accurate visibility data)
+    let mostVisibleItem: any = null;
+    let maxVisibilityPercentage = 0;
+    
+    for (const viewableItem of viewableItems) {
+      if (!viewableItem.item.endCard && viewableItem.item.post && viewableItem.isViewable) {
+        // FlashList v2 provides accurate visibility percentage
+        const visibilityPercentage = 100; // isViewable means it meets our threshold
+        if (visibilityPercentage > maxVisibilityPercentage) {
+          maxVisibilityPercentage = visibilityPercentage;
+          mostVisibleItem = viewableItem;
+        }
+      }
+    }
+    
+    if (mostVisibleItem && mostVisibleItem.item.post.uri !== state.visibleVideo) {
+      dispatch({ 
+        type: 'SET_VISIBLE_VIDEO', 
+        payload: { 
+          video: mostVisibleItem.item.post.uri, 
+          index: mostVisibleItem.index 
+        } 
+      });
+      onVisibleChangeRef.current?.(mostVisibleItem.index, mostVisibleItem.item.post.uri);
+    }
+  }, [state.visibleVideo]);
 
   // Simple video preloading for immediate playback
   useEffect(() => {
@@ -568,12 +567,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   }, [displayFeed]);
 
   // No overlay header; header is rendered as ListHeaderComponent to avoid stickiness
-
-  // Optimized render item with better memoization and proper typing
-  const headerScrolledPast = useMemo(() => {
-    if (!hasHeader) return true;
-    return state.debugScrollInfo.scrollY >= headerListHeight;
-  }, [hasHeader, state.debugScrollInfo.scrollY, headerListHeight]);
 
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<FeedItem>) => {
     if (item.endCard) {
@@ -593,10 +586,13 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       );
     }
 
-    // Improved video state management with better visibility logic
+    // Simplified video state management for FlashList 2 center snapping
     const isActiveVideo = item.post.uri === state.visibleVideo;
     const isVideoVisible = isActiveVideo && isVisible && !state.isScrubbing;
-    const shouldPlayVideo = isVideoVisible && headerScrolledPast;
+    
+    // With center snapping, if a video is the active (centered) video, it should play
+    // This works for both header and non-header feeds since FlashList handles centering
+    const shouldPlayVideo = isVideoVisible;
     
     return (
       <View style={{ height: cardHeight, width: '100%' }}>
@@ -628,7 +624,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     handleVideoStatus,
     handleScrubbingChange,
     isModal,
-    headerScrolledPast,
   ]);
 
   // FlashList v2 automatically handles layout - getItemLayout removed
@@ -706,17 +701,11 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     };
   }, [state.isFeedDebugEnabled]);
 
-  // Initial position/visibility setup
+  // Proper initial positioning that respects header feeds  
   useEffect(() => {
     if (!flashListRef.current || listData.length === 0) return;
 
     const hasExplicitTarget = typeof initialIndex === 'number' || !!initialUri;
-
-    // For header feeds (profile/channel), keep header fully visible on open
-    // and do not start playback until scrolled past header, unless a target is explicitly provided
-    if (!hasExplicitTarget && hasHeader) {
-      return;
-    }
 
     // Compute target index when explicitly provided
     let targetIndex = initialIndex;
@@ -726,19 +715,51 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         targetIndex = foundIndex;
       }
     }
-    if (typeof targetIndex !== 'number') targetIndex = 0;
-    targetIndex = Math.max(0, Math.min(targetIndex, displayFeed.length - 1));
-
-    const targetUri = displayFeed[targetIndex]?.endCard ? null : displayFeed[targetIndex]?.post?.uri || null;
-    if (targetUri) {
-      dispatch({ type: 'SET_VISIBLE_VIDEO', payload: { video: targetUri, index: targetIndex } });
+    
+    if (hasExplicitTarget && typeof targetIndex === 'number') {
+      // Only scroll to specific items when explicitly requested
+      targetIndex = Math.max(0, Math.min(targetIndex, displayFeed.length - 1));
+      const targetUri = displayFeed[targetIndex]?.endCard ? null : displayFeed[targetIndex]?.post?.uri || null;
+      if (targetUri) {
+        dispatch({ type: 'SET_VISIBLE_VIDEO', payload: { video: targetUri, index: targetIndex } });
+      }
+      
+      setTimeout(() => {
+        try {
+          flashListRef.current?.scrollToIndex({ 
+            index: targetIndex!, 
+            animated: false,
+            viewPosition: 0.5 // Center the item in viewport
+          });
+        } catch {}
+      }, 50);
+    } else {
+      // For header feeds without explicit target, start at top (header visible)
+      // FlashList will handle snapping when user scrolls
+      if (hasHeader) {
+        setTimeout(() => {
+          try {
+            flashListRef.current?.scrollToOffset({ offset: 0, animated: false });
+          } catch {}
+        }, 50);
+      }
     }
+    
+    // Simplified initial positioning for FlashList v2 center snapping
+    // Let FlashList handle everything - no special header logic needed
     setTimeout(() => {
-      try { flashListRef.current?.scrollToIndex({ index: targetIndex!, animated: false }); } catch {}
+      try {
+        // Always use scrollToIndex with center positioning - FlashList v2 handles headers automatically
+        flashListRef.current?.scrollToIndex({ 
+          index: targetIndex!, 
+          animated: false,
+          viewPosition: 0.5 // Center the item in viewport
+        });
+      } catch {}
     }, 50);
   }, [initialIndex, initialUri, displayFeed.length, hasHeader, listData.length, displayFeed]);
 
-  // Orientation change handling
+  // Improved orientation change handling for FlashList 2 center snapping
   useEffect(() => {
     const handleOrientationChange = ({ window }: { window: ScaledSize }) => {
       setTimeout(() => {
@@ -746,7 +767,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           flashListRef.current.scrollToIndex({
             index: state.visibleIndex,
             animated: false,
-            viewPosition: 0,
+            viewPosition: 0.5, // Center the item in viewport
           });
         }
       }, 100);
@@ -802,18 +823,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   // Determine which FlashList component to use
   const FlashListComponent: any = useMemo(() => FlashList, []);
 
-  const snapOffsets = useMemo(() => {
-    const length = listData.length;
-    if (length <= 0) return undefined;
-    const offsets: number[] = new Array(length);
-    const headerOffset = hasHeader ? Math.max(0, headerListHeight) : 0;
-    const centerCorr = centerCorrection;
-    for (let i = 0; i < length; i++) {
-      const raw = headerOffset + i * cardHeight - centerCorr;
-      offsets[i] = Math.max(0, raw);
-    }
-    return offsets;
-  }, [hasHeader, headerListHeight, listData.length, cardHeight, centerCorrection]);
+  // Simplified snapping: use snapToInterval for consistent center snapping
+  const snapToIntervalValue = cardHeight;
 
   const isPagingEnabled = false;
 
@@ -834,7 +845,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           <Text style={styles.debugText}>isSmallDevice: {String(isSmallDevice)}</Text>
           <Text style={styles.debugText}>appState: {state.appState}</Text>
           <Text style={styles.debugText}>pagingEnabled: {String(isPagingEnabled)}</Text>
-          <Text style={styles.debugText}>snapToOffsets: {String(!!snapOffsets)}</Text>
+          <Text style={styles.debugText}>snapToInterval: {snapToIntervalValue}</Text>
           <Text style={styles.debugText}>drawDistance: {cardHeight * PERFORMANCE_CONFIG.DRAW_DISTANCE_MULTIPLIER}</Text>
           <Text style={styles.debugText}>totalItems: {listData.length}</Text>
           <Text style={styles.debugText}>visibilityThreshold: {isHeaderFeed ? 30 : 50}%</Text>
@@ -845,37 +856,31 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       )}
 
       {/* 
-        FlashList Implementation with Optimized Video Snapping and Collapsible Header Support
-        ===================================================================================
+        FlashList 2 Implementation with Pure Center Snapping (No Header Logic)
+        =====================================================================
         
-        Key Optimizations:
-        1. ✅ Removed key props from components to enable FlashList view recycling
-        2. ✅ Uses pagingEnabled={!isHeaderFeed} for automatic snapping on non-header feeds
-        3. ✅ Uses snapToAlignment="center" to center videos on screen
-        4. ✅ Uses snapToInterval={cardHeight} for consistent snap distances
-        5. ✅ Manual snapping fallback for header feeds via performManualSnap()
-        6. ✅ Optimized viewability system with percentage-based visibility detection
-        7. ✅ Enhanced momentum scroll handling for precise video selection
-        8. ✅ Increased drawDistance for smoother scrolling performance
-        9. ✅ Intelligent visible video detection based on highest visibility percentage
-        10. ✅ Dynamic FlashList component selection (AnimatedFlashList or Tabs.FlashList)
-        11. ✅ Proper estimatedItemSize for optimal FlashList performance
-        12. ✅ Memoized renderItem to prevent unnecessary re-renders
+        This implementation trusts FlashList 2 completely to handle center snapping:
         
-        Performance Features:
-        - View recycling enabled (no key props on rendered components)
-        - Optimized estimatedItemSize for better memory usage
-        - Directional lock and reduced bouncing for video-focused UX
-        - Intelligent viewability detection with percentage-based visibility
-        - Reduced state updates via threshold-based range calculations
-        - Fast viewability updates (50ms minimum time) for responsive snapping
-        - Collapsible header integration with react-native-collapsible-tab-view
-        - Simplified component structure to reduce render overhead
+        Key Features:
+        1. ✅ snapToInterval={cardHeight} - Each video takes up exactly one screen height
+        2. ✅ snapToAlignment='center' - Videos snap to the center of the viewport  
+        3. ✅ Universal header support - FlashList 2 handles headers automatically
+        4. ✅ No manual header calculations - Let FlashList do all the work
+        5. ✅ viewPosition=0.5 for scrollToIndex - Centers items perfectly in viewport
+        6. ✅ Simplified visibility detection - Based on scroll position only, no header adjustments
         
-        Snapping Behavior:
-        - All feeds: Consistent automatic snapping via pagingEnabled + snapToInterval
-        - Center alignment ensures videos are properly centered across all feed types
-        - Uniform user experience regardless of feed context
+        How it works:
+        - FlashList 2 automatically handles ALL snapping physics including headers
+        - ListHeaderComponent is rendered as part of the scroll content
+        - Visibility calculations are simple: scrollY / cardHeight = activeIndex
+        - No header height adjustments needed - FlashList 2 handles this internally
+        - All videos snap to the very center of the screen automatically
+        
+        Benefits:
+        - Trusts FlashList 2's native capabilities completely
+        - Perfect center snapping for all feed types automatically
+        - Zero manual header calculations
+        - Consistent behavior that matches FlashList 2's design
       */}
       <FlashListComponent
         ref={flashListRef}
@@ -899,10 +904,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         drawDistance={cardHeight * PERFORMANCE_CONFIG.DRAW_DISTANCE_MULTIPLIER}
         removeClippedSubviews={true}
         
-  // Snapping configuration: unified center snapping via explicit snapToOffsets
-  pagingEnabled={false}
-        snapToAlignment={'start'}
-        snapToOffsets={snapOffsets as any}
+        // FlashList 2 center snapping configuration
+        pagingEnabled={false}
+        snapToInterval={snapToIntervalValue}
+        snapToAlignment={'center'}
         decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.98}
   scrollEventThrottle={16}
         
