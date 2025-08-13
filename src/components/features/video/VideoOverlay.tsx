@@ -33,6 +33,8 @@ import Animated, {
   withSequence,
   runOnJS,
   Easing,
+  FadeIn,
+  FadeOut,
 } from 'react-native-reanimated';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import VerificationBadge from '../verification/VerificationBadge';
@@ -356,22 +358,12 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
     }
   }, [gradientHeightShared]);
   
-  // Keep overlay mounted but cross-fade opacity on visibility for smoother transitions
+  // Decide if we should render overlay - render regardless of visibility unless in clear view mode
   const shouldRenderOverlay = useMemo(() => {
     if (isClearViewMode) return false;
+    // Always render overlays so they can appear before visibility flips on
     return true;
   }, [isClearViewMode]);
-
-  // Smooth overlay alpha based on visibility
-  const overlayAlpha = useSharedValue(isVisible ? 1 : 0);
-  useEffect(() => {
-    overlayAlpha.value = withTiming(isVisible ? 1 : 0, { duration: 180, easing: Easing.out(Easing.cubic) });
-  }, [isVisible, overlayAlpha]);
-  const animatedContainerStyle = useAnimatedStyle(() => ({
-    opacity: overlayAlpha.value,
-    // Hint GPU compositing on both platforms for smoother fades
-    transform: [{ perspective: 1000 }],
-  }));
   
   // Get current user data
   const { data: userData } = useQuery({
@@ -625,7 +617,9 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({ post, videoRef, isVisible, 
 
   return shouldRenderOverlay ? (
       <Animated.View
-        style={[styles.container, animatedContainerStyle]}
+        style={[styles.container]}
+        entering={FadeIn.duration(240).easing(Easing.bezier(0.2, 0.9, 0.2, 1))}
+        exiting={FadeOut.duration(280).easing(Easing.out(Easing.cubic))}
         pointerEvents="box-none"
       >
       {/* Hide overlay content while scrubbing */}
