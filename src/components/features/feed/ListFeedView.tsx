@@ -19,20 +19,14 @@ import ReAnimated, {
   FadeOut, 
   Layout, 
   Easing, 
-  useAnimatedScrollHandler, 
-  runOnJS,
   useSharedValue,
   useDerivedValue,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef, type FlashListProps, type ListRenderItemInfo } from '@shopify/flash-list';
-import { Tabs } from 'react-native-collapsible-tab-view';
 
-// Create Reanimated version of FlashList with proper typing for v2
-const AnimatedFlashList = ReAnimated.createAnimatedComponent(FlashList);
-// Create Tabs version of FlashList for collapsible header support
-const TabsFlashList = Tabs.FlashList;
+// Use plain FlashList (animated wrapper removed)
 import EmptyFeed from './EmptyFeed';
 import { MemoizedVideoItem } from './VideoItem';
 import WatchHistory from '../../../services/WatchHistory';
@@ -242,8 +236,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   
   // Device detection
   const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
-  // Whether we are rendering inside Tabs.FlashList (collapsible header)
-  const isUsingTabsEarly = useMemo(() => !!ListComponent, [ListComponent]);
   const isHeaderFeed = useMemo(() => (
     feedOption === 'profile' ||
     feedOption === 'likes' ||
@@ -300,6 +292,12 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const hasHeaderRef = useRef(hasHeader);
   const headerListHeightRef = useRef(headerListHeight);
   const cardHeightRef = useRef(cardHeight);
+  // Store center correction so snapping aligns item centers to viewport center
+  const centerCorrection = useMemo(() => {
+    const diff = viewportDimensions.height - cardHeight;
+    return Math.max(0, Math.round(diff / 2));
+  }, [viewportDimensions.height, cardHeight]);
+  const centerCorrectionRef = useRef(centerCorrection);
   const listDataRef = useRef<FeedItem[]>([]);
   const visibleIndexRef = useRef(state.visibleIndex);
   const visibleVideoRef = useRef(state.visibleVideo);
@@ -311,6 +309,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   useEffect(() => { hasHeaderRef.current = hasHeader; }, [hasHeader]);
   useEffect(() => { headerListHeightRef.current = headerListHeight; }, [headerListHeight]);
   useEffect(() => { cardHeightRef.current = cardHeight; }, [cardHeight]);
+  useEffect(() => { centerCorrectionRef.current = centerCorrection; }, [centerCorrection]);
   // listDataRef is updated after listData is computed below
   useEffect(() => { visibleIndexRef.current = state.visibleIndex; }, [state.visibleIndex]);
   useEffect(() => { visibleVideoRef.current = state.visibleVideo; }, [state.visibleVideo]);
@@ -411,10 +410,12 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       const localHasHeader = hasHeaderRef.current;
       const localHeaderH = headerListHeightRef.current;
       const localCardH = cardHeightRef.current || 1;
+      const localCenterCorr = centerCorrectionRef.current || 0;
       const localList = listDataRef.current || [];
       const total = localList.length;
       if (total > 0) {
-        const adjusted = Math.max(0, y - (localHasHeader && localHeaderH > 0 ? localHeaderH : 0));
+        // Adjust by header height and center correction so index maps to centered snap points
+        const adjusted = Math.max(0, y - (localHasHeader && localHeaderH > 0 ? localHeaderH : 0) + localCenterCorr);
         const targetIndex = Math.min(Math.max(0, Math.round(adjusted / localCardH)), Math.max(0, total - 1));
         const targetItem = localList[targetIndex];
         const targetUri = targetItem?.endCard ? null : targetItem?.post?.uri;
@@ -458,7 +459,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     onVerticalScrollRef.current?.(y);
   }, []);
 
-  // Lightweight native onScroll handler for standard FlashList
+  // Lightweight native onScroll handler for FlashList
   const onScrollNative = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
     try {
@@ -474,42 +475,23 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     handleScrollFromUI(contentOffset?.y || 0, contentSize?.height || 0, layoutMeasurement?.height || 0);
   }, [handleScrollFromUI]);
 
-  // Reanimated worklet onScroll for Tabs.FlashList (collapsible header context)
-  const onScrollAnimated = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      try {
-        const y = event.contentOffset?.y || 0;
-        const contentHeight = event.contentSize?.height || 0;
-        const screenHeight = event.layoutMeasurement?.height || 0;
-        // Bridge back to JS for unified handling
-        runOnJS(handleScrollFromUI)(y, contentHeight, screenHeight);
-      } catch {}
-    },
-  });
+  // Removed adapter/Tabs-specific animated onScroll logic
 
   // Manual snapping function removed - using consistent automatic snapping for all feeds
 
   // Test snapping functionality (can be called via debug console)
   const testSnapping = useCallback((targetIndex: number) => {
     if (!flashListRef.current || targetIndex < 0 || targetIndex >= listData.length) return;
-    const base = targetIndex * cardHeight;
-    const offset = (hasHeader ? headerListHeight : 0) + base;
-    flashListRef.current.scrollToOffset({
-      offset,
-      animated: true,
-    });
-    
-    // Update visible video after snapping
+    const headerOffset = hasHeader ? Math.max(0, headerListHeight) : 0;
+    const offset = Math.max(0, headerOffset + targetIndex * cardHeight - centerCorrection);
+    flashListRef.current.scrollToOffset({ offset, animated: true });
     setTimeout(() => {
       const visibleItem = listData[targetIndex];
       if (visibleItem && !visibleItem.endCard) {
-        dispatch({ 
-          type: 'SET_VISIBLE_VIDEO', 
-          payload: { video: visibleItem.post.uri, index: targetIndex }
-        });
+        dispatch({ type: 'SET_VISIBLE_VIDEO', payload: { video: visibleItem.post.uri, index: targetIndex } });
       }
     }, 300);
-  }, [cardHeight, listData, hasHeader, headerListHeight]);
+  }, [listData, hasHeader, headerListHeight, cardHeight, centerCorrection]);
 
   // Expose test function globally for debugging
   useEffect(() => {
@@ -539,10 +521,12 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       const localHasHeader = hasHeaderRef.current;
       const localHeaderH = headerListHeightRef.current;
       const localCardH = cardHeightRef.current || 1;
+      const localCenterCorr = centerCorrectionRef.current || 0;
       const localList = listDataRef.current || [];
       const total = localList.length;
       if (total > 0) {
-        const adjusted = Math.max(0, offsetY - (localHasHeader && localHeaderH > 0 ? localHeaderH : 0));
+        // Because snapToOffsets uses -centerCorrection in the offset, we add it back here
+        const adjusted = Math.max(0, offsetY - (localHasHeader && localHeaderH > 0 ? localHeaderH : 0) + localCenterCorr);
         const targetIndex = Math.min(Math.max(0, Math.round(adjusted / localCardH)), Math.max(0, total - 1));
         const item = localList[targetIndex];
         const uri = item?.endCard ? null : item?.post?.uri;
@@ -815,31 +799,25 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const headerHeightForTabs = useMemo(() => (ListComponent ? 280 : 0), [ListComponent]);
   const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
 
-  // Determine which FlashList component to use - simplified and optimized
-  const FlashListComponent = useMemo(() => {
-    // When using collapsible header, always use the provided ListComponent (Tabs.FlashList)
-    if (ListComponent) {
-      return ListComponent;
-    }
-    // Use animated version for better performance when not in collapsible mode
-    return useAnimatedScroll ? AnimatedFlashList : FlashList;
-  }, [ListComponent, useAnimatedScroll]);
-
-  const isUsingTabsFlashList = useMemo(() => !!ListComponent, [ListComponent]);
-  // Note: index-from-offset logic is computed inline in handlers to avoid declaration order issues
+  // Determine which FlashList component to use
+  const FlashListComponent: any = useMemo(() => FlashList, []);
 
   const snapOffsets = useMemo(() => {
-    if (!hasHeader) return undefined;
-    if (!headerListHeight || headerListHeight < 0) return undefined;
     const length = listData.length;
-    const offsets: number[] = new Array(Math.max(0, length));
+    if (length <= 0) return undefined;
+    const offsets: number[] = new Array(length);
+    const headerOffset = hasHeader ? Math.max(0, headerListHeight) : 0;
+    const centerCorr = centerCorrection;
     for (let i = 0; i < length; i++) {
-      offsets[i] = headerListHeight + i * cardHeight;
+      const raw = headerOffset + i * cardHeight - centerCorr;
+      offsets[i] = Math.max(0, raw);
     }
     return offsets;
-  }, [hasHeader, headerListHeight, listData.length, cardHeight]);
+  }, [hasHeader, headerListHeight, listData.length, cardHeight, centerCorrection]);
 
-  // Main render - unified approach for both collapsible and non-collapsible headers
+  const isPagingEnabled = false;
+
+  // Main render - unified approach for feeds with or without headers
   return (
     <View style={[styles.container, { backgroundColor: backgroundColor || Colors.black }]}> 
       {/* Header rendered in list via ListHeaderComponent so it scrolls away (non-sticky) */}
@@ -855,15 +833,14 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           <Text style={styles.debugText}>viewportHeight: {viewportDimensions.height}</Text>
           <Text style={styles.debugText}>isSmallDevice: {String(isSmallDevice)}</Text>
           <Text style={styles.debugText}>appState: {state.appState}</Text>
-          <Text style={styles.debugText}>pagingEnabled: true</Text>
-          <Text style={styles.debugText}>snapToInterval: {cardHeight}</Text>
+          <Text style={styles.debugText}>pagingEnabled: {String(isPagingEnabled)}</Text>
+          <Text style={styles.debugText}>snapToOffsets: {String(!!snapOffsets)}</Text>
           <Text style={styles.debugText}>drawDistance: {cardHeight * PERFORMANCE_CONFIG.DRAW_DISTANCE_MULTIPLIER}</Text>
           <Text style={styles.debugText}>totalItems: {listData.length}</Text>
           <Text style={styles.debugText}>visibilityThreshold: {isHeaderFeed ? 30 : 50}%</Text>
           <Text style={styles.debugText}>activeThreshold: {isHeaderFeed ? 50 : 75}%</Text>
           <Text style={styles.debugText}>testSnapping: __TEST_FLASH_LIST_SNAPPING__(index)</Text>
           <Text style={styles.debugText}>forceError: {String(forceError)}</Text>
-          <Text style={styles.debugText}>usingTabsFlashList: {String(!!ListComponent)}</Text>
         </View>
       )}
 
@@ -918,27 +895,18 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         // CRITICAL: Provide accurate estimatedItemSize for optimal performance
         estimatedItemSize={cardHeight}
         
-  // FlashList v2 feature: Maintain visible content position only when NOT using Tabs.FlashList
-  // Avoids UIKit observation feedback loops when combined with collapsible headers
-  maintainVisibleContentPosition={isUsingTabsFlashList ? undefined : {
-    autoscrollToTopThreshold: cardHeight * 2,
-  }}
-        
         // FlashList optimizations for video performance
         drawDistance={cardHeight * PERFORMANCE_CONFIG.DRAW_DISTANCE_MULTIPLIER}
         removeClippedSubviews={true}
         
-  // Snapping configuration
-  // Disable paging when using Tabs.FlashList or custom snapToOffsets (header present)
-  pagingEnabled={!isUsingTabsFlashList && !snapOffsets}
-        snapToAlignment={snapOffsets ? 'start' : 'center'}
-        snapToInterval={snapOffsets ? undefined as any : cardHeight}
+  // Snapping configuration: unified center snapping via explicit snapToOffsets
+  pagingEnabled={false}
+        snapToAlignment={'start'}
         snapToOffsets={snapOffsets as any}
         decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.98}
   scrollEventThrottle={16}
         
-        // Use Reanimated worklet handler for Tabs.FlashList, JS handler otherwise
-        onScroll={isUsingTabsFlashList ? (onScrollAnimated as any) : (onScrollNative as any)}
+        onScroll={onScrollNative as any}
         onMomentumScrollEnd={onMomentumScrollEnd}
         onScrollEndDrag={onScrollEndDrag}
         onViewableItemsChanged={onViewableItemsChanged}

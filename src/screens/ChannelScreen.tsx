@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Text,
 } from 'react-native';
-import { Tabs } from 'react-native-collapsible-tab-view';
+// Use plain FlashList via FeedRenderer; no adapter/converter
 import { useNavigation, useRoute } from '@react-navigation/native';
 
 
@@ -309,57 +309,48 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
       {showErrorScreen ? (
         renderErrorScreen()
       ) : (
-      <Tabs.Container renderTabBar={() => null}>
-          {activeTab === 'posts' ? (
-            <Tabs.Tab name="posts">
-              {channelDataForFeed && feedOption.startsWith('at://') ? (
-                <FeedRenderer
-                feedOption={feedOption.startsWith('at://') ? feedOption : ''}
-                userDid={channelDataForFeed?.did}
-                headerComponent={headerComponent}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    tintColor={channelColors.textColor}
-                  />
-                }
-                backgroundColor={channelColors.backgroundColor}
-                secondaryColor={channelColors.textColor}
-                isProfileLoading={isLoadingChannel && !channelDataForFeed}
-                isRefreshing={refreshing}
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-                onPositionChange={handlePositionChange}
-                initialPosition={undefined}
-                // Use Tabs.FlashList for FlashList v2 compatibility; header passed to list
-                ListComponent={Tabs.FlashList}
-                // Pass memoized query options
-                queryOptions={queryOptions}
-                // Header always visible; keep feed active
-                isVisible={true}
-              />
-              ) : (
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                  <Text style={{ color: channelColors.textColor }}>Loading channel...</Text>
-                </View>
-              )}
-          </Tabs.Tab>
-        ) : (
-          <Tabs.Tab name="members">
-            <MembersListView
-              channelUri={uri || ''}
-              backgroundColor={channelColors.backgroundColor}
-              textColor={channelColors.textColor}
+        activeTab === 'posts' ? (
+          channelDataForFeed && feedOption.startsWith('at://') ? (
+            <FeedRenderer
+              feedOption={feedOption.startsWith('at://') ? feedOption : ''}
+              userDid={channelDataForFeed?.did}
               headerComponent={headerComponent}
-              isVisible={true}
-              onRefresh={onRefresh}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={channelColors.textColor}
+                />
+              }
+              backgroundColor={channelColors.backgroundColor}
+              secondaryColor={channelColors.textColor}
+              isProfileLoading={isLoadingChannel && !channelDataForFeed}
               isRefreshing={refreshing}
-              ListComponent={Tabs.FlashList}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onPositionChange={handlePositionChange}
+              initialPosition={undefined}
+              // Pass memoized query options
+              queryOptions={queryOptions}
+              // Header always visible; keep feed active
+              isVisible={true}
             />
-          </Tabs.Tab>
-        )}
-      </Tabs.Container>
+          ) : (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: channelColors.textColor }}>Loading channel...</Text>
+            </View>
+          )
+        ) : (
+          <MembersListView
+            channelUri={uri || ''}
+            backgroundColor={channelColors.backgroundColor}
+            textColor={channelColors.textColor}
+            headerComponent={headerComponent}
+            isVisible={true}
+            onRefresh={onRefresh}
+            isRefreshing={refreshing}
+          />
+        )
       )}
     </View>
   );

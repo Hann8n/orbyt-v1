@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
 import AtprotoService from '../services/api/AtprotoService';
-import { Tabs } from 'react-native-collapsible-tab-view';
+// Use plain FlashList via FeedRenderer; no adapter/converter
 import FeedRenderer from '../components/features/feed/FeedRenderer';
 import { extractColorsFromImage } from '../utils/formatting/colorUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -358,8 +358,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       {showErrorScreen ? (
         renderErrorScreen
       ) : (
-        <Tabs.Container renderTabBar={() => null}>
-          <Tabs.Tab name="feed">
             <FeedRenderer
               feedOption={
                 activeTab === 'profile' ? 'profile' :
@@ -403,11 +401,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               isProfileLoading={isProfileLoading && !profileData}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
-              ListComponent={Tabs.FlashList}
               isVisible={true}
             />
-          </Tabs.Tab>
-        </Tabs.Container>
+      
       )}
 
       {/* Account Switcher Modal */}

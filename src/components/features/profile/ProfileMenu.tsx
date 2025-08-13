@@ -15,11 +15,11 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import Icon, { ShareIcon } from '../../ui/Icon';
 import AtprotoService from '../../../services/api/AtprotoService';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
+import VerticalListSheet from '../../ui/VerticalListSheet';
 
 interface ProfileMenuProps {
   visible: boolean;
@@ -46,10 +46,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isBlocked, setIsBlocked] = useState<boolean>(false);
-
-  // Bottom sheet ref and snap points
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['50%'], []);
+  const [showReportBlockSubmenu, setShowReportBlockSubmenu] = useState<boolean>(false);
 
   // Get profile data to determine if it's the current user
   const { data: profile } = useQuery({
@@ -71,12 +68,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     setIsBlocked(blockStatus);
   }, [blockStatus]);
 
-  // Handle bottom sheet visibility
+  // Reset submenu state when menu visibility changes
   useEffect(() => {
-    if (visible) {
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
+    if (!visible) {
+      setShowReportBlockSubmenu(false);
     }
   }, [visible]);
 
@@ -120,6 +115,11 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       setIsSubmitting(false);
     }
   }, [profile?.did, isBlocked, onDismiss, queryClient]);
+
+  // Report or Block submenu handler
+  const handleReportOrBlock = useCallback(() => {
+    setShowReportBlockSubmenu(true);
+  }, []);
 
   // Report user handler
   const handleReport = useCallback(() => {
@@ -253,19 +253,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     );
   }, [onDismiss, queryClient, onLogout]);
 
-  // Backdrop component
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.5}
-      />
-    ),
-    []
-  );
-
   // Determine menu options based on profile type
   const getMenuOptions = () => {
     if (isOwnProfile) {
@@ -322,19 +309,11 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           color: Colors.lightGray
         },
         {
-          id: 'block',
-          label: isBlocked ? 'unblock' : 'block',
-          icon: 'block',
-          onPress: handleBlockToggle,
+          id: 'reportOrBlock',
+          label: 'report or block',
+          icon: 'more-horizontal',
+          onPress: handleReportOrBlock,
           color: Colors.lightGray
-        },
-        {
-          id: 'report',
-          label: 'report',
-          icon: 'report',
-          onPress: handleReport,
-          color: Colors.lightGray,
-          buttonColor: Colors.darkRed
         }
       ];
     }
@@ -342,132 +321,88 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
   const menuOptions = getMenuOptions();
 
-  // Calculate dynamic spacing based on screen width and number of options
-  const calculateSpacing = () => {
-    const optionWidth = 64; // Width of each option button
-    const totalOptionsWidth = menuOptions.length * optionWidth;
-    const availableWidth = SCREEN_WIDTH - 60; // Account for horizontal padding
-    const remainingSpace = availableWidth - totalOptionsWidth;
-    const spacing = Math.max(20, remainingSpace / (menuOptions.length + 1)); // Minimum 20px spacing
-    return spacing;
-  };
-
-  const dynamicSpacing = calculateSpacing();
-
   return (
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      index={0}
-      snapPoints={snapPoints}
-      backdropComponent={renderBackdrop}
+    <VerticalListSheet
+      visible={visible}
       onDismiss={onDismiss}
-      backgroundStyle={styles.bottomSheetBackground}
-      handleIndicatorStyle={{ display: 'none' }}
+      title={showReportBlockSubmenu ? 'Report or Block' : handle}
+      showCancelButton={true}
+      cancelButtonText="Cancel"
     >
-      <BottomSheetView style={styles.content}>
-        {/* Options */}
-        <View style={[styles.optionsContainer, { gap: dynamicSpacing }]}>
-          {menuOptions.map((option) => (
-            <View key={option.id} style={styles.optionWrapper}>
-              <TouchableOpacity 
-                style={[
-                  styles.option,
-                  option.buttonColor ? { backgroundColor: option.buttonColor } : null
-                ]} 
-                onPress={option.onPress}
-                activeOpacity={0.7}
-                disabled={isSubmitting}
-              >
-                {option.icon === 'share' && (
-                  <ShareIcon size={32} color={option.color} />
-                )}
-                {option.icon !== 'share' && (
-                  <Icon 
-                    name={option.icon} 
-                    size={32} 
-                    color={option.color} 
-                  />
-                )}
-              </TouchableOpacity>
-              <Text style={styles.optionText}>{option.label}</Text>
-            </View>
-          ))}
-        </View>
-        <View style={styles.cancelContainer}>
+      {showReportBlockSubmenu ? (
+        /* Sub-menu for Report or Block */
+        <View style={styles.optionsContainer}>
           <TouchableOpacity 
-            style={styles.cancelButton} 
-            onPress={onDismiss} 
+            style={[styles.option, styles.submenuOption]}
+            onPress={() => {
+              setShowReportBlockSubmenu(false);
+              handleReport();
+            }}
             activeOpacity={0.7}
             disabled={isSubmitting}
           >
-            <Text style={styles.cancelButtonText}>cancel</Text>
+            <Text style={[styles.optionText, styles.submenuText]}>Report Account</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.option, styles.submenuOption]}
+            onPress={() => {
+              setShowReportBlockSubmenu(false);
+              handleBlockToggle();
+            }}
+            activeOpacity={0.7}
+            disabled={isSubmitting}
+          >
+            <Text style={[styles.optionText, styles.submenuText]}>{isBlocked ? 'Unblock Account' : 'Block Account'}</Text>
           </TouchableOpacity>
         </View>
-      </BottomSheetView>
-    </BottomSheetModal>
+      ) : (
+        /* Main menu options */
+        <View style={styles.optionsContainer}>
+          {menuOptions.map((option) => (
+            <TouchableOpacity 
+              key={option.id}
+              style={styles.option}
+              onPress={option.onPress}
+              activeOpacity={0.7}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.optionText}>{option.label.charAt(0).toUpperCase() + option.label.slice(1)}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </VerticalListSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  bottomSheetBackground: {
-    backgroundColor: Colors.black,
-    borderTopWidth: 0.5,
-    borderTopColor: Colors.mediumGray,
-    // Square top corners - no border radius
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-  },
-
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 30,
-  },
   optionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
+    flexDirection: 'column',
+    gap: 12,
     marginTop: 0,
   },
-  optionWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   option: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 70,
-    height: 70,
+    backgroundColor: Colors.darkGray,
     borderRadius: 20,
-    backgroundColor: Colors.darkGray,
-  },
-  cancelContainer: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  cancelButton: {
-    backgroundColor: Colors.darkGray,
-    borderWidth: 1,
-    borderColor: Colors.gray,
-    borderRadius: 50,
-    paddingVertical: 12,
+    paddingVertical: 24,
     paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButtonText: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
   },
   optionText: {
     color: Colors.lightGray,
-    fontSize: 15,
-    fontWeight: '600',
-    marginTop: 12,
+    fontSize: 18,
+    fontWeight: '500',
+    textAlign: 'left',
+    fontFamily: 'Firma-Medium',
+    paddingLeft: 8,
+  },
+  submenuText: {
+    color: Colors.white,
     textAlign: 'center',
+    paddingLeft: 0,
     fontFamily: 'Firma-SemiBold',
+  },
+  submenuOption: {
+    backgroundColor: Colors.darkRed,
   },
 });
 

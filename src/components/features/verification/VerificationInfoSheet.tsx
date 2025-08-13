@@ -202,13 +202,13 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
               textColor={Colors.white}
             />
           </View>
-          <TouchableOpacity 
-            style={styles.closeButton} 
-            onPress={onDismiss}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.closeButtonText}>×</Text>
-          </TouchableOpacity>
+                      <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={onDismiss}
+              activeOpacity={0.7}
+            >
+              <Icon name="close" size={20} color={Colors.lightGray} />
+            </TouchableOpacity>
         </View>
 
         {isLoading ? (
@@ -382,11 +382,6 @@ const styles = StyleSheet.create({
     height: 30,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeButtonText: {
-    color: Colors.lightGray,
-    fontSize: 24,
-    fontWeight: 'bold',
   },
   loadingIndicator: {
     marginVertical: 40,

@@ -9,7 +9,7 @@ import {
   SafeAreaView,
   Platform,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetFlatList, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../ui/Icon';
 import { PlusIcon } from '../../ui/Icon';
@@ -23,9 +23,10 @@ import { feedService } from '../../../services/FeedService';
 import WatchHistory from '../../../services/WatchHistory';
 import ChannelSubscriptionManager from '../../../services/storage/ChannelSubscriptionManager';
 import { AtprotoService } from '../../../services/api/AtprotoService';
-import { Colors, hexToRGBA } from '../../ui/UI';
+import { Colors, hexToRGBA, Avatar } from '../../ui/UI';
 import UI from '../../ui/UI';
 import { useQueryClient } from '@tanstack/react-query';
+import VerticalListSheet from '../../ui/VerticalListSheet';
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -53,19 +54,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const [editMode, setEditMode] = useState(false);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-
-  // Bottom sheet ref and snap points
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['60%'], []);
-
-  // Show/hide bottom sheet based on visible prop
-  useEffect(() => {
-    if (visible) {
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
-    }
-  }, [visible]);
 
   // Get current active account for custom colors
   const activeAccount = accounts.find(acc => acc.isActive);
@@ -98,27 +86,14 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             if (!cachedProfile) {
               try {
                 cachedProfile = await ProfileCache.refreshProfile(account.handle);
-              } catch (refreshError) {
-                console.warn(`Failed to refresh profile for ${account.handle}:`, refreshError);
-              }
-            }
-            
-            // Update saved account data with fresh profile information if available
-            if (cachedProfile) {
-              try {
-                await AccountManager.updateAccountProfile(account.id, {
-                  displayName: cachedProfile.displayName,
-                  avatar: cachedProfile.avatar,
-                  handle: cachedProfile.handle,
-                });
-              } catch (updateError) {
-                console.warn(`Failed to update account profile for ${account.handle}:`, updateError);
+              } catch (error) {
+                console.warn(`Failed to refresh profile for ${account.handle}:`, error);
               }
             }
             
             return {
               ...account,
-              cachedProfile: cachedProfile || undefined
+              cachedProfile,
             };
           } catch (error) {
             console.warn(`Failed to load profile for ${account.handle}:`, error);
@@ -130,163 +105,129 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       setAccounts(accountsWithProfiles);
     } catch (error) {
       console.error('Error loading accounts:', error);
-      setAccounts([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSwitchAccount = async (account: SavedAccount) => {
-    if (editMode) return; // Don't switch in edit mode
+  const handleSwitchAccount = useCallback(async (account: AccountWithProfile) => {
+    if (account.isActive) return;
+
+    setSwitchingAccount(account.id);
     try {
-      setSwitchingAccount(account.id);
-      
-      // Clear all caches and data before switching accounts
-      console.log('Clearing all data for account switch...');
-      
-      // Clear React Query cache completely
+      // Clear all caches and data
+      await Promise.all([
+        ProfileCache.clearCache(),
+        ChannelCache.clearCache(),
+        feedService.clearCurrentFeed(),
+        WatchHistory.clearWatchHistory(),
+        ChannelSubscriptionManager.clearAllSubscriptions(),
+        ModerationService.clearModerationCache(),
+      ]);
+
+      // Clear all queries
       queryClient.clear();
-      
-      // Clear ProfileCache
-      await ProfileCache.clearCache();
-      
-      // Clear ChannelCache
-      await ChannelCache.clearCache();
-      
-      // Clear ModerationService cache
-      ModerationService.clearModerationCache();
-      
-      // Clear FeedStore
-      feedService.clearCurrentFeed();
-      
-      // Clear WatchHistory
-      await WatchHistory.clearWatchHistory();
-      
-      // Keep ChannelSubscriptionManager subscriptions per-user via scoped keys
-      
-      // VideoPreloadManager removed
-      
-      // Switch account (this will handle authentication)
+
+      // Switch to the new account
       await AccountManager.switchAccount(account.id);
       
-      // VideoPreloadManager removed
-      
-      // Call the parent's onAccountSwitch callback
+      // Call the parent callback
       onAccountSwitch(account);
+      
+      // Close the modal
       onDismiss();
     } catch (error) {
-      // console.error('Error switching account:', error);
+      console.error('Error switching account:', error);
       Alert.alert('Error', 'Failed to switch account. Please try again.');
     } finally {
       setSwitchingAccount(null);
     }
-  };
+  }, [onAccountSwitch, onDismiss, queryClient]);
 
-  const handleRemoveAccount = async (account: SavedAccount) => {
-    // Check if this is the currently active account
+  const handleRemoveAccount = useCallback(async (account: AccountWithProfile) => {
     if (account.isActive) {
-      Alert.alert(
-        'Remove Current Account',
-        `You are currently logged in as:\n@${account.handle}\n\nRemoving this account will log you out.`,
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Log Out & Remove',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                // First log out the user
-                if (onLogout) {
-                  await onLogout(false); // Don't clear all accounts, just log out
-                } else {
-                  // Fallback to direct logout if no callback provided
-                  await AtprotoService.logout(false);
-                }
-                
-                // Then remove the account
-                await AccountManager.removeAccount(account.id);
-                await loadAccounts(); // Reload the list
-                // Close the modal since user is now logged out
-                onDismiss();
-              } catch (error) {
-                console.error('Error removing active account:', error);
-                Alert.alert('Error', 'Failed to remove account. Please try again.');
-              }
-            },
-          },
-        ]
-      );
-    } else {
-      Alert.alert(
-        'Remove Account',
-        `Are you sure you want to remove @${account.handle}? This will delete the saved credentials.`,
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Remove',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await AccountManager.removeAccount(account.id);
-                await loadAccounts(); // Reload the list
-              } catch (error) {
-                console.error('Error removing account:', error);
-                Alert.alert('Error', 'Failed to remove account. Please try again.');
-              }
-            },
-          },
-        ]
-      );
+      Alert.alert('Cannot remove active account', 'Please switch to a different account first.');
+      return;
     }
-  };
 
-  const handleAddAccount = () => {
+    Alert.alert(
+      'Remove Account',
+      `Are you sure you want to remove ${account.handle}? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AccountManager.removeAccount(account.id);
+              await loadAccounts(); // Reload the accounts list
+            } catch (error) {
+              console.error('Error removing account:', error);
+              Alert.alert('Error', 'Failed to remove account. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  }, []);
+
+  const handleAddAccount = useCallback(() => {
+    onDismiss(); // Close the modal first
     if (onAddAccount) {
-      onAddAccount();
-    } else {
-      onDismiss();
+      onAddAccount(); // Open the add account flow
     }
-  };
+  }, [onDismiss, onAddAccount]);
 
-  // Prepare data for the flat list
+  // Prepare list data including the add account option and edit button
   const listData = useMemo(() => {
     const accountItems = accounts.map(account => ({
       type: 'account' as const,
       data: account,
     }));
-    
-    if (editMode) {
+
+    // Add the "Add Account" option if onAddAccount is provided
+    if (onAddAccount) {
       accountItems.push({
         type: 'add' as const,
-        data: { id: 'add', handle: '', did: '', displayName: '', avatar: '', lastUsed: 0, isActive: false },
+        data: null,
       } as any);
     }
-    
+
+    // Add the edit/done button
+    accountItems.push({
+      type: 'edit' as const,
+      data: null,
+    } as any);
+
     return accountItems;
-  }, [accounts, editMode]);
+  }, [accounts, onAddAccount, editMode]);
 
   const renderAccountItem = useCallback(({ item }: { item: typeof listData[0] }) => {
     if ((item as any).type === 'add') {
       return (
         <TouchableOpacity
-          style={styles.addAccountItem}
+          style={styles.accountButton}
           onPress={handleAddAccount}
           activeOpacity={0.7}
         >
-          <View style={styles.addAccountContent}>
-            <View style={styles.addAccountIcon}>
-              <PlusIcon size={20} color={Colors.lightGray} strokeWidth={2.0} />
-            </View>
-            <View style={styles.addAccountTextContainer}>
-              <Text style={styles.addAccountText}>add account</Text>
-            </View>
-          </View>
+          <Text style={styles.accountButtonText}>Add Account</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    if ((item as any).type === 'edit') {
+      return (
+        <TouchableOpacity
+          onPress={() => setEditMode(!editMode)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.editButtonText}>
+            {editMode ? 'Done' : 'Edit'}
+          </Text>
         </TouchableOpacity>
       );
     }
@@ -295,180 +236,99 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     const isActive = account.isActive;
     const isSwitching = switchingAccount === account.id;
     
-    // Use cached profile data if available, otherwise fall back to saved account data
     const displayName = account.cachedProfile?.displayName || account.displayName || account.handle;
-    const avatar = account.cachedProfile?.avatar || account.avatar;
     const handle = account.cachedProfile?.handle || account.handle;
     
     return (
-      <View style={styles.accountItemContainer}>
-        <AuthorItem
-          handle={handle}
-          displayName={displayName}
-          avatar={avatar}
-          textColor={Colors.white}
-          backgroundColor={isActive ? (customColors?.backgroundColor || Colors.darkGray) : Colors.darkGray}
-          size="large"
-          showArrow={false}
-          onPress={() => !isActive && !editMode && handleSwitchAccount(account)}
-          style={[
-            styles.accountItem,
-            isActive && styles.activeAccountItem,
-          ]}
-        />
-        {editMode && (
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => handleRemoveAccount(account)}
-            activeOpacity={0.7}
-          >
-            <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
-          </TouchableOpacity>
-        )}
-        {isSwitching && (
-          <View style={styles.switchingIndicator}>
-            <ActivityIndicator size="small" color={Colors.lightGray} />
+      <TouchableOpacity
+        style={[
+          styles.accountButton,
+          isActive && {
+            backgroundColor: customColors?.backgroundColor || Colors.lightGray
+          },
+        ]}
+        onPress={() => !isActive && !editMode && handleSwitchAccount(account)}
+        activeOpacity={0.7}
+        disabled={isSwitching}
+      >
+        <View style={styles.accountButtonContent}>
+          <View style={styles.avatarContainer}>
+            <Avatar
+              uri={account.cachedProfile?.avatar}
+              type="profile"
+              size={40}
+            />
           </View>
-        )}
-      </View>
+          <Text style={[
+            styles.accountButtonText,
+            isActive && { 
+              color: customColors?.foregroundColor || Colors.black, 
+              fontWeight: '600', 
+              fontFamily: 'Firma-Bold' 
+            }
+          ]}>
+            {displayName}
+          </Text>
+          {isSwitching && (
+            <ActivityIndicator size="small" color={Colors.lightGray} />
+          )}
+          {editMode && !isActive && (
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => handleRemoveAccount(account)}
+              activeOpacity={0.7}
+            >
+              <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
     );
-  }, [switchingAccount, editMode, customColors, handleSwitchAccount, handleRemoveAccount]);
+  }, [switchingAccount, editMode, customColors, handleSwitchAccount, handleRemoveAccount, handleAddAccount]);
 
   const keyExtractor = useCallback((item: typeof listData[0]) => {
-    return (item as any).type === 'add' ? 'add' : item.data.id;
+    const type = (item as any).type;
+    if (type === 'add') return 'add';
+    if (type === 'edit') return 'edit';
+    return item.data.id;
   }, []);
 
-  // Backdrop component
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.5}
-      />
-    ),
-    []
-  );
-
   return (
-    <BottomSheetModal
-      ref={bottomSheetRef}
-      index={0}
-      snapPoints={snapPoints}
-      backdropComponent={renderBackdrop}
+    <VerticalListSheet
+      visible={visible}
       onDismiss={onDismiss}
-      backgroundStyle={styles.bottomSheetBackground}
-      handleIndicatorStyle={{ display: 'none' }}
-      enablePanDownToClose={true}
-      enableOverDrag={false}
-      enableDynamicSizing={false}
+      title="switch account"
+      showCancelButton={false}
     >
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>
-            switch account
-          </Text>
-        </View>
-        <View style={styles.headerActions}>
-          {!editMode && (
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => setEditMode(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.editButtonText}>edit</Text>
-            </TouchableOpacity>
-          )}
-          {editMode && (
-            <TouchableOpacity
-              style={styles.doneButton}
-              onPress={() => setEditMode(false)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.doneButtonText}>done</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
       
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.lightGray} />
         </View>
       ) : (
-        <>
-          <BottomSheetFlatList
-            data={listData}
-            renderItem={renderAccountItem}
-            keyExtractor={keyExtractor}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          />
-          <View style={[styles.closeButtonContainer, { paddingBottom: insets.bottom }]}>
-            <TouchableOpacity 
-              style={styles.closeButton} 
-              onPress={onDismiss}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.closeButtonText}>cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </>
+        <BottomSheetFlatList
+          data={listData}
+          renderItem={renderAccountItem}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom }]}
+          showsVerticalScrollIndicator={false}
+        />
       )}
-    </BottomSheetModal>
+    </VerticalListSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
-  titleContainer: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.white,
-    fontFamily: 'Firma-Bold',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minWidth: 60,
-    justifyContent: 'flex-end',
-  },
-  editButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    minWidth: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  doneButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    minWidth: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
+
   editButtonText: {
     color: Colors.lightGray,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
+    textAlign: 'center',
     fontFamily: 'Firma-SemiBold',
-  },
-  doneButtonText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    marginTop: 8,
+    marginBottom: 12,
   },
   loadingContainer: {
     flex: 1,
@@ -477,104 +337,43 @@ const styles = StyleSheet.create({
     minHeight: 200,
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
-  accountItemContainer: {
-    position: 'relative',
-    marginBottom: 8,
+  accountButton: {
+    backgroundColor: Colors.darkGray,
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginBottom: 12,
   },
-  accountItem: {
-    marginBottom: 0,
+
+  accountButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  activeAccountItem: {
-    borderWidth: 2,
-    borderColor: Colors.lightGray,
+  avatarContainer: {
+    marginRight: 12,
   },
+  accountButtonText: {
+    color: Colors.lightGray,
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'left',
+    fontFamily: 'Firma-SemiBold',
+    paddingLeft: 8,
+    flex: 1,
+  },
+
   deleteButton: {
-    position: 'absolute',
-    right: 16,
-    top: '50%',
-    transform: [{ translateY: -16 }],
     padding: 8,
     backgroundColor: hexToRGBA(UI.Colors.STATUS.ERROR, 0.1),
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 8,
   },
-  switchingIndicator: {
-    position: 'absolute',
-    right: 16,
-    top: '50%',
-    transform: [{ translateY: -12 }],
-    padding: 8,
-    backgroundColor: hexToRGBA(Colors.white, 0.1),
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addAccountItem: {
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  addAccountContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: Colors.darkGray,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: hexToRGBA(Colors.white, 0.1),
-  },
-  addAccountIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: hexToRGBA(Colors.white, 0.05),
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  addAccountTextContainer: {
-    flex: 1,
-  },
-  addAccountText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.lightGray,
-    fontFamily: 'Firma-SemiBold',
-  },
-  closeButtonContainer: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  closeButton: {
-    backgroundColor: Colors.darkGray,
-    borderWidth: 1,
-    borderColor: Colors.gray,
-    borderRadius: 50,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeButtonText: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
-  },
-  bottomSheetBackground: {
-    backgroundColor: Colors.black,
-    borderTopWidth: 0.5,
-    borderTopColor: Colors.mediumGray,
-    // Square top corners - no border radius
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-  },
-
 });
 
 export default AccountSwitcher; 

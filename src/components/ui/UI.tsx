@@ -72,6 +72,13 @@ export const Colors = {
   cosmicPurple: '#9D4EDD', // Deep purple
   sunsetOrange: '#FF4500', // Bright orange
   
+  // Feedback button colors
+  interestedLight: '#d77e12', // Light orange
+  interestedDark: '#260e00', // Dark orange
+  notInterestedLight: '#010c3f', // Light blue
+  notInterestedDark: '#000d3c', // Dark blue
+  dislikeBackground: '#050945', // Deep navy for "less" background
+  dislikeIconBlue: '#37a8ff', // Electric blue for "less" icon
 
   
   // Overlay Colors

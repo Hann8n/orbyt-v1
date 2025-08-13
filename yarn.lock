@@ -5158,6 +5158,11 @@ react-native-shimmer-placeholder@^2.0.9:
   resolved "https://registry.npmjs.org/react-native-shimmer-placeholder/-/react-native-shimmer-placeholder-2.0.9.tgz"
   integrity sha512-s2pfAAO6uaybREYM2KcaxP3c2XlZvLfHfzmhMlGEoOhSKaoM92KpA1Hx0BeC75yilkliJuowqO/hFzvLB0h7hg==
 
+react-native-sticky-parallax-header@^1.1.1:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/react-native-sticky-parallax-header/-/react-native-sticky-parallax-header-1.1.1.tgz#1b58dfcb1acd21b236ea8f4010cb1a24c9eb60fc"
+  integrity sha512-vP2tCqsWECNy1H5dNbLnMTpgSkswIpRTFO1itkQZX23JERxCUe7EfSQ9gDw0KwYgQm94ix2vWAo2mn/MeVLI0Q==
+
 react-native-svg@15.11.2:
   version "15.11.2"
   resolved "https://registry.npmjs.org/react-native-svg/-/react-native-svg-15.11.2.tgz"

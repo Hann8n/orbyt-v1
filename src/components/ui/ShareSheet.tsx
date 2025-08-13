@@ -11,8 +11,10 @@ import {
   Platform,
   Alert,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { ShareIcon, BlockIcon, ReportIcon, InterestedIcon, NotInterestedIcon } from './Icon';
 import AtprotoService from '../../services/api/AtprotoService';
 import ProfileCache from '../../services/cache/ProfileCache';
@@ -64,6 +66,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   // Bottom sheet ref and snap points
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ['70%'], []);
+  const insets = useSafeAreaInsets();
 
   // Check if the current user is the author
   useEffect(() => {
@@ -400,7 +403,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     const options = [
       {
         id: 'share',
-        label: 'share',
+        label: 'Share',
         icon: 'share',
         onPress: handleShare,
         color: '#d140fc',
@@ -408,22 +411,45 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       }
     ];
 
-    // Add Zen option (only when not in zen mode)
+    
+
+    // Add Interest feedback options (only for yourMix feed from thevids source and not current user's content)
+    if (feedOption === 'yourMix' && canSendFeedback(sourceFeed) && !isCurrentUser) {
+      options.push({
+        id: 'interested',
+        label: 'Like',
+        icon: 'interested',
+        onPress: () => handleInterestFeedback('interested'),
+        color: feedbackSent === 'interested' ? Colors.interestedDark : Colors.darkYellow,
+        buttonColor: feedbackSent === 'interested' ? Colors.darkYellow : Colors.interestedDark
+      } as any);
+      
+      options.push({
+        id: 'not_interested',
+        label: 'Dislike',
+        icon: 'not_interested',
+        onPress: () => handleInterestFeedback('not_interested'),
+        color: feedbackSent === 'not_interested' ? Colors.dislikeBackground : Colors.dislikeIconBlue,
+        buttonColor: feedbackSent === 'not_interested' ? Colors.dislikeIconBlue : Colors.dislikeBackground
+      } as any);
+    }
+
+    // Add Zen option (only when not in zen mode) - placed after Dislike
     if (!isClearViewMode) {
       options.push({
         id: 'zen',
-        label: 'zen',
+        label: 'Zen',
         icon: 'zen',
         onPress: async () => toggleClearViewMode(),
         color: Colors.green,
         buttonColor: Colors.darkGreen
-      });
+      } as any);
     }
 
     // Add Report/Delete option
     options.push({
       id: 'report',
-      label: isCurrentUser ? 'delete' : 'report',
+      label: isCurrentUser ? 'Delete' : 'Report',
       icon: 'report',
       onPress: async () => handleReportOrDelete(),
       color: Colors.red,
@@ -469,8 +495,8 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       <BottomSheetView style={styles.content}>
         {/* Author name and close button */}
         {authorName && (
-          <View style={styles.authorContainer}>
-            <Text style={styles.authorName} numberOfLines={1}>
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
               video by {authorName}
             </Text>
             <TouchableOpacity 
@@ -478,125 +504,64 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
               onPress={onDismiss}
               activeOpacity={0.7}
             >
-              <Text style={styles.closeButtonText}>×</Text>
+              <Icon name="close" size={20} color={Colors.white} />
             </TouchableOpacity>
           </View>
         )}
         
-        {/* Options */}
-        <View style={[styles.optionsContainer, { gap: fixedSpacing }]}>
-          {menuOptions.map((option) => (
-            <View key={option.id} style={styles.optionWrapper}>
-              <TouchableOpacity 
-                style={[
-                  styles.option,
-                  (option as any).buttonColor ? { backgroundColor: (option as any).buttonColor } : null
-                ]} 
-                onPress={option.onPress}
-                activeOpacity={0.7}
-                disabled={isSubmitting}
-              >
-                {option.icon === 'share' && (
-                  <ShareIcon size={40} color={option.color} />
-                )}
-                {option.icon === 'eye' && (
-                  <Icon name="eye" size={40} color={option.color} />
-                )}
-                {option.icon === 'zen' && (
-                  <Icon name="zen" size={40} color={option.color} />
-                )}
-                {option.icon === 'block' && (
-                  <BlockIcon size={40} color={option.color} />
-                )}
-                {option.icon === 'report' && (
-                  <ReportIcon size={40} color={option.color} />
-                )}
-              </TouchableOpacity>
-              <Text style={styles.optionText}>{option.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Interest feedback buttons - only show for yourMix feed from thevids source and not current user's content */}
-        {feedOption === 'yourMix' && canSendFeedback(sourceFeed) && !isCurrentUser && (
-          <>
-            <View style={styles.feedbackContainer}>
-              <View style={styles.feedbackOptions}>
-                                  <Animated.View style={[
-                    styles.feedbackButton,
-                    {
-                      backgroundColor: interestedAnimation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [Colors.darkGray, Colors.lightGray],
-                      }),
-                    }
-                  ]}>
-                  <TouchableOpacity 
-                    style={styles.feedbackButtonTouchable}
-                    onPress={() => handleInterestFeedback('interested')}
-                    disabled={isSubmitting}
-                  >
-                    <InterestedIcon 
-                      size={24} 
-                      color={feedbackSent === 'interested' ? Colors.black : Colors.lightGray} 
-                    />
-                    <Animated.Text style={[
-                      styles.feedbackButtonText,
-                      {
-                        color: interestedAnimation.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [Colors.lightGray, Colors.black],
-                        }),
-                      }
-                    ]}>
-                      interested
-                    </Animated.Text>
-                  </TouchableOpacity>
-                </Animated.View>
-                
-                <Animated.View style={[
-                  styles.feedbackButton,
-                  {
-                    backgroundColor: notInterestedAnimation.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [Colors.darkGray, Colors.lightGray],
-                    }),
-                  }
-                ]}>
-                  <TouchableOpacity 
-                    style={styles.feedbackButtonTouchable}
-                    onPress={() => handleInterestFeedback('not_interested')}
-                    disabled={isSubmitting}
-                  >
-                    <NotInterestedIcon 
-                      size={24} 
-                      color={feedbackSent === 'not_interested' ? Colors.black : Colors.lightGray} 
-                    />
-                    <Animated.Text style={[
-                      styles.feedbackButtonText,
-                      {
-                        color: notInterestedAnimation.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [Colors.lightGray, Colors.black],
-                        }),
-                      }
-                    ]}>
-                      not interested
-                    </Animated.Text>
-                  </TouchableOpacity>
-                </Animated.View>
+                {/* Options */}
+        <View style={styles.contentContainer}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.optionsContainer, { gap: fixedSpacing, paddingHorizontal: 15 }]}
+          >
+            {menuOptions.map((option) => (
+              <View key={option.id} style={styles.optionWrapper}>
+                <TouchableOpacity 
+                  style={[
+                    styles.option,
+                    (option as any).buttonColor ? { backgroundColor: (option as any).buttonColor } : null
+                  ]} 
+                  onPress={option.onPress}
+                  activeOpacity={0.7}
+                  disabled={isSubmitting}
+                >
+                  {option.icon === 'share' && (
+                    <ShareIcon size={40} color={option.color} />
+                  )}
+                  {option.icon === 'eye' && (
+                    <Icon name="eye" size={40} color={option.color} />
+                  )}
+                  {option.icon === 'zen' && (
+                    <Icon name="zen" size={40} color={option.color} />
+                  )}
+                  {option.icon === 'block' && (
+                    <BlockIcon size={40} color={option.color} />
+                  )}
+                  {option.icon === 'report' && (
+                    <ReportIcon size={40} color={option.color} />
+                  )}
+                  {option.icon === 'interested' && (
+                    <InterestedIcon size={40} color={option.color} />
+                  )}
+                  {option.icon === 'not_interested' && (
+                    <NotInterestedIcon size={40} color={option.color} />
+                  )}
+                </TouchableOpacity>
+                <Text style={styles.optionText}>{option.label}</Text>
               </View>
-            </View>
-          </>
-        )}
-        <View style={styles.cancelContainer}>
+            ))}
+          </ScrollView>
+        </View>
+        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
           <TouchableOpacity 
-            style={[styles.cancelButton]} 
+            style={styles.cancelButton} 
             onPress={onDismiss} 
             activeOpacity={0.7}
             disabled={isSubmitting}
           >
-            <Text style={styles.cancelButtonText}>cancel</Text>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetView>
@@ -617,21 +582,26 @@ const styles = StyleSheet.create({
     height: 5,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 30,
+    paddingHorizontal: 5,
   },
-  authorContainer: {
+  headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 20,
+    paddingHorizontal: 15,
+    paddingTop: 5,
   },
-  authorName: {
-    color: Colors.lightGray,
-    fontSize: 18,
+  headerTitle: {
+    color: Colors.white,
+    fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',
     fontFamily: 'Firma-Bold',
+  },
+  contentContainer: {
+    flex: 1,
+    paddingHorizontal: 0,
   },
   closeButton: {
     width: 30,
@@ -639,50 +609,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeButtonText: {
-    color: Colors.lightGray,
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  feedbackContainer: {
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  feedbackOptions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 0,
-  },
-  feedbackButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.darkGray,
-    borderRadius: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    width: '48%',
-  },
-  feedbackButtonTouchable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  feedbackButtonSelected: {
-    backgroundColor: Colors.lightGray,
-    borderColor: Colors.lightGray,
-  },
-  feedbackButtonText: {
-    color: Colors.lightGray,
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: '500',
-    fontFamily: 'Firma-Medium',
-  },
-  feedbackButtonTextSelected: {
-    color: Colors.black,
-  },
+
   divider: {
     height: 1,
     backgroundColor: Colors.gray,
@@ -693,6 +620,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
     marginTop: 0,
+    paddingHorizontal: 0,
   },
   optionWrapper: {
     alignItems: 'center',
@@ -715,7 +643,7 @@ const styles = StyleSheet.create({
   },
   cancelContainer: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 30,
   },
   cancelButton: {
     backgroundColor: Colors.darkGray,

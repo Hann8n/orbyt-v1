@@ -142,7 +142,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
         <StatusBar barStyle="light-content" backgroundColor="transparent" />
         <View style={styles.container}>
           <TouchableOpacity onPress={handleClose} style={styles.floatingCloseButton}>
-            <Ionicons name="close" size={28} color={Colors.white} />
+            <Icon name="close" size={20} color={Colors.lightGray} />
           </TouchableOpacity>
           <View style={styles.errorContainer}>
             <Icon name="alert-circle" size={60} color={Colors.white} />
@@ -165,7 +165,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
       {isSmallDevice ? (
         <View style={styles.container}>
           <TouchableOpacity onPress={handleClose} style={styles.floatingCloseButton}>
-            <Ionicons name="close" size={28} color={Colors.white} />
+            <Icon name="close" size={20} color={Colors.lightGray} />
           </TouchableOpacity>
           <View style={styles.videoContainer}>
             <VideoCard
@@ -198,7 +198,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
         <SafeAreaView style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color={Colors.white} />
+              <Icon name="close" size={20} color={Colors.lightGray} />
             </TouchableOpacity>
           </View>
           <View style={styles.videoContainer}>
