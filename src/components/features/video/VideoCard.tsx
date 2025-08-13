@@ -212,12 +212,24 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     // Determine if video should be blurred - prioritize user choice over moderation
     const shouldBlur = feedService.isVideoBlurred(post.uri, !!moderationDecision?.blur);
 
-    // Calculate overlay opacity based on various factors - optimized for scroll performance
-    const overlayOpacity = useMemo(() => {
+    // Smooth dim overlay opacity based on visibility and other factors
+    const targetOverlayOpacity = useMemo(() => {
       if (shouldBlur) return 1;
+      if (!isVisible) return 0.5; // Dim when not visible/snapped away
       if (videoState.customDimLevel > 0) return videoState.customDimLevel;
       return 0;
-    }, [shouldBlur, videoState.customDimLevel]);
+    }, [isVisible, shouldBlur, videoState.customDimLevel]);
+
+    const opacityAnimRef = useRef(new Animated.Value(targetOverlayOpacity));
+    useEffect(() => {
+      const anim = Animated.timing(opacityAnimRef.current, {
+        toValue: targetOverlayOpacity,
+        duration: 180,
+        useNativeDriver: true,
+      });
+      anim.start();
+      return () => anim.stop();
+    }, [targetOverlayOpacity]);
 
     // Determine playback state based on multiple factors including tab visibility and user pause
     const { shouldPlay: shouldPlayFromTab } = useVideoPlaybackState(isVisible);
@@ -441,7 +453,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                 ) : null}
               </View>
             )}
-            <Animated.View style={[styles.dimOverlay, { opacity: overlayOpacity }]} pointerEvents="none" />
+            <Animated.View style={[styles.dimOverlay, { opacity: opacityAnimRef.current }]} pointerEvents="none" />
             {isVisible && !videoState.isReady && !posterUrl && (
               <View style={styles.loadingOverlay} pointerEvents="none">
                 <ActivityIndicator size="large" color={Colors.white} />

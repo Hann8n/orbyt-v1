@@ -14,7 +14,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Tabs } from 'react-native-collapsible-tab-view';
+import { FlashList } from '@shopify/flash-list';
+import { withStickyHeaderFlashList, useStickyHeaderFlashListScrollProps } from 'react-native-sticky-parallax-header';
 import AtprotoService from '../services/api/AtprotoService';
 import { useNavigation } from '@react-navigation/native';
 import ProfileCache, { CachedProfile, profileKeys } from '../services/cache/ProfileCache';
@@ -264,6 +265,9 @@ const VideoShimmer = () => (
     </View>
   </View>
 );
+
+  // Enhance FlashList with sticky parallax header support (no hooks at module scope)
+  const StickyHeaderFlashList = withStickyHeaderFlashList(FlashList as any);
 
 const ExploreScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -1080,6 +1084,14 @@ const ExploreScreen: React.FC = () => {
     [isSearching, isHeaderVisible]
   );
 
+  // Sticky Parallax Header scroll props
+  const { onMomentumScrollEnd: onParallaxMomentumScrollEnd, onScroll: onParallaxScroll, onScrollEndDrag: onParallaxScrollEndDrag, scrollViewRef } = useStickyHeaderFlashListScrollProps({
+    parallaxHeight: computedHeaderHeight,
+    snapToEdge: true,
+    snapStartThreshold: 50,
+    snapStopThreshold: computedHeaderHeight,
+  });
+
   const suggestionsList: any[] = (() => {
     if (isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingSpotlightFeed) {
       return shimmerSuggestedItems as unknown as any[];
@@ -1152,320 +1164,306 @@ const ExploreScreen: React.FC = () => {
           </TouchableOpacity>
         )}
       </View>
-
-      <Tabs.Container
+      <StickyHeaderFlashList
+        ref={scrollViewRef as any}
+        data={listData}
+        keyExtractor={(item: any, index: number) => {
+          if (typeof item === 'string') return `shimmer-${index}`;
+          if (item && typeof item === 'object' && 'type' in item) {
+            const anyItem: any = item as any;
+            if (anyItem.type === 'section-header') return anyItem.key || `${anyItem.title}-${index}`;
+            if (anyItem.type === 'spotlight-videos') return anyItem.key || `spotlight-${index}`;
+            if (anyItem.type === 'video-grid' || anyItem.type === 'load-more') return anyItem.key || `key-${index}`;
+            if (isSearchResult(anyItem)) {
+              const searchResult = anyItem as SearchResult;
+              if (searchResult.type === 'profile') {
+                const profile = searchResult.data as Profile;
+                return `search-profile-${profile.did || profile.handle || index}-${index}`;
+              }
+              if (searchResult.type === 'channel') {
+                const channel = searchResult.data as Channel;
+                return `search-channel-${channel.uri || channel.cid || index}-${index}`;
+              }
+              if (searchResult.type === 'video') {
+                const video = (searchResult as any).data;
+                return `search-video-${video?.uri || video?.cid || index}-${index}`;
+              }
+            }
+          }
+          return `item-${index}`;
+        }}
+        renderItem={(params: any) => {
+          const { item } = params;
+          if (typeof item === 'string') {
+            if (item === 'profile') return <ProfileShimmer />;
+            if (item === 'channel') return <ChannelShimmer />;
+            return <VideoShimmer />;
+          }
+          if (item.type === 'section-header') {
+            if (!('title' in item) || !item.title) {
+              return <SectionHeaderShimmer />;
+            }
+            return (
+              <View style={styles.sectionHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {typeof item.title === 'string' && item.title.toLowerCase().includes('spotlight') ? (
+                    <Text style={styles.sectionTitle}>spotlight</Text>
+                  ) : (
+                    <Text style={styles.sectionTitle}>{item.title}</Text>
+                  )}
+                </View>
+              </View>
+            );
+          }
+          if (item.type === 'spotlight-videos') {
+            if (!('videos' in item) || !Array.isArray(item.videos)) {
+              return <SpotlightVideosShimmer />;
+            }
+            return (
+              <View style={styles.spotlightContainer}>
+                <FlatList
+                  data={item.videos}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.spotlightScrollContainer}
+                  keyExtractor={(video, index) => `spotlight-video-${video?.uri || index}`}
+                  renderItem={({ item: video }) => (
+                    <TouchableOpacity
+                      style={styles.spotlightVideoItem}
+                      onPress={() => {
+                        const videoData = video.post || video;
+                        const videoUri = videoData.uri;
+                        if (videoUri) {
+                          const formattedFeed = item.videos.map((v: any) => {
+                            const vData = v.post || v;
+                            return {
+                              post: vData,
+                              shouldCache: true,
+                              uniqueKey: vData.uri,
+                              moderationDecision: v.moderationDecision,
+                            };
+                          });
+                          feedService.setCurrentFeed(formattedFeed);
+                          const index = formattedFeed.findIndex((v: any) => v.post.uri === videoUri);
+                          const finalIndex = index >= 0 ? index : 0;
+                          navigation.navigate('FeedScreen', {
+                            initialIndex: finalIndex,
+                            initialUri: videoUri,
+                            feedOption: 'search',
+                            userDid: undefined,
+                            backgroundColor: 'transparent',
+                            secondaryColor: Colors.white,
+                            searchQuery: '',
+                            hasNextPage: false,
+                            isFetchingNextPage: false,
+                          });
+                        }
+                      }}
+                    >
+                      <View style={styles.spotlightVideoThumbnailContainer}>
+                        {(() => {
+                          const videoData = video.post || video;
+                          const thumbnailUrl = extractVideoThumbnail(videoData.embed);
+                          const shouldBlur = feedService.isVideoBlurred(videoData.uri, !!video.moderationDecision?.blur);
+                          if (thumbnailUrl) {
+                            return (
+                              <>
+                                <Image
+                                  source={{ uri: thumbnailUrl }}
+                                  style={styles.spotlightVideoThumbnail}
+                                  resizeMode="cover"
+                                  onError={() => {
+                                    console.warn('Failed to load spotlight thumbnail:', thumbnailUrl);
+                                  }}
+                                />
+                                {shouldBlur && (
+                                  <View style={styles.spotlightWarningOverlay}>
+                                    <Text style={styles.spotlightWarningText}>
+                                      {video.moderationDecision?.reason || 'Content Warning'}
+                                    </Text>
+                                  </View>
+                                )}
+                              </>
+                            );
+                          }
+                          return (
+                            <View style={styles.spotlightVideoThumbnailPlaceholder}>
+                              <Icon name="videocam" size={16} color={Colors.gray} />
+                            </View>
+                          );
+                        })()}
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            );
+          }
+          if (
+            (item.type === 'profile' || item.type === 'channel' || item.type === 'video') &&
+            !("data" in item)
+          ) {
+            if (item.type === 'profile') return <ProfileShimmer />;
+            if (item.type === 'channel') return <ChannelShimmer />;
+            return <VideoShimmer />;
+          }
+          if (isSearchResult(item)) {
+            return renderSearchResult({ item });
+          }
+          if (item.type === 'people-channels-section') {
+            return (
+              <View style={styles.peopleChannelsContainer}>
+                {combinedResults.length > 0 ? (
+                  <>
+                    {combinedResults.map((result, index: number) => {
+                      if (result.type === 'profile') {
+                        const profile = result.data as Profile;
+                        return (
+                          <TouchableOpacity
+                            key={`combined-profile-${profile.did || profile.handle || index}-${index}`}
+                            style={styles.profileItem}
+                            onPress={() => {
+                              if (profile.handle) {
+                                const handle = profile.handle.trim();
+                                if (handle && handle.trim()) {
+                                  queryClient.prefetchQuery({
+                                    queryKey: profileKeys.detail(handle.trim()),
+                                    queryFn: () => ProfileCache.getProfile(handle.trim()),
+                                    staleTime: ProfileCache.cacheExpiry,
+                                  }).finally(() => {
+                                    const target = handle.trim();
+                                    if (target) { (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('AuthorProfile', { handle: target }); }
+                                  });
+                                }
+                              }
+                            }}
+                          >
+                            <Avatar uri={profile.avatar} type="profile" size={40} ringColor="transparent" style={styles.profileImage} />
+                            <View style={styles.profileContent}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={styles.displayName}>
+                                  {profile.displayName || profile.handle || 'Unknown user'}
+                                </Text>
+                                {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
+                                  <VerificationBadge handle={profile.handle.trim()} textSize={14} textColor={Colors.white} />
+                                )}
+                              </View>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      }
+                      if (result.type === 'channel') {
+                        const channel = result.data as Channel;
+                        return (
+                          <TouchableOpacity
+                            key={`combined-channel-${channel.uri || channel.cid || index}-${index}`}
+                            style={styles.channelItem}
+                            onPress={() => {
+                              if (channel.uri && channel.uri.trim()) {
+                                // Navigate via root navigator so Channel overlays the tab bar
+                                (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('Channel', {
+                                  uri: channel.uri.trim(),
+                                  title: channel.displayName || 'Unknown Channel',
+                                  description: channel.description || '',
+                                  avatar: channel.avatar || '',
+                                  creator: channel.creator || null,
+                                });
+                              }
+                            }}
+                          >
+                            <Avatar uri={channel.avatar} type="channel" size={40} ringColor="transparent" style={styles.channelImage} />
+                            <View style={styles.channelContent}>
+                              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                <Text style={styles.channelName} numberOfLines={1}>
+                                  {channel.displayName || 'Unknown channel'}
+                                </Text>
+                                {channel.isExperimental && (
+                                  <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
+                                )}
+                              </View>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      }
+                      return null;
+                    })}
+                    {isSearchFetchingNextPage && (
+                      <View style={styles.loadingMoreContainer}>
+                        <ActivityIndicator size="small" color={Colors.white} />
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <View style={styles.emptyTabContent}>
+                    <Text style={styles.emptyTabText}>No results found</Text>
+                  </View>
+                )}
+              </View>
+            );
+          }
+          return null;
+        }}
         renderHeader={() => (
           <View style={{ height: computedHeaderHeight }} pointerEvents="box-none">
             {!isSearching && isHeaderVisible ? (
               <HeaderBanner headers={headers} height={computedHeaderHeight} />
             ) : (
-              // Empty spacer when searching or no header, height already reserved
               <View style={{ height: computedHeaderHeight }} />
             )}
           </View>
         )}
-        headerHeight={computedHeaderHeight}
-        headerContainerStyle={{ backgroundColor: 'transparent', marginBottom: 0, paddingBottom: 0, borderBottomWidth: 0 }}
-        containerStyle={{ backgroundColor: 'transparent' }}
-        renderTabBar={() => null}
-        revealHeaderOnScroll={false}
-        allowHeaderOverscroll={false}
-      >
-        <Tabs.Tab name="explore">
-          <Tabs.FlashList
-            data={listData}
-            keyExtractor={(item, index) => {
-              if (typeof item === 'string') return `shimmer-${index}`;
-              if (item && typeof item === 'object' && 'type' in item) {
-                const anyItem: any = item as any;
-                if (anyItem.type === 'section-header') return anyItem.key || `${anyItem.title}-${index}`;
-                if (anyItem.type === 'spotlight-videos') return anyItem.key || `spotlight-${index}`;
-                if (anyItem.type === 'video-grid' || anyItem.type === 'load-more') return anyItem.key || `key-${index}`;
-                if (isSearchResult(anyItem)) {
-                  const searchResult = anyItem as SearchResult;
-                  if (searchResult.type === 'profile') {
-                    const profile = searchResult.data as Profile;
-                    return `search-profile-${profile.did || profile.handle || index}-${index}`;
-                  }
-                  if (searchResult.type === 'channel') {
-                    const channel = searchResult.data as Channel;
-                    return `search-channel-${channel.uri || channel.cid || index}-${index}`;
-                  }
-                  if (searchResult.type === 'video') {
-                    const video = (searchResult as any).data;
-                    return `search-video-${video?.uri || video?.cid || index}-${index}`;
-                  }
-                }
-              }
-              return `item-${index}`;
-            }}
-            renderItem={({ item }) => {
-              if (typeof item === 'string') {
-                if (item === 'profile') return <ProfileShimmer />;
-                if (item === 'channel') return <ChannelShimmer />;
-                return <VideoShimmer />;
-              }
-              if (item.type === 'section-header') {
-                if (!('title' in item) || !item.title) {
-                  return <SectionHeaderShimmer />;
-                }
-                return (
-                  <View style={styles.sectionHeader}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      {typeof item.title === 'string' && item.title.toLowerCase().includes('spotlight') ? (
-                        <Text style={styles.sectionTitle}>spotlight</Text>
-                      ) : (
-                        <Text style={styles.sectionTitle}>{item.title}</Text>
-                      )}
-                    </View>
-                  </View>
-                );
-              }
-              if (item.type === 'spotlight-videos') {
-                if (!('videos' in item) || !Array.isArray(item.videos)) {
-                  return <SpotlightVideosShimmer />;
-                }
-                return (
-                  <View style={styles.spotlightContainer}>
-                    <FlatList
-                      data={item.videos}
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.spotlightScrollContainer}
-                      keyExtractor={(video, index) => `spotlight-video-${video?.uri || index}`}
-                      renderItem={({ item: video }) => (
-                        <TouchableOpacity
-                          style={styles.spotlightVideoItem}
-                          onPress={() => {
-                            const videoData = video.post || video;
-                            const videoUri = videoData.uri;
-                            if (videoUri) {
-                              const formattedFeed = item.videos.map((v: any) => {
-                                const vData = v.post || v;
-                                return {
-                                  post: vData,
-                                  shouldCache: true,
-                                  uniqueKey: vData.uri,
-                                  moderationDecision: v.moderationDecision,
-                                };
-                              });
-                              feedService.setCurrentFeed(formattedFeed);
-                              const index = formattedFeed.findIndex((v: any) => v.post.uri === videoUri);
-                              const finalIndex = index >= 0 ? index : 0;
-                              navigation.navigate('FeedScreen', {
-                                initialIndex: finalIndex,
-                                initialUri: videoUri,
-                                feedOption: 'search',
-                                userDid: undefined,
-                                backgroundColor: 'transparent',
-                                secondaryColor: Colors.white,
-                                searchQuery: '',
-                                hasNextPage: false,
-                                isFetchingNextPage: false,
-                              });
-                            }
-                          }}
-                        >
-                          <View style={styles.spotlightVideoThumbnailContainer}>
-                            {(() => {
-                              const videoData = video.post || video;
-                              const thumbnailUrl = extractVideoThumbnail(videoData.embed);
-                              const shouldBlur = feedService.isVideoBlurred(videoData.uri, !!video.moderationDecision?.blur);
-                              if (thumbnailUrl) {
-                                return (
-                                  <>
-                                    <Image
-                                      source={{ uri: thumbnailUrl }}
-                                      style={styles.spotlightVideoThumbnail}
-                                      resizeMode="cover"
-                                      onError={() => {
-                                        console.warn('Failed to load spotlight thumbnail:', thumbnailUrl);
-                                      }}
-                                    />
-                                    {shouldBlur && (
-                                      <View style={styles.spotlightWarningOverlay}>
-                                        <Text style={styles.spotlightWarningText}>
-                                          {video.moderationDecision?.reason || 'Content Warning'}
-                                        </Text>
-                                      </View>
-                                    )}
-                                  </>
-                                );
-                              }
-                              return (
-                                <View style={styles.spotlightVideoThumbnailPlaceholder}>
-                                  <Icon name="videocam" size={16} color={Colors.gray} />
-                                </View>
-                              );
-                            })()}
-                          </View>
-                        </TouchableOpacity>
-                      )}
-                    />
-                  </View>
-                );
-              }
-              if (
-                (item.type === 'profile' || item.type === 'channel' || item.type === 'video') &&
-                !("data" in item)
-              ) {
-                if (item.type === 'profile') return <ProfileShimmer />;
-                if (item.type === 'channel') return <ChannelShimmer />;
-                return <VideoShimmer />;
-              }
-              if (isSearchResult(item)) {
-                return renderSearchResult({ item });
-              }
-              if (item.type === 'people-channels-section') {
-                return (
-                  <View style={styles.peopleChannelsContainer}>
-                    {combinedResults.length > 0 ? (
-                      <>
-                        {combinedResults.map((result, index: number) => {
-                          if (result.type === 'profile') {
-                            const profile = result.data as Profile;
-                            return (
-                              <TouchableOpacity
-                                key={`combined-profile-${profile.did || profile.handle || index}-${index}`}
-                                style={styles.profileItem}
-                                onPress={() => {
-                                  if (profile.handle) {
-                                    const handle = profile.handle.trim();
-                                    if (handle && handle.trim()) {
-                                      queryClient.prefetchQuery({
-                                        queryKey: profileKeys.detail(handle.trim()),
-                                        queryFn: () => ProfileCache.getProfile(handle.trim()),
-                                        staleTime: ProfileCache.cacheExpiry,
-                                      }).finally(() => {
-                                        const target = handle.trim();
-                                        if (target) { (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('AuthorProfile', { handle: target }); }
-                                      });
-                                    }
-                                  }
-                                }}
-                              >
-                                <Avatar uri={profile.avatar} type="profile" size={40} ringColor="transparent" style={styles.profileImage} />
-                                <View style={styles.profileContent}>
-                                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <Text style={styles.displayName}>
-                                      {profile.displayName || profile.handle || 'Unknown user'}
-                                    </Text>
-                                    {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
-                                      <VerificationBadge handle={profile.handle.trim()} textSize={14} textColor={Colors.white} />
-                                    )}
-                                  </View>
-                                </View>
-                              </TouchableOpacity>
-                            );
-                          }
-                          if (result.type === 'channel') {
-                            const channel = result.data as Channel;
-                            return (
-                              <TouchableOpacity
-                                key={`combined-channel-${channel.uri || channel.cid || index}-${index}`}
-                                style={styles.channelItem}
-                                onPress={() => {
-                                  if (channel.uri && channel.uri.trim()) {
-                                    // Navigate via root navigator so Channel overlays the tab bar
-                                    (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('Channel', {
-                                      uri: channel.uri.trim(),
-                                      title: channel.displayName || 'Unknown Channel',
-                                      description: channel.description || '',
-                                      avatar: channel.avatar || '',
-                                      creator: channel.creator || null,
-                                    });
-                                  }
-                                }}
-                              >
-                                <Avatar uri={channel.avatar} type="channel" size={40} ringColor="transparent" style={styles.channelImage} />
-                                <View style={styles.channelContent}>
-                                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                    <Text style={styles.channelName} numberOfLines={1}>
-                                      {channel.displayName || 'Unknown channel'}
-                                    </Text>
-                                    {channel.isExperimental && (
-                                      <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
-                                    )}
-                                  </View>
-                                </View>
-                              </TouchableOpacity>
-                            );
-                          }
-                          return null;
-                        })}
-                        {isSearchFetchingNextPage && (
-                          <View style={styles.loadingMoreContainer}>
-                            <ActivityIndicator size="small" color={Colors.white} />
-                          </View>
-                        )}
-                      </>
-                    ) : (
-                      <View style={styles.emptyTabContent}>
-                        <Text style={styles.emptyTabText}>No results found</Text>
-                      </View>
-                    )}
-                  </View>
-                );
-              }
-              return null;
-            }}
-            contentContainerStyle={[styles.listContainer, { paddingBottom: getBottomNavBarHeight(insets) }]}
-            showsVerticalScrollIndicator={false}
-            onScroll={({ nativeEvent }) => {
-              const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
-              preloadNextPage(contentOffset.y, contentSize.height, layoutMeasurement.height);
-            }}
-            scrollEventThrottle={16}
-            onScrollBeginDrag={handleScrollBeginDrag}
-            onScrollEndDrag={handleScrollEndDrag}
-            onMomentumScrollEnd={handleMomentumScrollEnd}
-            onEndReached={() => {
-              if (isSearching && hasSearchNextPage && !isSearchFetchingNextPage) {
-                fetchSearchNextPage();
-              }
-            }}
-            onEndReachedThreshold={0.5}
-            removeClippedSubviews={false}
-            viewabilityConfig={viewabilityConfig}
-            ListEmptyComponent={() => {
-              const isSearchingLocal = debouncedQuery.length > 0;
-              if (isSearchingLocal && !isLoadingResults) {
-                return (
-                  <View style={styles.emptyContainer}>
-                    <Text style={styles.noResults}>No results found for "{debouncedQuery}"</Text>
-                    <Text style={styles.noResultsSubtext}>Try searching for something else</Text>
-                  </View>
-                );
-              }
-              if (!isSearchingLocal && !(isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingSpotlightFeed)) {
-                if (suggestionsError || suggestedFeedsError || spotlightFeedError) {
-                  return (
-                    <View style={styles.errorContainer}>
-                      <EmptyFeed type="no-connection" />
-                      <TouchableOpacity
-                        style={styles.retryButton}
-                        onPress={() => {
-                          refetchSuggestions();
-                          refetchSuggestedFeeds();
-                          refetchSpotlightFeed();
-                        }}
-                      >
-                        <Text style={styles.retryButtonText}>Try Again</Text>
-                      </TouchableOpacity>
-                    </View>
-                  );
-                }
-                return (
-                  <View style={styles.initialStateContainer}>
-                    <Text style={styles.initialStateText}>No suggestions available</Text>
-                  </View>
-                );
-              }
-              return null;
-            }}
-          />
-        </Tabs.Tab>
-      </Tabs.Container>
+        estimatedItemSize={100}
+        contentContainerStyle={[styles.listContainer, { paddingBottom: getBottomNavBarHeight(insets) }]}
+        showsVerticalScrollIndicator={false}
+        onScroll={onParallaxScroll}
+        scrollEventThrottle={16}
+        onScrollEndDrag={onParallaxScrollEndDrag}
+        onMomentumScrollEnd={onParallaxMomentumScrollEnd}
+        onEndReached={() => {
+          if (isSearching && hasSearchNextPage && !isSearchFetchingNextPage) {
+            fetchSearchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.5}
+        removeClippedSubviews={false}
+        viewabilityConfig={viewabilityConfig}
+        ListEmptyComponent={() => {
+          const isSearchingLocal = debouncedQuery.length > 0;
+          if (isSearchingLocal && !isLoadingResults) {
+            return (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.noResults}>No results found for "{debouncedQuery}"</Text>
+                <Text style={styles.noResultsSubtext}>Try searching for something else</Text>
+              </View>
+            );
+          }
+          if (!isSearchingLocal && !(isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingSpotlightFeed)) {
+            if (suggestionsError || suggestedFeedsError || spotlightFeedError) {
+              return (
+                <View style={styles.errorContainer}>
+                  <EmptyFeed type="no-connection" />
+                  <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={() => {
+                      refetchSuggestions();
+                      refetchSuggestedFeeds();
+                      refetchSpotlightFeed();
+                    }}
+                  >
+                    <Text style={styles.retryButtonText}>Try Again</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }
+            return (
+              <View style={styles.initialStateContainer}>
+                <Text style={styles.initialStateText}>No suggestions available</Text>
+              </View>
+            );
+          }
+          return null;
+        }}
+      />
     </View>
   );
 };
