@@ -16,7 +16,6 @@ import ChannelHeader from '../components/layout/header/ChannelHeader';
 import FeedRenderer from '../components/features/feed/FeedRenderer';
 import MembersListView from '../components/features/feed/MembersListView';
 import { Colors } from '../components/ui/UI';
-import DebugBoundary from '../components/ui/DebugBoundary';
 
 import { useChannelColors, useChannel, useChannelColorsMutation } from '../services/cache/ChannelCache';
 import { extractColorsFromImage } from '../utils/formatting/colorUtils';
@@ -81,15 +80,6 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
 
   // Use feed query only for posts tab
   const feedOption = uri || '';
-
-  // Dev-only: allow pausing execution on first mount when a global flag is set
-  useEffect(() => {
-    const shouldBreakOnMount = __DEV__ && (globalThis as any).ORBYT_DEBUG_SCREENS === true;
-    if (shouldBreakOnMount) {
-      // eslint-disable-next-line no-debugger
-      debugger;
-    }
-  }, []);
   
   // Ensure channel data is immediately available from cache
   const channelDataForFeed = channelData;
@@ -310,7 +300,6 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
   );
 
   return (
-    <DebugBoundary label="ChannelScreen">
     <View style={[
       styles.container, 
       { 
@@ -373,7 +362,6 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
       </Tabs.Container>
       )}
     </View>
-    </DebugBoundary>
   );
 });
 

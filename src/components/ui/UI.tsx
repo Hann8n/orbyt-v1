@@ -111,18 +111,6 @@ export const Colors = {
   },
 };
 
-// Dev global toggles
-declare global {
-  // eslint-disable-next-line no-var
-  var ORBYT_DEBUG_SCREENS: boolean | undefined;
-}
-
-if (__DEV__) {
-  if (typeof globalThis.ORBYT_DEBUG_SCREENS === 'undefined') {
-    globalThis.ORBYT_DEBUG_SCREENS = false;
-  }
-}
-
 // ============================================================================
 // COLOR UTILITY FUNCTIONS
 // ============================================================================

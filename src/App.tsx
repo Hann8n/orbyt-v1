@@ -22,7 +22,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import RootNavigator from '../src/navigation/RootNavigator'; // adjust path if needed
-import DebugBoundary from './components/ui/DebugBoundary';
 import LoginScreen from '../src/screens/LoginScreen';
 import { AtprotoService } from '../src/services/api/AtprotoService';
 import * as Font from 'expo-font';
@@ -202,9 +201,7 @@ const App: React.FC<{}> = () => {
           <StatusBarController />
           <GestureHandlerRootView style={{ flex: 1 }}>
             <BottomSheetModalProvider>
-              <DebugBoundary label="LoginFlow">
-                <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
-              </DebugBoundary>
+              <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
             </BottomSheetModalProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>
@@ -230,6 +227,10 @@ const App: React.FC<{}> = () => {
               const routeName = getActiveRouteName(state) || state?.routes?.[state?.index ?? 0]?.name;
               if (routeName) {
                 updateNavigation(routeName);
+                try {
+                  // eslint-disable-next-line no-console
+                  console.log('[Navigation]', routeName);
+                } catch {}
               }
             } catch {}
           }}
@@ -237,9 +238,7 @@ const App: React.FC<{}> = () => {
           <StatusBarController />
           <GestureHandlerRootView style={{ flex: 1 }}>
             <BottomSheetModalProvider>
-              <DebugBoundary label="RootNavigator">
-                <RootNavigator onLogout={handleLogout} />
-              </DebugBoundary>
+              <RootNavigator onLogout={handleLogout} />
             </BottomSheetModalProvider>
           </GestureHandlerRootView>
         </NavigationContainer>

@@ -217,6 +217,9 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
   // Memoized error state render
   const errorStateRender = useMemo(() => {
     if (errorState.finalIsError && !isSearchFeed) {
+      try {
+        console.error('[FeedError]', feedOption, errorState.finalError);
+      } catch {}
       return (
         <View style={[styles.errorContainer, { backgroundColor }]}>
           <EmptyFeed 
@@ -232,6 +235,9 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
 
     // Offline state
     if (isPaused && !isSearchFeed) {
+      try {
+        console.warn('[FeedPaused]', feedOption);
+      } catch {}
       return (
         <View style={[styles.errorContainer, { backgroundColor }]}>
           <EmptyFeed 

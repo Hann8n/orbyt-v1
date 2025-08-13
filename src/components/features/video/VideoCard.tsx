@@ -22,6 +22,7 @@ import {
   AppState,
   Animated,
 } from 'react-native';
+import { Image } from 'react-native';
 import Video from 'react-native-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -190,7 +191,22 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
 
     const displayWidth = containerWidth;
     const displayHeight = containerHeight;
-    const videoUrl = extractVideoUrl(videoEmbed);
+    // Build ordered list of candidate URLs (prefer HLS, then MP4, then any)
+    const playlistCandidates = useMemo(() => {
+      const urls: string[] = [];
+      const list = Array.isArray(videoEmbed?.playlist)
+        ? (videoEmbed?.playlist as string[])
+        : (videoEmbed?.playlist ? [videoEmbed?.playlist as string] : []);
+      const unique = Array.from(new Set(list.filter(Boolean)));
+      const hls = unique.filter(u => u.toLowerCase().includes('.m3u8'));
+      const mp4 = unique.filter(u => u.toLowerCase().includes('.mp4'));
+      const other = unique.filter(u => !u.toLowerCase().includes('.m3u8') && !u.toLowerCase().includes('.mp4'));
+      urls.push(...hls, ...mp4, ...other);
+      return urls;
+    }, [videoEmbed]);
+
+    const [currentSourceIndex, setCurrentSourceIndex] = useState(0);
+    const videoUrl = playlistCandidates[currentSourceIndex] || extractVideoUrl(videoEmbed);
     const posterUrl = extractVideoThumbnail(videoEmbed as any) || undefined;
 
     // Determine if video should be blurred - prioritize user choice over moderation
@@ -356,11 +372,14 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     // Safety check for video-specific component (filtering is already done at API level for feeds)
     if (!videoUrl) return null;
 
+    // Only render native player when visible to avoid creating too many AVPlayers (iOS crash risk)
+    const shouldRenderVideo = isVisible && (shouldPlay || videoState.isReady);
+
     return (
       <View style={[styles.container, { width: displayWidth, height: displayHeight }]}>
         <TouchableWithoutFeedback onPress={() => setVideoState(prev => ({ ...prev, userPaused: !prev.userPaused }))}>
           <View style={styles.videoContainer} pointerEvents="box-none">
-            {videoUrl && (
+            {videoUrl && shouldRenderVideo ? (
               <Video
                 key={post.uri}
                 ref={playerRef}
@@ -370,9 +389,19 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                 paused={!videoState.isPlaying}
                 onLoad={() => handleVideoStatus('ready')}
                 onReadyForDisplay={() => handleVideoStatus('ready')}
-                onError={err => {
-                  setVideoState(prev => ({ ...prev, hasError: true }));
-                  onVideoStatus?.(post.uri, 'error');
+                 onError={err => {
+                  try {
+                    console.error('[VideoError]', post.uri, { url: videoUrl, candidateIndex: currentSourceIndex, totalCandidates: playlistCandidates.length }, err);
+                  } catch {}
+                   // Attempt fallback to next candidate URL if available
+                   if (currentSourceIndex + 1 < playlistCandidates.length) {
+                     setCurrentSourceIndex(prev => prev + 1);
+                     setVideoState(prev => ({ ...prev, hasError: false }));
+                     onVideoStatus?.(post.uri, 'retry');
+                   } else {
+                     setVideoState(prev => ({ ...prev, hasError: true }));
+                     onVideoStatus?.(post.uri, 'error');
+                   }
                 }}
                 onBuffer={handleBuffer}
                 onProgress={handleProgress}
@@ -401,6 +430,16 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                 resizeMode="contain"
                 hideShutterView={true}
               />
+            ) : (
+              <View style={{ width: displayWidth, height: displayHeight, justifyContent: 'center', alignItems: 'center' }}>
+                {posterUrl ? (
+                  <Image
+                    source={{ uri: posterUrl }}
+                    style={{ width: displayWidth, height: displayHeight }}
+                    resizeMode="contain"
+                  />
+                ) : null}
+              </View>
             )}
             <Animated.View style={[styles.dimOverlay, { opacity: overlayOpacity }]} pointerEvents="none" />
             {isVisible && !videoState.isReady && !posterUrl && (

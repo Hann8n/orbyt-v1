@@ -109,9 +109,9 @@ const VideoItem: React.FC<VideoItemProps> = ({
     { height: itemHeight }
   ], [itemHeight]);
 
-  // Early return if no video, but guard FlashList crashes by rendering a placeholder
+  // Early return if no video
   if (!hasVideo) {
-    return <View style={containerStyle} />;
+    return null;
   }
 
   // Simplified video status handler

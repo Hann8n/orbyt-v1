@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./src/assets/icon-dev.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./src/assets/adaptive-icon.png",
       "resizeMode": "contain",

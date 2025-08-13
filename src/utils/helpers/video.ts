@@ -50,9 +50,25 @@ export function extractVideoUrl(embed: any): string | null {
   const videoEmbed = getActualVideoEmbed(embed);
   if (!videoEmbed) return null;
   
-  return Array.isArray(videoEmbed.playlist)
-    ? videoEmbed.playlist[0]
-    : videoEmbed.playlist || null;
+  // If playlist is an array, prefer HLS (.m3u8) for widest iOS support,
+  // then fallback to MP4, otherwise use the first entry.
+  if (Array.isArray(videoEmbed.playlist)) {
+    const entries = videoEmbed.playlist.filter(Boolean) as string[];
+    if (entries.length === 0) return null;
+
+    // Prefer URLs that clearly indicate HLS
+    const hls = entries.find(u => typeof u === 'string' && u.toLowerCase().includes('.m3u8'));
+    if (hls) return hls;
+
+    // Fallback to MP4 if present
+    const mp4 = entries.find(u => typeof u === 'string' && u.toLowerCase().includes('.mp4'));
+    if (mp4) return mp4;
+
+    // Otherwise, return the first available URL
+    return entries[0] || null;
+  }
+
+  return videoEmbed.playlist || null;
 }
 
 /**
