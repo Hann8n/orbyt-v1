@@ -219,9 +219,9 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
       return 0;
     }, [shouldBlur, videoState.customDimLevel]);
 
-    // Determine playback state based on multiple factors including tab visibility
+    // Determine playback state based on multiple factors including tab visibility and user pause
     const { shouldPlay: shouldPlayFromTab } = useVideoPlaybackState(isVisible);
-    const shouldPlayVideo = shouldPlay && isVisible && !shouldDisablePlayback && !shouldBlur && shouldPlayFromTab;
+    const shouldPlayVideo = shouldPlay && isVisible && !shouldDisablePlayback && !shouldBlur && shouldPlayFromTab && !videoState.userPaused;
 
     // Direct state update without complex effects
     useEffect(() => {
@@ -386,7 +386,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                 source={{ uri: videoUrl }}
                 style={{ width: displayWidth, height: displayHeight }}
                 repeat={true}
-                paused={!videoState.isPlaying}
+                paused={!shouldPlayVideo}
                 onLoad={() => handleVideoStatus('ready')}
                 onReadyForDisplay={() => handleVideoStatus('ready')}
                  onError={err => {
