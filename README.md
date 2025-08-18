@@ -1,6 +1,6 @@
 ![Orbyt Banner](src/assets/orbyt-banner.png)
 
-# orbyt
+# **orbyt**
 
 A new video app built for bluesky
 
