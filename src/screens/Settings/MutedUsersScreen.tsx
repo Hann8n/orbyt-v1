@@ -100,10 +100,10 @@ const MutedUsersScreen: React.FC = () => {
             )}
           </View>
           <View style={styles.userDetails}>
-            <Text style={styles.displayName}>
+            <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
               {item.displayName || 'Unknown User'}
             </Text>
-            <Text style={styles.handle}>@{item.handle}</Text>
+            <Text style={styles.handle} numberOfLines={1} ellipsizeMode="tail">@{item.handle}</Text>
           </View>
         </View>
         <TouchableOpacity
@@ -118,10 +118,7 @@ const MutedUsersScreen: React.FC = () => {
           {isUnmuting ? (
             <ActivityIndicator size="small" color={Colors.white} />
           ) : (
-            <>
-              <Icon name="volume-2" size={16} color={Colors.white} />
-              <Text style={styles.unmuteButtonText}>Unmute</Text>
-            </>
+            <Text style={styles.unmuteButtonText}>Unmute</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -133,14 +130,14 @@ const MutedUsersScreen: React.FC = () => {
       <View style={styles.safeArea}>
         <ListHeader
           mode="stacked"
-          title="muted users"
+          title="muted accounts"
           showBackButton
           onBackPress={() => navigation.goBack()}
           applySafeAreaTop
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.white} />
-          <Text style={styles.loadingText}>Loading muted users...</Text>
+          <Text style={styles.loadingText}>Loading muted accounts...</Text>
         </View>
       </View>
     );
@@ -150,7 +147,7 @@ const MutedUsersScreen: React.FC = () => {
     <View style={styles.safeArea}>
       <ListHeader
         mode="stacked"
-        title="muted users"
+        title="muted accounts"
         showBackButton
         onBackPress={() => navigation.goBack()}
         applySafeAreaTop
@@ -165,9 +162,9 @@ const MutedUsersScreen: React.FC = () => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Icon name="volume-x" size={48} color={Colors.lightGray} />
-            <Text style={styles.emptyTitle}>no muted users</Text>
+            <Text style={styles.emptyTitle}>no muted accounts</Text>
             <Text style={styles.emptyDescription}>
-              you haven't muted any users yet. muted users' posts won't appear in your feed, but they can still see your content.
+              you haven't muted any accounts yet. muted accounts' posts won't appear in your feed, but they can still see your content.
             </Text>
           </View>
         }
@@ -184,19 +181,15 @@ const styles = StyleSheet.create({
   
   listContainer: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 0,
+    paddingTop: 0,
   },
   userItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.darkGray,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.gray,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
   },
   userInfo: {
     flexDirection: 'row',
@@ -223,26 +216,24 @@ const styles = StyleSheet.create({
   displayName: {
     color: Colors.white,
     fontSize: 16,
-    fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
+    marginBottom: 2,
   },
   handle: {
     color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
-    marginTop: 2,
   },
   unmuteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.darkGray,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 22,
-    minWidth: 100,
-    height: 40,
     borderWidth: 1,
-    borderColor: Colors.lightGray,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 50,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: Colors.white,
+    backgroundColor: 'transparent',
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -255,9 +246,9 @@ const styles = StyleSheet.create({
   unmuteButtonText: {
     color: Colors.white,
     fontSize: 15,
+    fontFamily: 'Firma-SemiBold',
     fontWeight: '600',
-    fontFamily: 'Firma-Medium',
-    marginLeft: 6,
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,

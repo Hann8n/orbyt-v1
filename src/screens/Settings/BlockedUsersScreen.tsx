@@ -97,14 +97,14 @@ const BlockedUsersScreen: React.FC = () => {
             {item.avatar ? (
               <Image source={{ uri: item.avatar }} style={styles.avatar} />
             ) : (
-              <Icon name="user" size={24} color={Colors.white} />
+              <Icon name="user" size={20} color={Colors.lightGray} />
             )}
           </View>
           <View style={styles.userDetails}>
-            <Text style={styles.displayName}>
+            <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
               {item.displayName || 'Unknown User'}
             </Text>
-            <Text style={styles.handle}>@{item.handle}</Text>
+            <Text style={styles.handle} numberOfLines={1} ellipsizeMode="tail">@{item.handle}</Text>
           </View>
         </View>
         <TouchableOpacity
@@ -119,10 +119,7 @@ const BlockedUsersScreen: React.FC = () => {
           {isUnblocking ? (
             <ActivityIndicator size="small" color={Colors.white} />
           ) : (
-            <>
-              <Icon name="user-check" size={16} color={Colors.white} />
-              <Text style={styles.unblockButtonText}>Unblock</Text>
-            </>
+            <Text style={styles.unblockButtonText}>Unblock</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -134,14 +131,14 @@ const BlockedUsersScreen: React.FC = () => {
       <View style={styles.safeArea}>
         <ListHeader
           mode="stacked"
-          title="blocked users"
+          title="blocked accounts"
           showBackButton
           onBackPress={() => navigation.goBack()}
           applySafeAreaTop
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.white} />
-          <Text style={styles.loadingText}>Loading blocked users...</Text>
+          <Text style={styles.loadingText}>Loading blocked accounts...</Text>
         </View>
       </View>
     );
@@ -151,7 +148,7 @@ const BlockedUsersScreen: React.FC = () => {
     <View style={styles.safeArea}>
       <ListHeader
         mode="stacked"
-        title="blocked users"
+        title="blocked accounts"
         showBackButton
         onBackPress={() => navigation.goBack()}
         applySafeAreaTop
@@ -166,9 +163,9 @@ const BlockedUsersScreen: React.FC = () => {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Icon name="shield-shape-fill" size={24} color={Colors.white} />
-            <Text style={styles.emptyTitle}>no blocked users</Text>
+            <Text style={styles.emptyTitle}>no blocked accounts</Text>
             <Text style={styles.emptyDescription}>
-              you haven't blocked any users yet. blocked users won't be able to see your content or interact with you.
+              you haven't blocked any accounts yet. blocked accounts won't be able to see your content or interact with you.
             </Text>
           </View>
         }
@@ -185,19 +182,15 @@ const styles = StyleSheet.create({
   
   listContainer: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: 0,
+    paddingTop: 0,
   },
   userItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.darkGray,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.gray,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
   },
   userInfo: {
     flexDirection: 'row',
@@ -224,26 +217,24 @@ const styles = StyleSheet.create({
   displayName: {
     color: Colors.white,
     fontSize: 16,
-    fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
+    marginBottom: 2,
   },
   handle: {
     color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
-    marginTop: 2,
   },
   unblockButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: UI.Colors.STATUS.SUCCESS,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 22,
-    minWidth: 100,
-    height: 40,
     borderWidth: 1,
-    borderColor: UI.Colors.STATUS.SUCCESS,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 50,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: Colors.white,
+    backgroundColor: 'transparent',
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -256,9 +247,9 @@ const styles = StyleSheet.create({
   unblockButtonText: {
     color: Colors.white,
     fontSize: 15,
+    fontFamily: 'Firma-SemiBold',
     fontWeight: '600',
-    fontFamily: 'Firma-Medium',
-    marginLeft: 6,
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
