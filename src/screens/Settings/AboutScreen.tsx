@@ -12,6 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon } from '../../components/ui/Icon';
+import ListHeader from '../../components/ui/ListHeader';
 import AuthorItem from '../../components/ui/AuthorItem';
 import { Colors } from '../../components/ui/UI';
 import Constants from 'expo-constants';
@@ -70,19 +71,14 @@ const AboutScreen: React.FC = () => {
   ];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <BackArrowIcon size={28} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>about orbyt</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+    <View style={styles.container}> 
+      <ListHeader
+        mode="stacked"
+        title="about orbyt"
+        showBackButton
+        onBackPress={() => navigation.goBack()}
+        applySafeAreaTop
+      />
 
       {/* Content */}
       <ScrollView 
@@ -186,7 +182,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 0.5,
-    borderBottomColor: Colors.mediumGray,
+    borderBottomColor: Colors.gray,
+    backgroundColor: Colors.black,
   },
   backButton: {
     width: 44,
@@ -196,9 +193,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: Colors.white,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
+    fontSize: 22,
+    fontWeight: '700',
+    fontFamily: 'Firma-Bold',
   },
   headerSpacer: {
     width: 40,

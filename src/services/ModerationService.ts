@@ -1,10 +1,47 @@
 import AtprotoService from './api/AtprotoService';
-import { ModerationSettings, LabelPreference, ModerationFilters, ModerationDecision, ModerationOpts, LabelDefinition } from './ModerationTypes';
+import { ModerationSettings, LabelPreference, ModerationDecision, ModerationOpts, LabelDefinition } from './ModerationTypes';
 
 // In-memory cache for moderation decisions
 const moderationCache = new Map<string, ModerationDecision>();
 
 export class ModerationService {
+  // Cached settings used by filters and UI for instant access
+  private static currentSettings: ModerationSettings | null = null;
+
+  private static createDefaultSettings(): ModerationSettings {
+    return {
+      hideSensitiveContent: true,
+      hideAdultContent: true,
+      hideViolence: true,
+      hideSpam: true,
+      hideMisleading: true,
+      hideBlockedUsers: true,
+      hideMutedUsers: true,
+      showContentWarnings: true,
+      autoExpandContentWarnings: false,
+      adultContentEnabled: false,
+      labels: {
+        porn: 'hide',
+        sexual: 'warn',
+        nudity: 'warn',
+        violence: 'warn',
+        gore: 'hide',
+        spam: 'hide',
+        misleading: 'warn',
+        hate: 'hide',
+        intolerant: 'warn',
+        impersonation: 'hide',
+        scam: 'hide',
+      },
+      labelers: [],
+      hiddenPosts: [],
+    };
+  }
+
+  // Synchronous getter to use immediately in UI without awaiting API
+  static getCachedModerationSettings(): ModerationSettings {
+    return this.currentSettings ?? this.createDefaultSettings();
+  }
   /**
    * Get user-friendly description for a label value
    */
@@ -31,6 +68,12 @@ export class ModerationService {
    * Get current moderation settings from Bluesky API
    */
   static async getModerationSettings(): Promise<ModerationSettings> {
+    // If we have cached settings, return them immediately and refresh in background
+    if (this.currentSettings) {
+      // Fire-and-forget background refresh to keep cache fresh
+      this.refreshModerationSettingsFromAPI().catch(() => {});
+      return this.currentSettings;
+    }
     try {
       
       // Get preferences from Bluesky API
@@ -100,10 +143,10 @@ export class ModerationService {
             ...labels
           },
           labelers: apiPreferences.labelers || [],
-          mutedWords: [],
           hiddenPosts: [],
         };
         
+        this.currentSettings = settings;
         return settings;
       }
     } catch (error) {
@@ -111,36 +154,64 @@ export class ModerationService {
     }
     
     // Return default settings if API call fails
-    const defaultSettings: ModerationSettings = {
-      hideSensitiveContent: true,
-      hideAdultContent: true,
-      hideViolence: true,
-      hideSpam: true,
-      hideMisleading: true,
-      hideBlockedUsers: true,
-      hideMutedUsers: true,
-      showContentWarnings: true,
-      autoExpandContentWarnings: false,
-      adultContentEnabled: false,
-      labels: {
-        'porn': 'hide',
-        'sexual': 'warn',
-        'nudity': 'warn',
-        'violence': 'warn',
-        'gore': 'hide',
-        'spam': 'hide',
-        'misleading': 'warn',
-        'hate': 'hide',
-        'intolerant': 'warn',
-        'impersonation': 'hide',
-        'scam': 'hide',
-      },
-      labelers: [],
-      mutedWords: [],
-      hiddenPosts: [],
-    };
-    
+    const defaultSettings: ModerationSettings = this.createDefaultSettings();
+    this.currentSettings = defaultSettings;
     return defaultSettings;
+  }
+
+  private static async refreshModerationSettingsFromAPI(): Promise<void> {
+    try {
+      const apiPreferences = await AtprotoService.getModerationPreferences();
+      if (!apiPreferences) return;
+      const adultContentPref = apiPreferences.preferences?.find((pref: any) => 
+        pref.$type === 'app.bsky.actor.defs#adultContentPref'
+      );
+      const adultContentEnabled = adultContentPref?.enabled ?? false;
+      const labelPrefs = apiPreferences.preferences?.filter((pref: any) => 
+        pref.$type === 'app.bsky.actor.defs#contentLabelPref'
+      ) || [];
+      const labels: Record<string, LabelPreference> = {};
+      labelPrefs.forEach((pref: any) => {
+        let preference: LabelPreference = 'warn';
+        switch (pref.visibility) {
+          case 'hide': preference = 'hide'; break;
+          case 'warn': preference = 'warn'; break;
+          case 'ignore': preference = 'ignore'; break;
+          default: preference = 'warn';
+        }
+        labels[pref.label] = preference;
+      });
+      this.currentSettings = {
+        hideSensitiveContent: true,
+        hideAdultContent: true,
+        hideViolence: true,
+        hideSpam: true,
+        hideMisleading: true,
+        hideBlockedUsers: true,
+        hideMutedUsers: true,
+        showContentWarnings: true,
+        autoExpandContentWarnings: false,
+        adultContentEnabled,
+        labels: {
+          porn: labels.porn || 'hide',
+          sexual: labels.sexual || 'warn',
+          nudity: labels.nudity || 'warn',
+          violence: labels.violence || 'warn',
+          gore: labels.gore || 'hide',
+          spam: labels.spam || 'hide',
+          misleading: labels.misleading || 'warn',
+          hate: labels.hate || 'hide',
+          intolerant: labels.intolerant || 'warn',
+          impersonation: labels.impersonation || 'hide',
+          scam: labels.scam || 'hide',
+          ...labels,
+        },
+        labelers: apiPreferences.labelers || [],
+        hiddenPosts: [],
+      };
+    } catch (_) {
+      // ignore background refresh errors
+    }
   }
   
   /**
@@ -148,6 +219,8 @@ export class ModerationService {
    */
   static async saveModerationSettings(settings: ModerationSettings): Promise<void> {
     try {
+      // Optimistically update cache so UI and filtering reflect immediately
+      this.currentSettings = settings;
       
       // Get current preferences first to preserve other settings
       const currentPreferences = await AtprotoService.getModerationPreferences();
@@ -250,18 +323,16 @@ export class ModerationService {
       informs: [],
     };
     
-    // Check if author is blocked or muted
+    // Filter by blocked or muted users (always on)
     if (post.post.author?.did) {
       const authorDid = post.post.author.did;
-      
-      if (settings.hideBlockedUsers && blockedUsers.has(authorDid)) {
+      if (blockedUsers.has(authorDid)) {
         decision.filter = true;
         decision.reason = 'Author is blocked';
         decision.source = 'user_block';
         return decision;
       }
-      
-      if (settings.hideMutedUsers && mutedUsers.has(authorDid)) {
+      if (mutedUsers.has(authorDid)) {
         decision.filter = true;
         decision.reason = 'Author is muted';
         decision.source = 'user_mute';
@@ -343,19 +414,7 @@ export class ModerationService {
       }
     }
     
-    // Check muted words
-    if (settings.mutedWords.length > 0) {
-      const postText = post.post.record?.text?.toLowerCase() || '';
-      
-      for (const mutedWord of settings.mutedWords) {
-        if (postText.includes(mutedWord.toLowerCase())) {
-          decision.filter = true;
-          decision.reason = `Contains muted word: ${mutedWord}`;
-          decision.source = 'muted_word';
-          return decision;
-        }
-      }
-    }
+    // Muted words feature removed
     
     // Check if post is in hidden posts list
     if (settings.hiddenPosts.includes(post.post.uri)) {
@@ -393,11 +452,8 @@ export class ModerationService {
         // Removed debugLog
       }
       
-      // Fetch blocked and muted users from API
-      const [blockedUsers, mutedUsers] = await Promise.all([
-        AtprotoService.getBlockedUsersFromAPI(),
-        AtprotoService.getMutedUsersFromAPI()
-      ]);
+      // Fetch blocked and muted users from API (noop retained)
+      await Promise.all([]);
       
       // Removed debugLog
       
@@ -434,21 +490,12 @@ export class ModerationService {
    * Get moderation statistics for debugging
    */
   static async getModerationStats(): Promise<{
-    blockedUsers: number;
-    mutedUsers: number;
-    mutedWords: number;
     hiddenPosts: number;
     labelPreferences: Record<string, LabelPreference>;
   }> {
     try {
       const settings = await this.getModerationSettings();
-      const blockedUsers = await this.getBlockedUsers();
-      const mutedUsers = await this.getMutedUsers();
-      
       const stats = {
-        blockedUsers: blockedUsers.size,
-        mutedUsers: mutedUsers.size,
-        mutedWords: settings.mutedWords.length,
         hiddenPosts: settings.hiddenPosts.length,
         labelPreferences: settings.labels,
       };
@@ -457,9 +504,6 @@ export class ModerationService {
     } catch (error) {
       // Removed debugLog
       return {
-        blockedUsers: 0,
-        mutedUsers: 0,
-        mutedWords: 0,
         hiddenPosts: 0,
         labelPreferences: {},
       };
@@ -511,8 +555,8 @@ export class ModerationService {
         const decision = await this.moderatePostWithCachedSettings(
           post, 
           context, 
-          settings, 
-          blockedUsers, 
+          settings,
+          blockedUsers,
           mutedUsers
         );
         moderationCache.set(uri, decision);
@@ -570,18 +614,16 @@ export class ModerationService {
       informs: [],
     };
     
-    // Check if author is blocked or muted
+    // Filter by blocked or muted users (always on)
     if (post.post.author?.did) {
       const authorDid = post.post.author.did;
-      
-      if (settings.hideBlockedUsers && blockedUsers.has(authorDid)) {
+      if (blockedUsers.has(authorDid)) {
         decision.filter = true;
         decision.reason = 'Author is blocked';
         decision.source = 'user_block';
         return decision;
       }
-      
-      if (settings.hideMutedUsers && mutedUsers.has(authorDid)) {
+      if (mutedUsers.has(authorDid)) {
         decision.filter = true;
         decision.reason = 'Author is muted';
         decision.source = 'user_mute';
@@ -670,19 +712,7 @@ export class ModerationService {
       }
     }
     
-    // Check muted words
-    if (settings.mutedWords.length > 0) {
-      const postText = post.post.record?.text?.toLowerCase() || '';
-      
-      for (const mutedWord of settings.mutedWords) {
-        if (postText.includes(mutedWord.toLowerCase())) {
-          decision.filter = true;
-          decision.reason = `Contains muted word: ${mutedWord}`;
-          decision.source = 'muted_word';
-          return decision;
-        }
-      }
-    }
+    // Muted words feature removed
     
     // Check if post is in hidden posts list
     if (settings.hiddenPosts.includes(post.post.uri)) {

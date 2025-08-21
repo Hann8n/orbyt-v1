@@ -4,19 +4,21 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   Alert,
   Platform,
   Switch,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList, useLogout } from '../../navigation/types';
-import Icon, { TvIcon, BackArrowIcon } from '../../components/ui/Icon';
+import Icon, { BackArrowIcon } from '../../components/ui/Icon';
+import ListHeader from '../../components/ui/ListHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModerationDebug from '../../components/features/moderation/ModerationDebug';
 import AccountManager from '../../services/storage/AccountManager';
+ 
 
 // global flag for immediate effect without re-mounts
 declare global {
@@ -124,18 +126,19 @@ const SettingsScreen: React.FC = () => {
     {
       title: 'account',
       items: [
-        {
-          id: 'moderation',
-                      label: 'content moderation',
-          icon: 'mingcute:safe-shield-2-fill',
-          onPress: () => navigation.navigate({ name: 'ModerationControls', params: {} }),
-          showChevron: true
-        },
+        
         {
           id: 'channels',
           label: 'manage channels',
           icon: 'device-tv',
           onPress: () => navigation.navigate('ChannelManagement'),
+          showChevron: true
+        },
+        {
+          id: 'insights',
+          label: 'insights',
+          icon: 'insights',
+          onPress: () => navigation.navigate({ name: 'Insights', params: {} }),
           showChevron: true
         },
         // {
@@ -148,8 +151,32 @@ const SettingsScreen: React.FC = () => {
       ]
     },
     {
+      title: 'privacy',
+      items: [
+        {
+          id: 'blocked-users',
+          label: 'blocked accounts',
+          onPress: () => navigation.navigate('BlockedUsers'),
+          showChevron: true
+        },
+        {
+          id: 'muted-users',
+          label: 'muted accounts',
+          onPress: () => navigation.navigate('MutedUsers'),
+          showChevron: true
+        },
+      ]
+    },
+    {
       title: 'content',
       items: [
+        {
+          id: 'content-filters',
+          label: 'content filters',
+          icon: 'filter',
+          onPress: () => navigation.navigate('ContentFilters'),
+          showChevron: true
+        },
         {
           id: 'watch-history',
           label: 'watch history',
@@ -212,124 +239,137 @@ const SettingsScreen: React.FC = () => {
     }
   ];
 
+  // Build flat list data for FlashList
+  type ListRow =
+    | { kind: 'section-title'; id: string; title: string }
+    | { kind: 'setting'; id: string; label: string; showChevron?: boolean; onPress: () => void }
+    | { kind: 'toggle'; id: string; label: string; subtitle?: string; value: boolean; onValueChange: (v: boolean) => void }
+    | { kind: 'logout'; id: 'logout' };
+
+  const listData: ListRow[] = [];
+
+  settingsSections.forEach((section) => {
+    if (section.title !== 'account') {
+      listData.push({ kind: 'section-title', id: `title-${section.title}`, title: section.title });
+    }
+
+    section.items.forEach((item) => {
+      listData.push({
+        kind: 'setting',
+        id: (item as any).id,
+        label: (item as any).label,
+        showChevron: (item as any).showChevron,
+        onPress: (item as any).onPress,
+      });
+    });
+
+    if (section.title === 'content') {
+      listData.push({
+        kind: 'toggle',
+        id: 'experimental-feeds',
+        label: 'experimental feeds',
+        subtitle: 'show non-video feeds',
+        value: isExperimentalFeedsEnabled,
+        onValueChange: handleToggleExperimentalFeeds,
+      });
+    }
+
+    if (section.title === 'debug') {
+      listData.push({
+        kind: 'toggle',
+        id: 'feed-debug-overlay',
+        label: 'feed debug overlay',
+        subtitle: 'show realtime feed/debug info',
+        value: isFeedDebugEnabled,
+        onValueChange: handleToggleFeedDebug,
+      });
+    }
+  });
+
+  // Add logout row at the end
+  listData.push({ kind: 'logout', id: 'logout' });
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <BackArrowIcon size={28} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>settings</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      {/* Content */}
-      <ScrollView 
-        style={styles.content}
+    <View style={styles.container}>
+      <FlashList
+        data={listData}
+        contentContainerStyle={[styles.contentContainer, { paddingHorizontal: 5 }]}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
-      >
-        {settingsSections.map((section, sectionIndex) => (
-          <View key={section.title} style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <View style={styles.sectionContent}>
-              {section.items.map((item, itemIndex) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[
-                    styles.settingItem,
-                    itemIndex === section.items.length - 1 && styles.lastItem
-                  ]}
-                  onPress={item.onPress}
-                  activeOpacity={0.7}
-                  disabled={isSubmitting}
-                >
-                  <View style={styles.settingItemLeft}>
-                    <View style={styles.iconContainer}>
-                      {item.icon === 'device-tv' ? (
-                        <TvIcon size={20} color={Colors.white} />
-                      ) : (
-                        <Icon name={item.icon} size={20} color={Colors.white} />
-                      )}
-                    </View>
-                    <View style={styles.settingItemTextContainer}>
-                      <Text style={styles.settingItemText}>{item.label}</Text>
-                      {(item as any).subtitle && (
-                        <Text style={styles.settingItemSubtitle}>{(item as any).subtitle}</Text>
-                      )}
-                    </View>
-                  </View>
-                  {item.showChevron && (
-                    <Icon name="chevron-right" size={20} color={Colors.gray} />
-                  )}
-                </TouchableOpacity>
-              ))}
-              
-              {/* Experimental Feeds Toggle (only in content section) */}
-              {section.title === 'content' && (
-                <View style={[styles.settingItem, { borderBottomWidth: 0.5, borderBottomColor: Colors.mediumGray }]}> 
-                  <View style={styles.settingItemLeft}>
-                    <View style={styles.iconContainer}>
-                      <Icon name="experimental-feeds" size={20} color={Colors.white} />
-                    </View>
-                    <View style={styles.settingItemTextContainer}>
-                      <Text style={styles.settingItemText}>experimental feeds</Text>
-                      <Text style={styles.settingItemSubtitle}>show non-video feeds</Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={isExperimentalFeedsEnabled}
-                    onValueChange={handleToggleExperimentalFeeds}
-                    trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
-                    thumbColor={isExperimentalFeedsEnabled ? Colors.white : Colors.lightGray}
-                    ios_backgroundColor={Colors.mediumGray}
-                  />
+        keyExtractor={(item) => `${item.kind}-${item.id}`}
+        ListHeaderComponent={(
+          <ListHeader 
+            mode="root"
+            title="settings"
+            showBackButton
+            onBackPress={() => navigation.goBack()}
+            applySafeAreaTop
+            style={{ marginHorizontal: -5 }}
+          />
+        )}
+        renderItem={({ item }) => {
+          switch (item.kind) {
+            case 'section-title':
+              return (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>{item.title}</Text>
                 </View>
-              )}
-              {section.title === 'debug' && (
-                <View style={[styles.settingItem]}> 
-                  <View style={styles.settingItemLeft}>
-                    <View style={styles.iconContainer}>
-                      <Icon name="bug" size={20} color={Colors.white} />
+              );
+            case 'setting':
+              return (
+                <View style={{ marginBottom: 12 }}>
+                  <TouchableOpacity
+                    style={styles.menuOption}
+                    onPress={item.onPress}
+                    activeOpacity={0.7}
+                    disabled={isSubmitting}
+                  >
+                    <View style={styles.menuOptionLeft}>
+                      <Text style={styles.menuOptionText}>{item.label}</Text>
                     </View>
-                    <View style={styles.settingItemTextContainer}>
-                                      <Text style={styles.settingItemText}>feed debug overlay</Text>
-                <Text style={styles.settingItemSubtitle}>show realtime feed/debug info</Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={isFeedDebugEnabled}
-                    onValueChange={handleToggleFeedDebug}
-                    trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
-                    thumbColor={isFeedDebugEnabled ? Colors.white : Colors.lightGray}
-                    ios_backgroundColor={Colors.mediumGray}
-                  />
+                    {item.showChevron && (
+                      <Icon name="chevron-right" size={20} color={Colors.gray} />
+                    )}
+                  </TouchableOpacity>
                 </View>
-              )}
-            </View>
-          </View>
-        ))}
-
-        {/* Logout Button */}
-        <View style={styles.logoutSection}>
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-            activeOpacity={0.7}
-            disabled={isSubmitting}
-          >
-            <Icon name="logout" size={20} color={Colors.black} />
-            <Text style={styles.logoutButtonText}>log out</Text>
-          </TouchableOpacity>
-        </View>
-
-
-      </ScrollView>
-      
+              );
+            case 'toggle':
+              return (
+                <View style={{ marginBottom: 12 }}>
+                  <View style={styles.menuOption}>
+                    <View style={styles.menuOptionLeft}>
+                      <Text style={styles.menuOptionText}>{item.label}</Text>
+                      {item.subtitle ? (
+                        <Text style={styles.menuOptionSubtitle}>{item.subtitle}</Text>
+                      ) : null}
+                    </View>
+                    <Switch
+                      value={item.value}
+                      onValueChange={item.onValueChange}
+                      trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
+                      thumbColor={item.value ? Colors.white : Colors.lightGray}
+                      ios_backgroundColor={Colors.mediumGray}
+                    />
+                  </View>
+                </View>
+              );
+            case 'logout':
+              return (
+                <View style={styles.logoutSection}>
+                  <TouchableOpacity
+                    style={styles.logoutMenuOption}
+                    onPress={handleLogout}
+                    activeOpacity={0.7}
+                    disabled={isSubmitting}
+                  >
+                    <Text style={styles.logoutMenuOptionText}>log out</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            default:
+              return null;
+          }
+        }}
+      />
     </View>
   );
 };
@@ -345,8 +385,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.mediumGray,
+    marginHorizontal: -5,
+    borderBottomWidth: 0,
+    borderBottomColor: 'transparent',
+    backgroundColor: Colors.black,
   },
   backButton: {
     width: 44,
@@ -356,10 +398,11 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: Colors.white,
-    fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontSize: 22,
+    fontFamily: 'Firma-Bold',
+    fontWeight: '700',
   },
-  headerSpacer: {
+  headerRight: {
     width: 40,
   },
   content: {
@@ -369,7 +412,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   section: {
-    marginTop: 24,
+    marginTop: 12,
   },
   sectionTitle: {
     color: Colors.gray,
@@ -381,80 +424,54 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  sectionContent: {
-    backgroundColor: Colors.darkGray,
-    marginHorizontal: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.mediumGray,
-    overflow: 'hidden',
+  optionsContainer: {
+    flexDirection: 'column',
+    gap: 12,
+    marginHorizontal: 0,
   },
-
-  settingItem: {
+  menuOption: {
+    backgroundColor: Colors.darkGray,
+    borderRadius: 20,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.mediumGray,
   },
-  lastItem: {
-    borderBottomWidth: 0,
-  },
-  settingItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  menuOptionLeft: {
+    flexDirection: 'column',
     flex: 1,
   },
-  iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: Colors.mediumGray,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  settingItemTextContainer: {
-    flex: 1,
-  },
-  settingItemText: {
-    color: Colors.white,
-    fontSize: 16,
+  menuOptionText: {
+    color: Colors.lightGray,
+    fontSize: 18,
     fontWeight: '500',
     fontFamily: 'Firma-Medium',
   },
-  settingItemSubtitle: {
+  menuOptionSubtitle: {
     color: Colors.gray,
     fontSize: 12,
     fontWeight: '400',
     fontFamily: 'Firma-Regular',
-    marginTop: 2,
-  },
-  switchItem: {
-    justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: 4,
   },
   logoutSection: {
     marginTop: 32,
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
   },
-  logoutButton: {
-    flexDirection: 'row',
+  logoutMenuOption: {
+    backgroundColor: Colors.darkRed,
+    borderRadius: 20,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.red,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
   },
-  logoutButtonText: {
-    color: Colors.black,
-    fontSize: 16,
+  logoutMenuOptionText: {
+    color: Colors.white,
+    fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
-    marginLeft: 8,
   },
 });
 

@@ -1,6 +1,6 @@
 import { AtpAgent } from '@atproto/api';
 import * as SecureStore from 'expo-secure-store';
-import { ModerationDecision, ModerationSettings, LabelPreference, ModerationFilters, ModerationOpts, LabelDefinition } from '../ModerationTypes';
+import { ModerationDecision, ModerationSettings, LabelPreference, ModerationOpts, LabelDefinition } from '../ModerationTypes';
 
 const SERVICE_URL = 'https://bsky.social';
 const CHAT_SERVICE_URL = 'https://api.bsky.chat';

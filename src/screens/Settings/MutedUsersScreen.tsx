@@ -11,6 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon } from '../../components/ui/Icon';
+import ListHeader from '../../components/ui/ListHeader';
 import { Colors } from '../../components/ui/UI';
 import { ModerationService } from '../../services/ModerationService';
 import AtprotoService from '../../services/api/AtprotoService';
@@ -129,18 +130,14 @@ const MutedUsersScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <View style={[styles.safeArea, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-                  <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <BackArrowIcon size={28} color={Colors.white} />
-        </TouchableOpacity>
-          <Text style={styles.headerTitle}>muted users</Text>
-          <View style={styles.headerRight} />
-        </View>
+      <View style={styles.safeArea}>
+        <ListHeader
+          mode="stacked"
+          title="muted users"
+          showBackButton
+          onBackPress={() => navigation.goBack()}
+          applySafeAreaTop
+        />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.white} />
           <Text style={styles.loadingText}>Loading muted users...</Text>
@@ -150,18 +147,14 @@ const MutedUsersScreen: React.FC = () => {
   }
 
   return (
-    <View style={[styles.safeArea, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <BackArrowIcon size={28} color={Colors.white} />
-        </TouchableOpacity>
-                  <Text style={styles.headerTitle}>muted users</Text>
-        <View style={styles.headerRight} />
-      </View>
+    <View style={styles.safeArea}>
+      <ListHeader
+        mode="stacked"
+        title="muted users"
+        showBackButton
+        onBackPress={() => navigation.goBack()}
+        applySafeAreaTop
+      />
 
       <FlatList
         data={mutedUsers}
@@ -188,31 +181,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.gray,
-    backgroundColor: Colors.black,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: Colors.white,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
-  },
-  headerRight: {
-    width: 40,
-  },
+  
   listContainer: {
     flexGrow: 1,
     paddingHorizontal: 20,

@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator, Alert, StyleSheet, TouchableOpacity, Saf
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon, { BackArrowIcon } from '../../components/ui/Icon';
+import ListHeader from '../../components/ui/ListHeader';
 import { Colors } from '../../components/ui/UI';
 import UI from '../../components/ui/UI';
 import WatchHistory from '../../services/WatchHistory';
@@ -154,18 +155,14 @@ const WatchHistoryScreen: React.FC = () => {
 
     if (loading) {
     return (
-      <View style={[styles.safeArea, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <BackArrowIcon size={28} color={Colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>watch history</Text>
-          <View style={styles.headerRight} />
-        </View>
+      <View style={styles.safeArea}>
+        <ListHeader
+          mode="stacked"
+          title="watch history"
+          showBackButton
+          onBackPress={() => navigation.goBack()}
+          applySafeAreaTop
+        />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.white} />
           <Text style={styles.loadingText}>Loading watch history...</Text>
@@ -175,29 +172,28 @@ const WatchHistoryScreen: React.FC = () => {
   }
 
   return (
-    <View style={[styles.safeArea, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <BackArrowIcon size={28} color={Colors.white} />
-        </TouchableOpacity>
-                  <Text style={styles.headerTitle}>watch history</Text>
-        <TouchableOpacity
-          style={styles.clearButton}
-          onPress={handleClearHistory}
-          disabled={clearingHistory || feedItems.length === 0}
-          activeOpacity={0.7}
-        >
-          {clearingHistory ? (
-            <ActivityIndicator size="small" color={UI.Colors.STATUS.ERROR} />
-          ) : (
-            <Icon name="trash" size={20} color={UI.Colors.STATUS.ERROR} />
-          )}
-        </TouchableOpacity>
-      </View>
+    <View style={styles.safeArea}>
+      <ListHeader
+        mode="stacked"
+        title="watch history"
+        showBackButton
+        onBackPress={() => navigation.goBack()}
+        applySafeAreaTop
+        right={
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={handleClearHistory}
+            disabled={clearingHistory || feedItems.length === 0}
+            activeOpacity={0.7}
+          >
+            {clearingHistory ? (
+              <ActivityIndicator size="small" color={UI.Colors.STATUS.ERROR} />
+            ) : (
+              <Icon name="trash" size={20} color={UI.Colors.STATUS.ERROR} />
+            )}
+          </TouchableOpacity>
+        }
+      />
 
       {/* Stats header */}
       {feedItems.length > 0 && (
@@ -230,31 +226,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.gray,
-    backgroundColor: Colors.darkGray,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: Colors.white,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
-  },
-  headerRight: {
-    width: 40,
-  },
+  
   clearButton: {
     width: 40,
     height: 40,
@@ -283,7 +255,7 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
   },

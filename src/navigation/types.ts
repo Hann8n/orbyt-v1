@@ -59,15 +59,13 @@ export type RootStackParamList = {
   Insights: {
     onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
   };
-  ModerationControls: {
-    onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
-  };
+  
+  ContentFilters: undefined;
   ModerationDebug: {
     onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
   };
   BlockedUsers: undefined;
   MutedUsers: undefined;
-  MutedWords: undefined;
   HiddenPosts: undefined;
   WatchHistory: undefined;
   ChannelManagement: undefined;

@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import Icon, { BackArrowIcon } from '../../ui/Icon';
+import Icon from '../../ui/Icon';
+import ListHeader from '../../ui/ListHeader';
 import { ModerationService } from '../../../services/ModerationService';
 import { ModerationSettings, LabelPreference } from '../../../services/ModerationTypes';
 import { Colors } from '../../ui/UI';
@@ -24,7 +25,7 @@ interface ModerationControlsProps {
   onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
 }
 
-type ModerationControlsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ModerationControls' | 'BlockedUsers' | 'MutedUsers' | 'MutedWords' | 'HiddenPosts'>;
+type ModerationControlsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'BlockedUsers' | 'MutedUsers' | 'HiddenPosts'>;
 
 interface ContentTypeOption {
   id: string;
@@ -82,8 +83,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
     hideViolence: true,
     hideSpam: true,
     hideMisleading: true,
-    hideBlockedUsers: true,
-    hideMutedUsers: true,
     showContentWarnings: true,
     autoExpandContentWarnings: false,
     adultContentEnabled: false,
@@ -118,8 +117,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
         hideViolence: currentSettings.hideViolence,
         hideSpam: currentSettings.hideSpam,
         hideMisleading: currentSettings.hideMisleading,
-        hideBlockedUsers: currentSettings.hideBlockedUsers,
-        hideMutedUsers: currentSettings.hideMutedUsers,
         showContentWarnings: currentSettings.showContentWarnings,
         autoExpandContentWarnings: currentSettings.autoExpandContentWarnings,
         adultContentEnabled: currentSettings.adultContentEnabled,
@@ -252,20 +249,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
   if (!visible) return null;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={onClose}
-            activeOpacity={0.7}
-          >
-            <BackArrowIcon size={28} color={Colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>content moderation</Text>
-        </View>
-      </View>
+    <View style={styles.container}> 
 
       {/* Content */}
       <ScrollView 
@@ -284,36 +268,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>moderation statistics</Text>
                 <View style={styles.statsGrid}>
-                  <TouchableOpacity 
-                    style={styles.statItem}
-                    onPress={() => navigation.navigate('BlockedUsers')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.statContent}>
-                      <Text style={styles.statValue}>{stats.blockedUsers}</Text>
-                      <Text style={styles.statLabel}>Blocked{'\n'}Users</Text>
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.statItem}
-                    onPress={() => navigation.navigate('MutedUsers')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.statContent}>
-                      <Text style={styles.statValue}>{stats.mutedUsers}</Text>
-                      <Text style={styles.statLabel}>Muted{'\n'}Users</Text>
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.statItem}
-                    onPress={() => navigation.navigate('MutedWords')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.statContent}>
-                      <Text style={styles.statValue}>{stats.mutedWords}</Text>
-                      <Text style={styles.statLabel}>Muted{'\n'}Words</Text>
-                    </View>
-                  </TouchableOpacity>
+                  {/* muted words stat removed */}
                 </View>
               </View>
             )}
@@ -328,161 +283,17 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                       <Icon name="block" size={24} color={Colors.white} />
                     </View>
                     <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingItemText}>hide blocked users</Text>
+                      <Text style={styles.settingItemText}>hide blocked and muted users</Text>
                       <Text style={styles.settingItemDescription}>
-                        hide content from users you've blocked
+                        content from blocked or muted users is always hidden
                       </Text>
                     </View>
                   </View>
-                  <Switch
-                    value={generalSettings.hideBlockedUsers}
-                    onValueChange={(value) => updateGeneralSetting('hideBlockedUsers', value)}
-                    trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
-                    thumbColor={generalSettings.hideBlockedUsers ? Colors.white : Colors.gray}
-                  />
-                </View>
-
-                <View style={styles.settingItem}>
-                  <View style={styles.settingItemLeft}>
-                    <View style={styles.iconContainer}>
-                      <Icon name="muted-users" size={24} color={Colors.white} />
-                    </View>
-                    <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingItemText}>hide muted users</Text>
-                      <Text style={styles.settingItemDescription}>
-                        hide content from users you've muted
-                      </Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={generalSettings.hideMutedUsers}
-                    onValueChange={(value) => updateGeneralSetting('hideMutedUsers', value)}
-                    trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
-                    thumbColor={generalSettings.hideMutedUsers ? Colors.white : Colors.gray}
-                  />
                 </View>
               </View>
             </View>
 
-            {/* Content Type Settings */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Content Filters</Text>
-              <Text style={styles.sectionDescription}>
-                Choose how to handle different types of content
-              </Text>
-              <View style={styles.sectionContent}>
-                {generalSettings.adultContentEnabled && (
-                  <View style={styles.settingItem}>
-                    <View style={styles.settingItemLeft}>
-                      <View style={styles.iconContainer}>
-                        <Icon name="sensitive-content" size={24} color={Colors.white} />
-                      </View>
-                      <View style={styles.settingTextContainer}>
-                        <Text style={styles.settingItemText}>Sensitive Content</Text>
-                        <Text style={styles.settingItemDescription}>
-                          Allow sensitive content (adult, sexual, nudity, graphic) to be displayed
-                        </Text>
-                      </View>
-                    </View>
-                    <Switch
-                      value={generalSettings.adultContentEnabled}
-                      onValueChange={(value) => updateGeneralSetting('adultContentEnabled', value)}
-                      trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
-                      thumbColor={generalSettings.adultContentEnabled ? Colors.white : Colors.gray}
-                    />
-                  </View>
-                )}
-
-
-                {contentOptions.map((option, index) => {
-                  const isAdultContent = ['porn', 'sexual', 'nudity'].includes(option.id);
-                  // Hide adult content options when sensitive content is disabled
-                  if (isAdultContent && !generalSettings.adultContentEnabled) {
-                    return null;
-                  }
-                  
-                  return (
-                    <View
-                      key={option.id}
-                      style={[
-                        styles.contentOptionItem,
-                        index === contentOptions.length - 1 && styles.lastItem
-                      ]}
-                    >
-                      <View style={styles.settingTextContainer}>
-                        <Text style={styles.settingItemText}>
-                          {option.label}
-                        </Text>
-                        <Text style={styles.settingItemDescription}>
-                          {option.description}
-                        </Text>
-                      </View>
-                      
-                      {/* Toggle Buttons Below Each Item */}
-                      <View style={styles.toggleButtonsContainer}>
-                        <View style={styles.toggleButtonGroup}>
-                          <TouchableOpacity
-                            style={[
-                              styles.toggleButton,
-                              option.preference === 'ignore' && [styles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.SUCCESS, borderRightColor: UI.Colors.STATUS.SUCCESS }]
-                            ]}
-                            onPress={() => {
-                              console.log('Show button pressed for:', option.id);
-                              updateContentPreference(option.id, 'ignore');
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[
-                              styles.toggleButtonText,
-                              option.preference === 'ignore' && styles.toggleButtonTextActive
-                            ]}>
-                              Show
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[
-                              styles.toggleButton,
-                              option.preference === 'warn' && [styles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.WARNING, borderRightColor: UI.Colors.STATUS.WARNING }]
-                            ]}
-                            onPress={() => {
-                              console.log('Warn button pressed for:', option.id);
-                              updateContentPreference(option.id, 'warn');
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[
-                              styles.toggleButtonText,
-                              option.preference === 'warn' && styles.toggleButtonTextActive
-                            ]}>
-                              Warn
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[
-                              styles.toggleButton,
-                              styles.toggleButtonLast,
-                              option.preference === 'hide' && [styles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.ERROR, borderRightColor: UI.Colors.STATUS.ERROR }]
-                            ]}
-                            onPress={() => {
-                              console.log('Hide button pressed for:', option.id);
-                              updateContentPreference(option.id, 'hide');
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={[
-                              styles.toggleButtonText,
-                              option.preference === 'hide' && styles.toggleButtonTextActive
-                            ]}>
-                              Hide
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
+            {/* Content Filters moved to dedicated screen */}
 
             {/* Web Settings Button */}
             <View style={styles.webSettingsSection}>
@@ -509,32 +320,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.mediumGray,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: Colors.white,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
-  },
+  
 
   content: {
     flex: 1,

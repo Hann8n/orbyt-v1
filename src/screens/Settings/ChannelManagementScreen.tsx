@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ListHeader from '../../components/ui/ListHeader';
 import { Avatar, Icon } from '../../components/ui/UI';
 import { Colors } from '../../components/ui/UI';
 import { BackArrowIcon, PlusIcon } from '../../components/ui/Icon';
@@ -421,18 +422,14 @@ const ChannelManagementScreen: React.FC = () => {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-                  <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <BackArrowIcon size={28} color={Colors.white} />
-        </TouchableOpacity>
-          <Text style={styles.headerTitle}>manage channels</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+      <View style={styles.container}> 
+        <ListHeader
+          mode="stacked"
+          title="manage channels"
+          showBackButton
+          onBackPress={() => navigation.goBack()}
+          applySafeAreaTop
+        />
         
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.white} />
@@ -443,60 +440,53 @@ const ChannelManagementScreen: React.FC = () => {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => {
-            if (isEditMode) {
-              Alert.alert(
-                'Discard Changes',
-                'You have unsaved changes. Are you sure you want to discard them?',
-                [
-                  {
-                    text: 'Cancel',
-                    style: 'cancel'
-                  },
-                  {
-                    text: 'Discard',
-                    style: 'destructive',
-                    onPress: () => {
-                      setDraftChannels([]);
-                      setIsEditMode(false);
-                      navigation.goBack();
-                    }
+    <View style={styles.container}> 
+      <ListHeader
+        mode="stacked"
+        title="manage channels"
+        showBackButton
+        onBackPress={() => {
+          if (isEditMode) {
+            Alert.alert(
+              'Discard Changes',
+              'You have unsaved changes. Are you sure you want to discard them?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Discard',
+                  style: 'destructive',
+                  onPress: () => {
+                    setDraftChannels([]);
+                    setIsEditMode(false);
+                    navigation.goBack();
                   }
-                ]
-              );
-            } else {
-              navigation.goBack();
-            }
-          }}
-          activeOpacity={0.7}
-        >
-                      <BackArrowIcon size={28} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>manage channels</Text>
-        <TouchableOpacity 
-          style={[styles.editButton, isEditMode && styles.editButtonActive]}
-          onPress={() => {
-            if (isEditMode) {
-              // Save changes when Done is pressed
-              handleSaveChanges();
-            } else {
-              // Initialize draft when Edit is pressed
-              setDraftChannels([...channels]);
-              setIsEditMode(true);
-            }
-          }}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.editButtonText, isEditMode && styles.editButtonTextActive]}>
-            {isEditMode ? 'done' : 'edit'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+                }
+              ]
+            );
+          } else {
+            navigation.goBack();
+          }
+        }}
+        applySafeAreaTop
+        right={
+          <TouchableOpacity 
+            style={[styles.editButton, isEditMode && styles.editButtonActive]}
+            onPress={() => {
+              if (isEditMode) {
+                handleSaveChanges();
+              } else {
+                setDraftChannels([...channels]);
+                setIsEditMode(true);
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.editButtonText, isEditMode && styles.editButtonTextActive]}>
+              {isEditMode ? 'done' : 'edit'}
+            </Text>
+          </TouchableOpacity>
+        }
+      />
 
       {/* Content */}
       <FlatList

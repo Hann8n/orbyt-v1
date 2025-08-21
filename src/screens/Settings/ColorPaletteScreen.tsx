@@ -11,6 +11,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import Icon, { BackArrowIcon, SearchIcon } from '../../components/ui/Icon';
+import ListHeader from '../../components/ui/ListHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../components/ui/UI';
 
@@ -375,18 +376,14 @@ const ColorPaletteScreen: React.FC = () => {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <BackArrowIcon size={28} color={Colors.white} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>color palette</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+      <View style={styles.container}> 
+        <ListHeader
+          mode="stacked"
+          title="color palette"
+          showBackButton
+          onBackPress={() => navigation.goBack()}
+          applySafeAreaTop
+        />
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>loading colors...</Text>
         </View>
@@ -395,19 +392,14 @@ const ColorPaletteScreen: React.FC = () => {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <BackArrowIcon size={28} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>color palette</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+    <View style={styles.container}> 
+      <ListHeader
+        mode="stacked"
+        title="color palette"
+        showBackButton
+        onBackPress={() => navigation.goBack()}
+        applySafeAreaTop
+      />
 
       {/* Search and Filter */}
       <View style={styles.searchContainer}>
