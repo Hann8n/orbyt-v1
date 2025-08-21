@@ -379,7 +379,7 @@ const HeaderContentComponent = memo<{
             </Text>
             {content.onTitlePress && (
               <View style={styles.chevronContainer}>
-                <Icon name="chevron-right" size={16} color={hexToRGBA(textColor, 0.67)} />
+                <Icon name="right_arrow_filled" size={20} color={Colors.lightGray} />
               </View>
             )}
           </TouchableOpacity>

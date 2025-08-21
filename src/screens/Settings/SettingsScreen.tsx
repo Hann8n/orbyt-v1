@@ -327,7 +327,7 @@ const SettingsScreen: React.FC = () => {
                       <Text style={styles.menuOptionText}>{item.label}</Text>
                     </View>
                     {item.showChevron && (
-                      <Icon name="chevron-right" size={20} color={Colors.gray} />
+                      <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
                     )}
                   </TouchableOpacity>
                 </View>

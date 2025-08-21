@@ -143,7 +143,7 @@ const AboutScreen: React.FC = () => {
                 <View style={styles.linkItemRight}>
                   
                   {item.showChevron && (
-                    <Icon name="chevron-right" size={20} color={Colors.gray} />
+                    <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
                   )}
                 </View>
               </TouchableOpacity>

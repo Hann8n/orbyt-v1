@@ -171,9 +171,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           </TouchableOpacity>
         ) : showArrow && (
           <Icon 
-            name="chevron-right" 
-            size={config.textSize + 4} 
-            color={hexToRGBA(textColor, 0.5)} 
+            name="right_arrow_filled" 
+            size={24} 
+            color={Colors.lightGray} 
           />
         )}
       </View>
