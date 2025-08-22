@@ -18,6 +18,7 @@ import MembersListView from '../components/features/feed/MembersListView';
 import { Colors } from '../components/ui/UI';
 
 import { useChannelColors, useChannel, useChannelColorsMutation } from '../services/cache/ChannelCache';
+import ProfileCache from '../services/cache/ProfileCache';
 import { extractColorsFromImage } from '../utils/formatting/colorUtils';
 import { TabNavigation, TabOption } from '../components/layout/header';
 import { useSubscribedChannels } from '../hooks/useSubscribedChannels';
@@ -33,14 +34,6 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
   const { uri, title, description, avatar, creator } = route.params || {};
   
   const [refreshing, setRefreshing] = useState(false);
-  const { 
-    addToMix,
-    removeFromMix,
-    excludeChannel,
-    includeChannel,
-    channelsInMix,
-    excludedChannels,
-  } = useSubscribedChannels();
 
   // Removed header visibility hook; header remains static and always visible
 
@@ -89,56 +82,6 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
     enabled: !!feedOption && feedOption.startsWith('at://') && !!channelDataForFeed?.did
   }), [feedOption, channelDataForFeed?.did]);
 
-  // Check if channel is in mix or excluded
-  const isInMix = useMemo(() => {
-    return channelsInMix.some(ch => ch.uri === uri);
-  }, [channelsInMix, uri]);
-
-  const isExcluded = useMemo(() => {
-    return excludedChannels.some(ch => ch.uri === uri);
-  }, [excludedChannels, uri]);
-
-  // Handle mix controls
-  const handleAddToMix = useCallback(async () => {
-    if (!uri) return;
-    
-    try {
-      await addToMix(uri);
-    } catch (error) {
-      console.error('Error adding to mix:', error);
-    }
-  }, [uri, addToMix]);
-
-  const handleRemoveFromMix = useCallback(async () => {
-    if (!uri) return;
-    
-    try {
-      await removeFromMix(uri);
-    } catch (error) {
-      console.error('Error removing from mix:', error);
-    }
-  }, [uri, removeFromMix]);
-
-  const handleExcludeChannel = useCallback(async () => {
-    if (!uri) return;
-    
-    try {
-      await excludeChannel(uri);
-    } catch (error) {
-      console.error('Error excluding channel:', error);
-    }
-  }, [uri, excludeChannel]);
-
-  const handleIncludeChannel = useCallback(async () => {
-    if (!uri) return;
-    
-    try {
-      await includeChannel(uri);
-    } catch (error) {
-      console.error('Error including channel:', error);
-    }
-  }, [uri, includeChannel]);
-
   // Handle edit (only for owned channels)
   const handleEdit = useCallback((channelId: string) => {
     // TODO: Implement edit functionality
@@ -169,6 +112,16 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
       extractAndSaveColors(channelData.uri, channelData.avatar);
     }
   }, [channelData, extractAndSaveColors]);
+
+  // Preload channel creator profile when channel data is available
+  useEffect(() => {
+    if (channelData?.creator?.handle) {
+      // Preload the creator's profile for better performance when navigating to their profile
+      ProfileCache.getProfile(channelData.creator.handle).catch(error => {
+        console.warn('Error preloading channel creator profile:', error);
+      });
+    }
+  }, [channelData?.creator?.handle]);
 
   // Force refresh channel data to get subscriber count if not available
   useEffect(() => {

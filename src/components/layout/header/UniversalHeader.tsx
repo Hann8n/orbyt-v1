@@ -375,13 +375,8 @@ const HeaderContentComponent = memo<{
             activeOpacity={content.onTitlePress ? 0.7 : 1}
           >
             <Text style={[styles.subtitle, { color: hexToRGBA(textColor, 0.67) }]} numberOfLines={1}>
-              {content.subtitle}
+              {content.subtitle}{content.onTitlePress ? ' ›' : ''}
             </Text>
-            {content.onTitlePress && (
-              <View style={styles.chevronContainer}>
-                <Icon name="right_arrow_filled" size={20} color={Colors.lightGray} />
-              </View>
-            )}
           </TouchableOpacity>
         )}
         
@@ -698,9 +693,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   chevronContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 0,
     marginLeft: 4,
   },
   title: {

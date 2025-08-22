@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
-import { withStickyHeaderFlashList, useStickyHeaderFlashListScrollProps } from 'react-native-sticky-parallax-header';
+// Removed problematic import: import { withStickyHeaderFlashList, useStickyHeaderFlashListScrollProps } from 'react-native-sticky-parallax-header';
 import AtprotoService from '../services/api/AtprotoService';
 import { useNavigation } from '@react-navigation/native';
 import ProfileCache, { CachedProfile, profileKeys } from '../services/cache/ProfileCache';
@@ -38,8 +38,9 @@ import GridFeedView from '../components/features/feed/GridFeedView';
 import { extractVideoThumbnail } from '../utils/helpers/video';
 import { FORCE_SEARCH_ERROR, getForcedErrorMessage } from '../utils/helpers/errorDebug';
 import { formatNumber } from '../utils/helpers/formatNumber';
-import HeaderService, { Header } from '../services/HeaderService';
+import { HeaderService, Header, useStaticChannels, useHeaders } from '../services/APIService';
 import { useFeed } from '../hooks/useFeed';
+import FeedRenderer from '../components/features/feed/FeedRenderer';
 // import { ModerationService } from '../services/ModerationService'; // Commented out since videos are disabled
 
 interface Profile {
@@ -115,7 +116,12 @@ interface PeopleChannelsSection {
   key: string;
 }
 
-type ListItem = SearchResult | SectionHeader | VideoGridSection | SpotlightVideosSection | LoadMoreSection | PeopleChannelsSection;
+interface HeaderSpacer {
+  type: 'header-spacer';
+  key: string;
+}
+
+type ListItem = SearchResult | SectionHeader | VideoGridSection | SpotlightVideosSection | LoadMoreSection | PeopleChannelsSection | HeaderSpacer;
 
 
 
@@ -137,12 +143,7 @@ const ProfileShimmer = () => (
     <View style={styles.profileContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 120, height: 16, marginBottom: 4, borderRadius: 3 }}
-        shimmerColors={Colors.SHIMMER.PRIMARY}
-      />
-      <ShimmerPlaceholder
-        LinearGradient={LinearGradient}
-        style={{ width: 80, height: 14, marginBottom: 4, borderRadius: 2 }}
+        style={{ width: 120, height: 16, marginBottom: 2, borderRadius: 3 }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
@@ -160,17 +161,7 @@ const ChannelShimmer = () => (
     <View style={styles.channelContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 140, height: 16, marginBottom: 4, borderRadius: 3 }}
-        shimmerColors={Colors.SHIMMER.PRIMARY}
-      />
-      <ShimmerPlaceholder
-        LinearGradient={LinearGradient}
-        style={{ width: 100, height: 14, marginBottom: 4, borderRadius: 2 }}
-        shimmerColors={Colors.SHIMMER.PRIMARY}
-      />
-      <ShimmerPlaceholder
-        LinearGradient={LinearGradient}
-        style={{ width: 60, height: 12, borderRadius: 2 }}
+        style={{ width: 140, height: 16, marginBottom: 2, borderRadius: 3 }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
@@ -205,12 +196,23 @@ const FeedShimmer = () => (
   </View>
 );
 
+// Header spacer shimmer skeleton component
+const HeaderSpacerShimmer = ({ isHeaderVisible }: { isHeaderVisible: boolean }) => {
+  const insets = useSafeAreaInsets();
+  // When no header is available, use search bar spacing
+  // When header is available, use header height
+  const headerHeight = isHeaderVisible 
+    ? Math.round(Dimensions.get('window').height * 0.30) // Use same ratio as computedHeaderHeight
+    : insets.top + 10 + 55 + 10; // safe area + top margin + search height + bottom margin
+  return <View style={{ height: headerHeight }} />;
+};
+
 // Section header shimmer skeleton component
 const SectionHeaderShimmer = () => (
   <View style={styles.sectionHeader}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={{ width: 120, height: 16, borderRadius: 3 }}
+      style={{ width: 100, height: 18, borderRadius: 3 }}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
   </View>
@@ -227,11 +229,13 @@ const SpotlightVideosShimmer = () => (
       keyExtractor={(_, index) => `spotlight-shimmer-${index}`}
       renderItem={({ item, index }) => (
         <View style={styles.spotlightVideoItem}>
-          <ShimmerPlaceholder
-            LinearGradient={LinearGradient}
-            style={styles.spotlightVideoThumbnail}
-            shimmerColors={Colors.SHIMMER.PRIMARY}
-          />
+          <View style={styles.spotlightVideoThumbnailContainer}>
+            <ShimmerPlaceholder
+              LinearGradient={LinearGradient}
+              style={styles.spotlightVideoThumbnail}
+              shimmerColors={Colors.SHIMMER.PRIMARY}
+            />
+          </View>
         </View>
       )}
     />
@@ -240,26 +244,28 @@ const SpotlightVideosShimmer = () => (
 
 // Video shimmer skeleton component
 const VideoShimmer = () => (
-  <View style={styles.feedItem}>
-    <ShimmerPlaceholder
-      LinearGradient={LinearGradient}
-      style={[styles.feedImage, { borderWidth: 0, borderColor: 'transparent' }]}
-      shimmerColors={Colors.SHIMMER.PRIMARY}
-    />
-    <View style={styles.feedContent}>
+  <View style={styles.videoItem}>
+    <View style={styles.videoThumbnailContainer}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 120, height: 16, marginBottom: 4, borderRadius: 3 }}
+        style={styles.videoThumbnail}
+        shimmerColors={Colors.SHIMMER.PRIMARY}
+      />
+    </View>
+    <View style={styles.videoContent}>
+      <ShimmerPlaceholder
+        LinearGradient={LinearGradient}
+        style={{ width: 120, height: 14, marginBottom: 4, borderRadius: 3 }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 80, height: 14, marginBottom: 4, borderRadius: 2 }}
+        style={{ width: 80, height: 12, marginBottom: 2, borderRadius: 2 }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 60, height: 12, borderRadius: 2 }}
+        style={{ width: 60, height: 11, borderRadius: 2 }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
@@ -267,7 +273,7 @@ const VideoShimmer = () => (
 );
 
   // Enhance FlashList with sticky parallax header support (no hooks at module scope)
-  const StickyHeaderFlashList = withStickyHeaderFlashList(FlashList as any);
+  // const StickyHeaderFlashList = withStickyHeaderFlashList(FlashList as any);
 
 const ExploreScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -275,8 +281,7 @@ const ExploreScreen: React.FC = () => {
   const [isScrolling, setIsScrolling] = useState(false);
   const [allSuggestions, setAllSuggestions] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'grid'>('grid');
-  const [headers, setHeaders] = useState<Header[]>([]);
-  const [isLoadingHeaders, setIsLoadingHeaders] = useState(false);
+
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -297,29 +302,20 @@ const ExploreScreen: React.FC = () => {
     initializeCache();
   }, []);
 
-  // Fetch headers
-  useEffect(() => {
-    const fetchHeaders = async () => {
-      setIsLoadingHeaders(true);
-      try {
-        const fetchedHeaders = await HeaderService.getHeaders();
-        // Convert relative URLs to absolute URLs
-        const processedHeaders = fetchedHeaders.map(header => ({
-          ...header,
-          imageUrl: HeaderService.getImageUrl(header.imageUrl)
-        }));
-        setHeaders(processedHeaders);
-      } catch (error) {
-        console.error('Error fetching headers:', error);
-        // Set empty headers on error to avoid showing loading state indefinitely
-        setHeaders([]);
-      } finally {
-        setIsLoadingHeaders(false);
-      }
-    };
+  // Fetch headers using TanStack Query
+  const {
+    data: fetchedHeaders = [],
+    isLoading: isLoadingHeaders,
+    error: headersError,
+  } = useHeaders();
 
-    fetchHeaders();
-  }, []);
+  // Process headers with image URLs
+  const headers = useMemo(() => {
+    return fetchedHeaders.map(header => ({
+      ...header,
+      imageUrl: HeaderService.getImageUrl(header.imageUrl)
+    }));
+  }, [fetchedHeaders]);
 
   // Debounce search query to avoid too many API calls
   useEffect(() => {
@@ -360,7 +356,7 @@ const ExploreScreen: React.FC = () => {
     hasNextPage: hasSearchNextPage,
     fetchNextPage: fetchSearchNextPage,
     refetch: refetchSearch,
-    onScroll: onSearchScroll,
+    // Removed onScroll - using FlashList's onEndReached
   } = useFeed(searchFeedOption || 'yourMix', undefined, {
     enabled: !!searchFeedOption,
     staleTime: 30 * 1000, // 30 seconds for search
@@ -642,23 +638,7 @@ const ExploreScreen: React.FC = () => {
   ] as const;
   type ShimmerType = typeof shimmerTypes[number];
 
-  // Create shimmer items for suggested content with section headers
-  const shimmerSuggestedItems = useMemo(() => {
-    return [
-      // Section header for spotlight
-      { type: 'section-header' as const, key: 'spotlight-header-shimmer' },
-      // Spotlight videos section
-      { type: 'spotlight-videos' as const, key: 'spotlight-videos-shimmer' },
-      // Section header for feeds
-      { type: 'section-header' as const, key: 'feeds-header-shimmer' },
-      // Feed items - increased from 3 to 8
-      ...Array(8).fill(0).map((_, index) => ({ type: 'channel' as const, key: `feed-shimmer-${index}` })),
-      // Section header for accounts
-      { type: 'section-header' as const, key: 'accounts-header-shimmer' },
-      // Account items - increased from 5 to 10
-      ...Array(10).fill(0).map((_, index) => ({ type: 'profile' as const, key: `profile-shimmer-${index}` }))
-    ];
-  }, []);
+
 
   // Calculate dynamic padding based on screen size
   const getDynamicPadding = () => {
@@ -983,21 +963,28 @@ const ExploreScreen: React.FC = () => {
 
   // Fetch suggested feeds when there is no search query
   const {
+    data: channelDids,
+    isLoading: isLoadingChannelDids,
+    error: channelDidsError,
+    refetch: refetchChannelDids,
+  } = useStaticChannels();
+
+  const {
     data: suggestedFeeds,
     isLoading: isLoadingSuggestedFeeds,
     error: suggestedFeedsError,
     refetch: refetchSuggestedFeeds,
   } = useQuery({
-    queryKey: ['suggestedFeeds', 8],
+    queryKey: ['staticChannels', channelDids],
     queryFn: async () => {
       // Force error if debug flag is enabled
       if (FORCE_SEARCH_ERROR) {
-        throw getForcedErrorMessage('suggested feeds');
+        throw getForcedErrorMessage('static channels');
       }
-      // Request more feeds to ensure we get enough video-only results
-      return await AtprotoService.getSuggestedFeeds(20);
+      // Get static channels from the web API
+      return await AtprotoService.getStaticChannels(20);
     },
-    enabled: debouncedQuery.length === 0,
+    enabled: debouncedQuery.length === 0 && !!channelDids,
     staleTime: 60 * 1000, // 1 minute
   });
 
@@ -1084,22 +1071,45 @@ const ExploreScreen: React.FC = () => {
     [isSearching, isHeaderVisible]
   );
 
-  // Sticky Parallax Header scroll props
-  const { onMomentumScrollEnd: onParallaxMomentumScrollEnd, onScroll: onParallaxScroll, onScrollEndDrag: onParallaxScrollEndDrag, scrollViewRef } = useStickyHeaderFlashListScrollProps({
-    parallaxHeight: computedHeaderHeight,
-    snapToEdge: true,
-    snapStartThreshold: 50,
-    snapStopThreshold: computedHeaderHeight,
-  });
+  // Create shimmer items for suggested content with section headers
+  const shimmerSuggestedItems = useMemo(() => {
+    const items = [];
+    
+    // Add header spacer when not searching to ensure content appears below search bar
+    if (!isSearching) {
+      items.push({ type: 'header-spacer' as const, key: 'header-spacer-shimmer' });
+    }
+    
+    // Section header for spotlight
+    items.push({ type: 'section-header' as const, key: 'spotlight-header-shimmer' });
+    // Spotlight videos section
+    items.push({ type: 'spotlight-videos' as const, key: 'spotlight-videos-shimmer' });
+    // Section header for feeds
+    items.push({ type: 'section-header' as const, key: 'feeds-header-shimmer' });
+    // Feed items - increased from 3 to 8
+    items.push(...Array(8).fill(0).map((_, index) => ({ type: 'channel' as const, key: `feed-shimmer-${index}` })));
+    // Section header for accounts
+    items.push({ type: 'section-header' as const, key: 'accounts-header-shimmer' });
+    // Account items - increased from 5 to 10
+    items.push(...Array(10).fill(0).map((_, index) => ({ type: 'profile' as const, key: `profile-shimmer-${index}` })));
+    
+    return items;
+  }, [isSearching]);
 
   const suggestionsList: any[] = (() => {
-    if (isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingSpotlightFeed) {
+    if (isLoadingSuggestions || isLoadingChannelDids || isLoadingSuggestedFeeds || isLoadingSpotlightFeed) {
       return shimmerSuggestedItems as unknown as any[];
     }
-    if (suggestionsError || suggestedFeedsError || spotlightFeedError) {
+    if (suggestionsError || channelDidsError || suggestedFeedsError || spotlightFeedError) {
       return [];
     }
     const data: ListItem[] = [];
+    
+    // Add header spacer when not searching to ensure content appears below search bar
+    if (!isSearching) {
+      data.push({ type: 'header-spacer' as const, key: 'header-spacer' });
+    }
+    
     if (spotlightFeed && spotlightFeed.length > 0) {
       data.push({ type: 'section-header' as const, title: 'spotlight', key: 'spotlight-header' });
       data.push({ type: 'spotlight-videos' as const, videos: spotlightFeed, key: 'spotlight-videos' });
@@ -1164,8 +1174,14 @@ const ExploreScreen: React.FC = () => {
           </TouchableOpacity>
         )}
       </View>
-      <StickyHeaderFlashList
-        ref={scrollViewRef as any}
+      
+      <FlashList
+        ListHeaderComponent={
+          !isSearching && isHeaderVisible ? (
+            <HeaderBanner headers={headers} height={computedHeaderHeight} />
+          ) : null
+        }
+        // ref={scrollViewRef as any} // Removed scrollViewRef
         data={listData}
         keyExtractor={(item: any, index: number) => {
           if (typeof item === 'string') return `shimmer-${index}`;
@@ -1214,6 +1230,9 @@ const ExploreScreen: React.FC = () => {
                 </View>
               </View>
             );
+          }
+          if (item.type === 'header-spacer') {
+            return <HeaderSpacerShimmer isHeaderVisible={isHeaderVisible} />;
           }
           if (item.type === 'spotlight-videos') {
             if (!('videos' in item) || !Array.isArray(item.videos)) {
@@ -1403,22 +1422,18 @@ const ExploreScreen: React.FC = () => {
           }
           return null;
         }}
-        renderHeader={() => (
-          <View style={{ height: computedHeaderHeight }} pointerEvents="box-none">
-            {!isSearching && isHeaderVisible ? (
-              <HeaderBanner headers={headers} height={computedHeaderHeight} />
-            ) : (
-              <View style={{ height: computedHeaderHeight }} />
-            )}
-          </View>
-        )}
-        estimatedItemSize={100}
-        contentContainerStyle={[styles.listContainer, { paddingBottom: getBottomNavBarHeight(insets) }]}
+        contentContainerStyle={[
+          styles.listContainer, 
+          { 
+            paddingBottom: getBottomNavBarHeight(insets)
+          }
+        ]}
         showsVerticalScrollIndicator={false}
-        onScroll={onParallaxScroll}
+        bounces={false}
+        // onScroll={onParallaxScroll} // Removed onParallaxScroll
         scrollEventThrottle={16}
-        onScrollEndDrag={onParallaxScrollEndDrag}
-        onMomentumScrollEnd={onParallaxMomentumScrollEnd}
+        // onScrollEndDrag={onParallaxScrollEndDrag} // Removed onParallaxScrollEndDrag
+        onMomentumScrollEnd={handleMomentumScrollEnd}
         onEndReached={() => {
           if (isSearching && hasSearchNextPage && !isSearchFetchingNextPage) {
             fetchSearchNextPage();

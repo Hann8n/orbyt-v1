@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ModerationService } from '../../../services/ModerationService';
 import { ModerationDecision } from '../../../services/ModerationTypes';
 import Icon, { BackArrowIcon } from '../../ui/Icon';

@@ -4,7 +4,6 @@ import {
   Text,
   FlatList,
   StyleSheet,
-  SafeAreaView,
   Image,
   TouchableOpacity,
   RefreshControl,
@@ -12,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -316,7 +316,13 @@ const NotificationScreen: React.FC = () => {
         refreshControl={
           <RefreshControl
             refreshing={isRefetching && !isFetchingNextPage}
-            onRefresh={refetch}
+            onRefresh={async () => {
+              try {
+                await refetch();
+              } catch (error) {
+                console.error('Failed to refetch notifications:', error);
+              }
+            }}
             tintColor={Colors.white}
           />
         }

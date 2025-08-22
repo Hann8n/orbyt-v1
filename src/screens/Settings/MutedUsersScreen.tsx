@@ -15,6 +15,7 @@ import ListHeader from '../../components/ui/ListHeader';
 import { Colors } from '../../components/ui/UI';
 import { ModerationService } from '../../services/ModerationService';
 import AtprotoService from '../../services/api/AtprotoService';
+import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles, settingsAvatarStyles, settingsActiveStyles } from './SettingsStyles';
 
 interface MutedUser {
   did: string;
@@ -92,24 +93,24 @@ const MutedUsersScreen: React.FC = () => {
     return (
       <View style={styles.userItem}>
         <View style={styles.userInfo}>
-          <View style={styles.avatarContainer}>
+          <View style={settingsAvatarStyles.avatarMedium}>
             {item.avatar ? (
-              <Image source={{ uri: item.avatar }} style={styles.avatar} />
+              <Image source={{ uri: item.avatar }} style={settingsAvatarStyles.avatarImage} />
             ) : (
               <Icon name="user" size={20} color={Colors.lightGray} />
             )}
           </View>
           <View style={styles.userDetails}>
-            <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
+            <Text style={settingsTextStyles.userDisplayName} numberOfLines={1} ellipsizeMode="tail">
               {item.displayName || 'Unknown User'}
             </Text>
-            <Text style={styles.handle} numberOfLines={1} ellipsizeMode="tail">@{item.handle}</Text>
+            <Text style={settingsTextStyles.userHandle} numberOfLines={1} ellipsizeMode="tail">@{item.handle}</Text>
           </View>
         </View>
         <TouchableOpacity
           style={[
-            styles.unmuteButton,
-            isUnmuting && styles.unmuteButtonDisabled
+            settingsButtonStyles.actionButton,
+            isUnmuting && settingsActiveStyles.buttonDisabled
           ]}
           onPress={() => handleUnmuteUser(item.did)}
           disabled={isUnmuting}
@@ -118,7 +119,7 @@ const MutedUsersScreen: React.FC = () => {
           {isUnmuting ? (
             <ActivityIndicator size="small" color={Colors.white} />
           ) : (
-            <Text style={styles.unmuteButtonText}>Unmute</Text>
+            <Text style={settingsTextStyles.actionButtonText}>Unmute</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -127,7 +128,7 @@ const MutedUsersScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <View style={styles.safeArea}>
+      <View style={settingsLayoutStyles.safeArea}>
         <ListHeader
           mode="stacked"
           title="muted accounts"
@@ -135,16 +136,16 @@ const MutedUsersScreen: React.FC = () => {
           onBackPress={() => navigation.goBack()}
           applySafeAreaTop
         />
-        <View style={styles.loadingContainer}>
+        <View style={settingsLayoutStyles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.white} />
-          <Text style={styles.loadingText}>Loading muted accounts...</Text>
+          <Text style={settingsTextStyles.loadingText}>Loading muted accounts...</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.safeArea}>
+    <View style={settingsLayoutStyles.safeArea}>
       <ListHeader
         mode="stacked"
         title="muted accounts"
@@ -157,13 +158,13 @@ const MutedUsersScreen: React.FC = () => {
         data={mutedUsers}
         keyExtractor={(item) => item.did}
         renderItem={renderUserItem}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={settingsLayoutStyles.listContainerNoPadding}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
+          <View style={settingsLayoutStyles.emptyContainer}>
             <Icon name="volume-x" size={48} color={Colors.lightGray} />
-            <Text style={styles.emptyTitle}>no muted accounts</Text>
-            <Text style={styles.emptyDescription}>
+            <Text style={settingsTextStyles.emptyTitle}>no muted accounts</Text>
+            <Text style={settingsTextStyles.emptyDescription}>
               you haven't muted any accounts yet. muted accounts' posts won't appear in your feed, but they can still see your content.
             </Text>
           </View>
@@ -174,16 +175,6 @@ const MutedUsersScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.black,
-  },
-  
-  listContainer: {
-    flexGrow: 1,
-    paddingHorizontal: 0,
-    paddingTop: 0,
-  },
   userItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -196,93 +187,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.mediumGray,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
   userDetails: {
     flex: 1,
-  },
-  displayName: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
-    marginBottom: 2,
-  },
-  handle: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
-  },
-  unmuteButton: {
-    borderWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 50,
-    minWidth: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderColor: Colors.white,
-    backgroundColor: 'transparent',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  unmuteButtonDisabled: {
-    opacity: 0.7,
-  },
-  unmuteButtonText: {
-    color: Colors.white,
-    fontSize: 15,
-    fontFamily: 'Firma-SemiBold',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: Colors.black,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Firma-Medium',
-    marginTop: 12,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingTop: 120,
-  },
-  emptyTitle: {
-    color: Colors.white,
-    fontSize: 20,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyDescription: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Firma-Regular',
-    textAlign: 'center',
-    lineHeight: 22,
   },
 });
 

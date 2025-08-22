@@ -37,22 +37,5 @@
       "verifyLocalEndpoint": "curl -s http://localhost:5173/api/headers.json | cat@headers.json"
     }
   },
-  "headers": [
-    {
-      "id": "header_3.2_b",
-      "imageUrl": "banners/warp.gif",
-      "destinationUrl": null,
-      "title": "orbyt",
-      "subtitle": "welcome into",
-      "titleColor": "#ffffff",
-      "subtitleColor": "#ffffff",
-      "titleFontFamily": "Firma-Black",
-      "titleFontSize": 38,
-      "subtitleFontFamily": "Firma-SemiBold",
-      "subtitleFontSize": 14,
-      "titleOpacity": 1,
-      "subtitleOpacity": 0.8,
-      "textOrder": "subtitle-first"
-    }
-  ]
+  "headers": []
 }

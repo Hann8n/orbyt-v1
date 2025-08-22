@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 import { useSharedValue } from 'react-native-reanimated';
-import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from '../../ui/UI';
 import FeedRenderer from './FeedRenderer';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
@@ -44,7 +44,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   applySafeArea = false,
 }) => {
   const flatListRef = useRef<FlatList>(null);
-  const indicatorScrollViewRef = useRef<ScrollView>(null);
+  const indicatorScrollViewRef = useRef<any>(null);
   const { channels: subscribedChannels, isLoading: isLoadingChannels } = useSubscribedChannels();
   const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
@@ -110,12 +110,12 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   }, [subscribedChannels]);
 
   // Memoized feed options in order
-  const feedOptions = useMemo(() => 
-    Object.keys(feedConfig).sort(
+  const feedOptions = useMemo(() => {
+    const options = Object.keys(feedConfig).sort(
       (a, b) => feedConfig[a].order - feedConfig[b].order
-    ) as FeedOption[],
-    [feedConfig]
-  );
+    ) as FeedOption[];
+    return options;
+  }, [feedConfig]);
 
   // Scroll indicator to keep active feed visible (defined early to avoid use-before-declare)
   const scrollIndicatorToActive = useCallback((index: number) => {
@@ -133,21 +133,23 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   useLayoutEffect(() => {
     if (!hasAppliedInitialIndexRef.current && feedOptions.length > 0) {
       const initialIndex = feedOptions.findIndex(option => option === initialFeed);
-      if (initialIndex >= 0) {
-        setCurrentFeedIndex(initialIndex);
-        // Ensure indicator reflects the correct active feed immediately
-        setCurrentScrollProgress(initialIndex);
-        onFeedChange?.(feedOptions[initialIndex]);
-        // Ensure the FlatList starts on the desired initial index
-        requestAnimationFrame(() => {
-          flatListRef.current?.scrollToIndex({ index: initialIndex, animated: false });
-        });
-        // Keep indicator in sync
-        scrollIndicatorToActive(initialIndex);
-        hasAppliedInitialIndexRef.current = true;
-      }
+      
+      // Always set a valid index, defaulting to 0 if initialFeed is not found
+      const targetIndex = initialIndex >= 0 ? initialIndex : 0;
+      setCurrentFeedIndex(targetIndex);
+      setCurrentScrollProgress(targetIndex);
+      onFeedChange?.(feedOptions[targetIndex]);
+      
+      // Ensure the FlatList starts on the desired initial index
+      requestAnimationFrame(() => {
+        flatListRef.current?.scrollToIndex({ index: targetIndex, animated: false });
+      });
+      
+      // Keep indicator in sync
+      scrollIndicatorToActive(targetIndex);
+      hasAppliedInitialIndexRef.current = true;
     }
-  }, [feedOptions, initialFeed, scrollIndicatorToActive]);
+  }, [feedOptions, initialFeed, scrollIndicatorToActive, onFeedChange]);
 
   // Compute current feed option with no-flicker fallback to the intended initial feed
   const pendingInitialIndex = feedOptions.findIndex(option => option === initialFeed);
@@ -201,12 +203,12 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     }
   }, [hasUserScrolled, animateFeedBar]);
 
-  // Handle vertical scroll from individual feeds
+  // Handle vertical scroll from individual feeds with improved threshold
   const handleVerticalScroll = useCallback((scrollY: number, feedIndex: number) => {
     if (feedIndex !== currentFeedIndex) return; // Only handle current feed
     
     const scrollDelta = scrollY - lastScrollY;
-    const scrollThreshold = 10; // Minimum scroll distance to trigger visibility change
+    const scrollThreshold = 15; // Increased threshold to prevent interference with horizontal scrolling
     
     if (Math.abs(scrollDelta) > scrollThreshold) {
       setHasUserScrolled(true); // Mark that user has scrolled
@@ -254,35 +256,43 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     }));
   }, [currentFeedOption, feedRetries]);
 
-  // Handle horizontal scroll for gradual transitions
+  // Optimized horizontal scroll handler with improved responsiveness
+  const scrollUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   const handleHorizontalScroll = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
-    horizontalScrollOffset.setValue(offsetX);
     
-    // Calculate scroll progress for gradual transitions
+    // Immediate visual updates
+    horizontalScrollOffset.setValue(offsetX);
     const progress = offsetX / screenWidth;
     setCurrentScrollProgress(progress);
     
-    // Mark that user has interacted
-    setHasUserScrolled(true);
+    // Mark user interaction immediately
+    if (!hasUserScrolled) {
+      setHasUserScrolled(true);
+    }
     
-    // Show feed bar during horizontal scrolling
+    // Show feed bar during scrolling (immediate)
     if (!isHorizontalScrolling) {
       setIsHorizontalScrolling(true);
       animateFeedBar(true);
     }
     
-    // Update current feed index during scroll for smoother transitions
-    const currentIndex = Math.round(offsetX / screenWidth);
-    if (currentIndex !== currentFeedIndex && currentIndex >= 0 && currentIndex < feedOptions.length) {
-      setCurrentFeedIndex(currentIndex);
-      const newFeedOption = feedOptions[currentIndex];
-      onFeedChange?.(newFeedOption);
-      
-      // Scroll indicator to follow the feed change
-      scrollIndicatorToActive(currentIndex);
+    // Debounce expensive operations with shorter timeout for better responsiveness
+    if (scrollUpdateTimeoutRef.current) {
+      clearTimeout(scrollUpdateTimeoutRef.current);
     }
-  }, [currentFeedIndex, feedOptions, onFeedChange, isHorizontalScrolling, animateFeedBar, horizontalScrollOffset, scrollIndicatorToActive, screenWidth]);
+    
+    scrollUpdateTimeoutRef.current = setTimeout(() => {
+      const currentIndex = Math.round(offsetX / screenWidth);
+      if (currentIndex !== currentFeedIndex && currentIndex >= 0 && currentIndex < feedOptions.length) {
+        setCurrentFeedIndex(currentIndex);
+        const newFeedOption = feedOptions[currentIndex];
+        onFeedChange?.(newFeedOption);
+        scrollIndicatorToActive(currentIndex);
+      }
+    }, 25); // Reduced debounce for more responsive feel
+  }, [currentFeedIndex, feedOptions, onFeedChange, isHorizontalScrolling, animateFeedBar, horizontalScrollOffset, scrollIndicatorToActive, screenWidth, hasUserScrolled]);
 
   // Handle scroll end to update current feed and hide feed bar
   const handleScrollEnd = useCallback((event: any) => {
@@ -320,6 +330,15 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       animateFeedBar(true, true);
     }
   }, [feedOptions, animateFeedBar]);
+
+  // Cleanup timeouts and subscriptions
+  useEffect(() => {
+    return () => {
+      if (scrollUpdateTimeoutRef.current) {
+        clearTimeout(scrollUpdateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Scroll indicator when feed changes
   useEffect(() => {
@@ -448,7 +467,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
         </ScrollView>
       </Animated.View>
 
-      {/* Horizontal FlatList for feeds with proper gesture handling */}
+      {/* Horizontal FlatList for feeds with optimized gesture handling */}
       <FlatList
         ref={flatListRef}
         data={feedOptions}
@@ -467,15 +486,22 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
           index,
         })}
         style={styles.flatList}
-        // Optimized gesture handling properties
+        // Optimized gesture handling to prevent interference with FlashList
         directionalLockEnabled={true}
         alwaysBounceHorizontal={false}
         alwaysBounceVertical={false}
         bounces={false}
         decelerationRate="fast"
-        // Ensure proper gesture recognition
         scrollEnabled={!isScrubbing}
-        nestedScrollEnabled={true}
+        // Remove nestedScrollEnabled to prevent gesture conflicts
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={1}
+        windowSize={3}
+        initialNumToRender={1}
+        // Add horizontal scroll indicator to prevent vertical scroll interference
+        indicatorStyle="white"
+        // Optimize for horizontal scrolling only
+        contentContainerStyle={{ flexGrow: 1 }}
       />
     </GestureHandlerRootView>
   );

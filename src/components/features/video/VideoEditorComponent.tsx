@@ -105,7 +105,7 @@ const VideoEditorComponent: React.FC<VideoEditorComponentProps> = ({
     if (VideoTrim && onTrimComplete) {
       // Create event emitter only if VideoTrim module exists
       const eventEmitter = new NativeEventEmitter(VideoTrim);
-      const subscription = eventEmitter.addListener('VideoTrim', (event) => {
+      const subscription = eventEmitter.addListener('VideoTrim', (event: any) => {
         switch (event.name) {
           case 'onFinishTrimming':
             if (event.outputURL) {

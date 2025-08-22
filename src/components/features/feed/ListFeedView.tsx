@@ -1,5 +1,5 @@
 declare let window: any;
-import React, { useState, useEffect, useCallback, useRef, useMemo, useReducer } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Dimensions,
@@ -11,7 +11,6 @@ import {
   ScaledSize,
   TouchableOpacity,
 } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
 
@@ -28,23 +27,9 @@ import { usePlaybackStore } from '@stores/playbackStore';
 import { Colors } from '../../ui/UI';
 import { preloadVideoData } from '../../../utils/helpers/video';
 
-// FlashList v2 immediate playback configuration
-const PERFORMANCE_CONFIG = {
-  // FlashList v2 enhanced settings for immediate playback
-  DRAW_DISTANCE_MULTIPLIER: 4.0, // Increased for more aggressive preloading
-  CACHE_BUFFER: 5, // Expanded buffer for aggressive preloading
-  PRELOAD_DISTANCE: 8, // Aggressive preloading distance
-  WARM_BUFFER_DISTANCE: 3, // Distance to start warming buffers
-  
-  // Video-specific optimizations for immediate playback
-  SCROLL_THROTTLE: 16, // 60fps scroll events
-  POSITION_SAVE_DELAY: 500,
-  DEBUG_UPDATE_INTERVAL: 1000,
-  
-  // Snapping optimizations
-  SNAP_THRESHOLD: 0.5, // 50% of screen for snapping trigger
-  MOMENTUM_THRESHOLD: 100, // Minimum velocity for momentum snapping
-} as const;
+
+// Simplified config - using FlashList's native optimizations
+const SCROLL_THROTTLE = 16; // Standard React Native throttling
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -116,55 +101,8 @@ interface ListFeedViewProps {
   onScrubbingChange?: (isScrubbing: boolean) => void;
   onScroll?: (event: { nativeEvent: any }) => void;
   forceError?: boolean;
-  ListComponent?: any; // When provided, indicates we're inside a Tabs.Container (e.g., Tabs.FlashList)
-  useAnimatedScroll?: boolean;
+  ListComponent?: any; // Optional custom list component
 }
-
-// State management using useReducer for better performance
-type FeedState = {
-  visibleVideo: string | null;
-  visibleIndex: number;
-  visibleRange: { min: number; max: number };
-  scrollDirection: 'up' | 'down' | null;
-  isScrubbing: boolean;
-};
-
-type FeedAction = 
-  | { type: 'SET_VISIBLE_VIDEO'; payload: { video: string | null; index: number } }
-  | { type: 'SET_VISIBLE_RANGE'; payload: { min: number; max: number } }
-  | { type: 'SET_SCROLL_DIRECTION'; payload: 'up' | 'down' | null }
-  | { type: 'SET_SCRUBBING'; payload: boolean }
-  ;
-
-const feedReducer = (state: FeedState, action: FeedAction): FeedState => {
-  switch (action.type) {
-    case 'SET_VISIBLE_VIDEO':
-      return {
-        ...state,
-        visibleVideo: action.payload.video,
-        visibleIndex: action.payload.index,
-      };
-    case 'SET_VISIBLE_RANGE':
-      return { ...state, visibleRange: action.payload };
-    case 'SET_SCROLL_DIRECTION':
-      return { ...state, scrollDirection: action.payload };
-    case 'SET_SCRUBBING':
-      return { ...state, isScrubbing: action.payload };
-    default:
-      return state;
-  }
-};
-
-const initialState: FeedState = {
-  visibleVideo: null,
-  visibleIndex: 0,
-  visibleRange: { min: 0, max: 2 },
-  scrollDirection: null,
-  isScrubbing: false,
-  
-};
-
-// CellRenderer removed - FlashList handles cell rendering internally for optimal performance
 
 const ListFeedView: React.FC<ListFeedViewProps> = ({
   feed,
@@ -196,17 +134,19 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   onScrubbingChange,
   onScroll,
   forceError = false,
-  ListComponent, // When provided, indicates we're inside a Tabs.Container (e.g., Tabs.FlashList)
-  useAnimatedScroll = true,
+  ListComponent, // Optional custom list component
 }) => {
   // Hooks
   const { isClearViewMode, toggleClearViewMode } = useClearView();
   const insets = useSafeAreaInsets();
   
-  // State management with useReducer
-  const [state, dispatch] = useReducer(feedReducer, initialState);
-  
-  // Note: header visibility tracking removed from this component for simplicity
+  // Simplified state management
+  const [visibleVideo, setVisibleVideo] = useState<string | null>(null);
+  const [visibleIndex, setVisibleIndex] = useState<number>(0);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [headerListHeight, setHeaderListHeight] = useState(0);
+  const [listLayoutHeight, setListLayoutHeight] = useState<number>(0);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(false);
   
   // Device detection
   const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
@@ -220,17 +160,40 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   // Refs for performance
   const flashListRef = useRef<FlashListRef<FeedItem>>(null);
   const lastOffset = useRef(0);
-  const currentScrollOffset = useRef(0);
   const positionSaveTimeout = useRef<NodeJS.Timeout | null>(null);
-  const lastScrollTsRef = useRef(0);
-
-  // Shared values for animations
-  const scrollYShared = useSharedValue(0);
 
   // Playback control
   const pauseAllVideos = usePlaybackStore(state => state.pauseAllVideos);
-  const pauseAllVideosRef = useRef(pauseAllVideos);
-  useEffect(() => { pauseAllVideosRef.current = pauseAllVideos; }, [pauseAllVideos]);
+
+  // Simple scroll handling with header visibility detection
+  const onScrollNative = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset } = e.nativeEvent;
+    const offsetY = contentOffset?.y || 0;
+    
+    // Handle header visibility for header feeds
+    if (headerComponent && isHeaderFeed) {
+      const headerThreshold = 50;
+      const newHeaderVisible = offsetY <= headerThreshold;
+      
+      if (newHeaderVisible !== isHeaderVisible) {
+        setIsHeaderVisible(newHeaderVisible);
+        
+        // Pause videos when header becomes visible
+        if (newHeaderVisible && visibleVideo) {
+          setVisibleVideo(null);
+          setVisibleIndex(-1);
+          onVisibleChange?.(-1, null);
+          pauseAllVideos();
+        }
+      }
+    }
+    
+    // Pass to parent components with throttling to prevent interference
+    onScroll?.(e);
+    onVerticalScroll?.(offsetY);
+  }, [headerComponent, isHeaderFeed, isHeaderVisible, visibleVideo, onVisibleChange, pauseAllVideos, onScroll, onVerticalScroll]);
+
+
 
   // Viewport calculations with memoization
   const viewportDimensions = useMemo(() => {
@@ -260,44 +223,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
     return getVideoCardHeight(viewportDimensions.effectiveInsets);
   }, [viewportDimensions.height, viewportDimensions.effectiveInsets, isSmallDevice]);
-
-  // Header height tracking and presence flag (used for index calculations)
-  const [headerListHeight, setHeaderListHeight] = useState(0);
-  const hasHeader = !!headerComponent;
-  const [listLayoutHeight, setListLayoutHeight] = useState<number>(viewportDimensions.height);
-
-  // Stable refs for scroll-time reads to avoid heavy dependencies
-  const hasHeaderRef = useRef(hasHeader);
-  const headerListHeightRef = useRef(headerListHeight);
-  const cardHeightRef = useRef(cardHeight);
-  const centerCorrectionRef = useRef(0);
-  // No need for centerCorrection with FlashList 2 snapToInterval + snapToAlignment='center'
-  const listDataRef = useRef<FeedItem[]>([]);
-  const visibleIndexRef = useRef(state.visibleIndex);
-  const visibleVideoRef = useRef(state.visibleVideo);
-  const lastVisibilityUpdateTsRef = useRef(0);
-  const onVisibleChangeRef = useRef(onVisibleChange);
-  const onPositionChangeRef = useRef(onPositionChange);
-  const onScrollPropRef = useRef(onScroll);
-  const onVerticalScrollRef = useRef(onVerticalScroll);
-
-  useEffect(() => { hasHeaderRef.current = hasHeader; }, [hasHeader]);
-  useEffect(() => { headerListHeightRef.current = headerListHeight; }, [headerListHeight]);
-  useEffect(() => { cardHeightRef.current = cardHeight; }, [cardHeight]);
-  useEffect(() => {
-    // Center correction ensures items snap to the viewport center accounting for header
-    const correction = Math.max(0, Math.round((listLayoutHeight - cardHeight) / 2));
-    centerCorrectionRef.current = correction;
-  }, [listLayoutHeight, cardHeight]);
-  // listDataRef is updated after listData is computed below
-  useEffect(() => { visibleIndexRef.current = state.visibleIndex; }, [state.visibleIndex]);
-  useEffect(() => { visibleVideoRef.current = state.visibleVideo; }, [state.visibleVideo]);
-  useEffect(() => { onVisibleChangeRef.current = onVisibleChange; }, [onVisibleChange]);
-  useEffect(() => { onPositionChangeRef.current = onPositionChange; }, [onPositionChange]);
-  useEffect(() => { onScrollPropRef.current = onScroll; }, [onScroll]);
-  useEffect(() => { onVerticalScrollRef.current = onVerticalScroll; }, [onVerticalScroll]);
-
-  // (moved earlier)
 
   // Optimized feed data processing
   const displayFeed = useMemo(() => {
@@ -342,283 +267,148 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     return base;
   }, [displayFeed, isLoading, isError, isFetchingNextPage, hasNextPage]);
 
-  // Keep listData ref in sync post-compute
-  useEffect(() => {
-    listDataRef.current = listData;
-  }, [listData]);
-
   // Error handling
   const effectiveError = forceError ? new Error('Forced error for testing') : error;
   const effectiveIsError = forceError || isError;
 
   // Callbacks
-  const handleScrubbingChange = useCallback((isScrubbing: boolean) => {
-    dispatch({ type: 'SET_SCRUBBING', payload: isScrubbing });
-    onScrubbingChange?.(isScrubbing);
+  const handleScrubbingChange = useCallback((scrubbing: boolean) => {
+    setIsScrubbing(scrubbing);
+    onScrubbingChange?.(scrubbing);
   }, [onScrubbingChange]);
 
   const handleVideoStatus = useCallback((uri: string, status: string) => {
     // Simple status handling - no logging needed
   }, []);
 
-  // Simplified scroll handling - let FlashList handle visibility via onViewableItemsChanged  
-  const handleScrollFromUI = useCallback((y: number, contentHeight: number, screenHeight: number) => {
-    // Throttled scroll handling
-    const now = Date.now();
-    if (now - lastScrollTsRef.current < PERFORMANCE_CONFIG.SCROLL_THROTTLE) {
-      return;
-    }
-    lastScrollTsRef.current = now;
 
-    try {
-      onScrollPropRef.current?.({ nativeEvent: { 
-        contentOffset: { y }, 
-        contentSize: { height: contentHeight }, 
-        layoutMeasurement: { height: screenHeight } 
-      }});
-    } catch (e) {
-      // Silently handle scroll errors
-    }
 
-    currentScrollOffset.current = y;
-    // Keep shared value in sync for any consumers
-    try { scrollYShared.value = y; } catch {}
-
-    // Track scroll direction with better logic
-    const delta = y - lastOffset.current;
-    if (Math.abs(delta) > 20) { // Increased threshold for better direction detection
-      const newDirection = delta > 0 ? 'down' : 'up';
-      if (newDirection !== state.scrollDirection) {
-        dispatch({ type: 'SET_SCROLL_DIRECTION', payload: newDirection });
-      }
-    }
-    
-    lastOffset.current = y;
-    onVerticalScrollRef.current?.(y);
-  }, []);
-
-  // Lightweight native onScroll handler for FlashList
-  const onScrollNative = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    try {
-      if (__DEV__) {
-        // Lightweight scroll debug (throttled higher up)
-        if (Math.random() < 0.001) {
-          // 0.1% of events
-          // eslint-disable-next-line no-console
-          console.log('[FeedScroll]', Math.round(contentOffset?.y || 0), listDataRef.current?.length || 0);
-        }
-      }
-    } catch {}
-    const offsetY = contentOffset?.y || 0;
-    handleScrollFromUI(offsetY, contentSize?.height || 0, layoutMeasurement?.height || 0);
-
-    // If snapped at top on a header feed, pause all playback (simple rule)
-    if (hasHeaderRef.current) {
-      const TOP_SNAP_TOLERANCE = 50; // pixels
-      if (offsetY <= TOP_SNAP_TOLERANCE) {
-        try { pauseAllVideosRef.current?.(); } catch {}
-        if (visibleVideoRef.current !== null) {
-          dispatch({ type: 'SET_VISIBLE_VIDEO', payload: { video: null, index: 0 } });
-          onVisibleChangeRef.current?.(0, null);
-          visibleVideoRef.current = null;
-          visibleIndexRef.current = 0;
-        }
-      }
-    }
-  }, [handleScrollFromUI]);
-
-  // Removed adapter/Tabs-specific animated onScroll logic
-
-  // Manual snapping function removed - using consistent automatic snapping for all feeds
-
-  // Simplified test snapping functionality for FlashList 2 center snapping
-  const testSnapping = useCallback((targetIndex: number) => {
+  // Simple scroll to index function
+  const scrollToIndex = useCallback((targetIndex: number) => {
     if (!flashListRef.current || targetIndex < 0 || targetIndex >= listData.length) return;
     
-    // Use FlashList's scrollToIndex which respects the snapToInterval and center alignment
     flashListRef.current.scrollToIndex({ 
       index: targetIndex, 
       animated: true,
-      viewPosition: 0.5 // Center the item in the viewport
+      viewPosition: 0.5
     });
-    
-    setTimeout(() => {
-      const visibleItem = listData[targetIndex];
-      if (visibleItem && !visibleItem.endCard) {
-        dispatch({ type: 'SET_VISIBLE_VIDEO', payload: { video: visibleItem.post.uri, index: targetIndex } });
-      }
-    }, 300);
-  }, [listData]);
-
-  // Expose test function globally for debugging
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as any).__TEST_FLASH_LIST_SNAPPING__ = testSnapping;
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        delete (window as any).__TEST_FLASH_LIST_SNAPPING__;
-      }
-    };
-  }, [testSnapping]);
+  }, [listData.length]);
 
   // Preload on scroll end for upcoming videos
   const handleScrollEndPreload = useCallback(() => {
     if (displayFeed.length > 0) {
-      // Simple preloading for visible videos
       preloadVideoData(displayFeed.map(item => item.post));
     }
   }, [displayFeed]);
 
-  // Momentum end: rely on FlashList's viewability for visibility; only do bookkeeping/preload
+  // Momentum end: rely on FlashList's viewability for visibility
   const onMomentumScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetY = e.nativeEvent.contentOffset.y;
-    // Debounce position saving
+    
+    // Debounce position saving with shorter timeout for better responsiveness
     if (positionSaveTimeout.current) {
       clearTimeout(positionSaveTimeout.current);
     }
     positionSaveTimeout.current = setTimeout(() => {
-      if (onPositionChangeRef.current && Math.abs(offsetY - lastOffset.current) > 50) {
-        onPositionChangeRef.current(offsetY);
+      if (onPositionChange && Math.abs(offsetY - lastOffset.current) > 30) {
+        onPositionChange(offsetY);
       }
-    }, PERFORMANCE_CONFIG.POSITION_SAVE_DELAY);
+    }, 300); // Reduced timeout for more responsive position saving
     lastOffset.current = offsetY;
-    currentScrollOffset.current = offsetY;
-    dispatch({ type: 'SET_SCROLL_DIRECTION', payload: null });
+    
     handleScrollEndPreload();
+  }, [handleScrollEndPreload, onPositionChange]);
 
-    // If snapped to top on a header feed, pause all playback and clear active video
-    if (hasHeaderRef.current) {
-      const TOP_SNAP_TOLERANCE = 2; // pixels
-      if (offsetY <= TOP_SNAP_TOLERANCE) {
-        try { pauseAllVideosRef.current?.(); } catch {}
-        if (visibleVideoRef.current !== null) {
-          dispatch({ type: 'SET_VISIBLE_VIDEO', payload: { video: null, index: 0 } });
-          onVisibleChangeRef.current?.(0, null);
-          visibleVideoRef.current = null;
-          visibleIndexRef.current = 0;
-        }
-      }
-    }
-  }, [handleScrollEndPreload]);
-
-  // No need to update visibility on end-drag; handled continuously during scroll
-  const onScrollEndDrag = useCallback((_e: NativeSyntheticEvent<NativeScrollEvent>) => {}, []);
-
-  // Use FlashList v2's native viewability detection instead of manual calculations
+  // Simplified viewability detection
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
-    const now = Date.now();
-    // Light debounce to reduce flicker but keep fast starts
-    if (now - lastVisibilityUpdateTsRef.current < 40) {
-      return;
-    }
-    if (viewableItems.length === 0) return;
-    // Compute base offset for header, but do not block playback while header is partially visible
-    let base = 0;
-    if (hasHeaderRef.current && headerListHeightRef.current > 0) {
-      base = Math.max(0, headerListHeightRef.current - (centerCorrectionRef.current || 0));
-    }
-
-    // Pick the viewable item closest to the visual center for stability
-    const localCardH = cardHeightRef.current || 1;
-    const adjustedOffset = Math.max(0, (currentScrollOffset.current || 0) - base);
-    const centerIndex = Math.round(adjustedOffset / localCardH);
-    let candidate: any = null;
-    let smallestDistance = Number.POSITIVE_INFINITY;
-    for (const v of viewableItems) {
-      if (v?.isViewable && v?.item && !v.item.endCard && v.item.post?.uri) {
-        const d = Math.abs((v.index ?? 0) - centerIndex);
-        if (d < smallestDistance) {
-          smallestDistance = d;
-          candidate = v;
+    // Find the first viewable video item
+    const visibleVideoItem = viewableItems.find(item => 
+      item.isViewable && 
+      item.item?.post?.uri && 
+      !item.item.endCard
+    );
+    
+    if (visibleVideoItem) {
+      const nextUri = visibleVideoItem.item.post.uri;
+      const nextIndex = visibleVideoItem.index;
+      
+      if (nextUri !== visibleVideo) {
+        console.log('[ListFeedView] Setting visible video:', nextUri, 'index:', nextIndex);
+        setVisibleVideo(nextUri);
+        setVisibleIndex(nextIndex);
+        onVisibleChange?.(nextIndex, nextUri);
+        
+        // Add to watch history asynchronously
+        if (feedOption === 'yourMix') {
+          setTimeout(() => WatchHistory.addToWatchHistory(visibleVideoItem.item), 0);
         }
       }
     }
+  }, [visibleVideo, feedOption, onVisibleChange]);
 
-    if (!candidate) {
-      // E.g., end card centered: clear active video
-      if (visibleVideoRef.current !== null) {
-        dispatch({ type: 'SET_VISIBLE_VIDEO', payload: { video: null, index: 0 } });
-        onVisibleChangeRef.current?.(0, null);
-        visibleVideoRef.current = null;
-        visibleIndexRef.current = 0;
-        lastVisibilityUpdateTsRef.current = now;
-      }
-      return;
-    }
-
-    const nextUri = candidate.item.post.uri;
-    const nextIndex = candidate.index;
-    if (nextUri !== visibleVideoRef.current || nextIndex !== visibleIndexRef.current) {
-      dispatch({ type: 'SET_VISIBLE_VIDEO', payload: { video: nextUri, index: nextIndex } });
-      onVisibleChangeRef.current?.(nextIndex, nextUri);
-      visibleVideoRef.current = nextUri;
-      visibleIndexRef.current = nextIndex;
-      lastVisibilityUpdateTsRef.current = now;
-    }
-  }, []);
-
-  // Simple video preloading for immediate playback
+  // Initialize first video when feed loads (simplified)
   useEffect(() => {
-    if (displayFeed.length > 0) {
-      // Preload first few videos only
+    if (displayFeed.length > 0 && isVisible) {
+      // Always set the first video as visible when feed is visible
+      const firstVideo = displayFeed[0];
+      if (firstVideo && firstVideo.post.uri) {
+        setVisibleVideo(firstVideo.post.uri);
+        setVisibleIndex(0);
+        onVisibleChange?.(0, firstVideo.post.uri);
+      }
+      
+      // Preload video data
       preloadVideoData(displayFeed.map(item => item.post));
+    } else if (!isVisible && visibleVideo) {
+      // Clear visibility when feed is not visible
+      setVisibleVideo(null);
+      setVisibleIndex(-1);
+      onVisibleChange?.(-1, null);
     }
-  }, [displayFeed]);
+  }, [displayFeed, isVisible, onVisibleChange]);
 
-  // No overlay header; header is rendered as ListHeaderComponent to avoid stickiness
+  // Remove the complex fallback effect
 
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<FeedItem>) => {
     if (item.endCard) {
       return (
-        <View style={{ height: cardHeight, width: '100%' }}>
-          <EmptyFeed
-            type="end"
-            secondaryColor={secondaryColor}
-            profileColors={secondaryColor ? { 
-              backgroundColor: backgroundColor || '#000', 
-              textColor: secondaryColor 
-            } : undefined}
-            viewableAreaHeight={cardHeight}
-            feedOption={feedOption}
-          />
-        </View>
+        <EmptyFeed
+          type="end"
+          secondaryColor={secondaryColor}
+          profileColors={secondaryColor ? { 
+            backgroundColor: backgroundColor || '#000', 
+            textColor: secondaryColor 
+          } : undefined}
+          viewableAreaHeight={cardHeight}
+          feedOption={feedOption}
+        />
       );
     }
 
-    // Simplified video state management for FlashList 2 center snapping
-    const isActiveVideo = item.post.uri === state.visibleVideo;
-    const isVideoVisible = isActiveVideo && isVisible && !state.isScrubbing;
-    
-    // With center snapping, if a video is the active (centered) video, it should play
-    // This works for both header and non-header feeds since FlashList handles centering
-    const shouldPlayVideo = isVideoVisible;
+    // Simple visibility check
+    const isActiveVideo = item.post.uri === visibleVideo;
+    const shouldPlay = isActiveVideo && isVisible && !isScrubbing;
     
     return (
-      <View style={{ height: cardHeight, width: '100%' }}>
-        <MemoizedVideoItem
-          post={item.post}
-          feedItem={item}
-          isPlaying={shouldPlayVideo}
-          handleVideoStatus={handleVideoStatus}
-          height={cardHeight}
-          scrollY={scrollYShared}
-          feedOption={feedOption as 'yourMix' | 'following' | 'discover'}
-          isVisible={isVideoVisible}
-          moderationDecision={item.moderationDecision}
-          onScrubbingChange={handleScrubbingChange}
-          isModal={isModal}
-          index={index}
-        />
-      </View>
+      <MemoizedVideoItem
+        post={item.post}
+        feedItem={item}
+        isPlaying={shouldPlay}
+        handleVideoStatus={handleVideoStatus}
+        height={cardHeight}
+        feedOption={feedOption as 'yourMix' | 'following' | 'discover'}
+        isVisible={shouldPlay}
+        moderationDecision={item.moderationDecision}
+        onScrubbingChange={handleScrubbingChange}
+        isModal={isModal}
+        index={index}
+      />
     );
   }, [
     cardHeight,
-    state.visibleVideo,
-    state.isScrubbing,
+    visibleVideo,
+    isScrubbing,
     feedOption,
-    scrollYShared,
     isVisible,
     backgroundColor,
     secondaryColor,
@@ -627,14 +417,15 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     isModal,
   ]);
 
-  // FlashList v2 automatically handles layout - getItemLayout removed
-
-  // Item type for FlashList recycling
-  const getItemType = useCallback((item: FeedItem) => (item.endCard ? 'endCard' : 'row'), []);
+  // Optimized item type for FlashList recycling
+  const getItemType = useCallback((item: FeedItem) => {
+    if (item.endCard) return 'endCard';
+    if (item.post?.embed?.$type === 'app.bsky.embed.record#view') return 'video';
+    return 'default';
+  }, []);
 
   // Key extractor with better performance
   const keyExtractor = useCallback((item: FeedItem) => {
-    // Stable keys prevent unnecessary item re-mounts which can reset video state
     return item.endCard ? 'end-card' : `${item.post.uri}_${item.post.cid}`;
   }, []);
 
@@ -644,39 +435,22 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       onViewModeChange('list');
       
       setTimeout(() => {
-        flashListRef.current?.scrollToIndex({ index, animated: true });
-        
-        setTimeout(() => {
-          const targetVideo = feed[index]?.post?.uri;
-          if (targetVideo) {
-            dispatch({ 
-              type: 'SET_VISIBLE_VIDEO', 
-              payload: { video: targetVideo, index }
-            });
-          }
-        }, 200);
+        scrollToIndex(index);
       }, 100);
     }
-  }, [feed.length, viewMode, onViewModeChange]);
+  }, [feed.length, viewMode, onViewModeChange, scrollToIndex]);
 
   // Watch history effect
   useEffect(() => {
-    if (state.visibleVideo && feedOption === 'yourMix') {
-      WatchHistory.addToWatchHistory(state.visibleVideo);
+    if (visibleVideo && feedOption === 'yourMix') {
+      WatchHistory.addToWatchHistory(visibleVideo);
     }
-  }, [state.visibleVideo, feedOption]);
+  }, [visibleVideo, feedOption]);
 
-  // Removed app state tracking for simplified logic
-
-  // Removed debug overlay polling
-
-  // Proper initial positioning that respects header feeds  
+  // Initial positioning
   useEffect(() => {
     if (!flashListRef.current || listData.length === 0) return;
 
-    const hasExplicitTarget = typeof initialIndex === 'number' || !!initialUri;
-
-    // Compute target index when explicitly provided
     let targetIndex = initialIndex;
     if (initialUri) {
       const foundIndex = displayFeed.findIndex(item => item?.post?.uri === initialUri);
@@ -685,58 +459,30 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       }
     }
     
-    if (hasExplicitTarget && typeof targetIndex === 'number') {
-      // Only scroll to specific items when explicitly requested
+    if (typeof targetIndex === 'number') {
       targetIndex = Math.max(0, Math.min(targetIndex, displayFeed.length - 1));
-      const targetUri = displayFeed[targetIndex]?.endCard ? null : displayFeed[targetIndex]?.post?.uri || null;
-      if (targetUri) {
-        dispatch({ type: 'SET_VISIBLE_VIDEO', payload: { video: targetUri, index: targetIndex } });
-      }
       
       setTimeout(() => {
         try {
           flashListRef.current?.scrollToIndex({ 
             index: targetIndex!, 
             animated: false,
-            viewPosition: 0.5 // Center the item in viewport
+            viewPosition: 0.5
           });
         } catch {}
       }, 50);
-    } else {
-      // For header feeds without explicit target, start at top (header visible)
-      // FlashList will handle snapping when user scrolls
-      if (hasHeader) {
-        setTimeout(() => {
-          try {
-            flashListRef.current?.scrollToOffset({ offset: 0, animated: false });
-          } catch {}
-        }, 50);
-      }
     }
-    
-    // Simplified initial positioning for FlashList v2 center snapping
-    // Let FlashList handle everything - no special header logic needed
-    setTimeout(() => {
-      try {
-        // Always use scrollToIndex with center positioning - FlashList v2 handles headers automatically
-        flashListRef.current?.scrollToIndex({ 
-          index: targetIndex!, 
-          animated: false,
-          viewPosition: 0.5 // Center the item in viewport
-        });
-      } catch {}
-    }, 50);
-  }, [initialIndex, initialUri, displayFeed.length, hasHeader, listData.length, displayFeed]);
+  }, [initialIndex, initialUri, displayFeed.length, listData.length, displayFeed]);
 
-  // Improved orientation change handling for FlashList 2 center snapping
+  // Improved orientation change handling
   useEffect(() => {
     const handleOrientationChange = ({ window }: { window: ScaledSize }) => {
       setTimeout(() => {
         if (flashListRef.current && displayFeed.length > 0) {
           flashListRef.current.scrollToIndex({
-            index: state.visibleIndex,
+            index: visibleIndex,
             animated: false,
-            viewPosition: 0.5, // Center the item in viewport
+            viewPosition: 0.5,
           });
         }
       }, 100);
@@ -744,7 +490,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
     const subscription = Dimensions.addEventListener('change', handleOrientationChange);
     return () => subscription?.remove();
-  }, [displayFeed.length, state.visibleIndex]);
+  }, [displayFeed.length, visibleIndex]);
 
   // Cleanup timeouts
   useEffect(() => {
@@ -781,22 +527,15 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   }
 
   const viewableAreaHeight = viewportDimensions.height;
-  // When using Tabs.FlashList (collapsible header), subtract the header height so
-  // ListEmptyComponent fills the visible area beneath the header.
   const headerHeightForTabs = useMemo(() => (ListComponent ? 280 : 0), [ListComponent]);
   const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
-
-  // Determine which FlashList component to use
-  const FlashListComponent: any = useMemo(() => FlashList, []);
 
   // Simplified snapping: use snapToInterval for consistent center snapping
   const snapToIntervalValue = cardHeight;
 
-  const isPagingEnabled = false;
-
-  // Custom snap offsets for header feeds: first snap centers first video, then standard intervals
+  // Custom snap offsets for header feeds
   const snapToOffsets = useMemo(() => {
-    if (!hasHeader || headerListHeight <= 0 || cardHeight <= 0) return null;
+    if (!headerComponent || headerListHeight <= 0 || cardHeight <= 0) return null;
     const offsets: number[] = [];
     // Allow resting at the very top (header fully visible)
     offsets.push(0);
@@ -808,7 +547,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       offsets.push(base + i * cardHeight);
     }
     return offsets;
-  }, [hasHeader, headerListHeight, cardHeight, listLayoutHeight, listData.length]);
+  }, [headerComponent, headerListHeight, cardHeight, listLayoutHeight, listData.length]);
 
   // Main render - unified approach for feeds with or without headers
   return (
@@ -819,12 +558,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         if (h > 0 && h !== listLayoutHeight) setListLayoutHeight(h);
       }}
     > 
-      {/* Header rendered in list via ListHeaderComponent so it scrolls away (non-sticky) */}
-      
-      {/* Debug overlay removed for simplicity */}
-
       {/* FlashList implementation with center snapping */}
-      <FlashListComponent
+      <FlashList
         ref={flashListRef}
         data={listData}
         renderItem={renderItem}
@@ -839,39 +574,42 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           </View>
         ) : null}
         
-        // CRITICAL: Provide accurate estimatedItemSize for optimal performance
-        estimatedItemSize={cardHeight}
-        
-        // FlashList optimizations for video performance
-        drawDistance={cardHeight * PERFORMANCE_CONFIG.DRAW_DISTANCE_MULTIPLIER}
+        // FlashList performance optimizations for smooth scrolling
         removeClippedSubviews={true}
+        overrideItemLayout={(layout, item, index) => {
+          layout.span = cardHeight;
+        }}
         
-        // FlashList 2 snapping configuration
+        // Optimized snapping configuration
         pagingEnabled={false}
         {...(snapToOffsets
           ? { snapToOffsets }
           : { snapToInterval: snapToIntervalValue, snapToAlignment: 'center' as const }
         )}
         decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.98}
-  scrollEventThrottle={16}
+        scrollEventThrottle={SCROLL_THROTTLE}
         
-        onScroll={onScrollNative as any}
+        onScroll={onScrollNative}
         onMomentumScrollEnd={onMomentumScrollEnd}
-        onScrollEndDrag={onScrollEndDrag}
+        onEndReached={onLoadMore}
+        onEndReachedThreshold={0.8}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={{
-          itemVisiblePercentThreshold: 60, // balance speed and stability
-          minimumViewTime: 50, // faster start without excessive flicker
+          itemVisiblePercentThreshold: 50,
+          minimumViewTime: 0,
           waitForInteraction: false,
         }}
-        viewabilityConfigCallbackPairs={undefined} // Use single viewability config
         
         // Disable scrolling when empty; otherwise respect scrubbing lock
-        scrollEnabled={!state.isScrubbing && listData.length > 0}
+        scrollEnabled={!isScrubbing && listData.length > 0}
         showsVerticalScrollIndicator={false}
         bounces={false}
         directionalLockEnabled={true}
         initialScrollIndex={typeof initialIndex === 'number' ? initialIndex : undefined}
+        
+        // Optimize for vertical scrolling only to prevent horizontal interference
+        alwaysBounceVertical={false}
+        alwaysBounceHorizontal={false}
         
         // Components
         ListEmptyComponent={
@@ -925,8 +663,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           paddingBottom: displayFeed.length === 0 ? 0 : viewportDimensions.bottomNavBarHeight,
         }}
       />
-
-      {/* Feed debugger removed */}
       
       {/* Clear view exit button */}
       {isClearViewMode && (
@@ -950,7 +686,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // Removed debug/absolute header styles for simplicity
   centeredLoadingContainer: {
     flex: 1,
     justifyContent: 'center',

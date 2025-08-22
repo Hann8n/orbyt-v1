@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { VideoFile } from 'react-native-vision-camera';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import Compressor from 'react-native-compressor';
 
 export interface VideoSegment {

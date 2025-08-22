@@ -13,15 +13,15 @@ import {
   Platform,
   Dimensions,
   ScrollView,
-  SafeAreaView,
   Switch,
   Modal,
   FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Video, { VideoRef } from 'react-native-video';
 import { Ionicons } from '@expo/vector-icons';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, TextOverlay } from '../navigation/types';
 import { Colors } from '../components/ui/UI';

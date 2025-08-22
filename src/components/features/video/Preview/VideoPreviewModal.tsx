@@ -4,12 +4,12 @@ import {
   TouchableOpacity,
   Modal,
   StatusBar,
-  SafeAreaView,
   StyleSheet,
   Dimensions,
   Text,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Icon from '../../../ui/Icon';
 import { isSmallScreen, isTablet } from '../../../../utils/helpers/screenSize';
@@ -180,7 +180,6 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
               <VideoOverlay
                 post={previewPost}
                 isVisible={true}
-                scrollY={scrollY}
                 onScrubbingChange={(isScrubbing) => {
                   // Handle scrubbing state if needed
                 }}
@@ -214,7 +213,6 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
               <VideoOverlay
                 post={previewPost}
                 isVisible={true}
-                scrollY={scrollY}
                 onScrubbingChange={(isScrubbing) => {
                   // Handle scrubbing state if needed
                 }}

@@ -17,6 +17,7 @@ import AuthorItem from '../../components/ui/AuthorItem';
 import { Colors } from '../../components/ui/UI';
 import Constants from 'expo-constants';
 import { useProfile } from '../../services/cache/ProfileCache';
+import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 
 interface AboutItem {
   id: string;
@@ -71,7 +72,7 @@ const AboutScreen: React.FC = () => {
   ];
 
   return (
-    <View style={styles.container}> 
+    <View style={settingsLayoutStyles.container}> 
       <ListHeader
         mode="stacked"
         title="about orbyt"
@@ -84,7 +85,7 @@ const AboutScreen: React.FC = () => {
       <ScrollView 
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={settingsLayoutStyles.contentContainerWithPadding}
       >
         {/* Hero Section */}
         <View style={styles.heroSection}>
@@ -103,7 +104,7 @@ const AboutScreen: React.FC = () => {
 
         {/* Orbyt Profile Card */}
         <View style={styles.profileCard}>
-          <Text style={styles.sectionTitle}>official account</Text>
+          <Text style={settingsTextStyles.sectionTitle}>official account</Text>
           <AuthorItem
             handle="getorbyt.com"
             displayName={orbytProfile?.displayName || "Orbyt"}
@@ -116,25 +117,19 @@ const AboutScreen: React.FC = () => {
 
         {/* Links Section */}
         <View style={styles.linksSection}>
-          <Text style={styles.sectionTitle}>links & legal</Text>
+          <Text style={settingsTextStyles.sectionTitle}>links & legal</Text>
           <View style={styles.linksContainer}>
             {aboutItems.map((item, itemIndex) => (
               <TouchableOpacity
                 key={item.id}
-                style={[
-                  styles.linkItem,
-                  itemIndex === aboutItems.length - 1 && styles.lastItem
-                ]}
+                style={settingsButtonStyles.primaryButton}
                 onPress={item.onPress}
                 activeOpacity={0.7}
                 disabled={!item.onPress}
               >
                 <View style={styles.linkItemLeft}>
-                  <View style={styles.linkIconContainer}>
-                    <Icon name={item.icon} size={24} color={Colors.white} />
-                  </View>
                   <View style={styles.linkTextContainer}>
-                    <Text style={styles.linkItemText}>{item.label}</Text>
+                    <Text style={settingsTextStyles.primaryButtonText}>{item.label}</Text>
                     {item.description && (
                       <Text style={styles.linkItemDescription}>{item.description}</Text>
                     )}
@@ -171,45 +166,12 @@ const AboutScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.black,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.gray,
-    backgroundColor: Colors.black,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: Colors.white,
-    fontSize: 22,
-    fontWeight: '700',
-    fontFamily: 'Firma-Bold',
-  },
-  headerSpacer: {
-    width: 40,
-  },
   content: {
     flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 40,
   },
   heroSection: {
     alignItems: 'center',
     paddingVertical: 32,
-    paddingHorizontal: 20,
   },
   appIconContainer: {
     position: 'relative',
@@ -273,16 +235,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   profileCard: {
-    marginHorizontal: 20,
     marginBottom: 24,
   },
-  sectionTitle: {
-    color: Colors.white,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
-    marginBottom: 16,
-  },
+
   orbytAuthorItem: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
@@ -291,28 +246,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   linksSection: {
-    marginHorizontal: 20,
     marginBottom: 24,
   },
   linksContainer: {
-    backgroundColor: Colors.darkGray,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.mediumGray,
-    overflow: 'hidden',
+    // Removed container styling since individual items now have their own styling
   },
-  linkItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.mediumGray,
-  },
-  lastItem: {
-    borderBottomWidth: 0,
-  },
+
   linkItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -322,25 +261,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  linkIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: Colors.mediumGray,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
+
   linkTextContainer: {
     flex: 1,
   },
-  linkItemText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '500',
-    fontFamily: 'Firma-Medium',
-    marginBottom: 2,
-  },
+
   linkItemDescription: {
     color: Colors.gray,
     fontSize: 14,
@@ -353,7 +278,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   footer: {
-    marginHorizontal: 20,
     marginTop: 16,
   },
   footerContent: {

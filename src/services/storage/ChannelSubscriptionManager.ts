@@ -11,19 +11,10 @@ export interface SubscribedChannel {
   isDefault?: boolean;
   order: number;
   subscribedAt: number;
-  inMix?: boolean;
-  isExcluded?: boolean;
-}
-
-export interface ChannelMixSettings {
-  uri: string;
-  inMix: boolean;
-  isExcluded: boolean;
 }
 
 class ChannelSubscriptionManager {
   private static SUBSCRIBED_CHANNELS_KEY = 'subscribed_channels_v1';
-  private static MIX_SETTINGS_KEY = 'channel_mix_settings_v1';
   private static DEFAULT_CHANNELS = [
     { uri: 'following', displayName: 'Following', isDefault: true, order: 0, subscribedAt: Date.now() },
     { uri: 'yourMix', displayName: 'Your Mix', isDefault: true, order: 1, subscribedAt: Date.now() },
@@ -108,20 +99,6 @@ class ChannelSubscriptionManager {
         }
       });
       
-      // Apply mix settings
-      const mixSettings = await this.getMixSettings();
-      allChannels.forEach(channel => {
-        const settings = mixSettings.find(s => s.uri === channel.uri);
-        if (settings) {
-          (channel as any).inMix = settings.inMix;
-          (channel as any).isExcluded = settings.isExcluded;
-        } else {
-          // Default settings for new channels
-          (channel as any).inMix = true;
-          (channel as any).isExcluded = false;
-        }
-      });
-      
       // Sort by order
       const finalChannels = allChannels.sort((a, b) => a.order - b.order);
       
@@ -133,70 +110,15 @@ class ChannelSubscriptionManager {
   }
 
   /**
-   * Get mix settings for all channels
-   */
-  static async getMixSettings(): Promise<ChannelMixSettings[]> {
-    try {
-      const settingsStr = await SecureStore.getItemAsync(
-        await this.getUserScopedKey(this.MIX_SETTINGS_KEY)
-      );
-      return settingsStr ? JSON.parse(settingsStr) : [];
-    } catch (error) {
-      console.error('Error getting mix settings:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Update mix settings for a channel
-   */
-  static async updateMixSettings(uri: string, settings: Partial<ChannelMixSettings>): Promise<void> {
-    try {
-      const currentSettings = await this.getMixSettings();
-      const existingIndex = currentSettings.findIndex(s => s.uri === uri);
-      
-      if (existingIndex >= 0) {
-        currentSettings[existingIndex] = { ...currentSettings[existingIndex], ...settings };
-      } else {
-        currentSettings.push({
-          uri,
-          inMix: settings.inMix ?? true,
-          isExcluded: settings.isExcluded ?? false,
-        });
-      }
-      
-      await SecureStore.setItemAsync(
-        await this.getUserScopedKey(this.MIX_SETTINGS_KEY),
-        JSON.stringify(currentSettings)
-      );
-    } catch (error) {
-      console.error('Error updating mix settings:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get channels that are included in the mix
+   * Get channels that are included in the mix (all subscribed channels)
    */
   static async getChannelsInMix(): Promise<SubscribedChannel[]> {
     try {
       const channels = await this.getSubscribedChannels();
-      return channels.filter(ch => ch.inMix && !ch.isExcluded);
+      // All subscribed channels are in the mix
+      return channels;
     } catch (error) {
       console.error('Error getting channels in mix:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Get excluded channels
-   */
-  static async getExcludedChannels(): Promise<SubscribedChannel[]> {
-    try {
-      const channels = await this.getSubscribedChannels();
-      return channels.filter(ch => ch.isExcluded);
-    } catch (error) {
-      console.error('Error getting excluded channels:', error);
       return [];
     }
   }
@@ -310,37 +232,6 @@ class ChannelSubscriptionManager {
   }
 
   /**
-   * Reorder channels
-   */
-  static async reorderChannels(channelUris: string[]): Promise<void> {
-    try {
-      const channels = await this.getSubscribedChannels();
-      const reorderedChannels: SubscribedChannel[] = [];
-      
-      // Reorder based on the provided URI array
-      channelUris.forEach((uri, index) => {
-        const channel = channels.find(ch => ch.uri === uri);
-        if (channel) {
-          reorderedChannels.push({
-            ...channel,
-            order: index,
-          });
-        }
-      });
-      
-      // Save only non-default channels
-      const savedChannels = reorderedChannels.filter(ch => !ch.isDefault);
-      await SecureStore.setItemAsync(
-        await this.getUserScopedKey(this.SUBSCRIBED_CHANNELS_KEY),
-        JSON.stringify(savedChannels)
-      );
-    } catch (error) {
-      console.error('Error reordering channels:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Get channel by URI
    */
   static async getChannelByUri(uri: string): Promise<SubscribedChannel | null> {
@@ -392,7 +283,7 @@ class ChannelSubscriptionManager {
   }
 
   /**
-   * Refresh all subscribed channels
+   * Clear all subscriptions
    */
   static async clearAllSubscriptions(): Promise<void> {
     try {

@@ -9,7 +9,7 @@ import SettingsScreen from '../screens/Settings/SettingsScreen';
 import InsightsScreen from '../screens/InsightsScreen';
 import BlockedUsersScreen from '../screens/Settings/BlockedUsersScreen';
 import MutedUsersScreen from '../screens/Settings/MutedUsersScreen';
-import HiddenPostsScreen from '../screens/Settings/HiddenPostsScreen';
+
 import WatchHistoryScreen from '../screens/Settings/WatchHistoryScreen';
 import ContentFiltersScreen from '../screens/Settings/ContentFiltersScreen';
 import ChannelManagementScreen from '../screens/Settings/ChannelManagementScreen';
@@ -99,15 +99,6 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
         <Stack.Screen
           name="MutedUsers"
           component={MutedUsersScreen}
-          options={{
-            animation: 'slide_from_right',
-            headerShown: false,
-          }}
-        />
-        
-        <Stack.Screen
-          name="HiddenPosts"
-          component={HiddenPostsScreen}
           options={{
             animation: 'slide_from_right',
             headerShown: false,

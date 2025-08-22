@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, PlusIcon, AtLineIcon, MailLineIcon, Key2LineIcon } from '../components/ui/Icon';
-import { Colors } from '../components/ui/UI';
+import { Colors, Avatar } from '../components/ui/UI';
 import AccountManager from '../services/storage/AccountManager';
 import AccountSwitcher from '../components/features/profile/AccountSwitcher';
 import { SavedAccount } from '../services/storage/AccountManager';
@@ -125,21 +125,25 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                   </Text>
                 </View>
               ) : (
-                <>
-                  {account.avatar ? (
-                    <Image source={{ uri: account.avatar }} style={styles.accountAvatar} />
-                  ) : (
-                    <View style={styles.accountAvatarPlaceholder}>
-                      <Icon name="user" size={20} color={Colors.gray} />
-                    </View>
-                  )}
-                  <View style={styles.accountInfo}>
-                    <Text style={styles.accountDisplayName}>
-                      {account.displayName || account.handle}
-                    </Text>
-                    <Text style={styles.accountHandle}>@{account.handle}</Text>
+                <View style={styles.accountButtonContent}>
+                  <View style={styles.avatarContainer}>
+                    <Avatar
+                      uri={account.avatar}
+                      type="profile"
+                      size={40}
+                    />
                   </View>
-                </>
+                  <Text style={[
+                    styles.accountButtonText,
+                    account.isActive && { 
+                      color: Colors.white, 
+                      fontWeight: '600', 
+                      fontFamily: 'Firma-Bold' 
+                    }
+                  ]}>
+                    {account.displayName || account.handle}
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
           ))}
@@ -148,10 +152,8 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
             onPress={() => setShowManualLogin(true)}
             activeOpacity={0.7}
           >
-            <View style={styles.manualLoginIcon}>
-              <PlusIcon size={16} color={Colors.lightGray} strokeWidth={2.0} />
-            </View>
-            <Text style={styles.manualLoginText}>login with different account</Text>
+            <Text style={styles.manualLoginText}>Add Account</Text>
+            <Icon name="user-plus" size={20} color={Colors.lightGray} />
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -162,35 +164,35 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     <View style={styles.formContainer}>
       <View style={styles.inputContainer}>
         {handle.includes('@') ? (
-          <MailLineIcon size={20} color={Colors.gray} style={styles.inputIcon} />
+          <MailLineIcon size={20} color={Colors.darkGray} style={styles.inputIcon} />
         ) : (
-          <AtLineIcon size={20} color={Colors.gray} style={styles.inputIcon} />
+          <AtLineIcon size={20} color={Colors.darkGray} style={styles.inputIcon} />
         )}
         <TextInput
           style={styles.input}
           placeholder="bluesky handle or email"
-          placeholderTextColor={Colors.gray}
+          placeholderTextColor={Colors.darkGray}
           value={handle}
           onChangeText={setHandle}
           autoCapitalize="none"
           autoCorrect={false}
-          keyboardAppearance="dark"
+          keyboardAppearance="light"
           keyboardType="ascii-capable"
           textContentType="username"
         />
       </View>
 
       <View style={styles.inputContainer}>
-        <Key2LineIcon size={20} color={Colors.gray} style={styles.inputIcon} />
+        <Key2LineIcon size={20} color={Colors.darkGray} style={styles.inputIcon} />
         <TextInput
           style={[styles.input, styles.passwordInput]}
           placeholder="password"
-          placeholderTextColor={Colors.gray}
+          placeholderTextColor={Colors.darkGray}
           value={password}
           onChangeText={setPassword}
           secureTextEntry={secureTextEntry}
           autoCapitalize="none"
-          keyboardAppearance="dark"
+          keyboardAppearance="light"
           keyboardType="ascii-capable"
           textContentType="oneTimeCode"
         />
@@ -205,7 +207,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           <Icon
             name={secureTextEntry ? 'eye-closed' : 'eye'}
             size={20}
-            color={Colors.gray}
+            color={Colors.darkGray}
           />
         </TouchableOpacity>
       </View>
@@ -234,24 +236,24 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         )}
       </TouchableOpacity>
 
-      <View style={styles.appPasswordContainer}>
-        <Text style={styles.appPasswordText}>
-          you need an app password to login.
-        </Text>
+              <View style={styles.appPasswordContainer}>
+          <Text style={styles.appPasswordText}>
+            you'll need an app password to login
+          </Text>
         <Text style={[styles.appPasswordText, styles.appPasswordLink]} onPress={openAppPasswordsPage}>
           create one here
         </Text>
       </View>
 
       {hasSavedAccounts && (
-        <TouchableOpacity
-          style={styles.backToAccountsButton}
-          onPress={() => setShowManualLogin(false)}
-          activeOpacity={0.7}
-        >
-          <BackArrowIcon size={16} color={Colors.lightGray} style={styles.backIcon} />
-          <Text style={styles.backToAccountsText}>back to saved accounts</Text>
-        </TouchableOpacity>
+                  <TouchableOpacity
+            style={styles.backToAccountsButton}
+            onPress={() => setShowManualLogin(false)}
+            activeOpacity={0.7}
+          >
+            <Icon name="left_arrow_filled" size={24} color={Colors.lightGray} style={styles.backIcon} />
+            <Text style={styles.backToAccountsText}>Back</Text>
+          </TouchableOpacity>
       )}
     </View>
   );
@@ -318,23 +320,21 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.white,
     borderRadius: 16,
     marginBottom: 20,
     paddingHorizontal: 20,
     height: 56,
-    borderWidth: 1,
-    borderColor: Colors.gray,
   },
   inputIcon: {
     marginRight: 12,
   },
   input: {
     flex: 1,
-    color: Colors.white,
+    color: Colors.black,
     fontSize: 16,
     height: '100%',
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Firma-SemiBold',
   },
   passwordInput: {
     paddingRight: 50,
@@ -347,30 +347,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loginButton: {
-            backgroundColor: Colors.darkGray,
-    height: 56,
+    backgroundColor: Colors.darkGray,
     width: '100%',
-    borderRadius: 16,
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 24,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.lightGray,
   },
   loginButtonDisabled: {
     opacity: 0.5,
     backgroundColor: Colors.darkGray,
-    borderColor: Colors.gray,
   },
   loginButtonLoading: {
     opacity: 0.7,
   },
   loginButtonText: {
     color: Colors.lightGray,
-    fontSize: 17,
-    fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Firma-SemiBold',
   },
   loginButtonTextDisabled: {
     color: Colors.gray,
@@ -422,73 +420,49 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   accountItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 8,
     backgroundColor: Colors.darkGray,
-    borderWidth: 1,
-    borderColor: Colors.gray,
-    borderRadius: 14,
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginBottom: 12,
   },
   activeAccountItem: {
-    borderColor: Colors.white,
-    borderWidth: 2,
     backgroundColor: Colors.darkGray,
   },
-  accountAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginRight: 12,
-  },
-  accountAvatarPlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginRight: 12,
-    backgroundColor: Colors.darkGray,
-    justifyContent: 'center',
+  accountButtonContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.gray,
+    justifyContent: 'space-between',
   },
-  accountInfo: {
+  avatarContainer: {
+    marginRight: 12,
+  },
+  accountButtonText: {
+    color: Colors.lightGray,
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'left',
+    fontFamily: 'Firma-SemiBold',
+    paddingLeft: 8,
     flex: 1,
   },
-  accountDisplayName: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 2,
-    fontFamily: 'Firma-Bold',
-  },
-  accountHandle: {
-    color: Colors.gray,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
-  },
+
   manualLoginButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     marginTop: 24,
     paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.lightGray,
-    backgroundColor: 'transparent',
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    backgroundColor: Colors.darkGray,
   },
-  manualLoginIcon: {
-    marginRight: 16,
-  },
+
   manualLoginText: {
     color: Colors.lightGray,
-    fontSize: 17,
-    fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Firma-SemiBold',
   },
   backToAccountsButton: {
     flexDirection: 'row',
@@ -496,20 +470,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 24,
     paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.lightGray,
-    backgroundColor: 'transparent',
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    backgroundColor: Colors.darkGray,
   },
   backIcon: {
     marginRight: 12,
   },
   backToAccountsText: {
     color: Colors.lightGray,
-    fontSize: 17,
-    fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Firma-SemiBold',
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -531,9 +503,9 @@ const styles = StyleSheet.create({
   },
   buttonLoadingText: {
     color: Colors.white,
-    fontSize: 17,
-    fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Firma-SemiBold',
     marginLeft: 12,
   },
   loadingAccountName: {

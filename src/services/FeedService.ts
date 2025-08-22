@@ -9,14 +9,12 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import AtprotoService from './api/AtprotoService';
 import type { ModerationDecision } from './ModerationTypes';
 
-// FlashList v2 optimization constants
-const FLASHLIST_PERFORMANCE_CONFIG = {
-  CACHE_CLEANUP_INTERVAL: 25000, // 25 seconds - more frequent for v2
-  MAX_CACHE_SIZE: 150,           // Increased cache size for v2's better memory management
-  STALE_TIME: 7 * 60 * 1000,     // 7 minutes - longer cache for v2 efficiency
-  GC_TIME: 15 * 60 * 1000,       // 15 minutes for garbage collection
-  PREFETCH_DISTANCE: 2,          // Reduced for v2's smarter prefetching
-  MEMORY_WARNING_THRESHOLD: 0.85, // Higher threshold for v2's efficiency
+// Simplified performance constants - relying on React Query and FlashList defaults
+const CACHE_CONFIG = {
+  CLEANUP_INTERVAL: 30000,      // 30 seconds cleanup
+  MAX_CACHE_SIZE: 100,         // Reasonable cache size
+  STALE_TIME: 5 * 60 * 1000,   // 5 minutes
+  GC_TIME: 10 * 60 * 1000,     // 10 minutes
 } as const;
 
 // Types
@@ -91,7 +89,7 @@ class FeedStateManager {
     accessCount: number;
     lastAccessed: number;
   }>();
-  private readonly CACHE_TTL = FLASHLIST_PERFORMANCE_CONFIG.STALE_TIME;
+  private readonly CACHE_TTL = CACHE_CONFIG.STALE_TIME;
   
   // Performance metrics for optimization tracking
   private performanceMetrics = {
@@ -155,7 +153,7 @@ class FeedStateManager {
 
   setCachedFeed(cacheKey: string, data: FeedItem[], cursor?: string | null): void {
     // Implement cache size limit for memory management
-    if (this.feedCache.size >= FLASHLIST_PERFORMANCE_CONFIG.MAX_CACHE_SIZE) {
+    if (this.feedCache.size >= CACHE_CONFIG.MAX_CACHE_SIZE) {
       this.performLRUCleanup();
     }
     
@@ -177,7 +175,7 @@ class FeedStateManager {
   private startMemoryManagement(): void {
     this.cleanupInterval = setInterval(() => {
       this.performMemoryCleanup();
-    }, FLASHLIST_PERFORMANCE_CONFIG.CACHE_CLEANUP_INTERVAL);
+    }, CACHE_CONFIG.CLEANUP_INTERVAL);
   }
   
   private performMemoryCleanup(): void {
@@ -216,7 +214,7 @@ class FeedStateManager {
       cacheSize: this.feedCache.size,
       hitRate: this.performanceMetrics.cacheHits / 
                (this.performanceMetrics.cacheHits + this.performanceMetrics.cacheMisses) || 0,
-      memoryUsage: this.feedCache.size / FLASHLIST_PERFORMANCE_CONFIG.MAX_CACHE_SIZE,
+      memoryUsage: this.feedCache.size / CACHE_CONFIG.MAX_CACHE_SIZE,
     };
   }
   
@@ -483,58 +481,7 @@ class FeedService {
     }
   }
 
-  // Infinite scroll logic
-  createInfiniteScrollHandler({
-    threshold = 0.3,
-    hasNextPage = false,
-    isFetchingNextPage = false,
-    onLoadMore,
-    debounceMs = 100,
-  }: {
-    threshold?: number;
-    hasNextPage?: boolean;
-    isFetchingNextPage?: boolean;
-    onLoadMore: () => void;
-    debounceMs?: number;
-  }) {
-    let isNearEnd = false;
-    let debounceTimeout: NodeJS.Timeout;
-    let lastTriggerPosition = -1;
-
-    return (event: { nativeEvent: any }) => {
-      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-      
-      const scrollY = contentOffset.y;
-      const contentHeight = contentSize.height;
-      const screenHeight = layoutMeasurement.height;
-      
-      if (contentHeight <= screenHeight) {
-        return;
-      }
-      
-      const maxScrollY = contentHeight - screenHeight;
-      const scrollProgress = Math.min(scrollY / maxScrollY, 1);
-      
-      const nearEnd = scrollProgress >= threshold;
-      isNearEnd = nearEnd;
-      
-      if (nearEnd && hasNextPage && !isFetchingNextPage) {
-        const currentPosition = Math.floor(scrollProgress * 100);
-        
-        if (currentPosition !== lastTriggerPosition) {
-          lastTriggerPosition = currentPosition;
-          
-          if (debounceTimeout) {
-            clearTimeout(debounceTimeout);
-          }
-          
-          debounceTimeout = setTimeout(() => {
-            onLoadMore();
-          }, debounceMs);
-        }
-      }
-    };
-  }
+  // Removed custom infinite scroll - using FlashList's onEndReached instead
 
   // Query configuration
   createInfiniteQuery(feedOption: FeedOption, userDid?: string, queryOptions: any = {}) {

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import type { FlatListProps } from 'react-native';
 import { Colors } from '../ui/UI';
-import { Header } from '../../services/HeaderService';
+import { Header, useHeaders } from '../../services/APIService';
 import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,

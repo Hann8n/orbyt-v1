@@ -17,7 +17,7 @@ import Icon, { HomeIcon, ExploreIcon, NotificationIcon, ProfileIcon } from '../c
 import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../utils/helpers/screenSize';
 import * as ImagePicker from 'expo-image-picker';
 import VideoProcessingService from '../services/VideoProcessingService';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useClearView } from '@stores/uiStore';
 import { Colors } from '../components/ui/UI';
 

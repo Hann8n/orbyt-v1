@@ -76,7 +76,7 @@ interface MembersListViewProps {
   isVisible?: boolean;
   onRefresh?: () => void;
   isRefreshing?: boolean;
-  ListComponent?: any; // Optional custom list component (e.g., Tabs.FlashList)
+  ListComponent?: any; // Optional custom list component
 }
 
 const MembersListView: React.FC<MembersListViewProps> = ({

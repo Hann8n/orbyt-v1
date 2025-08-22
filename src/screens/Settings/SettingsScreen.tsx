@@ -18,6 +18,7 @@ import ListHeader from '../../components/ui/ListHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModerationDebug from '../../components/features/moderation/ModerationDebug';
 import AccountManager from '../../services/storage/AccountManager';
+import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
  
 
 // global flag for immediate effect without re-mounts
@@ -129,7 +130,7 @@ const SettingsScreen: React.FC = () => {
         
         {
           id: 'channels',
-          label: 'manage channels',
+          label: 'channels',
           icon: 'device-tv',
           onPress: () => navigation.navigate('ChannelManagement'),
           showChevron: true
@@ -290,10 +291,10 @@ const SettingsScreen: React.FC = () => {
   listData.push({ kind: 'logout', id: 'logout' });
 
   return (
-    <View style={styles.container}>
+    <View style={settingsLayoutStyles.container}>
       <FlashList
         data={listData}
-        contentContainerStyle={[styles.contentContainer, { paddingHorizontal: 5 }]}
+        contentContainerStyle={settingsLayoutStyles.contentContainerWithPadding}
         showsVerticalScrollIndicator={false}
         keyExtractor={(item) => `${item.kind}-${item.id}`}
         ListHeaderComponent={(
@@ -310,21 +311,21 @@ const SettingsScreen: React.FC = () => {
           switch (item.kind) {
             case 'section-title':
               return (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>{item.title}</Text>
+                <View style={settingsLayoutStyles.section}>
+                  <Text style={settingsTextStyles.sectionTitle}>{item.title}</Text>
                 </View>
               );
             case 'setting':
               return (
                 <View style={{ marginBottom: 12 }}>
                   <TouchableOpacity
-                    style={styles.menuOption}
+                    style={settingsButtonStyles.menuOption}
                     onPress={item.onPress}
                     activeOpacity={0.7}
                     disabled={isSubmitting}
                   >
                     <View style={styles.menuOptionLeft}>
-                      <Text style={styles.menuOptionText}>{item.label}</Text>
+                      <Text style={settingsTextStyles.menuOptionText}>{item.label}</Text>
                     </View>
                     {item.showChevron && (
                       <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
@@ -335,11 +336,11 @@ const SettingsScreen: React.FC = () => {
             case 'toggle':
               return (
                 <View style={{ marginBottom: 12 }}>
-                  <View style={styles.menuOption}>
+                  <View style={settingsButtonStyles.menuOption}>
                     <View style={styles.menuOptionLeft}>
-                      <Text style={styles.menuOptionText}>{item.label}</Text>
+                      <Text style={settingsTextStyles.menuOptionText}>{item.label}</Text>
                       {item.subtitle ? (
-                        <Text style={styles.menuOptionSubtitle}>{item.subtitle}</Text>
+                        <Text style={settingsTextStyles.menuOptionSubtitle}>{item.subtitle}</Text>
                       ) : null}
                     </View>
                     <Switch
@@ -354,14 +355,14 @@ const SettingsScreen: React.FC = () => {
               );
             case 'logout':
               return (
-                <View style={styles.logoutSection}>
+                <View style={settingsLayoutStyles.logoutSection}>
                   <TouchableOpacity
-                    style={styles.logoutMenuOption}
+                    style={settingsButtonStyles.logoutButton}
                     onPress={handleLogout}
                     activeOpacity={0.7}
                     disabled={isSubmitting}
                   >
-                    <Text style={styles.logoutMenuOptionText}>log out</Text>
+                    <Text style={settingsTextStyles.logoutButtonText}>log out</Text>
                   </TouchableOpacity>
                 </View>
               );
@@ -375,10 +376,6 @@ const SettingsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.black,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -408,70 +405,14 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  contentContainer: {
-    paddingBottom: 40,
-  },
-  section: {
-    marginTop: 12,
-  },
-  sectionTitle: {
-    color: Colors.gray,
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
-    marginBottom: 12,
-    paddingHorizontal: 20,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
   optionsContainer: {
     flexDirection: 'column',
     gap: 12,
     marginHorizontal: 0,
   },
-  menuOption: {
-    backgroundColor: Colors.darkGray,
-    borderRadius: 20,
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   menuOptionLeft: {
     flexDirection: 'column',
     flex: 1,
-  },
-  menuOptionText: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontWeight: '500',
-    fontFamily: 'Firma-Medium',
-  },
-  menuOptionSubtitle: {
-    color: Colors.gray,
-    fontSize: 12,
-    fontWeight: '400',
-    fontFamily: 'Firma-Regular',
-    marginTop: 4,
-  },
-  logoutSection: {
-    marginTop: 32,
-    paddingHorizontal: 0,
-  },
-  logoutMenuOption: {
-    backgroundColor: Colors.darkRed,
-    borderRadius: 20,
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoutMenuOptionText: {
-    color: Colors.white,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
   },
 });
 

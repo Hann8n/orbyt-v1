@@ -1,45 +1,46 @@
 /**
  * Video Buffering Strategies
  * Optimized buffer management for React Native Video component
+ * Focused on scroll performance and memory efficiency
  */
 
-// Default buffering configuration
-export const DEFAULT_BUFFER_CONFIG = {
-  // Minimum amount of time in ms to buffer
-  minBufferMs: 2500,
+// Ultra-aggressive mobile configuration for smooth scrolling
+export const ULTRA_MOBILE_BUFFER_CONFIG = {
+  // Very small buffer to reduce memory usage during scrolling
+  minBufferMs: 500,
   
-  // Maximum amount of time in ms to buffer
-  maxBufferMs: 30000,
+  // Limited maximum buffer to prevent memory buildup
+  maxBufferMs: 5000,
   
-  // Amount of time in ms to buffer for playback after initial load
-  bufferForPlaybackMs: 1000,
+  // Minimal buffer for playback to start quickly
+  bufferForPlaybackMs: 250,
   
-  // Amount of time in ms to buffer for playback after a rebuffer
-  bufferForPlaybackAfterRebufferMs: 2500,
+  // Small buffer after rebuffer to maintain performance
+  bufferForPlaybackAfterRebufferMs: 500,
 };
 
 // Mobile optimized configuration - reduces memory usage at cost of more frequent rebuffering
 export const MOBILE_BUFFER_CONFIG = {
-  minBufferMs: 1500,
-  maxBufferMs: 15000,
-  bufferForPlaybackMs: 500,
-  bufferForPlaybackAfterRebufferMs: 1500,
-};
-
-// High quality configuration - reduces rebuffering at cost of more memory usage
-export const HIGH_QUALITY_BUFFER_CONFIG = {
-  minBufferMs: 5000,
-  maxBufferMs: 60000,
-  bufferForPlaybackMs: 2500,
-  bufferForPlaybackAfterRebufferMs: 5000,
-};
-
-// Low memory device configuration
-export const LOW_MEMORY_BUFFER_CONFIG = {
   minBufferMs: 1000,
   maxBufferMs: 8000,
   bufferForPlaybackMs: 500,
   bufferForPlaybackAfterRebufferMs: 1000,
+};
+
+// Default configuration for stable connections
+export const DEFAULT_BUFFER_CONFIG = {
+  minBufferMs: 2000,
+  maxBufferMs: 15000,
+  bufferForPlaybackMs: 1000,
+  bufferForPlaybackAfterRebufferMs: 2000,
+};
+
+// High quality configuration - reduces rebuffering at cost of more memory usage
+export const HIGH_QUALITY_BUFFER_CONFIG = {
+  minBufferMs: 3000,
+  maxBufferMs: 30000,
+  bufferForPlaybackMs: 1500,
+  bufferForPlaybackAfterRebufferMs: 3000,
 };
 
 // Connection quality presets
@@ -47,11 +48,12 @@ export type ConnectionQuality = 'poor' | 'moderate' | 'good' | 'excellent';
 
 /**
  * Get buffer configuration based on connection quality
+ * Optimized for scroll performance
  */
 export function getBufferConfigForConnection(quality: ConnectionQuality) {
   switch (quality) {
     case 'poor':
-      return LOW_MEMORY_BUFFER_CONFIG;
+      return ULTRA_MOBILE_BUFFER_CONFIG;
     case 'moderate':
       return MOBILE_BUFFER_CONFIG;
     case 'good':
@@ -59,63 +61,24 @@ export function getBufferConfigForConnection(quality: ConnectionQuality) {
     case 'excellent':
       return HIGH_QUALITY_BUFFER_CONFIG;
     default:
-      return DEFAULT_BUFFER_CONFIG;
+      return MOBILE_BUFFER_CONFIG; // Default to mobile config for better scroll performance
   }
 }
 
-// Buffer state tracking interface
-export interface BufferState {
-  isBuffering: boolean;
-  bufferingStart: number | null;
-  bufferingCount: number;
-  totalBufferingTime: number;
-  lastBufferingDuration: number;
+/**
+ * Get buffer configuration based on device performance
+ * Automatically selects optimal settings for the device
+ */
+export function getBufferConfigForDevice() {
+  // For now, always use mobile config for optimal scroll performance
+  // In the future, this could detect device capabilities
+  return MOBILE_BUFFER_CONFIG;
 }
 
 /**
- * Create initial buffer state
+ * Get buffer configuration for scroll-optimized video playback
+ * This is the recommended configuration for feeds with video content
  */
-export function createInitialBufferState(): BufferState {
-  return {
-    isBuffering: false,
-    bufferingStart: null,
-    bufferingCount: 0,
-    totalBufferingTime: 0,
-    lastBufferingDuration: 0,
-  };
-}
-
-/**
- * Update buffer state when buffering status changes
- */
-export function updateBufferState(
-  currentState: BufferState,
-  isBuffering: boolean
-): BufferState {
-  // If buffering status hasn't changed, return current state
-  if (currentState.isBuffering === isBuffering) {
-    return currentState;
-  }
-
-  // Starting to buffer
-  if (isBuffering) {
-    return {
-      ...currentState,
-      isBuffering: true,
-      bufferingStart: Date.now(),
-    };
-  } 
-  
-  // Finished buffering
-  const bufferingDuration = currentState.bufferingStart 
-    ? (Date.now() - currentState.bufferingStart) 
-    : 0;
-    
-  return {
-    isBuffering: false,
-    bufferingStart: null,
-    bufferingCount: currentState.bufferingCount + 1,
-    totalBufferingTime: currentState.totalBufferingTime + bufferingDuration,
-    lastBufferingDuration: bufferingDuration,
-  };
+export function getScrollOptimizedBufferConfig() {
+  return ULTRA_MOBILE_BUFFER_CONFIG;
 }

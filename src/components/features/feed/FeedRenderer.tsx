@@ -153,14 +153,14 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     refetch: isSearchFeed ? (() => {}) : feedQuery.refetch,
     isPaused: isSearchFeed ? false : feedQuery.isPaused,
     isProfileFeed: isSearchFeed ? false : feedQuery.isProfileFeed,
-    onScroll: isSearchFeed ? searchFeedQuery.onScroll : feedQuery.onScroll,
+    // Removed onScroll - using FlashList's onEndReached
   }), [
     isSearchFeed,
     searchFeedQuery.feed,
     searchFeedQuery.isFetchingNextPage,
     searchFeedQuery.hasNextPage,
     searchFeedQuery.fetchNextPage,
-    searchFeedQuery.onScroll,
+    // Removed onScroll dependency
     feedQuery.feed,
     feedQuery.isLoading,
     feedQuery.isError,
@@ -171,7 +171,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     feedQuery.refetch,
     feedQuery.isPaused,
     feedQuery.isProfileFeed,
-    feedQuery.onScroll,
+    // Removed onScroll dependency
   ]);
 
   // Destructure memoized data
@@ -186,7 +186,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     refetch,
     isPaused,
     isProfileFeed,
-    onScroll,
+    // Removed onScroll - using FlashList's onEndReached
   } = feedData;
 
   // Memoized error state calculation
@@ -293,7 +293,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     isRefreshing,
     isModal,
     onScrubbingChange,
-    onScroll,
+    // Removed onScroll
     ListComponent,
   }), [
     feed,
@@ -320,7 +320,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     isRefreshing,
     isModal,
     onScrubbingChange,
-    onScroll,
+    // Removed onScroll
     ListComponent,
   ]);
 

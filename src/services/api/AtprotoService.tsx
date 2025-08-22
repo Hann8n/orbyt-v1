@@ -2229,6 +2229,51 @@ class AtprotoService {
     });
   }
 
+  /**
+   * Get static channels from the web API
+   * @param limit - Number of results to return
+   * @returns Array of feed generator objects
+   */
+  static async getStaticChannels(limit: number = 10): Promise<any[]> {
+    try {
+      const { StaticChannelsService } = await import('../APIService');
+      const channelDids = await StaticChannelsService.getChannels();
+      
+      if (!channelDids || channelDids.length === 0) {
+        return [];
+      }
+
+      // Directly fetch feed generators using the URIs
+      const feedGenerators = await Promise.all(
+        channelDids.map(async (uri) => {
+          try {
+            const response = await this.agent.api.app.bsky.feed.getFeedGenerators({
+              feeds: [uri]
+            });
+            
+            const feeds = response.data.feeds || [];
+            if (feeds.length > 0) {
+              return {
+                ...feeds[0],
+                isExperimental: false,
+              };
+            }
+            return null;
+          } catch (error) {
+            console.warn(`Error fetching feed generator for ${uri}:`, error);
+            return null;
+          }
+        })
+      );
+
+      // Filter out null results and return up to the limit
+      return feedGenerators.filter(Boolean).slice(0, limit);
+    } catch (error: any) {
+      console.error('Error fetching static channels:', error);
+      return [];
+    }
+  }
+
 
 }
 

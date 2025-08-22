@@ -6,9 +6,9 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  SafeAreaView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../ui/Icon';
@@ -214,7 +214,10 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           onPress={handleAddAccount}
           activeOpacity={0.7}
         >
-          <Text style={styles.accountButtonText}>Add Account</Text>
+          <View style={styles.accountButtonContent}>
+            <Text style={styles.accountButtonText}>Add Account</Text>
+            <Icon name="user-plus" size={20} color={Colors.lightGray} />
+          </View>
         </TouchableOpacity>
       );
     }
@@ -244,7 +247,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         style={[
           styles.accountButton,
           isActive && {
-            backgroundColor: customColors?.backgroundColor || Colors.lightGray
+            backgroundColor: Colors.darkGray
           },
         ]}
         onPress={() => !isActive && !editMode && handleSwitchAccount(account)}
@@ -262,7 +265,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           <Text style={[
             styles.accountButtonText,
             isActive && { 
-              color: customColors?.foregroundColor || Colors.black, 
+              color: Colors.white, 
               fontWeight: '600', 
               fontFamily: 'Firma-Bold' 
             }

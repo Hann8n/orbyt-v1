@@ -11,6 +11,7 @@ import { RootStackParamList } from '../../navigation/types';
 import feedService, { createQueryKeys } from '../../services/FeedService';
 import { ModerationService } from '../../services/ModerationService';
 import { ModerationSettings, LabelPreference } from '../../services/ModerationTypes';
+import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles, settingsActiveStyles } from './SettingsStyles';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ContentFilters'>;
 
@@ -142,7 +143,7 @@ const ContentFiltersScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={settingsLayoutStyles.container}>
       <ListHeader
         mode="stacked"
         title="content filters"
@@ -151,14 +152,14 @@ const ContentFiltersScreen: React.FC = () => {
         applySafeAreaTop
       />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} contentContainerStyle={settingsLayoutStyles.contentContainer} showsVerticalScrollIndicator={false}>
         {/* Content Type Settings */}
-        <View style={styles.section}>
-          <View style={{ marginBottom: 12 }}>
+        <View style={settingsLayoutStyles.section}>
+          <View style={{ marginBottom: 12, paddingHorizontal: 5 }}>
             {adultContentEnabled && (
-              <View style={styles.menuOption}>
+              <View style={settingsButtonStyles.menuOption}>
                 <View style={styles.menuOptionLeft}>
-                  <Text style={styles.menuOptionText}>sensitive content</Text>
+                  <Text style={settingsTextStyles.menuOptionText}>sensitive content</Text>
                 </View>
                 <Switch
                   value={adultContentEnabled}
@@ -175,15 +176,15 @@ const ContentFiltersScreen: React.FC = () => {
             const isAdult = ['porn', 'sexual', 'nudity'].includes(option.id);
             if (isAdult && !adultContentEnabled) return null;
             return (
-              <View key={option.id} style={{ marginBottom: 12 }}>
-                <View style={[styles.menuOption, { alignItems: 'center' }]}>
+              <View key={option.id} style={{ marginBottom: 12, paddingHorizontal: 5 }}>
+                <View style={[settingsButtonStyles.menuOption, { alignItems: 'center' }]}>
                   <View style={[styles.menuOptionLeft, { paddingRight: 12 }]}>
-                    <Text style={styles.menuOptionText}>{option.label}</Text>
+                    <Text style={settingsTextStyles.menuOptionText}>{option.label}</Text>
                   </View>
                   <View style={[styles.toggleButtonsContainer, { justifyContent: 'center' }]}>
-                    <View style={styles.toggleButtonGroup}>
+                    <View style={settingsButtonStyles.toggleButtonGroup}>
                       <TouchableOpacity
-                        style={[styles.toggleButton, option.preference === 'ignore' && [styles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.SUCCESS, borderRightColor: UI.Colors.STATUS.SUCCESS }]]}
+                        style={[settingsButtonStyles.toggleButton, option.preference === 'ignore' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.SUCCESS, borderRightColor: UI.Colors.STATUS.SUCCESS }]]}
                         onPress={() => updateContentPreference(option.id, 'ignore')}
                         activeOpacity={0.7}
                         accessibilityLabel="Show"
@@ -195,19 +196,19 @@ const ContentFiltersScreen: React.FC = () => {
                         />
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.toggleButton, option.preference === 'warn' && [styles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.WARNING, borderRightColor: UI.Colors.STATUS.WARNING }]]}
+                        style={[settingsButtonStyles.toggleButton, option.preference === 'warn' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.WARNING, borderRightColor: UI.Colors.STATUS.WARNING }]]}
                         onPress={() => updateContentPreference(option.id, 'warn')}
                         activeOpacity={0.7}
                         accessibilityLabel="Warn"
                       >
                         <Icon
                           name="eye"
-                          size={16}
-                          color={option.preference === 'warn' ? Colors.black : Colors.lightGray}
+                        size={16}
+                        color={option.preference === 'warn' ? Colors.black : Colors.lightGray}
                         />
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.toggleButton, styles.toggleButtonLast, option.preference === 'hide' && [styles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.ERROR, borderRightColor: UI.Colors.STATUS.ERROR }]]}
+                        style={[settingsButtonStyles.toggleButton, styles.toggleButtonLast, option.preference === 'hide' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.ERROR, borderRightColor: UI.Colors.STATUS.ERROR }]]}
                         onPress={() => updateContentPreference(option.id, 'hide')}
                         activeOpacity={0.7}
                         accessibilityLabel="Hide"
@@ -225,15 +226,15 @@ const ContentFiltersScreen: React.FC = () => {
             );
           })}
         </View>
-        <View style={{ marginTop: 4 }}>
+        <View style={{ marginTop: 4, paddingHorizontal: 5 }}>
           <TouchableOpacity
-            style={styles.menuOption}
+            style={settingsButtonStyles.menuOption}
             onPress={() => Linking.openURL('https://bsky.app/moderation')}
             activeOpacity={0.7}
           >
             <View style={styles.menuOptionLeft}>
-              <Text style={styles.menuOptionText}>adjust on bsky.app</Text>
-              <Text style={styles.menuOptionSubtitle}>open Bluesky content settings</Text>
+              <Text style={settingsTextStyles.menuOptionText}>adjust on bsky.app</Text>
+              <Text style={settingsTextStyles.menuOptionSubtitle}>open Bluesky content settings</Text>
             </View>
             <Icon name="external-link" size={20} color={Colors.gray} />
           </TouchableOpacity>
@@ -244,86 +245,18 @@ const ContentFiltersScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.black,
-  },
   content: {
     flex: 1,
-  },
-  contentContainer: {
-    paddingBottom: 40,
-  },
-  section: {
-    marginTop: 12,
-  },
-  sectionTitle: {
-    color: Colors.gray,
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
-    marginBottom: 12,
-    paddingHorizontal: 20,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  menuOption: {
-    backgroundColor: Colors.darkGray,
-    borderRadius: 20,
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 5,
   },
   menuOptionLeft: {
     flexDirection: 'column',
     flex: 1,
-  },
-  menuOptionText: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontWeight: '500',
-    fontFamily: 'Firma-Medium',
-  },
-  menuOptionSubtitle: {
-    color: Colors.gray,
-    fontSize: 12,
-    fontWeight: '400',
-    fontFamily: 'Firma-Regular',
-    marginTop: 4,
   },
   toggleButtonsContainer: {
     marginTop: 0,
     alignItems: 'center',
     alignSelf: 'center',
   },
-  toggleButtonGroup: {
-    flexDirection: 'row',
-    backgroundColor: Colors.darkGray,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.mediumGray,
-    flexShrink: 0,
-    width: 180,
-    overflow: 'hidden',
-  },
-  toggleButton: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    borderRightColor: Colors.mediumGray,
-  },
-  toggleButtonActive: {
-    backgroundColor: UI.Colors.STATUS.SUCCESS,
-    borderRightColor: UI.Colors.STATUS.SUCCESS,
-  },
-  toggleButtonText: { },
-  toggleButtonTextActive: { },
   toggleButtonLast: {
     borderRightWidth: 0,
   },

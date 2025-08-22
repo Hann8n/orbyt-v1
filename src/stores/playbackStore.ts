@@ -50,6 +50,7 @@ interface PlaybackState {
   // Helper methods
   pauseAllVideos: (exceptId?: string) => void;
   getVideoState: (videoId: string) => any;
+  getVideoDimLevel: (videoId: string) => number;
 }
 
 // Initial settings
@@ -157,6 +158,12 @@ export const usePlaybackStore = create<PlaybackState>()(
         const state = get();
         return state.videoStates[videoId] || null;
       },
+
+      getVideoDimLevel: (videoId) => {
+        const state = get();
+        // Return higher dim level (0.6) for non-active videos, 0 for active videos
+        return state.activeVideoIds.includes(videoId) ? 0 : 0.6;
+      },
     }),
     {
       name: 'video-playback-store',
@@ -173,3 +180,4 @@ export const usePlaybackStore = create<PlaybackState>()(
 export const usePlaybackSettings = () => usePlaybackStore(state => state.settings);
 export const useConnectionQuality = () => usePlaybackStore(state => state.connectionQuality);
 export const useVideoState = (videoId: string) => usePlaybackStore(state => state.videoStates[videoId]);
+export const useVideoDimLevel = (videoId: string) => usePlaybackStore(state => state.getVideoDimLevel(videoId));

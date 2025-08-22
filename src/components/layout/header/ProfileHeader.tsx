@@ -358,7 +358,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           placeholderTextColor={hexToRGBA(profileColors.textColor, 0.5)}
           multiline
           maxLength={256}
-          textAlignVertical="top"
         />
       </View>
     );

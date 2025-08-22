@@ -5,11 +5,9 @@
 
 import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
-import { useSharedValue, SharedValue } from 'react-native-reanimated';
 import { useRecyclingState } from '@shopify/flash-list';
 
 import VideoCard, { VideoCardRef } from '../video/VideoCard';
-import VideoOverlay from '../video/VideoOverlay';
 import { extractVideoEmbedAndUrl } from '../../../utils/helpers/video';
 import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
@@ -41,7 +39,6 @@ export interface VideoItemProps {
   isPlaying?: boolean;
   handleVideoStatus?: (uri: string, status: string) => void;
   height?: number;
-  scrollY?: SharedValue<number>;
   feedOption?: string;
   isVisible?: boolean;
   moderationDecision?: ModerationDecision;
@@ -56,7 +53,6 @@ const VideoItem: React.FC<VideoItemProps> = ({
   isPlaying = false,
   handleVideoStatus,
   height,
-  scrollY: externalScrollY,
   feedOption,
   isVisible = false,
   moderationDecision,
@@ -65,8 +61,6 @@ const VideoItem: React.FC<VideoItemProps> = ({
   index = 0,
 }) => {
   const videoRef = useRef<VideoCardRef>(null);
-  const localScrollY = useSharedValue(0);
-  const scrollY = externalScrollY || localScrollY;
 
   // Memoize device size checks to avoid repeated calls
   const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
@@ -97,15 +91,9 @@ const VideoItem: React.FC<VideoItemProps> = ({
     }
   });
 
-  // Simplified memoized styles
+  // Optimized memoized styles
   const containerStyle = useMemo(() => [
     styles.videoContainer, 
-    { height: itemHeight }
-  ], [itemHeight]);
-
-  // Removed duplicate style with overlayContainerSmallScreen as it's redundant
-  const overlayContainerStyle = useMemo(() => [
-    styles.overlayContainer,
     { height: itemHeight }
   ], [itemHeight]);
 
@@ -129,46 +117,38 @@ const VideoItem: React.FC<VideoItemProps> = ({
   }, []);
 
   return (
-    <View style={containerStyle}>
-      <VideoCard
-        ref={videoRef}
-        post={{ ...post, embed: videoEmbed }}
-        isVisible={isVisible}
-        shouldCache={true}
-        onVideoStatus={handleVideoStatusChange}
-        height={itemHeight}
-        moderationDecision={moderationDecision}
-        isPlaying={isPlaying}
-      />
-      <View style={overlayContainerStyle} pointerEvents="box-none">
-        <VideoOverlay 
-          post={post}
-          isVisible={isVisible}
-          scrollY={scrollY}
-          prefetchProfile={isVisible}
-          videoRef={videoRef as React.RefObject<VideoCardRef>}
-          feedOption={feedOption as 'yourMix' | 'following' | 'discover'}
-          sourceFeed={feedItem?.sourceFeed}
-          isModal={isModal}
-          onScrubbingChange={onScrubbingChange}
-          progressBarAtCardBottom={progressBarAtCardBottom}
-        />
-      </View>
-    </View>
+    <VideoCard
+      ref={videoRef}
+      post={{ ...post, embed: videoEmbed }}
+      isVisible={isVisible}
+      shouldCache={true}
+      onVideoStatus={handleVideoStatusChange}
+      height={itemHeight}
+      moderationDecision={moderationDecision}
+      isPlaying={isPlaying}
+      // Pass overlay props directly to VideoCard
+      overlayPost={post}
+      overlayVisible={isVisible}
+      overlayPrefetchProfile={isVisible}
+      overlayFeedOption={feedOption as 'yourMix' | 'following' | 'discover'}
+      overlaySourceFeed={feedItem?.sourceFeed}
+      overlayIsModal={isModal}
+      overlayOnScrubbingChange={onScrubbingChange}
+      overlayProgressBarAtCardBottom={progressBarAtCardBottom}
+    />
   );
 };
 
-// Simplified React.memo for performance
+// Optimized React.memo for FlashList performance
 const MemoizedVideoItem = React.memo(VideoItem, (prevProps, nextProps) => {
-  // Critical props that affect video rendering
-  if (prevProps.post.uri !== nextProps.post.uri) return false;
-  if (prevProps.isVisible !== nextProps.isVisible) return false;
-  if (prevProps.isPlaying !== nextProps.isPlaying) return false;
-  if (prevProps.height !== nextProps.height) return false;
-  if (prevProps.index !== nextProps.index) return false;
-  if (prevProps.moderationDecision?.blur !== nextProps.moderationDecision?.blur) return false;
-  
-  return true;
+  // Only re-render on critical changes
+  return (
+    prevProps.post.uri === nextProps.post.uri &&
+    prevProps.isVisible === nextProps.isVisible &&
+    prevProps.isPlaying === nextProps.isPlaying &&
+    prevProps.height === nextProps.height &&
+    prevProps.moderationDecision?.blur === nextProps.moderationDecision?.blur
+  );
 });
 
 const styles = StyleSheet.create({
@@ -180,14 +160,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  overlayContainer: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
   }
 });
 

@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "lib": ["es2020", "dom"],
+    "lib": [
+      "es2020",
+      "dom"
+    ],
     "module": "esnext",
     "jsx": "react-jsx",
     "moduleResolution": "bundler",
@@ -21,10 +24,11 @@
     "noUnusedParameters": false,
     "baseUrl": ".",
     "paths": {
-      "@stores/*": ["src/stores/*"]
+      "@stores/*": [
+        "src/stores/*"
+      ]
     }
   },
-  "extends": "expo/tsconfig.base",
   "include": [
     "src/**/*",
     "index.ts",
@@ -33,5 +37,6 @@
   "exclude": [
     "node_modules",
     "dist"
-  ]
+  ],
+  "extends": "expo/tsconfig.base"
 }

@@ -10,17 +10,17 @@ import { NativeScrollEvent } from 'react-native';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useSubscribedChannels } from './useSubscribedChannels';
 
-// Feed configuration constants - centralized for consistency across hooks
+// Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
   // Cache and performance settings
-  STALE_TIME: 7 * 60 * 1000,     // 7 minutes stale time 
-  GC_TIME: 15 * 60 * 1000,       // 15 minutes before garbage collection
-  RETRY_DELAY: 800,              // Milliseconds between retry attempts
-  MAX_RETRIES: 3,                // Maximum retry attempts
+  STALE_TIME: 5 * 60 * 1000,     // 5 minutes stale time - fresher content
+  GC_TIME: 10 * 60 * 1000,       // 10 minutes before garbage collection
+  RETRY_DELAY: 1000,             // Longer delay to reduce server load
+  MAX_RETRIES: 2,                // Reduced retries for faster failure handling
   
   // Scroll and prefetch settings
-  THROTTLE_MS: 80,               // Scroll event throttling in milliseconds
-  PREFETCH_THRESHOLD: 0.75,      // Prefetch when within 75% of visible content
+  THROTTLE_MS: 150,              // Increased throttling for smoother scrolling
+  PREFETCH_THRESHOLD: 0.8,       // Higher threshold to reduce premature loading
 } as const;
 
 interface UseFeedOptions {
@@ -49,8 +49,7 @@ interface UseFeedReturn {
   fetchNextPage: () => void;
   refetch: () => void;
   
-  // Infinite scroll
-  onScroll: (event: { nativeEvent: NativeScrollEvent }) => void;
+  // Removed onScroll - using FlashList's onEndReached
   isNearEnd: boolean;
 }
 
@@ -96,17 +95,7 @@ export function useFeed(
   // Infinite scroll state
   const isNearEndRef = useRef(false);
 
-  // Create optimized scroll handler with centralized configuration
-  const onScroll = useCallback(
-    feedService.createInfiniteScrollHandler({
-      threshold: FEED_CONFIG.PREFETCH_THRESHOLD,
-      hasNextPage: query.hasNextPage,
-      isFetchingNextPage: query.isFetchingNextPage,
-      onLoadMore: query.fetchNextPage,
-      debounceMs: FEED_CONFIG.THROTTLE_MS,
-    }),
-    [query.hasNextPage, query.isFetchingNextPage, query.fetchNextPage]
-  );
+  // Removed custom scroll handler - using FlashList's onEndReached
 
   // Determine if this is a profile feed
   const isProfileFeed = (
@@ -131,8 +120,7 @@ export function useFeed(
     fetchNextPage: query.fetchNextPage,
     refetch: query.refetch,
     
-    // Infinite scroll
-    onScroll,
+    // Removed onScroll - using FlashList's onEndReached
     isNearEnd: isNearEndRef.current,
   };
 }
@@ -147,29 +135,13 @@ export function useSearchFeed(
   fetchNextPage?: () => void,
   options: UseFeedOptions = {}
 ) {
-  // Use the same default threshold for consistency
-  const threshold = options.threshold ?? FEED_CONFIG.PREFETCH_THRESHOLD;
-  const debounceMs = options.debounceMs ?? FEED_CONFIG.THROTTLE_MS;
-
   // Get search feed from global state
   const feed = feedService.getCurrentFeed();
   const isNearEndRef = useRef(false);
 
-  // Create scroll handler with same configuration as main feed
-  const onScroll = useCallback(
-    feedService.createInfiniteScrollHandler({
-      threshold,
-      hasNextPage: !!hasNextPage,
-      isFetchingNextPage: !!isFetchingNextPage,
-      onLoadMore: fetchNextPage || (() => {}),
-      debounceMs,
-    }),
-    [threshold, hasNextPage, isFetchingNextPage, fetchNextPage, debounceMs]
-  );
-
   return {
     feed,
-    onScroll,
+    // Removed onScroll - using FlashList's onEndReached
     isNearEnd: isNearEndRef.current,
     hasNextPage: !!hasNextPage,
     isFetchingNextPage: !!isFetchingNextPage,

@@ -42,7 +42,7 @@ interface GridFeedViewProps {
   isError?: boolean;
   error?: Error | null;
   onRetry?: () => void;
-  ListComponent?: any; // Optional custom list component (e.g., Tabs.FlashList)
+  ListComponent?: any; // Optional custom list component
 }
 
 const GridFeedView: React.FC<GridFeedViewProps> = ({
@@ -94,7 +94,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   const effectiveInsets = { top: 0, bottom: 0, left: 0, right: 0 } as const;
   const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets);
   const viewableAreaHeight = screen.height - effectiveInsets.top - bottomNavBarHeight;
-  // When used inside Tabs.Container (collapsible header), subtract header height
+      // When used inside a custom container, subtract header height
   const headerHeightForTabs = ListComponent ? 280 : 0;
   const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
 
