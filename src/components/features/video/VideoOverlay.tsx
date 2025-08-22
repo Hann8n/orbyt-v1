@@ -146,7 +146,6 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   const [showShareSheet, setShowShareSheet] = useState<boolean>(false);
   const [isLikePending, setIsLikePending] = useState<boolean>(false);
   const [isRepostPending, setIsRepostPending] = useState<boolean>(false);
-  const [justFollowedVisible, setJustFollowedVisible] = useState<boolean>(false);
 
   // Memoize author and record to prevent unnecessary re-renders
   const author = useMemo(() => post.author || {}, [post.author]);
@@ -168,9 +167,6 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   const [likeCount, setLikeCount] = useState<number>(post.likeCount || 0);
   const [isReposted, setIsReposted] = useState<boolean>(!!post.viewer?.repost);
   const [repostCount, setRepostCount] = useState<number>(post.repostCount || 0);
-  
-  // Refs for cleanup
-  const justFollowedTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const navigation = useNavigation<NavigationProp<RootParamList>>();
   const queryClient = useQueryClient();
@@ -211,20 +207,10 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
     return userData?.did === author.did;
   }, [userData?.did, author.did]);
 
-  // Handle follow/unfollow action
+  // Handle follow action
   const handleFollowPress = useCallback(() => {
     if (!author.handle) return;
     
-    if (!isFollowing) {
-      setJustFollowedVisible(true);
-      if (justFollowedTimerRef.current) {
-        clearTimeout(justFollowedTimerRef.current);
-      }
-      justFollowedTimerRef.current = setTimeout(() => {
-        setJustFollowedVisible(false);
-      }, 2000);
-    }
-
     followMutation.mutate({ handle: author.handle, isFollowing: !isFollowing });
   }, [author.handle, isFollowing, followMutation]);
 
@@ -343,14 +329,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
     <ChatFillIcon size={isTabletDevice ? 38 : 34} color={Colors.INTERACTIVE.COMMENT} />
   ), [isTabletDevice]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (justFollowedTimerRef.current) {
-        clearTimeout(justFollowedTimerRef.current);
-      }
-    };
-  }, []);
+
 
   // Only use sourceFeed for yourMix feeds
   const shouldUseSourceFeed = feedOption === 'yourMix' && sourceFeed;
@@ -544,30 +523,13 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
                   autoPosition={true}
                   textColor={Colors.white}
                 />}
-                {author.handle && !isOwnPost && (!isFollowing || justFollowedVisible) && (
+                {author.handle && !isOwnPost && !isFollowing && (
                   <>
                     <Text style={styles.dotSeparator}>•</Text>
-                    {!isFollowing ? (
-                      <TouchableOpacity
-                        onPress={handleFollowPress}
-                        activeOpacity={0.7}
-                      >
-                        <Text
-                          style={[
-                            styles.baseText,
-                            isTabletDevice
-                              ? styles.followTextTablet
-                              : isSmallDevice
-                                ? styles.followTextSmallScreen
-                                : styles.followText
-                          ]}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {'follow'}
-                        </Text>
-                      </TouchableOpacity>
-                    ) : (
+                    <TouchableOpacity
+                      onPress={handleFollowPress}
+                      activeOpacity={0.7}
+                    >
                       <Text
                         style={[
                           styles.baseText,
@@ -580,9 +542,9 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
                         numberOfLines={1}
                         ellipsizeMode="tail"
                       >
-                        {'following'}
+                        {'Follow'}
                       </Text>
-                    )}
+                    </TouchableOpacity>
                   </>
                 )}
               </View>
@@ -990,21 +952,21 @@ const styles = StyleSheet.create({
   },
   followText: {
     fontSize: 16,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Firma-Bold',
     lineHeight: 22,
     includeFontPadding: false,
     flexShrink: 1,
   },
   followTextSmallScreen: {
     fontSize: 15,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Firma-Bold',
     lineHeight: 18,
     includeFontPadding: false,
     flexShrink: 1,
   },
   followTextTablet: {
     fontSize: 19,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Firma-Bold',
     lineHeight: 25,
     includeFontPadding: false,
     flexShrink: 1,

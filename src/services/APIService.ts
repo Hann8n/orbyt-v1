@@ -133,6 +133,11 @@ abstract class APIService<T extends ApiResponse> {
       this.cache = data;
       this.lastFetch = now;
 
+      // Update base URL for HeaderService
+      if (usedUrl && this instanceof HeaderService) {
+        (this as any).updateLastSuccessfulBaseUrl(usedUrl);
+      }
+
       return data;
     } catch (error) {
       console.error(`Error fetching ${this.ENDPOINT_NAME}:`, error);
@@ -173,7 +178,7 @@ class HeaderService extends APIService<HeadersResponse> {
   protected readonly ENDPOINT_NAME = 'headers';
   protected readonly DATA_PROPERTY: keyof HeadersResponse = 'headers';
   
-  private static lastSuccessfulBaseUrl: string | null = null;
+  protected static lastSuccessfulBaseUrl: string | null = null;
 
   protected getEmptyData(): HeadersResponse {
     return { headers: [] };
@@ -219,6 +224,10 @@ class HeaderService extends APIService<HeadersResponse> {
     } catch {
       return `https://getorbyt.com/${imageUrl}`;
     }
+  }
+
+  protected updateLastSuccessfulBaseUrl(url: string): void {
+    HeaderService.lastSuccessfulBaseUrl = this.getBaseUrl(url);
   }
 
   static clearCache(): void {

@@ -331,9 +331,11 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     }> = React.memo(({ uri, style, onPress, accessibilityLabel, onLoad, onError }) => {
       const [isLoading, setIsLoading] = useState(true);
       const [hasError, setHasError] = useState(false);
+      const [imageLoaded, setImageLoaded] = useState(false);
 
       const handleLoad = (e: any) => {
         setIsLoading(false);
+        setImageLoaded(true);
         onLoad?.(e);
       };
 
@@ -348,27 +350,29 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       }
 
       return (
-        <>
-          {isLoading && (
+        <View style={style}>
+          {isLoading && !imageLoaded && (
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
-              style={style}
+              style={[style, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}
               shimmerColors={Colors.SHIMMER.PRIMARY}
             />
           )}
-          {!isLoading && (
-            <Image
-              source={{ uri }}
-              style={style}
-              resizeMode="cover"
-              accessible={true}
-              accessibilityLabel={accessibilityLabel}
-              onLoadStart={() => setIsLoading(true)}
-              onLoad={handleLoad}
-              onError={handleError}
-            />
-          )}
-        </>
+          <Image
+            source={{ uri }}
+            style={[style, { opacity: isLoading && !imageLoaded ? 0 : 1 }]}
+            resizeMode="cover"
+            accessible={true}
+            accessibilityLabel={accessibilityLabel}
+            onLoadStart={() => {
+              if (!imageLoaded) {
+                setIsLoading(true);
+              }
+            }}
+            onLoad={handleLoad}
+            onError={handleError}
+          />
+        </View>
       );
     });
 
@@ -391,13 +395,13 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       return (
         <Pressable
           onPress={handlePress}
-          style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.darkGray, borderRadius: 10, borderWidth: 1, borderColor: Colors.mediumGray, marginTop: 8, marginBottom: 4, overflow: 'hidden' }}
+          style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.darkGray, borderRadius: 15, borderWidth: 1, borderColor: Colors.mediumGray, marginTop: 8, marginBottom: 4, overflow: 'hidden' }}
           android_ripple={{ color: Colors.darkGray }}
         >
           {thumbUrl && (
             <ShimmerImage
               uri={thumbUrl}
-              style={{ width: 64, height: 64, borderTopLeftRadius: 10, borderBottomLeftRadius: 10, backgroundColor: Colors.darkGray }}
+              style={{ width: 64, height: 64, borderTopLeftRadius: 15, borderBottomLeftRadius: 15, backgroundColor: Colors.darkGray }}
             />
           )}
           <View style={{ flex: 1, padding: 8, minWidth: 0 }}>
@@ -678,15 +682,14 @@ const styles = StyleSheet.create({
   commentImageWrapper: {
     padding: 2,
     overflow: 'hidden',
-    borderRadius: 8,
+    borderRadius: 15,
     position: 'relative',
     marginBottom: 4,
   },
   commentImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 6,
-    backgroundColor: Colors.white,
+    width: '100%',
+    height: 'auto',
+    borderRadius: 15,
   },
   moreImagesIndicator: {
     position: 'absolute',
@@ -695,7 +698,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 12,
+    borderRadius: 15,
   },
   moreImagesText: {
     color: Colors.white,

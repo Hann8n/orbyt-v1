@@ -35,7 +35,7 @@ import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanst
 import { createQueryKeys } from '../../../services/FeedService';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
-import Icon, { HeartFillIcon, MoreFillIcon } from '../../ui/Icon';
+import Icon, { HeartFillIcon, MoreFillIcon, CloseFillIcon } from '../../ui/Icon';
 import ProfileCache, { profileKeys, useProfile } from '../../../services/cache/ProfileCache';
 import VerificationBadge from '../verification/VerificationBadge';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
@@ -44,7 +44,7 @@ import PopUpModal from '../../ui/PopUpModal';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView, NativeViewGestureHandler } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import BottomSheet, { BottomSheetFlatList, BottomSheetTextInput, BottomSheetVirtualizedList } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetFlashList, BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { useFocusEffect } from '@react-navigation/native';
 import { ListRenderItemInfo } from 'react-native';
 import { TouchableOpacity as BottomSheetTouchableOpacity } from '@gorhom/bottom-sheet';
@@ -552,7 +552,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               {renderTextInput()}
             </View>
           ) : commentsLoading ? (
-            <BottomSheetFlatList
+            <BottomSheetFlashList
               data={Array.from({ length: totalComments > 0 ? totalComments : 4 })}
               renderItem={() => (
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8, paddingHorizontal: 0 }}>
@@ -577,14 +577,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               )}
               keyExtractor={(_, idx) => `shimmer-${idx}`}
               contentContainerStyle={{ paddingBottom: 8, backgroundColor: Colors.black, paddingHorizontal: 10 }}
+              focusHook={useFocusEffect}
             />
           ) : (
             <>
-              <BottomSheetVirtualizedList
+              <BottomSheetFlashList
                 data={comments}
                 keyExtractor={commentKeyExtractor}
-                getItemCount={(data) => data.length}
-                getItem={(data, index) => data[index]}
                 renderItem={renderCommentItem}
                 contentContainerStyle={{ paddingBottom: 8, backgroundColor: Colors.black, paddingHorizontal: 10 }}
                 keyboardShouldPersistTaps="handled"
@@ -594,11 +593,17 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                   }
                 }}
                 onEndReachedThreshold={0.5}
-                initialNumToRender={8}
-                maxToRenderPerBatch={8}
-                windowSize={5}
-                removeClippedSubviews={true}
+                focusHook={useFocusEffect}
               />
+              {isFetchingNextCommentsPage && (
+                <View style={{ paddingVertical: 16, alignItems: 'center', backgroundColor: Colors.black }}>
+                  <ShimmerPlaceholder
+                    LinearGradient={LinearGradient}
+                    style={{ width: 40, height: 40, borderRadius: 20 }}
+                    shimmerColors={Colors.SHIMMER.PRIMARY}
+                  />
+                </View>
+              )}
               {renderTextInput()}
             </>
           )
@@ -608,7 +613,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                               <Text style={{ color: Colors.white, fontSize: 17, textAlign: 'center', fontFamily: 'Firma-SemiBold' }}>no likes yet</Text>
             </View>
           ) : likesLoading ? (
-            <BottomSheetFlatList
+            <BottomSheetFlashList
               data={Array.from({ length: totalLikes > 0 ? totalLikes : 4 })}
               renderItem={() => (
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 0 }}>
@@ -628,26 +633,33 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               )}
               keyExtractor={(_, idx) => `shimmer-like-${idx}`}
               contentContainerStyle={{ paddingBottom: 8, backgroundColor: Colors.black, paddingHorizontal: 10 }}
+              focusHook={useFocusEffect}
             />
           ) : (
-            <BottomSheetVirtualizedList
-              data={likes}
-              keyExtractor={likeKeyExtractor}
-              getItemCount={(data) => data.length}
-              getItem={(data, index) => data[index]}
-              renderItem={renderLikeItem}
-              contentContainerStyle={{ paddingBottom: 8, backgroundColor: Colors.black, paddingHorizontal: 10 }}
-              onEndReached={() => {
-                if (hasNextLikesPage && !isFetchingNextLikesPage) {
-                  fetchNextLikesPage();
-                }
-              }}
-              onEndReachedThreshold={0.5}
-              initialNumToRender={8}
-              maxToRenderPerBatch={8}
-              windowSize={5}
-              removeClippedSubviews={true}
-            />
+            <>
+              <BottomSheetFlashList
+                data={likes}
+                keyExtractor={likeKeyExtractor}
+                renderItem={renderLikeItem}
+                contentContainerStyle={{ paddingBottom: 8, backgroundColor: Colors.black, paddingHorizontal: 10 }}
+                onEndReached={() => {
+                  if (hasNextLikesPage && !isFetchingNextLikesPage) {
+                    fetchNextLikesPage();
+                  }
+                }}
+                onEndReachedThreshold={0.5}
+                focusHook={useFocusEffect}
+              />
+              {isFetchingNextLikesPage && (
+                <View style={{ paddingVertical: 16, alignItems: 'center', backgroundColor: Colors.black }}>
+                  <ShimmerPlaceholder
+                    LinearGradient={LinearGradient}
+                    style={{ width: 40, height: 40, borderRadius: 20 }}
+                    shimmerColors={Colors.SHIMMER.PRIMARY}
+                  />
+                </View>
+              )}
+            </>
           )
         )}
       </BottomSheet>
@@ -665,7 +677,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             <>
               <Image
                 source={{ uri: fullscreenImageUri }}
-                style={{ width: '95%', height: '80%', resizeMode: 'contain', borderRadius: 12 }}
+                style={{ width: '95%', height: '80%', resizeMode: 'contain', borderRadius: 15 }}
               />
               {(() => {
                 let altText: string | undefined = undefined;
@@ -698,10 +710,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             </>
           )}
           <Pressable
-            style={{ position: 'absolute', top: 40, right: 24, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 8 }}
+            style={{ position: 'absolute', top: insets.top + 16, left: 24, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 12 }}
             onPress={() => setFullscreenImageUri(null)}
           >
-            <Text style={{ color: Colors.white, fontSize: 20 }}>✕</Text>
+            <CloseFillIcon size={28} color={Colors.white} />
           </Pressable>
         </Pressable>
       </Modal>

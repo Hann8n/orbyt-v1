@@ -37,5 +37,22 @@
       "verifyLocalEndpoint": "curl -s http://localhost:5173/api/headers.json | cat@headers.json"
     }
   },
-  "headers": []
+  "headers": [
+    {
+      "id": "header-3.2",
+      "imageUrl": "banners/header_3.2.jpeg",
+      "destinationUrl": "https://getorbyt.com",
+      "title": "Orbyt",
+      "subtitle": "a new video app for bluesky",
+      "titleColor": "#000",
+      "subtitleColor": "#000",
+      "titleFontFamily": "Firma-Black",
+      "titleFontSize": 32,
+      "subtitleFontFamily": "Firma-SemiBold",
+      "subtitleFontSize": 18,
+      "titleOpacity": 1,
+      "subtitleOpacity": 0.8,
+      "textOrder": "title-first"
+    }
+  ]
 }

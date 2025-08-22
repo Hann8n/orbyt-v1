@@ -1075,8 +1075,8 @@ const ExploreScreen: React.FC = () => {
   const shimmerSuggestedItems = useMemo(() => {
     const items = [];
     
-    // Add header spacer when not searching to ensure content appears below search bar
-    if (!isSearching) {
+    // Add header spacer only when not searching AND no header is visible
+    if (!isSearching && !isHeaderVisible) {
       items.push({ type: 'header-spacer' as const, key: 'header-spacer-shimmer' });
     }
     
@@ -1094,7 +1094,7 @@ const ExploreScreen: React.FC = () => {
     items.push(...Array(10).fill(0).map((_, index) => ({ type: 'profile' as const, key: `profile-shimmer-${index}` })));
     
     return items;
-  }, [isSearching]);
+  }, [isSearching, isHeaderVisible]);
 
   const suggestionsList: any[] = (() => {
     if (isLoadingSuggestions || isLoadingChannelDids || isLoadingSuggestedFeeds || isLoadingSpotlightFeed) {
@@ -1105,8 +1105,8 @@ const ExploreScreen: React.FC = () => {
     }
     const data: ListItem[] = [];
     
-    // Add header spacer when not searching to ensure content appears below search bar
-    if (!isSearching) {
+    // Add header spacer only when not searching AND no header is visible
+    if (!isSearching && !isHeaderVisible) {
       data.push({ type: 'header-spacer' as const, key: 'header-spacer' });
     }
     
