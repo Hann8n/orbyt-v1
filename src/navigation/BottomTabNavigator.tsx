@@ -7,7 +7,8 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from './types';
 
-import HomeScreen, { HomeScreenRef } from '../screens/HomeScreen';
+import HomeScreen from '../screens/HomeScreen';
+import type { HomeScreenRef } from '../types';
 import ExploreScreen from '../screens/ExploreScreen';
 import CreateScreen from '../screens/CreateScreen';
 import NotificationScreen from '../screens/NotificationScreen';
@@ -18,7 +19,7 @@ import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../utils/helpers
 import * as ImagePicker from 'expo-image-picker';
 import VideoProcessingService from '../services/VideoProcessingService';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useClearView } from '@stores/uiStore';
+import { useClearView } from '../stores/uiStore';
 import { Colors } from '../components/ui/UI';
 
 const Tab = createBottomTabNavigator();

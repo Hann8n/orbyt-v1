@@ -1,0 +1,79 @@
+// App Constants
+export const APP_CONSTANTS = {
+  REFRESH_DELAY: 2000,
+  SCROLL_THROTTLE: 16,
+  POSITION_SAVE_DELAY: 300,
+  VISIBILITY_DEBOUNCE: 100,
+  ORIENTATION_CHANGE_DELAY: 100,
+  INITIAL_SCROLL_DELAY: 50,
+  GRID_TO_LIST_DELAY: 100,
+} as const;
+
+// Query Constants
+export const QUERY_CONSTANTS = {
+  RETRY_COUNT: 1,
+  STALE_TIME: 5 * 60 * 1000, // 5 minutes
+  GC_TIME: 30 * 60 * 1000, // 30 minutes
+  END_REACHED_THRESHOLD: 0.8,
+} as const;
+
+// Viewability Constants
+export const VIEWABILITY_CONSTANTS = {
+  ITEM_VISIBLE_PERCENT_THRESHOLD: 50,
+  MINIMUM_VIEW_TIME: 0,
+  WAIT_FOR_INTERACTION: false,
+} as const;
+
+// Scroll Constants
+export const SCROLL_CONSTANTS = {
+  POSITION_CHANGE_THRESHOLD: 30,
+  DECELERATION_RATE_IOS: 'fast' as const,
+  DECELERATION_RATE_ANDROID: 0.98,
+} as const;
+
+// Feed Types
+export const FEED_TYPES = {
+  YOUR_MIX: 'yourMix',
+  FOLLOWING: 'following',
+  DISCOVER: 'discover',
+  PROFILE: 'profile',
+  LIKES: 'likes',
+  REPOSTS: 'reposts',
+} as const;
+
+// View Modes
+export const VIEW_MODES = {
+  LIST: 'list',
+  GRID: 'grid',
+} as const;
+
+// Error Messages
+export const ERROR_MESSAGES = {
+  LOGIN_ERROR: 'Login failed. Please try again.',
+  LOGOUT_ERROR: 'Logout failed. Please try again.',
+  ACCOUNT_SWITCH_ERROR: 'Account switch failed. Please try again.',
+  FONT_LOAD_ERROR: 'Error loading fonts',
+  SESSION_VERIFY_ERROR: 'Error verifying session',
+  FEED_RESET_ERROR: 'Error resetting feeds',
+  SCROLL_ERROR: 'Error during scroll operation',
+} as const;
+
+// Storage Keys
+export const STORAGE_KEYS = {
+  SESSION: 'session',
+  APP_STORE: 'app-store',
+} as const;
+
+// Animation Constants
+export const ANIMATION_CONSTANTS = {
+  DURATION: {
+    FAST: 200,
+    NORMAL: 300,
+    SLOW: 500,
+  },
+  EASING: {
+    EASE_IN_OUT: 'ease-in-out',
+    EASE_OUT: 'ease-out',
+    EASE_IN: 'ease-in',
+  },
+} as const;

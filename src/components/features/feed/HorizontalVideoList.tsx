@@ -9,7 +9,7 @@ import {
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
-import { FeedItem } from './ListFeedView';
+import type { FeedItem } from '../../../types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
@@ -23,20 +23,22 @@ export const VideoGridItem: React.FC<{
   index: number;
   onPress: (index: number) => void;
   style?: any;
-}> = ({ item, index, onPress, style }) => {
+  itemStyle?: any;
+  thumbnailStyle?: any;
+}> = ({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
   const videoUrl = extractVideoUrl(item.post.embed);
   const thumbnailUrl = extractVideoThumbnail(item.post.embed);
   // Posts are already filtered at API level, so we don't need to skip non-video posts
   const shouldBlur = feedService.isVideoBlurred(item.post.uri, !!item.moderationDecision?.blur);
   return (
     <TouchableOpacity
-      style={[styles.gridItem, style]}
+      style={[styles.gridItem, style, itemStyle]}
       activeOpacity={0.7}
       onPress={() => onPress(index)}
     >
       <Image
         source={{ uri: thumbnailUrl || videoUrl || undefined }}
-        style={styles.thumbnail}
+        style={[styles.thumbnail, thumbnailStyle]}
         resizeMode="cover"
         
       />
@@ -106,6 +108,8 @@ const HorizontalVideoList: React.FC<HorizontalVideoListProps> = ({
         index={index}
         onPress={onVideoItemPress}
         style={{ marginRight: ITEM_MARGIN }}
+        itemStyle={{ borderRadius: 14 }}
+        thumbnailStyle={{ borderRadius: 11 }}
       />
     ),
     [onVideoItemPress]

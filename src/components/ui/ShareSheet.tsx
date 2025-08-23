@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { ShareIcon, BlockIcon, ReportIcon, InterestedIcon, NotInterestedIcon } from './Icon';
 import AtprotoService from '../../services/api/AtprotoService';
 import ProfileCache from '../../services/cache/ProfileCache';
-import { useClearView } from '@stores/uiStore';
+import { useClearView } from '../../stores/uiStore';
 import { Colors } from './UI';
 
 interface ShareSheetProps {

@@ -1,18 +1,13 @@
 import React, { useState, useCallback, useRef, useImperativeHandle, forwardRef, useEffect, useMemo, memo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import SwipeableFeedContainer, { FeedOption } from '../components/features/feed/SwipeableFeedContainer';
+import SwipeableFeedContainer from '../components/features/feed/SwipeableFeedContainer';
 import { Colors } from '../components/ui/UI';
 import { FORCE_FEED_ERROR } from '../utils/helpers/errorDebug';
 import { useQueryClient } from '@tanstack/react-query';
 import { createQueryKeys } from '../services/FeedService';
 import { useNavigation } from '@react-navigation/native';
- 
-
-// Define the ref interface for HomeScreen
-export interface HomeScreenRef {
-  refresh: () => void;
-  isRefreshing: boolean;
-}
+import { APP_CONSTANTS } from '../utils/constants';
+import type { FeedOption, HomeScreenRef } from '../types';
 
 interface HomeScreenProps {}
 
@@ -24,49 +19,35 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
   const navigation = useNavigation();
   
 
-  // Memoized refresh delay timeout to prevent recreation
-  const refreshTimeout = useMemo(() => 2000, []);
-
   const triggerRefresh = useCallback(() => {
-    console.log('[HomeScreen] triggerRefresh()');
-    // Set refreshing state
     setIsRefreshing(true);
 
     // Clear cached feed data to ensure a truly fresh fetch across feeds
-    console.log('[HomeScreen] Removing feed queries to force fresh data');
     queryClient.removeQueries({ queryKey: createQueryKeys.feed.all });
 
     // Force a remount of the feed container so all queries initialize fresh
-    // This will now preserve the current feed since we pass currentFeed as initialFeed
-    console.log('[HomeScreen] Bumping refreshKey to remount SwipeableFeedContainer');
     setRefreshKey(prev => prev + 1);
 
     // Also explicitly refetch the currently visible feed
-    console.log(`[HomeScreen] Explicitly refetching feed: ${currentFeed}`);
     queryClient.refetchQueries({ queryKey: createQueryKeys.feed.infinite(currentFeed) });
 
     // Reset refreshing state after a short delay
     setTimeout(() => {
-      console.log('[HomeScreen] Clearing refreshing state');
       setIsRefreshing(false);
-    }, refreshTimeout);
-  }, [currentFeed, queryClient, refreshTimeout]);
+    }, APP_CONSTANTS.REFRESH_DELAY);
+  }, [currentFeed, queryClient]);
 
   // Expose refresh method to parent components
   useImperativeHandle(ref, () => ({
-    refresh: () => {
-      console.log('[HomeScreen] refresh() called');
-      triggerRefresh();
-    },
+    refresh: triggerRefresh,
     isRefreshing
   }), [isRefreshing, triggerRefresh]);
 
-  // Listen for tab presses from the parent Tab Navigator to ensure the event is captured
+  // Listen for tab presses from the parent Tab Navigator
   useEffect(() => {
     const parent = (navigation as any)?.getParent?.();
     const unsubscribe = parent?.addListener?.('tabPress', (e: any) => {
       const isFocused = (navigation as any).isFocused?.() === true;
-      console.log('[HomeScreen] parent.tabPress event. homeFocused=', isFocused, ' target=', e?.target);
       if (isFocused) {
         triggerRefresh();
       }
@@ -93,7 +74,6 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
   );
 }));
 
-// Optimized StyleSheet creation outside component
 const styles = StyleSheet.create({
   container: {
     flex: 1,

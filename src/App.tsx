@@ -1,11 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, StatusBar, Appearance, AppState, LogBox } from 'react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+import { NavigationContainer } from '@react-navigation/native';
+import * as SecureStore from 'expo-secure-store';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import * as Font from 'expo-font';
+
+// Local imports
+import RootNavigator from './navigation/RootNavigator';
+import LoginScreen from './screens/LoginScreen';
+import { AtprotoService } from './services/api/AtprotoService';
+import ProfileCache from './services/cache/ProfileCache';
+import StatusBarController from './components/ui/StatusBarController';
+import { Colors } from './components/ui/UI';
+import { useAppStore } from './stores/appStore';
+import { useNavigationUpdate } from './stores/visibilityStore';
+import { QUERY_CONSTANTS, STORAGE_KEYS, ERROR_MESSAGES } from './utils/constants';
+import { CommonErrorHandlers } from './utils/errorHandler';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
-  strict: false, // Disable strict mode to suppress warnings from third-party libraries
+  strict: false,
 });
 
 // Ignore multiformats warnings - using broader patterns to catch all variations
@@ -15,30 +34,14 @@ LogBox.ignoreLogs([
   'which is not listed in the "exports"',
   'Falling back to file-based resolution',
 ]);
-import { NavigationContainer } from '@react-navigation/native';
-import * as SecureStore from 'expo-secure-store';
-import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import RootNavigator from '../src/navigation/RootNavigator'; // adjust path if needed
-import LoginScreen from '../src/screens/LoginScreen';
-import { AtprotoService } from '../src/services/api/AtprotoService';
-import * as Font from 'expo-font';
-import ProfileCache from '../src/services/cache/ProfileCache'; // import ProfileCache
-import StatusBarController from '../src/components/ui/StatusBarController';
-import { Colors } from './components/ui/UI';
-import { useAppStore } from '@stores/appStore';
-import { useNavigationUpdate } from '@stores/visibilityStore';
-
 
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 30 * 60 * 1000, // 30 minutes garbage collection time
+      retry: QUERY_CONSTANTS.RETRY_COUNT,
+      staleTime: QUERY_CONSTANTS.STALE_TIME,
+      gcTime: QUERY_CONSTANTS.GC_TIME,
       refetchOnWindowFocus: false,
       refetchOnMount: false,
       refetchOnReconnect: false,
@@ -49,7 +52,9 @@ const queryClient = new QueryClient({
 // Force dark mode
 Appearance.setColorScheme('dark');
 
-const App: React.FC<{}> = () => {
+interface AppProps {}
+
+const App: React.FC<AppProps> = () => {
   const { 
     isLoggedIn, 
     isLoading, 
@@ -66,25 +71,31 @@ const App: React.FC<{}> = () => {
 
   // Load fonts
   useEffect(() => {
-    async function loadFonts() {
-      await Font.loadAsync({
-        'Firma-Regular': require('./assets/fonts/Firma-Regular.otf'),
-        'Firma-Medium': require('./assets/fonts/Firma-Medium.otf'),
-        'Firma-SemiBold': require('./assets/fonts/Firma-SemiBold.otf'),
-        'Firma-Bold': require('./assets/fonts/Firma-Bold.otf'),
-        'Firma-BoldItalic': require('./assets/fonts/Firma-BoldItalic.otf'),
-        'Firma-Black': require('./assets/fonts/Firma-Black.otf'),
-      });
-      setFontsLoaded(true);
-    }
+    const loadFonts = async () => {
+      try {
+        await Font.loadAsync({
+          'Firma-Regular': require('./assets/fonts/Firma-Regular.otf'),
+          'Firma-Medium': require('./assets/fonts/Firma-Medium.otf'),
+          'Firma-SemiBold': require('./assets/fonts/Firma-SemiBold.otf'),
+          'Firma-Bold': require('./assets/fonts/Firma-Bold.otf'),
+          'Firma-BoldItalic': require('./assets/fonts/Firma-BoldItalic.otf'),
+          'Firma-Black': require('./assets/fonts/Firma-Black.otf'),
+        });
+        setFontsLoaded(true);
+      } catch (error) {
+        CommonErrorHandlers.cache(error);
+        setFontsLoaded(true); // Continue without fonts
+      }
+    };
+    
     loadFonts();
-  }, []);
+  }, [setFontsLoaded]);
 
   // Handle app state changes for memory management
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
       if (appState === 'active' && nextAppState.match(/inactive|background/)) {
-        // App has gone to the background - VideoPreloadManager removed
+        // App has gone to the background
       }
       setAppState(nextAppState);
     };
@@ -94,9 +105,9 @@ const App: React.FC<{}> = () => {
     return () => {
       subscription?.remove();
     };
-  }, [appState]);
+  }, [appState, setAppState]);
 
-  // Manual feed reset function, can be called from anywhere if needed
+  // Manual feed reset function
   const resetFeeds = () => {
     try {
       queryClient.removeQueries({ 
@@ -108,10 +119,11 @@ const App: React.FC<{}> = () => {
     }
   };
 
+  // Check login status
   useEffect(() => {
-    async function checkLogin() {
+    const checkLogin = async () => {
       try {
-        const sessionStr = await SecureStore.getItemAsync('session');
+        const sessionStr = await SecureStore.getItemAsync(STORAGE_KEYS.SESSION);
         if (sessionStr) {
           const user = await AtprotoService.getCurrentUser();
           if (user) {
@@ -122,42 +134,40 @@ const App: React.FC<{}> = () => {
             }
             completeLogin();
           } else {
-            await SecureStore.deleteItemAsync('session');
+            await SecureStore.deleteItemAsync(STORAGE_KEYS.SESSION);
             completeLogout();
           }
         } else {
           completeLogout();
         }
-      } catch (error: any) {
-        console.error('Error verifying session:', error);
-        completeLogout();
-      } finally {
+              } catch (error: any) {
+          CommonErrorHandlers.api(error);
+          completeLogout();
+        } finally {
         setLoading(false);
       }
-    }
+    };
+    
     checkLogin();
-  }, []);
+  }, [completeLogin, completeLogout, setLoading]);
 
   const handleLogin = async (handle: string, password: string) => {
     try {
-      await AtprotoService.login(handle, password, true); // Save account by default
+      await AtprotoService.login(handle, password, true);
       completeLogin();
       return Promise.resolve();
     } catch (error) {
-      console.error('Login error:', error);
+      CommonErrorHandlers.login(error);
       return Promise.reject(error);
     }
   };
 
   const handleAccountSwitch = async (account: any) => {
     try {
-      // The account switching is already handled by AccountManager.switchAccount
-      // which calls AtprotoService.login internally
-      // Data clearing is now handled in AccountSwitcher component
       completeLogin();
       return Promise.resolve();
     } catch (error) {
-      console.error('Account switch error:', error);
+      CommonErrorHandlers.login(error);
       return Promise.reject(error);
     }
   };
@@ -166,8 +176,6 @@ const App: React.FC<{}> = () => {
     try {
       // Clear any cached state in React Query
       queryClient.clear();
-      
-      // Clean up app services - VideoPreloadManager removed
       
       // Clear ProfileCache during logout
       ProfileCache.clearCache();
@@ -180,11 +188,12 @@ const App: React.FC<{}> = () => {
       
       return Promise.resolve();
     } catch (error) {
-      console.error('Logout error:', error);
+      CommonErrorHandlers.logout(error);
       return Promise.reject(error);
     }
   };
 
+  // Loading state
   if (isLoading || !fontsLoaded) {
     return (
       <View style={styles.loadingContainer}>
@@ -194,12 +203,13 @@ const App: React.FC<{}> = () => {
     );
   }
 
+  // Login state
   if (!isLoggedIn) {
     return (
       <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <QueryClientProvider client={queryClient}>
           <StatusBarController />
-          <GestureHandlerRootView style={{ flex: 1 }}>
+          <GestureHandlerRootView style={styles.gestureHandler}>
             <BottomSheetModalProvider>
               <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
             </BottomSheetModalProvider>
@@ -209,6 +219,7 @@ const App: React.FC<{}> = () => {
     );
   }
 
+  // Main app
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <QueryClientProvider client={queryClient}>
@@ -228,7 +239,6 @@ const App: React.FC<{}> = () => {
               if (routeName) {
                 updateNavigation(routeName);
                 try {
-                  // eslint-disable-next-line no-console
                   console.log('[Navigation]', routeName);
                 } catch {}
               }
@@ -236,7 +246,7 @@ const App: React.FC<{}> = () => {
           }}
         >
           <StatusBarController />
-          <GestureHandlerRootView style={{ flex: 1 }}>
+          <GestureHandlerRootView style={styles.gestureHandler}>
             <BottomSheetModalProvider>
               <RootNavigator onLogout={handleLogout} />
             </BottomSheetModalProvider>
@@ -252,6 +262,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: Colors.black,
+  },
+  gestureHandler: {
+    flex: 1,
   },
 });
 

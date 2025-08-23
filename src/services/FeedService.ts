@@ -434,6 +434,7 @@ class FeedService {
                 cid: channel.cid,
                 author: channel.creator,
                 text: channel.displayName,
+                avatar: channel.avatar, // Add channel's own avatar
               } as any,
               shouldCache: true,
               uniqueKey: channel.uri,

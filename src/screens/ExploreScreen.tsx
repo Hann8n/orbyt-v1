@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,32 +15,29 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
-// Removed problematic import: import { withStickyHeaderFlashList, useStickyHeaderFlashListScrollProps } from 'react-native-sticky-parallax-header';
+
 import AtprotoService from '../services/api/AtprotoService';
+
 import { useNavigation } from '@react-navigation/native';
-import ProfileCache, { CachedProfile, profileKeys } from '../services/cache/ProfileCache';
+import ProfileCache, { profileKeys } from '../services/cache/ProfileCache';
 import ChannelCache from '../services/cache/ChannelCache';
-import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Icon } from '../components/ui/UI';
 import HeaderBanner from '../components/ui/HeaderBanner';
-// Explore uses a custom collapsible header setup; no shared header visibility logic needed
- 
 
 import { SearchIcon } from '../components/ui/Icon';
 import { Colors } from '../components/ui/UI';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
 import EmptyFeed from '../components/features/feed/EmptyFeed';
-import { createQueryKeys, feedService } from '../services/FeedService';
+import { feedService } from '../services/FeedService';
 import { getBottomNavBarHeight } from '../utils/helpers/screenSize';
-import GridFeedView from '../components/features/feed/GridFeedView';
 import { extractVideoThumbnail } from '../utils/helpers/video';
 import { FORCE_SEARCH_ERROR, getForcedErrorMessage } from '../utils/helpers/errorDebug';
 import { formatNumber } from '../utils/helpers/formatNumber';
-import { HeaderService, Header, useStaticChannels, useHeaders } from '../services/APIService';
+import { HeaderService, useStaticChannels, useHeaders } from '../services/APIService';
 import { useFeed } from '../hooks/useFeed';
-import FeedRenderer from '../components/features/feed/FeedRenderer';
 // import { ModerationService } from '../services/ModerationService'; // Commented out since videos are disabled
 
 interface Profile {
@@ -86,26 +83,10 @@ interface SectionHeader {
   key: string;
 }
 
-// Add a new type for the video grid section
-interface VideoGridSection {
-  type: 'video-grid';
-  videos: any[];
-  key: string;
-}
-
 // Add a new type for the spotlight videos section
 interface SpotlightVideosSection {
   type: 'spotlight-videos';
   videos: any[];
-  key: string;
-}
-
-
-
-interface LoadMoreSection {
-  type: 'load-more';
-  section: 'profiles' | 'channels';
-  remaining: number;
   key: string;
 }
 
@@ -121,7 +102,9 @@ interface HeaderSpacer {
   key: string;
 }
 
-type ListItem = SearchResult | SectionHeader | VideoGridSection | SpotlightVideosSection | LoadMoreSection | PeopleChannelsSection | HeaderSpacer;
+type ListItem = SearchResult | SectionHeader | SpotlightVideosSection | PeopleChannelsSection | HeaderSpacer;
+
+
 
 
 
@@ -132,7 +115,7 @@ const unifiedSearchKeys = {
   infiniteSearch: (query: string) => [...unifiedSearchKeys.infinite(), query] as const,
 };
 
-// Profile shimmer skeleton component
+  // Profile shimmer skeleton component
 const ProfileShimmer = () => (
   <View style={styles.profileItem}>
     <ShimmerPlaceholder
@@ -272,15 +255,12 @@ const VideoShimmer = () => (
   </View>
 );
 
-  // Enhance FlashList with sticky parallax header support (no hooks at module scope)
-  // const StickyHeaderFlashList = withStickyHeaderFlashList(FlashList as any);
+
 
 const ExploreScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
-  const [isScrolling, setIsScrolling] = useState(false);
   const [allSuggestions, setAllSuggestions] = useState<any[]>([]);
-  const [viewMode, setViewMode] = useState<'grid'>('grid');
 
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
@@ -306,7 +286,6 @@ const ExploreScreen: React.FC = () => {
   const {
     data: fetchedHeaders = [],
     isLoading: isLoadingHeaders,
-    error: headersError,
   } = useHeaders();
 
   // Process headers with image URLs
@@ -351,11 +330,9 @@ const ExploreScreen: React.FC = () => {
     feed: searchFeed,
     isLoading: isSearchLoading,
     isError: isSearchError,
-    error: searchError,
     isFetchingNextPage: isSearchFetchingNextPage,
     hasNextPage: hasSearchNextPage,
     fetchNextPage: fetchSearchNextPage,
-    refetch: refetchSearch,
     // Removed onScroll - using FlashList's onEndReached
   } = useFeed(searchFeedOption || 'yourMix', undefined, {
     enabled: !!searchFeedOption,
@@ -369,9 +346,35 @@ const ExploreScreen: React.FC = () => {
       return [];
     }
 
+
+
     // Convert feed items to search results format
     return searchFeed.map((feedItem, index) => {
       const post = feedItem.post;
+      
+      // Check if this is a channel (has text but no author, or has author but text is the channel name)
+      const postText = (post as any).text;
+      const isChannel = postText && (
+        !post.author || 
+        (post.author && postText === post.author.displayName) ||
+        post.uri?.includes('app.bsky.feed.generator')
+      );
+      
+      if (isChannel) {
+        return {
+          type: 'channel' as const,
+          data: {
+            uri: post.uri,
+            cid: post.cid,
+            displayName: postText || 'Unknown channel',
+            description: postText || '',
+            creator: post.author || {},
+            avatar: (post as any).avatar || post.author?.avatar || '', // Use channel avatar first, fallback to creator avatar
+            isExperimental: false, // Will be determined by the channel data
+          } as Channel,
+          relevance: 10 - index,
+        };
+      }
       
       // Determine result type based on post content
       if (post.author) {
@@ -382,22 +385,22 @@ const ExploreScreen: React.FC = () => {
             handle: post.author.handle || '',
             displayName: post.author.displayName || '',
             avatar: post.author.avatar || '',
-            description: (post as any).text || '',
+            description: postText || '',
             isFollowing: !!(post as any).viewer?.following,
           } as Profile,
           relevance: 10 - index, // Higher relevance for earlier results
         };
       }
       
-      // For channel-like content
+      // For channel-like content with embed
       if (post.embed?.$type === 'app.bsky.embed.record') {
         return {
           type: 'channel' as const,
           data: {
             uri: post.uri,
             cid: post.cid,
-            displayName: (post as any).text || 'Unknown channel',
-            description: (post as any).text || '',
+            displayName: postText || 'Unknown channel',
+            description: postText || '',
             creator: post.author || {},
           } as Channel,
           relevance: 10 - index,
@@ -412,7 +415,7 @@ const ExploreScreen: React.FC = () => {
           handle: post.author?.handle || '',
           displayName: post.author?.displayName || '',
           avatar: post.author?.avatar || '',
-          description: (post as any).text || '',
+          description: postText || '',
           isFollowing: !!(post as any).viewer?.following,
         } as Profile,
         relevance: 10 - index,
@@ -420,27 +423,7 @@ const ExploreScreen: React.FC = () => {
     });
   }, [searchFeedOption, searchFeed]);
 
-  // Calculate relevance score for search results (simplified for FeedService approach)
-  const calculateRelevance = (item: any, query: string, type: 'profile' | 'channel' | 'video'): number => {
-    const queryLower = query.toLowerCase();
-    let score = 0;
 
-    if (type === 'profile') {
-      // Profile relevance scoring
-      if (item.handle?.toLowerCase().includes(queryLower)) score += 10;
-      if (item.displayName?.toLowerCase().includes(queryLower)) score += 8;
-      if (item.description?.toLowerCase().includes(queryLower)) score += 5;
-      if (item.viewer?.followedBy) score += 3; // Boost followed profiles
-    } else if (type === 'channel') {
-      // Channel relevance scoring - focus on actual search relevance
-      if (item.displayName?.toLowerCase().includes(queryLower)) score += 10;
-      if (item.description?.toLowerCase().includes(queryLower)) score += 8;
-      if (item.creator?.handle?.toLowerCase().includes(queryLower)) score += 6;
-      // Removed popularity boost to focus on search relevance
-    }
-
-    return score;
-  };
 
   // Comment out video-related useEffect since videos are disabled
   // useEffect(() => {
@@ -485,119 +468,7 @@ const ExploreScreen: React.FC = () => {
     }
   }, [searchResults]);
 
-  // Follow mutation
-  const followMutation = useMutation({
-    mutationFn: async ({ profile }: { profile: Profile }) => {
-      await AtprotoService.follow(profile.did);
-      return profile;
-    },
-    onMutate: async ({ profile }) => {
-      await queryClient.cancelQueries({ queryKey: unifiedSearchKeys.infiniteSearch(debouncedQuery) });
-      const previousData = queryClient.getQueryData(unifiedSearchKeys.infiniteSearch(debouncedQuery));
 
-      queryClient.setQueryData(
-        unifiedSearchKeys.infiniteSearch(debouncedQuery),
-        (oldData: any) => {
-          if (!oldData) return oldData;
-          
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page: any) => ({
-              ...page,
-              results: page.results.map((result: SearchResult) => {
-                if (result.type === 'profile' && result.data.did === profile.did) {
-                  const profileData = result.data as Profile;
-                  return {
-                    ...result,
-                    data: { ...profileData, viewer: { ...profileData.viewer, following: 'true' }, isFollowing: true } as Profile
-                  };
-                }
-                return result;
-              })
-            }))
-          };
-        }
-      );
-
-      return { previousData };
-    },
-    onError: (_, __, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(
-          unifiedSearchKeys.infiniteSearch(debouncedQuery),
-          context.previousData
-        );
-      }
-    },
-    onSettled: async (profile) => {
-      if (profile) {
-        const freshProfile = await AtprotoService.getProfile(profile.handle);
-        await ProfileCache.updateFollowingStatus(
-          profile.handle, 
-          !!freshProfile?.viewer?.following
-        );
-      }
-      
-      queryClient.invalidateQueries({ queryKey: unifiedSearchKeys.infiniteSearch(debouncedQuery) });
-    }
-  });
-
-  // Unfollow mutation
-  const unfollowMutation = useMutation({
-    mutationFn: async ({ profile }: { profile: Profile }) => {
-      await AtprotoService.unfollow(profile.did);
-      return profile;
-    },
-    onMutate: async ({ profile }) => {
-      await queryClient.cancelQueries({ queryKey: unifiedSearchKeys.infiniteSearch(debouncedQuery) });
-      const previousData = queryClient.getQueryData(unifiedSearchKeys.infiniteSearch(debouncedQuery));
-
-      queryClient.setQueryData(
-        unifiedSearchKeys.infiniteSearch(debouncedQuery),
-        (oldData: any) => {
-          if (!oldData) return oldData;
-          
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page: any) => ({
-              ...page,
-              results: page.results.map((result: SearchResult) => {
-                if (result.type === 'profile' && result.data.did === profile.did) {
-                  const profileData = result.data as Profile;
-                  return {
-                    ...result,
-                    data: { ...profileData, viewer: { ...profileData.viewer, following: undefined }, isFollowing: false } as Profile
-                  };
-                }
-                return result;
-              })
-            }))
-          };
-        }
-      );
-
-      return { previousData };
-    },
-    onError: (_, __, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(
-          unifiedSearchKeys.infiniteSearch(debouncedQuery),
-          context.previousData
-        );
-      }
-    },
-    onSettled: async (profile) => {
-      if (profile) {
-        const freshProfile = await AtprotoService.getProfile(profile.handle);
-        await ProfileCache.updateFollowingStatus(
-          profile.handle, 
-          !!freshProfile?.viewer?.following
-        );
-      }
-      
-      queryClient.invalidateQueries({ queryKey: unifiedSearchKeys.infiniteSearch(debouncedQuery) });
-    }
-  });
 
   // Handle clear search input
   const handleClearSearch = () => {
@@ -606,46 +477,15 @@ const ExploreScreen: React.FC = () => {
     Keyboard.dismiss();
   };
   
-  // Scroll event handlers
-  const handleScrollBeginDrag = useCallback(() => {
-    setIsScrolling(true);
-    Keyboard.dismiss();
-  }, []);
-
-  const handleScrollEndDrag = useCallback(() => {
-    setTimeout(() => setIsScrolling(false), 200);
-  }, []);
-
-  const handleMomentumScrollEnd = useCallback(() => {
-    setTimeout(() => setIsScrolling(false), 100);
-  }, []);
-
-  // Preload next page when close to bottom
-  const preloadNextPage = useCallback(
-    (currentOffset: number, contentHeight: number, containerHeight: number) => {
-      const isCloseToBottom = (contentHeight - currentOffset - containerHeight) / contentHeight < 0.25;
-      if (isCloseToBottom && hasSearchNextPage && !isSearchFetchingNextPage) {
-        fetchSearchNextPage();
-      }
-    },
-    [hasSearchNextPage, isSearchFetchingNextPage, fetchSearchNextPage]
-  );
-
-  // For shimmer loading, define a discriminated union type
-  const shimmerTypes = [
-    'profile', 'channel', 'profile', 'channel', 'profile', 
-    'channel', 'profile', 'channel', 'profile', 'channel'
-  ] as const;
-  type ShimmerType = typeof shimmerTypes[number];
 
 
 
-  // Calculate dynamic padding based on screen size
-  const getDynamicPadding = () => {
-    const { width, height } = require('react-native').Dimensions.get('window');
-    const screenHeight = Math.max(width, height);
-    return screenHeight < 700 ? 50 : 15;
-  };
+
+
+
+
+
+
 
   // Optimized viewabilityConfig
   const viewabilityConfig = useMemo(
@@ -662,33 +502,17 @@ const ExploreScreen: React.FC = () => {
       typeof item === 'object' &&
       'type' in item &&
       item.type !== 'section-header' &&
-      item.type !== 'load-more' &&
       'data' in item
     );
   }
 
 
 
-  // Helper function for hex to rgba conversion (copied from TabNavigation)
-  const hexToRGBA = (hex: string, alpha: number): string => {
-    hex = hex.replace('#', '');
-    if (hex.length === 3) {
-      hex = hex.split('').map(c => c + c).join('');
-    }
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
 
 
 
-  // Grid view header component
-  const GridViewHeader = () => (
-    <View style={styles.gridHeader}>
-      <Text style={styles.gridHeaderTitle}>videos</Text>
-    </View>
-  );
+
+
 
   // Render each search result item
   const renderSearchResult = useCallback(({ item }: { item: ListItem }) => {
@@ -703,8 +527,7 @@ const ExploreScreen: React.FC = () => {
             return null;
           }
           
-          const currentUserDid = ProfileCache.getCurrentUserDid();
-          const isCurrentUser = currentUserDid && profile.did && currentUserDid === profile.did;
+
           
           return (
             <TouchableOpacity
@@ -1126,7 +949,7 @@ const ExploreScreen: React.FC = () => {
   })();
 
   const searchList: any[] = isLoadingResults
-    ? (shimmerTypes as unknown as any[])
+    ? ([] as any[])
     : (organizedSearchResults as unknown as any[]);
 
   const listData: any[] = isSearching ? searchList : suggestionsList;
@@ -1181,7 +1004,7 @@ const ExploreScreen: React.FC = () => {
             <HeaderBanner headers={headers} height={computedHeaderHeight} />
           ) : null
         }
-        // ref={scrollViewRef as any} // Removed scrollViewRef
+
         data={listData}
         keyExtractor={(item: any, index: number) => {
           if (typeof item === 'string') return `shimmer-${index}`;
@@ -1189,7 +1012,7 @@ const ExploreScreen: React.FC = () => {
             const anyItem: any = item as any;
             if (anyItem.type === 'section-header') return anyItem.key || `${anyItem.title}-${index}`;
             if (anyItem.type === 'spotlight-videos') return anyItem.key || `spotlight-${index}`;
-            if (anyItem.type === 'video-grid' || anyItem.type === 'load-more') return anyItem.key || `key-${index}`;
+            if (anyItem.type === 'video-grid') return anyItem.key || `key-${index}`;
             if (isSearchResult(anyItem)) {
               const searchResult = anyItem as SearchResult;
               if (searchResult.type === 'profile') {
@@ -1430,10 +1253,7 @@ const ExploreScreen: React.FC = () => {
         ]}
         showsVerticalScrollIndicator={false}
         bounces={false}
-        // onScroll={onParallaxScroll} // Removed onParallaxScroll
         scrollEventThrottle={16}
-        // onScrollEndDrag={onParallaxScrollEndDrag} // Removed onParallaxScrollEndDrag
-        onMomentumScrollEnd={handleMomentumScrollEnd}
         onEndReached={() => {
           if (isSearching && hasSearchNextPage && !isSearchFetchingNextPage) {
             fetchSearchNextPage();
@@ -1488,12 +1308,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  headerBannerContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 8,
-  },
+
   topGradient: {
     position: 'absolute',
     left: 0,
@@ -1514,10 +1329,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingBottom: 20,
   },
-  mainExploreContainer: {
-    paddingHorizontal: 0,
-    paddingBottom: 20,
-  },
+
   searchContainer: {
     position: 'absolute',
     left: 15,
@@ -1679,12 +1491,7 @@ const styles = StyleSheet.create({
   },
 
 
-  videoGridContainer: {
-    marginTop: 5,
-    marginBottom: 10,
-    paddingHorizontal: 0,
-    marginHorizontal: 0, // Take up full width
-  },
+
   spotlightTitle: {
     color: Colors.orange,
     fontSize: 24,
@@ -1840,24 +1647,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Medium',
     lineHeight: 14,
   },
-  gridHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.gray,
-  },
-  gridHeaderTitle: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-Bold',
-  },
-  viewModeButton: {
-    padding: 6,
-    borderRadius: 50,
-  },
+
   peopleChannelsContainer: {
     marginBottom: 10,
   },

@@ -8,8 +8,8 @@ import React, {
   useMemo,
   memo,
 } from 'react';
-import { useVideoPlaybackState } from '@stores/visibilityStore';
-import { usePlaybackStore, useVideoDimLevel } from '@stores/playbackStore';
+import { useVideoPlaybackState } from '../../../stores/visibilityStore';
+import { usePlaybackStore, useVideoDimLevel } from '../../../stores/playbackStore';
 import {
   View,
   Text,

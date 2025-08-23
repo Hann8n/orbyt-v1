@@ -23,7 +23,7 @@ import VerificationBadge from '../verification/VerificationBadge';
 import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
-import { useClearView } from '@stores/uiStore';
+import { useClearView } from '../../../stores/uiStore';
 import { useChannelColors, useChannel } from '../../../services/cache/ChannelCache';
 import { useRecyclingState } from '@shopify/flash-list';
 

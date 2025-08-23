@@ -11,7 +11,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../navigation/types';
-import { FeedItem } from './ListFeedView';
+import type { FeedItem } from '../../../types';
 import EmptyFeed from './EmptyFeed';
 
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
@@ -87,7 +87,8 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   } else if (isSmallScreen()) {
     numColumns = 3;
   }
-  const itemWidth = (screen.width - (ITEM_MARGIN * (numColumns - 1))) / numColumns;
+  // With borders instead of margins, items can use full width divided by columns
+  const itemWidth = screen.width / numColumns;
   const itemHeight = itemWidth * (16 / 9);
 
   // Remove safe area insets for all grid views
@@ -105,7 +106,6 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
     // Calculate if this is the last column or last row for spacing
     const isLastColumn = (index + 1) % numColumns === 0;
     const isLastRow = Math.floor(index / numColumns) === Math.floor((feed.length - 1) / numColumns);
-    const isFirstColumn = index % numColumns === 0;
 
     const onPress = () => {
       if (onGridItemPress) {
@@ -123,6 +123,13 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
       });
     };
 
+    // Create border styles - only show borders on the inside of the grid
+    const borderStyle = {
+      borderRightWidth: isLastColumn ? 0 : ITEM_MARGIN,
+      borderBottomWidth: isLastRow ? 0 : ITEM_MARGIN,
+      borderColor: 'transparent', // Transparent borders
+    };
+
     return (
       <VideoGridItem
         item={item}
@@ -130,10 +137,17 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
         onPress={onPress}
         style={[
           { width: itemWidth, height: itemHeight },
-          !isLastColumn && { marginRight: ITEM_MARGIN },
-          !isLastRow && { marginBottom: ITEM_MARGIN },
-          isFirstColumn && { marginLeft: ITEM_MARGIN },
+          borderStyle,
         ]}
+        itemStyle={{ 
+          borderRadius: 0,
+          backgroundColor: 'transparent',
+          padding: 0
+        }}
+        thumbnailStyle={{ 
+          borderRadius: 0,
+          backgroundColor: 'transparent'
+        }}
       />
     );
   }, [onGridItemPress, feed, numColumns, itemWidth, itemHeight, navigation, feedOption, userDid, backgroundColor, secondaryColor]);

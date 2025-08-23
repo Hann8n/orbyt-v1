@@ -56,6 +56,10 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     onScrubbingChange?.(scrubbing);
   }, [onScrubbingChange]);
 
+  // Visibility state management - consistent with ListFeedView
+  const [visibleFeedIndex, setVisibleFeedIndex] = useState<number>(0);
+  const [visibleFeedOption, setVisibleFeedOption] = useState<FeedOption | null>(null);
+
   // Memoized screen dimensions handling
   const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
   const { screenWidth, screenHeight } = useMemo(() => ({
@@ -138,6 +142,8 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       const targetIndex = initialIndex >= 0 ? initialIndex : 0;
       setCurrentFeedIndex(targetIndex);
       setCurrentScrollProgress(targetIndex);
+      setVisibleFeedIndex(targetIndex);
+      setVisibleFeedOption(feedOptions[targetIndex]);
       onFeedChange?.(feedOptions[targetIndex]);
       
       // Ensure the FlatList starts on the desired initial index
@@ -256,6 +262,35 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     }));
   }, [currentFeedOption, feedRetries]);
 
+  // Viewability detection - consistent with ListFeedView
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
+    // Find the first viewable feed item
+    const visibleFeedItem = viewableItems.find(item => 
+      item.isViewable && 
+      item.item && 
+      typeof item.item === 'string'
+    );
+    
+    if (visibleFeedItem) {
+      const nextFeedOption = visibleFeedItem.item as FeedOption;
+      const nextIndex = visibleFeedItem.index;
+      
+      if (nextFeedOption !== visibleFeedOption) {
+        setVisibleFeedOption(nextFeedOption);
+        setVisibleFeedIndex(nextIndex);
+      }
+    }
+  }, [visibleFeedOption]);
+
+  // Initialize first feed when options are available
+  useEffect(() => {
+    if (feedOptions.length > 0 && !visibleFeedOption) {
+      const firstFeedOption = feedOptions[0];
+      setVisibleFeedOption(firstFeedOption);
+      setVisibleFeedIndex(0);
+    }
+  }, [feedOptions, visibleFeedOption]);
+
   // Optimized horizontal scroll handler with improved responsiveness
   const scrollUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -353,16 +388,17 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     refetchOnWindowFocus: false,
   }), []);
 
-  // Optimized feed page styles
+  // Optimized feed page styles - consistent with ListFeedView
   const feedPageStyle = useMemo(() => ({
     ...styles.feedPage,
     width: screenWidth,
     height: '100%' as const,
   }), [screenWidth]);
 
-  // Render individual feed with comprehensive memoization
+  // Render individual feed with comprehensive memoization - using FlashList visibility logic
   const renderFeed = useCallback(({ item: feedOption, index }: { item: FeedOption; index: number }) => {
-    const isVisible = index === currentFeedIndex;
+    // Use FlashList's viewability logic - feed is visible if it's the currently viewable feed
+    const isVisible = index === visibleFeedIndex;
     
     return (
       <View style={feedPageStyle}> 
@@ -372,7 +408,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
           onPositionChange={handlePositionChange}
           initialPosition={savedPositions[feedOption]}
           queryOptions={memoizedQueryOptions}
-          // Pass visibility state to control video playback and fetching
+          // Pass visibility state to control video playback and fetching - consistent with ListFeedView
           isVisible={isVisible}
           // Pass scroll handler for feed bar visibility
           onVerticalScroll={(scrollY) => handleVerticalScroll(scrollY, index)}
@@ -383,7 +419,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       </View>
     );
   }, [
-    currentFeedIndex,
+    visibleFeedIndex,
     feedPageStyle,
     handleRetryFeed,
     handlePositionChange,
@@ -467,7 +503,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
         </ScrollView>
       </Animated.View>
 
-      {/* Horizontal FlatList for feeds with optimized gesture handling */}
+      {/* Horizontal FlatList for feeds with optimized gesture handling - consistent with ListFeedView */}
       <FlatList
         ref={flatListRef}
         data={feedOptions}
@@ -486,7 +522,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
           index,
         })}
         style={styles.flatList}
-        // Optimized gesture handling to prevent interference with FlashList
+        // Optimized gesture handling to prevent interference with FlashList - consistent with ListFeedView
         directionalLockEnabled={true}
         alwaysBounceHorizontal={false}
         alwaysBounceVertical={false}
@@ -500,8 +536,18 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
         initialNumToRender={1}
         // Add horizontal scroll indicator to prevent vertical scroll interference
         indicatorStyle="white"
-        // Optimize for horizontal scrolling only
-        contentContainerStyle={{ flexGrow: 1 }}
+        // FlashList viewability detection - consistent with ListFeedView
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={{
+          itemVisiblePercentThreshold: 50,
+          minimumViewTime: 0,
+          waitForInteraction: false,
+        }}
+        // Optimize for horizontal scrolling only - consistent with ListFeedView contentContainerStyle
+        contentContainerStyle={{ 
+          flexGrow: 1,
+          backgroundColor: Colors.black,
+        }}
       />
     </GestureHandlerRootView>
   );

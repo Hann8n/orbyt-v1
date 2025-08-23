@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { AtpAgent } from '@atproto/api';
-import AtprotoService from '../../../src/services/api/AtprotoService';
+import AtprotoService from '../api/AtprotoService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface SavedAccount {

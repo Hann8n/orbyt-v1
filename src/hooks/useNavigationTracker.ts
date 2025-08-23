@@ -4,7 +4,7 @@
  */
 import { useEffect } from 'react';
 import { useNavigationState } from '@react-navigation/native';
-import { useNavigationUpdate } from '@stores/visibilityStore';
+import { useNavigationUpdate } from '../stores/visibilityStore';
 
 /**
  * Hook that automatically tracks navigation changes and updates the visibility store

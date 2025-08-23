@@ -19,8 +19,7 @@ import {
 import { Modal as RNModal } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
-// Import Icon dynamically to avoid circular dependency
-const Icon = React.lazy(() => import('./Icon').then(module => ({ default: module.default })));
+import Icon from './Icon';
 
 
 // ============================================================================

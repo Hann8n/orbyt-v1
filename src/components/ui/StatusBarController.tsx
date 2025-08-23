@@ -1,6 +1,6 @@
 import React from 'react';
 import { StatusBar } from 'react-native';
-import { useClearView } from '@stores/uiStore';
+import { useClearView } from '../../stores/uiStore';
 import { Colors } from './UI';
 
 const StatusBarController: React.FC = () => {

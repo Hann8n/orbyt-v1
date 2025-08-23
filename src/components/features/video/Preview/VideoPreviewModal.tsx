@@ -175,6 +175,8 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
               shouldCache={true}
               shouldDisablePlayback={false}
               onVideoStatus={handleVideoStatus}
+              height={Dimensions.get('window').height}
+              isPlaying={true}
             />
             <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject, opacity: 0.5 }}>
               <VideoOverlay
@@ -208,6 +210,8 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
               shouldCache={true}
               shouldDisablePlayback={false}
               onVideoStatus={handleVideoStatus}
+              height={Dimensions.get('window').height}
+              isPlaying={true}
             />
             <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject, opacity: 0.5 }}>
               <VideoOverlay

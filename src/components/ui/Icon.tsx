@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { SvgXml } from 'react-native-svg';
-import { Colors } from './UI';
 import { StyleProp, ViewStyle, View, Image, Animated, Easing } from 'react-native';
+
+// Simple colors object to avoid circular dependency
+const Colors = {
+  white: '#FFFFFF',
+  black: '#000000',
+  gray: '#818896',
+  lightGray: '#CFD6E8',
+  darkGray: '#181c22',
+  red: '#FE4359',
+  green: '#00D4AA',
+  blue: '#6366F1',
+  purple: '#8B5CF6',
+  orange: '#FF6B35',
+  yellow: '#FFD700',
+};
 import AtprotoService from '../../services/api/AtprotoService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProfile } from '../../services/cache/ProfileCache';
