@@ -37,3 +37,7 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# OAuth private keys (never commit these!)
+private-key.pem
+private-keys.json

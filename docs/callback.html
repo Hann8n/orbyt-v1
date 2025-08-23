@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orbyt OAuth Callback</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #000;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            text-align: center;
+            max-width: 400px;
+        }
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .message {
+            font-size: 16px;
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+        .spinner {
+            border: 2px solid #333;
+            border-top: 2px solid #fff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="/orbyt-banner.png" alt="Orbyt" class="logo">
+        <div class="title">Orbyt</div>
+        <div class="message">Completing authentication...</div>
+        <div class="spinner"></div>
+        <div class="message">You can close this window and return to the app.</div>
+    </div>
+
+    <script>
+        // Extract URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const state = urlParams.get('state');
+        const error = urlParams.get('error');
+
+        if (error) {
+            // Handle OAuth error
+            document.querySelector('.message').textContent = 'Authentication failed: ' + error;
+            document.querySelector('.spinner').style.display = 'none';
+        } else if (code && state) {
+            // Success - redirect back to app
+            setTimeout(() => {
+                // Try to redirect to the app using a custom URL scheme
+                const appUrl = `orbyt://oauth/callback?code=${code}&state=${state}`;
+                window.location.href = appUrl;
+                
+                // Fallback: show success message
+                setTimeout(() => {
+                    document.querySelector('.message').textContent = 'Authentication successful! You can now return to the Orbyt app.';
+                    document.querySelector('.spinner').style.display = 'none';
+                }, 1000);
+            }, 1000);
+        } else {
+            // Invalid callback
+            document.querySelector('.message').textContent = 'Invalid callback parameters.';
+            document.querySelector('.spinner').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

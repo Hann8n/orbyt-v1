@@ -1,0 +1,16 @@
+{
+  "client_id": "https://getorbyt.com/atproto-oauth-client.json",
+  "client_name": "Orbyt",
+  "client_uri": "https://getorbyt.com",
+  "logo_uri": "https://getorbyt.com/orbyt-banner.png",
+  "tos_uri": "https://getorbyt.com/tos",
+  "policy_uri": "https://getorbyt.com/policy",
+  "redirect_uris": ["https://getorbyt.com/callback"],
+  "scope": "atproto",
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none",
+  "application_type": "native",
+  "dpop_bound_access_tokens": true,
+  "jwks_uri": "https://getorbyt.com/jwks.json"
+}
