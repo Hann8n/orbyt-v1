@@ -8,9 +8,6 @@ export {
   Loading,
   Divider,
   Badge,
-  hexToRGBA,
-  isColorDark,
-  getContrastRatio,
   meetsContrastGuidelines,
 } from './UI';
 

@@ -16,7 +16,7 @@
     "serve:docs": "npx serve docs -l 5173 --single"
   },
   "dependencies": {
-    "@atproto/api": "^0.15.19",
+    "@atproto/api": "0.16.3",
     "@babel/runtime": "^7.28.2",
     "@expo/vector-icons": "^14.0.4",
     "@gorhom/bottom-sheet": "^5.1.6",

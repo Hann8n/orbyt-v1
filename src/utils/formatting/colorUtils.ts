@@ -1,9 +1,47 @@
 import * as FileSystem from 'expo-file-system';
 import ImageColors, { ImageColorsResult } from 'react-native-image-colors';
-import { Colors, hexToRGBA, isColorDark, getContrastRatio } from '../../components/ui/UI';
 
-// Re-export utility functions for backward compatibility
-export { hexToRGBA, isColorDark, getContrastRatio };
+// Minimal Colors object to avoid circular dependency
+const Colors = {
+  white: '#FFFFFF',
+  black: '#000000',
+  lightGray: '#CFD6E8',
+  darkGray: '#181c22',
+};
+
+/**
+ * Converts a hex color to RGBA format
+ */
+export const hexToRGBA = (hex: string, alpha: number): string => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+/**
+ * Checks if a color is dark (for determining text color)
+ */
+export const isColorDark = (hex: string): boolean => {
+  const color = hex.replace('#', '');
+  const r = parseInt(color.substring(0, 2), 16);
+  const g = parseInt(color.substring(2, 4), 16);
+  const b = parseInt(color.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness < 128;
+};
+
+/**
+ * Calculates contrast ratio between two colors according to WCAG
+ * @returns Contrast ratio (1-21)
+ */
+export const getContrastRatio = (color1: string, color2: string): number => {
+  const l1 = getRelativeLuminance(color1);
+  const l2 = getRelativeLuminance(color2);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+};
 
 /**
  * Calculates relative luminance of a color according to WCAG standards

@@ -20,6 +20,7 @@ import { Modal as RNModal } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from './Icon';
+import { hexToRGBA, isColorDark, getContrastRatio } from '../../utils/formatting/colorUtils';
 
 
 // ============================================================================
@@ -121,65 +122,6 @@ export const Colors = {
 // ============================================================================
 // COLOR UTILITY FUNCTIONS
 // ============================================================================
-
-/**
- * Convert hex color to rgba with alpha
- */
-export const hexToRGBA = (hex: string, alpha: number): string => {
-  hex = hex.replace('#', '');
-  if (hex.length === 3) {
-    hex = hex.split('').map(c => c + c).join('');
-  }
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
-
-/**
- * Determine if a color is dark using WCAG relative luminance
- */
-export const isColorDark = (hex: string): boolean => {
-  const color = hex.replace('#', '');
-  const r = parseInt(color.substring(0, 2), 16);
-  const g = parseInt(color.substring(2, 4), 16);
-  const b = parseInt(color.substring(4, 6), 16);
-  
-  const toSRGB = (x: number): number => {
-    x = x / 255;
-    return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
-  };
-  
-  const luminance = 
-    0.2126 * toSRGB(r) +
-    0.7152 * toSRGB(g) +
-    0.0722 * toSRGB(b);
-  
-  return luminance < 0.5;
-};
-
-/**
- * Get contrast ratio between two colors
- */
-export const getContrastRatio = (color1: string, color2: string): number => {
-  const getRelativeLuminance = (hex: string): number => {
-    const color = hex.replace('#', '');
-    const r = parseInt(color.substring(0, 2), 16) / 255;
-    const g = parseInt(color.substring(2, 4), 16) / 255;
-    const b = parseInt(color.substring(4, 6), 16) / 255;
-    
-    const transform = (c: number): number => 
-      c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-      
-    return 0.2126 * transform(r) + 0.7152 * transform(g) + 0.0722 * transform(b);
-  };
-
-  const l1 = getRelativeLuminance(color1);
-  const l2 = getRelativeLuminance(color2);
-  const lighter = Math.max(l1, l2);
-  const darker = Math.min(l1, l2);
-  return (lighter + 0.05) / (darker + 0.05);
-};
 
 /**
  * Check if colors meet WCAG AA standard (4.5:1 contrast ratio)
