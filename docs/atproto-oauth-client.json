@@ -9,8 +9,21 @@
   "scope": "atproto transition:generic",
   "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],
-  "token_endpoint_auth_method": "none",
+  "token_endpoint_auth_method": "private_key_jwt",
   "application_type": "native",
-  "dpop_bound_access_tokens": true
+  "dpop_bound_access_tokens": true,
+  "jwks": {
+    "keys": [
+      {
+        "kty": "EC",
+        "x": "dU-Pk7Lx6wmutKy2EYAHEwV3CER24lEkVZDoKgRiiVY",
+        "y": "YCSwaTck6fuL9P8nbLCpKYaI67yNgdbAu_mZBrnAuaA",
+        "crv": "P-256",
+        "use": "sig",
+        "alg": "ES256",
+        "kid": "orbyt-client-key-1"
+      }
+    ]
+  }
 }
  
