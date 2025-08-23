@@ -5,11 +5,19 @@
   "logo_uri": "https://getorbyt.com/orbyt-banner.png",
   "tos_uri": "https://getorbyt.com/tos",
   "policy_uri": "https://getorbyt.com/policy",
-  "redirect_uris": ["com.getorbyt:/oauth/callback"],
+  "redirect_uris": [
+    "com.getorbyt:/oauth/callback"
+  ],
   "scope": "atproto transition:generic",
-  "grant_types": ["authorization_code", "refresh_token"],
-  "response_types": ["code"],
+  "grant_types": [
+    "authorization_code",
+    "refresh_token"
+  ],
+  "response_types": [
+    "code"
+  ],
   "token_endpoint_auth_method": "private_key_jwt",
+  "token_endpoint_auth_signing_alg": "ES256",
   "application_type": "native",
   "dpop_bound_access_tokens": true,
   "jwks": {
@@ -26,4 +34,3 @@
     ]
   }
 }
- 
