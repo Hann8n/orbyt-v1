@@ -9,7 +9,8 @@
   "scope": "atproto transition:generic",
   "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],
-  "token_endpoint_auth_method": "none",
+  "token_endpoint_auth_method": "private_key_jwt",
   "application_type": "native",
   "dpop_bound_access_tokens": true
 }
+ 
