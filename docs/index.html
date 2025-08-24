@@ -566,6 +566,30 @@
             }
         }
 
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footerColumns {
+            display: inline-block;
+            margin: 0 1rem;
+        }
+
+        .footerColumns a {
+            color: #cfd6e8;
+            text-decoration: none;
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 1rem;
+            transition: color 0.3s ease;
+        }
+
+        .footerColumns a:hover {
+            color: #ffffff;
+        }
+
         @media (max-width: 480px) {
             .container {
                 padding: 1rem;
@@ -596,7 +620,14 @@
                 width: 120px;
             }
 
+            .footer {
+                padding: 1rem;
+            }
 
+            .footerColumns {
+                display: block;
+                margin: 0.5rem 0;
+            }
         }
 
 
@@ -639,6 +670,15 @@
                     </bsky-embed>
                 </div>
             </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <div class="footerColumns">
+            <a href="terms.html">Terms of Use</a>
+        </div>
+        <div class="footerColumns">
+            <a href="privacy.html">Privacy Policy</a>
         </div>
     </div>
     

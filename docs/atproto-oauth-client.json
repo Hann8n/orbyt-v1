@@ -1,10 +1,10 @@
 {
   "client_id": "https://getorbyt.com/atproto-oauth-client.json",
-  "client_name": "Orbyt",
+  "client_name": "orbyt",
   "client_uri": "https://getorbyt.com",
   "logo_uri": "https://getorbyt.com/TV-Raw.png",
-  "tos_uri": "https://getorbyt.com/tos",
-  "policy_uri": "https://getorbyt.com/policy",
+  "tos_uri": "https://getorbyt.com/terms.html",
+  "policy_uri": "https://getorbyt.com/privacy.html",
   "redirect_uris": ["com.getorbyt:/oauth/callback"],
   "scope": "atproto transition:generic",
   "grant_types": ["authorization_code", "refresh_token"],
