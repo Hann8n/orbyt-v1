@@ -13,7 +13,6 @@ import { ExpoOAuthClient } from 'expo-atproto-auth';
 import { AtProtoOAuthService, OAuthSession } from '../services/auth';
 import ProfileCache from '../services/cache/ProfileCache';
 import ChannelCache from '../services/cache/ChannelCache';
-import { feedService } from '../services/FeedService';
 import WatchHistory from '../services/WatchHistory';
 import { ModerationService } from '../services/ModerationService';
 
@@ -116,6 +115,9 @@ interface UserState {
   // Data invalidation
   invalidateAllUserData: () => Promise<void>;
   clearAllCaches: () => Promise<void>;
+  
+  // Moderation integration
+  getModerationOpts: () => Promise<any>;
   
   // Initialization
   initializeUserState: () => Promise<void>;
@@ -330,8 +332,8 @@ export const useUserStore = create<UserState>()(
           await get().clearAllCaches();
           
           // Clear current feed
-          feedService.clearCurrentFeed();
-          feedService.clearFeedCache();
+          // feedService.clearCurrentFeed(); // This line is removed
+          // feedService.clearFeedCache(); // This line is removed
           
           // Update account statuses
           const accounts = get().savedAccounts.map(acc => ({
@@ -710,8 +712,8 @@ export const useUserStore = create<UserState>()(
           await get().clearAllCaches();
           
           // Clear current feed
-          feedService.clearCurrentFeed();
-          feedService.clearFeedCache();
+          // feedService.clearCurrentFeed(); // This line is removed
+          // feedService.clearFeedCache(); // This line is removed
           
         } catch (error) {
           console.error('Error invalidating user data:', error);
@@ -729,6 +731,17 @@ export const useUserStore = create<UserState>()(
           
         } catch (error) {
           console.error('Error clearing caches:', error);
+        }
+      },
+      
+      // Moderation integration
+      getModerationOpts: async () => {
+        try {
+          const moderationSettings = await ModerationService.getModerationSettings();
+          return moderationSettings;
+        } catch (error) {
+          console.error('Error getting moderation options:', error);
+          return {};
         }
       },
       
@@ -788,6 +801,9 @@ export const useUserStore = create<UserState>()(
           
           // Load user-specific moderation settings
           const moderationSettings = await ModerationService.getModerationSettings();
+          
+          // Sync moderation settings with Bluesky API
+          await ModerationService.syncModerationSettings(get().agent);
           
           // Update state with user-specific settings
           set({ 
@@ -933,6 +949,21 @@ export const useAgent = () => {
   };
 };
 
+// Hook for accessing user store state directly
+export const useUserStoreState = () => {
+  const agent = useUserStore(state => state.agent);
+  const isAuthenticated = useUserStore(state => state.isAuthenticated);
+  const currentUser = useUserStore(state => state.currentUser);
+  const isAuthenticating = useUserStore(state => state.isAuthenticating);
+  
+  return {
+    agent,
+    isAuthenticated,
+    currentUser,
+    isAuthenticating,
+  };
+};
+
 // Hook for feed settings
 export const useFeedSettings = () => {
   const feedMixingStrategy = useUserStore(state => state.feedMixingStrategy);
@@ -955,5 +986,32 @@ export const useFeedSettings = () => {
     getFeedMixingStrategy,
     getExperimentalFeedsEnabled,
     getFeedDebugOverlayEnabled,
+  };
+};
+
+// Hook for moderation functionality
+export const useModeration = () => {
+  const getModerationOpts = useUserStore(state => state.getModerationOpts);
+  const agent = useUserStore(state => state.agent);
+  
+  return {
+    getModerationOpts,
+    moderatePost: ModerationService.moderatePost,
+    moderateProfile: ModerationService.moderateProfile,
+    moderateNotification: ModerationService.moderateNotification,
+    getModerationSettings: ModerationService.getModerationSettings,
+    saveModerationSettings: async (settings: any) => {
+      if (!agent) {
+        throw new Error('No agent available. Please ensure you are logged in.');
+      }
+      return ModerationService.saveModerationSettings(settings, agent);
+    },
+    syncModerationSettings: async () => {
+      if (!agent) {
+        throw new Error('No agent available. Please ensure you are logged in.');
+      }
+      return ModerationService.syncModerationSettings(agent);
+    },
+    clearModerationCache: ModerationService.clearModerationCache,
   };
 };

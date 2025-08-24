@@ -11,6 +11,7 @@ import { RootStackParamList } from '../../navigation/types';
 import feedService, { createQueryKeys } from '../../services/FeedService';
 import { ModerationService } from '../../services/ModerationService';
 import { ModerationSettings, LabelPreference } from '../../services/ModerationTypes';
+import { useModeration, useUserStoreState } from '../../stores/userStore';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles, settingsActiveStyles } from './SettingsStyles';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ContentFilters'>;
@@ -26,21 +27,38 @@ interface ContentTypeOption {
 const ContentFiltersScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const queryClient = useQueryClient();
+  const { saveModerationSettings } = useModeration();
+  const { agent, isAuthenticated } = useUserStoreState();
   const [settings, setSettings] = useState<ModerationSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [adultContentEnabled, setAdultContentEnabled] = useState(false);
+  
+  // Debug: Check if agent is available
+  useEffect(() => {
+    console.log('[ContentFiltersScreen] Agent available:', !!agent);
+    console.log('[ContentFiltersScreen] User authenticated:', isAuthenticated);
+    
+    if (!isAuthenticated || !agent) {
+      Alert.alert(
+        'Authentication Required',
+        'You must be logged in to change content filter settings.',
+        [{ text: 'OK' }]
+      );
+    }
+  }, [agent, isAuthenticated]);
+
   const [contentOptions, setContentOptions] = useState<ContentTypeOption[]>([
     {
-      id: 'porn',
-      label: 'Adult',
-      description: 'Sexual content and pornography',
+      id: 'nsfw',
+      label: 'NSFW',
+      description: 'Not safe for work content',
       icon: '',
       preference: 'hide'
     },
     {
-      id: 'sexual',
-      label: 'Suggestive',
-      description: 'Sexual themes and suggestive content',
+      id: 'suggestive',
+      label: 'Suggestive Content',
+      description: 'Suggestive or provocative content',
       icon: '',
       preference: 'warn'
     },
@@ -52,7 +70,7 @@ const ContentFiltersScreen: React.FC = () => {
       preference: 'warn'
     },
     {
-      id: 'graphic-media',
+      id: 'gore',
       label: 'Graphic Media',
       description: 'Violent or graphic content',
       icon: '',
@@ -90,6 +108,18 @@ const ContentFiltersScreen: React.FC = () => {
   }, []);
 
   const updateContentPreference = async (contentId: string, preference: LabelPreference) => {
+    console.log(`[ContentFiltersScreen] Updating content preference: ${contentId} = ${preference}`);
+    
+    // Check if user is authenticated
+    if (!isAuthenticated || !agent) {
+      Alert.alert(
+        'Authentication Required',
+        'You must be logged in to change content filter settings.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     setContentOptions(options => options.map(o => o.id === contentId ? { ...o, preference } : o));
     try {
       if (settings) {
@@ -100,28 +130,37 @@ const ContentFiltersScreen: React.FC = () => {
             [contentId]: preference
           }
         };
-        await ModerationService.saveModerationSettings(updatedSettings);
+        console.log('[ContentFiltersScreen] Saving moderation settings:', updatedSettings);
+        await saveModerationSettings(updatedSettings);
         setSettings(updatedSettings);
         // Reset moderation/feeds so all content re-evaluates with new rules
         ModerationService.clearModerationCache();
         feedService.clearCurrentFeed();
         feedService.clearFeedCache();
         queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
+        console.log('[ContentFiltersScreen] Content preference updated successfully');
       }
     } catch (e) {
       console.error('Error saving content preference:', e);
+      Alert.alert(
+        'Error Saving Preference',
+        `Failed to save content preference: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        [{ text: 'OK' }]
+      );
     }
   };
 
   const updateAdultContent = async (value: boolean) => {
-    if (value === true) {
+    // Check if user is authenticated
+    if (!isAuthenticated || !agent) {
       Alert.alert(
-        'Cannot Enable Sensitive Content',
-        'Sensitive content can only be disabled from this app. To enable it, please use the Bluesky web app or official Bluesky app.',
+        'Authentication Required',
+        'You must be logged in to change content filter settings.',
         [{ text: 'OK' }]
       );
       return;
     }
+    
     setAdultContentEnabled(value);
     try {
       if (settings) {
@@ -129,16 +168,23 @@ const ContentFiltersScreen: React.FC = () => {
           ...settings,
           adultContentEnabled: value,
         };
-        await ModerationService.saveModerationSettings(updatedSettings);
+        console.log('[ContentFiltersScreen] Saving adult content setting:', value);
+        await saveModerationSettings(updatedSettings);
         setSettings(updatedSettings);
         // Reset moderation/feeds so all content re-evaluates with new rules
         ModerationService.clearModerationCache();
         feedService.clearCurrentFeed();
         feedService.clearFeedCache();
         queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
+        console.log('[ContentFiltersScreen] Adult content setting updated successfully');
       }
     } catch (e) {
-      console.error('Error saving sensitive content setting:', e);
+      console.error('Error saving adult content preference:', e);
+      Alert.alert(
+        'Error Saving Setting',
+        `Failed to save adult content setting: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -173,7 +219,7 @@ const ContentFiltersScreen: React.FC = () => {
           </View>
 
           {contentOptions.map((option, index) => {
-            const isAdult = ['porn', 'sexual', 'nudity'].includes(option.id);
+            const isAdult = ['nsfw'].includes(option.id);
             if (isAdult && !adultContentEnabled) return null;
             return (
               <View key={option.id} style={{ marginBottom: 12, paddingHorizontal: 5 }}>

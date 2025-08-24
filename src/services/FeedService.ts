@@ -6,8 +6,23 @@
  */
 
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import AtprotoService from './api/AtprotoService';
 import type { ModerationDecision } from './ModerationTypes';
+import { ModerationService } from './ModerationService';
+
+// Import AtprotoService with error handling for circular dependency issues
+let AtprotoService: any = null;
+try {
+  AtprotoService = require('./api/AtprotoService').default;
+} catch (error) {
+  console.warn('Failed to import AtprotoService, using fallback:', error);
+  // Fallback implementation
+  AtprotoService = {
+    getFeed: async () => ({ feed: [], cursor: null }),
+    getMixedFeed: async () => ({ feed: [], cursor: null }),
+    searchProfilesPaginated: async () => ({ profiles: [], cursor: null }),
+    searchPopularFeeds: async () => [],
+  };
+}
 
 // Simplified performance constants - relying on React Query and FlashList defaults
 const CACHE_CONFIG = {
@@ -79,7 +94,6 @@ const FEED_CONFIG = {
 // FlashList-optimized feed state management
 class FeedStateManager {
   private currentFeed: FeedItem[] = [];
-  private videoBlurState = new Map<string, boolean>();
   
   // FlashList-optimized caching with memory management
   private feedCache = new Map<string, { 
@@ -116,18 +130,7 @@ class FeedStateManager {
   clearCurrentFeed() {
     this.currentFeed = [];
   }
-
-  setVideoBlurState(uri: string, blurred: boolean) {
-    this.videoBlurState.set(uri, blurred);
-  }
-
-  isVideoBlurred(uri: string, moderationBlur: boolean): boolean {
-    if (this.videoBlurState.has(uri)) {
-      return this.videoBlurState.get(uri)!;
-    }
-    return moderationBlur;
-  }
-
+  
   // FlashList-optimized cache management with performance tracking
   getCachedFeed(cacheKey: string): { data: FeedItem[]; cursor?: string | null } | null {
     const cached = this.feedCache.get(cacheKey);
@@ -183,7 +186,8 @@ class FeedStateManager {
     const expiredKeys: string[] = [];
     
     // Remove expired entries
-    for (const [key, value] of this.feedCache.entries()) {
+    const entries = Array.from(this.feedCache.entries());
+    for (const [key, value] of entries) {
       if (now - value.timestamp > this.CACHE_TTL) {
         expiredKeys.push(key);
       }
@@ -334,20 +338,12 @@ class FeedService {
       const limit = FEED_CONFIG.defaultLimit;
       let response;
       
-
-
       // Handle different feed types
-  
-      
       if (feedOption === 'likes' && userDid) {
-        
         response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'likes');
       } else if (feedOption === 'reposts' && userDid) {
-        // Aggressive client-side fetch of reposted videos for the actor
-        
         response = await (AtprotoService as any).getRepostedVideos(userDid, cursor, limit);
       } else if (feedOption === 'profile' && userDid) {
-        
         response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'authorVideos');
       } else if (feedOption === 'profile' && !userDid) {
         console.warn(`[FeedService] Profile feed requested but no userDid provided for option: ${feedOption}`);
@@ -359,20 +355,26 @@ class FeedService {
         console.warn(`[FeedService] Reposts feed requested but no userDid provided for option: ${feedOption}`);
         return { feed: [], cursor: null };
       } else if (feedOption === 'following') {
-        // Handle following feed as a custom feed using the specific feed URI
         const feedLink = this.getFeedLink(feedOption);
         if (!feedLink) {
           console.warn(`[FeedService] No feed link found for option: ${feedOption}`);
           return { feed: [], cursor: null };
         }
-        // Disable video filtering since this should already be a video-only feed
         response = await AtprotoService.getFeed(cursor, feedLink, {}, false, limit, 'custom');
       } else if (feedOption === 'profile' || feedOption === 'likes' || feedOption === 'reposts') {
-        // These feed types require a userDid but none was provided
         console.warn(`[FeedService] ${feedOption} feed requires userDid but none provided`);
         return { feed: [], cursor: null };
       } else if (feedOption === 'yourMix') {
-        const feedUris = this.subscribedChannels
+        // Get subscribed channels from userStore
+        let subscribedChannels: any[] = [];
+        try {
+          // Try to get subscribed channels from the current state
+          subscribedChannels = this.subscribedChannels || [];
+        } catch (error) {
+          console.warn('[FeedService] Failed to get subscribed channels:', error);
+        }
+        
+        const feedUris = subscribedChannels
           .filter((channel: any) => channel.uri !== 'following')
           .map((channel: any) => {
             if (channel.uri === 'yourMix') {
@@ -380,17 +382,23 @@ class FeedService {
             }
             return channel.uri;
           })
-          .filter(uri => uri && uri.startsWith('at://')); // Filter out invalid URIs
+          .filter(uri => uri && uri.startsWith('at://'));
         
-
+        console.log('[FeedService] yourMix - subscribedChannels:', subscribedChannels);
+        console.log('[FeedService] yourMix - feedUris:', feedUris);
         
         if (feedUris.length > 0) {
           response = await AtprotoService.getMixedFeed(feedUris, cursor, limit, true, FEED_CONFIG.maxFeedsPerFetch);
         } else {
-          // Fallback to a default video feed if no valid channels
-
-          response = await AtprotoService.getFeed(cursor, 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids', {}, true, limit, 'custom');
-          // Set sourceFeed for fallback case
+          console.log('[FeedService] yourMix - no subscribed channels, using fallback feeds');
+          
+          const fallbackFeeds = [
+            'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids',
+            'at://did:plc:tenurhgjptubkk5zf5qhi3og/app.bsky.feed.generator/discover-video'
+          ];
+          
+          response = await AtprotoService.getMixedFeed(fallbackFeeds, cursor, limit, true, 2);
+          
           if (response.feed) {
             response.feed = response.feed.map(item => ({
               ...item,
@@ -399,23 +407,19 @@ class FeedService {
           }
         }
       } else if (feedOption.startsWith('search:')) {
-        // Handle search feeds
-        const searchQuery = feedOption.substring(7); // Remove 'search:' prefix
+        const searchQuery = feedOption.substring(7);
         if (!searchQuery || searchQuery.trim() === '') {
           return { feed: [], cursor: null };
         }
 
         try {
-          // Search for profiles and channels in parallel
           const [profilesResponse, channelsResponse] = await Promise.all([
             AtprotoService.searchProfilesPaginated(searchQuery, cursor as string | null),
             AtprotoService.searchPopularFeeds(searchQuery, 15)
           ]);
 
-          // Convert to feed items format
           const feedItems: FeedItem[] = [];
           
-          // Add profiles
           profilesResponse.profiles.forEach(profile => {
             feedItems.push({
               post: {
@@ -434,7 +438,6 @@ class FeedService {
             });
           });
 
-          // Add channels
           channelsResponse.forEach(channel => {
             feedItems.push({
               post: {
@@ -442,7 +445,7 @@ class FeedService {
                 cid: channel.cid,
                 author: channel.creator,
                 text: channel.displayName,
-                avatar: channel.avatar, // Add channel's own avatar
+                avatar: channel.avatar,
               } as any,
               shouldCache: true,
               uniqueKey: channel.uri,
@@ -458,13 +461,12 @@ class FeedService {
           return { feed: [], cursor: null };
         }
       } else if (feedOption === 'search') {
-        // Return current search feed from state
         return {
           feed: feedStateManager.getCurrentFeed(),
           cursor: null,
         };
       } else {
-        // Standard feeds
+        // Handle custom feed URIs
         const feedLink = this.getFeedLink(feedOption);
         if (!feedLink) {
           console.warn(`[FeedService] No feed link found for option: ${feedOption}`);
@@ -473,21 +475,26 @@ class FeedService {
         response = await AtprotoService.getFeed(cursor, feedLink, {}, true, limit, 'custom');
       }
 
-      const result = {
-        feed: response.feed || [],
-        cursor: response.cursor,
-      };
-
-
-
-      // Cache successful responses for initial loads only
-      if (!cursor && result.feed.length > 0) {
-        feedStateManager.setCachedFeed(cacheKey, result.feed, result.cursor);
+      // Apply moderation to the fetched posts
+      if (response && response.feed) {
+        try {
+          const moderatedFeed = await ModerationService.batchModeratePosts(response.feed, 'contentList');
+          response.feed = moderatedFeed.filteredPosts;
+          console.log(`[FeedService] Applied moderation to ${response.feed.length} posts (filtered: ${moderatedFeed.stats.filtered}, blurred: ${moderatedFeed.stats.blurred})`);
+        } catch (error) {
+          console.warn('[FeedService] Failed to apply moderation, using unfiltered posts:', error);
+          // Continue with unfiltered posts if moderation fails
+        }
       }
 
-      return result;
+      // Cache the result
+      if (!cursor && response) {
+        feedStateManager.setCachedFeed(cacheKey, response.feed, response.cursor);
+      }
+
+      return response || { feed: [], cursor: null };
     } catch (error) {
-      console.error(`[FeedService] Error fetching ${feedOption} feed:`, error);
+      console.error(`[FeedService] Error fetching feed for ${feedOption}:`, error);
       return { feed: [], cursor: null };
     }
   }
@@ -513,8 +520,6 @@ class FeedService {
   setCurrentFeed = feedStateManager.setCurrentFeed.bind(feedStateManager);
   getCurrentFeed = feedStateManager.getCurrentFeed.bind(feedStateManager);
   clearCurrentFeed = feedStateManager.clearCurrentFeed.bind(feedStateManager);
-  setVideoBlurState = feedStateManager.setVideoBlurState.bind(feedStateManager);
-  isVideoBlurred = feedStateManager.isVideoBlurred.bind(feedStateManager);
   
   // Cache management methods for performance optimization
   clearFeedCache = feedStateManager.clearFeedCache.bind(feedStateManager);

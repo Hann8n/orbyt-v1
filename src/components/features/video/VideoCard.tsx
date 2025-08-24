@@ -23,6 +23,7 @@ import { Image } from 'react-native';
 import Video from 'react-native-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import Svg, { Path, Rect, G } from 'react-native-svg';
 
 // Navigation state handled by visibility store
 import { useRecyclingState } from '@shopify/flash-list';
@@ -37,6 +38,17 @@ import VideoOverlay from './VideoOverlay';
 
 // Import buffering strategies
 import { MOBILE_BUFFER_CONFIG } from '../../../utils/helpers/videoBuffering';
+
+// Custom Warning Icon Component
+const WarningIcon = ({ size = 48, color = Colors.white }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Rect width="24" height="24" fill="none"/>
+    <G fill="none">
+      <Path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z" fill={color}/>
+      <Path fill="#fff" d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2m0 13a1 1 0 1 0 0 2a1 1 0 0 0 0-2m0-9a1 1 0 0 0-.993.883L11 7v6a1 1 0 0 0 1.993.117L13 13V7a1 1 0 0 0-1-1"/>
+    </G>
+  </Svg>
+);
 
 // Video configuration optimized for scroll performance
 const VIDEO_CONFIG = {
@@ -208,17 +220,63 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     
 
 
-    // Determine if video should be blurred
-    const shouldBlur = feedService.isVideoBlurred(post.uri, !!moderationDecision?.blur);
+    // Determine if video should be blurred based on moderation decision
+    const shouldBlur = !!moderationDecision?.blur;
+    
+    // State to track if user has chosen to view content with warnings
+    const [userChoseToView, setUserChoseToView] = useState(false);
+    
+    // Only blur if user hasn't chosen to view the content
+    const shouldShowBlur = shouldBlur && !userChoseToView;
+    
+    // Generate specific warning message based on moderation labels
+    const getWarningMessage = useCallback(() => {
+      if (!moderationDecision?.informs || moderationDecision.informs.length === 0) {
+        return 'Content Warning';
+      }
+      
+      const labels = moderationDecision.informs;
+      const labelMessages: { [key: string]: string } = {
+        'nsfw': 'Not Safe For Work',
+        'suggestive': 'Suggestive Content',
+        'nudity': 'Artistic Nudity',
+        'gore': 'Graphic Media'
+      };
+      
+      if (labels.length === 1) {
+        return labelMessages[labels[0]] || 'Content Warning';
+      }
+      
+      // Multiple labels
+      const messages = labels.map(label => labelMessages[label] || label).join(', ');
+      return `Content Warning: ${messages}`;
+    }, [moderationDecision?.informs]);
+    
+    // Get warning color based on content type
+    const getWarningColor = useCallback(() => {
+      if (!moderationDecision?.informs || moderationDecision.informs.length === 0) {
+        return '#FF6B35'; // Default orange
+      }
+      
+      const labels = moderationDecision.informs;
+      
+      // Color coding for different content types
+      if (labels.includes('gore')) return '#FF4444'; // Red for graphic content
+      if (labels.includes('nsfw')) return '#FF6B35'; // Orange for NSFW
+      if (labels.includes('suggestive')) return '#FFA500'; // Orange for suggestive
+      if (labels.includes('nudity')) return '#FF8C00'; // Dark orange for nudity
+      
+      return '#FF6B35'; // Default orange
+    }, [moderationDecision?.informs]);
 
     // Calculate overlay opacity based on various factors - optimized for scroll performance
     const overlayOpacity = useMemo(() => {
-      if (shouldBlur) return 1;
+      if (shouldShowBlur) return 1;
       if (videoState.customDimLevel > 0) return videoState.customDimLevel;
       // Apply automatic dimming for non-active videos
       if (videoDimLevel > 0) return videoDimLevel;
       return 0;
-    }, [shouldBlur, videoState.customDimLevel, videoDimLevel]);
+    }, [shouldShowBlur, videoState.customDimLevel, videoDimLevel]);
 
     // Use tab visibility system to determine if video should play
     const { shouldPlay: shouldPlayFromTab } = useVideoPlaybackState(isVisible);
@@ -226,8 +284,10 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     // Determine if video should play
     const shouldPlayVideo = useMemo(() => {
       if (shouldDisablePlayback || videoState.hasError || videoState.userPaused) return false;
+      // Prevent playback when there's a moderation warning (blur) unless user chose to view
+      if (shouldBlur && !userChoseToView) return false;
       return shouldPlayFromTab && isVisible;
-    }, [shouldDisablePlayback, videoState.hasError, videoState.userPaused, shouldPlayFromTab, isVisible]);
+    }, [shouldDisablePlayback, videoState.hasError, videoState.userPaused, shouldBlur, userChoseToView, shouldPlayFromTab, isVisible]);
 
     // Register video with playback store
     useEffect(() => {
@@ -300,6 +360,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
         customDimLevel: 0,
       });
       setCurrentSourceIndex(0);
+      setUserChoseToView(false);
     });
 
     // Expose methods via ref
@@ -428,13 +489,23 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
             )}
             
             {/* Blur overlay for content warnings */}
-            {shouldBlur && (
-              <BlurView intensity={20} style={styles.blurOverlay}>
+            {shouldShowBlur && (
+              <BlurView intensity={80} tint="dark" style={styles.blurOverlay}>
                 <View style={styles.warningContainer}>
-                  <Icon name="warning" size={48} color={Colors.white} />
+                  <WarningIcon size={48} color={getWarningColor()} />
                   <Text style={styles.warningText}>
-                    {moderationDecision?.reason || 'Content Warning'}
+                    {getWarningMessage()}
                   </Text>
+                  <TouchableWithoutFeedback onPress={() => setUserChoseToView(true)}>
+                    <View style={[styles.viewContentButton, { 
+                      borderColor: Colors.white,
+                      backgroundColor: Colors.white
+                    }]}>
+                      <Text style={[styles.viewContentButtonText, { color: Colors.black }]}>
+                        View
+                      </Text>
+                    </View>
+                  </TouchableWithoutFeedback>
                 </View>
               </BlurView>
             )}
@@ -612,6 +683,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginTop: 10,
+    marginBottom: 20,
+  },
+  viewContentButton: {
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 50,
+    minWidth: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  viewContentButtonText: {
+    fontSize: 15,
+    fontFamily: 'Firma-SemiBold',
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 
@@ -623,6 +715,7 @@ export default React.memo(VideoCard, (prevProps, nextProps) => {
   if (prevProps.isPlaying !== nextProps.isPlaying) return false;
   if (prevProps.height !== nextProps.height) return false;
   if (prevProps.shouldDisablePlayback !== nextProps.shouldDisablePlayback) return false;
+  if (prevProps.moderationDecision?.filter !== nextProps.moderationDecision?.filter) return false;
   if (prevProps.moderationDecision?.blur !== nextProps.moderationDecision?.blur) return false;
   if (prevProps.overlayVisible !== nextProps.overlayVisible) return false;
   

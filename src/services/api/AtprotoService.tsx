@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ModerationDecision, ModerationSettings, LabelPreference, ModerationOpts, LabelDefinition } from '../ModerationTypes';
 import { AtProtoOAuthService } from '../auth/OAuthService';
 import { StaticChannelsService } from '../APIService';
-import { ModerationService } from '../ModerationService';
 
 const SERVICE_URL = 'https://bsky.social';
 const CHAT_SERVICE_URL = 'https://api.bsky.chat';
@@ -2279,15 +2278,17 @@ class AtprotoService {
 
       let feedData = collected.slice(0, limit);
 
-      // Apply moderation decisions similar to getFeed
+      // Apply basic moderation filtering
       if (feedData.length > 0) {
-        const moderationResult = await ModerationService.batchModeratePosts(feedData);
-        const moderationMap = moderationResult.moderationDecisions;
-        feedData = moderationResult.filteredPosts.map(item => {
-          const uri = item?.post?.uri;
-          return uri && moderationMap.has(uri)
-            ? { ...item, moderationDecision: moderationMap.get(uri) }
-            : item;
+        feedData = feedData.filter(item => {
+          // Basic filtering - remove posts with obvious issues
+          const post = item?.post;
+          if (!post) return false;
+          
+          // Filter out posts without required fields
+          if (!post.uri || !post.cid || !post.author) return false;
+          
+          return true;
         });
       }
 
