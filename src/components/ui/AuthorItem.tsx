@@ -104,45 +104,43 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
     <TouchableOpacity
       style={[
         styles.container,
-        { backgroundColor: backgroundColor || 'rgba(255, 255, 255, 0.05)' },
+        { backgroundColor: backgroundColor || Colors.darkGray },
         style,
       ]}
       onPress={handlePress}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
-      <View style={styles.content}>
-        <Avatar
-          uri={actualAvatar}
-          type="profile"
-          size={config.avatarSize}
-          style={[
-            styles.avatar,
-            { borderColor: Colors.gray },
-          ]}
-        />
-        <View style={styles.textContainer}>
+      <View style={styles.accountButtonContent}>
+        <View style={styles.avatarContainer}>
+          <Avatar
+            uri={actualAvatar}
+            type="profile"
+            size={config.avatarSize}
+          />
+        </View>
+        <View style={styles.accountInfoContainer}>
           <View style={styles.nameRow}>
-          <Text style={[ 
-            styles.name,
-            { 
-              color: textColor,
-              fontSize: config.nameFontSize,
-              fontFamily: nameFontWeight,
-            }
-          ]} numberOfLines={1}>
-            {actualDisplayName}
-          </Text>
+            <Text style={[ 
+              styles.accountDisplayName,
+              { 
+                color: textColor || Colors.white,
+                fontSize: config.nameFontSize,
+                fontFamily: nameFontWeight,
+              }
+            ]} numberOfLines={1}>
+              {actualDisplayName}
+            </Text>
             {handle && (
               <VerificationBadge
                 handle={handle}
                 textSize={config.badgeTextSize}
-                textColor={textColor}
+                textColor={textColor || Colors.white}
               />
             )}
           </View>
           {!hideHandleLine && (
             <Text style={[ 
-              styles.handle,
+              styles.accountHandle,
               { 
                 color: handleColor || Colors.lightGray,
                 fontSize: config.handleFontSize,
@@ -157,24 +155,26 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           <TouchableOpacity
             style={[
               styles.followButton,
-              { borderColor: textColor },
-              actualIsFollowing && { backgroundColor: textColor }
+              { borderColor: textColor || Colors.white },
+              actualIsFollowing && { backgroundColor: textColor || Colors.white }
             ]}
             onPress={onFollowPress}
           >
             <Text style={[
               styles.followButtonText,
-              { color: actualIsFollowing ? '#000' : textColor }
+              { color: actualIsFollowing ? '#000' : (textColor || Colors.white) }
             ]}>
               {actualIsFollowing ? 'Following' : 'Follow'}
             </Text>
           </TouchableOpacity>
         ) : showArrow && (
-          <Icon 
-            name="right_arrow_filled" 
-            size={24} 
-            color={Colors.lightGray} 
-          />
+          <View style={styles.accountArrow}>
+            <Icon 
+              name="chevron-right" 
+              size={20} 
+              color={Colors.gray} 
+            />
+          </View>
         )}
       </View>
     </TouchableOpacity>
@@ -186,22 +186,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    marginBottom: 12,
   },
-  content: {
+  accountButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    justifyContent: 'space-between',
   },
-  avatar: {
+  avatarContainer: {
     marginRight: 12,
   },
-  textContainer: {
+  accountInfoContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    marginRight: 8,
+    paddingLeft: 8,
+  },
+  accountDisplayName: {
+    color: Colors.white,
+    fontSize: 18,
+    fontWeight: 'bold',
+    fontFamily: 'Firma-Bold',
+    marginBottom: 2,
+  },
+  accountHandle: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
+  },
+  accountArrow: {
+    marginLeft: 8,
   },
   nameRow: {
     flexDirection: 'row',

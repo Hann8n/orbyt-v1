@@ -78,6 +78,14 @@ const SettingsScreen: React.FC = () => {
           onPress: async () => {
             setIsSubmitting(true);
             try {
+              // Get the current active account and remove it from account manager
+              const activeAccount = await AccountManager.getActiveAccount();
+              
+              if (activeAccount) {
+                console.log('[SettingsScreen] Removing current account from account manager:', activeAccount.handle);
+                await AccountManager.removeAccount(activeAccount.id);
+              }
+              
               await onLogout();
             } catch (error) {
               console.error('error during logout:', error);

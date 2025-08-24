@@ -30,7 +30,9 @@ class ChannelSubscriptionManager {
     try {
       const activeAccount = await AccountManager.getActiveAccount();
       if (activeAccount?.id) {
-        return `${baseKey}_${activeAccount.id}`;
+        // The ID should already be sanitized, but let's ensure it's valid for SecureStore
+        const sanitizedId = activeAccount.id.replace(/[^a-zA-Z0-9._-]/g, '_');
+        return `${baseKey}_${sanitizedId}`;
       }
 
       const did = activeAccount?.did;

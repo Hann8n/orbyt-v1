@@ -12,8 +12,10 @@ export const useSubscribedChannels = () => {
     (async () => {
       try {
         const active = await AccountManager.getActiveAccount();
+        console.log('[useSubscribedChannels] Active account:', active);
         if (mounted) setDid(active?.did || null);
-      } catch {
+      } catch (error) {
+        console.log('[useSubscribedChannels] Error getting active account:', error);
         if (mounted) setDid(null);
       }
     })();
@@ -27,10 +29,17 @@ export const useSubscribedChannels = () => {
     refetch,
   } = useQuery({
     queryKey: ['subscribedChannels', did],
-    queryFn: () => ChannelSubscriptionManager.getSubscribedChannels.call(ChannelSubscriptionManager),
+    queryFn: async () => {
+      console.log('[useSubscribedChannels] Fetching subscribed channels for DID:', did);
+      const result = await ChannelSubscriptionManager.getSubscribedChannels.call(ChannelSubscriptionManager);
+      console.log('[useSubscribedChannels] Fetched channels:', result);
+      return result;
+    },
     enabled: did !== null, 
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  console.log('[useSubscribedChannels] Query state:', { did, enabled: did !== null, channels: channels.length });
 
   const subscribeToChannel = useCallback(async (channelData: {
     uri: string;

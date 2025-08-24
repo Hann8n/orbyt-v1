@@ -337,12 +337,17 @@ class FeedService {
 
 
       // Handle different feed types
+      console.log(`[FeedService] fetchFeed called with feedOption: ${feedOption}, userDid: ${userDid}`);
+      
       if (feedOption === 'likes' && userDid) {
+        console.log(`[FeedService] Calling getFeed for likes with userDid: ${userDid}`);
         response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'likes');
       } else if (feedOption === 'reposts' && userDid) {
         // Aggressive client-side fetch of reposted videos for the actor
+        console.log(`[FeedService] Calling getRepostedVideos with userDid: ${userDid}`);
         response = await (AtprotoService as any).getRepostedVideos(userDid, cursor, limit);
       } else if (feedOption === 'profile' && userDid) {
+        console.log(`[FeedService] Calling getFeed for profile with userDid: ${userDid}`);
         response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'authorVideos');
       } else if (feedOption === 'profile' && !userDid) {
         console.warn(`[FeedService] Profile feed requested but no userDid provided for option: ${feedOption}`);
@@ -377,10 +382,13 @@ class FeedService {
           })
           .filter(uri => uri && uri.startsWith('at://')); // Filter out invalid URIs
         
+        console.log(`[FeedService] yourMix feed - subscribedChannels count: ${this.subscribedChannels.length}, valid feedUris count: ${feedUris.length}`, feedUris);
+        
         if (feedUris.length > 0) {
           response = await AtprotoService.getMixedFeed(feedUris, cursor, limit, true, FEED_CONFIG.maxFeedsPerFetch);
         } else {
           // Fallback to a default video feed if no valid channels
+          console.log('[FeedService] No valid channel URIs, using fallback feed');
           response = await AtprotoService.getFeed(cursor, 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids', {}, true, limit, 'custom');
           // Set sourceFeed for fallback case
           if (response.feed) {
@@ -469,6 +477,12 @@ class FeedService {
         feed: response.feed || [],
         cursor: response.cursor,
       };
+
+      console.log(`[FeedService] Feed result for ${feedOption}:`, {
+        feedLength: result.feed.length,
+        hasCursor: !!result.cursor,
+        feedType: feedOption
+      });
 
       // Cache successful responses for initial loads only
       if (!cursor && result.feed.length > 0) {

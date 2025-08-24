@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { AtpAgent } from '@atproto/api';
-import AtprotoService from '../api/AtprotoService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AtProtoOAuthService, OAuthSession } from '../auth';
 
 export interface SavedAccount {
   id: string;
@@ -11,89 +11,81 @@ export interface SavedAccount {
   avatar?: string;
   lastUsed: number;
   isActive: boolean;
-}
-
-export interface AccountCredentials {
-  did: string; // Use DID as the primary authentication identifier
-  appPassword: string;
+  pdsUrl?: string; // Store PDS URL for OAuth accounts
 }
 
 class AccountManager {
   private static ACCOUNTS_KEY = 'saved_accounts';
   private static ACTIVE_ACCOUNT_KEY = 'active_account_id';
-  private static CREDENTIALS_PREFIX = 'account_credentials_';
 
   /**
-   * Save a new account or update existing one
+   * Save an OAuth account
    */
-  static async saveAccount(
-    handle: string, 
-    appPassword: string, 
+  static async saveOAuthAccount(
+    oauthSession: OAuthSession, 
     displayName?: string, 
-    avatar?: string
+    avatar?: string,
+    handle?: string
   ): Promise<SavedAccount> {
     try {
-      // First, validate the credentials by attempting to login
-      const tempAgent = new AtpAgent({ service: 'https://bsky.social' });
-      const loginResponse = await tempAgent.login({
-        identifier: handle,
-        password: appPassword,
-      });
-
-      const did = loginResponse.data.did;
-      const correctHandle = loginResponse.data.handle; // Use the handle from the API response
-      const accountId = this.generateAccountId(correctHandle, did);
-
-      // Get existing accounts
+      console.log('[AccountManager] Saving OAuth account, session:', oauthSession);
       const accounts = await this.getSavedAccounts();
       
-      // Check if account already exists (by DID to handle email vs handle cases)
-      const existingAccountIndex = accounts.findIndex(acc => acc.did === did);
+      // Check if account already exists
+      const existingAccountIndex = accounts.findIndex(acc => acc.did === oauthSession.did);
       
-      const accountData: SavedAccount = {
-        id: accountId,
-        handle: correctHandle, // Use the correct handle from API
-        did,
-        displayName: displayName || correctHandle,
-        avatar,
+      // Generate a sanitized ID for OAuth accounts
+      const sanitizedDid = oauthSession.did.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const accountId = `oauth_${sanitizedDid}`;
+      
+      // Use the provided handle or fall back to DID if no handle is available
+      const accountHandle = handle || oauthSession.did;
+      
+      const account: SavedAccount = {
+        id: accountId, // Use sanitized ID for SecureStore compatibility
+        handle: accountHandle,
+        did: oauthSession.did,
+        displayName: displayName || 'OAuth User',
+        avatar: avatar,
         lastUsed: Date.now(),
-        isActive: true
+        isActive: true,
+
+        pdsUrl: 'https://bsky.social',
       };
 
+      console.log('[AccountManager] Creating account object:', account);
+
       if (existingAccountIndex >= 0) {
-        // Update existing account
-        accounts[existingAccountIndex] = accountData;
+        // Update existing account with new information
+        const existingAccount = accounts[existingAccountIndex];
+        accounts[existingAccountIndex] = {
+          ...existingAccount,
+          ...account,
+          // Preserve existing display name and avatar if new ones aren't provided
+          displayName: displayName || existingAccount.displayName,
+          avatar: avatar || existingAccount.avatar,
+          handle: handle || existingAccount.handle,
+          lastUsed: Date.now(),
+        };
       } else {
         // Add new account
-        accounts.push(accountData);
+        accounts.push(account);
       }
 
-      // Deactivate all other accounts
+      // Set all other accounts as inactive
       accounts.forEach(acc => {
-        if (acc.id !== accountId) {
-          acc.isActive = false;
-        }
+        acc.isActive = acc.id === account.id;
       });
 
-      // Save accounts list
+      // Save accounts
       await SecureStore.setItemAsync(this.ACCOUNTS_KEY, JSON.stringify(accounts));
-      
-      // Save credentials securely using DID for authentication
-      await SecureStore.setItemAsync(
-        this.CREDENTIALS_PREFIX + accountId,
-        JSON.stringify({ 
-          did: did, // Use DID for authentication
-          appPassword
-        })
-      );
+      await SecureStore.setItemAsync(this.ACTIVE_ACCOUNT_KEY, account.id);
 
-      // Set as active account
-      await SecureStore.setItemAsync(this.ACTIVE_ACCOUNT_KEY, accountId);
-
-      return accountData;
+      console.log('[AccountManager] OAuth account saved:', account.did);
+      return account;
     } catch (error) {
-      console.error('Error saving account:', error);
-      throw new Error('Invalid credentials. Please check your handle and app password.');
+      console.error('[AccountManager] Error saving OAuth account:', error);
+      throw error;
     }
   }
 
@@ -116,6 +108,40 @@ class AccountManager {
         // console.log('Found accounts with invalid IDs, clearing all accounts...');
         await this.clearAllAccounts();
         return [];
+      }
+      
+      // Migrate legacy accounts that don't have pdsUrl
+      let needsSave = false;
+      const migratedAccounts = accounts.map((acc: SavedAccount) => {
+        if (!acc.pdsUrl) {
+          needsSave = true;
+          return {
+            ...acc,
+            pdsUrl: 'https://bsky.social'
+          };
+        }
+        return acc;
+      });
+      
+      // Migrate accounts that have invalid IDs (DIDs with colons)
+      const needsIdMigration = migratedAccounts.some((acc: SavedAccount) => 
+        acc.id.includes(':')
+      );
+      
+      if (needsIdMigration) {
+        needsSave = true;
+        migratedAccounts.forEach((acc: SavedAccount) => {
+          if (acc.id.includes(':')) {
+            // Generate proper sanitized ID for accounts
+            const sanitizedDid = acc.did.replace(/[^a-zA-Z0-9._-]/g, '_');
+            acc.id = `oauth_${sanitizedDid}`;
+          }
+        });
+      }
+      
+      if (needsSave) {
+        await SecureStore.setItemAsync(this.ACCOUNTS_KEY, JSON.stringify(migratedAccounts));
+        return migratedAccounts;
       }
       
       return accounts;
@@ -153,16 +179,15 @@ class AccountManager {
         throw new Error('Account not found');
       }
 
-      // Get credentials for the target account
-      const credentialsStr = await SecureStore.getItemAsync(this.CREDENTIALS_PREFIX + accountId);
-      if (!credentialsStr) {
-        throw new Error('Account credentials not found');
+      // For OAuth accounts, try to restore the session
+      const oauthService = AtProtoOAuthService.getInstance();
+      try {
+        await oauthService.restoreSession(targetAccount.did);
+        console.log('[AccountManager] OAuth session restored for DID:', targetAccount.did);
+      } catch (error) {
+        console.warn('[AccountManager] Failed to restore OAuth session, user needs to re-authenticate:', error);
+        throw new Error('OAuth session expired. Please sign in again.');
       }
-
-      const credentials: AccountCredentials = JSON.parse(credentialsStr);
-
-      // Login with the target account using DID for authentication
-      await AtprotoService.login(credentials.did, credentials.appPassword);
 
       // Update account statuses
       accounts.forEach(acc => {
@@ -189,13 +214,13 @@ class AccountManager {
             handle: freshProfile.handle,
           });
         }
-      } catch (profileError) {
-        console.warn('Failed to refresh profile data during account switch:', profileError);
+      } catch (error) {
+        console.warn('Failed to refresh profile for switched account:', error);
       }
 
       return targetAccount;
     } catch (error) {
-      // console.error('Error switching account:', error);
+      console.error('Error switching account:', error);
       throw error;
     }
   }
@@ -206,14 +231,17 @@ class AccountManager {
   static async removeAccount(accountId: string): Promise<void> {
     try {
       const accounts = await this.getSavedAccounts();
+      const targetAccount = accounts.find(acc => acc.id === accountId);
+      
+      if (!targetAccount) {
+        throw new Error('Account not found');
+      }
+      
       const filteredAccounts = accounts.filter(acc => acc.id !== accountId);
       
       // Save updated accounts list
       await SecureStore.setItemAsync(this.ACCOUNTS_KEY, JSON.stringify(filteredAccounts));
       
-      // Remove credentials
-      await SecureStore.deleteItemAsync(this.CREDENTIALS_PREFIX + accountId);
-
       // If this was the active account, clear active account
       const activeAccountId = await SecureStore.getItemAsync(this.ACTIVE_ACCOUNT_KEY);
       if (activeAccountId === accountId) {
@@ -233,29 +261,7 @@ class AccountManager {
     return accounts.length > 1;
   }
 
-  /**
-   * Get account credentials (for internal use)
-   */
-  static async getAccountCredentials(accountId: string): Promise<AccountCredentials | null> {
-    try {
-      const credentialsStr = await SecureStore.getItemAsync(this.CREDENTIALS_PREFIX + accountId);
-      return credentialsStr ? JSON.parse(credentialsStr) : null;
-    } catch (error) {
-      console.error('Error getting account credentials:', error);
-      return null;
-    }
-  }
 
-  /**
-   * Generate a unique account ID
-   * Sanitizes the handle to ensure it's valid for SecureStore keys
-   */
-  private static generateAccountId(handle: string, did: string): string {
-    // Sanitize handle to be valid for SecureStore keys
-    // Replace invalid characters with underscores
-    const sanitizedHandle = handle.replace(/[^a-zA-Z0-9._-]/g, '_');
-    return `${sanitizedHandle}_${did.slice(-8)}`;
-  }
 
   /**
    * Update account information with fresh profile data
@@ -359,11 +365,6 @@ class AccountManager {
   static async clearAllAccounts(): Promise<void> {
     try {
       const accounts = await this.getSavedAccounts();
-      
-      // Remove all credentials
-      for (const account of accounts) {
-        await SecureStore.deleteItemAsync(this.CREDENTIALS_PREFIX + account.id);
-      }
       
       // Clear accounts list and active account
       await SecureStore.deleteItemAsync(this.ACCOUNTS_KEY);

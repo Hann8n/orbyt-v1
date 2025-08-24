@@ -231,8 +231,17 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           onPress: async () => {
             setIsSubmitting(true);
             try {
+              // Get the current active account and remove it from account manager
+              const AccountManager = (await import('../../../services/storage/AccountManager')).default;
+              const activeAccount = await AccountManager.getActiveAccount();
+              
+              if (activeAccount) {
+                console.log('[ProfileMenu] Removing current account from account manager:', activeAccount.handle);
+                await AccountManager.removeAccount(activeAccount.id);
+              }
+              
               if (onLogout) {
-                await onLogout(false); // Don't clear all accounts by default
+                await onLogout(false); // Don't clear all accounts since we already removed the current one
               } else {
                 // Fallback to direct logout if no callback provided
                 await AtprotoService.logout(false);

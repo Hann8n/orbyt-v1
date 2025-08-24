@@ -20,6 +20,8 @@ import { useAppStore } from './stores/appStore';
 import { useNavigationUpdate } from './stores/visibilityStore';
 import { QUERY_CONSTANTS, STORAGE_KEYS, ERROR_MESSAGES } from './utils/constants';
 import { CommonErrorHandlers } from './utils/errorHandler';
+import AccountManager from './services/storage/AccountManager';
+import { AtProtoOAuthService } from './services/auth';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -51,6 +53,24 @@ const queryClient = new QueryClient({
 
 // Force dark mode
 Appearance.setColorScheme('dark');
+
+// Handle location variable error for React Native
+if (typeof global !== 'undefined' && !global.location) {
+  (global as any).location = {
+    href: '',
+    origin: '',
+    protocol: '',
+    host: '',
+    hostname: '',
+    port: '',
+    pathname: '',
+    search: '',
+    hash: '',
+    reload: () => {},
+    replace: () => {},
+    assign: () => {},
+  };
+}
 
 interface AppProps {}
 
@@ -123,27 +143,38 @@ const App: React.FC<AppProps> = () => {
   useEffect(() => {
     const checkLogin = async () => {
       try {
-        const sessionStr = await SecureStore.getItemAsync(STORAGE_KEYS.SESSION);
-        if (sessionStr) {
-          const user = await AtprotoService.getCurrentUser();
-          if (user) {
-            // Cache the user's profile data
-            if (user.handle) {
-              await ProfileCache.cacheProfiles([user]);
-              ProfileCache.setCurrentUserDid(user.did);
-            }
+        setLoading(true);
+        
+        // First check for saved accounts
+        const savedAccounts = await AccountManager.getSavedAccounts();
+        const activeAccount = await AccountManager.getActiveAccount();
+        
+        if (activeAccount && savedAccounts.length > 0) {
+          console.log('[App] Found active account:', activeAccount.did);
+          
+          // Try to restore OAuth session for the active account
+          const oauthService = AtProtoOAuthService.getInstance();
+          try {
+            console.log('[App] Attempting to restore OAuth session for DID:', activeAccount.did);
+            await oauthService.restoreSession(activeAccount.did);
+            console.log('[App] OAuth session restored successfully, completing login');
             completeLogin();
-          } else {
-            await SecureStore.deleteItemAsync(STORAGE_KEYS.SESSION);
-            completeLogout();
+            return;
+          } catch (error) {
+            console.warn('[App] OAuth session restoration failed for active account:', error);
+            // Don't clear the account, just let user re-authenticate
+            await oauthService.signOut();
           }
-        } else {
-          completeLogout();
         }
-              } catch (error: any) {
-          CommonErrorHandlers.api(error);
-          completeLogout();
-        } finally {
+        
+        // No valid session found, user needs to log in
+        console.log('[App] No valid session found, user needs to log in');
+        completeLogout();
+      } catch (error: any) {
+        console.error('[App] Error during login check:', error);
+        CommonErrorHandlers.api(error);
+        completeLogout();
+      } finally {
         setLoading(false);
       }
     };
@@ -151,12 +182,62 @@ const App: React.FC<AppProps> = () => {
     checkLogin();
   }, [completeLogin, completeLogout, setLoading]);
 
-  const handleLogin = async (handle: string, password: string) => {
+  const handleLogin = async (handle: string) => {
+    console.log(`[App] handleLogin called with:`, { 
+      handle: `"${handle}"`
+    });
+
     try {
-      await AtprotoService.login(handle, password, true);
+      // OAuth authentication - the OAuth session should already be established
+      console.log(`[App] Using OAuth authentication - session should already be established`);
+      // For OAuth, the session is managed by the OAuth service
+      // We just need to verify it exists
+      const oauthService = AtProtoOAuthService.getInstance();
+      const session = await oauthService.getCurrentSession();
+      
+      if (!session) {
+        throw new Error('OAuth session not found');
+      }
+      
+      console.log(`[App] OAuth session verified for DID: ${session.did}`);
+      
+      // Save the account to AccountManager with profile information
+      try {
+        // Get the user's profile information to get handle and display name
+        const userProfile = await oauthService.getCurrentUserProfile();
+        if (userProfile) {
+          console.log(`[App] Saving OAuth account with profile:`, {
+            did: session.did,
+            handle: userProfile.handle,
+            displayName: userProfile.displayName,
+            avatar: userProfile.avatar
+          });
+          
+          await AccountManager.saveOAuthAccount(
+            session,
+            userProfile.displayName,
+            userProfile.avatar,
+            userProfile.handle
+          );
+          
+          // Cache the user's profile data
+          if (userProfile.handle) {
+            await ProfileCache.cacheProfiles([userProfile]);
+            ProfileCache.setCurrentUserDid(userProfile.did);
+          }
+        } else {
+          console.warn(`[App] Could not fetch user profile, saving account with basic info`);
+          await AccountManager.saveOAuthAccount(session);
+        }
+      } catch (accountSaveError) {
+        console.error(`[App] Failed to save account:`, accountSaveError);
+        // Don't fail the login if account saving fails
+      }
+      
       completeLogin();
       return Promise.resolve();
     } catch (error) {
+      console.error(`[App] Login failed:`, error);
       CommonErrorHandlers.login(error);
       return Promise.reject(error);
     }

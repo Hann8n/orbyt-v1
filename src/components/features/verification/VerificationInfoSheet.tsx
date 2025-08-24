@@ -309,7 +309,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
                 }
                 avatar={issuerProfile?.avatar}
                 textColor={Colors.white}
-                backgroundColor="transparent"
                 size="large"
                 showDate={true}
                 date={issuerCreatedAt ? new Date(issuerCreatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : undefined}
@@ -317,17 +316,20 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
                 handleFontWeight="Firma-Bold"
                 style={styles.issuerListItem}
                 onPress={() => {
-                  onDismiss();
-                  // Slightly delay navigation to allow for smooth dismissal animation
+                  const target = (issuerProfile?.handle || actualIssuerHandle || verifierDid || '').trim();
+                  if (!target) return;
+                  
+                  // Navigate immediately without dismissing first
+                  navigation.navigate('AuthorProfile', { 
+                    handle: target,
+                    // Force a new screen instance
+                    key: `verifier-${target}-${Date.now()}`
+                  });
+                  
+                  // Dismiss the sheet after navigation starts
                   setTimeout(() => {
-                    const target = (issuerProfile?.handle || actualIssuerHandle || verifierDid || '').trim();
-                    if (!target) return;
-                    let rootNav: any = navigation as any;
-                    while (rootNav?.getParent?.()) {
-                      rootNav = rootNav.getParent();
-                    }
-                    rootNav?.navigate?.('AuthorProfile', { handle: target });
-                  }, 300);
+                    onDismiss();
+                  }, 100);
                 }}
               />
             )}

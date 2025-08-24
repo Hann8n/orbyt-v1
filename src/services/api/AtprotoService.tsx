@@ -1,6 +1,10 @@
 import { AtpAgent } from '@atproto/api';
 import * as SecureStore from 'expo-secure-store';
 import { ModerationDecision, ModerationSettings, LabelPreference, ModerationOpts, LabelDefinition } from '../ModerationTypes';
+import { AtProtoOAuthService } from '../auth/OAuthService';
+import { StaticChannelsService } from '../APIService';
+import AccountManager from '../storage/AccountManager';
+import { ModerationService } from '../ModerationService';
 
 const SERVICE_URL = 'https://bsky.social';
 const CHAT_SERVICE_URL = 'https://api.bsky.chat';
@@ -101,38 +105,8 @@ class AtprotoService {
     }
   }
 
-  static async login(identifier: string, appPassword: string, saveAccount: boolean = true): Promise<any> {
-    try {
-      const response = await this.agent.login({
-        identifier: identifier, // Can be DID, handle, or email
-        password: appPassword,
-      });
-      await SecureStore.setItemAsync('session', JSON.stringify(response.data));
-      await SecureStore.setItemAsync(
-        'credentials',
-        JSON.stringify({ identifier, appPassword })
-      );
-      // console.log('Logged in Successfully: ' + response.data.did);
-      
-      // Save account to AccountManager if requested
-      if (saveAccount) {
-        try {
-          const AccountManager = (await import('../storage/AccountManager')).default;
-          await AccountManager.saveAccount(identifier, appPassword, (response.data as any).displayName, (response.data as any).avatar);
-        } catch (error) {
-          console.warn('Failed to save account to AccountManager:', error);
-        }
-      }
-      
-      return response.data;
-    } catch (error: any) {
-      console.error('Login failed:', error.message, error.stack);
-      throw error;
-    }
-  }
-
   /**
-   * Ensures a valid session exists, refreshing if needed
+   * Ensures a valid OAuth session exists
    * This optimized version prevents duplicate session checks when multiple
    * queries fire at once
    */
@@ -145,29 +119,16 @@ class AtprotoService {
     // Otherwise, create a new session promise
     this._sessionPromise = (async () => {
       try {
-        let sessionStr = await SecureStore.getItemAsync('session');
-        let session = sessionStr ? JSON.parse(sessionStr) : null;
-        if (!session) {
-          throw new Error('Not authenticated. Please log in first.');
-        }
+        // Check if there's an OAuth session
+        const oauthService = AtProtoOAuthService.getInstance();
+        const oauthSession = await oauthService.getCurrentSession();
         
-        try {
-          await this.agent.resumeSession(session);
-        } catch (error: any) {
-          if (error.message && error.message.toLowerCase().includes('expired')) {
-            console.warn('Session expired. Attempting to refresh...');
-            const credStr = await SecureStore.getItemAsync('credentials');
-            const creds = credStr ? JSON.parse(credStr) : null;
-            if (creds) {
-              session = await this.login(creds.identifier, creds.appPassword);
-            } else {
-              throw new Error('Session expired and no stored credentials available.');
-            }
-          } else {
-            throw error;
-          }
+        if (oauthSession) {
+          console.log('[AtprotoService] Using OAuth session for DID:', oauthSession.did);
+          return { did: oauthSession.did, type: 'oauth' };
         }
-        return session;
+
+        throw new Error('No OAuth session available. Please log in first.');
       } finally {
         // Clear the session promise so subsequent calls will create a new one
         setTimeout(() => {
@@ -177,6 +138,60 @@ class AtprotoService {
     })();
 
     return this._sessionPromise;
+  }
+
+  /**
+   * Get the current user's DID from OAuth session
+   */
+  static async getCurrentUserDid(): Promise<string | null> {
+    try {
+      const oauthService = AtProtoOAuthService.getInstance();
+      const oauthSession = await oauthService.getCurrentSession();
+      return oauthSession?.did || null;
+    } catch (error) {
+      console.error('Error getting current user DID:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get the OAuth API client
+   */
+  static async getApiClient(): Promise<{ api: any; isOAuth: boolean }> {
+    const oauthService = AtProtoOAuthService.getInstance();
+    const oauthSession = await oauthService.getCurrentSession();
+    
+    if (oauthSession) {
+      const oauthAgent = await oauthService.getCurrentAgent();
+      if (oauthAgent) {
+        console.log('[AtprotoService] Using OAuth session for API calls');
+        console.log('[AtprotoService] OAuth Agent properties:', {
+          hasApi: !!oauthAgent.api,
+          did: oauthAgent.did,
+          accountDid: oauthAgent.accountDid,
+          apiKeys: oauthAgent.api ? Object.keys(oauthAgent.api) : [],
+        });
+        return { api: oauthAgent.api, isOAuth: true };
+      } else {
+        throw new Error('OAuth agent not available');
+      }
+    }
+
+    throw new Error('No OAuth session available');
+  }
+
+  /**
+   * Make an authenticated API request using OAuth
+   */
+  static async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    const oauthService = AtProtoOAuthService.getInstance();
+    const oauthSession = await oauthService.getCurrentSession();
+    
+    if (oauthSession) {
+      return await oauthService.makeAuthenticatedRequest(url, options);
+    } else {
+      throw new Error('No OAuth session available');
+    }
   }
 
   /**
@@ -196,11 +211,14 @@ class AtprotoService {
     limit: number = 100,
     feedType?: 'author' | 'likes' | 'reposts' | 'authorVideos' | 'custom'
   ): Promise<FeedResponse> {
+    console.log(`[AtprotoService] getFeed called with feedType: ${feedType}, feedLink: ${feedLink}, isOAuth context loading...`);
+    
     let retries = 3;
     
     while (retries > 0) {
       try {
-        await this.ensureSession();
+        const { api, isOAuth } = await this.getApiClient();
+        console.log(`[AtprotoService] getFeed - obtained API client, isOAuth: ${isOAuth}, feedType: ${feedType}`);
         let response: any;
         
         // Unified feed handling based on feedType
@@ -215,9 +233,20 @@ class AtprotoService {
               filter: authorFilter,
             };
             
-            response = await this.agent.api.app.bsky.feed.getAuthorFeed(params);
+            console.log(`[AtprotoService] Making getAuthorFeed API call with params:`, params);
+            response = await api.app.bsky.feed.getAuthorFeed(params);
+            console.log(`[AtprotoService] getAuthorFeed API call successful, response structure:`, {
+              hasData: !!response?.data,
+              hasFeed: !!response?.data?.feed,
+              feedLength: response?.data?.feed?.length || 0,
+              hasCursor: !!response?.data?.cursor
+            });
           } catch (authorError: any) {
-            console.warn('Author feed error:', authorError.message);
+            console.error('[AtprotoService] Author feed error details:', {
+              message: authorError.message,
+              status: authorError.status,
+              error: authorError
+            });
             return { feed: [], cursor: null };
           }
         } else if (feedType === 'likes') {
@@ -229,9 +258,20 @@ class AtprotoService {
               cursor: cursor || undefined,
             };
             
-            response = await this.agent.api.app.bsky.feed.getActorLikes(params);
+            console.log(`[AtprotoService] Making getActorLikes API call with params:`, params);
+            response = await api.app.bsky.feed.getActorLikes(params);
+            console.log(`[AtprotoService] getActorLikes API call successful, response structure:`, {
+              hasData: !!response?.data,
+              hasFeed: !!response?.data?.feed,
+              feedLength: response?.data?.feed?.length || 0,
+              hasCursor: !!response?.data?.cursor
+            });
           } catch (likesError: any) {
-            console.warn('Likes feed error:', likesError.message);
+            console.error('[AtprotoService] Likes feed error details:', {
+              message: likesError.message,
+              status: likesError.status,
+              error: likesError
+            });
             return { feed: [], cursor: null };
           }
         } else {
@@ -269,9 +309,20 @@ class AtprotoService {
           if (cursor) params.cursor = cursor;
           
           try {
-            response = await this.agent.api.app.bsky.feed.getFeed(params);
+            console.log(`[AtprotoService] Making getFeed API call with params:`, params);
+            response = await api.app.bsky.feed.getFeed(params);
+            console.log(`[AtprotoService] getFeed API call successful, response structure:`, {
+              hasData: !!response?.data,
+              hasFeed: !!response?.data?.feed,
+              feedLength: response?.data?.feed?.length || 0,
+              hasCursor: !!response?.data?.cursor
+            });
           } catch (customFeedError: any) {
-            console.warn('Custom feed error:', customFeedError.message);
+            console.error('[AtprotoService] Custom feed error details:', {
+              message: customFeedError.message,
+              status: customFeedError.status,
+              error: customFeedError
+            });
             // Check if it's a feed validation error
             if (customFeedError.message && customFeedError.message.includes('feed must be a valid at-uri')) {
               console.warn('[AtprotoService] Invalid feed URI:', feed);
@@ -290,42 +341,43 @@ class AtprotoService {
         let feedData = response.data.feed;
         
         // Filter for video posts at API level if requested
-        if (filterVideosOnly && feedData.length > 0) {
-          feedData = this.filterVideoPostsEfficiently(feedData);
-        }
-        
-        // Apply content moderation at fetch level to reduce downstream compute
-        if (feedData.length > 0) {
-          const { ModerationService } = await import('../ModerationService');
-          const moderationResult = await ModerationService.batchModeratePosts(feedData);
-          // Attach moderationDecision to each item
-          const moderationMap = moderationResult.moderationDecisions;
-          feedData = moderationResult.filteredPosts.map(item => {
-            const uri = item?.post?.uri;
-            return uri && moderationMap.has(uri)
-              ? { ...item, moderationDecision: moderationMap.get(uri) }
-              : item;
+        if (filterVideosOnly) {
+          console.log(`[AtprotoService] Filtering ${feedData.length} posts for video content`);
+          feedData = feedData.filter((post: any) => {
+            const embed = post.post.embed;
+            if (!embed) {
+              console.log(`[AtprotoService] Post has no embed, filtering out`);
+              return false;
+            }
+            
+            console.log(`[AtprotoService] Post embed type: ${embed.$type}`);
+            
+            // Only include posts with video embeds
+            let hasVideo = false;
+            
+            if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
+              hasVideo = true;
+            } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
+              hasVideo = Boolean(embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view');
+            }
+            
+            if (!hasVideo) {
+              console.log(`[AtprotoService] Post does not contain video content, filtering out`);
+            }
+            
+            return hasVideo;
           });
-        }
-        
-        // Add sourceFeed information for individual feeds
-        if (feedLink && feedData.length > 0) {
-          feedData = feedData.map((item: any) => ({
-            ...item,
-            sourceFeed: feedLink
-          }));
+          console.log(`[AtprotoService] After video filtering: ${feedData.length} posts remaining`);
         }
         
         return { feed: feedData, cursor: response.data.cursor };
       } catch (error: any) {
         retries--;
-        console.error(`Error fetching feed (${retries} retries left):`, error.message, error.stack);
-        
-        if (retries <= 0) {
-          console.error('Failed to fetch feed after multiple attempts');
+        if (retries === 0) {
+          console.error('Feed request failed after retries:', error);
           return { feed: [], cursor: null };
         }
-        
+        // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
@@ -376,10 +428,16 @@ class AtprotoService {
 
   static async getCurrentUser(): Promise<any> {
     try {
-      await this.ensureSession();
-      const sessionStr = await SecureStore.getItemAsync('session');
-      const session = sessionStr ? JSON.parse(sessionStr) : null;
-      const response = await this.agent.api.app.bsky.actor.getProfile({ actor: session.did });
+      const { api } = await this.getApiClient();
+      
+      // For OAuth sessions, get the DID from the OAuth service
+      const oauthService = AtProtoOAuthService.getInstance();
+      const oauthSession = await oauthService.getCurrentSession();
+      if (!oauthSession) {
+        throw new Error('No OAuth session available');
+      }
+      
+      const response = await api.app.bsky.actor.getProfile({ actor: oauthSession.did });
       return response.data;
     } catch (error: any) {
       console.error('Error getting current user:', error);
@@ -399,15 +457,21 @@ class AtprotoService {
    */
   static async getConversations(cursor: string | null = null): Promise<ConversationsResponse> {
     try {
-      const session = await this.ensureSession();
+      const { api } = await this.getApiClient();
       const headers: any = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'x-bsky-service': 'did:web:api.bsky.chat'
       };
-      if (session && session.accessJwt) {
-        headers['Authorization'] = `Bearer ${session.accessJwt}`;
+      
+      // For OAuth, the authentication is handled by the agent automatically
+      const oauthService = AtProtoOAuthService.getInstance();
+      const oauthSession = await oauthService.getCurrentSession();
+      
+      if (!oauthSession) {
+        throw new Error('No OAuth session available');
       }
+      
       const params = new URLSearchParams({ limit: '50' });
       if (cursor) {
         params.append('cursor', cursor);
@@ -439,7 +503,7 @@ class AtprotoService {
    */
   static async getMessages(convoId: string, cursor: string | null = null): Promise<MessagesResponse> {
     try {
-      const session = await this.ensureSession();
+      await this.ensureSession();
       const params = new URLSearchParams({ convoId, limit: '50' });
       if (cursor) {
         params.append('cursor', cursor);
@@ -449,9 +513,8 @@ class AtprotoService {
         'Accept': 'application/json',
         'x-bsky-service': 'did:web:api.bsky.chat'
       };
-      if (session && session.accessJwt) {
-        headers['Authorization'] = `Bearer ${session.accessJwt}`;
-      }
+      
+      // For OAuth, authentication is handled automatically by the agent
       const response = await fetch(
         `${CHAT_SERVICE_URL}/xrpc/chat.bsky.convo.getMessages?${params.toString()}`,
         { headers }
@@ -473,7 +536,7 @@ class AtprotoService {
 
   static async getLog(cursor: string | null = null): Promise<{ logs: any[]; cursor: string | null }> {
     try {
-      const session = await this.ensureSession();
+      await this.ensureSession();
       const params = new URLSearchParams();
       if (cursor) params.append('cursor', cursor);
       const headers: any = {
@@ -481,9 +544,8 @@ class AtprotoService {
         'Accept': 'application/json',
         'x-bsky-service': 'did:web:api.bsky.chat'
       };
-      if (session && session.accessJwt) {
-        headers['Authorization'] = `Bearer ${session.accessJwt}`;
-      }
+      
+      // For OAuth, authentication is handled automatically by the agent
       const response = await fetch(
         `${CHAT_SERVICE_URL}/xrpc/chat.bsky.convo.getLog?${params.toString()}`,
         { headers }
@@ -508,16 +570,17 @@ class AtprotoService {
    * @returns The URI of the created like
    */
   static async likePost(uri: string, cid: string): Promise<string> {
-    await this.ensureSession();
-    const sessionStr = await SecureStore.getItemAsync('session');
-    const session = sessionStr ? JSON.parse(sessionStr) : null;
+    const userDid = await this.getCurrentUserDid();
+    if (!userDid) throw new Error('No authenticated user');
+    
     const record = {
       $type: 'app.bsky.feed.like' as const,
       subject: { uri, cid },
       createdAt: new Date().toISOString(),
     };
     try {
-      const response = await this.agent.api.app.bsky.feed.like.create({ repo: session.did }, record);
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.feed.like.create({ repo: userDid }, record);
       return response.uri;
     } catch (error: any) {
       console.error('Like creation error:', error);
@@ -527,20 +590,24 @@ class AtprotoService {
 
   static async deleteLike(likeUri: string): Promise<void> {
     await this.ensureSession();
-    await this.agent.deleteLike(likeUri);
+    const { api } = await this.getApiClient();
+    const parts = likeUri.split('/');
+    const rkey = parts[parts.length - 1];
+    await api.app.bsky.feed.like.delete({ repo: (await this.getCurrentUserDid())!, rkey });
   }
 
   static async repostPost(uri: string, cid: string): Promise<string> {
-    await this.ensureSession();
-    const sessionStr = await SecureStore.getItemAsync('session');
-    const session = sessionStr ? JSON.parse(sessionStr) : null;
+    const userDid = await this.getCurrentUserDid();
+    if (!userDid) throw new Error('No authenticated user');
+    
     const record = {
       $type: 'app.bsky.feed.repost' as const,
       subject: { uri, cid },
       createdAt: new Date().toISOString(),
     };
     try {
-      const response = await this.agent.api.app.bsky.feed.repost.create({ repo: session.did }, record);
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.feed.repost.create({ repo: userDid }, record);
       return response.uri;
     } catch (error: any) {
       console.error('Repost creation error:', error);
@@ -549,8 +616,13 @@ class AtprotoService {
   }
 
   static async deleteRepost(repostURI: string): Promise<void> {
-    await this.ensureSession();
-    await this.agent.deleteRepost(repostURI);
+    const { api } = await this.getApiClient();
+    const userDid = await this.getCurrentUserDid();
+    if (!userDid) throw new Error('No authenticated user');
+    
+    const parts = repostURI.split('/');
+    const rkey = parts[parts.length - 1];
+    await api.app.bsky.feed.repost.delete({ repo: userDid, rkey });
   }
 
   /**
@@ -597,7 +669,8 @@ class AtprotoService {
               const blob = await response.blob();
               
               // Upload the blob to Bluesky
-              const uploadResult = await this.agent.uploadBlob(blob, {
+              const { api } = await this.getApiClient();
+              const uploadResult = await api.uploadBlob(blob, {
                 encoding: 'image/jpeg' // Default to JPEG, but ideally detect from the blob
               });
               
@@ -623,7 +696,8 @@ class AtprotoService {
       }
     }
     
-    const commentResponse = await this.agent.post(postRecord);
+    const { api } = await this.getApiClient();
+    const commentResponse = await api.post(postRecord);
     return commentResponse;
   }
 
@@ -654,7 +728,8 @@ class AtprotoService {
       const videoResponse = await fetch(videoPath);
       const videoBlob = await videoResponse.blob();
       
-      const { data } = await this.agent.com.atproto.repo.uploadBlob(videoBlob, {
+      const { api } = await this.getApiClient();
+      const { data } = await api.com.atproto.repo.uploadBlob(videoBlob, {
         encoding: 'video/mp4'
       });
       
@@ -687,7 +762,7 @@ class AtprotoService {
       }
 
       // Create the post
-      const postResponse = await this.agent.post(postRecord);
+      const postResponse = await api.post(postRecord);
 
       // Set comment filtering if specified
       if (commentFilter && commentFilter !== 'all') {
@@ -739,7 +814,8 @@ class AtprotoService {
       const videoBlob = await response.blob();
 
       // Upload the video to Bluesky
-      const uploadResult = await this.agent.uploadBlob(videoBlob, {
+      const { api } = await this.getApiClient();
+      const uploadResult = await api.uploadBlob(videoBlob, {
         encoding: 'video/mp4'
       });
 
@@ -790,8 +866,12 @@ class AtprotoService {
         allow
       };
       
-      await this.agent.api.com.atproto.repo.createRecord({
-        repo: session.did,
+      const { api } = await this.getApiClient();
+      const userDid = await this.getCurrentUserDid();
+      if (!userDid) throw new Error('No authenticated user');
+      
+      await api.com.atproto.repo.createRecord({
+        repo: userDid,
         collection: 'app.bsky.feed.threadgate',
         rkey: rkey,
         record
@@ -820,7 +900,8 @@ class AtprotoService {
       };
       if (cursor) params.cursor = cursor;
       
-      const response = await this.agent.api.app.bsky.feed.getPostThread(params);
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.feed.getPostThread(params);
       
       // Function to recursively process thread posts with proper typing
       const processThreadViewPost = (post: ThreadPost): any => {
@@ -884,7 +965,8 @@ class AtprotoService {
       const params: any = { uri, limit };
       if (cursor) params.cursor = cursor;
       
-      const response = await this.agent.api.app.bsky.feed.getLikes(params);
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.feed.getLikes(params);
       return { 
         likes: response.data.likes || [], 
         cursor: response.data.cursor || null 
@@ -903,7 +985,8 @@ class AtprotoService {
   static async searchProfiles(query: string): Promise<any[]> {
     await this.ensureSession();
     try {
-      const response = await this.agent.api.app.bsky.actor.searchActors({
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.actor.searchActors({
         term: query,
         limit: 20
       });
@@ -928,7 +1011,8 @@ class AtprotoService {
       if (cursor) params.cursor = cursor;
       
       // Use the correct API endpoint with proper namespace
-      const response = await this.agent.api.app.bsky.actor.searchActors(params);
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.actor.searchActors(params);
       
       // Extract the cursor for pagination
       const nextCursor = response.data.cursor || null;
@@ -957,9 +1041,9 @@ class AtprotoService {
       return cachedProfile;
     }
 
-    await this.ensureSession();
+    const { api } = await this.getApiClient();
     try {
-      const response = await this.agent.api.app.bsky.actor.getProfile({
+      const response = await api.app.bsky.actor.getProfile({
         actor: handle,
       });
       
@@ -982,9 +1066,15 @@ class AtprotoService {
    * @returns Follow URI
    */
   static async follow(did: string): Promise<string> {
-    await this.ensureSession();
-    const sessionStr = await SecureStore.getItemAsync('session');
-    const session = sessionStr ? JSON.parse(sessionStr) : null;
+    const { api } = await this.getApiClient();
+    
+    // For OAuth sessions, get the DID from the OAuth service
+    const oauthService = AtProtoOAuthService.getInstance();
+    const oauthSession = await oauthService.getCurrentSession();
+    if (!oauthSession) {
+      throw new Error('No OAuth session available');
+    }
+    const userDid = oauthSession.did;
     
     const record = {
       $type: 'app.bsky.graph.follow' as const,
@@ -993,8 +1083,8 @@ class AtprotoService {
     };
     
     try {
-      const response = await this.agent.api.app.bsky.graph.follow.create(
-        { repo: session.did }, 
+      const response = await api.app.bsky.graph.follow.create(
+        { repo: userDid }, 
         record
       );
       return response.uri;
@@ -1010,13 +1100,19 @@ class AtprotoService {
    * @returns True if successful
    */
   static async unfollow(did: string): Promise<boolean> {
-    await this.ensureSession();
-    const sessionStr = await SecureStore.getItemAsync('session');
-    const session = sessionStr ? JSON.parse(sessionStr) : null;
+    const { api } = await this.getApiClient();
+    
+    // For OAuth sessions, get the DID from the OAuth service
+    const oauthService = AtProtoOAuthService.getInstance();
+    const oauthSession = await oauthService.getCurrentSession();
+    if (!oauthSession) {
+      throw new Error('No OAuth session available');
+    }
+    const userDid = oauthSession.did;
     
     try {
       // Get the profile by DID to get the viewer.following
-      const profileResponse = await this.agent.api.app.bsky.actor.getProfile({ actor: did });
+      const profileResponse = await api.app.bsky.actor.getProfile({ actor: did });
       if (!profileResponse.data.viewer?.following) {
         console.log('Not following this user');
         return false;
@@ -1033,8 +1129,8 @@ class AtprotoService {
       }
       
       // Delete the follow using the record key
-      await this.agent.api.app.bsky.graph.follow.delete({
-        repo: session.did,
+      await api.app.bsky.graph.follow.delete({
+        repo: userDid,
         rkey: rkey,
       });
       
@@ -1051,8 +1147,12 @@ class AtprotoService {
     const session = sessionStr ? JSON.parse(sessionStr) : null;
 
     try {
-      await this.agent.api.app.bsky.graph.block.delete({
-        repo: session.did,
+      const { api } = await this.getApiClient();
+      const userDid = await this.getCurrentUserDid();
+      if (!userDid) throw new Error('No authenticated user');
+      
+      await api.app.bsky.graph.block.delete({
+        repo: userDid,
         rkey: did,
       });
     } catch (error: any) {
@@ -1073,8 +1173,12 @@ class AtprotoService {
     };
 
     try {
-      await this.agent.api.app.bsky.graph.block.create(
-        { repo: session.did },
+      const { api } = await this.getApiClient();
+      const userDid = await this.getCurrentUserDid();
+      if (!userDid) throw new Error('No authenticated user');
+      
+      await api.app.bsky.graph.block.create(
+        { repo: userDid },
         record
       );
     } catch (error: any) {
@@ -1096,7 +1200,8 @@ class AtprotoService {
   static async getPost(uri: string): Promise<any> {
     try {
       await this.ensureSession();
-      const response = await this.agent.api.app.bsky.feed.getPostThread({
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.feed.getPostThread({
         uri: uri,
         depth: 0
       });
@@ -1119,7 +1224,8 @@ class AtprotoService {
 
     try {
       // Use the correct parameter name 'filter' instead of 'actor'
-      const response = await this.agent.api.app.bsky.graph.getBlocks({
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.graph.getBlocks({
         limit: 50 // Use a reasonable limit since we need to search through the results
       });
       
@@ -1169,7 +1275,8 @@ class AtprotoService {
       if (cursor !== null) {
         params.cursor = cursor;
       }
-      const response = await this.agent.api.app.bsky.notification.listNotifications(params);
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.notification.listNotifications(params);
       return { 
         notifications: response.data.notifications || [], 
         cursor: response.data.cursor || null 
@@ -1211,8 +1318,12 @@ class AtprotoService {
       }
       
       // Delete the post
-      await this.agent.api.app.bsky.feed.post.delete({
-        repo: session.did,
+      const { api } = await this.getApiClient();
+      const userDid = await this.getCurrentUserDid();
+      if (!userDid) throw new Error('No authenticated user');
+      
+      await api.app.bsky.feed.post.delete({
+        repo: userDid,
         rkey: rkey
       });
       
@@ -1263,7 +1374,8 @@ class AtprotoService {
       if (uri.includes('app.bsky.feed.post')) {
         try {
           // Try to get the post to extract its CID
-          const postResponse = await this.agent.api.app.bsky.feed.getPostThread({ 
+          const { api } = await this.getApiClient();
+          const postResponse = await api.app.bsky.feed.getPostThread({ 
             uri,
             depth: 0
           });
@@ -1298,16 +1410,11 @@ class AtprotoService {
         };
       }
       
-      // Create base agent
-      let agentToUse = this.agent;
+      // Get the API client
+      const { api } = await this.getApiClient();
       
-      // If a specific labeler is specified, use the proxy
-      if (labelerDid) {
-        agentToUse = this.agent.withProxy('atproto_labeler', labelerDid);
-      }
-
       // Create the moderation report
-      await agentToUse.api.com.atproto.moderation.createReport({
+      await api.com.atproto.moderation.createReport({
         reasonType: fullReasonType,
         subject,
         reason
@@ -1354,8 +1461,12 @@ class AtprotoService {
         allow: [] // Empty array means no one can comment
       };
       
-      await this.agent.api.com.atproto.repo.createRecord({
-        repo: session.did,
+      const { api } = await this.getApiClient();
+      const userDid = await this.getCurrentUserDid();
+      if (!userDid) throw new Error('No authenticated user');
+      
+      await api.com.atproto.repo.createRecord({
+        repo: userDid,
         collection: 'app.bsky.feed.threadgate',
         rkey: rkey,
         record
@@ -1392,16 +1503,13 @@ class AtprotoService {
       // Create a new clean agent first to avoid using stale credentials
       this.agent = new AtpAgent({ service: SERVICE_URL });
       
-      // Clear secure storage in parallel for efficiency
-      await Promise.all([
-        SecureStore.deleteItemAsync('session'),
-        SecureStore.deleteItemAsync('credentials')
-      ]);
+      // Clear OAuth session
+      const oauthService = AtProtoOAuthService.getInstance();
+      await oauthService.signOut();
       
       // Clear all saved accounts if requested
       if (clearAllAccounts) {
         try {
-          const AccountManager = (await import('../storage/AccountManager')).default;
           await AccountManager.clearAllAccounts();
         } catch (error) {
           console.warn('Failed to clear accounts from AccountManager:', error);
@@ -1423,7 +1531,8 @@ class AtprotoService {
   static async getVerifierProfile(did: string): Promise<any | null> {
     try {
       await this.ensureSession();
-      const response = await this.agent.api.app.bsky.actor.getProfile({
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.actor.getProfile({
         actor: did,
       });
       return response.data;
@@ -1447,7 +1556,8 @@ class AtprotoService {
       await this.ensureSession();
       
       // Use the correct upsertProfile method as per Bluesky documentation
-      const updatedProfile = await this.agent.upsertProfile(existingProfile => {
+      const { api } = await this.getApiClient();
+      const updatedProfile = await api.upsertProfile(existingProfile => {
         const existing = existingProfile ?? {};
         
         // Update display name if provided
@@ -1487,12 +1597,13 @@ class AtprotoService {
           }
 
           // Upload the image to Bluesky
-          const uploadResult = await this.agent.uploadBlob(imageBlob, {
+          const { api } = await this.getApiClient();
+          const uploadResult = await api.uploadBlob(imageBlob, {
             encoding: 'image/jpeg'
           });
 
           // Update profile with the new avatar
-          await this.agent.upsertProfile(existingProfile => {
+          await api.upsertProfile(existingProfile => {
             const existing = existingProfile ?? {};
             (existing as any).avatar = uploadResult.data.blob;
             return existing;
@@ -1535,7 +1646,8 @@ class AtprotoService {
       }
 
       // Upload the image to Bluesky
-      const uploadResult = await this.agent.uploadBlob(imageBlob, {
+      const { api } = await this.getApiClient();
+      const uploadResult = await api.uploadBlob(imageBlob, {
         encoding: 'image/jpeg'
       });
 
@@ -1552,9 +1664,9 @@ class AtprotoService {
    * @returns Array of suggested profile objects
    */
   static async getSuggestedAccounts(limit: number = 20): Promise<any[]> {
-    await this.ensureSession();
+    const { api } = await this.getApiClient();
     try {
-      const response = await this.agent.api.app.bsky.actor.getSuggestions({ limit });
+      const response = await api.app.bsky.actor.getSuggestions({ limit });
       return response.data.actors || [];
     } catch (error: any) {
       console.error('Error fetching suggested accounts:', error);
@@ -1574,7 +1686,8 @@ class AtprotoService {
     try {
       const params: any = { actor, limit };
       if (cursor) params.cursor = cursor;
-      const response = await this.agent.api.app.bsky.graph.getFollowers(params);
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.graph.getFollowers(params);
       return { 
         followers: response.data.followers || [], 
         cursor: response.data.cursor || null 
@@ -1597,7 +1710,8 @@ class AtprotoService {
     try {
       const params: any = { actor, limit };
       if (cursor) params.cursor = cursor;
-      const response = await this.agent.api.app.bsky.graph.getFollows(params);
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.graph.getFollows(params);
       return { 
         following: response.data.follows || [], 
         cursor: response.data.cursor || null 
@@ -1686,7 +1800,8 @@ class AtprotoService {
       ]);
       
       // For reposts, we need to check the post thread
-      const postThread = await this.agent.api.app.bsky.feed.getPostThread({ uri });
+      const { api } = await this.getApiClient();
+      const postThread = await api.app.bsky.feed.getPostThread({ uri });
       const reposts = (postThread.data.thread as any)?.repostCount || 0;
       
       return {
@@ -1710,14 +1825,14 @@ class AtprotoService {
     await this.ensureSession();
     try {
       // Get experimental feeds setting first
-      const AccountManager = (await import('../storage/AccountManager')).default;
       const experimentalFeedsEnabled = await AccountManager.getExperimentalFeedsEnabled();
       
       // If experimental feeds are disabled, request more feeds to ensure we get enough video-only results
       const requestLimit = experimentalFeedsEnabled ? limit : Math.max(limit * 3, 15);
       const params = { limit: requestLimit, query: query };
       
-      const response = await this.agent.api.app.bsky.unspecced.getPopularFeedGenerators(params);
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.unspecced.getPopularFeedGenerators(params);
       
       // Filter and mark feeds
       const allFeeds = response.data.feeds || [];
@@ -1752,14 +1867,14 @@ class AtprotoService {
     await this.ensureSession();
     try {
       // Get experimental feeds setting first
-      const AccountManager = (await import('../storage/AccountManager')).default;
       const experimentalFeedsEnabled = await AccountManager.getExperimentalFeedsEnabled();
       
       // If experimental feeds are disabled, request more feeds to ensure we get enough video-only results
       const requestLimit = experimentalFeedsEnabled ? limit : Math.max(limit * 3, 30);
       const params = { limit: requestLimit };
       
-      const response = await this.agent.api.app.bsky.unspecced.getPopularFeedGenerators(params);
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.unspecced.getPopularFeedGenerators(params);
       
       // Filter and mark feeds
       const allFeeds = response.data.feeds || [];
@@ -1801,7 +1916,8 @@ class AtprotoService {
       
       const params = { feed: uri };
       
-      const response = await this.agent.api.app.bsky.feed.getFeedGenerator(params);
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.feed.getFeedGenerator(params);
       
       return response.data;
     } catch (error: any) {
@@ -1830,7 +1946,8 @@ class AtprotoService {
       // Get the feed generator details first
       const params = { feed: uri };
       
-      const generatorResponse = await this.agent.api.app.bsky.feed.getFeedGenerator(params);
+      const { api } = await this.getApiClient();
+      const generatorResponse = await api.app.bsky.feed.getFeedGenerator(params);
       
       if (!generatorResponse.data?.view?.likeCount) {
         return 0;
@@ -1862,7 +1979,8 @@ class AtprotoService {
       // Get generator details
       const generatorParams = { feed: uri };
       
-      const generatorResponse = await this.agent.api.app.bsky.feed.getFeedGenerator(generatorParams);
+      const { api } = await this.getApiClient();
+      const generatorResponse = await api.app.bsky.feed.getFeedGenerator(generatorParams);
       
       // Get feed posts
       const feedResponse = await this.getFeed(cursor, uri, {}, true);
@@ -1885,7 +2003,8 @@ class AtprotoService {
   static async getModerationPreferences(): Promise<any> {
     await this.ensureSession();
     try {
-      const response = await this.agent.api.app.bsky.actor.getPreferences();
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.actor.getPreferences();
       return response.data;
     } catch (error: any) {
       console.error('Error fetching moderation preferences:', error);
@@ -1901,7 +2020,8 @@ class AtprotoService {
   static async updateModerationPreferences(preferences: any): Promise<boolean> {
     await this.ensureSession();
     try {
-      await this.agent.api.app.bsky.actor.putPreferences(preferences);
+      const { api } = await this.getApiClient();
+      await api.app.bsky.actor.putPreferences(preferences);
       return true;
     } catch (error: any) {
       console.error('Error updating moderation preferences:', error);
@@ -1916,7 +2036,8 @@ class AtprotoService {
   static async getBlockedUsersFromAPI(): Promise<string[]> {
     await this.ensureSession();
     try {
-      const response = await this.agent.api.app.bsky.graph.getBlocks({
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.graph.getBlocks({
         limit: 100
       });
       return response.data.blocks?.map((block: any) => block.did) || [];
@@ -1932,7 +2053,8 @@ class AtprotoService {
   static async getMutedUsersFromAPI(): Promise<string[]> {
     await this.ensureSession();
     try {
-      const response = await this.agent.api.app.bsky.graph.getMutes({
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.graph.getMutes({
         limit: 100
       });
       return response.data.mutes?.map((mute: any) => mute.did) || [];
@@ -1958,7 +2080,8 @@ class AtprotoService {
       let response: any;
       if (query && query.trim()) {
         // Search for posts with the query
-        response = await this.agent.api.app.bsky.feed.searchPosts({
+        const { api } = await this.getApiClient();
+        response = await api.app.bsky.feed.searchPosts({
           q: query,
           limit,
           cursor: cursor || undefined
@@ -2153,7 +2276,8 @@ class AtprotoService {
 
         let response: any;
         try {
-          response = await this.agent.api.app.bsky.feed.getAuthorFeed(params);
+          const { api } = await this.getApiClient();
+          response = await api.app.bsky.feed.getAuthorFeed(params);
         } catch (err: any) {
           console.warn('Reposts author feed error:', err?.message || err);
           break;
@@ -2183,7 +2307,6 @@ class AtprotoService {
 
       // Apply moderation decisions similar to getFeed
       if (feedData.length > 0) {
-        const { ModerationService } = await import('../ModerationService');
         const moderationResult = await ModerationService.batchModeratePosts(feedData);
         const moderationMap = moderationResult.moderationDecisions;
         feedData = moderationResult.filteredPosts.map(item => {
@@ -2236,7 +2359,6 @@ class AtprotoService {
    */
   static async getStaticChannels(limit: number = 10): Promise<any[]> {
     try {
-      const { StaticChannelsService } = await import('../APIService');
       const channelDids = await StaticChannelsService.getChannels();
       
       if (!channelDids || channelDids.length === 0) {
@@ -2247,9 +2369,10 @@ class AtprotoService {
       const feedGenerators = await Promise.all(
         channelDids.map(async (uri) => {
           try {
-            const response = await this.agent.api.app.bsky.feed.getFeedGenerators({
-              feeds: [uri]
-            });
+                  const { api } = await this.getApiClient();
+      const response = await api.app.bsky.feed.getFeedGenerators({
+        feeds: [uri]
+      });
             
             const feeds = response.data.feeds || [];
             if (feeds.length > 0) {

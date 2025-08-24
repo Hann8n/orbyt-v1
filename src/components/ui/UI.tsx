@@ -72,6 +72,7 @@ export const Colors = {
   glowGreen: '#39FF14', // Neon green
   cosmicPurple: '#9D4EDD', // Deep purple
   sunsetOrange: '#FF4500', // Bright orange
+  bluesky: '#0385ff', // Bluesky brand color
   
   // Feedback button colors
   interestedLight: '#d77e12', // Light orange

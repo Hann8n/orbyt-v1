@@ -23,6 +23,8 @@ import { feedService } from '../../../services/FeedService';
 import WatchHistory from '../../../services/WatchHistory';
 import ChannelSubscriptionManager from '../../../services/storage/ChannelSubscriptionManager';
 import { AtprotoService } from '../../../services/api/AtprotoService';
+import { AtProtoOAuthService } from '../../../services/auth';
+import { useOAuth } from '../../../services/auth/useOAuth';
 import { Colors, Avatar } from '../../ui/UI';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import UI from '../../ui/UI';
@@ -53,8 +55,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const [loading, setLoading] = useState(false);
   const [switchingAccount, setSwitchingAccount] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [isAddingAccount, setIsAddingAccount] = useState(false);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+
+  // OAuth hook for direct authentication
+  const { signIn: oauthSignIn, isSigningIn: isOAuthSigningIn, error: oauthError } = useOAuth();
 
   // Get current active account for custom colors
   const activeAccount = accounts.find(acc => acc.isActive);
@@ -63,14 +69,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   // Get custom colors for active account
   const customColors = activeProfile?.profileColors;
 
-  useEffect(() => {
-    if (visible) {
-      loadAccounts();
-      setEditMode(false); // Reset edit mode when modal opens
-    }
-  }, [visible]);
-
-  const loadAccounts = async () => {
+  const loadAccounts = useCallback(async () => {
     setLoading(true);
     try {
       const savedAccounts = await AccountManager.getSavedAccounts();
@@ -109,7 +108,14 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (visible) {
+      loadAccounts();
+      setEditMode(false); // Reset edit mode when modal opens
+    }
+  }, [visible, loadAccounts]);
 
   const handleSwitchAccount = useCallback(async (account: AccountWithProfile) => {
     if (account.isActive) return;
@@ -129,8 +135,32 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       // Clear all queries
       queryClient.clear();
 
-      // Switch to the new account
-      await AccountManager.switchAccount(account.id);
+      // All accounts are now OAuth-only
+      try {
+        await AccountManager.switchAccount(account.id);
+      } catch (oauthError) {
+        // OAuth session might be expired, ask user to re-authenticate
+        Alert.alert(
+          'Session Expired',
+          'Your OAuth session has expired. Please sign in again.',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Sign In Again',
+              onPress: () => {
+                onDismiss();
+                if (onAddAccount) {
+                  onAddAccount(); // Redirect to login with OAuth
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
       
       // Call the parent callback
       onAccountSwitch(account);
@@ -143,7 +173,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     } finally {
       setSwitchingAccount(null);
     }
-  }, [onAccountSwitch, onDismiss, queryClient]);
+  }, [onAccountSwitch, onDismiss, onAddAccount, queryClient]);
 
   const handleRemoveAccount = useCallback(async (account: AccountWithProfile) => {
     if (account.isActive) {
@@ -176,12 +206,59 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     );
   }, []);
 
-  const handleAddAccount = useCallback(() => {
-    onDismiss(); // Close the modal first
-    if (onAddAccount) {
-      onAddAccount(); // Open the add account flow
+  const handleAddAccount = useCallback(async () => {
+    setIsAddingAccount(true);
+    try {
+      console.log('[AccountSwitcher] Starting OAuth flow for new account');
+      await oauthSignIn('https://bsky.social');
+      
+      // Get the OAuth session and user profile
+      const oauthService = AtProtoOAuthService.getInstance();
+      const session = await oauthService.getCurrentSession();
+      
+      if (session) {
+        // Get user profile information
+        const userProfile = await AtprotoService.getCurrentUser();
+        
+        // Save the new OAuth account
+        await AccountManager.saveOAuthAccount(
+          session,
+          userProfile?.displayName,
+          userProfile?.avatar,
+          userProfile?.handle
+        );
+        
+        // Cache the user's profile data
+        if (userProfile?.handle) {
+          await ProfileCache.cacheProfiles([userProfile]);
+          ProfileCache.setCurrentUserDid(userProfile.did);
+        }
+        
+        // Reload accounts to show the new one
+        await loadAccounts();
+        
+        console.log('[AccountSwitcher] OAuth account added successfully');
+      }
+    } catch (error) {
+      console.error('[AccountSwitcher] OAuth sign-in failed:', error);
+      
+      // Check if this is a user cancellation vs actual error
+      const errorMessage = error instanceof Error ? error.message : 'OAuth sign-in failed';
+      const isUserCancellation = errorMessage.includes('cancelled') || 
+                                errorMessage.includes('Authentication was cancelled') ||
+                                errorMessage.includes('user_cancelled');
+      
+      if (!isUserCancellation) {
+        Alert.alert(
+          'OAuth Sign-in Failed',
+          'Failed to sign in with Bluesky. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } finally {
+      setIsAddingAccount(false);
     }
-  }, [onDismiss, onAddAccount]);
+  }, [oauthSignIn, loadAccounts]);
 
   // Prepare list data including the add account option and edit button
   const listData = useMemo(() => {
@@ -211,13 +288,20 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     if ((item as any).type === 'add') {
       return (
         <TouchableOpacity
-          style={styles.accountButton}
+          style={styles.addAccountButton}
           onPress={handleAddAccount}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
+          disabled={isAddingAccount || isOAuthSigningIn}
         >
-          <View style={styles.accountButtonContent}>
-            <Text style={styles.accountButtonText}>Add Account</Text>
-            <Icon name="user-plus" size={20} color={Colors.lightGray} />
+          <View style={styles.buttonContent}>
+            {isAddingAccount || isOAuthSigningIn ? (
+              <ActivityIndicator color={Colors.black} size="small" style={{ marginRight: 8 }} />
+            ) : (
+              <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
+            )}
+            <Text style={styles.addAccountButtonText}>
+              {isAddingAccount || isOAuthSigningIn ? 'Signing in...' : 'Sign in with Bluesky'}
+            </Text>
           </View>
         </TouchableOpacity>
       );
@@ -227,7 +311,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       return (
         <TouchableOpacity
           onPress={() => setEditMode(!editMode)}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
         >
           <Text style={styles.editButtonText}>
             {editMode ? 'Done' : 'Edit'}
@@ -247,48 +331,58 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       <TouchableOpacity
         style={[
           styles.accountButton,
-          isActive && {
-            backgroundColor: Colors.darkGray
-          },
+          isActive && styles.activeAccountButton,
         ]}
         onPress={() => !isActive && !editMode && handleSwitchAccount(account)}
-        activeOpacity={0.7}
+        activeOpacity={0.8}
         disabled={isSwitching}
       >
-        <View style={styles.accountButtonContent}>
-          <View style={styles.avatarContainer}>
-            <Avatar
-              uri={account.cachedProfile?.avatar}
-              type="profile"
-              size={40}
-            />
+        {isSwitching ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={Colors.white} size="small" />
+            <Text style={styles.loadingText}>
+              Switching to <Text style={styles.loadingAccountName}>{displayName}</Text>
+            </Text>
           </View>
-          <Text style={[
-            styles.accountButtonText,
-            isActive && { 
-              color: Colors.white, 
-              fontWeight: '600', 
-              fontFamily: 'Firma-Bold' 
-            }
-          ]}>
-            {displayName}
-          </Text>
-          {isSwitching && (
-            <ActivityIndicator size="small" color={Colors.lightGray} />
-          )}
-          {editMode && !isActive && (
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => handleRemoveAccount(account)}
-              activeOpacity={0.7}
-            >
-              <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
-            </TouchableOpacity>
-          )}
-        </View>
+        ) : (
+          <View style={styles.accountButtonContent}>
+            <View style={styles.avatarContainer}>
+              <Avatar
+                uri={account.cachedProfile?.avatar}
+                type="profile"
+                size={48}
+              />
+            </View>
+            <View style={styles.accountInfoContainer}>
+              <Text style={[
+                styles.accountDisplayName,
+                isActive && styles.activeAccountDisplayName
+              ]}>
+                {displayName}
+              </Text>
+              <Text style={styles.accountHandle}>
+                @{handle}
+              </Text>
+            </View>
+            {!editMode && (
+              <View style={styles.accountArrow}>
+                <Icon name="chevron-right" size={20} color={Colors.gray} />
+              </View>
+            )}
+            {editMode && !isActive && (
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => handleRemoveAccount(account)}
+                activeOpacity={0.7}
+              >
+                <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </TouchableOpacity>
     );
-  }, [switchingAccount, editMode, customColors, handleSwitchAccount, handleRemoveAccount, handleAddAccount]);
+  }, [switchingAccount, editMode, customColors, handleSwitchAccount, handleRemoveAccount, handleAddAccount, isAddingAccount, isOAuthSigningIn]);
 
   const keyExtractor = useCallback((item: typeof listData[0]) => {
     const type = (item as any).type;
@@ -303,6 +397,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       onDismiss={onDismiss}
       title="switch account"
       showCancelButton={false}
+      snapPoints={['90%']}
     >
       
       {loading ? (
@@ -323,8 +418,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 };
 
 const styles = StyleSheet.create({
-
-
   editButtonText: {
     color: Colors.lightGray,
     fontSize: 18,
@@ -335,10 +428,22 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 200,
+    justifyContent: 'center',
+    flex: 1,
+    paddingVertical: 8,
+  },
+  loadingText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontFamily: 'Firma-Medium',
+    marginLeft: 12,
+  },
+  loadingAccountName: {
+    color: Colors.white,
+    fontFamily: 'Firma-Bold',
+    fontWeight: 'bold',
   },
   listContent: {
     paddingHorizontal: 0,
@@ -351,7 +456,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 12,
   },
-
+  activeAccountButton: {
+    backgroundColor: Colors.darkGray,
+  },
+  addAccountButton: {
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.lightGray,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
   accountButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -360,16 +481,54 @@ const styles = StyleSheet.create({
   avatarContainer: {
     marginRight: 12,
   },
+  addAccountIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.lightGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  accountInfoContainer: {
+    flex: 1,
+    paddingLeft: 8,
+  },
+  accountDisplayName: {
+    color: Colors.white,
+    fontSize: 18,
+    fontWeight: 'bold',
+    fontFamily: 'Firma-Bold',
+    marginBottom: 2,
+  },
+  activeAccountDisplayName: {
+    color: Colors.white,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addAccountButtonText: {
+    color: Colors.black,
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Firma-SemiBold',
+  },
+  accountHandle: {
+    color: Colors.gray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
+  },
+  accountArrow: {
+    marginLeft: 8,
+  },
   accountButtonText: {
     color: Colors.lightGray,
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'left',
     fontFamily: 'Firma-SemiBold',
-    paddingLeft: 8,
-    flex: 1,
   },
-
   deleteButton: {
     padding: 8,
     backgroundColor: hexToRGBA(UI.Colors.STATUS.ERROR, 0.1),

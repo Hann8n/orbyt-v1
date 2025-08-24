@@ -17,7 +17,7 @@ import FeedRenderer from '../components/features/feed/FeedRenderer';
 import MembersListView from '../components/features/feed/MembersListView';
 import { Colors } from '../components/ui/UI';
 
-import { useChannelColors, useChannel, useChannelColorsMutation } from '../services/cache/ChannelCache';
+import { useChannelColors, useChannel, useChannelColorsMutation, default as ChannelCache } from '../services/cache/ChannelCache';
 import ProfileCache from '../services/cache/ProfileCache';
 import { extractColorsFromImage } from '../utils/formatting/colorUtils';
 import { TabNavigation, TabOption } from '../components/layout/header';
@@ -51,8 +51,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
       // Invalidate the channel cache to force a fresh fetch
       const invalidateAndRefetch = async () => {
         try {
-          const ChannelCache = await import('../services/cache/ChannelCache');
-          await ChannelCache.default.invalidateChannel(uri);
+          await ChannelCache.invalidateChannel(uri);
           refetchChannel();
         } catch (error) {
           console.error('Error invalidating channel cache:', error);
@@ -129,8 +128,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
       // Force refresh to get subscriber count
       const forceRefresh = async () => {
         try {
-          const ChannelCache = await import('../services/cache/ChannelCache');
-          await ChannelCache.default.forceRefreshChannel(uri);
+          await ChannelCache.forceRefreshChannel(uri);
           refetchChannel();
         } catch (error) {
           console.error('Error force refreshing channel:', error);

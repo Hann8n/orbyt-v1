@@ -247,9 +247,14 @@ class StaticChannelsService extends APIService<ChannelsResponse> {
   }
 
   static async getChannels(): Promise<string[]> {
-    const instance = new StaticChannelsService();
-    const data = await instance.fetchData();
-    return data.channels;
+    try {
+      const instance = new StaticChannelsService();
+      const data = await instance.fetchData();
+      return data.channels || [];
+    } catch (error) {
+      console.error('Error fetching static channels:', error);
+      return [];
+    }
   }
 
   static clearCache(): void {
@@ -271,9 +276,18 @@ export const useHeaders = () => {
 export const useStaticChannels = () => {
   return useQuery({
     queryKey: ['staticChannels'],
-    queryFn: () => StaticChannelsService.getChannels(),
+    queryFn: async () => {
+      try {
+        return await StaticChannelsService.getChannels();
+      } catch (error) {
+        console.error('Error in useStaticChannels:', error);
+        return [];
+      }
+    },
     staleTime: 1 * 60 * 1000, // 1 minute (shorter for testing)
     gcTime: 5 * 60 * 1000, // 5 minutes
+    retry: 3, // Retry up to 3 times
+    retryDelay: 1000, // Wait 1 second between retries
   });
 };
 

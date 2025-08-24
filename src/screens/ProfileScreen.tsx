@@ -63,6 +63,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     isLoading: isProfileLoading,
     isError: isProfileFetchError,
   } = useProfile(targetHandle);
+  
+  console.log('[ProfileScreen] Profile state:', {
+    providedHandle,
+    userHandle,
+    targetHandle,
+    hasCachedProfile: !!cachedProfile
+  });
 
   const { colors: profileColors } = useProfileColors(targetHandle);
   const colorsMutation = useProfileColorsMutation();
@@ -145,8 +152,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Fetch current user profile data
   const fetchCurrentUserProfile = useCallback(async () => {
     try {
+      console.log('[ProfileScreen] fetchCurrentUserProfile called');
       const user = await AtprotoService.getCurrentUser();
+      console.log('[ProfileScreen] getCurrentUser result:', user);
+      
       if (user) {
+        console.log('[ProfileScreen] Setting user handle:', user.handle);
         setUserHandle(user.handle);
         ProfileCache.setCurrentUserDid(user.did);
         saveCurrentUserProfile(user);
@@ -157,13 +168,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         // Don't invalidate queries here - let React Query handle caching
         // Only refetch if we don't have cached data
         if (!profileData) {
+          console.log('[ProfileScreen] Refetching profile because no cached data');
           refetchProfile();
         }
       } else {
+         console.log('[ProfileScreen] No user returned from getCurrentUser');
          setProfileError("Could not load your profile.");
       }
     } catch (error) {
-      console.error('Error fetching current user profile:', error);
+      console.error('[ProfileScreen] Error fetching current user profile:', error);
       setProfileError("Error loading your profile.");
     }
   }, [saveCurrentUserProfile, profileData, refetchProfile]);

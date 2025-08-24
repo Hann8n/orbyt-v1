@@ -26,6 +26,7 @@
         ]
       }
     },
+    "scheme": "com.getorbyt",
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/icon-prod.png",

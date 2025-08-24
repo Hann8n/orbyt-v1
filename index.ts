@@ -1,6 +1,13 @@
+import 'event-target-polyfill';
+import 'abortcontroller-polyfill';
+
 import { registerRootComponent } from 'expo';
 import { LogBox } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import App from './src/App';
+
+// This is required for expo-auth-session to work properly
+WebBrowser.maybeCompleteAuthSession();
 
 // Polyfill for TextDecoder if not available
 if (typeof global.TextDecoder === 'undefined') {

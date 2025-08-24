@@ -4,6 +4,9 @@
 export { AtprotoService } from './api/AtprotoService';
 export { default as APIService } from './APIService';
 
+// Auth Services
+export * from './auth';
+
 // Feed Services
 export { default as FeedService } from './FeedService';
 export { feedService } from './FeedService';

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  TextInput,
   TouchableOpacity,
   Text,
   StyleSheet,
@@ -10,51 +9,80 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
-  Linking,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { BackArrowIcon, PlusIcon, AtLineIcon, MailLineIcon, Key2LineIcon } from '../components/ui/Icon';
+import Icon, { BackArrowIcon, PlusIcon, AtLineIcon } from '../components/ui/Icon';
 import { Colors, Avatar } from '../components/ui/UI';
 import AccountManager from '../services/storage/AccountManager';
 import AccountSwitcher from '../components/features/profile/AccountSwitcher';
 import { SavedAccount } from '../services/storage/AccountManager';
+import { useOAuth } from '../services/auth';
+import AtprotoService from '../services/api/AtprotoService';
 
 interface LoginScreenProps {
-  onLogin: (handle: string, password: string) => Promise<void>;
+  onLogin: (handle: string) => Promise<void>;
   onAccountSwitch?: (account: SavedAccount) => Promise<void>;
 }
 
 export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenProps) {
   const insets = useSafeAreaInsets();
-  const [handle, setHandle] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [secureTextEntry, setSecureTextEntry] = useState<boolean>(true);
   const [showAccountSwitcher, setShowAccountSwitcher] = useState<boolean>(false);
   const [hasSavedAccounts, setHasSavedAccounts] = useState<boolean>(false);
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
-  const [showManualLogin, setShowManualLogin] = useState<boolean>(false);
   const [switchingAccount, setSwitchingAccount] = useState<string | null>(null);
+  const [oauthError, setOAuthError] = useState<string | null>(null);
+
+  // OAuth hook
+  const { signIn: oauthSignIn, isSigningIn: isOAuthSigningIn, error: oauthHookError } = useOAuth();
 
   const handleLogin = async () => {
-    if (!handle || !password) {
-      Alert.alert('error', 'please fill in all fields');
-      return;
-    }
+    console.log(`[LoginScreen] handleLogin called`);
+    console.log(`[LoginScreen] Current state:`, { 
+      hasPassword: false 
+    });
 
     setIsLoading(true);
+    setOAuthError(null);
+
     try {
-      await onLogin(handle, password);
+      // Sign in with Bluesky OAuth
+      console.log(`[LoginScreen] Starting Bluesky OAuth flow`);
+      try {
+        await oauthSignIn('https://bsky.social');
+        console.log(`[LoginScreen] OAuth sign-in completed, calling onLogin`);
+        await onLogin('oauth-success');
+      } catch (oauthError) {
+        console.error('[LoginScreen] OAuth failed:', oauthError);
+        
+        // Check if this is a user cancellation vs actual error
+        const errorMessage = oauthError instanceof Error ? oauthError.message : 'OAuth login failed';
+        const isUserCancellation = errorMessage.includes('cancelled') || 
+                                  errorMessage.includes('Authentication was cancelled') ||
+                                  errorMessage.includes('user_cancelled');
+        
+        if (isUserCancellation) {
+          // User cancelled - don't show error, just log it
+          console.log('[LoginScreen] User cancelled OAuth flow');
+        } else {
+          // Actual error - show to user
+          setOAuthError(errorMessage);
+          Alert.alert(
+            'OAuth Login Failed',
+            'OAuth login failed. Please try again.',
+            [{ text: 'OK' }]
+          );
+        }
+        return;
+      }
     } catch (error) {
+      console.error('[LoginScreen] Login failed:', error);
       Alert.alert('login failed', (error as Error).message);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const openAppPasswordsPage = () => {
-    Linking.openURL('https://bsky.app/settings/app-passwords');
   };
 
   // Check for saved accounts on mount
@@ -64,13 +92,9 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         const accounts = await AccountManager.getSavedAccounts();
         setSavedAccounts(accounts);
         setHasSavedAccounts(accounts.length > 0);
-        // If no saved accounts, show manual login by default
-        if (accounts.length === 0) {
-          setShowManualLogin(true);
-        }
+
       } catch (error) {
         console.error('Error checking saved accounts:', error);
-        setShowManualLogin(true);
       }
     };
     checkSavedAccounts();
@@ -85,9 +109,47 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   const handleSavedAccountLogin = async (account: SavedAccount) => {
     setSwitchingAccount(account.id);
     try {
-      await AccountManager.switchAccount(account.id);
-      if (onAccountSwitch) {
-        await onAccountSwitch(account);
+      // All accounts are now OAuth-only
+      try {
+        await AccountManager.switchAccount(account.id);
+        if (onAccountSwitch) {
+          await onAccountSwitch(account);
+        }
+      } catch (oauthError) {
+        // OAuth session might be expired, try to re-authenticate
+        console.warn('OAuth session expired, re-authenticating:', oauthError);
+        try {
+          await oauthSignIn(account.handle);
+          // Update the account to reflect the new OAuth session
+          const oauthService = (await import('../services/auth')).AtProtoOAuthService.getInstance();
+          const session = await oauthService.getCurrentSession();
+          if (session) {
+            // Get updated profile information
+            const userProfile = await AtprotoService.getCurrentUser();
+            await AccountManager.saveOAuthAccount(
+              session, 
+              userProfile?.displayName || account.displayName, 
+              userProfile?.avatar || account.avatar,
+              userProfile?.handle || account.handle
+            );
+          }
+          if (onAccountSwitch) {
+            await onAccountSwitch(account);
+          }
+        } catch (reAuthError) {
+          // Check if this is a user cancellation vs actual error
+          const errorMessage = reAuthError instanceof Error ? reAuthError.message : 'OAuth re-authentication failed';
+          const isUserCancellation = errorMessage.includes('cancelled') || 
+                                    errorMessage.includes('Authentication was cancelled') ||
+                                    errorMessage.includes('user_cancelled');
+          
+          if (!isUserCancellation) {
+            Alert.alert(
+              'OAuth Re-authentication Failed', 
+              'Please try signing in manually with OAuth.'
+            );
+          }
+        }
       }
     } catch (error) {
       Alert.alert('login failed', (error as Error).message);
@@ -96,32 +158,73 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     }
   };
 
+  const handleCreateAccount = () => {
+    Linking.openURL('https://bsky.app');
+  };
+
+  const renderLoginButton = () => (
+    <TouchableOpacity
+      style={[
+        styles.loginButton, 
+        isLoading && styles.loginButtonLoading
+      ]}
+      onPress={handleLogin}
+      disabled={isLoading}
+    >
+      {isLoading ? (
+        <View style={styles.buttonContent}>
+          <ActivityIndicator color={Colors.black} size="small" style={{ marginRight: 8 }} />
+          <Text style={styles.loginButtonText}>
+            Signing in...
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.buttonContent}>
+          <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
+          <Text style={styles.loginButtonText}>
+            Sign in with Bluesky
+          </Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+
   const renderSavedAccounts = () => (
     <View style={styles.savedAccountsContainer}>
-      <View style={styles.accountsListWrapper}>
+      <View style={styles.headerSection}>
+        <Text style={styles.chooseAccountTitle}>Choose an Account</Text>
+        <Text style={styles.chooseAccountSubtitle}>
+          Select an account to continue or sign in with a new one
+        </Text>
+      </View>
+      
+      <View style={styles.accountsSection}>
         <ScrollView 
           style={styles.accountsList} 
           contentContainerStyle={styles.accountsListContent}
           showsVerticalScrollIndicator={false}
-          bounces={false}
-          overScrollMode="never"
+          bounces={true}
+          overScrollMode="always"
+          scrollEventThrottle={16}
+          decelerationRate="normal"
         >
-          {savedAccounts.map((account) => (
+          {savedAccounts.map((account, index) => (
             <TouchableOpacity
               key={account.id}
               style={[
                 styles.accountItem,
-                account.isActive && styles.activeAccountItem
+                index === 0 && styles.firstAccountItem,
+                index === savedAccounts.length - 1 && styles.lastAccountItem
               ]}
               onPress={() => handleSavedAccountLogin(account)}
               disabled={switchingAccount === account.id}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
               {switchingAccount === account.id ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator color={Colors.white} size="small" />
                   <Text style={styles.loadingText}>
-                    logging in <Text style={styles.loadingAccountName}>{account.displayName || account.handle}</Text>
+                    Signing in to <Text style={styles.loadingAccountName}>{account.displayName || account.handle}</Text>
                   </Text>
                 </View>
               ) : (
@@ -130,131 +233,46 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                     <Avatar
                       uri={account.avatar}
                       type="profile"
-                      size={40}
+                      size={48}
                     />
                   </View>
-                  <Text style={[
-                    styles.accountButtonText,
-                    account.isActive && { 
-                      color: Colors.white, 
-                      fontWeight: '600', 
-                      fontFamily: 'Firma-Bold' 
-                    }
-                  ]}>
-                    {account.displayName || account.handle}
-                  </Text>
+                  <View style={styles.accountInfoContainer}>
+                    <Text style={styles.accountDisplayName}>
+                      {account.displayName || 'User'}
+                    </Text>
+                    <Text style={styles.accountHandle}>
+                      @{account.handle}
+                    </Text>
+                  </View>
+                  <View style={styles.accountArrow}>
+                    <Icon name="chevron-right" size={20} color={Colors.gray} />
+                  </View>
                 </View>
               )}
             </TouchableOpacity>
           ))}
-          <TouchableOpacity
-            style={styles.manualLoginButton}
-            onPress={() => setShowManualLogin(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.manualLoginText}>Add Account</Text>
-            <Icon name="user-plus" size={20} color={Colors.lightGray} />
-          </TouchableOpacity>
         </ScrollView>
       </View>
+      
+      <View style={styles.dividerContainer}>
+        <View style={styles.divider} />
+        <Text style={styles.dividerText}>or</Text>
+        <View style={styles.divider} />
+      </View>
+      
+      {renderLoginButton()}
     </View>
   );
 
   const renderManualLogin = () => (
     <View style={styles.formContainer}>
-      <View style={styles.inputContainer}>
-        {handle.includes('@') ? (
-          <MailLineIcon size={20} color={Colors.darkGray} style={styles.inputIcon} />
-        ) : (
-          <AtLineIcon size={20} color={Colors.darkGray} style={styles.inputIcon} />
-        )}
-        <TextInput
-          style={styles.input}
-          placeholder="bluesky handle or email"
-          placeholderTextColor={Colors.darkGray}
-          value={handle}
-          onChangeText={setHandle}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardAppearance="light"
-          keyboardType="ascii-capable"
-          textContentType="username"
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Key2LineIcon size={20} color={Colors.darkGray} style={styles.inputIcon} />
-        <TextInput
-          style={[styles.input, styles.passwordInput]}
-          placeholder="password"
-          placeholderTextColor={Colors.darkGray}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={secureTextEntry}
-          autoCapitalize="none"
-          keyboardAppearance="light"
-          keyboardType="ascii-capable"
-          textContentType="oneTimeCode"
-        />
-        <TouchableOpacity
-          onPress={(e) => {
-            e.preventDefault();
-            setSecureTextEntry(!secureTextEntry);
-          }}
-          style={styles.eyeIcon}
-          activeOpacity={1}
-        >
-          <Icon
-            name={secureTextEntry ? 'eye-closed' : 'eye'}
-            size={20}
-            color={Colors.darkGray}
-          />
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity
-        style={[
-          styles.loginButton, 
-          (!handle || !password) && styles.loginButtonDisabled,
-          isLoading && styles.loginButtonLoading
-        ]}
-        onPress={handleLogin}
-        disabled={isLoading || !handle || !password}
-      >
-        {isLoading ? (
-          <View style={styles.buttonLoadingContainer}>
-            <ActivityIndicator color={Colors.white} size="small" />
-            <Text style={styles.buttonLoadingText}>logging in...</Text>
-          </View>
-        ) : (
-          <Text style={[
-            styles.loginButtonText,
-            (!handle || !password) && styles.loginButtonTextDisabled
-          ]}>
-            login
-          </Text>
-        )}
-      </TouchableOpacity>
-
-              <View style={styles.appPasswordContainer}>
-          <Text style={styles.appPasswordText}>
-            you'll need an app password to login
-          </Text>
-        <Text style={[styles.appPasswordText, styles.appPasswordLink]} onPress={openAppPasswordsPage}>
-          create one here
-        </Text>
-      </View>
-
-      {hasSavedAccounts && (
-                  <TouchableOpacity
-            style={styles.backToAccountsButton}
-            onPress={() => setShowManualLogin(false)}
-            activeOpacity={0.7}
-          >
-            <Icon name="left_arrow_filled" size={24} color={Colors.lightGray} style={styles.backIcon} />
-            <Text style={styles.backToAccountsText}>Back</Text>
-          </TouchableOpacity>
+      {oauthError && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{oauthError}</Text>
+        </View>
       )}
+
+      {renderLoginButton()}
     </View>
   );
 
@@ -266,16 +284,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         paddingBottom: insets.bottom 
       }]}
     >
-      <View style={styles.logoContainer}>
-        <Image
-          source={require('../assets/logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.appName}>orbyt</Text>
-      </View>
-
-      {hasSavedAccounts && !showManualLogin ? renderSavedAccounts() : renderManualLogin()}
+      {hasSavedAccounts ? renderSavedAccounts() : renderManualLogin()}
 
       {/* Account Switcher Modal */}
       <AccountSwitcher
@@ -297,8 +306,11 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 48,
     paddingTop: 20,
+    position: 'absolute',
+    top: '20%',
+    left: 0,
+    right: 0,
   },
   logo: {
     width: 100,
@@ -316,6 +328,8 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
+    marginTop: 'auto',
+    marginBottom: 40,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -347,7 +361,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loginButton: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.white,
     width: '100%',
     borderRadius: 20,
     paddingVertical: 16,
@@ -365,7 +379,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   loginButtonText: {
-    color: Colors.lightGray,
+    color: Colors.black,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -373,29 +387,35 @@ const styles = StyleSheet.create({
   loginButtonTextDisabled: {
     color: Colors.gray,
   },
-  appPasswordContainer: {
-    marginBottom: 24,
-  },
-  appPasswordText: {
-    color: Colors.gray,
-    fontSize: 14,
-    textAlign: 'center',
-    fontFamily: 'Firma-Regular',
-    lineHeight: 20,
-  },
-  appPasswordLink: {
-    color: Colors.lightGray,
-    textDecorationLine: 'underline',
-    fontFamily: 'Firma-Medium',
-  },
   savedAccountsContainer: {
-    flex: 1,
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
-    justifyContent: 'flex-start',
-    paddingBottom: 8,
-    paddingTop: 0,
+    marginTop: 'auto',
+    marginBottom: 40,
+    flex: 1,
+  },
+  chooseAccountTitle: {
+    color: Colors.white,
+    fontSize: 28,
+    fontWeight: 'bold',
+    fontFamily: 'Firma-Bold',
+    marginBottom: 8,
+    textAlign: 'left',
+  },
+  chooseAccountSubtitle: {
+    color: Colors.lightGray,
+    fontSize: 16,
+    fontFamily: 'Firma-Regular',
+    textAlign: 'left',
+    lineHeight: 22,
+  },
+  headerSection: {
+    marginBottom: 32,
+  },
+  accountsSection: {
+    flex: 1,
+    marginBottom: 24,
   },
   savedAccountsTitle: {
     color: Colors.white,
@@ -405,19 +425,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Firma-Bold',
   },
-  accountsListWrapper: {
-    flex: 1,
-    minHeight: 0,
-    marginBottom: 8,
-  },
   accountsList: {
-    flexGrow: 1,
-    minHeight: 0,
-    maxHeight: undefined,
+    flex: 1,
+    marginBottom: 16,
   },
   accountsListContent: {
-    paddingTop: 0,
-    paddingBottom: 8,
+    paddingBottom: 16,
+    paddingTop: 8,
   },
   accountItem: {
     backgroundColor: Colors.darkGray,
@@ -426,9 +440,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 12,
   },
-  activeAccountItem: {
-    backgroundColor: Colors.darkGray,
-  },
+
   accountButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -437,15 +449,18 @@ const styles = StyleSheet.create({
   avatarContainer: {
     marginRight: 12,
   },
+  accountInfoContainer: {
+    flex: 1,
+    paddingLeft: 8,
+  },
   accountButtonText: {
     color: Colors.lightGray,
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'left',
     fontFamily: 'Firma-SemiBold',
-    paddingLeft: 8,
-    flex: 1,
   },
+
 
   manualLoginButton: {
     flexDirection: 'row',
@@ -502,7 +517,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonLoadingText: {
-    color: Colors.white,
+    color: Colors.black,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
@@ -512,6 +527,89 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontFamily: 'Firma-Bold',
     fontWeight: 'bold',
+  },
+
+  errorContainer: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+    borderRadius: 8,
+  },
+  errorText: {
+    color: '#ff4444',
+    fontSize: 14,
+    fontFamily: 'Firma-Medium',
+    textAlign: 'center',
+  },
+  oauthInfoContainer: {
+    marginBottom: 24,
+  },
+  oauthInfoText: {
+    color: Colors.gray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  createAccountLink: {
+    marginTop: 16,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  createAccountText: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
+  },
+  createAccountLinkText: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    fontFamily: 'Firma-SemiBold',
+    textDecorationLine: 'underline',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  firstAccountItem: {
+    marginTop: 0,
+  },
+  lastAccountItem: {
+    marginBottom: 0,
+  },
+  accountDisplayName: {
+    color: Colors.white,
+    fontSize: 18,
+    fontFamily: 'Firma-Bold',
+    marginBottom: 2,
+  },
+  accountHandle: {
+    color: Colors.gray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
+  },
+  accountArrow: {
+    marginLeft: 8,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.gray,
+    opacity: 0.3,
+  },
+  dividerText: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    fontFamily: 'Firma-Medium',
+    marginHorizontal: 16,
   },
 
 });
