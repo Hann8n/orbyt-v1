@@ -329,7 +329,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
 
     // Safety check for video-specific component
     if (!finalVideoUrl) {
-      console.log('No video URL found for post:', post.uri, 'embed:', post.embed);
+      
       return null;
     }
 

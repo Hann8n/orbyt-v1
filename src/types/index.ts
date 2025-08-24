@@ -105,7 +105,7 @@ export interface ListFeedViewProps {
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   isModal?: boolean;
-  onVerticalScroll?: (scrollY: number) => void;
+
   isRefreshing?: boolean;
   isProfileLoading?: boolean;
   onVisibleChange?: (index: number, video: string | null) => void;

@@ -7,8 +7,10 @@
 
 import { useCallback, useRef, useEffect } from 'react';
 import { NativeScrollEvent } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useSubscribedChannels } from './useSubscribedChannels';
+import { useCurrentUser } from '../stores/userStore';
 
 // Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
@@ -68,16 +70,32 @@ export function useFeed(
     ...queryOptions
   } = options;
 
+  const queryClient = useQueryClient();
+  const { currentUser } = useCurrentUser();
+
   // Get subscribed channels for your mix feed
   const { channels: subscribedChannels = [] } = useSubscribedChannels();
+
+  // Invalidate feed queries when user changes
+  useEffect(() => {
+    if (currentUser?.did) {
+      // Invalidate all feed queries when user changes
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+    }
+  }, [currentUser?.did, queryClient]);
 
   // Update feed service with subscribed channels
   useEffect(() => {
     feedService.setSubscribedChannels(subscribedChannels);
   }, [subscribedChannels]);
 
+  // Use current user's DID for user-specific feeds, fallback to passed userDid for profile feeds
+  const effectiveUserDid = (feedOption === 'yourMix' || feedOption === 'following') 
+    ? currentUser?.did 
+    : userDid;
+
   // Create optimized infinite query with centralized configuration
-  const query = feedService.createInfiniteQuery(feedOption, userDid, {
+  const query = feedService.createInfiniteQuery(feedOption, effectiveUserDid, {
     enabled,
     staleTime: FEED_CONFIG.STALE_TIME,
     gcTime: FEED_CONFIG.GC_TIME,

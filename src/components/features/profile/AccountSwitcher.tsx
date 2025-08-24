@@ -14,22 +14,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../ui/Icon';
 import { PlusIcon } from '../../ui/Icon';
 import AuthorItem from '../../ui/AuthorItem';
-import AccountManager, { SavedAccount } from '../../../services/storage/AccountManager';
+import { SavedAccount } from '../../../stores/userStore';
 import ProfileCache, { useProfile, CachedProfile } from '../../../services/cache/ProfileCache';
-import ChannelCache from '../../../services/cache/ChannelCache';
-
-import { ModerationService } from '../../../services/ModerationService';
-import { feedService } from '../../../services/FeedService';
-import WatchHistory from '../../../services/WatchHistory';
-import ChannelSubscriptionManager from '../../../services/storage/ChannelSubscriptionManager';
-import { AtprotoService } from '../../../services/api/AtprotoService';
-import { AtProtoOAuthService } from '../../../services/auth';
-import { useOAuth } from '../../../services/auth/useOAuth';
 import { Colors, Avatar } from '../../ui/UI';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import UI from '../../ui/UI';
 import { useQueryClient } from '@tanstack/react-query';
 import VerticalListSheet from '../../ui/VerticalListSheet';
+import { useAccountManagement, useAuth } from '../../../stores/userStore';
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -59,10 +51,20 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
 
-  // OAuth hook for direct authentication
-  const { signIn: oauthSignIn, isSigningIn: isOAuthSigningIn, error: oauthError } = useOAuth();
+  // User store hooks
+  const { 
+    savedAccounts, 
+    switchAccount, 
+    removeAccount 
+  } = useAccountManagement();
+  
+  const { 
+    isAuthenticating, 
+    isSwitchingAccount,
+    signIn 
+  } = useAuth();
 
-  // Get current active account for custom colors
+  // Get current active account for custom colors (using DID)
   const activeAccount = accounts.find(acc => acc.isActive);
   const { data: activeProfile } = useProfile(activeAccount?.handle || null);
   
@@ -72,22 +74,23 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const loadAccounts = useCallback(async () => {
     setLoading(true);
     try {
-      const savedAccounts = await AccountManager.getSavedAccounts();
+      // Use savedAccounts from the user store
+      const savedAccountsData = savedAccounts;
       
       // Enhance accounts with cached profile data
       const accountsWithProfiles = await Promise.all(
-        savedAccounts.map(async (account) => {
+        savedAccountsData.map(async (account) => {
           try {
-            // Try to get cached profile data for each account
+            // Try to get cached profile data for each account (using DID)
             // First try to get from cache, then refresh if needed
-            let cachedProfile = await ProfileCache.getProfile(account.handle);
+            let cachedProfile = await ProfileCache.getProfileByDid(account.did);
             
             // If no cached data or cache is stale, try to refresh
             if (!cachedProfile) {
               try {
-                cachedProfile = await ProfileCache.refreshProfile(account.handle);
+                cachedProfile = await ProfileCache.refreshProfileByDid(account.did);
               } catch (error) {
-                console.warn(`Failed to refresh profile for ${account.handle}:`, error);
+                console.warn(`Failed to refresh profile for ${account.did}:`, error);
               }
             }
             
@@ -108,8 +111,9 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [savedAccounts]);
 
+  // Load accounts when modal opens or savedAccounts change
   useEffect(() => {
     if (visible) {
       loadAccounts();
@@ -120,26 +124,24 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const handleSwitchAccount = useCallback(async (account: AccountWithProfile) => {
     if (account.isActive) return;
 
-    setSwitchingAccount(account.id);
+    setSwitchingAccount(account.did);
     try {
-      // Clear all caches and data
-      await Promise.all([
-        ProfileCache.clearCache(),
-        ChannelCache.clearCache(),
-        feedService.clearCurrentFeed(),
-        WatchHistory.clearWatchHistory(),
-        ChannelSubscriptionManager.clearAllSubscriptions(),
-        ModerationService.clearModerationCache(),
-      ]);
-
-      // Clear all queries
-      queryClient.clear();
-
-      // All accounts are now OAuth-only
-      try {
-        await AccountManager.switchAccount(account.id);
-      } catch (oauthError) {
-        // OAuth session might be expired, ask user to re-authenticate
+      // Use the user store to switch accounts with completion callback
+      await switchAccount(account.did, () => {
+        // This callback is called when all data is loaded
+        // Call the parent callback
+        onAccountSwitch(account);
+        
+        // Close the modal
+        onDismiss();
+      });
+      
+    } catch (error) {
+      console.error('Error switching account:', error);
+      
+      // Check if it's an OAuth session expiration error
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('expired') || errorMessage.includes('re-authenticate')) {
         Alert.alert(
           'Session Expired',
           'Your OAuth session has expired. Please sign in again.',
@@ -150,40 +152,31 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             },
             {
               text: 'Sign In Again',
-              onPress: () => {
-                onDismiss();
-                if (onAddAccount) {
-                  onAddAccount(); // Redirect to login with OAuth
+              onPress: async () => {
+                try {
+                  await signIn(account.handle);
+                  onAccountSwitch(account);
+                  onDismiss();
+                } catch (signInError) {
+                  console.error('Error signing in again:', signInError);
+                  Alert.alert('Error', 'Failed to sign in again. Please try again.');
                 }
               },
             },
           ]
         );
-        return;
+      } else {
+        Alert.alert('Error', 'Failed to switch account. Please try again.');
       }
-      
-      // Call the parent callback
-      onAccountSwitch(account);
-      
-      // Close the modal
-      onDismiss();
-    } catch (error) {
-      console.error('Error switching account:', error);
-      Alert.alert('Error', 'Failed to switch account. Please try again.');
     } finally {
       setSwitchingAccount(null);
     }
-  }, [onAccountSwitch, onDismiss, onAddAccount, queryClient]);
+  }, [onAccountSwitch, onDismiss, switchAccount, signIn]);
 
   const handleRemoveAccount = useCallback(async (account: AccountWithProfile) => {
-    if (account.isActive) {
-      Alert.alert('Cannot remove active account', 'Please switch to a different account first.');
-      return;
-    }
-
     Alert.alert(
       'Remove Account',
-      `Are you sure you want to remove ${account.handle}? This action cannot be undone.`,
+      `Are you sure you want to remove ${account.displayName || account.handle}?`,
       [
         {
           text: 'Cancel',
@@ -194,8 +187,9 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           style: 'destructive',
           onPress: async () => {
             try {
-              await AccountManager.removeAccount(account.id);
-              await loadAccounts(); // Reload the accounts list
+              await removeAccount(account.did);
+              // Reload accounts after removal
+              await loadAccounts();
             } catch (error) {
               console.error('Error removing account:', error);
               Alert.alert('Error', 'Failed to remove account. Please try again.');
@@ -204,41 +198,18 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         },
       ]
     );
-  }, []);
+  }, [removeAccount, loadAccounts]);
 
   const handleAddAccount = useCallback(async () => {
     setIsAddingAccount(true);
     try {
-      console.log('[AccountSwitcher] Starting OAuth flow for new account');
-      await oauthSignIn('https://bsky.social');
+
+      await signIn('https://bsky.social');
       
-      // Get the OAuth session and user profile
-      const oauthService = AtProtoOAuthService.getInstance();
-      const session = await oauthService.getCurrentSession();
+      // Reload accounts to show the new one
+      await loadAccounts();
       
-      if (session) {
-        // Get user profile information
-        const userProfile = await AtprotoService.getCurrentUser();
-        
-        // Save the new OAuth account
-        await AccountManager.saveOAuthAccount(
-          session,
-          userProfile?.displayName,
-          userProfile?.avatar,
-          userProfile?.handle
-        );
-        
-        // Cache the user's profile data
-        if (userProfile?.handle) {
-          await ProfileCache.cacheProfiles([userProfile]);
-          ProfileCache.setCurrentUserDid(userProfile.did);
-        }
-        
-        // Reload accounts to show the new one
-        await loadAccounts();
-        
-        console.log('[AccountSwitcher] OAuth account added successfully');
-      }
+
     } catch (error) {
       // Check if this is a user cancellation vs actual error
       const errorMessage = error instanceof Error ? error.message : 'OAuth sign-in failed';
@@ -256,7 +227,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     } finally {
       setIsAddingAccount(false);
     }
-  }, [oauthSignIn, loadAccounts]);
+  }, [signIn, loadAccounts]);
 
   // Prepare list data including the add account option and edit button
   const listData = useMemo(() => {
@@ -289,16 +260,16 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           style={styles.addAccountButton}
           onPress={handleAddAccount}
           activeOpacity={0.8}
-          disabled={isAddingAccount || isOAuthSigningIn}
+          disabled={isAuthenticating}
         >
           <View style={styles.buttonContent}>
-            {isAddingAccount || isOAuthSigningIn ? (
+            {isAuthenticating ? (
               <ActivityIndicator color={Colors.black} size="small" style={{ marginRight: 8 }} />
             ) : (
               <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
             )}
             <Text style={styles.addAccountButtonText}>
-              {isAddingAccount || isOAuthSigningIn ? 'Signing in...' : 'Add Account'}
+              {isAuthenticating ? 'Signing in...' : 'Add Account'}
             </Text>
           </View>
         </TouchableOpacity>
@@ -320,7 +291,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
     const account = item.data as AccountWithProfile;
     const isActive = account.isActive;
-    const isSwitching = switchingAccount === account.id;
+    const isSwitching = isSwitchingAccount && switchingAccount === account.did;
     
     const displayName = account.cachedProfile?.displayName || account.displayName || account.handle;
     const handle = account.cachedProfile?.handle || account.handle;
@@ -380,7 +351,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         )}
       </TouchableOpacity>
     );
-  }, [switchingAccount, editMode, customColors, handleSwitchAccount, handleRemoveAccount, handleAddAccount, isAddingAccount, isOAuthSigningIn]);
+  }, [switchingAccount, editMode, customColors, handleSwitchAccount, handleRemoveAccount, handleAddAccount, isAuthenticating]);
 
   const keyExtractor = useCallback((item: typeof listData[0]) => {
     const type = (item as any).type;

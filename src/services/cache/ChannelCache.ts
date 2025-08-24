@@ -151,7 +151,7 @@ class ChannelCache {
     
     // Skip if this is not a feed generator URI (e.g., DIDs, user handles, etc.)
     if (!uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
-      console.log(`[ChannelCache] Skipping non-feed-generator URI: ${uri}`);
+      
       return null;
     }
 
@@ -550,13 +550,7 @@ class ChannelCache {
     try {
       const normalizedUri = uri.toLowerCase();
       
-      // Debug logging
-      console.log('[ChannelCache] Invalidating channel:', {
-        uri,
-        normalizedUri,
-        hasMemoryCache: this.memoryCache.has(normalizedUri),
-        memoryCacheSize: this.memoryCache.size
-      });
+
       
       // Remove from memory cache
       this.memoryCache.delete(normalizedUri);
@@ -568,7 +562,7 @@ class ChannelCache {
       // Notify subscribers
       this.notifyChannelUpdated(normalizedUri);
       
-      console.log('[ChannelCache] Channel invalidated successfully:', uri);
+
     } catch (error) {
       console.error('[ChannelCache] Error invalidating channel:', error);
     }

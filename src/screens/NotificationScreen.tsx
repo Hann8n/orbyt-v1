@@ -109,7 +109,7 @@ const NotificationScreen: React.FC = () => {
       try {
         const currentUser = await AtprotoService.getCurrentUser();
         if (currentUser?.did) {
-          ProfileCache.setCurrentUserDid(currentUser.did);
+          ProfileCache.setCurrentUserHandle(currentUser.handle);
         }
       } catch (error) {
         console.error('Error initializing profile cache:', error);

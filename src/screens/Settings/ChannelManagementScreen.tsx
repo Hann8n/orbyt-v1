@@ -17,7 +17,7 @@ import { Avatar, Icon } from '../../components/ui/UI';
 import { Colors } from '../../components/ui/UI';
 import { BackArrowIcon, PlusIcon } from '../../components/ui/Icon';
 import { useSubscribedChannels } from '../../hooks/useSubscribedChannels';
-import { SubscribedChannel } from '../../services/storage/ChannelSubscriptionManager';
+import { SubscribedChannel } from '../../stores/userStore';
 import AtprotoService from '../../services/api/AtprotoService';
 import { formatNumber } from '../../utils/helpers/formatNumber';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';

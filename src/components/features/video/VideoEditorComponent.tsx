@@ -113,7 +113,7 @@ const VideoEditorComponent: React.FC<VideoEditorComponentProps> = ({
             }
             break;
           case 'onError':
-            console.log('Video trimming error:', event);
+      
             break;
         }
       });

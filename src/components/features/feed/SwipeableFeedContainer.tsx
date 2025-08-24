@@ -94,12 +94,10 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     feedBarTranslateY.setValue(0);
   }, [feedBarOpacity, feedBarTranslateY]);
   
-  // State for tracking scroll direction and feed bar visibility
+  // State for feed bar visibility
   const [isFeedBarVisible, setIsFeedBarVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
   const [isHorizontalScrolling, setIsHorizontalScrolling] = useState(false);
   const [currentScrollProgress, setCurrentScrollProgress] = useState(0);
-  const [hasUserScrolled, setHasUserScrolled] = useState(false);
 
   // Memoized feed configuration from subscribed channels
   const feedConfig = useMemo(() => {
@@ -202,33 +200,15 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     }
   }, [isFeedBarVisible, feedBarOpacity, feedBarTranslateY]);
 
-  // Ensure feed bar is visible on initial load
+  // Ensure feed bar is visible when feed changes
   useEffect(() => {
-    if (!hasUserScrolled) {
-      animateFeedBar(true, true);
-    }
-  }, [hasUserScrolled, animateFeedBar]);
+    animateFeedBar(true, true);
+  }, [currentFeedIndex, animateFeedBar]);
 
-  // Handle vertical scroll from individual feeds with improved threshold
+  // Handle vertical scroll from individual feeds for feed bar visibility
   const handleVerticalScroll = useCallback((scrollY: number, feedIndex: number) => {
-    if (feedIndex !== currentFeedIndex) return; // Only handle current feed
-    
-    const scrollDelta = scrollY - lastScrollY;
-    const scrollThreshold = 15; // Increased threshold to prevent interference with horizontal scrolling
-    
-    if (Math.abs(scrollDelta) > scrollThreshold) {
-      setHasUserScrolled(true); // Mark that user has scrolled
-      
-      if (scrollDelta > 0) {
-        // Scrolling down - hide feed bar
-        animateFeedBar(false);
-      } else {
-        // Scrolling up - show feed bar
-        animateFeedBar(true);
-      }
-      setLastScrollY(scrollY);
-    }
-  }, [currentFeedIndex, lastScrollY, animateFeedBar]);
+    // No scroll tracking - feed bar visibility handled by other means
+  }, []);
 
   // Handle feed change
   const handleFeedChange = useCallback((newIndex: number) => {
@@ -236,14 +216,8 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       setCurrentFeedIndex(newIndex);
       const newFeedOption = feedOptions[newIndex];
       onFeedChange?.(newFeedOption);
-      
-      // Show feed bar when changing feeds
-      animateFeedBar(true, true);
-            
-      // Reset scroll state for new feed
-      setLastScrollY(0);
     }
-  }, [feedOptions, onFeedChange, animateFeedBar]);
+  }, [feedOptions, onFeedChange]);
 
   // Handle position saving for each feed
   const handlePositionChange = useCallback((position: number) => {
@@ -302,10 +276,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     const progress = offsetX / screenWidth;
     setCurrentScrollProgress(progress);
     
-    // Mark user interaction immediately
-    if (!hasUserScrolled) {
-      setHasUserScrolled(true);
-    }
+
     
     // Show feed bar during scrolling (immediate)
     if (!isHorizontalScrolling) {
@@ -327,9 +298,9 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
         scrollIndicatorToActive(currentIndex);
       }
     }, 25); // Reduced debounce for more responsive feel
-  }, [currentFeedIndex, feedOptions, onFeedChange, isHorizontalScrolling, animateFeedBar, horizontalScrollOffset, scrollIndicatorToActive, screenWidth, hasUserScrolled]);
+  }, [currentFeedIndex, feedOptions, onFeedChange, isHorizontalScrolling, animateFeedBar, horizontalScrollOffset, scrollIndicatorToActive, screenWidth]);
 
-  // Handle scroll end to update current feed and hide feed bar
+  // Handle scroll end to update current feed
   const handleScrollEnd = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const newIndex = Math.round(offsetX / screenWidth);
@@ -338,16 +309,8 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       handleFeedChange(newIndex);
     }
     
-    // Hide feed bar after horizontal scroll ends, but only if user has scrolled
     setIsHorizontalScrolling(false);
-    if (hasUserScrolled) {
-      setTimeout(() => {
-        if (!isHorizontalScrolling) {
-          animateFeedBar(false);
-        }
-      }, 1000); // Delay to allow user to see the feed change
-    }
-  }, [currentFeedIndex, handleFeedChange, isHorizontalScrolling, animateFeedBar, hasUserScrolled, screenWidth]);
+  }, [currentFeedIndex, handleFeedChange, isHorizontalScrolling, screenWidth]);
 
   // Handle feed indicator tap
   const handleIndicatorTap = useCallback((feedOption: FeedOption) => {
@@ -357,9 +320,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
         index: targetIndex,
         animated: true,
       });
-      
-      // Mark that user has interacted
-      setHasUserScrolled(true);
       
       // Show feed bar immediately when tapping indicator
       animateFeedBar(true, true);
@@ -410,8 +370,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
           queryOptions={memoizedQueryOptions}
           // Pass visibility state to control video playback and fetching - consistent with ListFeedView
           isVisible={isVisible}
-          // Pass scroll handler for feed bar visibility
-          onVerticalScroll={(scrollY) => handleVerticalScroll(scrollY, index)}
+
           isRefreshing={isRefreshing}
           onScrubbingChange={handleScrubbingChange}
           forceError={forceError}

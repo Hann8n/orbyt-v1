@@ -2,32 +2,25 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
+  StyleSheet,
   Alert,
+  ActivityIndicator,
   Platform,
+  ScrollView,
   Switch,
 } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Icon from '../../components/ui/Icon';
+import { Colors } from '../../components/ui/UI';
+import ListHeader from '../../components/ui/ListHeader';
+import { useFeedSettings, useAuth } from '../../stores/userStore';
+import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList, useLogout } from '../../navigation/types';
-import Icon, { BackArrowIcon } from '../../components/ui/Icon';
-import ListHeader from '../../components/ui/ListHeader';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ModerationDebug from '../../components/features/moderation/ModerationDebug';
-import AccountManager from '../../services/storage/AccountManager';
-import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
- 
-
-// global flag for immediate effect without re-mounts
-declare global {
-  // eslint-disable-next-line no-var
-  var __ORBYT_FEED_DEBUG_OVERLAY__: boolean | undefined;
-}
-import { useQueryClient } from '@tanstack/react-query';
-import { Colors } from '../../components/ui/UI';
 
 type SettingsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 type SettingsScreenRouteProp = RouteProp<RootStackParamList, 'Settings'>;
@@ -41,19 +34,15 @@ const SettingsScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExperimentalFeedsEnabled, setIsExperimentalFeedsEnabled] = useState(true);
-  const [isFeedDebugEnabled, setIsFeedDebugEnabled] = useState<boolean>(false);
   const insets = useSafeAreaInsets();
+  const { getExperimentalFeedsEnabled, setExperimentalFeedsEnabled } = useFeedSettings();
 
   // Load settings on mount
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const enabled = await AccountManager.getExperimentalFeedsEnabled();
+        const enabled = await getExperimentalFeedsEnabled();
         setIsExperimentalFeedsEnabled(enabled);
-        const debugEnabled = await AccountManager.getFeedDebugOverlayEnabled();
-        setIsFeedDebugEnabled(debugEnabled);
-        // set global for immediate effect
-        (global as any).__ORBYT_FEED_DEBUG_OVERLAY__ = debugEnabled;
       } catch (error) {
         console.error('Error loading settings:', error);
       }
@@ -78,14 +67,7 @@ const SettingsScreen: React.FC = () => {
           onPress: async () => {
             setIsSubmitting(true);
             try {
-              // Get the current active account and remove it from account manager
-              const activeAccount = await AccountManager.getActiveAccount();
-              
-              if (activeAccount) {
-                console.log('[SettingsScreen] Removing current account from account manager:', activeAccount.handle);
-                await AccountManager.removeAccount(activeAccount.id);
-              }
-              
+              // Use userStore to handle logout
               await onLogout();
             } catch (error) {
               console.error('error during logout:', error);
@@ -107,7 +89,7 @@ const SettingsScreen: React.FC = () => {
 
   const handleToggleExperimentalFeeds = async (value: boolean) => {
     try {
-      await AccountManager.setExperimentalFeedsEnabled(value);
+      await setExperimentalFeedsEnabled(value);
       setIsExperimentalFeedsEnabled(value);
       
       // Invalidate queries that depend on experimental feeds setting
@@ -119,17 +101,7 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
-  const handleToggleFeedDebug = async (value: boolean) => {
-    try {
-      await AccountManager.setFeedDebugOverlayEnabled(value);
-      setIsFeedDebugEnabled(value);
-      // set global for immediate effect
-      (global as any).__ORBYT_FEED_DEBUG_OVERLAY__ = value;
-    } catch (error) {
-      console.error('error saving feed debug overlay setting:', error);
-      Alert.alert('error', 'failed to save setting. please try again.');
-    }
-  };
+
 
   const settingsSections = [
     {
@@ -242,10 +214,7 @@ const SettingsScreen: React.FC = () => {
         // }
       ]
     },
-    {
-      title: 'debug',
-      items: []
-    }
+
   ];
 
   // Build flat list data for FlashList
@@ -283,16 +252,7 @@ const SettingsScreen: React.FC = () => {
       });
     }
 
-    if (section.title === 'debug') {
-      listData.push({
-        kind: 'toggle',
-        id: 'feed-debug-overlay',
-        label: 'feed debug overlay',
-        subtitle: 'show realtime feed/debug info',
-        value: isFeedDebugEnabled,
-        onValueChange: handleToggleFeedDebug,
-      });
-    }
+
   });
 
   // Add logout row at the end
@@ -300,32 +260,30 @@ const SettingsScreen: React.FC = () => {
 
   return (
     <View style={settingsLayoutStyles.container}>
-      <FlashList
-        data={listData}
+      <ScrollView
         contentContainerStyle={settingsLayoutStyles.contentContainerWithPadding}
         showsVerticalScrollIndicator={false}
-        keyExtractor={(item) => `${item.kind}-${item.id}`}
-        ListHeaderComponent={(
-          <ListHeader 
-            mode="root"
-            title="settings"
-            showBackButton
-            onBackPress={() => navigation.goBack()}
-            applySafeAreaTop
-            style={{ marginHorizontal: -5 }}
-          />
-        )}
-        renderItem={({ item }) => {
+      >
+        <ListHeader 
+          mode="root"
+          title="settings"
+          showBackButton
+          onBackPress={() => navigation.goBack()}
+          applySafeAreaTop
+          style={{ marginHorizontal: -5 }}
+        />
+        {listData.map((item, index) => {
+          const key = `${item.kind}-${item.id}-${index}`;
           switch (item.kind) {
             case 'section-title':
               return (
-                <View style={settingsLayoutStyles.section}>
+                <View key={key} style={settingsLayoutStyles.section}>
                   <Text style={settingsTextStyles.sectionTitle}>{item.title}</Text>
                 </View>
               );
             case 'setting':
               return (
-                <View style={{ marginBottom: 12 }}>
+                <View key={key} style={{ marginBottom: 12 }}>
                   <TouchableOpacity
                     style={settingsButtonStyles.menuOption}
                     onPress={item.onPress}
@@ -343,7 +301,7 @@ const SettingsScreen: React.FC = () => {
               );
             case 'toggle':
               return (
-                <View style={{ marginBottom: 12 }}>
+                <View key={key} style={{ marginBottom: 12 }}>
                   <View style={settingsButtonStyles.menuOption}>
                     <View style={styles.menuOptionLeft}>
                       <Text style={settingsTextStyles.menuOptionText}>{item.label}</Text>
@@ -363,7 +321,7 @@ const SettingsScreen: React.FC = () => {
               );
             case 'logout':
               return (
-                <View style={settingsLayoutStyles.logoutSection}>
+                <View key={key} style={settingsLayoutStyles.logoutSection}>
                   <TouchableOpacity
                     style={settingsButtonStyles.logoutButton}
                     onPress={handleLogout}
@@ -377,8 +335,8 @@ const SettingsScreen: React.FC = () => {
             default:
               return null;
           }
-        }}
-      />
+        })}
+      </ScrollView>
     </View>
   );
 };

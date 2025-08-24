@@ -1,6 +1,5 @@
 import { ExpoOAuthClient } from 'expo-atproto-auth';
 import { Agent } from '@atproto/api';
-import * as SecureStore from 'expo-secure-store';
 import type { OAuthSession } from './types';
 
 /**
@@ -9,7 +8,6 @@ import type { OAuthSession } from './types';
 export class AtProtoOAuthService {
   private static instance: AtProtoOAuthService;
   private auth: ExpoOAuthClient;
-  private currentSession: OAuthSession | null = null;
   private currentOAuthSession: any = null; // The actual OAuth session from expo-atproto-auth
   private currentAgent: Agent | null = null; // Agent created from OAuth session
 
@@ -46,8 +44,6 @@ export class AtProtoOAuthService {
    */
   async signIn(identifier: string = 'bsky.social'): Promise<OAuthSession> {
     try {
-      console.log('[OAuth] Starting sign in with identifier:', identifier);
-
       // Use the expo-atproto-auth library to handle the OAuth flow
       const result = await this.auth.signIn(identifier);
 
@@ -66,19 +62,7 @@ export class AtProtoOAuthService {
         // Store the OAuth session and create an Agent with the OAuth session
         this.currentOAuthSession = result.session;
         this.currentAgent = new Agent(result.session);
-        
-        // Debug: Log the created Agent properties
-        console.log('[OAuth] Created Agent with properties:', {
-          hasApi: !!this.currentAgent.api,
-          did: this.currentAgent.did,
-          accountDid: this.currentAgent.accountDid,
-        });
 
-        // Store session
-        this.currentSession = oauthSession;
-        await this.storeSession(oauthSession);
-
-        console.log('[OAuth] Sign in successful for DID:', oauthSession.did);
         return oauthSession;
       } else if (result.status === 'error') {
         throw new Error(`OAuth error: ${result.error}`);
@@ -96,8 +80,6 @@ export class AtProtoOAuthService {
    */
   async restoreSession(did: string): Promise<OAuthSession> {
     try {
-      console.log('[OAuth] Restoring session for DID:', did);
-      
       // Use the expo-atproto-auth library to restore the session
       const restoredSession = await this.auth.restore(did);
       
@@ -125,26 +107,13 @@ export class AtProtoOAuthService {
       // Store the OAuth session and create an Agent with the OAuth session
       this.currentOAuthSession = restoredSession;
       this.currentAgent = new Agent(restoredSession);
-      
-      // Debug: Log the restored Agent properties
-      console.log('[OAuth] Restored Agent with properties:', {
-        hasApi: !!this.currentAgent.api,
-        did: this.currentAgent.did,
-        accountDid: this.currentAgent.accountDid,
-      });
 
-      // Store session
-      this.currentSession = oauthSession;
-      await this.storeSession(oauthSession);
-
-      console.log('[OAuth] Session restored successfully for DID:', oauthSession.did);
       return oauthSession;
     } catch (error) {
       console.error('[OAuth] Failed to restore session:', error);
       // Clear any partial state
       this.currentOAuthSession = null;
       this.currentAgent = null;
-      this.currentSession = null;
       throw error;
     }
   }
@@ -153,66 +122,44 @@ export class AtProtoOAuthService {
    * Get current session
    */
   async getCurrentSession(): Promise<OAuthSession | null> {
-    if (this.currentSession) {
-      return this.currentSession;
-    }
-
-    return await this.loadStoredSession();
-  }
-
-  /**
-   * Get current OAuth session for API calls
-   */
-  async getCurrentOAuthSession(): Promise<any | null> {
     if (this.currentOAuthSession) {
-      return this.currentOAuthSession;
-    }
-
-    // Try to restore session
-    const session = await this.getCurrentSession();
-    if (session) {
       try {
-        const restoredSession = await this.auth.restore(session.did);
-        this.currentOAuthSession = restoredSession;
-        this.currentAgent = new Agent(restoredSession);
+        const tokenInfo = await this.currentOAuthSession.getTokenInfo();
         
-        // Debug: Log the structure of the OAuth session
-        console.log('[OAuth] OAuth session structure:', {
-          hasApi: !!(restoredSession as any).api,
-          hasFetchHandler: !!(restoredSession as any).fetchHandler,
-          keys: Object.keys(restoredSession),
-          sub: (restoredSession as any).sub,
-        });
-        
-        return restoredSession;
+        return {
+          did: this.currentOAuthSession.sub,
+          accessToken: 'stored-in-library',
+          refreshToken: 'stored-in-library',
+          expiresAt: tokenInfo.expiresAt ? tokenInfo.expiresAt.getTime() : Date.now() + 3600000,
+        };
       } catch (error) {
-        console.error('[OAuth] Failed to restore OAuth session:', error);
-        // Clear invalid session
-        await this.signOut();
+        console.error('[OAuth] Failed to get current session:', error);
         return null;
       }
     }
-
+    
     return null;
   }
 
   /**
-   * Get current Agent for API calls
+   * Get current OAuth session (for internal use)
+   */
+  async getCurrentOAuthSession(): Promise<any | null> {
+    return this.currentOAuthSession;
+  }
+
+  /**
+   * Get current Agent
    */
   async getCurrentAgent(): Promise<Agent | null> {
     if (this.currentAgent) {
       return this.currentAgent;
     }
 
-    // Try to restore session and create agent
-    const session = await this.getCurrentSession();
-    if (session) {
+    // Try to create agent from stored session
+    if (this.currentOAuthSession) {
       try {
-        const restoredSession = await this.auth.restore(session.did);
-        this.currentOAuthSession = restoredSession;
-        this.currentAgent = new Agent(restoredSession);
-        
-        console.log('[OAuth] Created new Agent from restored session');
+        this.currentAgent = new Agent(this.currentOAuthSession);
         return this.currentAgent;
       } catch (error) {
         console.error('[OAuth] Failed to create agent from stored session:', error);
@@ -227,7 +174,6 @@ export class AtProtoOAuthService {
 
   /**
    * Get the current user's profile information
-   * This is useful for account saving after OAuth authentication
    */
   async getCurrentUserProfile(): Promise<any | null> {
     try {
@@ -257,18 +203,8 @@ export class AtProtoOAuthService {
    * Sign out
    */
   async signOut(): Promise<void> {
-    if (this.currentSession) {
-      try {
-        console.log('[OAuth] Signing out user:', this.currentSession.did);
-      } catch (error) {
-        console.warn('[OAuth] Failed to sign out:', error);
-      }
-    }
-
-    this.currentSession = null;
     this.currentOAuthSession = null;
     this.currentAgent = null;
-    await this.clearStoredSession();
   }
 
   /**
@@ -289,35 +225,5 @@ export class AtProtoOAuthService {
     
     // Fallback to fetch if available
     return fetch(url, options);
-  }
-
-  // Private helper methods
-
-  private async storeSession(session: OAuthSession): Promise<void> {
-    await SecureStore.setItemAsync('current_oauth_session', JSON.stringify(session));
-  }
-
-  private async loadStoredSession(): Promise<OAuthSession | null> {
-    try {
-      const data = await SecureStore.getItemAsync('current_oauth_session');
-      if (!data) return null;
-
-      const session = JSON.parse(data);
-      
-      // Check if session is expired
-      if (Date.now() > session.expiresAt) {
-        await this.clearStoredSession();
-        return null;
-      }
-
-      return session;
-    } catch (error) {
-      console.error('[OAuth] Failed to load stored session:', error);
-      return null;
-    }
-  }
-
-  private async clearStoredSession(): Promise<void> {
-    await SecureStore.deleteItemAsync('current_oauth_session');
   }
 }

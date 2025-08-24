@@ -306,7 +306,7 @@ const CreateScreen: React.FC = () => {
         return;
       }
 
-      console.log(`Condensing ${segments.length} segments into a single video file...`);
+
       
       // Merge all recorded segments into a single file
       try {

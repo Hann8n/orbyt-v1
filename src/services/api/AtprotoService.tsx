@@ -1,9 +1,9 @@
 import { AtpAgent } from '@atproto/api';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ModerationDecision, ModerationSettings, LabelPreference, ModerationOpts, LabelDefinition } from '../ModerationTypes';
 import { AtProtoOAuthService } from '../auth/OAuthService';
 import { StaticChannelsService } from '../APIService';
-import AccountManager from '../storage/AccountManager';
 import { ModerationService } from '../ModerationService';
 
 const SERVICE_URL = 'https://bsky.social';
@@ -124,7 +124,7 @@ class AtprotoService {
         const oauthSession = await oauthService.getCurrentSession();
         
         if (oauthSession) {
-          console.log('[AtprotoService] Using OAuth session for DID:', oauthSession.did);
+      
           return { did: oauthSession.did, type: 'oauth' };
         }
 
@@ -164,13 +164,7 @@ class AtprotoService {
     if (oauthSession) {
       const oauthAgent = await oauthService.getCurrentAgent();
       if (oauthAgent) {
-        console.log('[AtprotoService] Using OAuth session for API calls');
-        console.log('[AtprotoService] OAuth Agent properties:', {
-          hasApi: !!oauthAgent.api,
-          did: oauthAgent.did,
-          accountDid: oauthAgent.accountDid,
-          apiKeys: oauthAgent.api ? Object.keys(oauthAgent.api) : [],
-        });
+
         return { api: oauthAgent.api, isOAuth: true };
       } else {
         throw new Error('OAuth agent not available');
@@ -211,14 +205,14 @@ class AtprotoService {
     limit: number = 100,
     feedType?: 'author' | 'likes' | 'reposts' | 'authorVideos' | 'custom'
   ): Promise<FeedResponse> {
-    console.log(`[AtprotoService] getFeed called with feedType: ${feedType}, feedLink: ${feedLink}, isOAuth context loading...`);
+
     
     let retries = 3;
     
     while (retries > 0) {
       try {
         const { api, isOAuth } = await this.getApiClient();
-        console.log(`[AtprotoService] getFeed - obtained API client, isOAuth: ${isOAuth}, feedType: ${feedType}`);
+
         let response: any;
         
         // Unified feed handling based on feedType
@@ -233,14 +227,7 @@ class AtprotoService {
               filter: authorFilter,
             };
             
-            console.log(`[AtprotoService] Making getAuthorFeed API call with params:`, params);
             response = await api.app.bsky.feed.getAuthorFeed(params);
-            console.log(`[AtprotoService] getAuthorFeed API call successful, response structure:`, {
-              hasData: !!response?.data,
-              hasFeed: !!response?.data?.feed,
-              feedLength: response?.data?.feed?.length || 0,
-              hasCursor: !!response?.data?.cursor
-            });
           } catch (authorError: any) {
             console.error('[AtprotoService] Author feed error details:', {
               message: authorError.message,
@@ -258,14 +245,7 @@ class AtprotoService {
               cursor: cursor || undefined,
             };
             
-            console.log(`[AtprotoService] Making getActorLikes API call with params:`, params);
             response = await api.app.bsky.feed.getActorLikes(params);
-            console.log(`[AtprotoService] getActorLikes API call successful, response structure:`, {
-              hasData: !!response?.data,
-              hasFeed: !!response?.data?.feed,
-              feedLength: response?.data?.feed?.length || 0,
-              hasCursor: !!response?.data?.cursor
-            });
           } catch (likesError: any) {
             console.error('[AtprotoService] Likes feed error details:', {
               message: likesError.message,
@@ -309,14 +289,7 @@ class AtprotoService {
           if (cursor) params.cursor = cursor;
           
           try {
-            console.log(`[AtprotoService] Making getFeed API call with params:`, params);
             response = await api.app.bsky.feed.getFeed(params);
-            console.log(`[AtprotoService] getFeed API call successful, response structure:`, {
-              hasData: !!response?.data,
-              hasFeed: !!response?.data?.feed,
-              feedLength: response?.data?.feed?.length || 0,
-              hasCursor: !!response?.data?.cursor
-            });
           } catch (customFeedError: any) {
             console.error('[AtprotoService] Custom feed error details:', {
               message: customFeedError.message,
@@ -342,15 +315,15 @@ class AtprotoService {
         
         // Filter for video posts at API level if requested
         if (filterVideosOnly) {
-          console.log(`[AtprotoService] Filtering ${feedData.length} posts for video content`);
+
           feedData = feedData.filter((post: any) => {
             const embed = post.post.embed;
             if (!embed) {
-              console.log(`[AtprotoService] Post has no embed, filtering out`);
+
               return false;
             }
             
-            console.log(`[AtprotoService] Post embed type: ${embed.$type}`);
+            
             
             // Only include posts with video embeds
             let hasVideo = false;
@@ -362,12 +335,12 @@ class AtprotoService {
             }
             
             if (!hasVideo) {
-              console.log(`[AtprotoService] Post does not contain video content, filtering out`);
+
             }
             
             return hasVideo;
           });
-          console.log(`[AtprotoService] After video filtering: ${feedData.length} posts remaining`);
+
         }
         
         return { feed: feedData, cursor: response.data.cursor };
@@ -1029,7 +1002,39 @@ class AtprotoService {
   }
 
   /**
-   * Get profile by handle with caching for performance
+   * Get profile by DID with caching for performance
+   * @param did - User DID
+   * @returns Profile data
+   */
+  static async getProfileByDid(did: string): Promise<any> {
+    // Check cache first
+    const cacheKey = `profile_did_${did}`;
+    const cachedProfile = this.getCachedData(this._profileCache, cacheKey);
+    if (cachedProfile) {
+      return cachedProfile;
+    }
+
+    const { api } = await this.getApiClient();
+    try {
+      const response = await api.app.bsky.actor.getProfile({
+        actor: did,
+      });
+      
+      // Cache the profile data
+      const profileData = response.data;
+      this.setCachedData(this._profileCache, cacheKey, profileData);
+      
+      // The profile response already includes verification data
+      // No need for separate API calls - verification data is included in the profile
+      return profileData;
+    } catch (error: any) {
+      // console.error('Error getting profile by DID:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get profile by handle with caching for performance (legacy)
    * @param handle - User handle
    * @returns Profile data
    */
@@ -1488,40 +1493,7 @@ class AtprotoService {
     this._channelCache.clear();
   }
 
-  /**
-   * Log out the current user
-   * Efficiently cleans up all session data and resets the agent state
-   */
-  static async logout(clearAllAccounts: boolean = false): Promise<void> {
-    try {
-      // Cancel any pending session checks
-      this._sessionPromise = null;
-      
-      // Clear all caches for performance and privacy
-      this.clearAllCaches();
-      
-      // Create a new clean agent first to avoid using stale credentials
-      this.agent = new AtpAgent({ service: SERVICE_URL });
-      
-      // Clear OAuth session
-      const oauthService = AtProtoOAuthService.getInstance();
-      await oauthService.signOut();
-      
-      // Clear all saved accounts if requested
-      if (clearAllAccounts) {
-        try {
-          await AccountManager.clearAllAccounts();
-        } catch (error) {
-          console.warn('Failed to clear accounts from AccountManager:', error);
-        }
-      }
-      
-      // console.log('Logout successful');
-    } catch (error) {
-      console.error('Error during logout:', error);
-      throw error; // Re-throw to allow proper error handling upstream
-    }
-  }
+
 
   /**
    * Get profile information for a DID (verifier)
@@ -1825,10 +1797,11 @@ class AtprotoService {
     await this.ensureSession();
     try {
       // Get experimental feeds setting first
-      const experimentalFeedsEnabled = await AccountManager.getExperimentalFeedsEnabled();
+      const experimentalFeedsEnabled = await AsyncStorage.getItem('experimental_feeds_enabled');
+      const isEnabled = experimentalFeedsEnabled === null ? true : experimentalFeedsEnabled === 'true';
       
       // If experimental feeds are disabled, request more feeds to ensure we get enough video-only results
-      const requestLimit = experimentalFeedsEnabled ? limit : Math.max(limit * 3, 15);
+      const requestLimit = isEnabled ? limit : Math.max(limit * 3, 15);
       const params = { limit: requestLimit, query: query };
       
       const { api } = await this.getApiClient();
@@ -1867,10 +1840,11 @@ class AtprotoService {
     await this.ensureSession();
     try {
       // Get experimental feeds setting first
-      const experimentalFeedsEnabled = await AccountManager.getExperimentalFeedsEnabled();
+      const experimentalFeedsEnabled = await AsyncStorage.getItem('experimental_feeds_enabled');
+      const isEnabled = experimentalFeedsEnabled === null ? true : experimentalFeedsEnabled === 'true';
       
       // If experimental feeds are disabled, request more feeds to ensure we get enough video-only results
-      const requestLimit = experimentalFeedsEnabled ? limit : Math.max(limit * 3, 30);
+      const requestLimit = isEnabled ? limit : Math.max(limit * 3, 30);
       const params = { limit: requestLimit };
       
       const { api } = await this.getApiClient();

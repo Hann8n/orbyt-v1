@@ -81,15 +81,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
     enabled: !!feedOption && feedOption.startsWith('at://') && !!channelDataForFeed?.did
   }), [feedOption, channelDataForFeed?.did]);
 
-  // Handle edit (only for owned channels)
-  const handleEdit = useCallback((channelId: string) => {
-    // TODO: Implement edit functionality
-  }, []);
 
-  // Handle delete (only for owned channels)
-  const handleDelete = useCallback((channelId: string) => {
-    // TODO: Implement delete functionality
-  }, []);
 
   // Extract and save channel colors if needed
   const extractAndSaveColors = useCallback(async (channelUri: string, avatarUrl: string) => {
@@ -151,7 +143,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
       description: channelData.description || description || '',
       avatar: channelData.avatar || avatar,
       likeCount,
-      isOwner: false, // TODO: Check if current user owns this channel
+      isOwner: false,
       isExperimental: channelData.isExperimental, // Add experimental flag
       creator: channelData.creator || creator, // Use creator from API or fallback to route params
     };
@@ -231,8 +223,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
         channel={channelHeaderData}
         showBackButton={true}
         onBackPress={handleBackPress}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
+
         applySafeArea={true}
       >
         <TabNavigation

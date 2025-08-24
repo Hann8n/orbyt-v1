@@ -110,7 +110,7 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
   });
 
   // Get profile colors for the badge
-  const { colors } = useProfileColors(handle.trim());
+  const { colors } = useProfileColors(handle);
 
   // Determine verification status and type
   const isVerified = profile?.verification?.isVerified || false;

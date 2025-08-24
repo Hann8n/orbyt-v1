@@ -27,6 +27,6 @@ export function useNavigationTracker() {
     updateNavigation(routeName);
     
     // Debug logging
-    console.log(`[NavigationTracker] Route changed to: ${routeName}`);
+
   }, [navigationState, updateNavigation]);
 }

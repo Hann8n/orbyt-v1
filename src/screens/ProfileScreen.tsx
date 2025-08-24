@@ -7,7 +7,7 @@ import { extractColorsFromImage } from '../utils/formatting/colorUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileCache, { 
   useProfile, 
-  useProfileColors, 
+  useProfileColors,
   useProfileColorsMutation,
   useProfileInvalidation,
   profileKeys
@@ -18,8 +18,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { ProfileHeader, TabNavigation, TabOption } from '../components/layout/header';
 import AccountSwitcher from '../components/features/profile/AccountSwitcher';
-import AccountManager, { SavedAccount } from '../services/storage/AccountManager';
- 
+import { useCurrentUser, useAccountManagement, useUserStore } from '../stores/userStore';
 import { Colors } from '../components/ui/UI';
  
 
@@ -27,10 +26,6 @@ type RootParamList = {
   Main: undefined;
   AuthorProfile: { handle: string };
 };
-
-// Cache keys for current user handle/DID persistence
-const CURRENT_USER_HANDLE_KEY = 'currentUserHandle';
-const CURRENT_USER_DID_KEY = 'currentUserDid';
 
 interface ProfileScreenProps {
   onLogout: (clearAllAccounts?: boolean) => Promise<void>;
@@ -41,11 +36,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const navigation = useNavigation<NavigationProp<RootParamList>>();
   const providedHandle = route.params?.handle || null;
   
+  // User store hooks
+  const { currentUser } = useCurrentUser();
+  const { savedAccounts, switchAccount } = useAccountManagement();
   
-  // Removed header visibility hook and janky fade logic; header remains static and always visible
-
-  // State for the current user's handle (loaded from storage or fetched)
-  const [userHandle, setUserHandle] = useState<string | null>(null);
+  // State for the current user's handle (loaded from userStore)
+  const userHandle = currentUser?.handle || null;
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [showAccountSwitcher, setShowAccountSwitcher] = useState<boolean>(false);
@@ -53,10 +49,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const invalidateProfile = useProfileInvalidation();
   const queryClient = useQueryClient();
 
-  // Determine the handle to use for fetching profile data
+  // Use DID as primary identifier for profile fetching
+  // If a handle is provided, we need to resolve it to a DID
+  // If no handle is provided, use the current user's DID
   const targetHandle = providedHandle || userHandle;
+  const targetDid = providedHandle ? null : currentUser?.did || null;
+  
+  // Determine if we're viewing our own profile
+  const isViewingOwnProfile = !providedHandle;
 
-  // Use React Query hooks for profile data and colors
+
+
+  // Use DID-based profile fetching (following ATProto best practices)
+  // If viewing own profile, use DID-based fetching, otherwise use handle-based fetching
   const {
     data: cachedProfile,
     refetch: refetchProfile,
@@ -64,13 +69,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     isError: isProfileFetchError,
   } = useProfile(targetHandle);
   
-  console.log('[ProfileScreen] Profile state:', {
-    providedHandle,
-    userHandle,
-    targetHandle,
-    hasCachedProfile: !!cachedProfile
-  });
-
+  // Use DID-based profile colors (following ATProto best practices)
   const { colors: profileColors } = useProfileColors(targetHandle);
   const colorsMutation = useProfileColorsMutation();
 
@@ -89,97 +88,51 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'reposts' | 'likes'>('profile');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
-  // Header visibility logic removed
-
   // Ensure profile data is immediately available from cache
+  // If viewing another profile (providedHandle), use that profile's data
+  // If viewing own profile, use current user's data
   const profileData = cachedProfile || (targetHandle ? ProfileCache.getProfileFromCacheSync(targetHandle) : null);
+  
+
 
   // Memoized query options for profile feed
   const queryOptions = useMemo(() => ({ 
     enabled: !!profileData?.did
   }), [profileData?.did]);
 
-  // Load current user handle from AsyncStorage on mount
+  // Set current user DID in ProfileCache when userStore changes
   useEffect(() => {
-    const loadCurrentUserHandle = async () => {
-      if (!providedHandle && !userHandle) {
+    if (currentUser?.handle) {
+      ProfileCache.setCurrentUserHandle(currentUser.handle);
+    }
+  }, [currentUser?.did]);
+
+  // Fallback: if no current user but we're authenticated, try to restore session
+  useEffect(() => {
+    const checkAndRestoreSession = async () => {
+      const state = useUserStore.getState();
+      if (state.isAuthenticated && !currentUser && !providedHandle) {
         try {
-          const storedDid = await AsyncStorage.getItem(CURRENT_USER_DID_KEY);
-          const storedHandle = await AsyncStorage.getItem(CURRENT_USER_HANDLE_KEY);
-          
-          if (storedDid) {
-            // console.log("Loaded user DID from storage:", storedDid);
-            ProfileCache.setCurrentUserDid(storedDid);
-            
-            // If we have a stored handle, use it for display, but don't rely on it for authentication
-            if (storedHandle) {
-              setUserHandle(storedHandle);
-            } else {
-              // If no stored handle, fetch current user to get the latest handle
-              fetchCurrentUserProfile();
-            }
-          } else {
-            // console.log("No user DID in storage, fetching current user...");
-            fetchCurrentUserProfile();
+          const activeAccountDid = state.activeAccountDid;
+          if (activeAccountDid) {
+    
+            await state.restoreSession(activeAccountDid);
           }
         } catch (error) {
-          console.error('Error loading current user data:', error);
-          fetchCurrentUserProfile();
+          console.error('[ProfileScreen] Failed to restore session:', error);
         }
       }
     };
-    loadCurrentUserHandle();
-  }, [providedHandle, userHandle]);
+    
+    checkAndRestoreSession();
+  }, [currentUser, providedHandle]);
 
-  // Save profile to AsyncStorage for persistence between sessions
-  const saveCurrentUserProfile = useCallback(async (profileData: any) => {
-    if (!profileData || !profileData.did) return;
-
-    try {
-      // console.log("Saving current user DID to storage:", profileData.did);
-      // Always save DID as primary identifier
-      await AsyncStorage.setItem(CURRENT_USER_DID_KEY, profileData.did);
-      
-      // Save handle for display purposes, but don't rely on it for authentication
-      if (profileData.handle) {
-        await AsyncStorage.setItem(CURRENT_USER_HANDLE_KEY, profileData.handle);
-      }
-    } catch (error) {
-      console.error('Error saving current user profile info:', error);
+  // Extract and save colors when profile data is available
+  useEffect(() => {
+    if (profileData?.avatar && profileData?.handle) {
+      extractAndSaveColors(profileData.handle, profileData.avatar);
     }
-  }, []);
-
-  // Fetch current user profile data
-  const fetchCurrentUserProfile = useCallback(async () => {
-    try {
-      console.log('[ProfileScreen] fetchCurrentUserProfile called');
-      const user = await AtprotoService.getCurrentUser();
-      console.log('[ProfileScreen] getCurrentUser result:', user);
-      
-      if (user) {
-        console.log('[ProfileScreen] Setting user handle:', user.handle);
-        setUserHandle(user.handle);
-        ProfileCache.setCurrentUserDid(user.did);
-        saveCurrentUserProfile(user);
-
-        if (user.avatar && user.handle) {
-          extractAndSaveColors(user.handle, user.avatar);
-        }
-        // Don't invalidate queries here - let React Query handle caching
-        // Only refetch if we don't have cached data
-        if (!profileData) {
-          console.log('[ProfileScreen] Refetching profile because no cached data');
-          refetchProfile();
-        }
-      } else {
-         console.log('[ProfileScreen] No user returned from getCurrentUser');
-         setProfileError("Could not load your profile.");
-      }
-    } catch (error) {
-      console.error('[ProfileScreen] Error fetching current user profile:', error);
-      setProfileError("Error loading your profile.");
-    }
-  }, [saveCurrentUserProfile, profileData, refetchProfile]);
+  }, [profileData?.avatar, profileData?.handle]);
 
   // Function to extract and save profile colors
   const extractAndSaveColors = async (handle: string, avatarUrl: string) => {
@@ -207,7 +160,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       // This prevents unnecessary API calls when app comes back to foreground
       const shouldFetch = !profileData && !isProfileLoading;
       if (shouldFetch) {
-        fetchCurrentUserProfile();
+        // Profile data will be fetched by the useProfile hook when targetHandle is available
+        // No need to manually fetch here as userStore manages the current user state
       }
     }
   }, [targetHandle, profileData, providedHandle, userHandle, isProfileLoading]);
@@ -228,38 +182,31 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
         await refetchProfile();
 
-        if (!providedHandle && profileData) {
-           saveCurrentUserProfile(profileData);
-           if (profileData.avatar && !profileData.profileColors) {
-             extractAndSaveColors(profileData.handle, profileData.avatar);
-           }
+                  if (!providedHandle && profileData) {
+            // Profile data is already managed by userStore and ProfileCache
+            // No additional saving needed
+          }
+        } else if (!providedHandle) {
+          // Profile data will be fetched by the useProfile hook when targetHandle is available
+          // No need to manually fetch here
         }
-      } else if (!providedHandle) {
-        console.log("No target handle during refresh, fetching current user...");
-        await fetchCurrentUserProfile();
-      }
     } catch (error) {
       console.error('Error during refresh:', error);
       setProfileError("Failed to refresh profile.");
     } finally {
       setRefreshing(false);
-      console.log("Refresh finished.");
+
     }
-  }, [targetHandle, invalidateProfile, refetchProfile, queryClient, profileData, providedHandle, fetchCurrentUserProfile, saveCurrentUserProfile]);
+  }, [targetHandle, invalidateProfile, refetchProfile, queryClient, profileData, providedHandle]);
 
   const handleLogout = async (clearAllAccounts: boolean = false) => {
     try {
       setRefreshing(true);
 
-              // console.log("Clearing current user handle/DID from storage...");
-      await AsyncStorage.removeItem(CURRENT_USER_HANDLE_KEY);
-      await AsyncStorage.removeItem(CURRENT_USER_DID_KEY);
-
-      ProfileCache.setCurrentUserDid('');
+              // Clear ProfileCache and call onLogout
+      ProfileCache.setCurrentUserHandle('');
       ProfileCache.clearCache();
-
       await onLogout(clearAllAccounts);
-
     } catch (error) {
       console.error('Error during logout:', error);
     } finally {
@@ -267,20 +214,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
   };
 
-  const handleAccountSwitch = async (account: SavedAccount) => {
+  const handleAccountSwitch = async (account: any) => {
     try {
       // The AccountManager.switchAccount already handles the authentication
       // Data clearing is now handled in AccountSwitcher component
       
-      // Update the current user handle for display
-      setUserHandle(account.handle);
+      // User data is now managed by userStore, no need to set local state
       
-      // Save the new user info to storage - prioritize DID over handle
-      await AsyncStorage.setItem(CURRENT_USER_DID_KEY, account.did);
-      await AsyncStorage.setItem(CURRENT_USER_HANDLE_KEY, account.handle);
-      
-      // Set the current user DID in ProfileCache
-      ProfileCache.setCurrentUserDid(account.did);
+                      // Set the current user DID in ProfileCache
+        ProfileCache.setCurrentUserHandle(account.handle);
       
       // Refresh the profile data after switching accounts
       await refetchProfile();
@@ -294,7 +236,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Determine if the currently viewed profile is the active account
   const isOwnProfileView = useMemo(() => {
     // If we're in the tab (no providedHandle), it's own profile
-    if (!providedHandle) return true;
+    if (isViewingOwnProfile) return true;
     const normalizedTarget = (targetHandle || '').trim().toLowerCase();
     const normalizedSelfHandle = (userHandle || '').trim().toLowerCase();
     if (normalizedTarget && normalizedSelfHandle && normalizedTarget === normalizedSelfHandle) {
@@ -305,7 +247,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       return currentDid === profileData.did;
     }
     return false;
-  }, [providedHandle, targetHandle, userHandle, profileData?.did]);
+  }, [isViewingOwnProfile, targetHandle, userHandle, profileData?.did]);
 
   // Memoized tab options to prevent recreation
   const tabOptions: TabOption[] = useMemo(() => [

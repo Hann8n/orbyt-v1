@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKeys } from '../../../services/FeedService';
 import {
@@ -10,6 +10,8 @@ import {
   Share,
   Platform,
   Alert,
+  ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -20,6 +22,7 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
 import VerticalListSheet from '../../ui/VerticalListSheet';
+import { useAuth, useAccountManagement } from '../../../stores/userStore';
 
 interface ProfileMenuProps {
   visible: boolean;
@@ -44,6 +47,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 }) => {
   const navigation = useNavigation<ProfileMenuNavigationProp>();
   const queryClient = useQueryClient();
+  const { signOut } = useAuth();
+  const { removeAccount } = useAccountManagement();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isBlocked, setIsBlocked] = useState<boolean>(false);
   const [showReportBlockSubmenu, setShowReportBlockSubmenu] = useState<boolean>(false);
@@ -216,7 +221,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   }, [onDismiss, navigation]);
 
   // Logout handler
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     Alert.alert(
       'log out',
       'are you sure you want to log out?',
@@ -230,21 +235,16 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           style: 'destructive',
           onPress: async () => {
             setIsSubmitting(true);
-            try {
-              // Get the current active account and remove it from account manager
-              const AccountManager = (await import('../../../services/storage/AccountManager')).default;
-              const activeAccount = await AccountManager.getActiveAccount();
-              
-              if (activeAccount) {
-                console.log('[ProfileMenu] Removing current account from account manager:', activeAccount.handle);
-                await AccountManager.removeAccount(activeAccount.id);
-              }
+                          try {
+                // Remove the current account using userStore
+                // The userStore will handle getting the active account and removing it
+                await signOut(true); // Clear all accounts
               
               if (onLogout) {
                 await onLogout(false); // Don't clear all accounts since we already removed the current one
               } else {
-                // Fallback to direct logout if no callback provided
-                await AtprotoService.logout(false);
+                // Use the user store to sign out
+                await signOut(false);
               }
               // Clear all queries
               queryClient.clear();
@@ -260,7 +260,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         }
       ]
     );
-  }, [onDismiss, queryClient, onLogout]);
+  }, [onDismiss, queryClient, onLogout, signOut, removeAccount]);
 
   // Determine menu options based on profile type
   const getMenuOptions = () => {

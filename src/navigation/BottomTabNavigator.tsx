@@ -154,7 +154,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
 
   const handleTabPress = (routeName: string) => {
     const now = Date.now();
-    console.log(`[BottomTabNavigator] tabPress: route=${routeName}, currentTab=${currentTab}, ts=${now}`);
+
 
     // If user taps home while already on home, detect double-tap and trigger refresh
     if (routeName === 'Home' && currentTab === 'Home') {
@@ -162,22 +162,16 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
       const isDoubleTap = delta > 0 && delta < 400; // 400ms window
       lastHomeTapRef.current = now;
 
-      console.log(`[BottomTabNavigator] Home re-tap detected. delta=${delta}ms, doubleTap=${isDoubleTap}`);
-
       setIsHomeRefreshing(true);
 
       if (homeScreenRef.current) {
-        console.log('[BottomTabNavigator] Invoking homeScreenRef.current.refresh()');
         homeScreenRef.current.refresh();
-      } else {
-        console.warn('[BottomTabNavigator] homeScreenRef.current is null');
       }
 
       if (resetTapTimeoutRef.current) {
         clearTimeout(resetTapTimeoutRef.current);
       }
       resetTapTimeoutRef.current = setTimeout(() => {
-        console.log('[BottomTabNavigator] Resetting refresh state');
         setIsHomeRefreshing(false);
       }, 2000);
     }
@@ -368,7 +362,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
         },
         listeners: ({ navigation }: { navigation: any }) => ({
           tabPress: (_e: any) => {
-            console.log(`[BottomTabNavigator] tabPress listener fired for ${route.name}`);
+        
             // Prevent default behavior for home tab when already on home
             if (route.name === 'Home' && currentTab === 'Home') {
               handleTabPress(route.name);

@@ -60,7 +60,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   viewMode,
   onViewModeChange,
   isModal = false,
-  onVerticalScroll,
+
   isRefreshing = false,
   isProfileLoading = false,
   onVisibleChange,
@@ -204,12 +204,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
   // Scroll handling
   const onScrollNative = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset } = e.nativeEvent;
-    const offsetY = contentOffset?.y || 0;
-    
     onScroll?.(e);
-    onVerticalScroll?.(offsetY);
-  }, [onScroll, onVerticalScroll]);
+  }, [onScroll]);
 
   // Momentum scroll end - save position and preload
   const onMomentumScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -255,10 +251,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           setVisibleIndex(nextIndex);
           onVisibleChange?.(nextIndex, nextUri);
           
-                  // Add to watch history for yourMix feed
-        if (feedOption === FEED_TYPES.YOUR_MIX) {
-          setTimeout(() => WatchHistory.addToWatchHistory(visibleVideoItem.item), 0);
-        }
+          // Add to watch history for yourMix feed
+          if (feedOption === FEED_TYPES.YOUR_MIX) {
+            setTimeout(() => WatchHistory.addToWatchHistory(visibleVideoItem.item), 0);
+          }
         }
       } else if (visibleVideoUri) {
         // No visible video found, clear state
@@ -266,18 +262,22 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         setVisibleIndex(-1);
         onVisibleChange?.(-1, null);
       }
-    }, APP_CONSTANTS.VISIBILITY_DEBOUNCE);
+    }, 50); // Reduced debounce for more responsive video detection
   }, [visibleVideoUri, feedOption, onVisibleChange]);
 
   // Initialize visibility when feed loads or visibility changes
   useEffect(() => {
     if (displayFeed.length > 0 && isVisible) {
-      // Set first video as visible when feed becomes visible
-      const firstVideo = displayFeed[0];
-      if (firstVideo && firstVideo.post.uri) {
-        setVisibleVideoUri(firstVideo.post.uri);
-        setVisibleIndex(0);
-        onVisibleChange?.(0, firstVideo.post.uri);
+      // For header feeds (profile, channel, etc.), don't auto-play the first video
+      // Let the user scroll to trigger video visibility naturally
+      if (!isHeaderFeed) {
+        // Set first video as visible when feed becomes visible (only for non-header feeds)
+        const firstVideo = displayFeed[0];
+        if (firstVideo && firstVideo.post.uri) {
+          setVisibleVideoUri(firstVideo.post.uri);
+          setVisibleIndex(0);
+          onVisibleChange?.(0, firstVideo.post.uri);
+        }
       }
       
       // Preload video data
@@ -288,7 +288,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       setVisibleIndex(-1);
       onVisibleChange?.(-1, null);
     }
-  }, [displayFeed, isVisible, onVisibleChange]);
+  }, [displayFeed, isVisible, isHeaderFeed, onVisibleChange]);
 
   // Render item function - optimized for FlashList recycling
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<FeedItem>) => {

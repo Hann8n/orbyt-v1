@@ -69,6 +69,7 @@ export const PROFILE_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in millisec
 class ProfileCache {
   private static CACHE_KEY_PREFIX = 'profile_cache_';
   private static currentUserDid: string | null = null;
+  private static currentUserHandle: string | null = null;
   private static memoryCache: Map<string, CachedProfile> = new Map();
   private static DEBUG = false;
   private static cacheUpdateCallbacks: Map<string, Set<() => void>> = new Map();
@@ -111,7 +112,39 @@ class ProfileCache {
   }
 
   /**
-   * Get a profile from memory cache synchronously (for immediate access)
+   * Sets the current user's handle for following status checks
+   */
+  static setCurrentUserHandle(handle: string) {
+    this.currentUserHandle = handle;
+  }
+
+  /**
+   * Gets the current user's handle
+   */
+  static getCurrentUserHandle(): string | null {
+    return this.currentUserHandle;
+  }
+
+  /**
+   * Get a profile from memory cache by DID synchronously (for immediate access)
+   * This prevents flashing by providing instant access to cached data
+   */
+  static getProfileFromCacheSyncByDid(did: string): CachedProfile | null {
+    if (!did) return null;
+    
+    this.initialize();
+    
+    // Return from memory cache immediately
+    const memoryCached = this.memoryCache.get(did);
+    if (memoryCached && this.isCacheValid(memoryCached)) {
+      return memoryCached;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Get a profile from memory cache by handle synchronously (for immediate access) (legacy)
    * This prevents flashing by providing instant access to cached data
    */
   static getProfileFromCacheSync(handle: string): CachedProfile | null {
@@ -141,10 +174,62 @@ class ProfileCache {
   }
 
   /**
-   * Get a profile from cache or fetch it if not available
-   * Uses memory cache first, then AsyncStorage, then network
-   * Optimized for React Query integration
+   * Get a profile by DID, with caching and background refresh
+   * This is the preferred method as DIDs are stable identifiers
    */
+  static async getProfileByDid(did: string): Promise<CachedProfile | null> {
+    if (!did) return null;
+    
+    this.initialize();
+    
+    return new Promise((resolve) => {
+      // Move cache operations to background
+      requestAnimationFrame(() => {
+        setTimeout(async () => {
+          try {
+            // Check memory cache first (fastest)
+            const memoryCached = this.memoryCache.get(did);
+            if (memoryCached && this.isCacheValid(memoryCached)) {
+              resolve(memoryCached);
+              return;
+            }
+            
+            // Try to get from async storage
+            const cachedProfile = await this.getProfileFromCacheByDid(did);
+            
+            // If found in cache and not expired, store in memory and return it
+            if (cachedProfile && this.isCacheValid(cachedProfile)) {
+              this.memoryCache.set(did, cachedProfile);
+              resolve(cachedProfile);
+              return;
+            }
+            
+            // Otherwise fetch fresh profile data
+            const freshProfile = await this.fetchAndCacheProfileByDid(did);
+            if (freshProfile) {
+              this.memoryCache.set(did, freshProfile);
+            }
+            resolve(freshProfile);
+          } catch (error) {
+            console.error('[ProfileCache] Error in getProfileByDid:', error, 'DID:', did);
+            // If there's an error fetching fresh data but we have cached data, return that
+            try {
+              const cachedProfile = await this.getProfileFromCacheByDid(did);
+              if (cachedProfile) {
+                this.memoryCache.set(did, cachedProfile);
+                resolve(cachedProfile);
+              }
+            } catch (cacheError) {
+              console.error('[ProfileCache] Error retrieving from cache:', cacheError);
+              resolve(null);
+            }
+          }
+        }, 0);
+      });
+    });
+  }
+
+
   static async getProfile(handle: string): Promise<CachedProfile | null> {
     if (!handle) return null;
     
@@ -226,7 +311,31 @@ class ProfileCache {
   }
 
   /**
-   * Force refresh a profile, ignoring the cache
+   * Force refresh a profile by DID, ignoring the cache
+   * Useful for React Query's refetch operations
+   */
+  static async refreshProfileByDid(did: string): Promise<CachedProfile | null> {
+    if (!did) return null;
+    
+    return new Promise((resolve) => {
+      // Move refresh to background
+      requestAnimationFrame(() => {
+        setTimeout(async () => {
+          try {
+            const freshProfile = await this.fetchAndCacheProfileByDid(did);
+            this.notifyProfileUpdated(did);
+            resolve(freshProfile);
+          } catch (error) {
+            console.error('[ProfileCache] Error refreshing profile by DID:', error);
+            resolve(null);
+          }
+        }, 0);
+      });
+    });
+  }
+
+  /**
+   * Force refresh a profile by handle, ignoring the cache (legacy)
    * Useful for React Query's refetch operations
    */
   static async refreshProfile(handle: string): Promise<CachedProfile | null> {
@@ -685,7 +794,131 @@ class ProfileCache {
   }
 
   /**
-   * Fetch a profile from the API and cache it
+   * Fetch a profile from the API by DID and cache it
+   */
+  private static async fetchAndCacheProfileByDid(did: string): Promise<CachedProfile | null> {
+    if (!did) return null;
+    
+    return new Promise((resolve) => {
+      // Move fetching to background
+      requestAnimationFrame(() => {
+        setTimeout(async () => {
+          try {
+            const profile = await AtprotoService.getProfileByDid(did);
+            if (!profile) {
+              resolve(null);
+              return;
+            }
+
+            let profileColors = undefined;
+            if (profile.avatar) {
+              try {
+                profileColors = await extractColorsFromImage(profile.avatar);
+              } catch (e) {
+                console.error('[ProfileCache] Error extracting colors:', e);
+              }
+            }
+
+            // Get both sides of the follow relationship from viewer data
+            const isFollowing = profile.viewer ? !!profile.viewer.following : undefined;
+            const isFollowedBy = profile.viewer ? !!profile.viewer.followedBy : undefined;
+
+            const cacheObject: CachedProfile = {
+              did: profile.did,
+              handle: profile.handle,
+              displayName: profile.displayName,
+              avatar: profile.avatar,
+              description: profile.description,
+              isFollowing,
+              isFollowedBy,
+              profileColors: profileColors ? {
+                backgroundColor: profileColors.backgroundColor,
+                foregroundColor: profileColors.foregroundColor,
+                statusBarStyle: profileColors.statusBarStyle,
+              } : undefined,
+              lastUpdated: Date.now()
+            };
+
+            // Extract verification data from profile response (already included)
+            if (profile.verification) {
+              const isVerified = 
+                profile.verification.verifiedStatus === 'valid' ||
+                profile.verification.trustedVerifierStatus === 'valid' ||
+                (profile.verification.verifications && 
+                 profile.verification.verifications.length > 0 && 
+                 profile.verification.verifications.some((v: any) => v.isValid));
+              
+              if (isVerified) {
+                cacheObject.verification = {
+                  isVerified: true,
+                  status: profile.verification.verifiedStatus || 'valid',
+                  trustedVerifierStatus: profile.verification.trustedVerifierStatus || 'none',
+                  verifications: profile.verification.verifications || [],
+                  verifiedBy: profile.verification.verifications?.[0]?.issuer || 'bsky.app',
+                  verifierHandle: profile.verification.trustedVerifierStatus === 'valid' ? 'Verifier' : 'bsky.app',
+                  verifiedAt: profile.verification.verifications?.[0]?.createdAt || new Date().toISOString(),
+                  isOfficial: profile.verification.trustedVerifierStatus !== 'valid'
+                };
+              } else {
+                cacheObject.verification = { isVerified: false };
+              }
+            } else {
+              cacheObject.verification = { isVerified: false };
+            }
+
+            // Process avatar colors in background
+            if (profile.avatar) {
+              requestAnimationFrame(() => {
+                setTimeout(async () => {
+                  try {
+                    const colors = await ImageColors.getColors(profile.avatar, {
+                      fallback: '#000000',
+                      cache: true,
+                      key: profile.avatar
+                    });
+                    if (colors && 'average' in colors) {
+                      const avgColor = colors.average;
+                      cacheObject.profileColors = {
+                        backgroundColor: avgColor,
+                        foregroundColor: this.isDarkColor(avgColor) ? '#FFFFFF' : '#000000',
+                        statusBarStyle: this.isDarkColor(avgColor) ? 'light' : 'dark'
+                      };
+                    }
+                  } catch (error) {
+                    // console.warn('Error extracting avatar colors:', error);
+                  }
+                }, 0);
+              });
+            }
+
+            // Update caches in background
+            this.memoryCache.set(did, cacheObject);
+            
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                AsyncStorage.setItem(
+                  this.getCacheKeyByDid(did),
+                  JSON.stringify(cacheObject)
+                ).catch(error => {
+                  console.warn('Error storing profile in cache:', error);
+                });
+                
+                this.notifyProfileUpdated(did);
+              }, 0);
+            });
+
+            resolve(cacheObject);
+          } catch (error) {
+            // console.warn(`ProfileCache: Error fetching and caching profile for ${did}:`, error);
+            resolve(null);
+          }
+        }, 0);
+      });
+    });
+  }
+
+  /**
+   * Fetch a profile from the API and cache it (legacy)
    */
   private static async fetchAndCacheProfile(handle: string): Promise<CachedProfile | null> {
     if (!handle) return null;
@@ -812,7 +1045,34 @@ class ProfileCache {
   }
 
   /**
-   * Get a profile directly from the cache
+   * Get a profile directly from the cache by DID
+   */
+  private static async getProfileFromCacheByDid(did: string): Promise<CachedProfile | null> {
+    if (!did) return null;
+    
+    return new Promise((resolve) => {
+      // Move cache retrieval to background
+      requestAnimationFrame(() => {
+        setTimeout(async () => {
+          try {
+            const cached = await AsyncStorage.getItem(this.getCacheKeyByDid(did));
+            if (cached) {
+              const parsed = JSON.parse(cached) as CachedProfile;
+              resolve(parsed);
+            } else {
+              resolve(null);
+            }
+          } catch (error) {
+            console.error('[ProfileCache] Error getting profile from cache by DID:', error);
+            resolve(null);
+          }
+        }, 0);
+      });
+    });
+  }
+
+  /**
+   * Get a profile directly from the cache by handle (legacy)
    */
   private static async getProfileFromCache(handle: string): Promise<CachedProfile | null> {
     if (!handle) return null;
@@ -849,7 +1109,14 @@ class ProfileCache {
   }
 
   /**
-   * Generate a consistent cache key for a handle
+   * Generate a consistent cache key for a DID
+   */
+  private static getCacheKeyByDid(did: string): string {
+    return `${this.CACHE_KEY_PREFIX}did_${did}`;
+  }
+
+  /**
+   * Generate a consistent cache key for a handle (legacy)
    */
   private static getCacheKey(handle: string): string {
     return `${this.CACHE_KEY_PREFIX}${handle.toLowerCase()}`;
@@ -1041,7 +1308,23 @@ class ProfileCache {
 // React Query Hooks for ProfileCache
 
 /**
- * Hook to fetch and subscribe to profile data
+ * Hook to fetch and subscribe to profile data by DID (preferred method)
+ */
+export function useProfileByDid(did: string | null | undefined): UseQueryResult<CachedProfile | null, Error> {
+  return useQuery<CachedProfile | null, Error>({
+    queryKey: did ? profileKeys.detail(`did_${did}`) : ['profiles', 'detail', 'did_'],
+    queryFn: async () => did ? ProfileCache.getProfileByDid(did) : null,
+    enabled: !!did,
+    staleTime: PROFILE_CACHE_EXPIRY, // cache valid for 24h
+    gcTime: PROFILE_CACHE_EXPIRY * 2, // keep in garbage collection for 48h
+    refetchOnWindowFocus: false,   // avoid unnecessary refetch
+    refetchOnMount: false,         // don't refetch on mount if we have data
+    refetchOnReconnect: false,     // don't refetch on reconnect
+  });
+}
+
+/**
+ * Hook to fetch and subscribe to profile data by handle (legacy)
  */
 export function useProfile(handle: string | null | undefined): UseQueryResult<CachedProfile | null, Error> {
   return useQuery<CachedProfile | null, Error>({
@@ -1057,7 +1340,7 @@ export function useProfile(handle: string | null | undefined): UseQueryResult<Ca
 }
 
 /**
- * Hook to fetch just the profile colors
+ * Hook to fetch just the profile colors by handle
  */
 export function useProfileColors(handle: string | null | undefined) {
   const { data: profile } = useProfile(handle);
@@ -1086,6 +1369,8 @@ export function useProfileColors(handle: string | null | undefined) {
     }
   };
 }
+
+
 
 /**
  * Hook to follow/unfollow a profile with optimistic updates

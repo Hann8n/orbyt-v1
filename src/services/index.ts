@@ -16,8 +16,6 @@ export { default as ChannelCache } from './cache/ChannelCache';
 export { default as ProfileCache } from './cache/ProfileCache';
 
 // Storage Services
-export { default as AccountManager } from './storage/AccountManager';
-export { default as ChannelSubscriptionManager } from './storage/ChannelSubscriptionManager';
 
 // Other Services
 export { ModerationService } from './ModerationService';

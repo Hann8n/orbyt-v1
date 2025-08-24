@@ -78,7 +78,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
 
   // Handle video status changes
   const handleVideoStatus = useCallback((uri: string, status: string) => {
-    console.log('VideoPreviewModal - Video status:', status, 'for URI:', uri);
+
     
     if (status === 'ready') {
       setIsVideoReady(true);

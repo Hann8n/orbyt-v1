@@ -1,21 +1,20 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  StatusBar,
   TouchableOpacity,
-  TextInput,
-  Image,
-  ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
+  ActivityIndicator,
   Platform,
   Dimensions,
   ScrollView,
-  Switch,
+  KeyboardAvoidingView,
+  TextInput,
   Modal,
   FlatList,
+  StatusBar,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Video, { VideoRef } from 'react-native-video';
@@ -23,23 +22,26 @@ import { Ionicons } from '@expo/vector-icons';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, TextOverlay } from '../navigation/types';
-import { Colors } from '../components/ui/UI';
-import AtprotoService from '../services/api/AtprotoService';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import VideoPreviewModal from '../components/features/video/Preview/VideoPreviewModal';
-import { useProfile, useProfileColors } from '../services/cache/ProfileCache';
 import { Avatar } from '../components/ui/UI';
 import VerificationBadge from '../components/features/verification/VerificationBadge';
-import ProfileCache from '../services/cache/ProfileCache';
 import Icon, { BackArrowIcon, DownloadIcon, ChevronDownIcon, ChevronUpIcon } from '../components/ui/Icon';
-import VideoProcessingService from '../services/VideoProcessingService';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp } from '@react-navigation/native';
+import { RootStackParamList, TextOverlay } from '../navigation/types';
+import { Colors } from '../components/ui/UI';
 import { VideoInfoDisplay } from '../components/ui';
 import AuthorItem from '../components/ui/AuthorItem';
 import * as Device from 'expo-device';
 import { isTablet } from '../utils/helpers/screenSize';
-import AccountManager, { SavedAccount } from '../services/storage/AccountManager';
+import { useCurrentUser, useAccountManagement } from '../stores/userStore';
+import { useProfile, useProfileColors } from '../services/cache/ProfileCache';
+import ProfileCache from '../services/cache/ProfileCache';
+import AtprotoService from '../services/api/AtprotoService';
+import VideoProcessingService from '../services/VideoProcessingService';
+import { SavedAccount } from '../stores/userStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const VIDEO_WIDTH = SCREEN_WIDTH * 0.4; // Keep the same relative width as before
@@ -83,8 +85,6 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
   // Comment filtering state
   const [commentFilter, setCommentFilter] = useState('all');
 
-  // User profile state - using ProfileCache
-  const [userHandle, setUserHandle] = useState<string | null>(null);
   const [contentWarningsCollapsed, setContentWarningsCollapsed] = useState(true);
   const [commentSettingsCollapsed, setCommentSettingsCollapsed] = useState(true);
   
@@ -129,67 +129,46 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
 
   // Add at the top of VideoPostScreen component:
   const [accountModalVisible, setAccountModalVisible] = useState(false);
-  const [accounts, setAccounts] = useState<SavedAccount[]>([]);
-  const [activeAccount, setActiveAccount] = useState<SavedAccount | null>(null);
 
-  const otherAccounts = accounts.filter(item => item.id !== activeAccount?.id);
+  // User store hooks
+  const { currentUser } = useCurrentUser();
+  const { savedAccounts, switchAccount } = useAccountManagement();
+
+  const otherAccounts = savedAccounts.filter(item => item.id !== currentUser?.did);
   const hasOtherAccounts = otherAccounts.length > 0;
 
-  // Use ProfileCache hooks for user profile data (must be after activeAccount is declared)
+  // User profile state - using userStore
+  const userHandle = currentUser?.handle || null;
+
+  // Use ProfileCache hooks for user profile data (using DID)
   const {
     data: userProfile,
     isLoading: isProfileLoading,
     isError: isProfileError,
-  } = useProfile(activeAccount?.handle || userHandle);
+  } = useProfile(currentUser?.handle || null);
 
-  const { colors: profileColors } = useProfileColors(activeAccount?.handle || userHandle);
+  const { colors: profileColors } = useProfileColors(currentUser?.handle || null);
 
   // Ensure profile data is immediately available from cache to prevent flashing
-  const profileData = userProfile || (activeAccount?.handle ? ProfileCache.getProfileFromCacheSync(activeAccount.handle) : (userHandle ? ProfileCache.getProfileFromCacheSync(userHandle) : null));
-
-  // Load accounts on mount
-  useEffect(() => {
-    (async () => {
-      const accs = await AccountManager.getSavedAccounts();
-      setAccounts(accs);
-      const active = await AccountManager.getActiveAccount();
-      setActiveAccount(active);
-    })();
-  }, []);
+  const profileData = userProfile || (currentUser?.handle ? ProfileCache.getProfileFromCacheSync(currentUser.handle) : null);
 
   // When account switches, update profile
   const handleSwitchAccount = async (account: SavedAccount) => {
-    await AccountManager.switchAccount(account.id);
-    setActiveAccount(account);
-    setAccountModalVisible(false);
-    // Reload current user profile and update userHandle
     try {
-      const user = await AtprotoService.getCurrentUser();
-      if (user) {
-        setUserHandle(user.handle);
-        ProfileCache.setCurrentUserDid(user.did);
-      }
+      await switchAccount(account.did);
+      setAccountModalVisible(false);
+      // User handle will be updated automatically by userStore
     } catch (error) {
-      console.error('Failed to load profile after switch:', error);
+      console.error('Failed to switch account:', error);
     }
   };
 
   useEffect(() => {
-    // Load current user profile info using ProfileCache
-    const loadUserProfile = async () => {
-      try {
-        const user = await AtprotoService.getCurrentUser();
-        if (user) {
-          setUserHandle(user.handle);
-          ProfileCache.setCurrentUserDid(user.did);
-        }
-      } catch (error) {
-        console.error('Failed to load profile:', error);
-      }
-    };
-    
-    loadUserProfile();
-  }, []);
+    // Set current user handle in ProfileCache when userStore changes
+    if (currentUser?.handle) {
+      ProfileCache.setCurrentUserHandle(currentUser.handle);
+    }
+  }, [currentUser?.did]);
 
   // Check video size on component mount
   useEffect(() => {
@@ -506,7 +485,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                     activeOpacity={0.8}
                   >
                     <Avatar
-                      uri={activeAccount?.avatar || profileData?.avatar || ''}
+                      uri={currentUser?.avatar || profileData?.avatar || ''}
                       type="profile"
                       size={45}
                       style={styles.avatar}
@@ -522,20 +501,20 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                         <>
                           <View style={styles.usernameContainer}>
                             <Text style={styles.username}>
-                              {activeAccount?.displayName || profileData?.displayName || profileData?.handle || 'Username'}
+                              {currentUser?.displayName || profileData?.displayName || profileData?.handle || 'Username'}
                             </Text>
-                            {(activeAccount?.handle || profileData?.handle) && (
+                            {(currentUser?.handle || profileData?.handle) && (
                               <VerificationBadge
-                                handle={activeAccount?.handle || profileData?.handle || ''}
+                                handle={currentUser?.handle || profileData?.handle || ''}
                                 textSize={16}
                                 textColor={Colors.white}
                                 customMargin={2}
                               />
                             )}
                           </View>
-                          {(activeAccount?.handle || profileData?.handle) && (
+                          {(currentUser?.handle || profileData?.handle) && (
                             <Text style={styles.userHandle}>
-                              @{activeAccount?.handle || profileData?.handle}
+                              @{currentUser?.handle || profileData?.handle}
                             </Text>
                           )}
                         </>
@@ -937,7 +916,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                 activeOpacity={0.8}
               >
                 <Avatar
-                  uri={activeAccount?.avatar || profileData?.avatar || ''}
+                  uri={currentUser?.avatar || profileData?.avatar || ''}
                   type="profile"
                   size={45}
                   style={styles.avatar}
@@ -953,20 +932,20 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                     <>
                       <View style={styles.usernameContainer}>
                         <Text style={styles.username}>
-                          {activeAccount?.displayName || profileData?.displayName || profileData?.handle || 'Username'}
+                          {currentUser?.displayName || profileData?.displayName || profileData?.handle || 'Username'}
                         </Text>
-                        {(activeAccount?.handle || profileData?.handle) && (
+                        {(currentUser?.handle || profileData?.handle) && (
                           <VerificationBadge
-                            handle={activeAccount?.handle || profileData?.handle || ''}
+                            handle={currentUser?.handle || profileData?.handle || ''}
                             textSize={16}
                             textColor={Colors.white}
                             customMargin={2}
                           />
                         )}
                       </View>
-                      {(activeAccount?.handle || profileData?.handle) && (
+                      {(currentUser?.handle || profileData?.handle) && (
                         <Text style={styles.userHandle}>
-                          @{activeAccount?.handle || profileData?.handle}
+                          @{currentUser?.handle || profileData?.handle}
                         </Text>
                       )}
                     </>
