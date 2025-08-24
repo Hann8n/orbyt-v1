@@ -57,7 +57,7 @@ const AboutScreen: React.FC = () => {
       id: 'privacy',
       label: 'privacy policy',
       icon: 'safe-shield-2-fill',
-      onPress: () => handleOpenLink('https://orbyt.app/privacy'),
+      onPress: () => handleOpenLink('https://getorbyt.com/privacy'),
       showChevron: true,
       description: 'learn how we protect your data'
     },
@@ -65,7 +65,7 @@ const AboutScreen: React.FC = () => {
       id: 'terms',
       label: 'terms of service',
       icon: 'paper-fill',
-      onPress: () => handleOpenLink('https://orbyt.app/terms'),
+      onPress: () => handleOpenLink('https://getorbyt.com/terms'),
       showChevron: true,
       description: 'read our terms and conditions'
     }
