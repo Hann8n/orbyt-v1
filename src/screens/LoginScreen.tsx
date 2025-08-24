@@ -55,8 +55,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         console.log(`[LoginScreen] OAuth sign-in completed, calling onLogin`);
         await onLogin('oauth-success');
       } catch (oauthError) {
-        console.error('[LoginScreen] OAuth failed:', oauthError);
-        
         // Check if this is a user cancellation vs actual error
         const errorMessage = oauthError instanceof Error ? oauthError.message : 'OAuth login failed';
         const isUserCancellation = errorMessage.includes('cancelled') || 
@@ -78,7 +76,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         return;
       }
     } catch (error) {
-      console.error('[LoginScreen] Login failed:', error);
       Alert.alert('login failed', (error as Error).message);
     } finally {
       setIsLoading(false);
@@ -94,7 +91,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         setHasSavedAccounts(accounts.length > 0);
 
       } catch (error) {
-        console.error('Error checking saved accounts:', error);
+        // Silently handle error checking saved accounts
       }
     };
     checkSavedAccounts();

@@ -254,7 +254,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
     <View style={[
       styles.container, 
       { 
-        backgroundColor: channelColors.backgroundColor, 
+        backgroundColor: Colors.black, 
       }
     ]}>
       {showErrorScreen ? (
@@ -273,7 +273,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
                   tintColor={channelColors.textColor}
                 />
               }
-              backgroundColor={channelColors.backgroundColor}
+              backgroundColor={Colors.black}
               secondaryColor={channelColors.textColor}
               isProfileLoading={isLoadingChannel && !channelDataForFeed}
               isRefreshing={refreshing}
@@ -294,7 +294,7 @@ const ChannelScreen: React.FC<ChannelScreenProps> = memo(({ route }) => {
         ) : (
           <MembersListView
             channelUri={uri || ''}
-            backgroundColor={channelColors.backgroundColor}
+            backgroundColor={Colors.black}
             textColor={channelColors.textColor}
             headerComponent={headerComponent}
             isVisible={true}

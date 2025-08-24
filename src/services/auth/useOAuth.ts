@@ -66,7 +66,6 @@ export function useOAuth(): UseOAuthResult {
         isSigningIn: false 
       }));
     } catch (err) {
-      console.error('Sign in failed:', err);
       setState(prev => ({ 
         ...prev, 
         error: err instanceof Error ? err.message : 'Sign in failed',

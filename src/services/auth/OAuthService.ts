@@ -87,7 +87,6 @@ export class AtProtoOAuthService {
       }
 
     } catch (error) {
-      console.error('[OAuth] Sign in failed:', error);
       throw error;
     }
   }

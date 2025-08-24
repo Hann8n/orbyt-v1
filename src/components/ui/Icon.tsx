@@ -144,7 +144,7 @@ export const PlusIcon: React.FC<{ size: number; color: string; strokeWidth: numb
   color, 
   strokeWidth 
 }) => {
-  const svgXml = PLUS_ICON_SVG.replace(/white/g, color);
+  const svgXml = PLUS_ICON_SVG.replace(/#fff/g, color);
   return (
     <SvgXml 
       xml={svgXml} 

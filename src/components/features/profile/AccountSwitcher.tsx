@@ -240,8 +240,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         console.log('[AccountSwitcher] OAuth account added successfully');
       }
     } catch (error) {
-      console.error('[AccountSwitcher] OAuth sign-in failed:', error);
-      
       // Check if this is a user cancellation vs actual error
       const errorMessage = error instanceof Error ? error.message : 'OAuth sign-in failed';
       const isUserCancellation = errorMessage.includes('cancelled') || 
@@ -267,8 +265,8 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       data: account,
     }));
 
-    // Add the "Add Account" option if onAddAccount is provided
-    if (onAddAccount) {
+    // Add the "Add Account" option only when in edit mode and onAddAccount is provided
+    if (editMode && onAddAccount) {
       accountItems.push({
         type: 'add' as const,
         data: null,
@@ -300,7 +298,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
             )}
             <Text style={styles.addAccountButtonText}>
-              {isAddingAccount || isOAuthSigningIn ? 'Signing in...' : 'Sign in with Bluesky'}
+              {isAddingAccount || isOAuthSigningIn ? 'Signing in...' : 'Add Account'}
             </Text>
           </View>
         </TouchableOpacity>

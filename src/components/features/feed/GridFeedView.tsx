@@ -178,6 +178,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
             columnWrapperStyle={[styles.columnWrapper, { backgroundColor }]}
             showsVerticalScrollIndicator={false}
             contentInsetAdjustmentBehavior="never"
+            bounces={false}
             ListHeaderComponent={headerComponent}
             ListEmptyComponent={
               isProfileLoading ? (
