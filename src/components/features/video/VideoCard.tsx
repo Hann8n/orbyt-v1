@@ -636,6 +636,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     justifyContent: 'center',
     alignItems: 'center',
+    marginVertical: 3, // 5px total spacing (2.5px top + 2.5px bottom)
   },
   videoContainer: {
     width: '100%',

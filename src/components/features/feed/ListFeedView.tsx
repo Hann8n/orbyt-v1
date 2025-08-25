@@ -462,7 +462,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
 
   // Snapping configuration
-  const snapToIntervalValue = cardHeight;
+  const snapToIntervalValue = cardHeight + 6; // Account for 8px total margin (4px top + 4px bottom)
 
   // Custom snap offsets for header feeds
   const snapToOffsets = useMemo(() => {
@@ -470,12 +470,13 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     const offsets: number[] = [];
     // Allow resting at the very top (header fully visible)
     offsets.push(0);
-    // Base offset that centers the first item
-    const centerCorrection = Math.max(0, Math.round((listHeight - cardHeight) / 2));
+    // Base offset that centers the first item - account for 8px total margin
+    const itemHeightWithMargin = cardHeight + 6;
+    const centerCorrection = Math.max(0, Math.round((listHeight - itemHeightWithMargin) / 2));
     const base = Math.max(0, headerHeight - centerCorrection);
     const itemCount = listData.length;
     for (let i = 0; i < itemCount; i++) {
-      offsets.push(base + i * cardHeight);
+      offsets.push(base + i * itemHeightWithMargin);
     }
     return offsets;
   }, [headerComponent, headerHeight, cardHeight, listHeight, listData.length]);
@@ -507,7 +508,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         // FlashList performance optimizations
         removeClippedSubviews={true}
         overrideItemLayout={(layout, item, index) => {
-          layout.span = cardHeight;
+          // Account for 8px total margin (4px top + 4px bottom) added to VideoCard
+          layout.span = cardHeight + 6;
         }}
         
         // Snapping configuration
