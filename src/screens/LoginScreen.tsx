@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BORDER_RADIUS } from '../utils/constants';
 import {
   View,
   TouchableOpacity,
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.white,
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     marginBottom: 20,
     paddingHorizontal: 20,
     height: 56,
@@ -344,7 +345,7 @@ const styles = StyleSheet.create({
   loginButton: {
     backgroundColor: Colors.white,
     width: '100%',
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 16,
     paddingHorizontal: 20,
     justifyContent: 'center',
@@ -416,7 +417,7 @@ const styles = StyleSheet.create({
   },
   accountItem: {
     backgroundColor: Colors.darkGray,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 16,
     paddingHorizontal: 20,
     marginBottom: 12,
@@ -450,7 +451,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingVertical: 16,
     paddingHorizontal: 20,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: Colors.darkGray,
   },
 
@@ -467,7 +468,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingVertical: 16,
     paddingHorizontal: 20,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: Colors.darkGray,
   },
   backIcon: {
@@ -514,7 +515,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     padding: 12,
     backgroundColor: 'rgba(255, 68, 68, 0.1)',
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   errorText: {
     color: '#ff4444',

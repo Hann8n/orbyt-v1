@@ -21,6 +21,7 @@ import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import { hexToRGBA, isColorDark, getContrastRatio } from '../../utils/formatting/colorUtils';
+import { BORDER_RADIUS } from '../../utils/constants';
 
 
 // ============================================================================
@@ -176,7 +177,7 @@ export const Button: React.FC<ButtonProps> = ({
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: BORDER_RADIUS.MEDIUM,
       borderWidth: 1,
     };
 
@@ -319,7 +320,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   const getBorderRadius = () => {
     switch (type) {
       case 'channel':
-        return size * 0.3; // 30% of size for channels (more rounded)
+        return BORDER_RADIUS.LARGE; // Consistent border radius for all channel avatars
       case 'profile':
       case 'user':
       default:
@@ -375,7 +376,7 @@ export const Card: React.FC<CardProps> = ({
       style={[
         {
           backgroundColor,
-          borderRadius: 12,
+          borderRadius: BORDER_RADIUS.MEDIUM,
           padding,
           margin,
           borderWidth: 1,
@@ -606,7 +607,7 @@ export const Badge: React.FC<BadgeProps> = ({
 }) => {
   const getBadgeStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
-      borderRadius: 12,
+      borderRadius: BORDER_RADIUS.MEDIUM,
       alignItems: 'center',
       justifyContent: 'center',
     };
@@ -703,7 +704,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 1,
     borderColor: Colors.gray,
     paddingHorizontal: 16,

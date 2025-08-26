@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BORDER_RADIUS } from '../../utils/constants';
 import {
   View,
   Text,
@@ -567,7 +568,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 1,
     borderColor: Colors.gray,
     paddingHorizontal: 16,
@@ -592,7 +593,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginRight: 8,
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.darkGray,
     borderWidth: 1,
     borderColor: Colors.gray,
@@ -622,7 +623,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     marginRight: 8,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: Colors.darkGray,
     borderWidth: 2,
     borderColor: Colors.gray,
@@ -660,7 +661,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkGray,
     marginHorizontal: 20,
     marginBottom: 12,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 1,
     borderColor: Colors.gray,
     overflow: 'hidden',
@@ -679,7 +680,7 @@ const styles = StyleSheet.create({
   colorSwatch: {
     width: 40,
     height: 40,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
     borderWidth: 1,
     borderColor: Colors.gray,
     marginRight: 12,
@@ -704,7 +705,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.mediumGray,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   usageButtonText: {
     color: Colors.lightGray,
@@ -721,7 +722,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     padding: 8,
     backgroundColor: Colors.black,
-    borderRadius: 6,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   usageFile: {
     color: Colors.white,

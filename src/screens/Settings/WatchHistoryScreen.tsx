@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { BORDER_RADIUS } from '../../utils/constants';
 import { View, Text, ActivityIndicator, Alert, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
   clearButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: Colors.darkGray,
     alignItems: 'center',
     justifyContent: 'center',
@@ -243,7 +244,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 16,
     marginBottom: 8,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     borderWidth: 1,
     borderColor: Colors.gray,

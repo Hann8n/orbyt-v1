@@ -1,4 +1,5 @@
 import React from 'react';
+import { BORDER_RADIUS } from '../../utils/constants';
 import {
   View,
   Text,
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
   appIcon: {
     width: 100,
     height: 100,
-    borderRadius: 24,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.darkGray,
     alignItems: 'center',
     justifyContent: 'center',
@@ -204,7 +205,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.mediumGray,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 2,
     borderColor: Colors.black,
   },
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
     borderColor: Colors.mediumGray,
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
   },
   linksSection: {

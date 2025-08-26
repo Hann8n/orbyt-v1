@@ -1,6 +1,7 @@
 declare let window: any;
 
 import React, { memo, useCallback, useMemo, useRef } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image, TextInput } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -597,7 +598,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   actionButton: {
-    borderRadius: 50,
+    borderRadius: BORDER_RADIUS.FULL,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -662,20 +663,20 @@ const styles = StyleSheet.create({
   avatar: {
     width: 112,
     height: 112,
-    borderRadius: 112 / 2,
+    borderRadius: BORDER_RADIUS.FULL,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarRoundedSquare: {
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 112 / 2,
+    borderRadius: BORDER_RADIUS.FULL,
   },
   avatarImageRoundedSquare: {
-    borderRadius: 14,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   textContainer: {
     width: '100%',
@@ -719,7 +720,7 @@ const styles = StyleSheet.create({
     right: -16,
     width: 32,
     height: 32,
-    borderRadius: 50,
+    borderRadius: BORDER_RADIUS.FULL,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -741,14 +742,14 @@ const styles = StyleSheet.create({
   editAvatarButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: Colors.white,
   },
   editAvatarOverlayRoundedSquare: {
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.LARGE,
     top: '50%',
     right: -16,
     transform: [{ translateY: -16 }],

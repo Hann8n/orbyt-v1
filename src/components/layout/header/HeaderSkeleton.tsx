@@ -1,4 +1,5 @@
 import React from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet } from 'react-native';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -43,7 +44,7 @@ const HeaderSkeleton: React.FC<HeaderSkeletonProps> = ({
         <View style={styles.titleRow}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={[styles.skeletonTitle, { borderRadius: 6 }]}
+            style={[styles.skeletonTitle, { borderRadius: BORDER_RADIUS.SMALL }]}
             shimmerColors={shimmerColors}
           />
         </View>
@@ -52,7 +53,7 @@ const HeaderSkeleton: React.FC<HeaderSkeletonProps> = ({
         <View style={styles.subtitleRow}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={[styles.skeletonSubtitle, { borderRadius: 4 }]}
+            style={[styles.skeletonSubtitle, { borderRadius: BORDER_RADIUS.SMALL }]}
             shimmerColors={shimmerColors}
           />
         </View>
@@ -61,17 +62,17 @@ const HeaderSkeleton: React.FC<HeaderSkeletonProps> = ({
           <View style={styles.descriptionContainer}>
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
-              style={[styles.skeletonDescription, { borderRadius: 4 }]}
+              style={[styles.skeletonDescription, { borderRadius: BORDER_RADIUS.SMALL }]}
               shimmerColors={shimmerColors}
             />
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
-              style={[styles.skeletonDescription, { width: '85%', borderRadius: 4 }]}
+              style={[styles.skeletonDescription, { width: '85%', borderRadius: BORDER_RADIUS.SMALL }]}
               shimmerColors={shimmerColors}
             />
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
-              style={[styles.skeletonDescription, { width: '60%', borderRadius: 4 }]}
+              style={[styles.skeletonDescription, { width: '60%', borderRadius: BORDER_RADIUS.SMALL }]}
               shimmerColors={shimmerColors}
             />
           </View>
@@ -96,10 +97,10 @@ const styles = StyleSheet.create({
   skeletonAvatar: {
     width: 100,
     height: 100,
-    borderRadius: 50,
+    borderRadius: BORDER_RADIUS.FULL,
   },
   skeletonAvatarRoundedSquare: {
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   skeletonTextContainer: {
     width: '100%',

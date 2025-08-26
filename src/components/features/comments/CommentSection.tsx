@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
@@ -428,6 +429,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           onTabPress={handleTabPress as any}
           textColor={Colors.white}
           backgroundColor="transparent"
+          variant="comments"
           style={styles.tabNavigation}
         />
       </View>
@@ -603,7 +605,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       <TrueSheet
         ref={sheetRef}
         sizes={['medium', 'large']}
-        cornerRadius={25}
+        cornerRadius={20}
         backgroundColor={Colors.black}
         onDismiss={handleClose}
         scrollRef={activeTab === 'comments' ? commentsListRef : likesListRef}
@@ -740,7 +742,7 @@ const styles = StyleSheet.create({
   loadingShimmer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   shimmerItem: {
     flexDirection: 'row',
@@ -751,7 +753,7 @@ const styles = StyleSheet.create({
   shimmerAvatar: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     marginRight: 12,
   },
   shimmerContent: {
@@ -761,13 +763,13 @@ const styles = StyleSheet.create({
   shimmerName: {
     width: '55%',
     height: 18,
-    borderRadius: 3,
+    borderRadius: BORDER_RADIUS.SMALL,
     marginBottom: 2,
   },
   shimmerText: {
     width: '85%',
     height: 16,
-    borderRadius: 4,
+    borderRadius: BORDER_RADIUS.SMALL,
     marginTop: 2,
   },
   inputContainer: {
@@ -787,7 +789,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 42,
     height: 42,
-    borderRadius: 21,
+    borderRadius: BORDER_RADIUS.FULL,
     borderWidth: 0,
   },
   inputWrapper: {
@@ -795,7 +797,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: 'transparent',
-    borderRadius: 18,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 0,
     borderColor: 'transparent',
     position: 'relative',
@@ -848,7 +850,7 @@ const styles = StyleSheet.create({
     width: '95%',
     height: '80%',
     resizeMode: 'contain',
-    borderRadius: 15,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   altText: {
     color: Colors.white,
@@ -862,7 +864,7 @@ const styles = StyleSheet.create({
     top: 60,
     left: 24,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     padding: 12,
   },
   likeItem: {
@@ -873,7 +875,7 @@ const styles = StyleSheet.create({
   likeAvatar: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     marginRight: 12,
     borderWidth: 0,
   },

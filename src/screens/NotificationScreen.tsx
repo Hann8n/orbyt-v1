@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { BORDER_RADIUS } from '../utils/constants';
 import {
   View,
   Text,
@@ -36,12 +37,12 @@ const NotificationShimmer = () => (
     <View style={styles.notificationContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: '40%', height: 16, marginBottom: 4, borderRadius: 2 }}
+        style={{ width: '40%', height: 16, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: '55%', height: 16, borderRadius: 2 }}
+        style={{ width: '55%', height: 16, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
@@ -393,7 +394,7 @@ const styles = StyleSheet.create({
   profileImage: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     marginRight: 12,
   },
   notificationContent: {
@@ -429,7 +430,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   retryButtonText: {
     color: Colors.lightGray,

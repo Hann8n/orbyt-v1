@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
@@ -395,23 +396,21 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       return (
         <Pressable
           onPress={handlePress}
-          style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.darkGray, borderRadius: 15, borderWidth: 1, borderColor: Colors.mediumGray, marginTop: 8, marginBottom: 4, overflow: 'hidden' }}
-          android_ripple={{ color: Colors.darkGray }}
+          style={styles.linkPreviewContainer}
+          android_ripple={{ color: Colors.mediumGray }}
         >
-          {thumbUrl && (
-            <ShimmerImage
-              uri={thumbUrl}
-              style={{ width: 64, height: 64, borderTopLeftRadius: 15, borderBottomLeftRadius: 15, backgroundColor: Colors.darkGray }}
-            />
-          )}
-          <View style={{ flex: 1, padding: 8, minWidth: 0 }}>
+          <View style={styles.linkPreviewContent}>
             {external.title && (
-              <Text numberOfLines={2} style={{ color: Colors.white, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>{external.title}</Text>
+              <Text numberOfLines={2} style={styles.linkPreviewTitle}>
+                {external.title}
+              </Text>
             )}
-            {external.description && (
-              <Text numberOfLines={2} style={{ color: Colors.lightGray, fontSize: 13 }}>{external.description}</Text>
-            )}
-            <Text numberOfLines={1} style={{ color: Colors.lightGray, fontSize: 12, marginTop: 2 }}>{external.uri.replace(/^https?:\/\//, '')}</Text>
+            <Text numberOfLines={1} style={styles.linkPreviewUrl}>
+              {external.uri.replace(/^https?:\/\//, '').replace(/^www\./, '')}
+            </Text>
+          </View>
+          <View style={styles.linkPreviewIconContainer}>
+            <Text style={styles.linkPreviewIcon}>↗</Text>
           </View>
         </Pressable>
       );
@@ -445,7 +444,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             maxHeight,
             marginTop: hasText ? 2 : 0,
             aspectRatio: aspectRatio ? getClampedAspectRatio(aspectRatio) : 1.5,
-            borderRadius: 8,
+            borderRadius: BORDER_RADIUS.LARGE,
           };
           return (
             <View style={styles.commentImagesContainer}>
@@ -584,7 +583,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                 style={{
                   width: level > 0 ? 30 : 40,
                   height: level > 0 ? 30 : 40,
-                  borderRadius: 20,
+                  borderRadius: BORDER_RADIUS.LARGE,
                   marginRight: 12,
                   borderWidth: 0,
                 }}
@@ -682,14 +681,14 @@ const styles = StyleSheet.create({
   commentImageWrapper: {
     padding: 2,
     overflow: 'hidden',
-    borderRadius: 15,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     position: 'relative',
     marginBottom: 4,
   },
   commentImage: {
     width: '100%',
     height: 'auto',
-    borderRadius: 15,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   moreImagesIndicator: {
     position: 'absolute',
@@ -698,7 +697,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 15,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   moreImagesText: {
     color: Colors.white,
@@ -727,7 +726,7 @@ const styles = StyleSheet.create({
   commentAvatarNested: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   commentTextContainer: {
     marginLeft: 12,
@@ -807,7 +806,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingVertical: 2,
     paddingHorizontal: 8,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
     backgroundColor: 'transparent',
   },
   repliesToggleLine: {
@@ -825,6 +824,64 @@ const styles = StyleSheet.create({
   },
   replyButtonNested: {
     marginLeft: 20,
+  },
+  // Link Preview Styles
+  linkPreviewContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.LARGE,
+    marginTop: 8,
+    marginBottom: 4,
+    overflow: 'hidden',
+  },
+  linkPreviewContent: {
+    flex: 1,
+    padding: 16,
+    minWidth: 0,
+  },
+  linkPreviewTitle: {
+    color: Colors.white,
+    fontFamily: 'Firma-Bold',
+    fontSize: 15,
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  linkPreviewDescription: {
+    color: Colors.lightGray,
+    fontFamily: 'Firma-Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  linkPreviewUrl: {
+    color: Colors.gray,
+    fontFamily: 'Firma-Regular',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  linkPreviewPlaceholderText: {
+    fontSize: 20,
+    color: Colors.lightGray,
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.FULL,
+    width: 32,
+    height: 32,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: 32,
+  },
+  linkPreviewIconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    width: 48,
+    alignSelf: 'stretch',
+  },
+  linkPreviewIcon: {
+    fontSize: 18,
+    color: Colors.gray,
+    fontWeight: 'bold',
   },
 });
 

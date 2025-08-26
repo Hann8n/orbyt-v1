@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { BORDER_RADIUS } from '../utils/constants';
 import {
   View,
   Text,
@@ -533,7 +534,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                 {accountModalVisible && hasOtherAccounts && (
                   <View style={{
                     backgroundColor: Colors.darkGray,
-                    borderRadius: 12,
+                    borderRadius: BORDER_RADIUS.MEDIUM,
                     marginTop: 4,
                     marginBottom: 12,
                     borderWidth: 1,
@@ -962,7 +963,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
             </View>
             {/* Dropdown list of accounts, shown if accountModalVisible */}
             {accountModalVisible && hasOtherAccounts && (
-              <View style={{ backgroundColor: Colors.darkGray, borderRadius: 12, marginTop: 12, marginBottom: 12, borderWidth: 1, borderColor: Colors.gray, paddingVertical: 6, shadowColor: Colors.black, shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}>
+              <View style={{ backgroundColor: Colors.darkGray, borderRadius: BORDER_RADIUS.MEDIUM, marginTop: 12, marginBottom: 12, borderWidth: 1, borderColor: Colors.gray, paddingVertical: 6, shadowColor: Colors.black, shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}>
                 {otherAccounts
                   .map((item, idx, filteredAccounts) => (
                     <AuthorItem
@@ -1181,7 +1182,7 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     padding: 8,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     width: 44,
     height: 44,
     alignItems: 'center',
@@ -1213,7 +1214,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     alignSelf: 'center',
-    borderRadius: 15,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   video: {
     width: '100%',
@@ -1243,7 +1244,7 @@ const styles = StyleSheet.create({
     marginTop: -25,
     width: 50,
     height: 50,
-    borderRadius: 25,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.overlayBlack60,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1255,7 +1256,7 @@ const styles = StyleSheet.create({
     right: 10,
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: Colors.overlayBlack50,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1273,7 +1274,7 @@ const styles = StyleSheet.create({
   progressBarBackground: {
     height: 4,
     backgroundColor: Colors.overlayWhite30,
-    borderRadius: 2,
+    borderRadius: BORDER_RADIUS.SMALL,
     overflow: 'hidden',
   },
   progressBar: {
@@ -1392,7 +1393,7 @@ const styles = StyleSheet.create({
   checkbox: {
     width: 22,
     height: 22,
-    borderRadius: 4,
+    borderRadius: BORDER_RADIUS.SMALL,
     borderWidth: 2,
     borderColor: Colors.lightGray,
     justifyContent: 'center',
@@ -1405,7 +1406,7 @@ const styles = StyleSheet.create({
   radioButton: {
     width: 22,
     height: 22,
-    borderRadius: 11,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 2,
     borderColor: Colors.lightGray,
     justifyContent: 'center',
@@ -1417,12 +1418,12 @@ const styles = StyleSheet.create({
   radioButtonInner: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: BORDER_RADIUS.SMALL,
     backgroundColor: Colors.darkGray,
   },
   otherWarningInput: {
     backgroundColor: Colors.darkGray,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
     padding: 12,
     color: Colors.white,
     marginTop: 5,
@@ -1436,7 +1437,7 @@ const styles = StyleSheet.create({
     right: 20,
     backgroundColor: Colors.white,
     height: 60,
-    borderRadius: 30,
+    borderRadius: BORDER_RADIUS.LARGE,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: Colors.lightGray,
@@ -1499,7 +1500,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     backgroundColor: Colors.white,
     height: 60,
-    borderRadius: 30,
+    borderRadius: BORDER_RADIUS.LARGE,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: Colors.lightGray,

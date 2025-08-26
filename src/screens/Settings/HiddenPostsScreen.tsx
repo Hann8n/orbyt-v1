@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Alert, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { BORDER_RADIUS } from '../../utils/constants';
+import { View, Text, FlatList, ActivityIndicator, Alert, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon } from '../../components/ui/Icon';
 import ListHeader from '../../components/ui/ListHeader';
-import { Colors } from '../../components/ui/UI';
+import { Colors, Avatar } from '../../components/ui/UI';
 import { ModerationService } from '../../services/ModerationService';
 import AtprotoService from '../../services/api/AtprotoService';
 
@@ -92,11 +93,12 @@ const HiddenPostsScreen: React.FC = () => {
         <View style={styles.postInfo}>
           <View style={styles.authorInfo}>
             <View style={styles.avatarContainer}>
-              {item.author.avatar ? (
-                <Image source={{ uri: item.author.avatar }} style={styles.avatar} />
-              ) : (
-                <Icon name="user" size={20} color={Colors.lightGray} />
-              )}
+              <Avatar
+                uri={item.author.avatar}
+                type="profile"
+                size={32}
+                ringColor="transparent"
+              />
             </View>
             <View style={styles.authorDetails}>
               <Text style={styles.authorName}>
@@ -195,7 +197,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
@@ -211,18 +213,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   avatarContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.mediumGray,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: 8,
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
   },
   authorDetails: {
     flex: 1,
@@ -251,7 +242,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkGray,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 22,
+    borderRadius: BORDER_RADIUS.SMALL,
     minWidth: 100,
     height: 40,
     borderWidth: 1,

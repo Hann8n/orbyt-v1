@@ -12,7 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon } from '../../components/ui/Icon';
 import ListHeader from '../../components/ui/ListHeader';
-import { Colors } from '../../components/ui/UI';
+import { Colors, Avatar } from '../../components/ui/UI';
 import UI from '../../components/ui/UI';
 import { ModerationService } from '../../services/ModerationService';
 import AtprotoService from '../../services/api/AtprotoService';
@@ -39,10 +39,10 @@ const BlockedUsersScreen: React.FC = () => {
   const loadBlockedUsers = async () => {
     try {
       setLoading(true);
-      const blockedDids = await ModerationService.getBlockedUsers();
+      const blockedDids = await AtprotoService.getBlockedUsersFromAPI();
       
-      // Convert Set<string> to BlockedUser objects
-      const userPromises = Array.from(blockedDids).map(async (did) => {
+      // Convert string[] to BlockedUser objects
+      const userPromises = blockedDids.map(async (did: string) => {
         try {
           // Try to get profile info for each blocked user
           const profile = await AtprotoService.getProfile(did);
@@ -94,13 +94,13 @@ const BlockedUsersScreen: React.FC = () => {
     return (
       <View style={styles.userItem}>
         <View style={styles.userInfo}>
-          <View style={settingsAvatarStyles.avatarMedium}>
-            {item.avatar ? (
-              <Image source={{ uri: item.avatar }} style={settingsAvatarStyles.avatarImage} />
-            ) : (
-              <Icon name="user" size={20} color={Colors.lightGray} />
-            )}
-          </View>
+          <Avatar
+            uri={item.avatar}
+            type="profile"
+            size={40}
+            ringColor="transparent"
+            style={{ marginRight: 12 }}
+          />
           <View style={styles.userDetails}>
             <Text style={settingsTextStyles.userDisplayName} numberOfLines={1} ellipsizeMode="tail">
               {item.displayName || 'Unknown User'}

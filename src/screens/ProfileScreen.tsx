@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo, memo } from 'react';
+import { BORDER_RADIUS } from '../utils/constants';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
 import AtprotoService from '../services/api/AtprotoService';
 // Use plain FlashList via FeedRenderer; no adapter/converter
@@ -416,7 +417,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderWidth: 1,

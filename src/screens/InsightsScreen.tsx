@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { BORDER_RADIUS } from '../utils/constants';
 import {
   View,
   Text,
@@ -116,29 +117,29 @@ const UserCardShimmer = () => (
     <View style={styles.userInfo}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 60, height: 60, borderRadius: 30, marginBottom: 12 }}
+        style={{ width: 60, height: 60, borderRadius: BORDER_RADIUS.LARGE, marginBottom: 12 }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 120, height: 24, marginBottom: 8, borderRadius: 4 }}
+        style={{ width: 120, height: 24, marginBottom: 8, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 100, height: 16, marginBottom: 20, borderRadius: 3 }}
+        style={{ width: 100, height: 16, marginBottom: 20, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <View style={styles.accountStats}>
         <View style={styles.accountStat}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 40, height: 18, marginBottom: 4, borderRadius: 3 }}
+            style={{ width: 40, height: 18, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 60, height: 12, borderRadius: 2 }}
+            style={{ width: 60, height: 12, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
@@ -146,12 +147,12 @@ const UserCardShimmer = () => (
         <View style={styles.accountStat}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 40, height: 18, marginBottom: 4, borderRadius: 3 }}
+            style={{ width: 40, height: 18, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 60, height: 12, borderRadius: 2 }}
+            style={{ width: 60, height: 12, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
@@ -165,17 +166,17 @@ const MetricCardShimmer = () => (
     <View style={styles.metricContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 20, height: 20, marginBottom: 6, borderRadius: 3 }}
+        style={{ width: 20, height: 20, marginBottom: 6, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 40, height: 20, marginBottom: 2, borderRadius: 3 }}
+        style={{ width: 40, height: 20, marginBottom: 2, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 50, height: 11, borderRadius: 2 }}
+        style={{ width: 50, height: 11, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
@@ -186,7 +187,7 @@ const ChartCardShimmer = () => (
   <Card style={styles.chartCard} backgroundColor="rgba(255, 255, 255, 0.05)">
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={{ width: 140, height: 18, marginBottom: 20, borderRadius: 4 }}
+      style={{ width: 140, height: 18, marginBottom: 20, borderRadius: BORDER_RADIUS.SMALL }}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.improvedChartContent}>
@@ -199,12 +200,12 @@ const ChartCardShimmer = () => (
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 40, height: 11, marginTop: 8, borderRadius: 2 }}
+            style={{ width: 40, height: 11, marginTop: 8, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 20, height: 10, marginTop: 4, borderRadius: 2 }}
+            style={{ width: 20, height: 10, marginTop: 4, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
@@ -218,23 +219,23 @@ const TopPostCardShimmer = () => (
     <View style={styles.topPostHeader}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 30, height: 16, borderRadius: 8 }}
+        style={{ width: 30, height: 16, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 80, height: 12, borderRadius: 2 }}
+        style={{ width: 80, height: 12, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={{ width: '100%', height: 16, marginBottom: 8, borderRadius: 3 }}
+      style={{ width: '100%', height: 16, marginBottom: 8, borderRadius: BORDER_RADIUS.SMALL }}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={{ width: '70%', height: 16, marginBottom: 16, borderRadius: 3 }}
+      style={{ width: '70%', height: 16, marginBottom: 16, borderRadius: BORDER_RADIUS.SMALL }}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.topPostStats}>
@@ -242,12 +243,12 @@ const TopPostCardShimmer = () => (
         <View key={index} style={styles.topPostStat}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 16, height: 16, marginRight: 4, borderRadius: 2 }}
+            style={{ width: 16, height: 16, marginRight: 4, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 30, height: 12, borderRadius: 2 }}
+            style={{ width: 30, height: 12, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
@@ -260,7 +261,7 @@ const EngagementCardShimmer = () => (
   <Card style={styles.engagementCard} backgroundColor="rgba(255, 255, 255, 0.05)">
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={{ width: 140, height: 18, marginBottom: 20, borderRadius: 4 }}
+      style={{ width: 140, height: 18, marginBottom: 20, borderRadius: BORDER_RADIUS.SMALL }}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.engagementStats}>
@@ -268,12 +269,12 @@ const EngagementCardShimmer = () => (
         <View key={index} style={styles.engagementStat}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 40, height: 20, marginBottom: 4, borderRadius: 3 }}
+            style={{ width: 40, height: 20, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 80, height: 12, borderRadius: 2 }}
+            style={{ width: 80, height: 12, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
@@ -286,7 +287,7 @@ const AnalysisCardShimmer = () => (
   <Card style={styles.analysisCard} backgroundColor="rgba(255, 255, 255, 0.05)">
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={{ width: 160, height: 18, marginBottom: 20, borderRadius: 4 }}
+      style={{ width: 160, height: 18, marginBottom: 20, borderRadius: BORDER_RADIUS.SMALL }}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.contentTypeStats}>
@@ -295,18 +296,18 @@ const AnalysisCardShimmer = () => (
           <View style={styles.activityBarHeader}>
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
-              style={{ width: 80, height: 14, borderRadius: 2 }}
+              style={{ width: 80, height: 14, borderRadius: BORDER_RADIUS.SMALL }}
               shimmerColors={Colors.SHIMMER.PRIMARY}
             />
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
-              style={{ width: 30, height: 14, borderRadius: 2 }}
+              style={{ width: 30, height: 14, borderRadius: BORDER_RADIUS.SMALL }}
               shimmerColors={Colors.SHIMMER.PRIMARY}
             />
           </View>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ height: 8, borderRadius: 4, marginTop: 4 }}
+            style={{ height: 8, borderRadius: BORDER_RADIUS.SMALL, marginTop: 4 }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
@@ -317,17 +318,17 @@ const AnalysisCardShimmer = () => (
       <View style={styles.insightContent}>
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
-          style={{ width: 20, height: 20, marginRight: 12, borderRadius: 3 }}
+          style={{ width: 20, height: 20, marginRight: 12, borderRadius: BORDER_RADIUS.SMALL }}
           shimmerColors={Colors.SHIMMER.PRIMARY}
         />
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
-          style={{ width: '100%', height: 16, marginBottom: 4, borderRadius: 3 }}
+          style={{ width: '100%', height: 16, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
           shimmerColors={Colors.SHIMMER.PRIMARY}
         />
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
-          style={{ width: '80%', height: 16, borderRadius: 3 }}
+          style={{ width: '80%', height: 16, borderRadius: BORDER_RADIUS.SMALL }}
           shimmerColors={Colors.SHIMMER.PRIMARY}
         />
       </View>
@@ -339,7 +340,7 @@ const FunFactsCardShimmer = () => (
   <Card style={styles.funFactsCard} backgroundColor="rgba(255, 255, 255, 0.05)">
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={{ width: 100, height: 18, marginBottom: 20, borderRadius: 4 }}
+      style={{ width: 100, height: 18, marginBottom: 20, borderRadius: BORDER_RADIUS.SMALL }}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.funFactsGrid}>
@@ -347,12 +348,12 @@ const FunFactsCardShimmer = () => (
         <View key={index} style={styles.funFact}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 80, height: 12, marginBottom: 6, borderRadius: 2 }}
+            style={{ width: 80, height: 12, marginBottom: 6, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 60, height: 16, borderRadius: 3 }}
+            style={{ width: 60, height: 16, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
         </View>
@@ -365,36 +366,36 @@ const SocialScoreCardShimmer = () => (
   <Card style={styles.socialScoreCard} backgroundColor="rgba(255, 255, 255, 0.05)">
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={{ width: 120, height: 18, marginBottom: 20, borderRadius: 4 }}
+      style={{ width: 120, height: 18, marginBottom: 20, borderRadius: BORDER_RADIUS.SMALL }}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.socialScoreContent}>
       <View style={styles.socialScoreMain}>
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
-          style={{ width: 80, height: 80, borderRadius: 40, marginRight: 20 }}
+          style={{ width: 80, height: 80, borderRadius: BORDER_RADIUS.LARGE, marginRight: 20 }}
           shimmerColors={Colors.SHIMMER.PRIMARY}
         />
         <View style={styles.creatorLevelInfo}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 120, height: 18, marginBottom: 4, borderRadius: 4 }}
+            style={{ width: 120, height: 18, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 140, height: 14, marginBottom: 12, borderRadius: 3 }}
+            style={{ width: 140, height: 14, marginBottom: 12, borderRadius: BORDER_RADIUS.SMALL }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <View style={styles.levelProgressContainer}>
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
-              style={{ height: 6, borderRadius: 3, marginBottom: 4 }}
+              style={{ height: 6, borderRadius: BORDER_RADIUS.SMALL, marginBottom: 4 }}
               shimmerColors={Colors.SHIMMER.PRIMARY}
             />
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
-              style={{ width: 80, height: 12, borderRadius: 2 }}
+              style={{ width: 80, height: 12, borderRadius: BORDER_RADIUS.SMALL }}
               shimmerColors={Colors.SHIMMER.PRIMARY}
             />
           </View>
@@ -408,7 +409,7 @@ const AchievementsCardShimmer = () => (
   <Card style={styles.achievementsCard} backgroundColor="rgba(255, 255, 255, 0.05)">
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={{ width: 100, height: 18, marginBottom: 20, borderRadius: 4 }}
+      style={{ width: 100, height: 18, marginBottom: 20, borderRadius: BORDER_RADIUS.SMALL }}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.achievementsGrid}>
@@ -416,29 +417,29 @@ const AchievementsCardShimmer = () => (
         <View key={index} style={styles.achievementItem}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={{ width: 48, height: 48, borderRadius: 24, marginRight: 16 }}
+            style={{ width: 48, height: 48, borderRadius: BORDER_RADIUS.MEDIUM, marginRight: 16 }}
             shimmerColors={Colors.SHIMMER.PRIMARY}
           />
           <View style={styles.achievementContent}>
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
-              style={{ width: 100, height: 16, marginBottom: 2, borderRadius: 3 }}
+              style={{ width: 100, height: 16, marginBottom: 2, borderRadius: BORDER_RADIUS.SMALL }}
               shimmerColors={Colors.SHIMMER.PRIMARY}
             />
             <ShimmerPlaceholder
               LinearGradient={LinearGradient}
-              style={{ width: 120, height: 12, marginBottom: 8, borderRadius: 2 }}
+              style={{ width: 120, height: 12, marginBottom: 8, borderRadius: BORDER_RADIUS.SMALL }}
               shimmerColors={Colors.SHIMMER.PRIMARY}
             />
             <View style={styles.achievementProgress}>
               <ShimmerPlaceholder
                 LinearGradient={LinearGradient}
-                style={{ flex: 1, height: 4, marginRight: 8, borderRadius: 2 }}
+                style={{ flex: 1, height: 4, marginRight: 8, borderRadius: BORDER_RADIUS.SMALL }}
                 shimmerColors={Colors.SHIMMER.PRIMARY}
               />
               <ShimmerPlaceholder
                 LinearGradient={LinearGradient}
-                style={{ width: 30, height: 10, borderRadius: 2 }}
+                style={{ width: 30, height: 10, borderRadius: BORDER_RADIUS.SMALL }}
                 shimmerColors={Colors.SHIMMER.PRIMARY}
               />
             </View>
@@ -453,24 +454,24 @@ const StreakCardShimmer = () => (
   <Card style={styles.streakCard} backgroundColor="rgba(255, 255, 255, 0.05)">
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={{ width: 120, height: 18, marginBottom: 20, borderRadius: 4 }}
+      style={{ width: 120, height: 18, marginBottom: 20, borderRadius: BORDER_RADIUS.SMALL }}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.streakContent}>
       <View style={styles.streakInfo}>
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
-          style={{ width: 60, height: 32, marginBottom: 4, borderRadius: 4 }}
+          style={{ width: 60, height: 32, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
           shimmerColors={Colors.SHIMMER.PRIMARY}
         />
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
-          style={{ width: 40, height: 14, marginBottom: 4, borderRadius: 2 }}
+          style={{ width: 40, height: 14, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
           shimmerColors={Colors.SHIMMER.PRIMARY}
         />
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
-          style={{ width: 120, height: 12, borderRadius: 2 }}
+          style={{ width: 120, height: 12, borderRadius: BORDER_RADIUS.SMALL }}
           shimmerColors={Colors.SHIMMER.PRIMARY}
         />
       </View>
@@ -1695,12 +1696,12 @@ const styles = StyleSheet.create({
   activityBarBackground: {
     height: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 4,
+    borderRadius: BORDER_RADIUS.SMALL,
     overflow: 'hidden',
   },
   activityBarFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   analysisDivider: {
     marginVertical: 20,
@@ -1752,7 +1753,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 120,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     overflow: 'hidden',
     justifyContent: 'flex-end',
     borderWidth: 1,
@@ -1795,7 +1796,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 100,
     backgroundColor: Colors.overlayWhite10,
-    borderRadius: 18,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     overflow: 'hidden',
     justifyContent: 'flex-end',
     borderWidth: 1,
@@ -1922,7 +1923,7 @@ const styles = StyleSheet.create({
   socialScoreCircle: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1963,14 +1964,14 @@ const styles = StyleSheet.create({
   levelProgressBar: {
     height: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 3,
+    borderRadius: BORDER_RADIUS.SMALL,
     overflow: 'hidden',
     marginBottom: 4,
   },
   levelProgressFill: {
     height: '100%',
     backgroundColor: Colors.lightBlue,
-    borderRadius: 3,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   levelProgressText: {
     fontSize: 12,
@@ -1993,7 +1994,7 @@ const styles = StyleSheet.create({
   achievementIcon: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -2021,13 +2022,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 2,
+    borderRadius: BORDER_RADIUS.SMALL,
     overflow: 'hidden',
     marginRight: 8,
   },
   achievementProgressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   achievementProgressText: {
     fontSize: 10,
@@ -2120,7 +2121,7 @@ const styles = StyleSheet.create({
   engagedFollowerRank: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.lightBlue,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2177,7 +2178,7 @@ const styles = StyleSheet.create({
   topCommenterRank: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.lightGray,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2256,7 +2257,7 @@ const styles = StyleSheet.create({
   topVideoPostThumbnail: {
     width: 54,
     height: 96,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
     backgroundColor: Colors.darkGray,
   },
   topVideoPostText: {

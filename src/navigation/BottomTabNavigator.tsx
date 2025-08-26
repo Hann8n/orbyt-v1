@@ -21,6 +21,7 @@ import VideoProcessingService from '../services/VideoProcessingService';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useClearView } from '../stores/uiStore';
 import { Colors } from '../components/ui/UI';
+import { BORDER_RADIUS } from '../utils/constants';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -239,7 +240,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
           style={{
             width: 40,
             height: 40,
-            borderRadius: 19,
+            borderRadius: BORDER_RADIUS.LARGE,
             backgroundColor: 'transparent',
             alignItems: 'center',
             justifyContent: 'center',
@@ -256,7 +257,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
           <View style={{
             width: 38,
             height: 38,
-            borderRadius: 19,
+            borderRadius: BORDER_RADIUS.LARGE,
             borderWidth: 1.5,
             borderColor: Colors.white,
             alignItems: 'center',
@@ -266,7 +267,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
             <View style={{
               width: 30,
               height: 30,
-              borderRadius: 15,
+              borderRadius: BORDER_RADIUS.MEDIUM,
               backgroundColor: isPreparing ? 'rgba(255, 255, 255, 0.5)' : '#fff',
             }} />
           </View>
@@ -279,7 +280,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
               bottom: 0,
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: 20,
+              borderRadius: BORDER_RADIUS.LARGE,
             }}>
               <ActivityIndicator size="small" color={Colors.white} />
             </View>

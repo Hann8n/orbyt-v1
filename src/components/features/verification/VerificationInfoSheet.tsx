@@ -1,5 +1,6 @@
 // filepath: /Users/jack/Orbyt/components/VerificationInfoSheet.tsx
 import React, { useRef, useEffect } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
@@ -8,7 +9,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
@@ -75,7 +76,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
   const navigation = useNavigation<any>();
-  const snapPoints = React.useMemo(() => ['70%'], []);
+  const snapPoints = React.useMemo(() => ['auto'] as any, []);
+  const insets = useSafeAreaInsets();
 
   // Get profile info - use cached data if available
   const { data: profile } = useQuery({
@@ -172,22 +174,36 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     <TrueSheet
       ref={bottomSheetRef}
       sizes={snapPoints as any}
-      cornerRadius={0}
+      backgroundColor={Colors.black}
       onDismiss={onDismiss}
+      cornerRadius={20}
+      grabber={false}
+      FooterComponent={
+        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
+          <TouchableOpacity 
+            style={styles.cancelButton} 
+            onPress={onDismiss}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cancelButtonText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      }
     >
       <View style={styles.content}>
-        {/* Header with badge, title and close button */}
+        {/* Header with title, badge and close button */}
         <View style={styles.headerContainer}>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>
-              {isTrustedVerifier ? 'Trusted Verifier' : 'Verified'}
-            </Text>
             <VerificationBadge
               handle={handle}
               textSize={20}
               badgeType="auto"
               textColor={Colors.white}
+              customMargin={0}
             />
+            <Text style={[styles.headerTitle, { marginLeft: 4 }]} numberOfLines={1}>
+              {isTrustedVerifier ? 'Trusted Verifier' : 'Verified'}
+            </Text>
           </View>
           <TouchableOpacity 
             style={styles.closeButton} 
@@ -205,15 +221,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         ) : (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>
-              could not load verification information
+              Could not load verification information
             </Text>
-            <TouchableOpacity 
-              style={styles.cancelButton} 
-              onPress={onDismiss}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelButtonText}>close</Text>
-            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -228,7 +237,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
             <Text>{profile?.displayName || handle}</Text>
-            <Text> is a trusted verifier on bluesky. trusted verifiers can verify other accounts on the network.</Text>
+            <Text> is a trusted verifier on Bluesky. Trusted verifiers can verify other accounts on the network.</Text>
           </Text>
         </View>
           
@@ -236,21 +245,10 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         {verification?.verifications?.[0]?.createdAt && (
           <View style={styles.statusDateContainer}>
             <Text style={styles.statusText}>
-              since {new Date(verification.verifications[0].createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              Since {new Date(verification.verifications[0].createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </Text>
           </View>
         )}
-
-        {/* Cancel Button */}
-        <View style={styles.cancelContainer}>
-          <TouchableOpacity 
-            style={styles.cancelButton} 
-            onPress={onDismiss}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.cancelButtonText}>close</Text>
-          </TouchableOpacity>
-        </View>
       </>
     );
   }
@@ -275,7 +273,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         {/* Info Container */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
-            a verification badge indicates this is an authentic account representing the person or organization it claims to be.
+            A verification badge indicates this is an authentic account representing the person or organization it claims to be.
           </Text>
         </View>
 
@@ -323,42 +321,29 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
           </>
         )}
 
-        {/* Cancel Button */}
-        <View style={styles.cancelContainer}>
-          <TouchableOpacity 
-            style={styles.cancelButton} 
-            onPress={onDismiss}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.cancelButtonText}>close</Text>
-          </TouchableOpacity>
-        </View>
+
       </>
     );
   }
 };
 
 const styles = StyleSheet.create({
-  bottomSheetBackground: {
-    backgroundColor: Colors.black,
-    // Square top corners - no border radius
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-  },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 30,
+    paddingHorizontal: 4,
+    paddingTop: 4,
   },
-    headerContainer: {
+  headerContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
-    paddingTop: 5,
+    paddingHorizontal: 15,
+    paddingTop: 15,
+    paddingBottom: 15,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   headerTitle: {
     color: Colors.white,
@@ -379,6 +364,7 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     marginBottom: 30,
+    paddingHorizontal: 15,
   },
   infoText: {
     color: Colors.lightGray,
@@ -393,9 +379,13 @@ const styles = StyleSheet.create({
   },
   verifiedByLabel: {
     color: Colors.gray,
-    fontSize: 15,
-    fontFamily: 'Firma-Regular',
-    marginBottom: 5,
+    fontSize: 14,
+    fontFamily: 'Firma-Medium',
+    marginBottom: 8,
+    marginTop: 8,
+    paddingHorizontal: 15,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   issuerListItem: {
     marginVertical: 4,
@@ -420,20 +410,20 @@ const styles = StyleSheet.create({
   issuerAvatarShimmer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     borderWidth: 0,
     borderColor: 'transparent',
   },
   issuerNameShimmer: {
     width: 120,
     height: 14,
-    borderRadius: 3,
+    borderRadius: BORDER_RADIUS.SMALL,
     marginRight: 8,
   },
   issuerHandleShimmer: {
     width: 80,
     height: 12,
-    borderRadius: 2,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   statusDateContainer: {
     marginBottom: 20,
@@ -458,11 +448,11 @@ const styles = StyleSheet.create({
   },
   cancelContainer: {
     alignItems: 'center',
-    marginTop: 30,
+    paddingTop: 20,
   },
   cancelButton: {
     backgroundColor: Colors.darkGray,
-    borderRadius: 50,
+    borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',

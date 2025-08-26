@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { BORDER_RADIUS } from '../utils/constants';
 import {
   View,
   Text,
@@ -20,7 +21,7 @@ import AtprotoService from '../services/api/AtprotoService';
 
 import { useNavigation } from '@react-navigation/native';
 import ProfileCache, { profileKeys } from '../services/cache/ProfileCache';
-import ChannelCache from '../services/cache/ChannelCache';
+import ChannelCache, { useChannelColors } from '../services/cache/ChannelCache';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -110,12 +111,18 @@ interface PeopleChannelsSection {
   key: string;
 }
 
+interface PopularChannelsSection {
+  type: 'popular-channels-section';
+  channels: Channel[];
+  key: string;
+}
+
 interface HeaderSpacer {
   type: 'header-spacer';
   key: string;
 }
 
-type ListItem = SearchResult | SectionHeader | SpotlightVideosSection | PeopleChannelsSection | HeaderSpacer;
+type ListItem = SearchResult | SectionHeader | SpotlightVideosSection | PeopleChannelsSection | PopularChannelsSection | HeaderSpacer;
 
 
 
@@ -139,7 +146,7 @@ const ProfileShimmer = () => (
     <View style={styles.profileContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 120, height: 16, marginBottom: 2, borderRadius: 3 }}
+        style={{ width: 120, height: 16, marginBottom: 2, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
@@ -157,7 +164,7 @@ const ChannelShimmer = () => (
     <View style={styles.channelContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 140, height: 16, marginBottom: 2, borderRadius: 3 }}
+        style={{ width: 140, height: 16, marginBottom: 2, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
@@ -175,17 +182,17 @@ const FeedShimmer = () => (
     <View style={styles.feedContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 120, height: 16, marginBottom: 4, borderRadius: 3 }}
+        style={{ width: 120, height: 16, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 80, height: 14, marginBottom: 4, borderRadius: 2 }}
+        style={{ width: 80, height: 14, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 60, height: 12, borderRadius: 2 }}
+        style={{ width: 60, height: 12, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
@@ -208,7 +215,7 @@ const SectionHeaderShimmer = () => (
   <View style={styles.sectionHeader}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={{ width: 100, height: 18, borderRadius: 3 }}
+      style={{ width: 100, height: 18, borderRadius: BORDER_RADIUS.SMALL }}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
   </View>
@@ -251,23 +258,95 @@ const VideoShimmer = () => (
     <View style={styles.videoContent}>
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 120, height: 14, marginBottom: 4, borderRadius: 3 }}
+        style={{ width: 120, height: 14, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 80, height: 12, marginBottom: 2, borderRadius: 2 }}
+        style={{ width: 80, height: 12, marginBottom: 2, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
       <ShimmerPlaceholder
         LinearGradient={LinearGradient}
-        style={{ width: 60, height: 11, borderRadius: 2 }}
+        style={{ width: 60, height: 11, borderRadius: BORDER_RADIUS.SMALL }}
         shimmerColors={Colors.SHIMMER.PRIMARY}
       />
     </View>
   </View>
 );
 
+// Popular channels shimmer skeleton component
+const PopularChannelsShimmer = () => (
+  <View style={styles.popularChannelsContainer}>
+    {Array(5).fill(0).map((_, index) => (
+      <View key={`popular-channel-shimmer-${index}`} style={styles.popularChannelButton}>
+        <View style={styles.popularChannelButtonContent}>
+          <View style={styles.popularChannelAvatarContainer}>
+            <ShimmerPlaceholder
+              LinearGradient={LinearGradient}
+              style={{ width: 50, height: 50, borderRadius: BORDER_RADIUS.MEDIUM }}
+              shimmerColors={Colors.SHIMMER.PRIMARY}
+            />
+          </View>
+          <View style={styles.popularChannelInfoContainer}>
+            <ShimmerPlaceholder
+              LinearGradient={LinearGradient}
+              style={{ width: 140, height: 16, marginBottom: 2, borderRadius: BORDER_RADIUS.SMALL }}
+              shimmerColors={Colors.SHIMMER.PRIMARY}
+            />
+            <ShimmerPlaceholder
+              LinearGradient={LinearGradient}
+              style={{ width: 100, height: 14, borderRadius: BORDER_RADIUS.SMALL }}
+              shimmerColors={Colors.SHIMMER.PRIMARY}
+            />
+          </View>
+          <View style={styles.popularChannelArrowContainer}>
+            <ShimmerPlaceholder
+              LinearGradient={LinearGradient}
+              style={{ width: 24, height: 24, borderRadius: BORDER_RADIUS.MEDIUM }}
+              shimmerColors={Colors.SHIMMER.PRIMARY}
+            />
+          </View>
+        </View>
+      </View>
+    ))}
+  </View>
+);
+
+// Popular Channel Button Component using channel screen style
+const PopularChannelButton = ({ channel, onPress }: { channel: Channel; onPress: () => void }) => {
+  return (
+    <TouchableOpacity
+      style={styles.popularChannelButton}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.popularChannelButtonContent}>
+        <View style={styles.popularChannelAvatarContainer}>
+          <Avatar
+            uri={channel.avatar}
+            type="channel"
+            size={50}
+            ringColor="transparent"
+          />
+        </View>
+        <View style={styles.popularChannelInfoContainer}>
+          <Text style={styles.popularChannelDisplayName}>
+            {channel.displayName || 'Unknown channel'}
+          </Text>
+          {channel.description && (
+            <Text style={styles.popularChannelDescription} numberOfLines={2}>
+              {channel.description}
+            </Text>
+          )}
+        </View>
+        <View style={styles.popularChannelArrowContainer}>
+          <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 
 const ExploreScreen: React.FC = () => {
@@ -917,13 +996,13 @@ const ExploreScreen: React.FC = () => {
     }
     
     // Section header for spotlight
-    items.push({ type: 'section-header' as const, key: 'spotlight-header-shimmer' });
+    // items.push({ type: 'section-header' as const, key: 'spotlight-header-shimmer' });
     // Spotlight videos section
-    items.push({ type: 'spotlight-videos' as const, key: 'spotlight-videos-shimmer' });
+    // items.push({ type: 'spotlight-videos' as const, key: 'spotlight-videos-shimmer' });
     // Section header for feeds
     items.push({ type: 'section-header' as const, key: 'feeds-header-shimmer' });
-    // Feed items - increased from 3 to 8
-    items.push(...Array(8).fill(0).map((_, index) => ({ type: 'channel' as const, key: `feed-shimmer-${index}` })));
+    // Popular channels section
+    items.push({ type: 'popular-channels-section' as const, key: 'popular-channels-shimmer' });
     // Section header for accounts
     items.push({ type: 'section-header' as const, key: 'accounts-header-shimmer' });
     // Account items - increased from 5 to 10
@@ -946,13 +1025,13 @@ const ExploreScreen: React.FC = () => {
       data.push({ type: 'header-spacer' as const, key: 'header-spacer' });
     }
     
-    if (spotlightFeed && spotlightFeed.length > 0) {
-      data.push({ type: 'section-header' as const, title: 'spotlight', key: 'spotlight-header' });
-      data.push({ type: 'spotlight-videos' as const, videos: spotlightFeed, key: 'spotlight-videos' });
-    }
+    // if (spotlightFeed && spotlightFeed.length > 0) {
+    //   data.push({ type: 'section-header' as const, title: 'spotlight', key: 'spotlight-header' });
+    //   data.push({ type: 'spotlight-videos' as const, videos: spotlightFeed, key: 'spotlight-videos' });
+    // }
     if (limitedSuggestedFeeds && limitedSuggestedFeeds.length > 0) {
       data.push({ type: 'section-header' as const, title: 'popular channels', key: 'feeds-header' });
-      data.push(...limitedSuggestedFeeds.map(item => ({ type: 'channel' as const, data: item, relevance: 0 })));
+      data.push({ type: 'popular-channels-section' as const, channels: limitedSuggestedFeeds, key: 'popular-channels' });
     }
     if (allSuggestions && allSuggestions.length > 0) {
       data.push({ type: 'section-header' as const, title: 'suggested accounts', key: 'accounts-header' });
@@ -1256,6 +1335,33 @@ const ExploreScreen: React.FC = () => {
               </View>
             );
           }
+          if (item.type === 'popular-channels-section') {
+            if (!('channels' in item) || !Array.isArray(item.channels)) {
+              return <PopularChannelsShimmer />;
+            }
+            return (
+              <View style={styles.popularChannelsContainer}>
+                {item.channels.map((channel, index) => (
+                  <PopularChannelButton
+                    key={`popular-channel-${channel.uri || channel.cid || index}-${index}`}
+                    channel={channel}
+                    onPress={() => {
+                      if (channel.uri && channel.uri.trim()) {
+                        // Navigate via root navigator so Channel overlays the tab bar
+                        (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('Channel', {
+                          uri: channel.uri.trim(),
+                          title: channel.displayName || 'Unknown Channel',
+                          description: channel.description || '',
+                          avatar: channel.avatar || '',
+                          creator: channel.creator || null,
+                        });
+                      }
+                    }}
+                  />
+                ))}
+              </View>
+            );
+          }
           return null;
         }}
         contentContainerStyle={[
@@ -1345,12 +1451,12 @@ const styles = StyleSheet.create({
 
   searchContainer: {
     position: 'absolute',
-    left: 15,
-    right: 15,
+    left: 10,
+    right: 10,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.white,
-    borderRadius: 17,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingHorizontal: 15,
     height: 55,
     zIndex: 10,
@@ -1383,7 +1489,7 @@ const styles = StyleSheet.create({
   profileImage: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     marginRight: 12,
     borderWidth: 0,
     borderColor: 'transparent',
@@ -1413,10 +1519,10 @@ const styles = StyleSheet.create({
   channelImage: {
     width: 40,
     height: 40,
-    borderRadius: 12,
     marginRight: 12,
     borderWidth: 0,
     borderColor: 'transparent',
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   channelContent: {
     flex: 1,
@@ -1480,7 +1586,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   retryButtonText: {
     color: Colors.lightGray,
@@ -1494,8 +1600,8 @@ const styles = StyleSheet.create({
 
   sectionHeader: {
     paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 10,
+    paddingTop: 25,
+    paddingBottom: 15,
   },
   sectionTitle: {
     color: Colors.white,
@@ -1522,7 +1628,7 @@ const styles = StyleSheet.create({
   feedImage: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     marginRight: 12,
     borderWidth: 0,
     borderColor: 'transparent',
@@ -1546,7 +1652,7 @@ const styles = StyleSheet.create({
   videoThumbnail: {
     width: 45,
     height: 80, // 9:16 aspect ratio (45 * 16/9)
-    borderRadius: 6,
+    borderRadius: BORDER_RADIUS.SMALL,
     borderWidth: 0,
     borderColor: 'transparent',
     overflow: 'hidden' as const,
@@ -1554,7 +1660,7 @@ const styles = StyleSheet.create({
   videoThumbnailPlaceholder: {
     width: 45,
     height: 80,
-    borderRadius: 6,
+    borderRadius: BORDER_RADIUS.SMALL,
     borderWidth: 0,
     borderColor: 'transparent',
     backgroundColor: Colors.darkGray,
@@ -1593,7 +1699,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   videoWarningText: {
     color: Colors.white,
@@ -1615,7 +1721,7 @@ const styles = StyleSheet.create({
     paddingRight: 40, // Extra padding on the right to allow scrolling off screen
   },
   spotlightVideoItem: {
-    width: 85,
+    width: 95,
     marginRight: 12,
   },
   spotlightVideoThumbnailContainer: {
@@ -1623,15 +1729,15 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   spotlightVideoThumbnail: {
-    width: 85,
-    height: 151, // 9:16 aspect ratio (85 * 16/9)
-    borderRadius: 12,
+    width: 95,
+    height: 169, // 9:16 aspect ratio (95 * 16/9)
+    borderRadius: BORDER_RADIUS.MEDIUM,
     overflow: 'hidden' as const,
   },
   spotlightVideoThumbnailPlaceholder: {
-    width: 85,
-    height: 151, // 9:16 aspect ratio (85 * 16/9)
-    borderRadius: 12,
+    width: 95,
+    height: 169, // 9:16 aspect ratio (95 * 16/9)
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.darkGray,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1645,7 +1751,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   spotlightWarningText: {
     color: Colors.white,
@@ -1676,6 +1782,46 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Regular',
   },
 
+  popularChannelsContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  popularChannelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.LARGE,
+    padding: 16,
+    marginBottom: 12,
+    marginHorizontal: -15, // Compensate for the increased container padding
+  },
+  popularChannelButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  popularChannelInfoContainer: {
+    flex: 1,
+  },
+  popularChannelDisplayName: {
+    color: Colors.white,
+    fontSize: 16,
+    fontFamily: 'Firma-Bold',
+    marginBottom: 2,
+  },
+  popularChannelDescription: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
+  },
+  popularChannelAvatarContainer: {
+    marginRight: 12,
+  },
+  popularChannelArrowContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
 
 
 });

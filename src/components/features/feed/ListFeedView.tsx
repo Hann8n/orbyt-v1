@@ -1,5 +1,6 @@
 declare let window: any;
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Dimensions,
@@ -633,7 +634,7 @@ const styles = StyleSheet.create({
     left: 20,
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: BORDER_RADIUS.SMALL,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',

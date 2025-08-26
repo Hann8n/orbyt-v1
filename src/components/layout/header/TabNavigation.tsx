@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { ListViewIcon, GridViewIcon } from '../../ui/Icon';
 
@@ -19,6 +20,7 @@ interface TabNavigationProps {
   viewMode?: 'list' | 'grid';
   onViewModeChange?: (mode: 'list' | 'grid') => void;
   showViewToggle?: boolean;
+  variant?: 'header' | 'comments'; // New prop to distinguish between header and comments styles
 }
 
 const TabNavigation: React.FC<TabNavigationProps> = ({
@@ -32,6 +34,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   viewMode = 'list',
   onViewModeChange,
   showViewToggle = false,
+  variant = 'header', // Default to header variant
 }) => {
   const handleViewModeChange = (mode: 'list' | 'grid') => {
     if (onViewModeChange) {
@@ -42,8 +45,11 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   // Use accent color for active tabs, fallback to text color
   const activeTabColor = accentColor || textColor;
 
+  // Get variant-specific styles
+  const variantStyle = variant === 'comments' ? styles.commentsStyle : styles.headerStyle;
+
   return (
-    <View style={[styles.tabContainer, { backgroundColor }, style]}>
+    <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
       <View style={styles.tabsRow}>
         {tabs.map((tab) => (
           <TouchableOpacity
@@ -62,7 +68,10 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                 styles.tabText,
                 { 
                   color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.7),
-                  fontFamily: activeTab === tab.id ? 'Firma-Bold' : 'Firma-Medium'
+                  fontFamily: activeTab === tab.id 
+                    ? (variant === 'header' ? 'Firma-Black' : 'Firma-Black')
+                    : (variant === 'header' ? 'Firma-SemiBold' : 'Firma-SemiBold'),
+                  fontSize: variant === 'header' ? 18 : 16
                 },
                 activeTab === tab.id && styles.activeTabText,
                 tab.disabled && styles.disabledTabText,
@@ -178,10 +187,21 @@ const styles = StyleSheet.create({
   },
   viewToggleButton: {
     padding: 6,
-    borderRadius: 50,
+    borderRadius: BORDER_RADIUS.FULL,
   },
   activeViewToggleButton: {
     // Removed background color for active view toggle button
+  },
+  // Simple variant styles - just basic spacing differences
+  headerStyle: {
+    paddingVertical: 12,
+    paddingBottom: 15,
+    marginTop: 4,
+  },
+  commentsStyle: {
+    paddingVertical: 8,
+    marginTop: 0,
+    minHeight: 40,
   },
 });
 

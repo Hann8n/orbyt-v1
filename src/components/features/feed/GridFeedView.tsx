@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   StyleSheet,
@@ -269,14 +270,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: 'rgba(0,0,0,0.5)', // Add subtle background only behind author row
-    borderRadius: 6,
+    borderRadius: BORDER_RADIUS.SMALL,
     paddingHorizontal: 4,
     paddingVertical: 2,
   },
   authorAvatar: {
     width: 18,
     height: 18,
-    borderRadius: 9,
+                borderRadius: BORDER_RADIUS.SMALL,
   },
   authorName: {
     color: Colors.white,
@@ -353,7 +354,7 @@ const styles = StyleSheet.create({
   },
   showAnywayButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 8,
     paddingHorizontal: 12, // reduced for tighter fit
     marginTop: 8,

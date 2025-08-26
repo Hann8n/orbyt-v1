@@ -9,6 +9,7 @@ import React, {
   memo,
 } from 'react';
 import { useVideoPlaybackState } from '../../../stores/visibilityStore';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import { usePlaybackStore, useVideoDimLevel } from '../../../stores/playbackStore';
 import {
   View,
@@ -727,7 +728,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 50,
+    borderRadius: BORDER_RADIUS.FULL,
     minWidth: 120,
     alignItems: 'center',
     justifyContent: 'center',

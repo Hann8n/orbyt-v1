@@ -1,4 +1,5 @@
 import React from 'react';
+import { BORDER_RADIUS } from '../../utils/constants';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { VideoInfo } from '../../services/VideoProcessingService';
 import Icon from './Icon';
@@ -129,7 +130,7 @@ const styles = StyleSheet.create({
   },
   compressionOption: {
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
     padding: 12,
     marginBottom: 8,
   },
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.lightBlue,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
     padding: 12,
     marginTop: 10,
     gap: 8,

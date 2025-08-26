@@ -1,12 +1,13 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../components/ui/UI';
+import { BORDER_RADIUS } from '../../utils/constants';
 
 // Shared button styles for settings screens
 export const settingsButtonStyles = StyleSheet.create({
   // Primary button style used across most settings screens
   primaryButton: {
     backgroundColor: Colors.darkGray,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 16,
     paddingHorizontal: 20,
     marginBottom: 12,
@@ -18,7 +19,7 @@ export const settingsButtonStyles = StyleSheet.create({
   // Menu option style (used in SettingsScreen, ContentFiltersScreen)
   menuOption: {
     backgroundColor: Colors.darkGray,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 24,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -31,7 +32,7 @@ export const settingsButtonStyles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 50,
+    borderRadius: BORDER_RADIUS.FULL,
     minWidth: 80,
     alignItems: 'center',
     justifyContent: 'center',
@@ -48,7 +49,7 @@ export const settingsButtonStyles = StyleSheet.create({
   smallActionButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: Colors.darkGray,
     alignItems: 'center',
     justifyContent: 'center',
@@ -60,7 +61,7 @@ export const settingsButtonStyles = StyleSheet.create({
   editButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.darkGray,
     borderWidth: 1,
     borderColor: Colors.mediumGray,
@@ -71,7 +72,7 @@ export const settingsButtonStyles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginRight: 8,
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.darkGray,
     borderWidth: 1,
     borderColor: Colors.gray,
@@ -82,7 +83,7 @@ export const settingsButtonStyles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     marginRight: 8,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: Colors.darkGray,
     borderWidth: 2,
     borderColor: Colors.gray,
@@ -91,7 +92,7 @@ export const settingsButtonStyles = StyleSheet.create({
   // Logout button style
   logoutButton: {
     backgroundColor: Colors.darkRed,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 24,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -102,7 +103,7 @@ export const settingsButtonStyles = StyleSheet.create({
   toggleButtonGroup: {
     flexDirection: 'row',
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 1,
     borderColor: Colors.mediumGray,
     flexShrink: 0,
@@ -124,7 +125,7 @@ export const settingsButtonStyles = StyleSheet.create({
   // Card item style (for lists)
   cardItem: {
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
@@ -136,7 +137,7 @@ export const settingsButtonStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.darkGray,
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     borderWidth: 1,
     borderColor: Colors.mediumGray,
@@ -148,7 +149,7 @@ export const settingsButtonStyles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 16,
     marginBottom: 8,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     borderWidth: 1,
     borderColor: Colors.gray,
@@ -403,7 +404,7 @@ export const settingsLayoutStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 1,
     borderColor: Colors.gray,
     paddingHorizontal: 16,
@@ -504,7 +505,7 @@ export const settingsAvatarStyles = StyleSheet.create({
   avatarSmall: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.mediumGray,
     alignItems: 'center',
     justifyContent: 'center',
@@ -515,7 +516,7 @@ export const settingsAvatarStyles = StyleSheet.create({
   avatarMedium: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: Colors.mediumGray,
     alignItems: 'center',
     justifyContent: 'center',
@@ -526,7 +527,7 @@ export const settingsAvatarStyles = StyleSheet.create({
   avatarLarge: {
     width: 44,
     height: 44,
-    borderRadius: 10,
+    borderRadius: BORDER_RADIUS.SMALL,
     backgroundColor: Colors.mediumGray,
     alignItems: 'center',
     justifyContent: 'center',
@@ -537,7 +538,7 @@ export const settingsAvatarStyles = StyleSheet.create({
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
 });
 

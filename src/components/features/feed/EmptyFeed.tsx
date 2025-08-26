@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList, Image } from 'react-native';
 import Icon from '../../ui/Icon';
 import { Colors } from '../../ui/UI';
@@ -301,7 +302,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
     marginTop: 20,
   },
   retryButtonText: {
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
   profileImage: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     marginRight: 12,
     borderWidth: 1,
     borderColor: Colors.gray,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
@@ -29,14 +30,14 @@ const MemberItemShimmer = () => (
   <View style={styles.memberItem}>
     <ShimmerPlaceholder
       LinearGradient={LinearGradient}
-      style={[styles.memberAvatar, { borderRadius: 20, borderWidth: 0, borderColor: 'transparent' }]}
+      style={[styles.memberAvatar, { borderRadius: BORDER_RADIUS.LARGE, borderWidth: 0, borderColor: 'transparent' }]}
       shimmerColors={Colors.SHIMMER.PRIMARY}
     />
     <View style={styles.memberDetails}>
       <View style={styles.memberNameRow}>
         <ShimmerPlaceholder
           LinearGradient={LinearGradient}
-          style={{ width: '55%', height: 18, borderRadius: 3, marginBottom: 0 }}
+          style={{ width: '55%', height: 18, borderRadius: BORDER_RADIUS.SMALL, marginBottom: 0 }}
           shimmerColors={Colors.SHIMMER.PRIMARY}
         />
       </View>
@@ -465,7 +466,7 @@ const styles = StyleSheet.create({
   memberAvatar: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     marginRight: 12,
     borderWidth: 0,
     borderColor: 'transparent',
@@ -498,7 +499,7 @@ const styles = StyleSheet.create({
   },
   followButton: {
     borderWidth: 1,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingHorizontal: 16,
     paddingVertical: 8,
     minWidth: 80,
@@ -566,7 +567,7 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     borderWidth: 1,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingHorizontal: 24,
     paddingVertical: 12,
   },

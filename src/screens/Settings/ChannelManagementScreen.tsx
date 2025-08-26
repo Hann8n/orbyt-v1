@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { BORDER_RADIUS } from '../../utils/constants';
 import {
   View,
   Text,
@@ -68,7 +69,7 @@ const ChannelManagementScreen: React.FC = () => {
   const renderChannelItem = useCallback(({ item: channel, index }: { item: SubscribedChannel; index: number }) => {
     return (
       <TouchableOpacity
-        style={settingsButtonStyles.menuOption}
+        style={styles.channelButton}
         onPress={() => {
           // Navigate to the channel
           (navigation as any).navigate('Channel', {
@@ -80,54 +81,58 @@ const ChannelManagementScreen: React.FC = () => {
         }}
         activeOpacity={0.7}
       >
-        <View style={styles.channelInfo}>
-          <View style={styles.avatarContainer}>
+        <View style={styles.channelButtonContent}>
+          <View style={styles.channelAvatarContainer}>
             <Avatar
               uri={channel.avatar}
               type="channel"
-              size={44}
+              size={50}
+              ringColor="transparent"
             />
           </View>
           
-          <View style={styles.channelDetails}>
-            <Text style={[settingsTextStyles.menuOptionText, { fontFamily: 'Firma-Bold' }]}>
+          <View style={styles.channelInfoContainer}>
+            <Text style={styles.channelDisplayName}>
               {channel.displayName}
             </Text>
             {channel.description && (
-              <Text style={settingsTextStyles.menuOptionSubtitle} numberOfLines={2}>
+              <Text style={styles.channelDescription} numberOfLines={2}>
                 {channel.description}
               </Text>
             )}
           </View>
+          
+          <View style={styles.channelArrowContainer}>
+            <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
+          </View>
         </View>
-        
-        <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
       </TouchableOpacity>
     );
   }, [navigation]);
 
   const renderAvailableChannelItem = useCallback(({ item: channel }: { item: SubscribedChannel }) => (
-    <View style={settingsButtonStyles.menuOption}>
-      <View style={styles.channelInfo}>
-        <View style={styles.avatarContainer}>
+    <View style={styles.channelButton}>
+      <View style={styles.channelButtonContent}>
+        <View style={styles.channelAvatarContainer}>
           <Avatar
             uri={channel.avatar}
             type="channel"
-            size={44}
+            size={50}
+            ringColor="transparent"
           />
         </View>
-        <View style={styles.channelDetails}>
-          <Text style={settingsTextStyles.menuOptionText}>{channel.displayName}</Text>
-          <Text style={settingsTextStyles.menuOptionSubtitle}>Default channel</Text>
+        <View style={styles.channelInfoContainer}>
+          <Text style={styles.channelDisplayName}>{channel.displayName}</Text>
+          <Text style={styles.channelDescription}>Default channel</Text>
         </View>
+        <TouchableOpacity
+          style={styles.restoreButton}
+          onPress={() => handleRestoreDefault(channel)}
+          activeOpacity={0.7}
+        >
+          <PlusIcon size={16} color={Colors.lightGreen} strokeWidth={2.0} />
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={styles.restoreButton}
-        onPress={() => handleRestoreDefault(channel)}
-        activeOpacity={0.7}
-      >
-        <PlusIcon size={16} color={Colors.lightGreen} strokeWidth={2.0} />
-      </TouchableOpacity>
     </View>
   ), [handleRestoreDefault]);
 
@@ -241,22 +246,45 @@ const ChannelManagementScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  channelInfo: {
-    flex: 1,
+  channelButton: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    padding: 16,
+    marginBottom: 12,
   },
-  avatarContainer: {
-    marginRight: 12,
-    marginTop: 2,
-  },
-  channelDetails: {
+  channelButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
+  },
+  channelAvatarContainer: {
+    marginRight: 12,
+  },
+  channelInfoContainer: {
+    flex: 1,
+  },
+  channelDisplayName: {
+    color: Colors.white,
+    fontSize: 16,
+    fontFamily: 'Firma-Bold',
+    marginBottom: 2,
+  },
+  channelDescription: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
+  },
+  channelArrowContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
   },
   restoreButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.darkGray,
     alignItems: 'center',
     justifyContent: 'center',

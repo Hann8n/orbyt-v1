@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { BORDER_RADIUS } from '../../utils/constants';
 import { Animated } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKeys } from '../../services/FeedService';
@@ -504,7 +505,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       sizes={snapPoints}
       backgroundColor={Colors.black}
       onDismiss={onDismiss}
-      cornerRadius={25}
+      cornerRadius={20}
       grabber={false}
       FooterComponent={
         <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
@@ -650,7 +651,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 80,
     height: 80,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: Colors.darkGray,
   },
   reportOption: {
@@ -666,7 +667,7 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: Colors.darkGray,
-    borderRadius: 50,
+    borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',

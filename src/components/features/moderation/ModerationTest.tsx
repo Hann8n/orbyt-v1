@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { ModerationService } from '../../../services/ModerationService';
 import { useModeration, useUserStoreState } from '../../../stores/userStore';
@@ -27,13 +28,14 @@ const ModerationTest: React.FC = () => {
       console.log('[ModerationTest] Current settings:', currentSettings);
 
       // Get moderation options to see available labels
-      const moderationOpts = await ModerationService.getModerationOpts();
-      if (moderationOpts) {
-        setLabelDefs(moderationOpts.labelDefs);
-        setPreferences(moderationOpts.prefs);
-        console.log('[ModerationTest] Available labels:', Object.keys(moderationOpts.labelDefs));
-        console.log('[ModerationTest] Current preferences:', moderationOpts.prefs);
-      }
+      // TODO: Implement getModerationOpts if needed
+      // const moderationOpts = await ModerationService.getModerationOpts();
+      // if (moderationOpts) {
+      //   setLabelDefs(moderationOpts.labelDefs);
+      //   setPreferences(moderationOpts.prefs);
+      //   console.log('[ModerationTest] Available labels:', Object.keys(moderationOpts.labelDefs));
+      //   console.log('[ModerationTest] Current preferences:', moderationOpts.prefs);
+      // }
     } catch (error) {
       console.error('[ModerationTest] Error loading moderation data:', error);
       Alert.alert('Error', 'Failed to load moderation data');
@@ -148,7 +150,7 @@ const ModerationTest: React.FC = () => {
           <Text style={styles.text}>Adult Content Enabled: {settings.adultContentEnabled ? 'Yes' : 'No'}</Text>
           <Text style={styles.text}>Labels:</Text>
           {Object.entries(settings.labels).map(([label, preference]) => (
-            <Text key={label} style={styles.text}>  {label}: {preference}</Text>
+            <Text key={label} style={styles.text}>  {label}: {String(preference)}</Text>
           ))}
         </View>
       )}
@@ -168,7 +170,7 @@ const ModerationTest: React.FC = () => {
           <Text style={styles.text}>Adult Content: {preferences.adultContentEnabled ? 'Enabled' : 'Disabled'}</Text>
           <Text style={styles.text}>Label Preferences:</Text>
           {Object.entries(preferences.labels || {}).map(([label, preference]) => (
-            <Text key={label} style={styles.text}>  {label}: {preference}</Text>
+            <Text key={label} style={styles.text}>  {label}: {String(preference)}</Text>
           ))}
         </View>
       )}
@@ -193,7 +195,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     padding: 15,
     backgroundColor: Colors.darkGray,
-    borderRadius: 10,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   sectionTitle: {
     fontSize: 18,
@@ -209,7 +211,7 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: Colors.lightGreen,
     padding: 15,
-    borderRadius: 10,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     marginBottom: 10,
   },
   buttonText: {

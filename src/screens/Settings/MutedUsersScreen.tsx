@@ -12,7 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon } from '../../components/ui/Icon';
 import ListHeader from '../../components/ui/ListHeader';
-import { Colors } from '../../components/ui/UI';
+import { Colors, Avatar } from '../../components/ui/UI';
 import { ModerationService } from '../../services/ModerationService';
 import AtprotoService from '../../services/api/AtprotoService';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles, settingsAvatarStyles, settingsActiveStyles } from './SettingsStyles';
@@ -38,10 +38,10 @@ const MutedUsersScreen: React.FC = () => {
   const loadMutedUsers = async () => {
     try {
       setLoading(true);
-      const mutedDids = await ModerationService.getMutedUsers();
+      const mutedDids = await AtprotoService.getMutedUsersFromAPI();
       
-      // Convert Set<string> to MutedUser objects
-      const userPromises = Array.from(mutedDids).map(async (did) => {
+      // Convert string[] to MutedUser objects
+      const userPromises = mutedDids.map(async (did: string) => {
         try {
           // Try to get profile info for each muted user
           const profile = await AtprotoService.getProfile(did);
@@ -93,13 +93,13 @@ const MutedUsersScreen: React.FC = () => {
     return (
       <View style={styles.userItem}>
         <View style={styles.userInfo}>
-          <View style={settingsAvatarStyles.avatarMedium}>
-            {item.avatar ? (
-              <Image source={{ uri: item.avatar }} style={settingsAvatarStyles.avatarImage} />
-            ) : (
-              <Icon name="user" size={20} color={Colors.lightGray} />
-            )}
-          </View>
+          <Avatar
+            uri={item.avatar}
+            type="profile"
+            size={40}
+            ringColor="transparent"
+            style={{ marginRight: 12 }}
+          />
           <View style={styles.userDetails}>
             <Text style={settingsTextStyles.userDisplayName} numberOfLines={1} ellipsizeMode="tail">
               {item.displayName || 'Unknown User'}

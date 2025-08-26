@@ -1,4 +1,5 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
@@ -364,7 +365,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 8,
-    borderRadius: 50,
+    borderRadius: BORDER_RADIUS.FULL,
     borderWidth: 1,
     flex: 1,
     height: 40,

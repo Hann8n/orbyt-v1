@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
@@ -842,12 +843,12 @@ const styles = StyleSheet.create({
   profilePicture: {
     width: 50,
     height: 50,
-    borderRadius: 25,
+    borderRadius: BORDER_RADIUS.FULL,
   },
   profilePictureSmallScreen: {
     width: 46,
     height: 46,
-    borderRadius: 23,
+    borderRadius: BORDER_RADIUS.FULL,
   },
   authorTextContainer: {
     marginLeft: 8,
@@ -941,7 +942,7 @@ const styles = StyleSheet.create({
   profilePictureTablet: {
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   repostIndicatorTextTablet: {
     color: 'rgba(0, 0, 0, 0.8)',
@@ -951,7 +952,7 @@ const styles = StyleSheet.create({
   },
   repostIndicatorBox: {
     backgroundColor: 'rgba(255, 255, 255, 1)',
-    borderRadius: 6,
+    borderRadius: BORDER_RADIUS.SMALL,
     paddingHorizontal: 4,
     marginBottom: 3,
     alignSelf: 'flex-start',

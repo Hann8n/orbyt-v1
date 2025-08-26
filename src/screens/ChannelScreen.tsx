@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
+import { BORDER_RADIUS } from '../utils/constants';
 import {
   View,
   StyleSheet,
@@ -342,7 +343,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderWidth: 1,

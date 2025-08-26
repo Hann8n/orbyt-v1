@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { BORDER_RADIUS } from '../../utils/constants';
 import {
   View,
   Text,
@@ -45,7 +46,7 @@ const ProfileShimmer = () => {
         style={{ 
           width: 36, 
           height: 36, 
-          borderRadius: 18, 
+          borderRadius: BORDER_RADIUS.MEDIUM, 
           backgroundColor: Colors.mediumGray,
           marginRight: 12,
           opacity: shimmerOpacity,
@@ -57,7 +58,7 @@ const ProfileShimmer = () => {
             width: 120, 
             height: 16, 
             backgroundColor: Colors.mediumGray, 
-            borderRadius: 4, 
+            borderRadius: BORDER_RADIUS.SMALL, 
             marginBottom: 4,
             opacity: shimmerOpacity,
           }} 
@@ -67,7 +68,7 @@ const ProfileShimmer = () => {
             width: 80, 
             height: 12, 
             backgroundColor: Colors.mediumGray, 
-            borderRadius: 4,
+            borderRadius: BORDER_RADIUS.SMALL,
             opacity: shimmerOpacity,
           }} 
         />
@@ -289,7 +290,7 @@ const styles = StyleSheet.create({
   },
   modal: {
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     marginHorizontal: 16,
     paddingVertical: 4,
     paddingHorizontal: 0,

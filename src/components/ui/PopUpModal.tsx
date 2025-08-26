@@ -1,4 +1,5 @@
 import React from 'react';
+import { BORDER_RADIUS } from '../../utils/constants';
 import {
   Modal,
   View,
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     width: '80%',
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 20,
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
@@ -125,7 +126,7 @@ const styles = StyleSheet.create({
   actionButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   secondaryButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',

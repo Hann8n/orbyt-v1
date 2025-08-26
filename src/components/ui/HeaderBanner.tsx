@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BORDER_RADIUS } from '../../utils/constants';
 import {
   View,
   Text,
@@ -415,7 +416,7 @@ const styles = StyleSheet.create({
   dot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: BORDER_RADIUS.SMALL,
     backgroundColor: 'rgba(255,255,255,0.4)',
     marginLeft: 6,
   },

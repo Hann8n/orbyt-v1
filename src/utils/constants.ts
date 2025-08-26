@@ -9,6 +9,14 @@ export const APP_CONSTANTS = {
   GRID_TO_LIST_DELAY: 100,
 } as const;
 
+// Border Radius Constants
+export const BORDER_RADIUS = {
+  SMALL: 8,
+  MEDIUM: 15,
+  LARGE: 20,
+  FULL: 100,
+} as const;
+
 // Query Constants
 export const QUERY_CONSTANTS = {
   RETRY_COUNT: 1,

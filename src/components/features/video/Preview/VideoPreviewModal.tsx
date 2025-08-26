@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
+import { BORDER_RADIUS } from '../../../../utils/constants';
 import {
   View,
   TouchableOpacity,
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
   closeButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
@@ -268,7 +269,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',

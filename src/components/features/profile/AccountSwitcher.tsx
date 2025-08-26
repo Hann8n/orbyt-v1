@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
   },
   accountButton: {
     backgroundColor: Colors.darkGray,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 16,
     paddingHorizontal: 20,
     marginBottom: 12,
@@ -429,7 +430,7 @@ const styles = StyleSheet.create({
   },
   addAccountButton: {
     backgroundColor: Colors.white,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 16,
     paddingHorizontal: 20,
     marginBottom: 12,
@@ -452,7 +453,7 @@ const styles = StyleSheet.create({
   addAccountIcon: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.lightGray,
     justifyContent: 'center',
     alignItems: 'center',
@@ -500,7 +501,7 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 8,
     backgroundColor: hexToRGBA(UI.Colors.STATUS.ERROR, 0.1),
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,

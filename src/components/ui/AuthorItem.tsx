@@ -1,4 +1,5 @@
 import React from 'react';
+import { BORDER_RADIUS } from '../../utils/constants';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { Avatar } from './UI';
@@ -188,7 +189,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     marginBottom: 12,
   },
   accountButtonContent: {
@@ -233,7 +234,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 50,
+    borderRadius: BORDER_RADIUS.FULL,
     minWidth: 80,
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   StyleSheet,
@@ -374,7 +375,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 4,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   addTextButtonLabel: {
     color: Colors.white,
@@ -393,7 +394,7 @@ const styles = StyleSheet.create({
   controlButton: {
     width: 50,
     height: 50,
-    borderRadius: 25,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -410,7 +411,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     paddingHorizontal: 15,
     paddingVertical: 5,
-    borderRadius: 15,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   timeText: {
     color: Colors.white,
@@ -425,7 +426,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     width: '80%',
     backgroundColor: Colors.white,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
     padding: 20,
     alignItems: 'center',
   },
@@ -438,7 +439,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderColor: Colors.white,
     borderWidth: 1,
-    borderRadius: 4,
+    borderRadius: BORDER_RADIUS.SMALL,
     padding: 10,
     marginBottom: 20,
     color: Colors.mediumGray,
@@ -453,7 +454,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
     paddingVertical: 10,
     backgroundColor: Colors.darkGray,  // Using the app's brand color for consistency
-    borderRadius: 4,
+    borderRadius: BORDER_RADIUS.SMALL,
     alignItems: 'center',
   },
   modalButtonLabel: {

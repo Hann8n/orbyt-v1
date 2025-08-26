@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
@@ -97,8 +98,9 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
 
   const loadStats = async () => {
     try {
-      const moderationStats = await ModerationService.getModerationStats();
-      setStats(moderationStats);
+      // For now, we'll skip loading stats since the method doesn't exist
+      // TODO: Implement moderation stats if needed
+      setStats(null);
     } catch (error) {
       console.error('Error loading moderation stats:', error);
     }
@@ -299,7 +301,11 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
             <View style={styles.webSettingsSection}>
               <TouchableOpacity
                 style={styles.webSettingsTextButton}
-                onPress={() => ModerationService.openBlueskyModerationSettings()}
+                onPress={() => {
+                  // TODO: Implement opening Bluesky moderation settings
+                  // For now, this functionality is not available
+                  console.log('Opening Bluesky moderation settings not implemented');
+                }}
                 activeOpacity={0.7}
               >
                 <Icon name="external-link" size={24} color={Colors.white} />
@@ -362,7 +368,7 @@ const styles = StyleSheet.create({
   sectionContent: {
     backgroundColor: Colors.darkGray,
     marginHorizontal: 20,
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 1,
     borderColor: Colors.mediumGray,
     overflow: 'hidden',
@@ -393,7 +399,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.SMALL,
     backgroundColor: Colors.mediumGray,
     alignItems: 'center',
     justifyContent: 'center',
@@ -427,7 +433,7 @@ const styles = StyleSheet.create({
   toggleButtonGroup: {
     flexDirection: 'row',
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     borderWidth: 1,
     borderColor: Colors.mediumGray,
     flex: 1,
@@ -491,7 +497,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 16,
     borderWidth: 1,
     borderColor: Colors.mediumGray,
@@ -513,7 +519,7 @@ const styles = StyleSheet.create({
     width: '31%',
     backgroundColor: Colors.darkGray,
     padding: 15,
-    borderRadius: 10,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     marginBottom: 10,
     alignItems: 'center',
     justifyContent: 'center',

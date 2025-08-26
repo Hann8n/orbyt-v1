@@ -1,4 +1,5 @@
 import React, { useRef, useMemo, useCallback } from 'react';
+import { BORDER_RADIUS } from '../../utils/constants';
 import {
   View,
   Text,
@@ -52,7 +53,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       sizes={snapPoints as any}
       backgroundColor={Colors.black}
       onDismiss={onDismiss}
-      cornerRadius={25}
+      cornerRadius={20}
       grabber={false}
       FooterComponent={
         showCancelButton ? (
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: Colors.darkGray,
-    borderRadius: 50,
+    borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKeys } from '../../../services/FeedService';
 import {
@@ -356,7 +357,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         sizes={['auto']}
         backgroundColor={Colors.black}
         onDismiss={() => submenuSheetRef.current?.dismiss()}
-        cornerRadius={25}
+        cornerRadius={20}
         grabber={false}
         FooterComponent={
           <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
@@ -424,7 +425,7 @@ const styles = StyleSheet.create({
   },
   option: {
     backgroundColor: Colors.darkGray,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 24,
     paddingHorizontal: 20,
   },
@@ -477,7 +478,7 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: Colors.darkGray,
-    borderRadius: 50,
+    borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',

@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { BORDER_RADIUS } from '../utils/constants';
 import {
   View,
   Text,
@@ -530,7 +531,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.darkGray,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderWidth: 1,
@@ -557,7 +558,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: 'rgba(0,0,0,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -579,7 +580,7 @@ const styles = StyleSheet.create({
   recordButton: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',

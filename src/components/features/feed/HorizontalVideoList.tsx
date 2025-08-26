@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   StyleSheet,
@@ -117,8 +118,8 @@ const HorizontalVideoList: React.FC<HorizontalVideoListProps> = ({
         index={index}
         onPress={onVideoItemPress}
         style={{ marginRight: ITEM_MARGIN }}
-        itemStyle={{ borderRadius: 14 }}
-        thumbnailStyle={{ borderRadius: 11 }}
+        itemStyle={{ borderRadius: BORDER_RADIUS.MEDIUM }}
+        thumbnailStyle={{ borderRadius: BORDER_RADIUS.MEDIUM }}
       />
     ),
     [onVideoItemPress]
@@ -174,14 +175,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkGray,
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 14,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     padding: 3,
   },
   thumbnail: {
     width: '100%',
     height: '100%',
     backgroundColor: Colors.darkGray,
-    borderRadius: 11,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   warningOverlay: {
     position: 'absolute',
