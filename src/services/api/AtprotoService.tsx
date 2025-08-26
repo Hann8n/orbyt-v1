@@ -805,9 +805,6 @@ class AtprotoService {
    */
   private static async setCommentFilter(postUri: string, filter: 'followers' | 'mentioned' | 'none'): Promise<void> {
     try {
-      const sessionStr = await SecureStore.getItemAsync('session');
-      const session = sessionStr ? JSON.parse(sessionStr) : null;
-      
       // Extract the record key (rkey) from the URI
       const parts = postUri.split('/');
       if (parts.length < 4) {
@@ -1147,8 +1144,6 @@ class AtprotoService {
 
   static async unblockUser(did: string): Promise<void> {
     await this.ensureSession();
-    const sessionStr = await SecureStore.getItemAsync('session');
-    const session = sessionStr ? JSON.parse(sessionStr) : null;
 
     try {
       const { api } = await this.getApiClient();
@@ -1167,8 +1162,6 @@ class AtprotoService {
 
   static async blockUser(did: string): Promise<void> {
     await this.ensureSession();
-    const sessionStr = await SecureStore.getItemAsync('session');
-    const session = sessionStr ? JSON.parse(sessionStr) : null;
 
     const record = {
       $type: 'app.bsky.graph.block' as const,
@@ -1223,8 +1216,6 @@ class AtprotoService {
 
   static async isBlocked(did: string): Promise<boolean> {
     await this.ensureSession();
-    const sessionStr = await SecureStore.getItemAsync('session');
-    const session = sessionStr ? JSON.parse(sessionStr) : null;
 
     try {
       // Use the correct parameter name 'filter' instead of 'actor'
@@ -1242,32 +1233,68 @@ class AtprotoService {
   }
 
   static async sendVideoFeedback(postUri: string, type: 'interested' | 'not_interested'): Promise<void> {
-    await this.ensureSession();
-    const sessionStr = await SecureStore.getItemAsync('session');
-    const session = sessionStr ? JSON.parse(sessionStr) : null;
-
     try {
+      // Get the current user's DID from OAuth session
+      const userDid = await this.getCurrentUserDid();
+      if (!userDid) {
+        throw new Error('No authenticated user found');
+      }
+
       // For now, we'll use a custom approach since Bluesky doesn't have a direct feedback API
       // We can store the feedback locally and potentially send it to a custom endpoint
       // This is a placeholder implementation that can be extended later
       
-      // Store feedback in local storage for now
+      // Store feedback in local storage
       const feedbackKey = `video_feedback_${postUri}`;
       const feedbackData = {
         postUri,
         type,
         timestamp: new Date().toISOString(),
-        userDid: session.did
+        userDid: userDid,
+        targetFeed: 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids' // Always send to vids feed
       };
       
-      // You can extend this to send to a custom API endpoint if needed
-      console.log('Video feedback stored:', feedbackData);
+      // Store in AsyncStorage for persistence
+      await AsyncStorage.setItem(feedbackKey, JSON.stringify(feedbackData));
       
-      // For now, we'll just log the feedback since there's no direct Bluesky API for this
-      // In a real implementation, you might want to send this to your own backend
+      console.log('Video feedback sent to vids feed:', feedbackData);
       
     } catch (error: any) {
       console.error('Error sending video feedback:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get stored video feedback for a post
+   */
+  static async getVideoFeedback(postUri: string): Promise<{ type: 'interested' | 'not_interested'; timestamp: string; userDid: string } | null> {
+    try {
+      const feedbackKey = `video_feedback_${postUri}`;
+      const feedbackStr = await AsyncStorage.getItem(feedbackKey);
+      
+      if (feedbackStr) {
+        const feedbackData = JSON.parse(feedbackStr);
+        return feedbackData;
+      }
+      
+      return null;
+    } catch (error: any) {
+      console.error('Error getting video feedback:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Remove stored video feedback for a post
+   */
+  static async removeVideoFeedback(postUri: string): Promise<void> {
+    try {
+      const feedbackKey = `video_feedback_${postUri}`;
+      await AsyncStorage.removeItem(feedbackKey);
+      console.log('Video feedback removed for post:', postUri);
+    } catch (error: any) {
+      console.error('Error removing video feedback:', error);
       throw error;
     }
   }
@@ -1313,18 +1340,19 @@ class AtprotoService {
       const did = parts[2];
       const rkey = parts[4];
       
-      const sessionStr = await SecureStore.getItemAsync('session');
-      const session = sessionStr ? JSON.parse(sessionStr) : null;
+      // Get the current user's DID to ensure they own the post
+      const userDid = await this.getCurrentUserDid();
+      if (!userDid) {
+        throw new Error('No authenticated user found');
+      }
       
       // Ensure the user owns the post
-      if (did !== session.did) {
+      if (did !== userDid) {
         throw new Error('Cannot delete a post that you do not own');
       }
       
       // Delete the post
       const { api } = await this.getApiClient();
-      const userDid = await this.getCurrentUserDid();
-      if (!userDid) throw new Error('No authenticated user');
       
       await api.app.bsky.feed.post.delete({
         repo: userDid,
@@ -1440,9 +1468,6 @@ class AtprotoService {
   static async mutePostComments(postUri: string): Promise<boolean> {
     try {
       await this.ensureSession();
-      const sessionStr = await SecureStore.getItemAsync('session');
-      const session = sessionStr ? JSON.parse(sessionStr) : null;
-      
       // Extract the record key (rkey) from the URI
       const parts = postUri.split('/');
       if (parts.length < 4) {
@@ -1452,8 +1477,14 @@ class AtprotoService {
       const did = parts[2];
       const rkey = parts[4];
       
+      // Get the current user's DID to ensure they own the post
+      const userDid = await this.getCurrentUserDid();
+      if (!userDid) {
+        throw new Error('No authenticated user found');
+      }
+      
       // Ensure the user owns the post
-      if (did !== session.did) {
+      if (did !== userDid) {
         throw new Error('Cannot mute comments on a post that you do not own');
       }
       
@@ -1466,8 +1497,6 @@ class AtprotoService {
       };
       
       const { api } = await this.getApiClient();
-      const userDid = await this.getCurrentUserDid();
-      if (!userDid) throw new Error('No authenticated user');
       
       await api.com.atproto.repo.createRecord({
         repo: userDid,

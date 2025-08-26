@@ -351,7 +351,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                   tintColor={profileColors.textColor}
                 />
               }
-              backgroundColor={profileColors.backgroundColor}
+              backgroundColor={Colors.black}
               secondaryColor={profileColors.textColor}
               isProfileLoading={isProfileLoading && !profileData}
               viewMode={viewMode}

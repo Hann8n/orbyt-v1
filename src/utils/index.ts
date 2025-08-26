@@ -8,6 +8,8 @@ export * from './constants';
 export * from './errorHandler';
 export * from './helpers/screenSize';
 export * from './helpers/video';
+export * from './helpers/videoBackgrounds';
+export * from './helpers/videoAssets';
 export * from './helpers/errorDebug';
 export * from './helpers/formatNumber';
 export * from './helpers/videoBuffering';

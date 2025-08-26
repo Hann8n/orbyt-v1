@@ -18,7 +18,7 @@ import { Avatar } from '../../ui/UI';
 import Icon from '../../ui/Icon';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import VerificationBadge from './VerificationBadge';
 import AuthorItem from '../../ui/AuthorItem';
  
@@ -73,7 +73,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   handle,
   onDismiss
 }) => {
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
+  const bottomSheetRef = useRef<TrueSheet>(null);
   const navigation = useNavigation<any>();
   const snapPoints = React.useMemo(() => ['70%'], []);
 
@@ -165,30 +165,17 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     }
   }, [visible]);
 
-  // Backdrop component
-  const renderBackdrop = React.useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.5}
-      />
-    ),
-    []
-  );
+  // Backdrop component - TrueSheet handles backdrop automatically
+  const renderBackdrop = React.useCallback(() => null, []);
 
   return (
-    <BottomSheetModal
+    <TrueSheet
       ref={bottomSheetRef}
-      index={0}
-      snapPoints={snapPoints}
-      backdropComponent={renderBackdrop}
+      sizes={snapPoints as any}
+      cornerRadius={0}
       onDismiss={onDismiss}
-      backgroundStyle={styles.bottomSheetBackground}
-      handleIndicatorStyle={{ display: 'none' }}
     >
-      <BottomSheetView style={styles.content}>
+      <View style={styles.content}>
         {/* Header with badge, title and close button */}
         <View style={styles.headerContainer}>
           <View style={styles.headerLeft}>
@@ -202,13 +189,13 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
               textColor={Colors.white}
             />
           </View>
-                      <TouchableOpacity 
-              style={styles.closeButton} 
-              onPress={onDismiss}
-              activeOpacity={0.7}
-            >
-              <Icon name="close" size={20} color={Colors.lightGray} />
-            </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.closeButton} 
+            onPress={onDismiss}
+            activeOpacity={0.7}
+          >
+            <Icon name="close" size={20} color={Colors.white} />
+          </TouchableOpacity>
         </View>
 
         {isLoading ? (
@@ -229,8 +216,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             </TouchableOpacity>
           </View>
         )}
-      </BottomSheetView>
-    </BottomSheetModal>
+      </View>
+    </TrueSheet>
   );
 
   // Render trusted verifier badge info
@@ -362,11 +349,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 20 : 30,
   },
-  headerContainer: {
+    headerContainer: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 20,
+    paddingTop: 5,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -374,10 +362,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: Colors.white,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'left',
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Firma-Bold',
   },
   closeButton: {
     width: 30,

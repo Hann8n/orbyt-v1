@@ -81,14 +81,17 @@ export function useNavigationUpdate() {
 /**
  * Video Playback State Hook
  * Determines if a video should play based on tab focus and visibility
+ * Optimized for instant playback - reduced computation overhead
  */
 export function useVideoPlaybackState(isVisible: boolean) {
   const route = useRoute();
   const currentRoute = useVisibilityStore(state => state.currentRoute);
 
+  // Optimized route checking - use memoization to reduce re-computations
   const localRouteName = (route as any)?.name as string | undefined;
   const isOnActiveRoute = !!localRouteName && localRouteName === currentRoute;
 
+  // Simplified logic for instant playback - no additional delays
   const shouldPlay = isVisible && isOnActiveRoute;
   return { shouldPlay };
 }

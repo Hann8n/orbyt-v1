@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKeys } from '../../../services/FeedService';
 import {
@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../navigation/types';
@@ -22,6 +22,7 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
 import VerticalListSheet from '../../ui/VerticalListSheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useAuth, useAccountManagement } from '../../../stores/userStore';
 
 interface ProfileMenuProps {
@@ -51,7 +52,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   const { removeAccount } = useAccountManagement();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isBlocked, setIsBlocked] = useState<boolean>(false);
-  const [showReportBlockSubmenu, setShowReportBlockSubmenu] = useState<boolean>(false);
+  const insets = useSafeAreaInsets();
+  
+  // TrueSheet refs for proper stacking
+  const submenuSheetRef = useRef<TrueSheet>(null);
 
   // Get profile data to determine if it's the current user
   const { data: profile } = useQuery({
@@ -72,13 +76,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   useEffect(() => {
     setIsBlocked(blockStatus);
   }, [blockStatus]);
-
-  // Reset submenu state when menu visibility changes
-  useEffect(() => {
-    if (!visible) {
-      setShowReportBlockSubmenu(false);
-    }
-  }, [visible]);
 
   // Block/unblock handler
   const handleBlockToggle = useCallback(async () => {
@@ -121,18 +118,13 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     }
   }, [profile?.did, isBlocked, onDismiss, queryClient]);
 
-  // Report or Block submenu handler
-  const handleReportOrBlock = useCallback(() => {
-    setShowReportBlockSubmenu(true);
-  }, []);
-
-  // Report user handler
-  const handleReport = useCallback(() => {
+  // Report handler
+  const handleReport = useCallback(async () => {
     if (!profile?.did) return;
 
     Alert.alert(
-      'report user',
-      'please select a reason for reporting this user:',
+      'report account',
+      'please select a reason for reporting this account:',
       [
         {
           text: 'cancel',
@@ -140,34 +132,34 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         },
         {
           text: 'spam',
-          onPress: () => reportUser('spam')
+          onPress: () => reportAccount('spam')
         },
         {
           text: 'harmful content',
-          onPress: () => reportUser('violation')
+          onPress: () => reportAccount('violation')
         },
         {
           text: 'misleading',
-          onPress: () => reportUser('misleading')
+          onPress: () => reportAccount('misleading')
         },
         {
           text: 'sexual content',
-          onPress: () => reportUser('sexual')
+          onPress: () => reportAccount('sexual')
         },
         {
           text: 'rude/offensive',
-          onPress: () => reportUser('rude')
+          onPress: () => reportAccount('rude')
         },
         {
           text: 'other',
-          onPress: () => reportUser('other')
+          onPress: () => reportAccount('other')
         }
       ]
     );
   }, [profile?.did]);
 
-  // Helper function to report user
-  const reportUser = useCallback(async (
+  // Helper function to report account
+  const reportAccount = useCallback(async (
     reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other'
   ) => {
     if (!profile?.did) return;
@@ -176,27 +168,32 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     try {
       const success = await AtprotoService.reportContent(profile.did, reasonType);
       if (success) {
-        Alert.alert('thank you', 'this user has been reported for review.');
+        Alert.alert('thank you', 'this account has been reported for review.');
         onDismiss();
       } else {
         Alert.alert('error', 'failed to submit report. please try again.');
       }
     } catch (error) {
-      console.error('Error reporting user:', error);
+      console.error('Error reporting account:', error);
       Alert.alert('error', 'failed to submit report. please try again.');
     } finally {
       setIsSubmitting(false);
     }
   }, [profile?.did, onDismiss]);
 
-  // Share profile handler
+  // Report or Block handler - now presents submenu sheet
+  const handleReportOrBlock = useCallback(() => {
+    submenuSheetRef.current?.present();
+  }, []);
+
+  // Share handler
   const handleShare = useCallback(async () => {
     try {
-      const shareUrl = `https://bsky.app/profile/${handle}`;
+      const profileUrl = `https://bsky.app/profile/${handle}`;
       
       await Share.share({
-        message: Platform.OS === 'ios' ? '' : shareUrl,
-        url: Platform.OS === 'ios' ? shareUrl : '',
+        message: Platform.OS === 'ios' ? '' : profileUrl,
+        url: Platform.OS === 'ios' ? profileUrl : '',
         title: `check out @${handle} on bluesky`,
       });
       
@@ -235,10 +232,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           style: 'destructive',
           onPress: async () => {
             setIsSubmitting(true);
-                          try {
-                // Remove the current account using userStore
-                // The userStore will handle getting the active account and removing it
-                await signOut(true); // Clear all accounts
+            try {
+              // Remove the current account using userStore
+              // The userStore will handle getting the active account and removing it
+              await signOut(true); // Clear all accounts
               
               if (onLogout) {
                 await onLogout(false); // Don't clear all accounts since we already removed the current one
@@ -334,52 +331,87 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     <VerticalListSheet
       visible={visible}
       onDismiss={onDismiss}
-      title={showReportBlockSubmenu ? 'Report or Block' : handle}
+      title={handle}
       showCancelButton={true}
       cancelButtonText="Cancel"
     >
-      {showReportBlockSubmenu ? (
-        /* Sub-menu for Report or Block */
-        <View style={styles.optionsContainer}>
+      {/* Main menu options */}
+      <View style={styles.optionsContainer}>
+        {menuOptions.map((option) => (
           <TouchableOpacity 
-            style={[styles.option, styles.submenuOption]}
-            onPress={() => {
-              setShowReportBlockSubmenu(false);
-              handleReport();
-            }}
+            key={option.id}
+            style={styles.option}
+            onPress={option.onPress}
             activeOpacity={0.7}
             disabled={isSubmitting}
           >
-            <Text style={[styles.optionText, styles.submenuText]}>Report Account</Text>
+            <Text style={styles.optionText}>{option.label.charAt(0).toUpperCase() + option.label.slice(1)}</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.option, styles.submenuOption]}
-            onPress={() => {
-              setShowReportBlockSubmenu(false);
-              handleBlockToggle();
-            }}
-            activeOpacity={0.7}
-            disabled={isSubmitting}
-          >
-            <Text style={[styles.optionText, styles.submenuText]}>{isBlocked ? 'Unblock Account' : 'Block Account'}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        /* Main menu options */
-        <View style={styles.optionsContainer}>
-          {menuOptions.map((option) => (
+        ))}
+      </View>
+
+      {/* Submenu sheet for Report or Block - defined within parent sheet */}
+      <TrueSheet
+        ref={submenuSheetRef}
+        sizes={['auto']}
+        backgroundColor={Colors.black}
+        onDismiss={() => submenuSheetRef.current?.dismiss()}
+        cornerRadius={25}
+        grabber={false}
+        FooterComponent={
+          <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
             <TouchableOpacity 
-              key={option.id}
-              style={styles.option}
-              onPress={option.onPress}
+              style={styles.cancelButton} 
+              onPress={() => submenuSheetRef.current?.dismiss()} 
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      >
+        <View style={styles.submenuContent}>
+          {/* Header with title and close button */}
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              Report or Block
+            </Text>
+            <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={() => submenuSheetRef.current?.dismiss()}
+              activeOpacity={0.7}
+            >
+              <Icon name="close" size={20} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Submenu options */}
+          <View style={styles.optionsContainer}>
+            <TouchableOpacity 
+              style={[styles.option, styles.submenuOption]}
+              onPress={() => {
+                submenuSheetRef.current?.dismiss();
+                handleReport();
+              }}
               activeOpacity={0.7}
               disabled={isSubmitting}
             >
-              <Text style={styles.optionText}>{option.label.charAt(0).toUpperCase() + option.label.slice(1)}</Text>
+              <Text style={[styles.optionText, styles.submenuText]}>Report Account</Text>
             </TouchableOpacity>
-          ))}
+            <TouchableOpacity 
+              style={[styles.option, styles.submenuOption]}
+              onPress={() => {
+                submenuSheetRef.current?.dismiss();
+                handleBlockToggle();
+              }}
+              activeOpacity={0.7}
+              disabled={isSubmitting}
+            >
+              <Text style={[styles.optionText, styles.submenuText]}>{isBlocked ? 'Unblock Account' : 'Block Account'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      )}
+      </TrueSheet>
     </VerticalListSheet>
   );
 };
@@ -412,6 +444,51 @@ const styles = StyleSheet.create({
   },
   submenuOption: {
     backgroundColor: Colors.darkRed,
+  },
+  submenuContent: {
+    paddingHorizontal: 4,
+    paddingTop: 4,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 15,
+    paddingTop: 15,
+    paddingBottom: 15,
+  },
+  headerTitle: {
+    color: Colors.white,
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'left',
+    fontFamily: 'Firma-Bold',
+    flex: 1,
+  },
+  closeButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelContainer: {
+    alignItems: 'center',
+    paddingTop: 20,
+  },
+  cancelButton: {
+    backgroundColor: Colors.darkGray,
+    borderRadius: 50,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    color: Colors.lightGray,
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+    fontFamily: 'Firma-SemiBold',
   },
 });
 

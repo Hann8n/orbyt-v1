@@ -4,6 +4,21 @@
  * Focused on scroll performance and memory efficiency
  */
 
+// Instant playback configuration - prioritizes starting videos immediately
+export const INSTANT_PLAYBACK_BUFFER_CONFIG = {
+  // Minimal buffer to start playback as quickly as possible
+  minBufferMs: 250,
+  
+  // Small maximum buffer to reduce memory usage
+  maxBufferMs: 2000,
+  
+  // Very small buffer for playback to start instantly
+  bufferForPlaybackMs: 100,
+  
+  // Small buffer after rebuffer to maintain performance
+  bufferForPlaybackAfterRebufferMs: 250,
+};
+
 // Ultra-aggressive mobile configuration for smooth scrolling
 export const ULTRA_MOBILE_BUFFER_CONFIG = {
   // Very small buffer to reduce memory usage during scrolling
@@ -81,4 +96,12 @@ export function getBufferConfigForDevice() {
  */
 export function getScrollOptimizedBufferConfig() {
   return ULTRA_MOBILE_BUFFER_CONFIG;
+}
+
+/**
+ * Get buffer configuration for instant video playback
+ * This configuration prioritizes starting videos immediately when visible
+ */
+export function getInstantPlaybackBufferConfig() {
+  return INSTANT_PLAYBACK_BUFFER_CONFIG;
 }

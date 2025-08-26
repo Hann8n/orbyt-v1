@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import { Colors } from './UI';
@@ -26,12 +26,12 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   onDismiss,
   title,
   children,
-  snapPoints = ['60%'],
+  snapPoints = ['auto'],
   showCancelButton = true,
   cancelButtonText = 'Cancel',
 }) => {
   // Bottom sheet ref and snap points
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
+  const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
 
   // Handle bottom sheet visibility
@@ -43,30 +43,32 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
     }
   }, [visible]);
 
-  // Backdrop component
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.5}
-      />
-    ),
-    []
-  );
+  // Backdrop component - TrueSheet handles backdrop automatically
+  const renderBackdrop = useCallback(() => null, []);
 
   return (
-    <BottomSheetModal
+    <TrueSheet
       ref={bottomSheetRef}
-      index={0}
-      snapPoints={snapPoints}
-      backdropComponent={renderBackdrop}
+      sizes={snapPoints as any}
+      backgroundColor={Colors.black}
       onDismiss={onDismiss}
-      backgroundStyle={styles.bottomSheetBackground}
-      handleIndicatorStyle={{ display: 'none' }}
+      cornerRadius={25}
+      grabber={false}
+      FooterComponent={
+        showCancelButton ? (
+          <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
+            <TouchableOpacity 
+              style={styles.cancelButton} 
+              onPress={onDismiss} 
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelButtonText}>{cancelButtonText}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : undefined
+      }
     >
-      <BottomSheetView style={styles.content}>
+      <View style={styles.content}>
         {/* Header with title and close button */}
         <View style={styles.headerContainer}>
           <Text style={styles.headerTitle} numberOfLines={1}>
@@ -85,21 +87,8 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
         <View style={styles.contentContainer}>
           {children}
         </View>
-
-        {/* Cancel button */}
-        {showCancelButton && (
-          <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
-            <TouchableOpacity 
-              style={styles.cancelButton} 
-              onPress={onDismiss} 
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelButtonText}>{cancelButtonText}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </BottomSheetView>
-    </BottomSheetModal>
+      </View>
+    </TrueSheet>
   );
 };
 
@@ -111,15 +100,16 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 0,
   },
   content: {
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
+    paddingTop: 4,
   },
   headerContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 20,
     paddingHorizontal: 15,
-    paddingTop: 5,
+    paddingTop: 15,
+    paddingBottom: 15,
   },
   headerTitle: {
     color: Colors.white,
@@ -127,6 +117,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'left',
     fontFamily: 'Firma-Bold',
+    flex: 1,
   },
   closeButton: {
     width: 30,
@@ -136,10 +127,11 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
+    paddingBottom: 20,
   },
   cancelContainer: {
     alignItems: 'center',
-    marginTop: 30,
+    paddingTop: 20,
   },
   cancelButton: {
     backgroundColor: Colors.darkGray,

@@ -232,7 +232,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       clearTimeout(visibilityDebounceTimeout.current);
     }
     
-    // Debounce visibility changes to prevent rapid updates during fast scrolling
+    // Reduced debounce for instant video playback
     visibilityDebounceTimeout.current = setTimeout(() => {
       // Find the most visible video item (first viewable non-end-card item)
       const visibleVideoItem = viewableItems.find(item => 
@@ -262,7 +262,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         setVisibleIndex(-1);
         onVisibleChange?.(-1, null);
       }
-    }, 50); // Reduced debounce for more responsive video detection
+    }, 16); // Reduced from 50ms to 16ms for instant video detection (one frame at 60fps)
   }, [visibleVideoUri, feedOption, onVisibleChange]);
 
   // Initialize visibility when feed loads or visibility changes

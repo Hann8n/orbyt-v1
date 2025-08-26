@@ -69,7 +69,8 @@
           }
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-background-task"
     ],
     "extra": {
       "eas": {

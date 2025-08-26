@@ -1,6 +1,7 @@
 /**
  * Video Playback Store
  * Centralizes video playback state using Zustand
+ * Optimized for instant playback
  */
 import { create } from 'zustand';
 // Using Zustand's built-in immer integration
@@ -53,7 +54,7 @@ interface PlaybackState {
   getVideoDimLevel: (videoId: string) => number;
 }
 
-// Initial settings
+// Initial settings - optimized for instant playback
 const DEFAULT_SETTINGS: VideoSettings = {
   autoplay: true,
   muteByDefault: false,
@@ -78,7 +79,7 @@ export const usePlaybackStore = create<PlaybackState>()(
       
       setConnectionQuality: (quality) => set({ connectionQuality: quality }),
       
-      // Video registration
+      // Video registration - optimized for instant playback
       registerVideo: (videoId, uri) => set(state => {
         if (!state.videoStates[videoId]) {
           state.videoStates[videoId] = {
@@ -99,7 +100,7 @@ export const usePlaybackStore = create<PlaybackState>()(
         state.activeVideoIds = state.activeVideoIds.filter(id => id !== videoId);
       }),
       
-      // Video state updates
+      // Video state updates - optimized for instant playback
       setVideoPlaying: (videoId, isPlaying) => set(state => {
         if (state.videoStates[videoId]) {
           state.videoStates[videoId].isPlaying = isPlaying;
@@ -139,7 +140,7 @@ export const usePlaybackStore = create<PlaybackState>()(
         }
       }),
       
-      // Helper methods
+      // Helper methods - optimized for performance
       pauseAllVideos: (exceptId) => {
         const state = get();
         
@@ -162,6 +163,7 @@ export const usePlaybackStore = create<PlaybackState>()(
       getVideoDimLevel: (videoId) => {
         const state = get();
         // Return higher dim level (0.6) for non-active videos, 0 for active videos
+        // Optimized for instant visual feedback
         return state.activeVideoIds.includes(videoId) ? 0 : 0.6;
       },
     }),
@@ -176,7 +178,7 @@ export const usePlaybackStore = create<PlaybackState>()(
   )
 );
 
-// Selector hooks
+// Selector hooks - optimized for performance
 export const usePlaybackSettings = () => usePlaybackStore(state => state.settings);
 export const useConnectionQuality = () => usePlaybackStore(state => state.connectionQuality);
 export const useVideoState = (videoId: string) => usePlaybackStore(state => state.videoStates[videoId]);

@@ -13,7 +13,7 @@ import {
   Dimensions,
   ScrollView,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { ShareIcon, BlockIcon, ReportIcon, InterestedIcon, NotInterestedIcon } from './Icon';
 import AtprotoService from '../../services/api/AtprotoService';
@@ -47,9 +47,10 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   feedOption,
   sourceFeed
 }) => {
-  // Helper function to check if the source feed supports feedback
+  // Helper function to check if feedback can be sent for this video
   const canSendFeedback = (feed: string | undefined): boolean => {
-    return feed === 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids';
+    // Allow feedback for any video
+    return true;
   };
   const queryClient = useQueryClient();
   const { isClearViewMode, toggleClearViewMode } = useClearView();
@@ -63,9 +64,9 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   const interestedAnimation = useRef(new Animated.Value(0)).current;
   const notInterestedAnimation = useRef(new Animated.Value(0)).current;
 
-  // Bottom sheet ref and snap points
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['70%'], []);
+  // TrueSheet ref and sizes
+  const bottomSheetRef = useRef<TrueSheet>(null);
+  const snapPoints = useMemo(() => ['auto'] as any, []);
   const insets = useSafeAreaInsets();
 
   // Check if the current user is the author
@@ -107,12 +108,30 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   // Load previous feedback state for this post if it exists
   useEffect(() => {
     if (visible && postUri) {
-      const previousFeedback = feedbackStateMap.get(postUri);
-      if (previousFeedback) {
-        setFeedbackSent(previousFeedback);
-      } else {
-        setFeedbackSent(null);
-      }
+      const loadFeedback = async () => {
+        try {
+          // First check the in-memory map
+          const previousFeedback = feedbackStateMap.get(postUri);
+          if (previousFeedback) {
+            setFeedbackSent(previousFeedback);
+            return;
+          }
+          
+          // If not in memory, try to load from storage
+          const storedFeedback = await AtprotoService.getVideoFeedback(postUri);
+          if (storedFeedback) {
+            setFeedbackSent(storedFeedback.type);
+            feedbackStateMap.set(postUri, storedFeedback.type);
+          } else {
+            setFeedbackSent(null);
+          }
+        } catch (error) {
+          console.error('Error loading feedback:', error);
+          setFeedbackSent(null);
+        }
+      };
+      
+      loadFeedback();
     }
   }, [visible, postUri]);
 
@@ -247,11 +266,12 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
 
       // Make API call
       if (feedbackSent === type) {
-        // Currently there's no API to remove feedback, so we just clear it locally
-        // console.log(`Cleared ${type} feedback for post: ${postUri}`);
+        // Remove feedback
+        await AtprotoService.removeVideoFeedback(postUri);
+        console.log(`Removed ${type} feedback for post: ${postUri}`);
       } else {
         await AtprotoService.sendVideoFeedback(postUri, type);
-        // console.log(`Sent ${type} feedback for post: ${postUri}`);
+        console.log(`Sent ${type} feedback for post: ${postUri} to vids feed`);
       }
     } catch (error) {
       // Revert to previous state on error
@@ -413,8 +433,8 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
 
     
 
-    // Add Interest feedback options (only for yourMix feed from thevids source and not current user's content)
-    if (feedOption === 'yourMix' && canSendFeedback(sourceFeed) && !isCurrentUser) {
+    // Add Interest feedback options (for any video, not current user's content)
+    if (canSendFeedback(sourceFeed) && !isCurrentUser) {
       options.push({
         id: 'interested',
         label: 'Like',
@@ -462,42 +482,49 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   const menuOptions = getMenuOptions();
 
   // Use fixed spacing instead of dynamic calculation
-  const fixedSpacing = 16;
-
-  // Backdrop component
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.5}
-      />
-    ),
-    []
-  );
+  const fixedSpacing = 12;
 
   // Don't render the sheet if in clear view mode
   if (isClearViewMode) {
     return null;
   }
 
+  // Handle TrueSheet visibility
+  useEffect(() => {
+    if (visible) {
+      bottomSheetRef.current?.present();
+    } else {
+      bottomSheetRef.current?.dismiss();
+    }
+  }, [visible]);
+
   return (
-    <BottomSheetModal
+    <TrueSheet
       ref={bottomSheetRef}
-      index={0}
-      snapPoints={snapPoints}
-      backdropComponent={renderBackdrop}
+      sizes={snapPoints}
+      backgroundColor={Colors.black}
       onDismiss={onDismiss}
-      backgroundStyle={styles.bottomSheetBackground}
-      handleIndicatorStyle={{ display: 'none' }}
+      cornerRadius={25}
+      grabber={false}
+      FooterComponent={
+        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
+          <TouchableOpacity 
+            style={styles.cancelButton} 
+            onPress={onDismiss} 
+            activeOpacity={0.7}
+            disabled={isSubmitting}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      }
     >
-      <BottomSheetView style={styles.content}>
+      <View style={styles.content}>
         {/* Author name and close button */}
         {authorName && (
           <View style={styles.headerContainer}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              video by {authorName}
+              post by {authorName}
             </Text>
             <TouchableOpacity 
               style={styles.closeButton} 
@@ -554,18 +581,8 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
             ))}
           </ScrollView>
         </View>
-        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
-          <TouchableOpacity 
-            style={styles.cancelButton} 
-            onPress={onDismiss} 
-            activeOpacity={0.7}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </BottomSheetView>
-    </BottomSheetModal>
+      </View>
+    </TrueSheet>
   );
 };
 
@@ -582,15 +599,16 @@ const styles = StyleSheet.create({
     height: 5,
   },
   content: {
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
+    paddingTop: 4,
   },
   headerContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 20,
     paddingHorizontal: 15,
-    paddingTop: 5,
+    paddingTop: 15,
+    paddingBottom: 15,
   },
   headerTitle: {
     color: Colors.white,
@@ -598,10 +616,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'left',
     fontFamily: 'Firma-Bold',
+    flex: 1,
   },
   contentContainer: {
     flex: 1,
-    paddingHorizontal: 0,
+    paddingBottom: 20,
   },
   closeButton: {
     width: 30,
@@ -643,7 +662,7 @@ const styles = StyleSheet.create({
   },
   cancelContainer: {
     alignItems: 'center',
-    marginTop: 30,
+    paddingTop: 20,
   },
   cancelButton: {
     backgroundColor: Colors.darkGray,

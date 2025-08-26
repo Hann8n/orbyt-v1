@@ -21,6 +21,7 @@ import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../../utils/h
 import { feedService } from '../../../services/FeedService';
 import { BlurView } from 'expo-blur';
 import Icon from '../../ui/Icon';
+import { QUERY_CONSTANTS } from '../../../utils/constants';
 
 
 const ITEM_MARGIN = 1; // Set divider thickness to 1 for both directions
@@ -210,6 +211,8 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
             scrollEventThrottle={16}
             // Disable scrolling when there are no items
             scrollEnabled={feed.length > 0}
+            onEndReached={hasNextPage ? onLoadMore : undefined}
+            onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
             ListFooterComponent={isFetchingNextPage ? (
               <View style={styles.footerLoader}>
                 <ActivityIndicator size="small" color={secondaryColor} />

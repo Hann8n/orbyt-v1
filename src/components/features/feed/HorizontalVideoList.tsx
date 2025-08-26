@@ -50,9 +50,10 @@ export const VideoGridItem: React.FC<{
       onPress={() => onPress(index)}
     >
       <Image
-        source={{ uri: thumbnailUrl || videoUrl || undefined }}
+        source={{ uri: thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== '' ? thumbnailUrl : undefined }}
         style={[styles.thumbnail, thumbnailStyle]}
         resizeMode="cover"
+        key={`thumbnail-${item.post.uri}`}
       />
       {shouldBlur && (
         <BlurView intensity={80} tint="dark" style={styles.warningOverlay} />

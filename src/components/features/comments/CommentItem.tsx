@@ -573,17 +573,17 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       ]}>
         <View style={[
           styles.commentItemContainer,
-          { zIndex: 1, paddingVertical: 8, paddingHorizontal: 0, alignItems: 'center' },
+          { zIndex: 1, paddingVertical: 4, paddingHorizontal: 0, alignItems: 'center' },
         ]}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1 }}>
             <TouchableOpacity onPress={handleAuthorAvatarPress}>
               <UI.Avatar
                 uri={authorAvatar}
                 type="profile"
-                size={40}
+                size={level > 0 ? 30 : 40}
                 style={{
-                  width: 40,
-                  height: 40,
+                  width: level > 0 ? 30 : 40,
+                  height: level > 0 ? 30 : 40,
                   borderRadius: 20,
                   marginRight: 12,
                   borderWidth: 0,
@@ -608,7 +608,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
               {commentText ? (
                 <TextWithAuthorLinks
                   text={commentText}
-                  style={{ color: Colors.lightGray, fontSize: 16, marginTop: 2 }}
+                  style={{ color: Colors.lightGray, fontSize: 15, marginTop: 2, fontFamily: 'Firma-Regular' }}
                   onAuthorPress={handleAuthorPress}
                 />
               ) : null}
@@ -631,7 +631,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   <View style={styles.repliesToggleLine} />
                   <Text style={styles.repliesToggleText}>
                     {repliesVisible
-                      ? `hide ${replyCount === 1 ? 'reply' : 'replies'}`
+                      ? `hide replies`
                       : `view ${formatNumber(replyCount)} ${replyCount === 1 ? 'reply' : 'replies'}`}
                   </Text>
                 </TouchableOpacity>
@@ -642,7 +642,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             <TouchableOpacity onPress={handleLikeComment} style={styles.likeButton}>
               <Animated.View style={heartAnimatedStyle}>
                 <HeartFillIcon
-                  size={22}
+                  size={20}
                   color={isLiked ? Colors.lightRed : Colors.gray}
                 />
               </Animated.View>
@@ -709,19 +709,20 @@ const styles = StyleSheet.create({
     // Remove marginLeft, borderLeft, and paddingLeft for cleaner nesting
   },
   commentThreadContainer: {
-    marginBottom: 8,
+    marginBottom: 4,
     backgroundColor: 'transparent',
   },
   commentItemContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 6,
     paddingHorizontal: 0,
+    backgroundColor: 'transparent',
   },
   commentContentContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
+    backgroundColor: 'transparent',
   },
   commentAvatarNested: {
     width: 32,
@@ -731,6 +732,7 @@ const styles = StyleSheet.create({
   commentTextContainer: {
     marginLeft: 12,
     flex: 1,
+    backgroundColor: 'transparent',
   },
   commentAuthorName: {
     fontFamily: 'Firma-Bold',
@@ -771,14 +773,14 @@ const styles = StyleSheet.create({
   commentActionsContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
+    paddingRight: 10,
+    paddingTop: 4,
     width: 32,
     alignSelf: 'flex-start',
   },
   likeButton: {
     width: '100%',
     alignItems: 'center',
-    padding: 4,
   },
   likeIcon: {
     width: 18,
@@ -793,7 +795,7 @@ const styles = StyleSheet.create({
     color: Colors.lightGray,
     fontSize: 12.5,
     fontFamily: 'Firma-SemiBold',
-    marginTop: 0,
+    marginTop: 2,
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.15)',
     textShadowOffset: { width: 0, height: 1 },

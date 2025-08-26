@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../ui/Icon';
 import { PlusIcon } from '../../ui/Icon';
@@ -365,8 +365,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       visible={visible}
       onDismiss={onDismiss}
       title="switch account"
-      showCancelButton={false}
-      snapPoints={['90%']}
+      showCancelButton={true}
     >
       
       {loading ? (
@@ -374,7 +373,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           <ActivityIndicator size="large" color={Colors.lightGray} />
         </View>
       ) : (
-        <BottomSheetFlatList
+        <FlashList
           data={listData}
           renderItem={renderAccountItem}
           keyExtractor={keyExtractor}

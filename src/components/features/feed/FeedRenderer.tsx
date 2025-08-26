@@ -364,6 +364,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.black,
   },
   errorContainer: {
     flex: 1,

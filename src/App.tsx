@@ -6,7 +6,6 @@ import * as SecureStore from 'expo-secure-store';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as Font from 'expo-font';
 
 // Local imports
@@ -220,9 +219,7 @@ const App: React.FC<AppProps> = () => {
         <QueryClientProvider client={queryClient}>
           <StatusBarController />
           <GestureHandlerRootView style={styles.gestureHandler}>
-            <BottomSheetModalProvider>
-              <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
-            </BottomSheetModalProvider>
+            <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
           </GestureHandlerRootView>
         </QueryClientProvider>
       </SafeAreaProvider>
@@ -257,9 +254,7 @@ const App: React.FC<AppProps> = () => {
         >
           <StatusBarController />
           <GestureHandlerRootView style={styles.gestureHandler}>
-            <BottomSheetModalProvider>
-              <RootNavigator onLogout={handleLogout} />
-            </BottomSheetModalProvider>
+            <RootNavigator onLogout={handleLogout} />
           </GestureHandlerRootView>
         </NavigationContainer>
       </QueryClientProvider>

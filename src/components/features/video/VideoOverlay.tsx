@@ -6,10 +6,12 @@ import {
   StyleSheet,
   Modal,
   Dimensions,
+  Animated,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AtprotoService from '../../../services/api/AtprotoService';
-import CommentSection from '../../features/comments/CommentSection';
+import CommentSection from '../comments/CommentSection';
 import ShareSheet from '../../ui/ShareSheet';
 import { VideoCardRef } from './VideoCard';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
@@ -116,7 +118,7 @@ const getFeedDisplayName = (uri: string): string => {
   }
 };
 
-// Optimized VideoOverlay component for scroll performance
+// Optimized VideoOverlay component with smooth transitions
 const VideoOverlay: React.FC<VideoOverlayProps> = ({ 
   post, 
   videoRef, 
@@ -138,6 +140,10 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const { isClearViewMode } = useClearView();
+
+  // Animated values for smooth transitions
+  const fadeAnim = useRef(new Animated.Value(isVisible ? 1 : 0)).current;
+  const slideAnim = useRef(new Animated.Value(isVisible ? 0 : 20)).current;
 
   // Simplified state management - removed complex animations and progress tracking
   const [isCollapsed, setIsCollapsed] = useState<boolean>(true);
@@ -206,6 +212,41 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   const isOwnPost = useMemo(() => {
     return userData?.did === author.did;
   }, [userData?.did, author.did]);
+
+  // Smooth visibility transitions - optimized for instant playback
+  useEffect(() => {
+    const duration = 150; // Reduced from 200ms for faster transitions
+    
+    if (isVisible) {
+      // Fade in and slide up
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      // Fade out and slide down
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 20,
+          duration,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isVisible, fadeAnim, slideAnim]);
 
   // Handle follow action
   const handleFollowPress = useCallback(() => {
@@ -329,8 +370,6 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
     <ChatFillIcon size={isTabletDevice ? 38 : 34} color={Colors.INTERACTIVE.COMMENT} />
   ), [isTabletDevice]);
 
-
-
   // Only use sourceFeed for yourMix feeds
   const shouldUseSourceFeed = feedOption === 'yourMix' && sourceFeed;
   
@@ -357,19 +396,22 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
     return true;
   }, [isClearViewMode]);
 
-  // Native visibility control without animations for optimal scroll performance
-  const overlayOpacity = useMemo(() => (isVisible ? 1 : 0), [isVisible]);
+  // Memoized animated styles for performance
+  const animatedContainerStyle = useMemo(() => ({
+    opacity: fadeAnim,
+    transform: [{ translateY: slideAnim }],
+  }), [fadeAnim, slideAnim]);
 
   return shouldRenderOverlay ? (
-    <View
-      style={[styles.container, { opacity: overlayOpacity }]}
+    <Animated.View
+      style={[styles.container, animatedContainerStyle]}
       pointerEvents={isVisible ? "box-none" : "none"}
     >
-      {/* Simplified gradient overlay */}
-      <View style={styles.uiOverlay} pointerEvents="none">
+      {/* Optimized gradient overlay with hardware acceleration */}
+      <Animated.View style={[styles.uiOverlay, { opacity: fadeAnim }]} pointerEvents="none">
         <LinearGradient
           colors={isCollapsed 
-            ? ['rgba(0, 0, 0, 0.6)', 'rgba(0, 0, 0, 0.4)', 'rgba(0, 0, 0, 0.2)', 'transparent']
+            ? ['transparent', 'transparent', 'transparent', 'transparent']
             : ['rgba(0, 0, 0, 0.95)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.3)', 'transparent']
           }
           locations={[0, 0.4, 0.6, 1]}
@@ -378,12 +420,13 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
           start={{ x: 0, y: 1 }}
           end={{ x: 0, y: 0 }}
         />
-      </View>
+      </Animated.View>
       
-      <View 
+      <Animated.View 
         style={[
           styles.overlayContentContainer,
           isModal ? { bottom: 0 } : (isSmallDevice ? { bottom: bottomNavBarHeight } : {}),
+          { transform: [{ translateY: slideAnim }] }
         ]} 
         pointerEvents="box-none"
       >
@@ -449,22 +492,25 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
                     />
                   </TouchableOpacity>
                   {!isCollapsed && record.createdAt && (
-                    <Text style={styles.dateText}>
-                      {new Date(record.createdAt).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                      {record.metadata?.orbyt && record.metadata?.platform && (
-                        <Text style={styles.orbytText}> • {record.metadata.platform}</Text>
-                      )}
-                    </Text>
+                    <>
+                      <View style={styles.divider} />
+                      <Text style={styles.dateText}>
+                        {new Date(record.createdAt).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                        {record.metadata?.orbyt && record.metadata?.platform && (
+                          <Text style={styles.orbytText}> • {record.metadata.platform}</Text>
+                        )}
+                      </Text>
+                    </>
                   )}
                 </>
               ) : (
                 <>
                   <TouchableOpacity onPress={toggleCollapsed} activeOpacity={0.8}>
-                    <Text style={styles.moreButtonText}>more</Text>
+                    <MoreFillIcon size={28} color={Colors.white} />
                   </TouchableOpacity>
                   {!isCollapsed && record.createdAt && (
                     <Text style={styles.dateText}>
@@ -656,40 +702,20 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
             <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(likeCount)}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
       
-      <Modal
-        animationType="none"
-        transparent={true}
+      <CommentSection 
+        post={post} 
+        onDismiss={handleCloseComments}
         visible={showComments}
-        onRequestClose={handleCloseComments}
-      >
-        <View style={{ flex: 1 }}>
-          <TouchableOpacity 
-            style={{ 
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0
-            }} 
-            activeOpacity={1} 
-            onPress={handleCloseComments} 
-          />
-          <CommentSection 
-            post={post} 
-            onDismiss={handleCloseComments}
-            visible={showComments}
-            totalLikes={likeCount}
-            totalComments={post.replyCount || 0}
-            isLiked={isLiked}
-            onOpenShareSheet={() => setShowShareSheet(true)}
-            postedAt={post.record?.createdAt}
-            onToggleLike={handleLike}
-            isLikePending={isLikePending}
-          />
-        </View>
-      </Modal>
+        totalLikes={likeCount}
+        totalComments={post.replyCount || 0}
+        isLiked={isLiked}
+        onOpenShareSheet={() => setShowShareSheet(true)}
+        postedAt={post.record?.createdAt}
+        onToggleLike={handleLike}
+        isLikePending={isLikePending}
+      />
       
       <ShareSheet
         visible={showShareSheet}
@@ -701,7 +727,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
         feedOption={feedOption}
         sourceFeed={sourceFeed}
       />
-    </View>
+    </Animated.View>
   ) : null;
 };
 
@@ -792,10 +818,15 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginVertical: 4,
+  },
   moreButtonText: {
     color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-Regular',
+    fontSize: 24, // Increased from 16
+    fontFamily: 'Firma-Bold', // Changed from 'Firma-Regular' to 'Firma-Bold'
     textShadowColor: 'rgba(0, 0, 0, 0.15)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,

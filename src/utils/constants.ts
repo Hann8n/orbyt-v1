@@ -3,7 +3,7 @@ export const APP_CONSTANTS = {
   REFRESH_DELAY: 2000,
   SCROLL_THROTTLE: 16,
   POSITION_SAVE_DELAY: 300,
-  VISIBILITY_DEBOUNCE: 100,
+  VISIBILITY_DEBOUNCE: 16, // Reduced from 100ms to 16ms for instant video detection
   ORIENTATION_CHANGE_DELAY: 100,
   INITIAL_SCROLL_DELAY: 50,
   GRID_TO_LIST_DELAY: 100,
@@ -17,11 +17,11 @@ export const QUERY_CONSTANTS = {
   END_REACHED_THRESHOLD: 0.8,
 } as const;
 
-// Viewability Constants
+// Viewability Constants - optimized for instant video playback
 export const VIEWABILITY_CONSTANTS = {
-  ITEM_VISIBLE_PERCENT_THRESHOLD: 50,
-  MINIMUM_VIEW_TIME: 0,
-  WAIT_FOR_INTERACTION: false,
+  ITEM_VISIBLE_PERCENT_THRESHOLD: 30, // Reduced from 50% to 30% for faster detection
+  MINIMUM_VIEW_TIME: 0, // No minimum view time for instant playback
+  WAIT_FOR_INTERACTION: false, // Don't wait for interaction
 } as const;
 
 // Scroll Constants

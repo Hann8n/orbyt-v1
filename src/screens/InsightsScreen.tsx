@@ -1046,10 +1046,10 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
           </View>
         
         <Image
-          source={{ uri: post.thumbnailUrl || post.videoUrl }}
+          source={{ uri: post.thumbnailUrl && typeof post.thumbnailUrl === 'string' && post.thumbnailUrl.trim() !== '' ? post.thumbnailUrl : undefined }}
           style={styles.topVideoPostThumbnail}
           resizeMode="contain"
-
+          key={`insights-thumbnail-${post.uri}`}
         />
       </View>
     </View>

@@ -35,9 +35,10 @@ import Icon from '../../ui/Icon';
 import { feedService } from '../../../services/FeedService';
 import { Colors } from '../../ui/UI';
 import VideoOverlay from './VideoOverlay';
+import { useVideoAssets } from '../../../utils/helpers/videoAssets';
 
 // Import buffering strategies
-import { MOBILE_BUFFER_CONFIG } from '../../../utils/helpers/videoBuffering';
+import { INSTANT_PLAYBACK_BUFFER_CONFIG } from '../../../utils/helpers/videoBuffering';
 
 // Custom Warning Icon Component
 const WarningIcon = ({ size = 48, color = Colors.white }: { size?: number; color?: string }) => (
@@ -50,10 +51,10 @@ const WarningIcon = ({ size = 48, color = Colors.white }: { size?: number; color
   </Svg>
 );
 
-// Video configuration optimized for scroll performance
+// Video configuration optimized for instant playback
 const VIDEO_CONFIG = {
   PROGRESS_UPDATE_INTERVAL: 1000, // Reduced from 250ms to 1000ms for better performance
-  BUFFER_CONFIG: MOBILE_BUFFER_CONFIG,
+  BUFFER_CONFIG: INSTANT_PLAYBACK_BUFFER_CONFIG,
 } as const;
 
 export interface VideoEmbed {
@@ -183,22 +184,39 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     // Get dim level for this video based on active state
     const videoDimLevel = useVideoDimLevel(videoId);
 
+    // Get combined video assets (thumbnail + background) - memoized together
+    const { 
+      thumbnailUrl: posterUrl, 
+      backgroundColors, 
+      videoEmbed, 
+      videoUrl 
+    } = useVideoAssets(post, isVisible);
+
+
+
     // Memoize computed values for display size
     const { width: screenWidth } = Dimensions.get('window');
     const containerHeight = height || Dimensions.get('window').height;
     const containerWidth = screenWidth;
     
-    // Use the correct video extraction function
-    const { videoEmbed, videoUrl } = useMemo(() => {
-      return extractVideoEmbedAndUrl(post);
-    }, [post.embed, post.uri]);
+    // Memoize display dimensions to prevent recalculation on every render
+    const displayDimensions = useMemo(() => ({
+      width: containerWidth,
+      height: containerHeight
+    }), [containerWidth, containerHeight]);
     
+    // Memoize background color to prevent recalculation
+    const backgroundColor = useMemo(() => 
+      backgroundColors.length > 0 ? backgroundColors[0] : Colors.black,
+      [backgroundColors]
+    );
+    
+
     const videoNativeRatio = useMemo(() => videoEmbed?.aspectRatio
       ? videoEmbed.aspectRatio.width / videoEmbed.aspectRatio.height
       : 9 / 16, [videoEmbed]);
 
-    const displayWidth = containerWidth;
-    const displayHeight = containerHeight;
+
     
     // Build ordered list of candidate URLs (prefer HLS, then MP4, then any)
     const playlistCandidates = useMemo(() => {
@@ -216,7 +234,6 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
 
     const [currentSourceIndex, setCurrentSourceIndex] = useState(0);
     const finalVideoUrl = playlistCandidates[currentSourceIndex] || videoUrl;
-    const posterUrl = extractVideoThumbnail(videoEmbed as any) || undefined;
     
 
 
@@ -281,11 +298,12 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     // Use tab visibility system to determine if video should play
     const { shouldPlay: shouldPlayFromTab } = useVideoPlaybackState(isVisible);
     
-    // Determine if video should play
+    // Determine if video should play - optimized for instant playback
     const shouldPlayVideo = useMemo(() => {
       if (shouldDisablePlayback || videoState.hasError || videoState.userPaused) return false;
       // Prevent playback when there's a moderation warning (blur) unless user chose to view
       if (shouldBlur && !userChoseToView) return false;
+      // Start playing immediately when visible, don't wait for ready state
       return shouldPlayFromTab && isVisible;
     }, [shouldDisablePlayback, videoState.hasError, videoState.userPaused, shouldBlur, userChoseToView, shouldPlayFromTab, isVisible]);
 
@@ -299,7 +317,7 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
       };
     }, [videoId, finalVideoUrl, registerVideo, unregisterVideo]);
 
-    // Update playback store when video state changes
+    // Update playback store when video state changes - optimized for instant playback
     useEffect(() => {
       setVideoPlaying(videoId, shouldPlayVideo);
     }, [videoId, shouldPlayVideo, setVideoPlaying]);
@@ -390,7 +408,6 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
 
     // Safety check for video-specific component
     if (!finalVideoUrl) {
-      
       return null;
     }
 
@@ -399,22 +416,29 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
     const shouldRenderVideo = isVisible;
 
     return (
-      <View style={[styles.container, { width: displayWidth, height: displayHeight }]}>
+      <View style={[styles.container, { width: displayDimensions.width, height: displayDimensions.height }]}>
         <TouchableWithoutFeedback onPress={() => setVideoState(prev => ({ ...prev, userPaused: !prev.userPaused }))}>
-          <View style={styles.videoContainer} pointerEvents="box-none">
-            {/* Always show thumbnail first to prevent black frame */}
-            {posterUrl && (
-              <Image
-                source={{ uri: posterUrl }}
-                style={{ 
-                  width: displayWidth, 
-                  height: displayHeight,
-                  position: 'absolute',
-                  zIndex: 1
-                }}
-                resizeMode="contain"
-              />
-            )}
+          <View 
+            style={[
+              styles.videoContainer, 
+              { backgroundColor }
+            ]} 
+            pointerEvents="box-none"
+          >
+                          {/* Only show thumbnail if it's a valid URL for this specific video */}
+              {posterUrl && typeof posterUrl === 'string' && posterUrl.trim() !== '' && (
+                <Image
+                  source={{ uri: posterUrl }}
+                  style={{ 
+                    width: displayDimensions.width, 
+                    height: displayDimensions.height,
+                    position: 'absolute',
+                    zIndex: 2
+                  }}
+                  resizeMode="contain"
+                  key={`thumbnail-${post.uri}`}
+                />
+              )}
             
             {/* Video component - will overlay on top of thumbnail */}
             {finalVideoUrl && shouldRenderVideo && (
@@ -423,16 +447,20 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
                 ref={playerRef}
                 source={{ uri: finalVideoUrl }}
                 style={{ 
-                  width: displayWidth, 
-                  height: displayHeight,
+                  width: displayDimensions.width, 
+                  height: displayDimensions.height,
                   position: 'absolute',
-                  zIndex: 2
+                  zIndex: 3
                 }}
                 repeat={true}
                 paused={!shouldPlayVideo}
                 muted={false}
                 resizeMode="contain"
                 bufferConfig={VIDEO_CONFIG.BUFFER_CONFIG}
+                // Optimized for instant playback
+                playInBackground={false}
+                playWhenInactive={false}
+                ignoreSilentSwitch="ignore"
                 onLoadStart={() => {
                   onVideoStatus?.(post.uri, 'loading');
                 }}
@@ -481,8 +509,8 @@ const CachedVideoCard = memo(forwardRef<VideoCardRef, CachedVideoCardProps>(
               />
             )}
             
-            {/* Loading indicator */}
-            {videoState.isBuffering && shouldPlayVideo && (
+            {/* Loading indicator - only show if buffering and not ready */}
+            {videoState.isBuffering && shouldPlayVideo && !videoState.isReady && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color={Colors.white} />
               </View>
@@ -638,6 +666,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 3, // 5px total spacing (2.5px top + 2.5px bottom)
   },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 0,
+  },
+
   videoContainer: {
     width: '100%',
     height: '100%',
@@ -651,7 +688,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: Colors.black,
-    zIndex: 1,
+    zIndex: 4,
   },
   loadingOverlay: {
     position: 'absolute',
@@ -662,7 +699,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 2,
+    zIndex: 5,
   },
   blurOverlay: {
     position: 'absolute',
@@ -672,7 +709,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 3,
+    zIndex: 6,
   },
   warningContainer: {
     alignItems: 'center',
