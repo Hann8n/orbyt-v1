@@ -169,6 +169,10 @@ const App: React.FC<AppProps> = () => {
 
   const handleLogin = async (handle: string) => {
     try {
+      // If OAuth flow already succeeded, do not attempt another sign-in
+      if (handle === 'oauth-success') {
+        return Promise.resolve();
+      }
       await signIn(handle);
       return Promise.resolve();
     } catch (error) {

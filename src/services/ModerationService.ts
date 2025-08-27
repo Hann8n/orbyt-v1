@@ -1,4 +1,3 @@
-import { useUserStore } from '../stores/userStore';
 import { ModerationSettings, ModerationDecision, ModerationOpts as BlueskyModerationOpts } from './ModerationTypes';
 import { 
   ModerationPrefs, 
@@ -50,13 +49,13 @@ export class ModerationService {
   /**
    * Get moderation settings from user store
    */
-  static async getModerationSettings(): Promise<ModerationSettings> {
+  static async getModerationSettings(agent?: any): Promise<ModerationSettings> {
     if (this.currentSettings) {
       return this.currentSettings;
     }
 
     try {
-      const { agent } = useUserStore.getState();
+      // In future, use provided agent to fetch real preferences
       if (!agent) {
         return this.createDefaultSettings();
       }
@@ -74,7 +73,7 @@ export class ModerationService {
    */
   static async saveModerationSettings(settings: ModerationSettings, agent?: any): Promise<void> {
     try {
-      const currentAgent = agent || useUserStore.getState().agent;
+      const currentAgent = agent;
       if (!currentAgent) {
         console.warn('[ModerationService] No agent available for saving settings');
         return;
@@ -123,7 +122,7 @@ export class ModerationService {
    */
   static async syncModerationSettings(agent?: any): Promise<void> {
     try {
-      const currentAgent = agent || useUserStore.getState().agent;
+      const currentAgent = agent;
       if (!currentAgent) {
         console.warn('[ModerationService] No agent available for syncing settings');
         return;
