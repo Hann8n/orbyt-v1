@@ -3136,6 +3136,14 @@ expo-secure-store@~15.0.3:
   resolved "https://registry.yarnpkg.com/expo-secure-store/-/expo-secure-store-15.0.3.tgz#b0b5bb2cf61db4e4b3ea3cbe8b3eb269080f09dd"
   integrity sha512-DM8bqmdFp2W3csZ0wB5I9Z88a3q1SPGlz8SlvN/GvFOfTeW4ONosT6w7PRYlklIs3VpQZTQHzh6HWuoCjWei1A==
 
+expo-system-ui@~6.0.3:
+  version "6.0.3"
+  resolved "https://registry.yarnpkg.com/expo-system-ui/-/expo-system-ui-6.0.3.tgz#7c1d83f8e368ffb7e4ad787c500f596c0b7cee98"
+  integrity sha512-XbYYwhZLtRauC0Kj0+S9sh2fscyjz3Jb/3tIO1+DOakNF44NA0/WLTUTU98LIrtxkkASR2CAsOtEKC27z92+Dg==
+  dependencies:
+    "@react-native/normalize-colors" "0.81.0"
+    debug "^4.3.2"
+
 expo-task-manager@~14.0.3:
   version "14.0.3"
   resolved "https://registry.yarnpkg.com/expo-task-manager/-/expo-task-manager-14.0.3.tgz#bd447e5885b954beaf19471f98612542b1f56831"
