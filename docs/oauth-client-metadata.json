@@ -1,5 +1,5 @@
 {
-  "client_id": "https://getorbyt.com/atproto-oauth-client.json",
+  "client_id": "https://getorbyt.com/oauth-client-metadata.json",
   "client_name": "orbyt",
   "client_uri": "https://getorbyt.com",
   "logo_uri": "https://getorbyt.com/TV-Raw.png",
