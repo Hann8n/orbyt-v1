@@ -70,7 +70,9 @@
         }
       ],
       "expo-asset",
-      "expo-background-task"
+      "expo-background-task",
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

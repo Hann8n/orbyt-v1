@@ -16,11 +16,11 @@ This is a clean, simple OAuth implementation for atproto using React Native and 
 
 ### Client Metadata
 
-Your client metadata is hosted at `https://getorbyt.com/atproto-oauth-client.json` and includes:
+Your client metadata is hosted at `https://getorbyt.com/oauth-client-metadata.json` and includes:
 
 ```json
 {
-  "client_id": "https://getorbyt.com/atproto-oauth-client.json",
+  "client_id": "https://getorbyt.com/oauth-client-metadata.json",
   "client_name": "Orbyt",
   "client_uri": "https://getorbyt.com",
   "logo_uri": "https://getorbyt.com/orbyt-banner.png",
