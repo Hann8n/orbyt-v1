@@ -27,10 +27,12 @@ export function useThumbnailColor(thumbnailUrl: string | null) {
   useEffect(() => {
     if (thumbnailUrl) {
       // Extract color immediately when thumbnail URL is available
-      // Use requestAnimationFrame to avoid blocking the UI
-      requestAnimationFrame(() => {
+      // Use setTimeout to defer the extractColor call to avoid setState during render
+      const timeoutId = setTimeout(() => {
         extractColor(thumbnailUrl);
-      });
+      }, 0);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [thumbnailUrl, extractColor]);
 

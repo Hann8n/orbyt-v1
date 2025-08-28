@@ -15,10 +15,13 @@ import {
   Text,
   Dimensions,
   TouchableWithoutFeedback,
+  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
+
 import { Image } from 'react-native';
 import Video from 'react-native-video';
 import { Colors } from '../../ui/UI';
@@ -81,14 +84,7 @@ const useVideoAssets = (post: Post, isVisible: boolean) => {
     
     const backgroundColors = ['#000000', '#111111'];
     
-    // Debug logging
-    console.log('[VideoCard] Video assets:', {
-      postUri: post.uri,
-      videoEmbed: videoEmbed,
-      videoUrl: videoUrl,
-      thumbnailUrl: thumbnailUrl,
-      playlist: videoEmbed?.playlist
-    });
+
     
     return {
       videoEmbed,
@@ -164,55 +160,93 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       return width * (16/9); // Default 16:9 aspect ratio
     }, [width, height]);
 
-    // Simplified moderation
-    const shouldShowBlur = false;
+    // Content warning state - use moderation decision directly
     const [userChoseToView, setUserChoseToView] = useState(false);
-
-    const viewContent = useCallback(() => {
+    
+    // Get moderation decision from props or attached to post
+    const decision = moderationDecision || post?.moderationDecision || post?.post?.moderationDecision;
+    
+    // Determine if content should be blurred
+    const shouldBlur = decision?.blur || false;
+    const shouldShowContent = !shouldBlur || userChoseToView;
+    const isBlurred = shouldBlur && !shouldShowContent;
+    const hasWarning = shouldBlur;
+    const reason = decision?.reason;
+    const informs = decision?.informs || [];
+    
+    // Handle user choosing to view content
+    const handleViewContent = useCallback(() => {
       setUserChoseToView(true);
     }, []);
+    
+    // Reset when post changes
+    useEffect(() => {
+      setUserChoseToView(false);
+    }, [post?.uri]);
 
     // Calculate overlay opacity
     const overlayOpacity = useMemo(() => {
-      if (shouldShowBlur) return 1;
+      if (hasWarning) return 1;
       if (videoState.customDimLevel > 0) return videoState.customDimLevel;
       return 0;
-    }, [shouldShowBlur, videoState.customDimLevel]);
+    }, [hasWarning, videoState.customDimLevel]);
 
-    // Simplified video playback logic - just use the isPlaying prop directly
+    // Video playback logic - prevent playback when content is blurred
     const shouldPlayVideo = useMemo(() => {
+      // Don't play if any of these conditions are met
       if (shouldDisablePlayback || videoState.hasError || videoState.userPaused) return false;
-      if (shouldShowBlur && !userChoseToView) return false;
+      
+      // Critical: Don't play if content is blurred and user hasn't chosen to view
+      if (hasWarning && !shouldShowContent) return false;
+      
+      // Only play if explicitly told to play and we have a video URL
       return shouldPlay && !!finalVideoUrl;
-    }, [shouldDisablePlayback, videoState.hasError, videoState.userPaused, shouldShowBlur, userChoseToView, shouldPlay, finalVideoUrl]);
+    }, [shouldDisablePlayback, videoState.hasError, videoState.userPaused, hasWarning, shouldShowContent, shouldPlay, finalVideoUrl]);
+
+    // Determine if video should even load (prevent loading blurred content)
+    const shouldLoadVideo = useMemo(() => {
+      // Don't load if content is blurred and user hasn't chosen to view
+      if (hasWarning && !shouldShowContent) return false;
+      
+      return !!finalVideoUrl;
+    }, [hasWarning, shouldShowContent, finalVideoUrl]);
 
     // Video playback control functions
     const play = useCallback(() => {
       if (videoState.hasError) return;
+      // Don't play if content is blurred and user hasn't chosen to view
+      if (hasWarning && !shouldShowContent) return;
       setVideoState(prev => ({ ...prev, userPaused: false }));
-    }, [videoState.hasError]);
+    }, [videoState.hasError, hasWarning, shouldShowContent]);
 
     const pause = useCallback(() => {
       setVideoState(prev => ({ ...prev, userPaused: true }));
     }, []);
 
     const togglePlay = useCallback(() => {
+      // Don't toggle if content is blurred and user hasn't chosen to view
+      if (hasWarning && !shouldShowContent) return;
+      
       if (videoState.userPaused) {
         play();
       } else {
         pause();
       }
-    }, [videoState.userPaused, play, pause]);
+    }, [videoState.userPaused, play, pause, hasWarning, shouldShowContent]);
 
-    // Tap to pause/play handler - optimized to avoid dependency chain
+        // Tap to pause/play handler
     const handleVideoTap = useCallback(() => {
       if (shouldDisablePlayback || videoState.hasError) return;
+      
+      // Don't allow play/pause if content is blurred and user hasn't chosen to view
+      if (hasWarning && !shouldShowContent) return;
+
       // Direct state update to avoid function call overhead
       setVideoState(prev => ({ 
-        ...prev, 
-        userPaused: !prev.userPaused 
+        ...prev,
+        userPaused: !prev.userPaused
       }));
-    }, [shouldDisablePlayback, videoState.hasError]);
+    }, [shouldDisablePlayback, videoState.hasError, hasWarning, shouldShowContent]);
 
     const seekTo = useCallback((position: number) => {
       if (playerRef.current) {
@@ -232,12 +266,16 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     }, []);
 
     const playPause = useCallback((shouldPlay: boolean) => {
+      // Don't play if content is blurred and user hasn't chosen to view
+      if (shouldPlay && hasWarning && !shouldShowContent) return;
       setVideoState(prev => ({ ...prev, userPaused: !shouldPlay }));
-    }, []);
+    }, [hasWarning, shouldShowContent]);
 
     const getPlayState = useCallback(() => {
+      // Return false if content is blurred and user hasn't chosen to view
+      if (hasWarning && !shouldShowContent) return false;
       return shouldPlayVideo;
-    }, [shouldPlayVideo]);
+    }, [shouldPlayVideo, hasWarning, shouldShowContent]);
 
     const getCurrentTime = useCallback(() => {
       return videoState.currentPosition;
@@ -263,7 +301,6 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
 
     // Video event handlers
     const handleLoad = useCallback((data: any) => {
-      console.log('[VideoCard] Video loaded:', data);
       if (!data || !data.duration) return;
       const duration = data.duration * 1000;
       setVideoState(prev => ({
@@ -276,25 +313,12 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       onVideoStatus?.(post.uri, 'loaded');
     }, [post.uri, onVideoStatus]);
 
-    const handleProgress = useCallback((data: any) => {
-      if (!data) return;
-      const currentPosition = Math.round(data.currentTime * 1000);
-      const totalDuration = videoState.duration || Math.round(data.seekableDuration * 1000);
-      
-      if (Math.abs(currentPosition - videoState.currentPosition) > 250) {
-        setVideoState(prev => ({
-          ...prev,
-          currentPosition,
-          duration: totalDuration
-        }));
-      }
-    }, [videoState.duration, videoState.currentPosition]);
+
 
     const handleEnd = useCallback(() => {
       setVideoState(prev => ({
         ...prev,
-        currentPosition: 0,
-        progress: 0
+        currentPosition: 0
       }));
       
       if (playerRef.current) {
@@ -303,7 +327,6 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     }, []);
 
     const handleError = useCallback((error: any) => {
-      console.log('[VideoCard] Video error:', error);
       setVideoState(prev => ({
         ...prev,
         hasError: true,
@@ -313,7 +336,6 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     }, [post.uri, onVideoStatus]);
 
     const handleReadyForDisplay = useCallback(() => {
-      console.log('[VideoCard] Video ready for display');
       setVideoState(prev => ({
         ...prev,
         isBuffering: false
@@ -321,8 +343,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       onVideoStatus?.(post.uri, 'ready');
     }, [post.uri, onVideoStatus]);
 
-    const handleBuffering = useCallback((isBuffering: boolean) => {
-      console.log('[VideoCard] Buffering:', isBuffering);
+    const handleBuffering = useCallback(({ isBuffering }: { isBuffering: boolean }) => {
       setVideoState(prev => ({
         ...prev,
         isBuffering
@@ -401,7 +422,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
             )}
             
             {/* Video Player */}
-            {finalVideoUrl && (
+            {shouldLoadVideo && (
               <Video
                 ref={playerRef}
                 source={{ uri: finalVideoUrl }}
@@ -419,11 +440,11 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                   onVideoStatus?.(post.uri, 'loading');
                 }}
                 onLoad={handleLoad}
-                onProgress={handleProgress}
+
                 onEnd={handleEnd}
                 onError={handleError}
                 onReadyForDisplay={handleReadyForDisplay}
-                onBuffer={({ isBuffering }: { isBuffering: boolean }) => handleBuffering(isBuffering)}
+                onBuffer={handleBuffering}
                 bufferConfig={{
                   minBufferMs: 1500,
                   bufferForPlaybackMs: 500,
@@ -437,10 +458,10 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
             )}
             
             {/* Loading indicator when no video URL or buffering */}
-            {(!finalVideoUrl || videoState.isBuffering) && (
+            {(!shouldLoadVideo || videoState.isBuffering) && !isBlurred && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="white" />
-                {!finalVideoUrl && (
+                {!shouldLoadVideo && !finalVideoUrl && (
                   <Text style={styles.loadingText}>No video URL found</Text>
                 )}
                 {videoState.isBuffering && (
@@ -472,28 +493,24 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
         </TouchableWithoutFeedback>
         
         {/* Content Warning Overlay */}
-        {(overlayOpacity > 0 || shouldShowBlur) && (
-          <TouchableWithoutFeedback onPress={viewContent}>
-            <View style={[
-              styles.contentWarningOverlay, 
-              { 
-                opacity: overlayOpacity,
-                backgroundColor: shouldShowBlur ? 'rgba(0, 0, 0, 0.9)' : 'rgba(0, 0, 0, 0.7)'
-              }
-            ]}>
-              {shouldShowBlur && (
-                <View style={styles.blurMessage}>
-                  <Text style={styles.blurTitle}>Content Warning</Text>
-                  <Text style={styles.blurText}>This content may not be appropriate for all viewers.</Text>
-                  <TouchableWithoutFeedback onPress={viewContent}>
-                    <View style={styles.viewButton}>
-                      <Text style={styles.viewButtonText}>Show Content</Text>
-                    </View>
-                  </TouchableWithoutFeedback>
+        {isBlurred && (
+          <BlurView 
+            intensity={100}
+            tint="dark"
+            style={styles.contentWarningOverlay}
+          >
+            <View style={styles.blurMessage}>
+              <Text style={styles.blurTitle}>Content Warning</Text>
+              <Text style={styles.blurText}>
+                {reason || 'This content may not be appropriate for all viewers.'}
+              </Text>
+              <TouchableOpacity onPress={handleViewContent}>
+                <View style={styles.viewButton}>
+                  <Text style={styles.viewButtonText}>Show Content</Text>
                 </View>
-              )}
+              </TouchableOpacity>
             </View>
-          </TouchableWithoutFeedback>
+          </BlurView>
         )}
         
 
@@ -556,7 +573,6 @@ const styles = StyleSheet.create({
   blurMessage: {
     width: '80%',
     padding: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     borderRadius: BORDER_RADIUS.MEDIUM,
     alignItems: 'center',
   },

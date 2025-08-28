@@ -39,7 +39,6 @@ export const useGlobalCommentSection = () => {
   }, []);
 
   const presentCommentSection = useCallback((newData: CommentSectionData) => {
-    console.log('[GlobalCommentSection] Presenting with data:', newData);
     // Store the data globally so the CommentSection component can access it
     currentCommentSectionData = newData;
     

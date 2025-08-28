@@ -68,11 +68,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
   // Simplified height calculation
   const itemHeight = useMemo(() => height || SCREEN_HEIGHT, [height]);
   
-  // Simplified progress bar positioning with fewer conditions
-  const progressBarAtCardBottom = useMemo(() => 
-    isModal || isSmallDevice || itemHeight >= SCREEN_HEIGHT - 1, 
-    [isModal, isSmallDevice, itemHeight]
-  );
+
 
   // Simplified video data extraction
   const { videoEmbed, videoUrl, hasVideo } = useMemo(() => {
@@ -81,7 +77,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
   }, [post.embed, post.uri]);
 
   // Reset state when post changes
-  useRecyclingState(null, [post.uri], () => {
+  useEffect(() => {
     if (videoRef.current?.seek) {
       try {
         videoRef.current.seek(0);
@@ -89,7 +85,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
         // Silently handle seek errors
       }
     }
-  });
+  }, [post.uri]);
 
   // Optimized memoized styles
   const containerStyle = useMemo(() => [

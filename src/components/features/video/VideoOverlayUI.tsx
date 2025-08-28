@@ -156,15 +156,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Handle share button press
   const handleSharePress = useCallback(() => {
-    console.log('[VideoOverlayUI] Share button pressed');
-    console.log('[VideoOverlayUI] Post data:', {
-      uri: post.uri,
-      cid: post.cid,
-      author: post.author,
-      feedOption,
-      sourceFeed
-    });
-    
     presentShareSheet({
       postUri: post.uri,
       postCid: post.cid,
@@ -173,8 +164,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       feedOption: feedOption as any,
       sourceFeed,
     });
-    
-    console.log('[VideoOverlayUI] Global ShareSheet opened');
   }, [post.uri, post.cid, post.author, feedOption, sourceFeed, presentShareSheet]);
 
   // Memoized UI components
@@ -498,7 +487,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 : styles.actionButton
             ]} 
             onPress={() => {
-              console.log('[VideoOverlayUI] Presenting comment section with post:', post);
               presentCommentSection({
                 post,
                 totalLikes: likeCount,
@@ -674,7 +662,7 @@ const styles = StyleSheet.create({
   profilePictureTablet: {
     width: 60,
     height: 60,
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: BORDER_RADIUS.FULL,
   },
   authorTextContainer: {
     marginLeft: 8,
