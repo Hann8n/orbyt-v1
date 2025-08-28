@@ -208,6 +208,74 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, [post, presentShareSheet, onOpenShareSheet, onDismiss]);
   
   const insets = useSafeAreaInsets();
+  // Local like state fallback for header like button when no external handler is provided
+  const [headerIsLiked, setHeaderIsLiked] = useState<boolean>(!!isLiked);
+  const [headerLikeUri, setHeaderLikeUri] = useState<string | undefined>(undefined);
+  const [headerIsPending, setHeaderIsPending] = useState<boolean>(false);
+  const [headerVisualLiked, setHeaderVisualLiked] = useState<boolean>(!!isLiked);
+  const headerHeartScale = useSharedValue(1);
+  const headerHeartStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: headerHeartScale.value }],
+  }));
+
+  useEffect(() => {
+    setHeaderIsLiked(!!isLiked);
+    setHeaderVisualLiked(!!isLiked);
+  }, [isLiked]);
+
+  const handleHeaderToggleLikeInternal = useCallback(async () => {
+    if (!post?.uri || headerIsPending) return;
+    try {
+      setHeaderIsPending(true);
+      const nextLiked = !headerIsLiked;
+      setHeaderIsLiked(nextLiked);
+      setHeaderVisualLiked(nextLiked);
+      // animate only when liking
+      if (nextLiked) {
+        headerHeartScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
+          headerHeartScale.value = withSpring(1);
+        });
+      }
+      if (nextLiked) {
+        // Like
+        const likeURI = await AtprotoService.likePost(post.uri, post.cid || '');
+        setHeaderLikeUri(likeURI);
+      } else {
+        // Unlike
+        if (headerLikeUri) {
+          await AtprotoService.deleteLike(headerLikeUri);
+          setHeaderLikeUri(undefined);
+        } else {
+          // Best-effort: if we don't have the like URI, fall back to external handler or revert
+          setHeaderIsLiked(true);
+        }
+      }
+    } catch (e) {
+      // Revert on failure
+      setHeaderIsLiked((prev) => !prev);
+    } finally {
+      setHeaderIsPending(false);
+    }
+  }, [post?.uri, post?.cid, headerIsLiked, headerIsPending, headerLikeUri]);
+
+  const handleHeaderToggleLike = useCallback(() => {
+    if (onToggleLike) {
+      // Optimistic visual feedback even when external handler is used
+      const nextLiked = !headerVisualLiked;
+      setHeaderVisualLiked(nextLiked);
+      if (nextLiked) {
+        headerHeartScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
+          headerHeartScale.value = withSpring(1);
+        });
+      } else {
+        // reset any lingering animation when unliking
+        headerHeartScale.value = withSpring(1);
+      }
+      onToggleLike();
+      return;
+    }
+    handleHeaderToggleLikeInternal();
+  }, [onToggleLike, handleHeaderToggleLikeInternal, headerVisualLiked]);
   const [newCommentText, setNewCommentText] = useState('');
   const [activeTab, setActiveTab] = useState<'comments' | 'likes'>('comments');
   const [likesQueryEnabled, setLikesQueryEnabled] = useState(false);
@@ -235,6 +303,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   } | null>(null);
 
   const inputRef = useRef<any>(null);
+  // Disable auto-engage of input when the comment sheet opens
+  const autoFocusOnOpen = false;
 
   // Get current user's profile for avatar
   const [currentUserHandle, setCurrentUserHandle] = useState<string | null>(null);
@@ -272,14 +342,23 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         parentCid: properCid,
         level: 1
       });
+      // Focus input after a short delay to ensure TrueSheet is ready
       setTimeout(() => {
-        inputRef.current?.focus && inputRef.current.focus();
-      }, 0);
+        if (inputRef.current?.focus) {
+          inputRef.current.focus();
+        }
+      }, 150);
     }
   }, []);
 
   const handleCancelReply = useCallback(() => {
     setReplyContext(null);
+    // Keep focus on input after canceling reply
+    setTimeout(() => {
+      if (inputRef.current?.focus) {
+        inputRef.current.focus();
+      }
+    }, 50);
   }, []);
 
   const handleTabPress = (tabId: string) => {
@@ -376,83 +455,164 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   
   const handleSendComment = useCallback(async () => {
     if (!newCommentText.trim() || isPosting || !post?.uri) return;
+    
     setIsPosting(true);
+    const commentText = newCommentText.trim();
+    
     try {
       const rootUri = post.uri;
       const rootCid = post.cid || '';
       let parentUri = rootUri;
       let parentCid = rootCid;
+      
       if (replyContext) {
         parentUri = replyContext.parentUri;
         parentCid = replyContext.parentCid;
       }
+      
       await AtprotoService.postComment(
-        newCommentText.trim(),
+        commentText,
         rootUri,
         rootCid,
         parentUri,
         parentCid
       );
+      
+      // Clear input and reply context
       setNewCommentText('');
       setReplyContext(null);
+      
+      // Invalidate queries to refresh comments
       queryClient.invalidateQueries({ queryKey: createQueryKeys.comments.byPost(post.uri) });
+      
+      // Keep focus on input after successful post
+      setTimeout(() => {
+        if (inputRef.current?.focus) {
+          inputRef.current.focus();
+        }
+      }, 100);
+      
     } catch (error) {
+      console.error('Error posting comment:', error);
       Alert.alert('Error', 'Failed to post comment. Please try again.');
     } finally {
       setIsPosting(false);
     }
   }, [newCommentText, post, replyContext, isPosting, queryClient]);
 
-  // Footer component for text input
-  const FooterComponent = useCallback(() => (
-    <View style={[styles.inputContainer, { paddingBottom: insets.bottom }]}>
-      <View style={styles.inputRow}>
-        {currentUserProfile?.avatar && (
-          <View style={styles.avatarContainer}>
-            <UI.Avatar
-              uri={currentUserProfile.avatar}
-              type="profile"
-              size={42}
-              style={styles.avatar}
-            />
+  // Create a stable footer component as ReactElement for TrueSheet compatibility
+  const FooterComponent = useMemo(() => {
+    const placeholder = (totalComments === 0 ? 'add a comment...' : 'Say something nice...');
+
+    const hasText = newCommentText.trim().length > 0;
+    const showSendButton = hasText;
+    const isSendDisabled = isPosting || !hasText || charCount > MAX_COMMENT_LENGTH;
+
+    return (
+      <View style={[styles.inputContainer, { paddingBottom: Math.max(5, insets.bottom) }]}>
+        {replyContext && (
+          <View style={styles.replyContextContainer}>
+            <Text
+              style={styles.replyContextText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {`Replying to ${replyContext.authorName}`}
+            </Text>
+            <TouchableOpacity
+              onPress={handleCancelReply}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              activeOpacity={0.7}
+            >
+              <Icon name="close" size={18} color={Colors.black} />
+            </TouchableOpacity>
           </View>
         )}
-        <View style={styles.inputWrapper}>
-          <TextInput
-            {...mentionInputProps}
-            style={styles.textInput}
-            placeholder={replyContext ? `reply to ${replyContext.authorName}...` : (totalComments === 0 ? 'add a comment...' : 'Say something nice...')}
-            placeholderTextColor={Colors.lightGray}
-            multiline
-            editable={!isPosting}
-            ref={inputRef}
-            maxLength={MAX_COMMENT_LENGTH + 25}
-          />
-          {(newCommentText.trim() || replyContext) && (
-            <TouchableOpacity
-              style={styles.sendButton}
-              onPress={replyContext && !newCommentText.trim() ? handleCancelReply : handleSendComment}
-              disabled={isPosting || (!newCommentText.trim() && !replyContext) || charCount > MAX_COMMENT_LENGTH}
-            >
-              <Icon 
-                name={replyContext && !newCommentText.trim() ? "close" : "send-plane-fill"} 
-                size={26} 
-                color={Colors.white} 
+        <View style={styles.inputRow}>
+          {currentUserProfile?.avatar && (
+            <View style={styles.avatarContainer}>
+              <UI.Avatar
+                uri={currentUserProfile.avatar}
+                type="profile"
+                size={42}
+                style={styles.avatar}
               />
-            </TouchableOpacity>
-          )}
-          {showCharCount && (
-            <View style={styles.charCount}>
-              <Text style={styles.charCountText}>
-                {MAX_COMMENT_LENGTH - charCount}
-              </Text>
             </View>
           )}
+          <View style={styles.inputWrapper}>
+            <TextInput
+              {...mentionInputProps}
+              style={styles.textInput}
+              placeholder={placeholder}
+              placeholderTextColor={Colors.lightGray}
+              multiline
+              editable={!isPosting}
+              ref={inputRef}
+              maxLength={MAX_COMMENT_LENGTH + 25}
+              keyboardType="default"
+              returnKeyType="default"
+              blurOnSubmit={false}
+              autoCorrect={true}
+              autoCapitalize="sentences"
+              textAlignVertical="top"
+              onFocus={() => {
+                // Ensure proper keyboard handling for TrueSheet
+                if (Platform.OS === 'ios') {
+                  setTimeout(() => {
+                    if (inputRef.current?.focus) {
+                      inputRef.current.focus();
+                    }
+                  }, 50);
+                }
+              }}
+            />
+          </View>
+          <View style={styles.sendColumn}>
+            {showSendButton && (
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  isSendDisabled && styles.sendButtonDisabled
+                ]}
+                onPress={handleSendComment}
+                disabled={isSendDisabled}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Icon 
+                  name="send-plane-fill" 
+                  size={22} 
+                  color={Colors.black}
+                />
+              </TouchableOpacity>
+            )}
+            {showCharCount && (
+              <Text style={[
+                styles.charCountText,
+                styles.charCountBelow,
+                charCount > MAX_COMMENT_LENGTH && styles.charCountTextError
+              ]}>
+                {MAX_COMMENT_LENGTH - charCount}
+              </Text>
+            )}
+          </View>
         </View>
+        <UserSearchModal {...userSearchModalProps} />
       </View>
-      <UserSearchModal {...userSearchModalProps} />
-    </View>
-  ), [mentionInputProps, replyContext, totalComments, newCommentText, isPosting, charCount, showCharCount, handleCancelReply, handleSendComment, userSearchModalProps, currentUserProfile]);
+    );
+  }, [
+    mentionInputProps, 
+    replyContext, 
+    totalComments, 
+    newCommentText, 
+    isPosting, 
+    charCount, 
+    showCharCount, 
+    handleCancelReply, 
+    handleSendComment, 
+    userSearchModalProps, 
+    currentUserProfile, 
+    insets.bottom
+  ]);
 
   // Handle TrueSheet visibility
   useEffect(() => {
@@ -462,6 +622,33 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       sheetRef.current?.dismiss();
     }
   }, [visible]);
+
+  // Focus input when sheet becomes visible and comments tab is active (disabled by autoFocusOnOpen)
+  useFocusEffect(
+    useCallback(() => {
+      if (autoFocusOnOpen && visible && activeTab === 'comments') {
+        const timer = setTimeout(() => {
+          if (inputRef.current?.focus) {
+            inputRef.current.focus();
+          }
+        }, 200);
+        return () => clearTimeout(timer);
+      }
+      return () => {};
+    }, [visible, activeTab, autoFocusOnOpen])
+  );
+
+  // Handle tab changes to focus input when switching to comments (disabled by autoFocusOnOpen)
+  useEffect(() => {
+    if (autoFocusOnOpen && activeTab === 'comments' && visible) {
+      const timer = setTimeout(() => {
+        if (inputRef.current?.focus) {
+          inputRef.current.focus();
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, visible, autoFocusOnOpen]);
 
 
 
@@ -493,13 +680,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           <MoreFillIcon size={20} color={Colors.lightGray} />
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={onToggleLike}
+          onPress={handleHeaderToggleLike}
           activeOpacity={0.7}
-          disabled={!!isLikePending}
+          disabled={!!isLikePending || headerIsPending}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.actionButton}
         >
-          <HeartFillIcon size={26} color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.gray} />
+          <Animated.View style={headerHeartStyle}>
+            <HeartFillIcon size={26} color={(onToggleLike ? headerVisualLiked : headerIsLiked) ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.gray} />
+          </Animated.View>
         </TouchableOpacity>
       </View>
     </View>
@@ -559,7 +748,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             </View>
           )}
           contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
           scrollEventThrottle={16}
@@ -616,6 +805,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             </View>
           )}
           contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
           scrollEventThrottle={16}
@@ -643,6 +833,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         keyboardMode="pan"
         grabber={false}
         FooterComponent={activeTab === 'comments' ? FooterComponent : undefined}
+
+
       >
         <View style={styles.container}>
           {renderContent()}
@@ -806,17 +998,24 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     paddingHorizontal: 10,
-    paddingVertical: 12,
-    backgroundColor: Colors.black,
+    paddingTop: 8,
+    paddingBottom:5,
+    backgroundColor: 'rgba(0, 0, 0)',
+    borderTopWidth: 1,
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     width: '100%',
   },
+  sendColumn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
   avatarContainer: {
-    marginRight: 16,
-    marginTop: 2,
+    marginRight: 10,
+    marginTop: 0,
   },
   avatar: {
     width: 42,
@@ -829,7 +1028,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: 'transparent',
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.LARGE,
     borderWidth: 0,
     borderColor: 'transparent',
     position: 'relative',
@@ -839,39 +1038,73 @@ const styles = StyleSheet.create({
     color: Colors.white,
     borderColor: 'transparent',
     flex: 1,
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
-    minHeight: 40,
+    minHeight: 28,
     maxHeight: 120,
     paddingRight: 0,
-    paddingTop: 10,
-    textAlignVertical: 'center',
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingLeft: 0,
+    textAlignVertical: 'top',
     fontFamily: 'Firma-Regular',
-    fontSize: 16,
+    fontSize: 18,
+    lineHeight: 24,
   },
   sendButton: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     paddingVertical: 8,
     alignSelf: 'flex-start',
     justifyContent: 'center',
-    marginTop: 2,
-    borderTopRightRadius: 18,
-    borderBottomRightRadius: 18,
-  },
-  charCount: {
-    position: 'absolute',
-    bottom: 6,
-    right: 0,
+    backgroundColor: Colors.gray,
+    borderRadius: BORDER_RADIUS.FULL,
     width: 42,
+    height: 42,
     alignItems: 'center',
-    pointerEvents: 'none',
+    marginLeft: 6,
+    marginTop: 0,
   },
-  charCountText: {
-    color: '#888',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 4,
-  },
+    charCount: {
+      position: 'absolute',
+      borderRadius: BORDER_RADIUS.SMALL,
+      pointerEvents: 'none',
+    },
+    charCountBelow: {
+      marginTop: 6,
+      color: Colors.lightGray,
+      fontSize: 11,
+      textAlign: 'center',
+      fontFamily: 'Firma-Medium',
+      width: 42,
+      alignSelf: 'center',
+    },
+    charCountText: {
+      color: Colors.lightGray,
+      fontSize: 11,
+      textAlign: 'center',
+      fontFamily: 'Firma-Medium',
+    },
+    charCountTextError: {
+      color: Colors.lightRed,
+    },
+    sendButtonDisabled: {
+      opacity: 0.5,
+    },
+    replyContextContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: 'white',
+      borderRadius: BORDER_RADIUS.MEDIUM,
+      marginBottom: 12,
+      borderWidth: 0,
+      borderColor: 'transparent',
+    },
+    replyContextText: {
+      color: Colors.black,
+      fontSize: 14,
+      fontFamily: 'Firma-SemiBold',
+    },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.95)',

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -6,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../ui/UI';
@@ -90,6 +92,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const isSmallScreenDevice = isSmallScreen();
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
+  const { width, height } = useWindowDimensions();
   const { presentShareSheet } = useGlobalShareSheet();
   const { presentCommentSection } = useGlobalCommentSection();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -175,23 +178,58 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   }, [post.uri, post.cid, post.author, feedOption, sourceFeed, presentShareSheet]);
 
   // Memoized UI components
-  const likeIcon = useMemo(() => (
-    <HeartFillIcon 
-      size={isTabletDevice ? 38 : 34} 
-      color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.white} 
-    />
-  ), [isLiked, isTabletDevice]);
+  // Optimistic like animation (scale pulse)
+  const likeScale = useSharedValue(1);
+  const likeAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: likeScale.value }],
+  }));
+  const contentPadding = Math.round(Math.max(8, Math.min(14, width * 0.025)));
+  const actionIconSize = Math.round(Math.max(28, Math.min(40, width * 0.085)));
+  const smallIconSize = Math.max(14, Math.min(20, Math.round(width * 0.05)));
+  const authorAvatarSize = Math.round(Math.max(46, Math.min(64, width * 0.12)));
+  const repostAvatarSize = Math.round(Math.max(20, Math.min(28, width * 0.06)));
+
+  const renderLikeIcon = useCallback(() => (
+    <Animated.View style={likeAnimatedStyle}>
+      <HeartFillIcon 
+        size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
+        color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.white} 
+      />
+    </Animated.View>
+  ), [isLiked, isTabletDevice, likeAnimatedStyle]);
+
+  // Repost animation: quick tilt (wiggle) + slight scale pulse
+  const repostScale = useSharedValue(1);
+  const repostRotate = useSharedValue(0); // radians
+  const repostAnimatedStyle = useAnimatedStyle(() => {
+    const rotateStr = `${repostRotate.value}rad`;
+    return {
+      // Cast to any to satisfy RN's transform union typing with animated values
+      transform: [
+        { rotate: rotateStr as any },
+        { scale: repostScale.value as any },
+      ] as any,
+    };
+  });
+  const renderRepostIcon = useCallback(() => (
+    <Animated.View style={repostAnimatedStyle}>
+      <RefreshFillIcon 
+        size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
+        color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE} 
+      />
+    </Animated.View>
+  ), [isReposted, isTabletDevice, repostAnimatedStyle]);
 
   const repostIcon = useMemo(() => (
     <RefreshFillIcon 
-      size={isTabletDevice ? 38 : 34} 
+      size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
       color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE} 
     />
-  ), [isReposted, isTabletDevice]);
+  ), [isReposted, isTabletDevice, actionIconSize]);
 
   const commentIcon = useMemo(() => (
-    <ChatFillIcon size={isTabletDevice ? 38 : 34} color={Colors.INTERACTIVE.COMMENT} />
-  ), [isTabletDevice]);
+    <ChatFillIcon size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} color={Colors.INTERACTIVE.COMMENT} />
+  ), [isTabletDevice, actionIconSize]);
 
   // Only use sourceFeed for yourMix feeds
   const shouldUseSourceFeed = feedOption === 'yourMix' && sourceFeed;
@@ -213,7 +251,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     <>
       <View style={styles.overlayContainer} pointerEvents="box-none">
       {/* Gradient overlay with hardware acceleration */}
-      <View style={styles.uiOverlay} pointerEvents="none">
+      <View style={[styles.uiOverlay, { height: height * 0.8 }]} pointerEvents="none">
         <LinearGradient
           colors={isOverlayCollapsed 
             ? ['transparent', 'transparent', 'transparent', 'transparent']
@@ -230,6 +268,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       <View 
         style={[
           styles.overlayContentContainer,
+          { padding: contentPadding },
           isModal ? { bottom: 0 } : (isSmallScreenDevice || isTabletDevice) ? { bottom: bottomNavBarHeight} : {},
         ]} 
         pointerEvents="box-none"
@@ -248,7 +287,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     ? post.repostedBy.avatar
                     : 'https://via.placeholder.com/40'}
                   type="user"
-                  size={isTabletDevice ? 24 : 22}
+                  size={isTabletDevice ? Math.max(repostAvatarSize, 22) : repostAvatarSize}
                   ringColor="transparent"
                   style={styles.repostAvatar}
                 />
@@ -344,7 +383,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             <Avatar
               uri={profilePicUrl}
               type="profile"
-              size={50}
+              size={authorAvatarSize}
               profileColors={profileColors}
               ringColor="transparent"
                               style={[
@@ -382,7 +421,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 >
                   <View style={{ marginRight: 4 }}>
                     <TvIcon 
-                      size={isTabletDevice ? 16 : 14}
+                      size={isTabletDevice ? Math.max(smallIconSize, 14) : smallIconSize}
                       color={sourceDisplayName === 'for your consideration' ? Colors.lightGray : '#cfd6e8'}
                     />
                   </View>
@@ -413,7 +452,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             activeOpacity={0.7}
           >
             <View style={styles.iconContainer}>
-              <MoreFillIcon size={isTabletDevice ? 32 : 28} color={Colors.white} />
+              <MoreFillIcon size={isTabletDevice ? Math.max(actionIconSize - 2, 28) : actionIconSize - 2} color={Colors.white} />
             </View>
           </TouchableOpacity>
 
@@ -425,11 +464,29 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 : styles.actionButton,
               isRepostPending && styles.actionButtonDisabled
             ]} 
-            onPress={onRepost}
+            onPress={() => {
+              // Different animation than heart: wiggle (tilt) + slight scale
+              if (!isReposted) {
+                repostScale.value = withSequence(
+                  withTiming(1.08, { duration: 120 }),
+                  withTiming(1.0, { duration: 120 })
+                );
+                repostRotate.value = withSequence(
+                  withTiming(0.20, { duration: 90 }), // ~11.5deg
+                  withTiming(-0.12, { duration: 90 }), // ~-7deg
+                  withTiming(0, { duration: 90 })
+                );
+              } else {
+                // On undo, ensure we reset any lingering transforms
+                repostScale.value = withTiming(1, { duration: 100 });
+                repostRotate.value = withTiming(0, { duration: 100 });
+              }
+              onRepost?.();
+            }}
             disabled={isRepostPending}
             activeOpacity={0.7}
           >
-            {repostIcon}
+            {renderRepostIcon()}
             <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(repostCount)}</Text>
           </TouchableOpacity>
           
@@ -466,11 +523,22 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 : styles.actionButton,
               isLikePending && styles.actionButtonDisabled
             ]} 
-            onPress={onLike}
+            onPress={() => {
+              // Animate only on like; if unliking mid-animation, reset scale
+              if (!isLiked) {
+                likeScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {
+                  likeScale.value = withSpring(1);
+                });
+              } else {
+                // ensure we cancel any lingering animation when unliking
+                likeScale.value = withSpring(1);
+              }
+              onLike?.();
+            }}
             disabled={isLikePending}
             activeOpacity={0.7}
           >
-            {likeIcon}
+            {renderLikeIcon()}
             <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(likeCount)}</Text>
           </TouchableOpacity>
                  </View>

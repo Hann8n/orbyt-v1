@@ -125,6 +125,14 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const stats = comment?.post || comment;
     const [isLiked, setIsLiked] = useState<boolean>(!!viewer.like);
     const [likeCount, setLikeCount] = useState<number>(stats?.likeCount || 0);
+    const [likeUri, setLikeUri] = useState<string | undefined>(viewer.like);
+    const [isLiking, setIsLiking] = useState(false);
+
+    // Keep local likeUri in sync if upstream props change
+    React.useEffect(() => {
+      setLikeUri(viewer.like);
+      setIsLiked(!!viewer.like);
+    }, [viewer.like]);
     const queryClient = useQueryClient();
     const [repliesVisible, setRepliesVisible] = useState(false);
 
@@ -202,6 +210,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     }, [heartScale, heartOpacity]);
 
     const handleLikeComment = useCallback(async () => {
+      if (isLiking) return;
+      setIsLiking(true);
       // Optimistic update - change state immediately
       const newIsLiked = !isLiked;
       const newLikeCount = newIsLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
@@ -221,6 +231,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             // Revert on error
             setIsLiked(isLiked);
             setLikeCount(likeCount);
+            setIsLiking(false);
             return;
           }
           const likeURI: string = await AtprotoService.likePost(properUri, properCid);
@@ -228,15 +239,21 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             comment.viewer = comment.viewer || {};
             comment.viewer.like = likeURI;
           }
+          setLikeUri(likeURI);
         } else {
-          if (!viewer.like) {
+          if (!likeUri) {
             console.error('No like URI found for unlike action');
             // Revert on error
             setIsLiked(isLiked);
             setLikeCount(likeCount);
+            setIsLiking(false);
             return;
           }
-          await AtprotoService.deleteLike(viewer.like);
+          await AtprotoService.deleteLike(likeUri);
+          setLikeUri(undefined);
+          if (comment && comment.viewer) {
+            comment.viewer.like = undefined as any;
+          }
         }
       } catch (error) {
         console.error('Error liking comment:', error);
@@ -244,8 +261,10 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
         setIsLiked(isLiked);
         setLikeCount(likeCount);
         Alert.alert('Error', 'Failed to like comment. Please try again.');
+      } finally {
+        setIsLiking(false);
       }
-    }, [isLiked, likeCount, comment, viewer.like, properUri, properCid, animateHeart]);
+    }, [isLiked, likeCount, comment, likeUri, properUri, properCid, animateHeart, isLiking]);
 
     const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 

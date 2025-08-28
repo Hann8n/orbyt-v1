@@ -21,6 +21,7 @@ import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import { hexToRGBA, isColorDark, getContrastRatio } from '../../utils/formatting/colorUtils';
+import Typography, { TypographyText } from '../../utils/helpers/typography';
 import { BORDER_RADIUS } from '../../utils/constants';
 
 
@@ -764,6 +765,8 @@ export default {
   isColorDark,
   getContrastRatio,
   meetsContrastGuidelines,
+  Typography,
 };
 
 export { default as Icon } from './Icon'; 
+export { TypographyText };

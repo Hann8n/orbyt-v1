@@ -358,6 +358,15 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     height: '100%' as const,
   }), [screenWidth]);
 
+  // Dynamic base font size for channel indicators based on screen size
+  const indicatorBaseFontSize = useMemo(() => {
+    if (isTablet()) return 20;
+    if (isSmallScreen()) return 16;
+    const minDimension = Math.min(screenWidth, screenHeight);
+    if (minDimension >= 420) return 18; // large phones/phablets
+    return 16;
+  }, [screenWidth, screenHeight]);
+
   // Render individual feed with comprehensive memoization
   const renderFeed = useCallback(({ item: feedOption, index }: { item: FeedOption; index: number }) => {
     // Use local state to determine if this feed is visible
@@ -416,7 +425,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     
     return {
       color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.6)',
-      fontSize: 16,
+      fontSize: indicatorBaseFontSize,
       marginRight: 8,
       fontWeight: 'bold' as const,
       opacity,
@@ -426,7 +435,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
         },
       ],
     };
-  }, [currentFeedOption, currentScrollProgress, feedConfig, feedOptions, initialFeed]);
+  }, [currentFeedOption, currentScrollProgress, feedConfig, feedOptions, initialFeed, indicatorBaseFontSize]);
 
   return (
     <GestureHandlerRootView style={styles.container}>

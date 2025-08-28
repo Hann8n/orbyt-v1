@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Platform, Dimensions, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Platform, Dimensions, TouchableOpacity, Alert, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -150,6 +150,13 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
   const isSmallDevice = isSmallScreen() || isTablet();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { isClearViewMode } = useClearView();
+  const { width } = useWindowDimensions();
+
+  // Responsive sizing driven by width and safe area (slightly reduced)
+  const tabIconSize = Math.round(Math.max(26, Math.min(36, width * 0.085)));
+  const tabIconSizeSm = Math.max(24, Math.min(34, tabIconSize - 2));
+  const captureOuter = Math.round(Math.max(34, Math.min(48, width * 0.11)));
+  const captureInner = Math.round(captureOuter * 0.78);
   
 
 
@@ -238,9 +245,9 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
           onPress={handleGalleryPick}
           activeOpacity={0.8}
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: BORDER_RADIUS.LARGE,
+            width: captureOuter,
+            height: captureOuter,
+            borderRadius: captureOuter / 2,
             backgroundColor: 'transparent',
             alignItems: 'center',
             justifyContent: 'center',
@@ -255,9 +262,9 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
         >
           {/* Custom circle within a circle design */}
           <View style={{
-            width: 38,
-            height: 38,
-            borderRadius: BORDER_RADIUS.LARGE,
+            width: captureOuter - 2,
+            height: captureOuter - 2,
+            borderRadius: (captureOuter - 2) / 2,
             borderWidth: 1.5,
             borderColor: Colors.white,
             alignItems: 'center',
@@ -265,9 +272,9 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
             backgroundColor: 'transparent',
           }}>
             <View style={{
-              width: 30,
-              height: 30,
-              borderRadius: BORDER_RADIUS.MEDIUM,
+              width: captureInner,
+              height: captureInner,
+              borderRadius: captureInner / 2,
               backgroundColor: isPreparing ? 'rgba(255, 255, 255, 0.5)' : '#fff',
             }} />
           </View>
@@ -280,7 +287,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
               bottom: 0,
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: BORDER_RADIUS.LARGE,
+              borderRadius: captureOuter / 2,
             }}>
               <ActivityIndicator size="small" color={Colors.white} />
             </View>
@@ -318,19 +325,19 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
         tabBarShowLabel: false,
         tabBarIcon: ({ color, focused }) => {
           let iconName = '';
-          let iconSize = 26;
+          let iconSize = tabIconSizeSm;
 
           switch (route.name) {
             case 'Home':
               return (
                 isHomeRefreshing
-                  ? <Icon name="loading-3-fill" size={26} color={color} />
-                  : <HomeIcon size={30} color={color} />
+                  ? <Icon name="loading-3-fill" size={iconSize} color={color} />
+                  : <HomeIcon size={tabIconSize} color={color} />
               );
             case 'Explore':
               return (
                 <ExploreIcon 
-                  size={30} 
+                  size={tabIconSize} 
                   color={color}
                   style={{ transform: [{ scaleX: -1 }] }}
                 />
@@ -338,14 +345,14 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
             case 'Notifications':
               return (
                 <NotificationIcon 
-                  size={28} 
+                  size={tabIconSizeSm} 
                   color={color}
                 />
               );
             case 'Profile':
               return (
                 <ProfileIcon 
-                  size={30} 
+                  size={tabIconSize} 
                   color={color}
                 />
               );
