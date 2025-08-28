@@ -16,11 +16,12 @@ import ProfileCache from './services/cache/ProfileCache';
 import StatusBarController from './components/ui/StatusBarController';
 import { Colors } from './components/ui/UI';
 import { useAppStore } from './stores/appStore';
-import { useNavigationUpdate } from './stores/visibilityStore';
 import { useAuth, useAccountManagement, useUserStore } from './stores/userStore';
 import { QUERY_CONSTANTS, STORAGE_KEYS, ERROR_MESSAGES } from './utils/constants';
 import { CommonErrorHandlers } from './utils/errorHandler';
 import { AtProtoOAuthService } from './services/auth';
+import ShareSheet from './components/ui/ShareSheet';
+import CommentSection from './components/features/comments/CommentSection';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -99,8 +100,6 @@ const App: React.FC<AppProps> = () => {
   // Add initialization state
   const [isInitializing, setIsInitializing] = useState(true);
   
-  const updateNavigation = useNavigationUpdate();
-
   // Load fonts
   useEffect(() => {
     const loadFonts = async () => {
@@ -248,7 +247,7 @@ const App: React.FC<AppProps> = () => {
 
               const routeName = getActiveRouteName(state) || state?.routes?.[state?.index ?? 0]?.name;
               if (routeName) {
-                updateNavigation(routeName);
+                // updateNavigation(routeName); // This line was removed as per the edit hint
                 try {
               
                 } catch {}
@@ -259,6 +258,8 @@ const App: React.FC<AppProps> = () => {
           <StatusBarController />
           <GestureHandlerRootView style={styles.gestureHandler}>
             <RootNavigator onLogout={handleLogout} />
+            <ShareSheet />
+            <CommentSection />
           </GestureHandlerRootView>
         </NavigationContainer>
       </QueryClientProvider>

@@ -94,7 +94,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
   // Optimized memoized styles
   const containerStyle = useMemo(() => [
     styles.videoContainer, 
-    { height: itemHeight }
+    { height: itemHeight, marginVertical: 3 }
   ], [itemHeight]);
 
   // Early return if no video
@@ -104,7 +104,10 @@ const VideoItem: React.FC<VideoItemProps> = ({
 
   // Simplified video status handler
   const handleVideoStatusChange = useCallback((uri: string, status: string) => {
-    handleVideoStatus?.(uri, status);
+    // Defer the status update to prevent React state update during render
+    requestAnimationFrame(() => {
+      handleVideoStatus?.(uri, status);
+    });
   }, [handleVideoStatus]);
 
   // Cleanup on unmount
@@ -117,25 +120,21 @@ const VideoItem: React.FC<VideoItemProps> = ({
   }, []);
 
   return (
-    <VideoCard
-      ref={videoRef}
-      post={{ ...post, embed: videoEmbed }}
-      isVisible={isVisible}
-      shouldCache={true}
-      onVideoStatus={handleVideoStatusChange}
-      height={itemHeight}
-      moderationDecision={moderationDecision}
-      isPlaying={isPlaying}
-      // Pass overlay props directly to VideoCard
-      overlayPost={post}
-      overlayVisible={isVisible}
-      overlayPrefetchProfile={isVisible}
-      overlayFeedOption={feedOption as 'yourMix' | 'following' | 'discover'}
-      overlaySourceFeed={feedItem?.sourceFeed}
-      overlayIsModal={isModal}
-      overlayOnScrubbingChange={onScrubbingChange}
-      overlayProgressBarAtCardBottom={progressBarAtCardBottom}
-    />
+    <View style={containerStyle}>
+      <VideoCard
+        ref={videoRef}
+        post={{ ...post, embed: videoEmbed }}
+        isVisible={isVisible}
+        shouldCache={true}
+        onVideoStatus={handleVideoStatusChange}
+        height={itemHeight}
+        moderationDecision={moderationDecision}
+        isPlaying={isPlaying}
+        showOverlay={true}
+                feedOption={feedOption as any}
+        isModal={isModal}
+      />
+    </View>
   );
 };
 

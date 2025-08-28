@@ -72,7 +72,8 @@
       "expo-asset",
       "expo-background-task",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      "react-native-video"
     ],
     "extra": {
       "eas": {

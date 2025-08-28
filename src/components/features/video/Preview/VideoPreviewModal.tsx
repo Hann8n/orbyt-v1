@@ -16,7 +16,7 @@ import Icon from '../../../ui/Icon';
 import { isSmallScreen, isTablet } from '../../../../utils/helpers/screenSize';
 import { Colors } from '../../../ui/UI';
 import VideoCard from '../VideoCard';
-import VideoOverlay from '../VideoOverlay';
+
 import { useSharedValue } from 'react-native-reanimated';
 import type { VideoCardRef } from '../VideoCard';
 
@@ -178,16 +178,9 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
               onVideoStatus={handleVideoStatus}
               height={Dimensions.get('window').height}
               isPlaying={true}
+              showOverlay={true}
+              isModal={true}
             />
-            <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject, opacity: 0.5 }}>
-              <VideoOverlay
-                post={previewPost}
-                isVisible={true}
-                onScrubbingChange={(isScrubbing) => {
-                  // Handle scrubbing state if needed
-                }}
-              />
-            </View>
             {!isVideoReady && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color={Colors.white} />
@@ -213,16 +206,9 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
               onVideoStatus={handleVideoStatus}
               height={Dimensions.get('window').height}
               isPlaying={true}
+              showOverlay={true}
+              isModal={true}
             />
-            <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject, opacity: 0.5 }}>
-              <VideoOverlay
-                post={previewPost}
-                isVisible={true}
-                onScrubbingChange={(isScrubbing) => {
-                  // Handle scrubbing state if needed
-                }}
-              />
-            </View>
             {!isVideoReady && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color={Colors.white} />

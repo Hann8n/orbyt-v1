@@ -3,7 +3,7 @@ export const APP_CONSTANTS = {
   REFRESH_DELAY: 2000,
   SCROLL_THROTTLE: 16,
   POSITION_SAVE_DELAY: 300,
-  VISIBILITY_DEBOUNCE: 16, // Reduced from 100ms to 16ms for instant video detection
+  VISIBILITY_DEBOUNCE: 16, // 16ms debounce for stability (one frame at 60fps)
   ORIENTATION_CHANGE_DELAY: 100,
   INITIAL_SCROLL_DELAY: 50,
   GRID_TO_LIST_DELAY: 100,

@@ -55,6 +55,8 @@ import { useUserSearchTrigger, UserSearchModal } from '../../ui/usersearch';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import CommentItem, { Comment, Like } from './CommentItem';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useGlobalCommentSection } from '../../../hooks/useGlobalCommentSection';
+import { useGlobalShareSheet } from '../../../hooks/useGlobalShareSheet';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -136,9 +138,9 @@ const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => (
 const MemoizedLikeItem = React.memo(LikeItem);
 
 interface CommentSectionProps {
-  post: Post;
+  post?: Post;
   onDismiss?: () => void;
-  visible: boolean;
+  visible?: boolean;
   totalLikes?: number;
   totalComments?: number;
   isLiked?: boolean;
@@ -149,24 +151,61 @@ interface CommentSectionProps {
 }
 
 const CommentSection: React.FC<CommentSectionProps> = ({
-  post,
-  onDismiss,
-  visible,
-  totalLikes = 0,
-  totalComments = 0,
-  isLiked,
-  onOpenShareSheet,
-  postedAt,
-  onToggleLike,
-  isLikePending,
+  post: propPost,
+  onDismiss: propOnDismiss,
+  visible: propVisible,
+  totalLikes: propTotalLikes = 0,
+  totalComments: propTotalComments = 0,
+  isLiked: propIsLiked,
+  onOpenShareSheet: propOnOpenShareSheet,
+  postedAt: propPostedAt,
+  onToggleLike: propOnToggleLike,
+  isLikePending: propIsLikePending,
 }) => {
-  const handleHeaderSharePress = useCallback(() => {
-    onOpenShareSheet?.();
+  // Get global data from the hook
+  const { getCurrentData, dismissCommentSection } = useGlobalCommentSection();
+  const globalData = getCurrentData();
+  
+  // Get global share sheet hook
+  const { presentShareSheet } = useGlobalShareSheet();
+  
+  // Use global data if available, otherwise fall back to props
+  const post = globalData?.post || propPost;
+  const onDismiss = propOnDismiss || dismissCommentSection;
+  const visible = propVisible !== undefined ? propVisible : !!globalData;
+  const totalLikes = globalData?.totalLikes ?? propTotalLikes;
+  const totalComments = globalData?.totalComments ?? propTotalComments;
+  const isLiked = globalData?.isLiked ?? propIsLiked;
+  const onOpenShareSheet = propOnOpenShareSheet;
+  const postedAt = globalData?.postedAt ?? propPostedAt;
+  const onToggleLike = globalData?.onToggleLike ?? propOnToggleLike;
+  const isLikePending = globalData?.isLikePending ?? propIsLikePending;
+  const handleHeaderSharePress = useCallback(async () => {
+    // Dismiss the comment section first to avoid sheet stacking issues
     try {
-      sheetRef.current?.dismiss();
+      await sheetRef.current?.dismiss();
     } catch {}
+    
+    // Wait a bit for the dismiss animation to complete
+    setTimeout(() => {
+      // Use global share sheet if post data is available
+      if (post?.uri && post?.author?.did) {
+        presentShareSheet({
+          postUri: post.uri,
+          postCid: post.cid,
+          authorDid: post.author.did,
+          authorName: post.author.displayName || post.author.handle,
+          feedOption: undefined, // Not available in comment section context
+          sourceFeed: undefined, // Not available in comment section context
+        });
+      } else {
+        // Fallback to prop callback if available
+        onOpenShareSheet?.();
+      }
+    }, ); // Wait 300ms for dismiss animation
+    
     onDismiss?.();
-  }, [onOpenShareSheet, onDismiss]);
+  }, [post, presentShareSheet, onOpenShareSheet, onDismiss]);
   
   const insets = useSafeAreaInsets();
   const [newCommentText, setNewCommentText] = useState('');
@@ -178,6 +217,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const sheetRef = useRef<TrueSheet>(null);
   const commentsListRef = useRef<any>(null);
   const likesListRef = useRef<any>(null);
+  
+  // Create a stable scrollRef that points to the active list
+  const currentScrollRef = useMemo(() => {
+    return activeTab === 'comments' ? commentsListRef : likesListRef;
+  }, [activeTab]);
 
   const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
 
@@ -251,11 +295,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     isFetchingNextPage: isFetchingNextCommentsPage,
     refetch: refetchComments,
   } = useInfiniteQuery<{ comments: any[]; cursor: string | null }, Error>({
-    queryKey: createQueryKeys.comments.byPost(post.uri),
-    queryFn: ({ pageParam }) => AtprotoService.getComments(post.uri, pageParam as string | null),
+    queryKey: createQueryKeys.comments.byPost(post?.uri || ''),
+    queryFn: ({ pageParam }) => AtprotoService.getComments(post?.uri || '', pageParam as string | null),
     getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
     initialPageParam: null,
-    enabled: !!post.uri,
+    enabled: !!post?.uri,
   });
   const comments = useMemo(
     () => commentsPages?.pages.flatMap((page) => (page as { comments: any[] }).comments) ?? [],
@@ -270,11 +314,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     isFetchingNextPage: isFetchingNextLikesPage,
     refetch: refetchLikes,
   } = useInfiniteQuery<{ likes: any[]; cursor: string | null }, Error>({
-    queryKey: createQueryKeys.likes.byPost(post.uri),
-    queryFn: ({ pageParam }) => AtprotoService.getLikes(post.uri, pageParam as string | null),
+    queryKey: createQueryKeys.likes.byPost(post?.uri || ''),
+    queryFn: ({ pageParam }) => AtprotoService.getLikes(post?.uri || '', pageParam as string | null),
     getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
     initialPageParam: null,
-    enabled: !!post.uri && likesQueryEnabled,
+    enabled: !!post?.uri && likesQueryEnabled,
   });
   const likes = useMemo(
     () => likesPages?.pages.flatMap((page) => (page as { likes: any[] }).likes) ?? [],
@@ -331,7 +375,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const showCharCount = charCount >= 150;
   
   const handleSendComment = useCallback(async () => {
-    if (!newCommentText.trim() || isPosting) return;
+    if (!newCommentText.trim() || isPosting || !post?.uri) return;
     setIsPosting(true);
     try {
       const rootUri = post.uri;
@@ -419,6 +463,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   }, [visible]);
 
+
+
     // Render header component for lists
   const renderHeader = () => (
     <View style={styles.header}>
@@ -435,7 +481,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       </View>
       <View style={styles.headerActions}>
         <RelativeDate
-          dateString={postedAt || post.indexedAt}
+          dateString={postedAt || post?.indexedAt}
           style={styles.dateText}
         />
         <TouchableOpacity
@@ -460,13 +506,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   );
 
   // Render content based on active tab
-      const renderContent = () => {
-      if (activeTab === 'comments') {
-        if (commentsLoading) {
+  const renderContent = () => {
+    if (activeTab === 'comments') {
+      if (commentsLoading || !post) {
         return (
           <FlashList
+            ref={commentsListRef}
             ListHeaderComponent={renderHeader}
-            data={Array.from({ length: totalComments > 0 ? totalComments : 4 })}
+            data={Array.from({ length: 6 })}
             renderItem={() => (
               <View style={styles.shimmerItem}>
                 <ShimmerPlaceholder
@@ -492,53 +539,45 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
+            scrollEventThrottle={16}
           />
         );
       }
       
       return (
-        <>
-          <FlashList
-            ref={commentsListRef}
-            ListHeaderComponent={renderHeader}
-            data={comments}
-            keyExtractor={commentKeyExtractor}
-            renderItem={renderCommentItem}
-            ListEmptyComponent={() => (
-              <View style={styles.emptyContainer}>
-                <View style={styles.emptyContent}>
-                  <Text style={styles.emptyText}>no comments yet</Text>
-                </View>
+        <FlashList
+          ref={commentsListRef}
+          ListHeaderComponent={renderHeader}
+          data={post ? comments : []}
+          keyExtractor={commentKeyExtractor}
+          renderItem={renderCommentItem}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyContent}>
+                <Text style={styles.emptyText}>no comments yet</Text>
               </View>
-            )}
-            contentContainerStyle={styles.listContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled
-            onEndReached={() => {
-              if (hasNextCommentsPage && !isFetchingNextCommentsPage) {
-                fetchNextCommentsPage();
-              }
-            }}
-            onEndReachedThreshold={0.5}
-          />
-          {isFetchingNextCommentsPage && (
-            <View style={styles.loadingContainer}>
-              <ShimmerPlaceholder
-                LinearGradient={LinearGradient}
-                style={styles.loadingShimmer}
-                shimmerColors={Colors.SHIMMER.PRIMARY}
-              />
             </View>
           )}
-        </>
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+          scrollEventThrottle={16}
+          onEndReached={() => {
+            if (hasNextCommentsPage && !isFetchingNextCommentsPage) {
+              fetchNextCommentsPage();
+            }
+          }}
+          onEndReachedThreshold={0.5}
+        />
       );
-          } else {
-        if (likesLoading) {
+    } else {
+      if (likesLoading || !post) {
         return (
           <FlashList
+            ref={likesListRef}
             ListHeaderComponent={renderHeader}
-            data={Array.from({ length: totalLikes > 0 ? totalLikes : 4 })}
+            data={Array.from({ length: 6 })}
             renderItem={() => (
               <View style={styles.shimmerItem}>
                 <ShimmerPlaceholder
@@ -559,43 +598,34 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
+            scrollEventThrottle={16}
           />
         );
       }
       
       return (
-        <>
-          <FlashList
-            ref={likesListRef}
-            ListHeaderComponent={renderHeader}
-            data={likes}
-            keyExtractor={likeKeyExtractor}
-            renderItem={renderLikeItem}
-            ListEmptyComponent={() => (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>no likes yet</Text>
-              </View>
-            )}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled
-            onEndReached={() => {
-              if (hasNextLikesPage && !isFetchingNextLikesPage) {
-                fetchNextLikesPage();
-              }
-            }}
-            onEndReachedThreshold={0.5}
-          />
-          {isFetchingNextLikesPage && (
-            <View style={styles.loadingContainer}>
-              <ShimmerPlaceholder
-                LinearGradient={LinearGradient}
-                style={styles.loadingShimmer}
-                shimmerColors={Colors.SHIMMER.PRIMARY}
-              />
+        <FlashList
+          ref={likesListRef}
+          ListHeaderComponent={renderHeader}
+          data={post ? likes : []}
+          keyExtractor={likeKeyExtractor}
+          renderItem={renderLikeItem}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>no likes yet</Text>
             </View>
           )}
-        </>
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+          scrollEventThrottle={16}
+          onEndReached={() => {
+            if (hasNextLikesPage && !isFetchingNextLikesPage) {
+              fetchNextLikesPage();
+            }
+          }}
+          onEndReachedThreshold={0.5}
+        />
       );
     }
   };
@@ -604,11 +634,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     <>
       <TrueSheet
         ref={sheetRef}
+        name="comment-section"
         sizes={['medium', 'large']}
         cornerRadius={20}
         backgroundColor={Colors.black}
         onDismiss={handleClose}
-        scrollRef={activeTab === 'comments' ? commentsListRef : likesListRef}
+        scrollRef={currentScrollRef}
         keyboardMode="pan"
         grabber={false}
         FooterComponent={activeTab === 'comments' ? FooterComponent : undefined}
@@ -680,6 +711,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.black,
+    minHeight: 0,
   },
   header: {
     flexDirection: 'row',

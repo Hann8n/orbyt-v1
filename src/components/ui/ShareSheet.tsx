@@ -21,33 +21,22 @@ import AtprotoService from '../../services/api/AtprotoService';
 import ProfileCache from '../../services/cache/ProfileCache';
 import { useClearView } from '../../stores/uiStore';
 import { Colors } from './UI';
+import { useGlobalShareSheet } from '../../hooks/useGlobalShareSheet';
 
-interface ShareSheetProps {
-  visible: boolean;
-  onDismiss: () => void;
-  postUri: string;
-  postCid?: string;
-  authorDid: string;
-  authorName?: string; // Add author name prop
-  feedOption?: 'yourMix' | 'following' | 'discover';
-  sourceFeed?: string; // Add sourceFeed prop to determine if feedback is available
-}
+// No props needed for global ShareSheet
+interface ShareSheetProps {}
 
 // Map to store feedback state by post URI
 const feedbackStateMap = new Map<string, string>();
 
 
 
-const ShareSheet: React.FC<ShareSheetProps> = ({ 
-  visible, 
-  onDismiss, 
-  postUri, 
-  postCid,
-  authorDid,
-  authorName,
-  feedOption,
-  sourceFeed
-}) => {
+const ShareSheet: React.FC<ShareSheetProps> = () => {
+  const { getCurrentData } = useGlobalShareSheet();
+  const data = getCurrentData();
+  
+  // Always render the TrueSheet component, but only show content when there's data
+  const { postUri, postCid, authorDid, authorName, feedOption, sourceFeed } = data || {};
   // Helper function to check if feedback can be sent for this video
   const canSendFeedback = (feed: string | undefined): boolean => {
     // Allow feedback for any video
@@ -65,8 +54,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   const interestedAnimation = useRef(new Animated.Value(0)).current;
   const notInterestedAnimation = useRef(new Animated.Value(0)).current;
 
-  // TrueSheet ref and sizes
-  const bottomSheetRef = useRef<TrueSheet>(null);
+  // TrueSheet sizes
   const snapPoints = useMemo(() => ['auto'] as any, []);
   const insets = useSafeAreaInsets();
 
@@ -87,17 +75,22 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       }
     };
     
-    if (visible && authorDid) {
+    if (authorDid) {
       checkCurrentUser();
     }
-  }, [visible, authorDid]);
+  }, [authorDid]);
 
   const { data: blockStatus = false } = useQuery({
     queryKey: createQueryKeys.blocks.status(authorDid),
     queryFn: () => AtprotoService.isBlocked(authorDid),
-    enabled: visible && !!authorDid && !isCurrentUser,
+    enabled: !!authorDid && !isCurrentUser,
     initialData: false
   });
+
+  // Global dismiss function
+  const dismissSheet = useCallback(() => {
+    TrueSheet.dismiss('share-sheet');
+  }, []);
 
 
 
@@ -108,7 +101,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
 
   // Load previous feedback state for this post if it exists
   useEffect(() => {
-    if (visible && postUri) {
+    if (postUri) {
       const loadFeedback = async () => {
         try {
           // First check the in-memory map
@@ -134,16 +127,9 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       
       loadFeedback();
     }
-  }, [visible, postUri]);
+  }, [postUri]);
 
-  // Handle bottom sheet visibility
-  useEffect(() => {
-    if (visible) {
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
-    }
-  }, [visible]);
+
 
   // Block/unblock or mute chat handler
   const handleBlockToggle = useCallback(async () => {
@@ -170,7 +156,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
                   } else {
                     Alert.alert('error', 'failed to mute comments. please try again.');
                   }
-                  onDismiss();
+                  dismissSheet();
                 } catch (error) {
                   console.error('Error muting comments:', error);
                   Alert.alert('error', 'failed to mute comments. please try again.');
@@ -203,7 +189,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
                 await AtprotoService.blockUser(authorDid);
                 queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(authorDid) });
                 setIsBlocked(true);
-                onDismiss();
+                dismissSheet();
               }
             }
           ]
@@ -215,7 +201,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [authorDid, isBlocked, onDismiss, queryClient, isCurrentUser, postUri]);
+  }, [authorDid, isBlocked, dismissSheet, queryClient, isCurrentUser, postUri]);
 
   // Handle interest feedback
   const handleInterestFeedback = useCallback(async (type: 'interested' | 'not_interested') => {
@@ -313,7 +299,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
                   Alert.alert('success', 'your post has been deleted.');
                   // Invalidate any related queries to refresh feeds
                   queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
-                  onDismiss();
+                  dismissSheet();
                 } else {
                   Alert.alert('error', 'failed to delete post. please try again.');
                 }
@@ -364,7 +350,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
         ]
       );
     }
-  }, [onDismiss, isCurrentUser, postUri, queryClient]);
+  }, [dismissSheet, isCurrentUser, postUri, queryClient]);
 
   // Helper function to report content
   const reportContent = useCallback(async (
@@ -375,7 +361,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       const success = await AtprotoService.reportContent(postUri, reasonType);
       if (success) {
         Alert.alert('thank you', 'this content has been reported for review.');
-        onDismiss();
+        dismissSheet();
       } else {
         Alert.alert('error', 'failed to submit report. please try again.');
       }
@@ -385,7 +371,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [postUri, onDismiss]);
+  }, [postUri, dismissSheet]);
 
   // Share link handler
   const handleShare = useCallback(async () => {
@@ -413,11 +399,11 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
       });
       
       // Close the sheet after successful share
-      onDismiss();
+      dismissSheet();
     } catch (error) {
       console.error('Error sharing post:', error);
     }
-  }, [postUri, onDismiss]);
+  }, [postUri, dismissSheet]);
 
   // Get menu options based on current state
   const getMenuOptions = () => {
@@ -485,33 +471,39 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
   // Use fixed spacing instead of dynamic calculation
   const fixedSpacing = 12;
 
-  // Don't render the sheet if in clear view mode
-  if (isClearViewMode) {
-    return null;
+  // Don't render content if in clear view mode or no data
+  if (isClearViewMode || !data) {
+    return (
+      <TrueSheet
+        name="share-sheet"
+        sizes={snapPoints}
+        backgroundColor={Colors.black}
+        onDismiss={dismissSheet}
+        cornerRadius={20}
+        grabber={false}
+      >
+        <View style={styles.content}>
+          {/* Empty content when no data or clear view mode */}
+        </View>
+      </TrueSheet>
+    );
   }
 
-  // Handle TrueSheet visibility
-  useEffect(() => {
-    if (visible) {
-      bottomSheetRef.current?.present();
-    } else {
-      bottomSheetRef.current?.dismiss();
-    }
-  }, [visible]);
+
 
   return (
     <TrueSheet
-      ref={bottomSheetRef}
+      name="share-sheet"
       sizes={snapPoints}
       backgroundColor={Colors.black}
-      onDismiss={onDismiss}
+      onDismiss={dismissSheet}
       cornerRadius={20}
       grabber={false}
       FooterComponent={
         <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
           <TouchableOpacity 
             style={styles.cancelButton} 
-            onPress={onDismiss} 
+            onPress={dismissSheet} 
             activeOpacity={0.7}
             disabled={isSubmitting}
           >
@@ -529,7 +521,7 @@ const ShareSheet: React.FC<ShareSheetProps> = ({
             </Text>
             <TouchableOpacity 
               style={styles.closeButton} 
-              onPress={onDismiss}
+              onPress={dismissSheet}
               activeOpacity={0.7}
             >
               <Icon name="close" size={20} color={Colors.white} />

@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useSubscribedChannels } from './useSubscribedChannels';
 import { useCurrentUser } from '../stores/userStore';
+import { preloadThumbnailColors } from '../utils/helpers/video';
 
 // Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
@@ -109,6 +110,16 @@ export function useFeed(
 
   // Flatten the pages for a single data array
   const feed = query.data?.pages.flatMap(page => page.feed).filter(Boolean) || [];
+
+  // Preload thumbnail colors when feed data changes
+  useEffect(() => {
+    if (feed.length > 0) {
+      // Preload colors in background without blocking UI
+      requestAnimationFrame(() => {
+        preloadThumbnailColors(feed.slice(0, 10)); // Preload first 10 posts
+      });
+    }
+  }, [feed]);
 
   // Infinite scroll state
   const isNearEndRef = useRef(false);
