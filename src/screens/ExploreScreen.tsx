@@ -20,7 +20,7 @@ import { FlashList } from '@shopify/flash-list';
 import AtprotoService from '../services/api/AtprotoService';
 
 import { useNavigation } from '@react-navigation/native';
-import ProfileCache, { profileKeys } from '../services/cache/ProfileCache';
+import ProfileCache, { profileKeys, useFollowMutation } from '../services/cache/ProfileCache';
 import ChannelCache, { useChannelColors } from '../services/cache/ChannelCache';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
@@ -200,8 +200,14 @@ const FeedShimmer = () => (
 );
 
 // Header spacer shimmer skeleton component
-const HeaderSpacerShimmer = ({ isHeaderVisible }: { isHeaderVisible: boolean }) => {
+const HeaderSpacerShimmer = ({ isHeaderVisible, isSearching }: { isHeaderVisible: boolean; isSearching?: boolean }) => {
   const insets = useSafeAreaInsets();
+  
+  // When searching, use search bar spacing
+  if (isSearching) {
+    return <View style={{ height: insets.top + 10 + 55 + 10 }} />; // safe area + top margin + search height + bottom margin
+  }
+  
   // When no header is available, use search bar spacing
   // When header is available, use header height
   const headerHeight = isHeaderVisible 
@@ -353,9 +359,14 @@ const ExploreScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
   const [allSuggestions, setAllSuggestions] = useState<any[]>([]);
+  const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
+  const [cacheUpdateTrigger, setCacheUpdateTrigger] = useState(0);
 
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
+  
+  // Use the follow mutation hook for proper cache management
+  const followMutation = useFollowMutation();
   const insets = useSafeAreaInsets();
   
   // Initialize current user for ProfileCache on mount
@@ -438,8 +449,6 @@ const ExploreScreen: React.FC = () => {
       return [];
     }
 
-
-
     // Convert feed items to search results format
     return searchFeed.map((feedItem, index) => {
       const post = feedItem.post;
@@ -470,6 +479,10 @@ const ExploreScreen: React.FC = () => {
       
       // Determine result type based on post content
       if (post.author) {
+        const handle = post.author.handle;
+        // Get cached profile data for accurate following status
+        const cachedProfile = handle ? ProfileCache.getProfileFromCacheSync(handle) : null;
+        
         return {
           type: 'profile' as const,
           data: {
@@ -478,7 +491,7 @@ const ExploreScreen: React.FC = () => {
             displayName: post.author.displayName || '',
             avatar: post.author.avatar || '',
             description: postText || '',
-            isFollowing: !!(post as any).viewer?.following,
+            isFollowing: cachedProfile?.isFollowing ?? !!(post as any).viewer?.following,
           } as Profile,
           relevance: 10 - index, // Higher relevance for earlier results
         };
@@ -500,6 +513,9 @@ const ExploreScreen: React.FC = () => {
       }
       
       // Default to profile
+      const handle = post.author?.handle;
+      const cachedProfile = handle ? ProfileCache.getProfileFromCacheSync(handle) : null;
+      
       return {
         type: 'profile' as const,
         data: {
@@ -508,12 +524,12 @@ const ExploreScreen: React.FC = () => {
           displayName: post.author?.displayName || '',
           avatar: post.author?.avatar || '',
           description: postText || '',
-          isFollowing: !!(post as any).viewer?.following,
+          isFollowing: cachedProfile?.isFollowing ?? !!(post as any).viewer?.following,
         } as Profile,
         relevance: 10 - index,
       };
     });
-  }, [searchFeedOption, searchFeed]);
+  }, [searchFeedOption, searchFeed, cacheUpdateTrigger]);
 
 
 
@@ -619,49 +635,84 @@ const ExploreScreen: React.FC = () => {
             return null;
           }
           
-
-          
           return (
-            <TouchableOpacity
-              style={styles.profileItem}
-              onPress={() => {
-                if (profile.handle) {
-                  const handle = profile.handle.trim();
-                  if (handle && handle.trim()) {
-                    queryClient.prefetchQuery({
-                      queryKey: profileKeys.detail(handle.trim()),
-                      queryFn: () => ProfileCache.getProfile(handle.trim()),
-                      staleTime: ProfileCache.cacheExpiry
-                      }).finally(() => {
-                        const target = handle.trim();
-                        if (target) { (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('AuthorProfile', { handle: target }); }
-                      });
+            <View style={styles.profileItem}>
+              <TouchableOpacity
+                style={styles.profileTouchable}
+                onPress={() => {
+                  if (profile.handle) {
+                    const handle = profile.handle.trim();
+                    if (handle && handle.trim()) {
+                      queryClient.prefetchQuery({
+                        queryKey: profileKeys.detail(handle.trim()),
+                        queryFn: () => ProfileCache.getProfile(handle.trim()),
+                        staleTime: ProfileCache.cacheExpiry
+                        }).finally(() => {
+                          const target = handle.trim();
+                          if (target) { (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('AuthorProfile', { handle: target }); }
+                        });
+                    }
                   }
-                }
-              }}
-            >
-              <Avatar
-                uri={profile.avatar}
-                type="profile"
-                size={40}
-                ringColor="transparent"
-                style={styles.profileImage}
-              />
-              <View style={styles.profileContent}>
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                  <Text style={styles.displayName} numberOfLines={1}>
-                    {profile.displayName || profile.handle || 'Unknown user'}
-                  </Text>
-                  {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
-                    <VerificationBadge 
-                      handle={profile.handle.trim()} 
-                      textSize={14} 
-                      textColor={Colors.white}
-                    />
-                  )}
+                }}
+              >
+                <Avatar
+                  uri={profile.avatar}
+                  type="profile"
+                  size={40}
+                  ringColor="transparent"
+                  style={styles.profileImage}
+                />
+                <View style={styles.profileContent}>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Text style={styles.displayName} numberOfLines={1}>
+                      {profile.displayName || profile.handle || 'Unknown user'}
+                    </Text>
+                    {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
+                      <VerificationBadge 
+                        handle={profile.handle.trim()} 
+                        textSize={14} 
+                        textColor={Colors.white}
+                      />
+                    )}
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+              {!profile.isFollowing && (
+                <TouchableOpacity
+                  style={styles.followButton}
+                  onPress={() => {
+                    if (profile.handle) {
+                      // Use the follow mutation hook for proper cache management
+                      followMutation.mutate({
+                        handle: profile.handle,
+                        isFollowing: true
+                      });
+                      
+                      // Add to followed users set for visual feedback
+                      setFollowedUsers(prev => new Set(prev).add(profile.handle || profile.did));
+                      
+                      // Trigger cache update to refresh the UI
+                      setCacheUpdateTrigger(prev => prev + 1);
+                      
+                      // Remove after 3 seconds
+                      setTimeout(() => {
+                        setFollowedUsers(prev => {
+                          const newSet = new Set(prev);
+                          newSet.delete(profile.handle || profile.did);
+                          return newSet;
+                        });
+                      }, 3000);
+                    }
+                  }}
+                >
+                  {followedUsers.has(profile.handle || profile.did) ? (
+                    <Icon name="checkmark" size={16} color={Colors.lightGray} />
+                  ) : (
+                    <Icon name="user-plus" size={16} color={Colors.lightGray} />
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
           );
         }
         case 'channel': {
@@ -995,6 +1046,11 @@ const ExploreScreen: React.FC = () => {
       items.push({ type: 'header-spacer' as const, key: 'header-spacer-shimmer' });
     }
     
+    // Add search bar spacer when searching to prevent content from being hidden behind search bar
+    if (isSearching) {
+      items.push({ type: 'header-spacer' as const, key: 'search-bar-spacer-shimmer' });
+    }
+    
     // Section header for spotlight
     // items.push({ type: 'section-header' as const, key: 'spotlight-header-shimmer' });
     // Spotlight videos section
@@ -1025,6 +1081,11 @@ const ExploreScreen: React.FC = () => {
       data.push({ type: 'header-spacer' as const, key: 'header-spacer' });
     }
     
+    // Add search bar spacer when searching to prevent content from being hidden behind search bar
+    if (isSearching) {
+      data.push({ type: 'header-spacer' as const, key: 'search-bar-spacer' });
+    }
+    
     // if (spotlightFeed && spotlightFeed.length > 0) {
     //   data.push({ type: 'section-header' as const, title: 'spotlight', key: 'spotlight-header' });
     //   data.push({ type: 'spotlight-videos' as const, videos: spotlightFeed, key: 'spotlight-videos' });
@@ -1042,7 +1103,11 @@ const ExploreScreen: React.FC = () => {
 
   const searchList: any[] = isLoadingResults
     ? ([] as any[])
-    : (organizedSearchResults as unknown as any[]);
+    : (() => {
+        const results = organizedSearchResults as unknown as any[];
+        // Add search bar spacer at the beginning to prevent content from being hidden behind search bar
+        return [{ type: 'header-spacer' as const, key: 'search-bar-spacer' }, ...results];
+      })();
 
   const listData: any[] = isSearching ? searchList : suggestionsList;
 
@@ -1147,7 +1212,7 @@ const ExploreScreen: React.FC = () => {
             );
           }
           if (item.type === 'header-spacer') {
-            return <HeaderSpacerShimmer isHeaderVisible={isHeaderVisible} />;
+            return <HeaderSpacerShimmer isHeaderVisible={isHeaderVisible} isSearching={isSearching} />;
           }
           if (item.type === 'spotlight-videos') {
             if (!('videos' in item) || !Array.isArray(item.videos)) {
@@ -1253,37 +1318,76 @@ const ExploreScreen: React.FC = () => {
                       if (result.type === 'profile') {
                         const profile = result.data as Profile;
                         return (
-                          <TouchableOpacity
+                          <View
                             key={`combined-profile-${profile.did || profile.handle || index}-${index}`}
                             style={styles.profileItem}
-                            onPress={() => {
-                              if (profile.handle) {
-                                const handle = profile.handle.trim();
-                                if (handle && handle.trim()) {
-                                  queryClient.prefetchQuery({
-                                    queryKey: profileKeys.detail(handle.trim()),
-                                    queryFn: () => ProfileCache.getProfile(handle.trim()),
-                                    staleTime: ProfileCache.cacheExpiry,
-                                  }).finally(() => {
-                                    const target = handle.trim();
-                                    if (target) { (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('AuthorProfile', { handle: target }); }
-                                  });
-                                }
-                              }
-                            }}
                           >
-                            <Avatar uri={profile.avatar} type="profile" size={40} ringColor="transparent" style={styles.profileImage} />
-                            <View style={styles.profileContent}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text style={styles.displayName}>
-                                  {profile.displayName || profile.handle || 'Unknown user'}
-                                </Text>
-                                {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
-                                  <VerificationBadge handle={profile.handle.trim()} textSize={14} textColor={Colors.white} />
-                                )}
+                            <TouchableOpacity
+                              style={styles.profileTouchable}
+                              onPress={() => {
+                                if (profile.handle) {
+                                  const handle = profile.handle.trim();
+                                  if (handle && handle.trim()) {
+                                    queryClient.prefetchQuery({
+                                      queryKey: profileKeys.detail(handle.trim()),
+                                      queryFn: () => ProfileCache.getProfile(handle.trim()),
+                                      staleTime: ProfileCache.cacheExpiry,
+                                    }).finally(() => {
+                                      const target = handle.trim();
+                                      if (target) { (() => { let rootNav: any = navigation as any; while (rootNav?.getParent?.()) { rootNav = rootNav.getParent(); } return rootNav; })().navigate('AuthorProfile', { handle: target }); }
+                                    });
+                                  }
+                                }
+                              }}
+                            >
+                              <Avatar uri={profile.avatar} type="profile" size={40} ringColor="transparent" style={styles.profileImage} />
+                              <View style={styles.profileContent}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                  <Text style={styles.displayName}>
+                                    {profile.displayName || profile.handle || 'Unknown user'}
+                                  </Text>
+                                  {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
+                                    <VerificationBadge handle={profile.handle.trim()} textSize={14} textColor={Colors.white} />
+                                  )}
+                                </View>
                               </View>
-                            </View>
-                          </TouchableOpacity>
+                            </TouchableOpacity>
+                            {!profile.isFollowing && (
+                              <TouchableOpacity
+                                style={styles.followButton}
+                                onPress={() => {
+                                  if (profile.handle) {
+                                    // Use the follow mutation hook for proper cache management
+                                    followMutation.mutate({
+                                      handle: profile.handle,
+                                      isFollowing: true
+                                    });
+                                    
+                                    // Add to followed users set for visual feedback
+                                    setFollowedUsers(prev => new Set(prev).add(profile.handle || profile.did));
+                                    
+                                    // Trigger cache update to refresh the UI
+                                    setCacheUpdateTrigger(prev => prev + 1);
+                                    
+                                    // Remove after 3 seconds
+                                    setTimeout(() => {
+                                      setFollowedUsers(prev => {
+                                        const newSet = new Set(prev);
+                                        newSet.delete(profile.handle || profile.did);
+                                        return newSet;
+                                      });
+                                    }, 3000);
+                                  }
+                                }}
+                              >
+                                {followedUsers.has(profile.handle || profile.did) ? (
+                                  <Icon name="checkmark" size={16} color={Colors.lightGray} />
+                                ) : (
+                                  <Icon name="user-plus" size={16} color={Colors.lightGray} />
+                                )}
+                              </TouchableOpacity>
+                            )}
+                          </View>
                         );
                       }
                       if (result.type === 'channel') {
@@ -1485,6 +1589,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
+  },
+  profileTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   profileImage: {
     width: 40,
@@ -1821,6 +1930,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
+  },
+
+  followButton: {
+    width: 32,
+    height: 32,
+    borderWidth: 2,
+    borderColor: Colors.lightGray,
+    borderRadius: BORDER_RADIUS.SMALL,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
 
