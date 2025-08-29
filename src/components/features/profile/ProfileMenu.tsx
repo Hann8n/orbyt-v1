@@ -234,18 +234,16 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           onPress: async () => {
             setIsSubmitting(true);
             try {
-              // Remove the current account using userStore
-              // The userStore will handle getting the active account and removing it
-              await signOut(true); // Clear all accounts
-              
-              if (onLogout) {
-                await onLogout(false); // Don't clear all accounts since we already removed the current one
-              } else {
-                // Use the user store to sign out
-                await signOut(false);
-              }
               // Clear all queries
               queryClient.clear();
+              
+              if (onLogout) {
+                await onLogout(true); // Clear all accounts
+              } else {
+                // Use the user store to sign out
+                await signOut(true); // Clear all accounts
+              }
+              
               onDismiss();
               // Note: The actual logout navigation should be handled by the parent component
             } catch (error) {
@@ -294,6 +292,13 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           icon: 'settings',
           onPress: handleSettings,
           color: Colors.lightGray
+        },
+        {
+          id: 'logout',
+          label: 'log out',
+          icon: 'logout',
+          onPress: handleLogout,
+          color: Colors.red
         }
       ];
     } else {

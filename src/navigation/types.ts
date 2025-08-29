@@ -144,7 +144,7 @@ export type ProfileStackParamList = {
 };
 
 // Create a context to provide onLogout to nested components
-export const LogoutContext = React.createContext<(() => Promise<void>) | null>(null);
+export const LogoutContext = React.createContext<((clearAllAccounts?: boolean) => Promise<void>) | null>(null);
 
 // Hook to access the logout function
 export const useLogout = () => {

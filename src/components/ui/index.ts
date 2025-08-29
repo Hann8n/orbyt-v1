@@ -21,6 +21,7 @@ export { default as VideoInfoDisplay } from './VideoInfoDisplay';
 export { default as AuthorItem } from './AuthorItem';
 export { default as GridFeedShimmer } from './GridFeedShimmer';
 export { default as HeaderBanner } from './HeaderBanner';
+export { default as AnimatedStarsBackground } from './AnimatedStarsBackground';
 
 // Default export for the entire UI system
 export { default as UI } from './UI'; 

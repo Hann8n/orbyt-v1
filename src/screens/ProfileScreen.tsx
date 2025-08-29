@@ -108,25 +108,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
   }, [currentUser?.did]);
 
-  // Fallback: if no current user but we're authenticated, try to restore session
-  useEffect(() => {
-    const checkAndRestoreSession = async () => {
-      const state = useUserStore.getState();
-      if (state.isAuthenticated && !currentUser && !providedHandle) {
-        try {
-          const activeAccountDid = state.activeAccountDid;
-          if (activeAccountDid) {
-    
-            await state.restoreSession(activeAccountDid);
-          }
-        } catch (error) {
-          console.error('[ProfileScreen] Failed to restore session:', error);
-        }
-      }
-    };
-    
-    checkAndRestoreSession();
-  }, [currentUser, providedHandle]);
+  // Note: Session restoration is now handled by userStore.initializeUserState()
+  // No need for automatic session restoration here as it can interfere with logout
 
   // Extract and save colors when profile data is available
   useEffect(() => {

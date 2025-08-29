@@ -524,8 +524,7 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     position: 'relative',
-    overflow: 'hidden',
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    overflow: 'scroll',
   },
   videoContainer: {
     width: '100%',

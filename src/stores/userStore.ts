@@ -181,11 +181,37 @@ export const useUserStore = create<UserState>()(
           const oauthSession = await oauthService.getCurrentOAuthSession();
           const agent = oauthSession ? new Agent(oauthSession) : null;
           
-          // Get user profile data
-          const profileData = await ProfileCache.getProfile(session.did);
+          // Get user profile data using the agent to fetch from API
+          let profileData = null;
+          if (agent) {
+            try {
+              console.log('[userStore] Fetching profile data for DID:', session.did);
+              const response = await agent.api.app.bsky.actor.getProfile({
+                actor: session.did
+              });
+              profileData = response.data;
+              console.log('[userStore] Successfully fetched profile data:', {
+                did: profileData?.did,
+                handle: profileData?.handle,
+                displayName: profileData?.displayName
+              });
+              
+              // Cache the profile data
+              if (profileData) {
+                await ProfileCache.cacheProfiles([profileData]);
+              }
+            } catch (profileError) {
+              console.warn('[userStore] Failed to fetch profile data:', profileError);
+            }
+          }
           
           // Save account
           await get().addAccount(session, profileData);
+          
+          // Update account profile if we have fresh data
+          if (profileData) {
+            await get().updateAccountProfile(session.did, profileData);
+          }
           
           // Update state
           set({
@@ -219,6 +245,7 @@ export const useUserStore = create<UserState>()(
       
       signOut: async (clearAllAccounts: boolean = false) => {
         try {
+          console.log('[userStore] Starting sign out process, clearAllAccounts:', clearAllAccounts);
           set({ isAuthenticating: true });
           
           // Clear all user data
@@ -228,10 +255,14 @@ export const useUserStore = create<UserState>()(
           const oauthService = AtProtoOAuthService.getInstance();
           await oauthService.signOut();
           
-          // Clear accounts if requested
+          // Clear active account - user has logged out
+          await SecureStore.deleteItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT);
+          console.log('[userStore] Cleared active account from SecureStore');
+          
+          // Clear all accounts if requested
           if (clearAllAccounts) {
             await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCOUNTS);
-            await SecureStore.deleteItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT);
+            console.log('[userStore] Cleared all accounts from SecureStore');
           }
           
           // Reset state
@@ -247,6 +278,8 @@ export const useUserStore = create<UserState>()(
             subscribedChannels: [],
           });
           
+          console.log('[userStore] Sign out completed successfully');
+          
         } catch (error) {
           console.error('Error during sign out:', error);
           set({ isAuthenticating: false });
@@ -256,36 +289,60 @@ export const useUserStore = create<UserState>()(
       
       restoreSession: async (did: string) => {
         try {
-
           set({ isAuthenticating: true, authError: null });
           
           const oauthService = AtProtoOAuthService.getInstance();
           const session = await oauthService.restoreSession(did);
-
           
           // Get the actual OAuth session and create agent
           const oauthSession = await oauthService.getCurrentOAuthSession();
           const agent = oauthSession ? new Agent(oauthSession) : null;
-
           
-          // Get user profile data by DID
-          let profileData = await ProfileCache.getProfileByDid(did);
-
-          
-          // If no profile data, create a basic one from account data
-          if (!profileData) {
-            const accounts = get().savedAccounts;
-            const account = accounts.find(acc => acc.did === did);
-            if (account) {
-              profileData = {
-                did: account.did,
-                handle: account.handle,
-                displayName: account.displayName,
-                avatar: account.avatar,
-                lastUpdated: Date.now(),
-              };
-    
+          // Get user profile data using the agent to fetch from API
+          let profileData = null;
+          if (agent) {
+            try {
+              console.log('[userStore] Fetching profile data for DID during restore:', did);
+              const response = await agent.api.app.bsky.actor.getProfile({
+                actor: did
+              });
+              profileData = response.data;
+              console.log('[userStore] Successfully fetched profile data during restore:', {
+                did: profileData?.did,
+                handle: profileData?.handle,
+                displayName: profileData?.displayName
+              });
+              
+              // Cache the profile data
+              if (profileData) {
+                await ProfileCache.cacheProfiles([profileData]);
+              }
+            } catch (profileError) {
+              console.warn('[userStore] Failed to fetch profile data during restore:', profileError);
+              
+              // Fallback to cached profile data
+              profileData = await ProfileCache.getProfileByDid(did);
+              
+              // If still no profile data, create a basic one from account data
+              if (!profileData) {
+                const accounts = get().savedAccounts;
+                const account = accounts.find(acc => acc.did === did);
+                if (account) {
+                  profileData = {
+                    did: account.did,
+                    handle: account.handle,
+                    displayName: account.displayName,
+                    avatar: account.avatar,
+                    lastUpdated: Date.now(),
+                  };
+                }
+              }
             }
+          }
+          
+          // Update account profile if we have fresh data
+          if (profileData) {
+            await get().updateAccountProfile(did, profileData);
           }
           
           // Update state
@@ -296,8 +353,6 @@ export const useUserStore = create<UserState>()(
             avatar: profileData?.avatar || null,
             pdsUrl: 'https://bsky.social',
           };
-          
-
           
           set({
             currentUser,
@@ -378,12 +433,19 @@ export const useUserStore = create<UserState>()(
             id: oauthSession.did, // Use DID directly as account ID
             handle: profileData?.handle || oauthSession.did,
             did: oauthSession.did,
-            displayName: profileData?.displayName || 'OAuth User',
+            displayName: profileData?.displayName || null,
             avatar: profileData?.avatar,
             lastUsed: Date.now(),
             isActive: true,
             pdsUrl: 'https://bsky.social',
           };
+          
+          console.log('[userStore] Creating account with data:', {
+            did: account.did,
+            handle: account.handle,
+            displayName: account.displayName,
+            hasProfileData: !!profileData
+          });
           
           if (existingAccountIndex >= 0) {
             // Update existing account
@@ -440,6 +502,12 @@ export const useUserStore = create<UserState>()(
       
       updateAccountProfile: async (did: string, profileData: any) => {
         try {
+          console.log('[userStore] Updating account profile for DID:', did, {
+            displayName: profileData?.displayName,
+            handle: profileData?.handle,
+            hasAvatar: !!profileData?.avatar
+          });
+          
           const accounts = get().savedAccounts.map(acc => 
             acc.did === did 
               ? {
@@ -748,20 +816,25 @@ export const useUserStore = create<UserState>()(
       // Initialization actions
       initializeUserState: async () => {
         try {
+          console.log('[userStore] Initializing user state...');
+          
           // Load saved accounts
           await get().loadSavedAccounts();
           
           // Check for active account
           const activeAccountDid = await SecureStore.getItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT);
+          console.log('[userStore] Found active account DID:', activeAccountDid);
           
           if (activeAccountDid) {
             set({ activeAccountDid });
             
             // Try to restore session
             try {
+              console.log('[userStore] Attempting to restore session for DID:', activeAccountDid);
               await get().restoreSession(activeAccountDid);
+              console.log('[userStore] Session restored successfully');
             } catch (error) {
-              console.warn('Failed to restore session for active account:', error);
+              console.warn('[userStore] Failed to restore session for active account:', error);
               // Session expired, user needs to re-authenticate
               set({ 
                 isAuthenticated: false,
@@ -769,10 +842,13 @@ export const useUserStore = create<UserState>()(
                 oauthSession: null,
                 agent: null,
               });
+              console.log('[userStore] Set authentication state to false due to failed session restoration');
             }
+          } else {
+            console.log('[userStore] No active account found, user needs to log in');
           }
         } catch (error) {
-          console.error('Error initializing user state:', error);
+          console.error('[userStore] Error initializing user state:', error);
         }
       },
       

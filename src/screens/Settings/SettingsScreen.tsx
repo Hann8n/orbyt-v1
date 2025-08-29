@@ -50,28 +50,28 @@ const SettingsScreen: React.FC = () => {
     loadSettings();
   }, []);
 
-  const handleLogout = async () => {
+  const handleRemoveAccount = async () => {
     if (isSubmitting) return;
     
     Alert.alert(
-      'log out',
-      'are you sure you want to log out?',
+      'Are you sure?',
+      'You will need to sign in again',
       [
         {
-          text: 'cancel',
+          text: 'Cancel',
           style: 'cancel',
         },
         {
-          text: 'log out',
+          text: 'Remove Account',
           style: 'destructive',
           onPress: async () => {
             setIsSubmitting(true);
             try {
-              // Use userStore to handle logout
-              await onLogout();
+              // Use userStore to handle account removal (clearAllAccounts = true)
+              await onLogout(true);
             } catch (error) {
-              console.error('error during logout:', error);
-              Alert.alert('error', 'failed to log out. please try again.');
+              console.error('error during account removal:', error);
+              Alert.alert('Error', 'Failed to remove account. Please try again.');
             } finally {
               setIsSubmitting(false);
             }
@@ -222,7 +222,7 @@ const SettingsScreen: React.FC = () => {
     | { kind: 'section-title'; id: string; title: string }
     | { kind: 'setting'; id: string; label: string; showChevron?: boolean; onPress: () => void }
     | { kind: 'toggle'; id: string; label: string; subtitle?: string; value: boolean; onValueChange: (v: boolean) => void }
-    | { kind: 'logout'; id: 'logout' };
+    | { kind: 'logout'; id: 'logout' }; // This is actually "remove account" now
 
   const listData: ListRow[] = [];
 
@@ -255,7 +255,7 @@ const SettingsScreen: React.FC = () => {
 
   });
 
-  // Add logout row at the end
+  // Add remove account row at the end
   listData.push({ kind: 'logout', id: 'logout' });
 
   return (
@@ -324,11 +324,11 @@ const SettingsScreen: React.FC = () => {
                 <View key={key} style={settingsLayoutStyles.logoutSection}>
                   <TouchableOpacity
                     style={settingsButtonStyles.logoutButton}
-                    onPress={handleLogout}
+                    onPress={handleRemoveAccount}
                     activeOpacity={0.7}
                     disabled={isSubmitting}
                   >
-                    <Text style={settingsTextStyles.logoutButtonText}>log out</Text>
+                    <Text style={settingsTextStyles.logoutButtonText}>Remove Account</Text>
                   </TouchableOpacity>
                 </View>
               );
@@ -380,6 +380,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     flex: 1,
   },
+
 });
 
 export default SettingsScreen; 

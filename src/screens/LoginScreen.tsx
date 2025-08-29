@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, PlusIcon, AtLineIcon } from '../components/ui/Icon';
 import { Colors, Avatar } from '../components/ui/UI';
+import { AnimatedStarsBackground } from '../components/ui';
 import { SavedAccount } from '../stores/userStore';
 import AccountSwitcher from '../components/features/profile/AccountSwitcher';
 import { useAuth, useAccountManagement } from '../stores/userStore';
@@ -220,7 +221,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                   </View>
                   <View style={styles.accountInfoContainer}>
                     <Text style={styles.accountDisplayName}>
-                      {account.displayName || 'User'}
+                      {account.displayName || account.handle || 'User'}
                     </Text>
                     <Text style={styles.accountHandle}>
                       @{account.handle}
@@ -259,29 +260,36 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   );
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { 
-        paddingTop: insets.top,
-        paddingBottom: insets.bottom 
-      }]}
-    >
-      {hasSavedAccounts ? renderSavedAccounts() : renderManualLogin()}
+    <AnimatedStarsBackground>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.container, { 
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom 
+        }]}
+      >
+        {/* Logo and App Name */}
+        <View style={styles.logoContainer}>
+          <Image source={require('../assets/logo.png')} style={styles.logo} />
+          <Text style={styles.appName}>orbyt</Text>
+        </View>
 
-      {/* Account Switcher Modal */}
-      <AccountSwitcher
-        visible={showAccountSwitcher}
-        onDismiss={() => setShowAccountSwitcher(false)}
-        onAccountSwitch={handleAccountSwitch}
-      />
-    </KeyboardAvoidingView>
+        {hasSavedAccounts ? renderSavedAccounts() : renderManualLogin()}
+
+        {/* Account Switcher Modal */}
+        <AccountSwitcher
+          visible={showAccountSwitcher}
+          onDismiss={() => setShowAccountSwitcher(false)}
+          onAccountSwitch={handleAccountSwitch}
+        />
+      </KeyboardAvoidingView>
+    </AnimatedStarsBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.black,
     justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 20,

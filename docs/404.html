@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Page Not Found | Orbyt</title>
+    
+    <!-- Favicon setup -->
+    <link rel="apple-touch-icon" sizes="180x180" href="favicon_io/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon_io/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon_io/favicon-16x16.png">
+    <link rel="icon" href="favicon_io/favicon.ico">
+    <link rel="manifest" href="favicon_io/site.webmanifest">
+    
+    <!-- Theme colors for mobile browsers -->
+    <meta name="theme-color" content="#ffffff">
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <style>
+        @font-face {
+            font-family: 'Firma-Black';
+            src: url('../src/assets/fonts/Firma-Black.otf') format('opentype');
+        }
+        
+        @font-face {
+            font-family: 'Firma-Regular';
+            src: url('../src/assets/fonts/Firma-Regular.otf') format('opentype');
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #000000;
+            min-height: 100vh;
+            color: white;
+            position: relative;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .error-content {
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .error-number {
+            font-family: 'Firma-Black', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 8rem;
+            font-weight: 900;
+            color: white;
+            margin-bottom: 1rem;
+            line-height: 1;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+
+        .error-title {
+            font-family: 'Firma-Black', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .error-message {
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 1.25rem;
+            color: #cfd6e8;
+            opacity: 0.9;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .navigation-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 3rem;
+        }
+
+        .nav-button {
+            display: inline-flex;
+            background: #FFFFFF;
+            color: #000000;
+            text-decoration: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-family: 'Firma-SemiBold', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 1px solid #FFFFFF;
+            align-items: center;
+            justify-content: center;
+            min-width: 140px;
+        }
+
+        .nav-button:hover {
+            background: #F8F8F8;
+            border-color: #E8E8E8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .nav-button.secondary {
+            background: transparent;
+            color: #FFFFFF;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .nav-button.secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .outlink-icon {
+            width: 16px;
+            height: 16px;
+            margin-left: 6px;
+            opacity: 1;
+            vertical-align: baseline;
+            fill: currentColor;
+            transition: all 0.3s ease;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: auto;
+            padding: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footerColumns {
+            display: inline-block;
+            margin: 0 1rem;
+        }
+
+        .footerColumns a {
+            color: #cfd6e8;
+            text-decoration: none;
+            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 1rem;
+            transition: color 0.3s ease;
+        }
+
+        .footerColumns a:hover {
+            color: #ffffff;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .error-number {
+                font-size: 6rem;
+            }
+
+            .error-title {
+                font-size: 2rem;
+            }
+
+            .error-message {
+                font-size: 1.1rem;
+            }
+
+            .navigation-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .nav-button {
+                width: 100%;
+                max-width: 280px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .error-number {
+                font-size: 4rem;
+            }
+
+            .error-title {
+                font-size: 1.5rem;
+            }
+
+            .error-message {
+                font-size: 1rem;
+            }
+
+            .footer {
+                padding: 1rem;
+            }
+
+            .footerColumns {
+                display: block;
+                margin: 0.5rem 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+
+
+    <div class="container">
+        <div class="error-content">
+            <div class="error-number">404</div>
+            <p class="error-message">
+                There's nothing to see here...
+            </p>
+            
+            <div class="navigation-buttons">
+                <a href="/" class="nav-button">
+                    Go back home
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <div class="footerColumns">
+            <a href="terms.html">Terms of Use</a>
+        </div>
+        <div class="footerColumns">
+            <a href="privacy.html">Privacy Policy</a>
+        </div>
+    </div>
+    
+
+</body>
+</html>
