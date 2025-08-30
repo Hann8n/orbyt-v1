@@ -1257,8 +1257,6 @@ class AtprotoService {
       // Store in AsyncStorage for persistence
       await AsyncStorage.setItem(feedbackKey, JSON.stringify(feedbackData));
       
-      console.log('Video feedback sent to vids feed:', feedbackData);
-      
     } catch (error: any) {
       console.error('Error sending video feedback:', error);
       throw error;
@@ -1292,7 +1290,6 @@ class AtprotoService {
     try {
       const feedbackKey = `video_feedback_${postUri}`;
       await AsyncStorage.removeItem(feedbackKey);
-      console.log('Video feedback removed for post:', postUri);
     } catch (error: any) {
       console.error('Error removing video feedback:', error);
       throw error;

@@ -27,7 +27,6 @@ export class ModerationService {
    */
   static clearModerationCache(): void {
     this.moderationCache.clear();
-    console.log('[ModerationService] Moderation cache cleared');
   }
 
   /**
@@ -110,7 +109,6 @@ export class ModerationService {
       await currentAgent.api.app.bsky.actor.putPreferences({ preferences });
       this.currentSettings = settings;
       this.currentModerationOpts = null; // Clear cache
-      console.log('[ModerationService] Settings saved successfully');
     } catch (error) {
       console.error('[ModerationService] Failed to save settings:', error);
       throw error;
@@ -131,7 +129,6 @@ export class ModerationService {
       const response = await currentAgent.api.app.bsky.actor.getPreferences();
       const settings = this.convertPreferencesToSettings(response.data.preferences || []);
       this.currentSettings = settings;
-      console.log('[ModerationService] Settings synced successfully');
     } catch (error) {
       console.error('[ModerationService] Failed to sync settings:', error);
       throw error;

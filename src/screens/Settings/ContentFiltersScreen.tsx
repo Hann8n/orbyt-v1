@@ -33,10 +33,8 @@ const ContentFiltersScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [adultContentEnabled, setAdultContentEnabled] = useState(false);
   
-  // Debug: Check if agent is available
+  // Check if agent is available
   useEffect(() => {
-    console.log('[ContentFiltersScreen] Agent available:', !!agent);
-    console.log('[ContentFiltersScreen] User authenticated:', isAuthenticated);
     
     if (!isAuthenticated || !agent) {
       Alert.alert(
@@ -108,7 +106,6 @@ const ContentFiltersScreen: React.FC = () => {
   }, []);
 
   const updateContentPreference = async (contentId: string, preference: LabelPreference) => {
-    console.log(`[ContentFiltersScreen] Updating content preference: ${contentId} = ${preference}`);
     
     // Check if user is authenticated
     if (!isAuthenticated || !agent) {
@@ -130,7 +127,6 @@ const ContentFiltersScreen: React.FC = () => {
             [contentId]: preference
           }
         };
-        console.log('[ContentFiltersScreen] Saving moderation settings:', updatedSettings);
         await saveModerationSettings(updatedSettings);
         setSettings(updatedSettings);
         // Reset moderation/feeds so all content re-evaluates with new rules
@@ -138,7 +134,7 @@ const ContentFiltersScreen: React.FC = () => {
         feedService.clearCurrentFeed();
         feedService.clearFeedCache();
         queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
-        console.log('[ContentFiltersScreen] Content preference updated successfully');
+
       }
     } catch (e) {
       console.error('Error saving content preference:', e);
@@ -168,7 +164,6 @@ const ContentFiltersScreen: React.FC = () => {
           ...settings,
           adultContentEnabled: value,
         };
-        console.log('[ContentFiltersScreen] Saving adult content setting:', value);
         await saveModerationSettings(updatedSettings);
         setSettings(updatedSettings);
         // Reset moderation/feeds so all content re-evaluates with new rules
@@ -176,7 +171,7 @@ const ContentFiltersScreen: React.FC = () => {
         feedService.clearCurrentFeed();
         feedService.clearFeedCache();
         queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
-        console.log('[ContentFiltersScreen] Adult content setting updated successfully');
+
       }
     } catch (e) {
       console.error('Error saving adult content preference:', e);

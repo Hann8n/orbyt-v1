@@ -384,13 +384,9 @@ class FeedService {
           })
           .filter(uri => uri && uri.startsWith('at://'));
         
-        console.log('[FeedService] yourMix - subscribedChannels:', subscribedChannels);
-        console.log('[FeedService] yourMix - feedUris:', feedUris);
-        
         if (feedUris.length > 0) {
           response = await AtprotoService.getMixedFeed(feedUris, cursor, limit, true, FEED_CONFIG.maxFeedsPerFetch);
         } else {
-          console.log('[FeedService] yourMix - no subscribed channels, using fallback feeds');
           
           const fallbackFeeds = [
             'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids',
@@ -480,7 +476,6 @@ class FeedService {
         try {
           const moderatedFeed = await ModerationService.batchModeratePosts(response.feed, 'contentList');
           response.feed = moderatedFeed.filteredPosts;
-          console.log(`[FeedService] Applied moderation to ${response.feed.length} posts (filtered: ${moderatedFeed.stats.filtered}, blurred: ${moderatedFeed.stats.blurred})`);
         } catch (error) {
           console.warn('[FeedService] Failed to apply moderation, using unfiltered posts:', error);
           // Continue with unfiltered posts if moderation fails

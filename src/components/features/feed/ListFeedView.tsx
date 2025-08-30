@@ -17,7 +17,6 @@ import { FlashList, FlashListRef, type ListRenderItemInfo } from '@shopify/flash
 
 import EmptyFeed from './EmptyFeed';
 import { MemoizedVideoItem } from './VideoItem';
-import WatchHistory from '../../../services/WatchHistory';
 import GridFeedView from './GridFeedView';
 import { isSmallScreen, isTablet, getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
@@ -62,7 +61,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   isRefreshing = false,
   isProfileLoading = false,
   onVisibleChange,
-  onScrubbingChange,
   onScroll,
   forceError = false,
   ListComponent,
@@ -73,7 +71,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   
   // Simplified visibility state - only track the currently visible video URI
   const [visibleVideoUri, setVisibleVideoUri] = useState<string | null>(null);
-  const [isScrubbing, setIsScrubbing] = useState(false);
   
   // Layout state
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -83,6 +80,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const flashListRef = useRef<FlashListRef<FeedItem>>(null);
   const lastScrollOffset = useRef(0);
   const positionSaveTimeout = useRef<NodeJS.Timeout | null>(null);
+  const currentVisibleVideoUri = useRef<string | null>(null);
   
   // Device detection
   const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
@@ -167,11 +165,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const effectiveIsError = forceError || isError;
 
   // Callbacks
-  const handleScrubbingChange = useCallback((scrubbing: boolean) => {
-    setIsScrubbing(scrubbing);
-    onScrubbingChange?.(scrubbing);
-  }, [onScrubbingChange]);
-
   const handleVideoStatus = useCallback((uri: string, status: string) => {
     // Simple status handling - no complex logging needed
   }, []);
@@ -221,7 +214,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     handleScrollEndPreload();
   }, [handleScrollEndPreload, onPositionChange]);
 
-  // Simplified visibility detection - only track the most visible video
+  // Optimized visibility detection - use refs to prevent re-renders
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
     // Find the most visible video item (first viewable non-end-card item)
     const visibleVideoItem = viewableItems.find(item => 
@@ -235,21 +228,18 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       const nextIndex = visibleVideoItem.index;
       
       // Only update if the visible video has actually changed
-      if (nextUri !== visibleVideoUri) {
+      if (nextUri !== currentVisibleVideoUri.current) {
+        currentVisibleVideoUri.current = nextUri;
         setVisibleVideoUri(nextUri);
         onVisibleChange?.(nextIndex, nextUri);
-        
-        // Add to watch history for yourMix feed
-        if (feedOption === FEED_TYPES.YOUR_MIX) {
-          setTimeout(() => WatchHistory.addToWatchHistory(visibleVideoItem.item), 0);
-        }
       }
-    } else if (visibleVideoUri) {
+    } else if (currentVisibleVideoUri.current) {
       // No visible video found, clear state
+      currentVisibleVideoUri.current = null;
       setVisibleVideoUri(null);
       onVisibleChange?.(-1, null);
     }
-  }, [visibleVideoUri, feedOption, onVisibleChange]);
+  }, [onVisibleChange]);
 
   // Render item function - simplified visibility logic
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<FeedItem>) => {
@@ -269,7 +259,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
 
     // Simple visibility logic: video is visible if it's the currently visible video and the feed is visible
-    const isVideoVisible = item.post.uri === visibleVideoUri && isVisible && !isScrubbing;
+    const isVideoVisible = item.post.uri === visibleVideoUri && isVisible;
     
     return (
       <MemoizedVideoItem
@@ -281,7 +271,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         feedOption={feedOption as 'yourMix' | 'following' | 'discover'}
         isVisible={isVideoVisible}
         moderationDecision={item.moderationDecision}
-        onScrubbingChange={handleScrubbingChange}
         isModal={isModal}
         index={index}
       />
@@ -289,13 +278,11 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   }, [
     cardHeight,
     visibleVideoUri,
-    isScrubbing,
     feedOption,
     isVisible,
     backgroundColor,
     secondaryColor,
     handleVideoStatus,
-    handleScrubbingChange,
     isModal,
   ]);
 
@@ -355,8 +342,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   useEffect(() => {
     const handleOrientationChange = ({ window }: { window: ScaledSize }) => {
       setTimeout(() => {
-        if (flashListRef.current && displayFeed.length > 0 && visibleVideoUri) {
-          const currentIndex = displayFeed.findIndex(item => item.post.uri === visibleVideoUri);
+        if (flashListRef.current && displayFeed.length > 0 && currentVisibleVideoUri.current) {
+          const currentIndex = displayFeed.findIndex(item => item.post.uri === currentVisibleVideoUri.current);
           if (currentIndex >= 0) {
             try {
               flashListRef.current.scrollToIndex({
@@ -374,7 +361,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
     const subscription = Dimensions.addEventListener('change', handleOrientationChange);
     return () => subscription?.remove();
-  }, [displayFeed.length, visibleVideoUri, displayFeed]);
+  }, [displayFeed.length, currentVisibleVideoUri.current, displayFeed]);
 
   // Cleanup timeouts
   useEffect(() => {
@@ -488,8 +475,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
           waitForInteraction: VIEWABILITY_CONSTANTS.WAIT_FOR_INTERACTION,
         }}
         
-        // Scroll behavior
-        scrollEnabled={!isScrubbing && listData.length > 0}
+                  // Scroll behavior
+          scrollEnabled={listData.length > 0}
         showsVerticalScrollIndicator={false}
         bounces={false}
         directionalLockEnabled={true}

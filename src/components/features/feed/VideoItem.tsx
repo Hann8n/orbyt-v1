@@ -42,7 +42,6 @@ export interface VideoItemProps {
   feedOption?: string;
   isVisible?: boolean;
   moderationDecision?: ModerationDecision;
-  onScrubbingChange?: (isScrubbing: boolean) => void;
   isModal?: boolean;
   index?: number;
 }
@@ -57,7 +56,6 @@ const VideoItem: React.FC<VideoItemProps> = ({
   isVisible = false,
   moderationDecision,
   isModal = false,
-  onScrubbingChange,
   index = 0,
 }) => {
   const videoRef = useRef<VideoCardRef>(null);

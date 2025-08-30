@@ -436,7 +436,6 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 playInBackground={false}
                 playWhenInactive={false}
                 onLoadStart={() => {
-                  console.log('[VideoCard] Video load start');
                   onVideoStatus?.(post.uri, 'loading');
                 }}
                 onLoad={handleLoad}

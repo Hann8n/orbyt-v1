@@ -123,7 +123,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const navigateToAuthorProfile = useCallback((rawHandle?: string | null) => {
     const cleanHandle = (rawHandle || '').trim();
     if (!cleanHandle) {
-      console.error('VideoOverlayUI: Cannot navigate: Invalid handle:', rawHandle);
       return;
     }
 
@@ -139,8 +138,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     const handle = author.handle?.trim();
     if (handle && typeof handle === 'string' && handle.trim() !== '') {
       navigateToAuthorProfile(handle);
-    } else {
-      console.error('VideoOverlayUI: Cannot navigate: Invalid or missing handle', author);
     }
   }, [author, navigateToAuthorProfile]);
 
@@ -149,8 +146,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     const handle = post.repostedBy?.handle?.trim();
     if (handle && typeof handle === 'string' && handle.trim() !== '') {
       navigateToAuthorProfile(handle);
-    } else {
-      console.error('VideoOverlayUI: Cannot navigate: Invalid or missing handle', post.repostedBy);
     }
   }, [post.repostedBy, navigateToAuthorProfile]);
 
@@ -343,8 +338,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 </>
               ) : (
                 <>
-                  <TouchableOpacity onPress={handleSharePress} activeOpacity={0.8}>
-                    <MoreFillIcon size={28} color={Colors.white} />
+                  <TouchableOpacity onPress={toggleCollapsed} activeOpacity={0.8}>
+                    <Text style={styles.showMoreText}>Show more</Text>
                   </TouchableOpacity>
                   {!isOverlayCollapsed && record.createdAt && (
                     <Text style={styles.dateText}>
@@ -612,6 +607,14 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   descriptionText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontFamily: 'Firma-Regular',
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  showMoreText: {
     color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Regular',

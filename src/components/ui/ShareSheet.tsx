@@ -255,10 +255,8 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       if (feedbackSent === type) {
         // Remove feedback
         await AtprotoService.removeVideoFeedback(postUri);
-        console.log(`Removed ${type} feedback for post: ${postUri}`);
       } else {
         await AtprotoService.sendVideoFeedback(postUri, type);
-        console.log(`Sent ${type} feedback for post: ${postUri} to vids feed`);
       }
     } catch (error) {
       // Revert to previous state on error
