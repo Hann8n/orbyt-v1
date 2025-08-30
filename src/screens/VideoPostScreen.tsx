@@ -584,16 +584,18 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
               </View>
               {/* Content Warnings */}
               <View style={styles.section}>
-                <View style={styles.sectionHeader}>
+                <TouchableOpacity 
+                  style={styles.sectionHeader}
+                  onPress={() => setContentWarningsCollapsed(!contentWarningsCollapsed)}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.sectionTitle}>content warnings</Text>
-                  <TouchableOpacity onPress={() => setContentWarningsCollapsed(!contentWarningsCollapsed)}>
-                    {contentWarningsCollapsed ? (
-                      <ChevronDownIcon size={24} color={Colors.white} />
-                    ) : (
-                      <ChevronUpIcon size={24} color={Colors.white} />
-                    )}
-                  </TouchableOpacity>
-                </View>
+                  {contentWarningsCollapsed ? (
+                    <ChevronDownIcon size={24} color={Colors.white} />
+                  ) : (
+                    <ChevronUpIcon size={24} color={Colors.white} />
+                  )}
+                </TouchableOpacity>
                 {!contentWarningsCollapsed && (
                   <>
                     <Text style={styles.sectionSubtitle}>
@@ -611,7 +613,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                           selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
                         ]}>
                           {selectedContentWarnings.includes(warning.id) && (
-                            <Icon name="checkmark" size={16} color={Colors.white} />
+                            <Icon name="checkmark" size={16} color={Colors.black} />
                           )}
                         </View>
                       </TouchableOpacity>
@@ -626,7 +628,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                         showContentWarningInput && styles.checkboxSelected
                       ]}>
                         {showContentWarningInput && (
-                          <Icon name="checkmark" size={16} color={Colors.white} />
+                          <Icon name="checkmark" size={16} color={Colors.black} />
                         )}
                       </View>
                     </TouchableOpacity>
@@ -644,16 +646,18 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
               </View>
               {/* Comment Filtering */}
               <View style={styles.section}>
-                <View style={styles.sectionHeader}>
+                <TouchableOpacity 
+                  style={styles.sectionHeader}
+                  onPress={() => setCommentSettingsCollapsed(!commentSettingsCollapsed)}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.sectionTitle}>comment settings</Text>
-                  <TouchableOpacity onPress={() => setCommentSettingsCollapsed(!commentSettingsCollapsed)}>
-                    {commentSettingsCollapsed ? (
-                      <ChevronDownIcon size={24} color={Colors.white} />
-                    ) : (
-                      <ChevronUpIcon size={24} color={Colors.white} />
-                    )}
-                  </TouchableOpacity>
-                </View>
+                  {commentSettingsCollapsed ? (
+                    <ChevronDownIcon size={24} color={Colors.white} />
+                  ) : (
+                    <ChevronUpIcon size={24} color={Colors.white} />
+                  )}
+                </TouchableOpacity>
                 {!commentSettingsCollapsed && (
                   <>
                     <Text style={styles.sectionSubtitle}>
@@ -665,20 +669,13 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                         style={styles.optionRow}
                         onPress={() => setCommentFilter(filter.id)}
                       >
-                        <Text style={styles.optionText}>{filter.label}</Text>
-                        <View style={styles.radioContainer}>
-                          <Ionicons
-                            name={commentFilter === filter.id ? 'radio-button-on' : 'radio-button-off'}
-                            size={22}
-                            color={commentFilter === filter.id ? Colors.lightGray : Colors.lightGray}
-                          />
+                        <Text style={styles.optionText}>{filter.label.toLowerCase()}</Text>
+                        <View style={[
+                          styles.commentCheckbox,
+                          commentFilter === filter.id && styles.checkboxSelected
+                        ]}>
                           {commentFilter === filter.id && (
-                            <Icon
-                              name="checkmark"
-                              size={16}
-                              color={Colors.white}
-                              style={styles.radioCheckmark}
-                            />
+                            <Icon name="checkmark" size={16} color={Colors.black} />
                           )}
                         </View>
                       </TouchableOpacity>
@@ -1003,16 +1000,18 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
           
           {/* Content Warning Section */}
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
+            <TouchableOpacity 
+              style={styles.sectionHeader}
+              onPress={() => setContentWarningsCollapsed(!contentWarningsCollapsed)}
+              activeOpacity={0.7}
+            >
                   <Text style={styles.sectionTitle}>content warnings</Text>
-              <TouchableOpacity onPress={() => setContentWarningsCollapsed(!contentWarningsCollapsed)}>
-                {contentWarningsCollapsed ? (
-                  <ChevronDownIcon size={24} color={Colors.white} />
-                ) : (
-                  <ChevronUpIcon size={24} color={Colors.white} />
-                )}
-              </TouchableOpacity>
-            </View>
+              {contentWarningsCollapsed ? (
+                <ChevronDownIcon size={24} color={Colors.white} />
+              ) : (
+                <ChevronUpIcon size={24} color={Colors.white} />
+              )}
+            </TouchableOpacity>
             {!contentWarningsCollapsed && (
               <>
                     <Text style={styles.sectionSubtitle}>
@@ -1030,7 +1029,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                       selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
                     ]}>
                       {selectedContentWarnings.includes(warning.id) && (
-                        <Icon name="checkmark" size={16} color={Colors.white} />
+                        <Icon name="checkmark" size={16} color={Colors.black} />
                       )}
                     </View>
                   </TouchableOpacity>
@@ -1045,7 +1044,7 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
                     showContentWarningInput && styles.checkboxSelected
                   ]}>
                     {showContentWarningInput && (
-                      <Icon name="checkmark" size={16} color={Colors.white} />
+                      <Icon name="checkmark" size={16} color={Colors.black} />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -1064,41 +1063,36 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
           
           {/* Comment Filtering Section */}
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
+            <TouchableOpacity 
+              style={styles.sectionHeader}
+              onPress={() => setCommentSettingsCollapsed(!commentSettingsCollapsed)}
+              activeOpacity={0.7}
+            >
                  <Text style={styles.sectionTitle}>comment settings</Text>
-              <TouchableOpacity onPress={() => setCommentSettingsCollapsed(!commentSettingsCollapsed)}>
-                {commentSettingsCollapsed ? (
-                  <ChevronDownIcon size={24} color={Colors.white} />
-                ) : (
-                  <ChevronUpIcon size={24} color={Colors.white} />
-                )}
-              </TouchableOpacity>
-            </View>
+              {commentSettingsCollapsed ? (
+                <ChevronDownIcon size={24} color={Colors.white} />
+              ) : (
+                <ChevronUpIcon size={24} color={Colors.white} />
+              )}
+            </TouchableOpacity>
             {!commentSettingsCollapsed && (
               <>
                     <Text style={styles.sectionSubtitle}>
                       control who can comment on your video.
                 </Text>
-                {COMMENT_FILTERS.map(filter => (
+                                {COMMENT_FILTERS.map(filter => (
                   <TouchableOpacity 
                     key={filter.id} 
                     style={styles.optionRow}
                     onPress={() => setCommentFilter(filter.id)}
                   >
-                         <Text style={styles.optionText}>{filter.label.toLowerCase()}</Text>
-                    <View style={styles.radioContainer}>
-                      <Ionicons
-                        name={commentFilter === filter.id ? 'radio-button-on' : 'radio-button-off'}
-                        size={22}
-                        color={commentFilter === filter.id ? Colors.lightGray : Colors.gray}
-                      />
+                       <Text style={styles.optionText}>{filter.label.toLowerCase()}</Text>
+                    <View style={[
+                      styles.commentCheckbox,
+                      commentFilter === filter.id && styles.checkboxSelected
+                    ]}>
                       {commentFilter === filter.id && (
-                        <Icon
-                          name="checkmark"
-                          size={16}
-                          color={Colors.white}
-                          style={styles.radioCheckmark}
-                        />
+                        <Icon name="checkmark" size={16} color={Colors.black} />
                       )}
                     </View>
                   </TouchableOpacity>
@@ -1365,7 +1359,6 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
-    marginBottom: 8,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1399,9 +1392,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  checkboxSelected: {
-    backgroundColor: Colors.darkGray,
+  commentCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: BORDER_RADIUS.FULL,
+    borderWidth: 2,
     borderColor: Colors.lightGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: Colors.white,
+    borderColor: Colors.white,
   },
   radioButton: {
     width: 22,
@@ -1447,7 +1449,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   floatingPostButtonText: {
-    color: Colors.lightGray,
+    color: Colors.black,
     fontSize: 18,
     fontFamily: 'Firma-Black',
   },
