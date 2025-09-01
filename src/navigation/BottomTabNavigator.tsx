@@ -5,10 +5,10 @@ import { View, Platform, Dimensions, TouchableOpacity, Alert, ActivityIndicator,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from './types';
+import { RootStackParamList, HomeStackParamList, ExploreStackParamList, NotificationsStackParamList, ProfileStackParamList } from './types';
+import type { HomeScreenRef } from '../types';
 
 import HomeScreen from '../screens/HomeScreen';
-import type { HomeScreenRef } from '../types';
 import ExploreScreen from '../screens/ExploreScreen';
 import CreateScreen from '../screens/CreateScreen';
 import NotificationScreen from '../screens/NotificationScreen';
@@ -24,7 +24,10 @@ import { Colors } from '../components/ui/UI';
 import { BORDER_RADIUS } from '../utils/constants';
 
 const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const HomeStackNavigator = createNativeStackNavigator<HomeStackParamList>();
+const ExploreStackNavigator = createNativeStackNavigator<ExploreStackParamList>();
+const NotificationsStackNavigator = createNativeStackNavigator<NotificationsStackParamList>();
+const ProfileStackNavigator = createNativeStackNavigator<ProfileStackParamList>();
 
 interface BottomTabNavigatorProps {
   onLogout: () => Promise<void>;
@@ -35,16 +38,16 @@ const homeScreenRef = React.createRef<HomeScreenRef>();
 
 // Create stack navigators for each tab that needs author profile access
 const HomeStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Promise<void>; setIsOnStackedScreen: (value: boolean) => void }) => (
-  <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
-    <Stack.Screen 
+  <HomeStackNavigator.Navigator id={undefined} screenOptions={{ headerShown: false }}>
+    <HomeStackNavigator.Screen 
       name="HomeScreen"
       listeners={{
         focus: () => setIsOnStackedScreen(false),
       }}
     >
       {(props) => <HomeScreen {...props} ref={homeScreenRef} />}
-    </Stack.Screen>
-    <Stack.Screen 
+    </HomeStackNavigator.Screen>
+    <HomeStackNavigator.Screen 
       name="AuthorProfile" 
       children={(props) => <ProfileScreen {...props} onLogout={onLogout} />}
       listeners={{
@@ -52,7 +55,7 @@ const HomeStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Promise
         transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
       }}
     />
-    <Stack.Screen 
+    <HomeStackNavigator.Screen 
       name="Channel" 
       children={(props) => <ChannelScreen {...props} />}
       listeners={{
@@ -60,19 +63,19 @@ const HomeStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Promise
         transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
       }}
     />
-  </Stack.Navigator>
+  </HomeStackNavigator.Navigator>
 );
 
 const ExploreStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Promise<void>; setIsOnStackedScreen: (value: boolean) => void }) => (
-  <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
-    <Stack.Screen 
+  <ExploreStackNavigator.Navigator id={undefined} screenOptions={{ headerShown: false }}>
+    <ExploreStackNavigator.Screen 
       name="ExploreScreen" 
       component={ExploreScreen}
       listeners={{
         focus: () => setIsOnStackedScreen(false),
       }}
     />
-    <Stack.Screen 
+    <ExploreStackNavigator.Screen 
       name="AuthorProfile" 
       children={(props) => <ProfileScreen {...props} onLogout={onLogout} />}
       listeners={{
@@ -80,7 +83,7 @@ const ExploreStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Prom
         transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
       }}
     />
-    <Stack.Screen 
+    <ExploreStackNavigator.Screen 
       name="Channel" 
       children={(props) => <ChannelScreen {...props} />}
       listeners={{
@@ -88,19 +91,19 @@ const ExploreStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Prom
         transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
       }}
     />
-  </Stack.Navigator>
+  </ExploreStackNavigator.Navigator>
 );
 
 const NotificationsStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Promise<void>; setIsOnStackedScreen: (value: boolean) => void }) => (
-  <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
-    <Stack.Screen 
+  <NotificationsStackNavigator.Navigator id={undefined} screenOptions={{ headerShown: false }}>
+    <NotificationsStackNavigator.Screen 
       name="NotificationsScreen" 
       component={NotificationScreen}
       listeners={{
         focus: () => setIsOnStackedScreen(false),
       }}
     />
-    <Stack.Screen 
+    <NotificationsStackNavigator.Screen 
       name="AuthorProfile" 
       children={(props) => <ProfileScreen {...props} onLogout={onLogout} />}
       listeners={{
@@ -108,7 +111,7 @@ const NotificationsStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () =
         transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
       }}
     />
-    <Stack.Screen 
+    <NotificationsStackNavigator.Screen 
       name="Channel" 
       children={(props) => <ChannelScreen {...props} />}
       listeners={{
@@ -116,20 +119,20 @@ const NotificationsStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () =
         transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
       }}
     />
-  </Stack.Navigator>
+  </NotificationsStackNavigator.Navigator>
 );
 
 // Profile tab with its own stack
 const ProfileStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Promise<void>; setIsOnStackedScreen: (value: boolean) => void }) => (
-  <Stack.Navigator id={undefined} screenOptions={{ headerShown: false }}>
-    <Stack.Screen 
+  <ProfileStackNavigator.Navigator id={undefined} screenOptions={{ headerShown: false }}>
+    <ProfileStackNavigator.Screen 
       name="ProfileScreen" 
       children={() => <ProfileScreen onLogout={onLogout} />}
       listeners={{
         focus: () => setIsOnStackedScreen(false),
       }}
     />
-    <Stack.Screen 
+    <ProfileStackNavigator.Screen 
       name="AuthorProfile" 
       children={(props) => <ProfileScreen {...props} onLogout={onLogout} />}
       listeners={{
@@ -137,7 +140,7 @@ const ProfileStack = ({ onLogout, setIsOnStackedScreen }: { onLogout: () => Prom
         transitionStart: (e: any) => { if (e.data?.closing) setIsOnStackedScreen(false); },
       }}
     />
-  </Stack.Navigator>
+  </ProfileStackNavigator.Navigator>
 );
 
 const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => {
@@ -157,12 +160,9 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
   const tabIconSizeSm = Math.max(24, Math.min(34, tabIconSize - 2));
   const captureOuter = Math.round(Math.max(34, Math.min(48, width * 0.11)));
   const captureInner = Math.round(captureOuter * 0.78);
-  
-
 
   const handleTabPress = (routeName: string) => {
     const now = Date.now();
-
 
     // If user taps home while already on home, detect double-tap and trigger refresh
     if (routeName === 'Home' && currentTab === 'Home') {
@@ -190,6 +190,36 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
   // Custom tab bar button for capture
   const CaptureTabButton = ({ children }: { children: React.ReactNode }) => {
     const [isPreparing, setIsPreparing] = useState(false);
+    
+    const handleCapturePress = async () => {
+      try {
+        // Show action sheet for user to choose between camera and gallery
+        Alert.alert(
+          'Create Video',
+          'Choose how you want to create your video',
+          [
+            {
+              text: 'Camera',
+              onPress: () => {
+                // Navigate to CreateScreen for camera recording
+                navigation.navigate('Create');
+              },
+            },
+            {
+              text: 'Gallery',
+              onPress: handleGalleryPick,
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+          ]
+        );
+      } catch (error) {
+        console.error('Error in capture button:', error);
+      }
+    };
+
     const handleGalleryPick = async () => {
       try {
         setIsPreparing(true);
@@ -239,10 +269,11 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
         Alert.alert('Error', 'Failed to access gallery. Please try again.');
       }
     };
+
     return (
       <View style={{ alignItems: 'center', justifyContent: 'center' }}>
         <TouchableOpacity
-          onPress={handleGalleryPick}
+          onPress={handleCapturePress}
           activeOpacity={0.8}
           style={{
             width: captureOuter,
@@ -256,7 +287,6 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
             shadowOpacity: 0,
             shadowRadius: 0,
             elevation: 0,
-
           }}
           disabled={isPreparing}
         >
@@ -300,7 +330,7 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
   return (
     <Tab.Navigator id={undefined}
       backBehavior="initialRoute"
-            screenOptions={({ route }) => ({
+      screenOptions={({ route }) => ({
         headerShown: false,
         detachInactiveScreens: false,
         tabBarHideOnKeyboard: true,
@@ -370,7 +400,6 @@ const BottomTabNavigator: React.FC<BottomTabNavigatorProps> = ({ onLogout }) => 
         },
         listeners: ({ navigation }: { navigation: any }) => ({
           tabPress: (_e: any) => {
-        
             // Prevent default behavior for home tab when already on home
             if (route.name === 'Home' && currentTab === 'Home') {
               handleTabPress(route.name);

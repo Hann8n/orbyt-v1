@@ -5,6 +5,7 @@ import { ModerationDecision, ModerationSettings, LabelPreference, ModerationOpts
 import { AtProtoOAuthService } from '../auth/OAuthService';
 import { StaticChannelsService } from '../APIService';
 
+
 const SERVICE_URL = 'https://bsky.social';
 const CHAT_SERVICE_URL = 'https://api.bsky.chat';
 
@@ -1548,13 +1549,26 @@ class AtprotoService {
     displayName?: string;
     description?: string;
     avatar?: string; // Base64 encoded image or file URI
+    customColors?: {
+      backgroundColor: string;
+      textColor: string;
+    };
   }): Promise<any> {
     try {
+      console.log('[AtprotoService] updateProfile called with:', {
+        displayName: updates.displayName,
+        description: updates.description,
+        hasAvatar: !!updates.avatar,
+        customColors: updates.customColors,
+      });
+      
       await this.ensureSession();
       
       // Use the correct upsertProfile method as per Bluesky documentation
       const { api } = await this.getApiClient();
       const updatedProfile = await api.upsertProfile(existingProfile => {
+        console.log('[AtprotoService] Existing profile before update:', existingProfile);
+        
         const existing = existingProfile ?? {};
         
         // Update display name if provided
@@ -1573,12 +1587,23 @@ class AtprotoService {
           // We'll handle this in the main function
         }
         
+        console.log('[AtprotoService] Profile after updates:', existing);
         return existing;
       });
       
       // Handle avatar upload separately if provided
       if (updates.avatar) {
         try {
+          console.log('[AtprotoService] Processing avatar upload:', updates.avatar);
+          
+          // Check if this is a CDN URL (existing avatar) - we can't re-upload these
+          if (updates.avatar.startsWith('https://') && updates.avatar.includes('cdn.bsky.app')) {
+            console.log('[AtprotoService] Skipping upload for existing CDN avatar');
+            
+            // Don't proceed with upload for existing avatars
+            return;
+          }
+          
           let imageBlob: Blob;
           
           if (updates.avatar.startsWith('data:')) {
@@ -1593,11 +1618,15 @@ class AtprotoService {
             throw new Error('Unsupported avatar format');
           }
 
+          console.log('[AtprotoService] Image blob created, size:', imageBlob.size);
+
           // Upload the image to Bluesky
           const { api } = await this.getApiClient();
           const uploadResult = await api.uploadBlob(imageBlob, {
             encoding: 'image/jpeg'
           });
+
+          console.log('[AtprotoService] Avatar uploaded successfully:', uploadResult.data.blob);
 
           // Update profile with the new avatar
           await api.upsertProfile(existingProfile => {
@@ -1605,8 +1634,10 @@ class AtprotoService {
             (existing as any).avatar = uploadResult.data.blob;
             return existing;
           });
+          
+          console.log('[AtprotoService] Profile updated with new avatar');
         } catch (error) {
-          console.error('Error uploading avatar:', error);
+          console.error('[AtprotoService] Error uploading avatar:', error);
           throw new Error('Failed to upload avatar image');
         }
       }

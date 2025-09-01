@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useCallback, useState } from 'react';
+import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Modal, TouchableWithoutFeedback, ActivityIndicator, TextInput, Alert, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -8,9 +8,10 @@ import { useProfile, useProfileColors, useFollowMutation, useProfileUpdateMutati
 import VerificationBadge from '../../features/verification/VerificationBadge';
 import VerificationInfoSheet from '../../features/verification/VerificationInfoSheet';
 import ProfileMenu from '../../features/profile/ProfileMenu';
+import ProfileColorPicker, { ProfileColorOption } from '../../features/profile/ProfileColorPicker';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { FollowIcon, MutualHeartIcon, ProfileEditIcon} from '../../ui/Icon';
-import { hexToRGBA } from '../../../utils/formatting/colorUtils';
+import { hexToRGBA, extractColorsFromImage } from '../../../utils/formatting/colorUtils';
 
 interface ProfileHeaderProps {
   handle: string | null;
@@ -23,6 +24,8 @@ interface ProfileHeaderProps {
   children?: React.ReactNode;
   applySafeArea?: boolean;
   headerStyle?: any;
+  onEditModeChange?: (isEditMode: boolean) => void;
+  onColorsChange?: (colors: { backgroundColor: string; textColor: string }) => void;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -36,6 +39,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   children,
   applySafeArea = false,
   headerStyle,
+  onEditModeChange,
+  onColorsChange,
 }) => {
   const navigation = useNavigation<any>();
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
@@ -46,6 +51,16 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editAvatar, setEditAvatar] = useState<string | undefined>(undefined);
+  const [selectedColorId, setSelectedColorId] = useState<string>('default');
+  const [selectedColorType, setSelectedColorType] = useState<'background' | 'text'>('background');
+  const [customColors, setCustomColors] = useState<{
+    backgroundColor: string;
+    textColor: string;
+  } | null>(null);
+  const [extractedDefaultColors, setExtractedDefaultColors] = useState<{
+    backgroundColor: string;
+    textColor: string;
+  } | null>(null);
 
   // Use profile data and colors from cache
   const {
@@ -68,9 +83,13 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       setEditDisplayName(profileData.displayName || '');
       setEditDescription(profileData.description || '');
       setEditAvatar(undefined);
+      setSelectedColorId('default');
+      setSelectedColorType('background');
+      setCustomColors(null);
       setIsEditMode(true);
+      onEditModeChange?.(true);
     }
-  }, [profileData]);
+  }, [profileData, onEditModeChange]);
 
   // Exit edit mode and reset form
   const exitEditMode = useCallback(() => {
@@ -78,7 +97,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     setEditDisplayName('');
     setEditDescription('');
     setEditAvatar(undefined);
-  }, []);
+    setSelectedColorId('default');
+    setSelectedColorType('background');
+    setCustomColors(null);
+    onEditModeChange?.(false);
+  }, [onEditModeChange]);
 
   // Handle avatar selection
   const handleAvatarPress = useCallback(async () => {
@@ -151,26 +174,109 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     }
   }, []);
 
+  // Handle color selection
+  const handleColorSelect = useCallback((colorOption: ProfileColorOption) => {
+    console.log('[ProfileHeader] Color selected:', {
+      id: colorOption.id,
+      backgroundColor: colorOption.backgroundColor,
+      textColor: colorOption.textColor,
+      label: colorOption.label,
+    });
+    
+    setSelectedColorId(colorOption.id);
+    if (colorOption.id === 'default') {
+      console.log('[ProfileHeader] Using default colors (extracted from avatar)');
+      setCustomColors(null);
+    } else {
+      console.log('[ProfileHeader] Using custom colors:', {
+        backgroundColor: colorOption.backgroundColor,
+        textColor: colorOption.textColor,
+      });
+      setCustomColors({
+        backgroundColor: colorOption.backgroundColor,
+        textColor: colorOption.textColor,
+      });
+    }
+  }, []);
+
+  // Extract default colors from avatar when profile data changes
+  useEffect(() => {
+    const extractDefaultColors = async () => {
+      if (profileData?.avatar) {
+        console.log('[ProfileHeader] Extracting colors from avatar:', profileData.avatar);
+        try {
+          const colors = await extractColorsFromImage(profileData.avatar);
+          console.log('[ProfileHeader] Extracted colors from avatar:', {
+            backgroundColor: colors.backgroundColor,
+            foregroundColor: colors.foregroundColor,
+            textColor: colors.textColor,
+            secondaryColor: colors.secondaryColor,
+            accentColor: colors.accentColor,
+            statusBarStyle: colors.statusBarStyle,
+          });
+          
+          setExtractedDefaultColors({
+            backgroundColor: colors.backgroundColor,
+            textColor: colors.foregroundColor,
+          });
+          
+          console.log('[ProfileHeader] Set extracted default colors:', {
+            backgroundColor: colors.backgroundColor,
+            textColor: colors.foregroundColor,
+          });
+        } catch (error) {
+          console.error('[ProfileHeader] Error extracting default colors:', error);
+          // Fallback to black/white if extraction fails
+          setExtractedDefaultColors({
+            backgroundColor: '#000000',
+            textColor: '#FFFFFF',
+          });
+        }
+      } else {
+        console.log('[ProfileHeader] No avatar available for color extraction');
+      }
+    };
+
+    extractDefaultColors();
+  }, [profileData?.avatar]);
+
+  // Handle color type selection (background or text)
+  const handleColorTypeSelect = useCallback((colorType: 'background' | 'text') => {
+    setSelectedColorType(colorType);
+  }, []);
+
   // Handle save profile
   const handleSaveProfile = useCallback(async () => {
     if (!profileData) return;
 
-    try {
-      await profileUpdateMutation.mutateAsync({
+    console.log('[ProfileHeader] Saving profile with updates:', {
+      handle: profileData.handle,
+      displayName: editDisplayName.trim() || undefined,
+      description: editDescription.trim() || undefined,
+      avatar: editAvatar || undefined,
+      customColors: customColors || undefined,
+    });
+
+          try {
+        let avatarToUpload = editAvatar;
+
+      const result = await profileUpdateMutation.mutateAsync({
         handle: profileData.handle,
         updates: {
           displayName: editDisplayName.trim() || undefined,
           description: editDescription.trim() || undefined,
-          avatar: editAvatar || undefined,
+          avatar: avatarToUpload || undefined,
+          customColors: customColors || undefined,
         }
       });
       
+      console.log('[ProfileHeader] Profile update successful:', result);
       exitEditMode();
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error('[ProfileHeader] Error updating profile:', error);
       Alert.alert('Error', 'Failed to update profile. Please try again.');
     }
-  }, [profileData, editDisplayName, editDescription, editAvatar, profileUpdateMutation, exitEditMode]);
+  }, [profileData, editDisplayName, editDescription, editAvatar, customColors, profileUpdateMutation, exitEditMode]);
 
   // Handle follow/unfollow action
   const handleFollowUnfollow = useCallback(async () => {
@@ -206,27 +312,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
     if (isOwnProfile) {
       if (isEditMode) {
-        return [
-          {
-            type: 'button-group',
-            buttonGroup: {
-              primary: {
-                id: 'save',
-                label: profileUpdateMutation.isPending ? 'Saving...' : 'Save',
-                onPress: handleSaveProfile,
-                disabled: profileUpdateMutation.isPending,
-                loading: profileUpdateMutation.isPending,
-                variant: 'primary' as const,
-              },
-              secondary: {
-                id: 'cancel',
-                label: 'Cancel',
-                onPress: exitEditMode,
-                variant: 'secondary' as const,
-              },
-            },
-          },
-        ];
+        return []; // No custom actions in edit mode since buttons are in color picker
       } else {
         return [
           {
@@ -337,47 +423,113 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     />
   ), [profileColors.textColor, profileColors.backgroundColor]);
 
+  // Get colors for description and tab navigation (should update in real-time during edit mode)
+  const dynamicColors = useMemo(() => {
+    console.log('[ProfileHeader] dynamicColors calculation:', {
+      isEditMode,
+      hasCustomColors: !!customColors,
+      customColors,
+      profileColors: {
+        backgroundColor: profileColors.backgroundColor,
+        textColor: profileColors.textColor,
+      },
+    });
+    
+    if (isEditMode && customColors) {
+      console.log('[ProfileHeader] Using custom colors for dynamic colors');
+      return customColors;
+    }
+    
+    console.log('[ProfileHeader] Using profile colors for dynamic colors');
+    return {
+      backgroundColor: profileColors.backgroundColor,
+      textColor: profileColors.textColor,
+    };
+  }, [isEditMode, customColors, profileColors.backgroundColor, profileColors.textColor]);
+
+  // Notify parent of color changes
+  useEffect(() => {
+    onColorsChange?.(dynamicColors);
+  }, [dynamicColors, onColorsChange]);
+
   // Only render custom description in edit mode; view mode is handled by UniversalHeader
   const customDescription = useMemo(() => {
     if (!isEditMode) return null;
 
     return (
       <View>
-        <Text style={[styles.editSubheader, { color: hexToRGBA(profileColors.textColor, 0.67) }]}>ABOUT</Text>
+        <Text style={[styles.editSubheader, { color: hexToRGBA(dynamicColors.textColor, 0.67) }]}>ABOUT</Text>
         <TextInput
           style={[
             styles.description,
             styles.editDescription,
             { 
-              color: profileColors.textColor + 'DD',
+              color: dynamicColors.textColor + 'DD',
             }
           ]}
           value={editDescription}
           onChangeText={setEditDescription}
           placeholder="Write a bio..."
-          placeholderTextColor={hexToRGBA(profileColors.textColor, 0.5)}
+          placeholderTextColor={hexToRGBA(dynamicColors.textColor, 0.5)}
           multiline
           maxLength={256}
         />
       </View>
     );
-  }, [isEditMode, editDescription, profileColors.textColor]);
+  }, [isEditMode, editDescription, dynamicColors.textColor]);
+
+  // Get current colors for the color picker and header content
+  const currentColors = useMemo(() => {
+    if (customColors) {
+      return customColors;
+    }
+    return {
+      backgroundColor: profileColors.backgroundColor,
+      textColor: profileColors.textColor,
+    };
+  }, [customColors, profileColors.backgroundColor, profileColors.textColor]);
 
   return (
     <>
+      {isEditMode && (
+        <ProfileColorPicker
+          selectedColorId={selectedColorId}
+          onColorSelect={handleColorSelect}
+          defaultColors={extractedDefaultColors || {
+            backgroundColor: '#000000',
+            textColor: '#FFFFFF',
+          }}
+          textColor="#FFFFFF"
+          backgroundColor="#000000"
+          onSave={handleSaveProfile}
+          onCancel={exitEditMode}
+          isSaving={profileUpdateMutation.isPending}
+          selectedColorType={selectedColorType}
+          onColorTypeSelect={handleColorTypeSelect}
+        />
+      )}
+      
       <UniversalHeader
         content={headerContent}
         actions={[]}
         customActions={customActions}
         showBackButton={showBackButton && !isEditMode}
         onBackPress={onBackPress}
-        backgroundColor={profileColors.backgroundColor}
-        textColor={profileColors.textColor}
+        backgroundColor={currentColors.backgroundColor}
+        textColor={currentColors.textColor}
         isLoading={forceLoading || (isProfileLoading && !profileData)}
         skeleton={skeleton}
         showGradient={false}
-        applySafeArea={applySafeArea}
-        style={{ opacity: 1 }}
+        applySafeArea={applySafeArea && !isEditMode}
+        style={{ 
+          opacity: 1,
+          ...(isEditMode && {
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            overflow: 'hidden',
+            paddingTop: 20,
+          })
+        }}
         contentStyle={[headerStyle]}
       >
         {customDescription}

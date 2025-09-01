@@ -3038,6 +3038,11 @@ expo-atproto-auth@^0.1.1:
   resolved "https://registry.yarnpkg.com/expo-atproto-auth/-/expo-atproto-auth-0.1.1.tgz#250798e87c22e963a3c3edb9914c13f46ca88de4"
   integrity sha512-tJ9y3uJiTFXMaviKOWfbSKYcWaWdvEByMJGXB4h8RxEhmnD7C7CTdVRR4ZLfcUucaDQLRczMFWUwBdZKbS1slA==
 
+expo-av@^15.1.7:
+  version "15.1.7"
+  resolved "https://registry.yarnpkg.com/expo-av/-/expo-av-15.1.7.tgz#a8422646eca9250c842e8a44fccccb1a4b070a05"
+  integrity sha512-NC+JR+65sxXfQN1mOHp3QBaXTL2J+BzNwVO27XgUEc5s9NaoBTdHWElYXrfxvik6xwytZ+a7abrqfNNgsbQzsA==
+
 expo-background-task@~1.0.4:
   version "1.0.4"
   resolved "https://registry.yarnpkg.com/expo-background-task/-/expo-background-task-1.0.4.tgz#956e7009f05c247aec8907255c4f0d0d5a673fd7"
@@ -4894,6 +4899,11 @@ react-native-svg@15.12.1:
     css-select "^5.1.0"
     css-tree "^1.1.3"
     warn-once "0.1.1"
+
+react-native-video-trim@^5.0.3:
+  version "5.0.3"
+  resolved "https://registry.yarnpkg.com/react-native-video-trim/-/react-native-video-trim-5.0.3.tgz#1290f7b2adcc7a9250ca4549818c5761dd3848c6"
+  integrity sha512-CJZAGIw3M7jhmgJkTW3fpk8mhSMrCjn9eqxqLvVqnA3Z5pFXwFqgeJIn6ZIozx3WheOhT6sKFKKkqaMUy09iNA==
 
 react-native-video@^6.16.1:
   version "6.16.1"

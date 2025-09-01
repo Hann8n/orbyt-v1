@@ -10,7 +10,8 @@ import {
   QueryFunction
 } from '@tanstack/react-query';
 import ImageColors from 'react-native-image-colors';
-import { useCallback } from 'react';
+import { useCallback, useState, useEffect } from 'react';
+
 
 export interface CachedProfile {
   did: string;
@@ -540,6 +541,12 @@ class ProfileCache {
   ): Promise<void> {
     if (!handle) return;
     
+    console.log('[ProfileCache] updateProfileColors called:', {
+      handle,
+      backgroundColor,
+      foregroundColor,
+    });
+    
     return new Promise((resolve) => {
       // Move color updates to background
       requestAnimationFrame(() => {
@@ -555,7 +562,15 @@ class ProfileCache {
               cachedProfile = (await this.getProfileFromCache(normalizedHandle)) || undefined;
             }
             
+            console.log('[ProfileCache] Found cached profile for colors update:', {
+              handle: normalizedHandle,
+              hasCachedProfile: !!cachedProfile,
+              existingColors: cachedProfile?.profileColors,
+            });
+            
             if (cachedProfile) {
+              const oldColors = cachedProfile.profileColors;
+              
               // Create a new colors object to avoid direct reference mutation
               cachedProfile.profileColors = {
                 backgroundColor,
@@ -565,12 +580,21 @@ class ProfileCache {
               
               cachedProfile.lastUpdated = Date.now();
               
+              console.log('[ProfileCache] Updated profile colors:', {
+                oldColors,
+                newColors: cachedProfile.profileColors,
+              });
+              
               // Update both memory and storage
               this.memoryCache.set(normalizedHandle, {...cachedProfile});
               await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
               
               // Notify subscribers of a profile update
               this.notifyProfileUpdated(normalizedHandle);
+              
+              console.log('[ProfileCache] Colors saved to cache successfully');
+            } else {
+              console.log('[ProfileCache] No cached profile found for colors update');
             }
             resolve();
           } catch (error) {
@@ -1344,7 +1368,11 @@ export function useProfile(handle: string | null | undefined): UseQueryResult<Ca
  */
 export function useProfileColors(handle: string | null | undefined) {
   const { data: profile } = useProfile(handle);
+
   
+
+  
+  // Use cached profile colors
   const colors: ProfileColorScheme = {
     backgroundColor: profile?.profileColors?.backgroundColor || '#000000',
     foregroundColor: profile?.profileColors?.foregroundColor || '#FFFFFF',
@@ -1480,13 +1508,38 @@ export function useProfileUpdateMutation() {
         displayName?: string;
         description?: string;
         avatar?: string;
+        customColors?: {
+          backgroundColor: string;
+          textColor: string;
+        };
       }
     }) => {
+      console.log('[ProfileCache] Updating profile with:', {
+        handle,
+        updates,
+        hasCustomColors: !!updates.customColors,
+      });
+      
       const updatedProfile = await AtprotoService.updateProfile(updates);
+      console.log('[ProfileCache] AtprotoService.updateProfile result:', updatedProfile);
+      
+      // Handle custom colors locally since they're not part of the Bluesky API
+      if (updates.customColors) {
+        console.log('[ProfileCache] Saving custom colors locally:', {
+          handle,
+          backgroundColor: updates.customColors.backgroundColor,
+          textColor: updates.customColors.textColor,
+        });
+        await ProfileCache.updateProfileColors(handle, updates.customColors.backgroundColor, updates.customColors.textColor);
+      }
+      
       // Immediately apply to local cache for fast UI reflection
       try {
         await ProfileCache.applyServerProfile(handle, updatedProfile);
-      } catch {}
+        console.log('[ProfileCache] Applied server profile to cache');
+      } catch (error) {
+        console.error('[ProfileCache] Error applying server profile:', error);
+      }
       return { handle, updatedProfile };
     },
     onMutate: async ({ handle, updates }) => {
@@ -1501,6 +1554,13 @@ export function useProfileUpdateMutation() {
           ...(updates.displayName !== undefined ? { displayName: updates.displayName } : {}),
           ...(updates.description !== undefined ? { description: updates.description } : {}),
           ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {}),
+          ...(updates.customColors ? {
+            profileColors: {
+              backgroundColor: updates.customColors.backgroundColor,
+              foregroundColor: updates.customColors.textColor,
+              statusBarStyle: updates.customColors.textColor === '#FFFFFF' ? 'light' : 'dark'
+            }
+          } : {}),
           lastUpdated: Date.now(),
         };
         queryClient.setQueryData(profileKeys.detail(handle), optimistic);

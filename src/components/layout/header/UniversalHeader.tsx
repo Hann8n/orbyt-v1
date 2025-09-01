@@ -503,44 +503,46 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       {/* Content container */}
       <Animated.View style={[styles.content, contentStyle]} pointerEvents="box-none" collapsable={false}>
         {/* Navigation and Action Buttons */}
-        <View style={styles.topRow}>
-        <View style={styles.leftSection}>
-          {showBackButton && (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBackPress}
-              activeOpacity={0.7}
-            >
-              <BackArrowIcon size={30} color={textColor} />
-            </TouchableOpacity>
-          )}
-        </View>
-        
-        <View style={styles.rightSection}>
-          {actions.length > 0 && (
-            <View style={styles.actionsContainer}>
-              {actions.map((action) => (
-                <ActionButton
-                  key={action.id}
-                  action={action}
+        {(showBackButton || actions.length > 0 || customActions.length > 0) && (
+          <View style={styles.topRow}>
+            <View style={styles.leftSection}>
+              {showBackButton && (
+                <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={handleBackPress}
+                  activeOpacity={0.7}
+                >
+                  <BackArrowIcon size={30} color={textColor} />
+                </TouchableOpacity>
+              )}
+            </View>
+            
+            <View style={styles.rightSection}>
+              {actions.length > 0 && (
+                <View style={styles.actionsContainer}>
+                  {actions.map((action) => (
+                    <ActionButton
+                      key={action.id}
+                      action={action}
+                      textColor={textColor}
+                      backgroundColor={backgroundColor}
+                    />
+                  ))}
+                </View>
+              )}
+
+              {/* Custom Action Layouts */}
+              {customActions.map((layout, index) => (
+                <CustomActionLayout
+                  key={`custom-action-${index}`}
+                  layout={layout}
                   textColor={textColor}
                   backgroundColor={backgroundColor}
                 />
               ))}
             </View>
-          )}
-
-          {/* Custom Action Layouts */}
-          {customActions.map((layout, index) => (
-            <CustomActionLayout
-              key={`custom-action-${index}`}
-              layout={layout}
-              textColor={textColor}
-              backgroundColor={backgroundColor}
-            />
-          ))}
-        </View>
-      </View>
+          </View>
+        )}
 
       {/* Header Content */}
       <HeaderContentComponent
@@ -563,6 +565,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
+    paddingTop: 12,
     position: 'relative',
     width: '100%',
     backgroundColor: 'transparent',

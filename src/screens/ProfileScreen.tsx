@@ -46,6 +46,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [showAccountSwitcher, setShowAccountSwitcher] = useState<boolean>(false);
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [dynamicColors, setDynamicColors] = useState<{
+    backgroundColor: string;
+    textColor: string;
+  } | null>(null);
 
   const invalidateProfile = useProfileInvalidation();
   const queryClient = useQueryClient();
@@ -313,13 +318,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                     onLogout={handleLogout}
                     onSwitchAccount={() => setShowAccountSwitcher(true)}
                     forceLoading={isProfileLoadingForced}
-                     applySafeArea={true}
+                    applySafeArea={true}
+                    onEditModeChange={setIsEditMode}
+                    onColorsChange={setDynamicColors}
                   >
                     <TabNavigation
+                      key={`tab-nav-${isEditMode}-${dynamicColors?.textColor || profileColors.textColor}`}
                       tabs={tabOptions}
                       activeTab={activeTab}
                       onTabPress={(tabId) => setActiveTab(tabId as any)}
-                      textColor={profileColors.textColor}
+                      textColor={isEditMode && dynamicColors ? dynamicColors.textColor : profileColors.textColor}
                       backgroundColor="transparent"
                       viewMode={viewMode}
                       onViewModeChange={setViewMode}
@@ -332,11 +340,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 <RefreshControl
                   refreshing={refreshing}
                   onRefresh={onRefresh}
-                  tintColor={profileColors.textColor}
+                  tintColor={isEditMode && dynamicColors ? dynamicColors.textColor : profileColors.textColor}
                 />
               }
               backgroundColor={Colors.black}
-              secondaryColor={profileColors.textColor}
+              secondaryColor={isEditMode && dynamicColors ? dynamicColors.textColor : profileColors.textColor}
               isProfileLoading={isProfileLoading && !profileData}
               viewMode={viewMode}
               onViewModeChange={setViewMode}

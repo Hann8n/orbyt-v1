@@ -138,6 +138,15 @@ const HISTORY_ANTICLOCKWISE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" 
 // Mingcute Experimental Feeds Icon (custom SVG provided)
 const EXPERIMENTAL_FEEDS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path d="m12.594 23.258l-.012.002l-.071.035l-.02.004l-.014-.004l-.071-.036q-.016-.004-.024.006l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.016-.018m.264-.113l-.014.002l-.184.093l-.01.01l-.003.011l.018.43l.005.012l.008.008l.201.092q.019.005.029-.008l.004-.014l-.034-.614q-.005-.019-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.003-.011l.018-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="M16 2a1 1 0 1 1 0 2v14a4 4 0 0 1-8 0V4a1 1 0 0 1 0-2zm-2 13h-2a1 1 0 1 0 0 2h2zm0-4h-2a1 1 0 0 0-.117 1.993L12 13h2zm0-4h-2a1 1 0 1 0 0 2h2z"/></g></svg>`;
 
+// Gallery Icon SVG
+const GALLERY_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>photo_album_fill</title><g id="photo_album_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#FFFFFFFF' d='M5 3a3 3 0 0 0-3 3v10a2 2 0 0 0 2 2V6a1 1 0 0 1 1-1h14a2 2 0 0 0-2-2zm0 5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v11.333a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zm15 0H7v7.848L10.848 12a1.25 1.25 0 0 1 1.768 0l3.241 3.24.884-.883a1.25 1.25 0 0 1 1.768 0L20 15.848zm-2 3a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0'/></g></svg>`;
+
+// Flash Icon SVG
+const FLASH_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>flash_fill</title><g id="flash_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#FFFFFFFF' d='M13.232 1.36c.632-.758 1.863-.24 1.763.742L14.289 9H20a1 1 0 0 1 .768 1.64l-10 12c-.632.758-1.863.24-1.763-.742L9.711 15H4a1 1 0 0 1-.768-1.64z'/></g></svg>`;
+
+// Camera Rotate Icon SVG
+const CAMERA_ROTATE_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>camera_rotate_fill</title><g id="camera_rotate_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#FFFFFFFF' d='M14.586 3A2 2 0 0 1 16 3.586L17.414 5H20a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2.586L8 3.586A2 2 0 0 1 9.414 3zm-5.93 9.5a1 1 0 0 0-.963.693l-.645 2a1 1 0 0 0 1.903.616 4.498 4.498 0 0 0 6.906-.99 1 1 0 1 0-1.713-1.031 2.502 2.502 0 0 1-4.54-.573 1 1 0 0 0-.948-.715M12 8a4.493 4.493 0 0 0-3.857 2.18 1 1 0 1 0 1.714 1.032A2.494 2.494 0 0 1 12 10c1.131 0 2.09.752 2.397 1.785a1 1 0 0 0 1.867.132l.043-.11.645-2a1 1 0 0 0-1.903-.616A4.483 4.483 0 0 0 12 8'/></g></svg>`;
+
 // Custom Plus Icon component
 export const PlusIcon: React.FC<{ size: number; color: string; strokeWidth: number }> = ({ 
   size, 
@@ -625,6 +634,45 @@ export const HistoryAnticlockwiseIcon: React.FC<{ size: number; color: string; s
 // Custom Experimental Feeds Icon component
 export const ExperimentalFeedsIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
   const svgXml = EXPERIMENTAL_FEEDS_ICON_SVG.replace(/#fff/g, color);
+  return (
+    <SvgXml 
+      xml={svgXml} 
+      width={size} 
+      height={size} 
+      style={style}
+    />
+  );
+};
+
+// Custom Gallery Icon component
+export const GalleryIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = GALLERY_ICON_SVG.replace(/#FFFFFFFF/g, color);
+  return (
+    <SvgXml 
+      xml={svgXml} 
+      width={size} 
+      height={size} 
+      style={style}
+    />
+  );
+};
+
+// Custom Flash Icon component
+export const FlashIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = FLASH_ICON_SVG.replace(/#FFFFFFFF/g, color);
+  return (
+    <SvgXml 
+      xml={svgXml} 
+      width={size} 
+      height={size} 
+      style={style}
+    />
+  );
+};
+
+// Custom Camera Rotate Icon component
+export const CameraRotateIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = CAMERA_ROTATE_ICON_SVG.replace(/#FFFFFFFF/g, color);
   return (
     <SvgXml 
       xml={svgXml} 
@@ -1222,6 +1270,15 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'bluesky-icon') {
       const svgXml = BLUESKY_ICON_SVG.replace(/#fff/g, color);
       return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+    }
+    if (name === 'gallery' || name === 'photo-album-fill') {
+      return <GalleryIcon size={size} color={color} style={style} />;
+    }
+    if (name === 'flash' || name === 'flash-fill') {
+      return <FlashIcon size={size} color={color} style={style} />;
+    }
+    if (name === 'camera-rotate' || name === 'camera-rotate-fill') {
+      return <CameraRotateIcon size={size} color={color} style={style} />;
     }
 
     // Explicit mapping of remaining names to local SVGs only

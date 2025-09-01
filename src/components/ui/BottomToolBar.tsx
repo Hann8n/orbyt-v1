@@ -23,9 +23,9 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({ mode, onToolPress, flashA
   const getTools = () => {
     if (mode === 'create') {
       return [
-        { id: 'gallery', icon: 'image', label: 'Gallery' },
-        { id: 'flip', icon: 'repeat', label: 'Flip' },
-        { id: 'flash', icon: 'zap', label: 'Flash' },
+        { id: 'gallery', icon: 'gallery', label: 'Gallery' },
+        { id: 'flip', icon: 'camera-rotate', label: 'Flip' },
+        { id: 'flash', icon: 'flash', label: 'Flash' },
       ];
     } else if (mode === 'edit') {
       return [
@@ -63,7 +63,7 @@ import { Colors } from './UI';
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
   },
   safeAreaSmall: {
     backgroundColor: 'transparent',
@@ -71,9 +71,8 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     height: 60,
-    backgroundColor: Colors.darkGray,
-    borderTopWidth: 0.5,
-    borderTopColor: Colors.gray,
+    backgroundColor: Colors.black,
+    borderTopWidth: 0,
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingHorizontal: 10,

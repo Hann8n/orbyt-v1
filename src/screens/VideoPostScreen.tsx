@@ -333,11 +333,11 @@ const VideoPostScreen: React.FC<Props> = ({ route }) => {
       // Small delay to show completion
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Close the current screen and navigate to profile
+      // Close the current screen and navigate back to main
       navigation.reset({
         index: 0,
         routes: [
-          { name: 'Main', params: { screen: 'Profile' } }
+          { name: 'Main' }
         ],
       });
       

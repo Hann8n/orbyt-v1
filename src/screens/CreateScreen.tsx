@@ -12,14 +12,22 @@ import {
   Alert,
   Platform,
   StatusBar,
-  Linking
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, useCameraDevice, useCameraPermission, VideoFile } from 'react-native-vision-camera';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
-import Animated, { useSharedValue, withSpring, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import Animated, { 
+  useSharedValue, 
+  withSpring, 
+  useAnimatedStyle, 
+  withTiming,
+  runOnJS,
+  interpolate,
+  Extrapolate
+} from 'react-native-reanimated';
 import Icon, { BackArrowIcon } from '../components/ui/Icon';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
@@ -64,11 +72,12 @@ const CreateScreen: React.FC = () => {
   const isFocused = useIsFocused();
   const recButtonScale = useSharedValue(1);
   const progressWidth = useSharedValue(0);
+  const recordingPulse = useSharedValue(0);
 
   const device = useCameraDevice(isFrontCamera ? 'front' : 'back');
   const navigation = useNavigation<CreateScreenNavigationProp>();
 
-  // Request camera and gallery permissions on mount; defer microphone until recording
+  // Request camera and gallery permissions on mount
   useEffect(() => {
     const checkPermissions = async () => {
       if (!hasPermission) await requestPermission();
@@ -77,6 +86,7 @@ const CreateScreen: React.FC = () => {
     checkPermissions();
   }, [hasPermission, hasGalleryPermission, requestPermission, requestGalleryPermission]);
 
+  // Animated styles
   const animatedRecordingStyle = useAnimatedStyle(() => ({
     transform: [{ scale: recButtonScale.value }],
   }));
@@ -85,14 +95,38 @@ const CreateScreen: React.FC = () => {
     width: `${progressWidth.value}%`,
   }));
 
+  const animatedRecordingPulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(recordingPulse.value, [0, 1], [1, 1.1], Extrapolate.CLAMP) }],
+    opacity: interpolate(recordingPulse.value, [0, 1], [0.8, 1], Extrapolate.CLAMP),
+  }));
+
+  // Start recording pulse animation
+  const startRecordingPulse = useCallback(() => {
+    recordingPulse.value = withTiming(1, { duration: 1000 }, () => {
+      recordingPulse.value = withTiming(0, { duration: 1000 }, () => {
+        if (isRecording) {
+          runOnJS(startRecordingPulse)();
+        }
+      });
+    });
+  }, [isRecording, recordingPulse]);
+
+  // Stop recording pulse animation
+  const stopRecordingPulse = useCallback(() => {
+    recordingPulse.value = withTiming(0, { duration: 200 });
+  }, [recordingPulse]);
+
   // Define stopRecording first so that it can be used inside startRecording
   const stopRecording = useCallback(async () => {
     if (cameraRef.current && isRecording) {
       try {
         setIsProcessing(true);
+        stopRecordingPulse();
+        
         await cameraRef.current.stopRecording();
         if (recordingTimer.current) clearInterval(recordingTimer.current);
         recButtonScale.value = withSpring(1);
+        
         // Reset if maximum duration has been reached
         if (totalDuration >= MAX_DURATION) {
           progressWidth.value = withTiming(0);
@@ -101,12 +135,11 @@ const CreateScreen: React.FC = () => {
           setTotalDuration(0);
         }
       } catch (e) {
-        console.error('Failed to stop recording:', e);
         setIsProcessing(false);
         setIsRecording(false);
       }
     }
-  }, [isRecording, recButtonScale, progressWidth, totalDuration]);
+  }, [isRecording, recButtonScale, progressWidth, totalDuration, stopRecordingPulse]);
 
   const startRecording = useCallback(async () => {
     if (cameraRef.current && !isRecording && totalDuration < MAX_DURATION) {
@@ -120,8 +153,11 @@ const CreateScreen: React.FC = () => {
           return;
         }
       }
+      
       setIsRecording(true);
       recButtonScale.value = withSpring(1.2);
+      startRecordingPulse();
+      
       segmentStartTime.current = Date.now();
       try {
         cameraRef.current.startRecording({
@@ -145,12 +181,13 @@ const CreateScreen: React.FC = () => {
             setIsRecording(false);
           },
           onRecordingError: (error) => {
-            console.error('Recording failed:', error);
             setIsRecording(false);
             setIsProcessing(false);
+            stopRecordingPulse();
             Alert.alert('Recording failed', 'Please try again');
           },
         });
+        
         // Update progress bar at ~60fps
         recordingTimer.current = setInterval(() => {
           const currentDuration = totalDuration + ((Date.now() - segmentStartTime.current) / 1000);
@@ -165,21 +202,21 @@ const CreateScreen: React.FC = () => {
           }
         }, 16);
       } catch (e) {
-        console.error('Failed to start recording:', e);
         setIsRecording(false);
+        stopRecordingPulse();
       }
     }
-  }, [isRecording, flash, recButtonScale, progressWidth, totalDuration, stopRecording]);
+  }, [isRecording, flash, recButtonScale, progressWidth, totalDuration, stopRecording, hasMicPermission, startRecordingPulse, stopRecordingPulse]);
 
   const pickFromGallery = async () => {
     try {
       setIsProcessing(true);
-      // Use literal "videos" (lowercase) instead of the deprecated property
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: 'videos',
         allowsMultipleSelection: false,
         videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
       });
+      
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
         const videoFile: VideoFile = {
@@ -188,7 +225,7 @@ const CreateScreen: React.FC = () => {
           width: asset.width || 0,
           height: asset.height || 0,
         };
-        // Adjust duration if needed (assuming asset.duration might be in milliseconds)
+        
         const segmentDuration = asset.duration ? asset.duration / 1000 : 0;
         if (segmentDuration > 0) {
           const newTotalDuration = totalDuration + segmentDuration;
@@ -200,13 +237,14 @@ const CreateScreen: React.FC = () => {
             setIsProcessing(false);
             return;
           }
+          
           const gallerySegment: VideoSegment = {
             startTime: Date.now(),
             duration: segmentDuration,
             video: videoFile,
             sourceType: 'gallery',
           };
-          // Optional pre-processing delay for UI feedback
+          
           await new Promise(resolve => setTimeout(resolve, 100));
           setSegments(prev => [...prev, gallerySegment]);
           setTotalDuration(newTotalDuration);
@@ -232,10 +270,10 @@ const CreateScreen: React.FC = () => {
             [{ text: 'OK' }]
           );
         } catch (error) {
+          // Silent fail for video info
         }
       }
     } catch (e) {
-      console.error('Error picking from gallery:', e);
       Alert.alert('Error', 'Failed to access gallery. Please try again.');
     } finally {
       setIsProcessing(false);
@@ -257,7 +295,7 @@ const CreateScreen: React.FC = () => {
         toggleFlash();
         break;
       default:
-        console.warn('Unknown tool action:', action);
+        break;
     }
   }, [pickFromGallery, flipCamera, toggleFlash]);
 
@@ -282,17 +320,16 @@ const CreateScreen: React.FC = () => {
     try {
       if (segments.length === 1) {
         const segment = segments[0];
-        // For a single segment, just pass it directly
         if (segment.sourceType === 'gallery') {
           try {
             const optimizedVideo = await VideoProcessingService.optimizeVideoForPosting(segment.video.path);
-            // Ensure file:// prefix
-            const videoWithUri = { ...optimizedVideo, path: optimizedVideo.path.startsWith('file://') ? optimizedVideo.path : `file://${optimizedVideo.path}` };
+            const videoWithUri = { 
+              ...optimizedVideo, 
+              path: optimizedVideo.path.startsWith('file://') ? optimizedVideo.path : `file://${optimizedVideo.path}` 
+            };
             navigation.navigate('VideoPost', { video: videoWithUri });
             return;
           } catch (error) {
-            console.error('Error optimizing gallery video:', error);
-            // Fallback to original video
             const fallbackVideo = {
               ...segment.video,
               path: segment.video.path.startsWith('file://') ? segment.video.path : `file://${segment.video.path}`,
@@ -301,23 +338,23 @@ const CreateScreen: React.FC = () => {
             return;
           }
         }
-        // Ensure file:// prefix
-        const videoWithUri = { ...segment.video, path: segment.video.path.startsWith('file://') ? segment.video.path : `file://${segment.video.path}` };
+        const videoWithUri = { 
+          ...segment.video, 
+          path: segment.video.path.startsWith('file://') ? segment.video.path : `file://${segment.video.path}` 
+        };
         navigation.navigate('VideoPost', { video: videoWithUri });
         return;
       }
-
-
       
       // Merge all recorded segments into a single file
       try {
         const mergedVideo = await mergeSegments(segments);
-        // Ensure file:// prefix
-        const videoWithUri = { ...mergedVideo, path: mergedVideo.path.startsWith('file://') ? mergedVideo.path : `file://${mergedVideo.path}` };
+        const videoWithUri = { 
+          ...mergedVideo, 
+          path: mergedVideo.path.startsWith('file://') ? mergedVideo.path : `file://${mergedVideo.path}` 
+        };
         navigation.navigate('VideoPost', { video: videoWithUri });
       } catch (mergeError) {
-        console.error('Error merging segments:', mergeError);
-        // If merging fails, try to use the first segment as fallback
         if (segments.length > 0) {
           const fallbackVideo = segments[0].video;
           Alert.alert(
@@ -331,7 +368,6 @@ const CreateScreen: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Error processing videos:', error);
       Alert.alert('Error', 'Failed to process videos. Please try again.');
     } finally {
       setIsProcessing(false);
@@ -345,7 +381,7 @@ const CreateScreen: React.FC = () => {
     if (!hasPermission) {
       return (
         <View style={styles.warningContainer}>
-          <Icon name="camera" size={64} color={Colors.white} style={styles.errorIcon} />
+          <Icon name="videocam" size={64} color={Colors.lightGray} style={styles.errorIcon} />
           <Text style={styles.warningText}>Please enable camera permissions</Text>
           <TouchableOpacity style={styles.button} activeOpacity={0.7} onPress={requestPermission}>
             <Text style={styles.buttonText}>Open Settings</Text>
@@ -357,7 +393,7 @@ const CreateScreen: React.FC = () => {
     if (!device) {
       return (
         <View style={styles.warningContainer}>
-          <Icon name="camera" size={64} color={Colors.white} style={styles.errorIcon} />
+          <Icon name="videocam" size={64} color={Colors.lightGray} style={styles.errorIcon} />
           <Text style={styles.warningText}>No Camera Found</Text>
           <TouchableOpacity style={styles.button} activeOpacity={0.7} onPress={() => Linking.openSettings()}>
             <Text style={styles.buttonText}>Open Settings</Text>
@@ -369,49 +405,39 @@ const CreateScreen: React.FC = () => {
     // Normal camera content when permissions and device are available
     return (
       <>
+        {/* Progress Bar */}
         <View style={styles.progressBarOverlay}>
-          {(() => {
-            // Calculate the total finished progress
-            const finishedProgress = (totalDuration / MAX_DURATION) * 100;
-            const currentSegmentProgress = isRecording ? (recordingProgress - finishedProgress) : 0;
-            // Build an array of finished segment views and separators inline
-            const finishedSegmentsViews = segments.flatMap((segment, index) => {
-              const children = [];
-              if (index > 0) {
-                children.push(
-                  <View key={`sep-${segment.startTime}`} style={styles.segmentSeparator} />
-                );
-              }
-              children.push(
-                <View
-                  key={`seg-${segment.startTime}`}
-                  style={{
-                    width: `${(segment.duration / MAX_DURATION) * 100}%`,
-                    height: '100%',
-                    backgroundColor: Colors.darkGray,
-                  }}
+          <View style={styles.combinedProgressBarContainer}>
+            <View style={styles.progressSegmentsContainer}>
+              {segments.map((segment, index) => (
+                <React.Fragment key={`segment-${segment.startTime}`}>
+                  {index > 0 && <View style={styles.segmentSeparator} />}
+                  <View
+                    style={{
+                      width: `${(segment.duration / MAX_DURATION) * 100}%`,
+                      height: '100%',
+                      backgroundColor: Colors.purple,
+                    }}
+                  />
+                </React.Fragment>
+              ))}
+              {isRecording && (
+                <Animated.View
+                  style={[
+                    {
+                      width: `${recordingProgress - ((totalDuration / MAX_DURATION) * 100)}%`,
+                      height: '100%',
+                      backgroundColor: Colors.red,
+                    },
+                    animatedRecordingPulseStyle
+                  ]}
                 />
-              );
-              return children;
-            });
-            return (
-              <View style={styles.combinedProgressBarContainer}>
-                <View style={styles.progressSegmentsContainer}>
-                  {finishedSegmentsViews}
-                  {isRecording && (
-                    <Animated.View
-                      style={{
-                        width: `${currentSegmentProgress}%`,
-                        height: '100%',
-                        backgroundColor: Colors.red,
-                      }}
-                    />
-                  )}
-                </View>
-              </View>
-            );
-          })()}
+              )}
+            </View>
+          </View>
         </View>
+
+        {/* Camera View */}
         <View style={styles.cameraContainer}>
           <StatusBar barStyle="light-content" />
           <Camera
@@ -423,23 +449,48 @@ const CreateScreen: React.FC = () => {
             audio={hasMicPermission}
             video
           />
+
+          {/* Controls */}
           <View style={styles.centerButtonContainer}>
             {segments.length > 0 && (
-              <TouchableOpacity style={styles.sideButton} onPress={deleteLastSegment} disabled={isProcessing}>
-                <Image source={require('../assets/ButtonCameraDelete_Normal.png')} style={styles.sideButtonImage} />
+              <TouchableOpacity 
+                style={styles.sideButton} 
+                onPress={deleteLastSegment} 
+                disabled={isProcessing}
+                activeOpacity={0.7}
+              >
+                <Image 
+                  source={require('../assets/ButtonCameraDelete_Normal.png')} 
+                  style={styles.sideButtonImage} 
+                />
               </TouchableOpacity>
             )}
-            <Pressable onPressIn={startRecording} onPressOut={stopRecording} disabled={isProcessing}>
+            
+            <Pressable 
+              onPressIn={startRecording} 
+              onPressOut={stopRecording} 
+              disabled={isProcessing}
+              style={styles.recordButtonContainer}
+            >
               <Animated.View style={[styles.recordButton, animatedRecordingStyle]}>
                 {isProcessing ? (
                   <ActivityIndicator color="white" size="small" />
                 ) : (
-                  <Image source={require('../assets/CaptureButton_Normal.png')} style={styles.captureButtonImage} />
+                  <Image 
+                    source={require('../assets/CaptureButton_Normal.png')} 
+                    style={styles.captureButtonImage} 
+                  />
                 )}
               </Animated.View>
             </Pressable>
+            
             {segments.length > 0 && (
-              <TouchableOpacity style={styles.sideButton} onPress={finishRecording} disabled={isProcessing}>
+              <TouchableOpacity 
+                style={styles.sideButton} 
+                onPress={finishRecording} 
+                disabled={isProcessing}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.doneButtonText}>Done</Text>
               </TouchableOpacity>
             )}
@@ -449,13 +500,11 @@ const CreateScreen: React.FC = () => {
     );
   };
 
-  // Always return a SafeAreaView that contains the back button and toolbar
-  // to maintain the tab navigation structure
   return (
     <SafeAreaView style={styles.container}>
-              <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-          <BackArrowIcon size={32} color="white" style={{ marginLeft: 1 }} />
-        </TouchableOpacity>
+      <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+        <BackArrowIcon size={32} color="white" style={{ marginLeft: 1 }} />
+      </TouchableOpacity>
       {renderContent()}
       <BottomToolBar mode="create" onToolPress={handleToolAction} flashActive={flash === 'on'} />
     </SafeAreaView>
@@ -491,25 +540,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
   },
   warningText: {
-    color: Colors.white,
-    fontSize: 20,
-    fontFamily: 'Firma-Medium',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  warningBackButton: {
-    marginTop: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  warningBackButtonText: {
-    color: Colors.white,
-    fontSize: 16,
+    color: Colors.lightGray,
+    fontSize: 18,
     fontFamily: 'Firma-SemiBold',
     textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  errorIcon: {
+    marginBottom: 20,
+    opacity: 0.9,
+  },
+  button: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: BORDER_RADIUS.LARGE,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: 20,
+    minWidth: 120,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  buttonText: {
+    color: Colors.black,
+    fontSize: 16,
+    fontFamily: 'Firma-SemiBold',
   },
   cameraContainer: {
     flex: 1,
@@ -520,28 +583,13 @@ const styles = StyleSheet.create({
     height: VIDEO_HEIGHT,
     alignSelf: 'center',
   },
-  text: {
-    color: Colors.white,
-    fontSize: 18,
-    fontFamily: 'Firma-Medium',
-    textAlign: 'center',
-    marginVertical: 16,
-  },
-  button: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: Colors.gray,
-    marginTop: 20,
-  },
-  buttonText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+  progressBarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: isSmallScreen() ? 20 : (SCREEN_HEIGHT - VIDEO_HEIGHT) / 2.6,
+    zIndex: 999,
   },
   combinedProgressBarContainer: {
     width: '100%',
@@ -551,6 +599,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     minHeight: isSmallScreen() ? 4 : 2,
   },
+  progressSegmentsContainer: {
+    flexDirection: 'row',
+    height: '100%',
+    width: '100%',
+    backgroundColor: Colors.darkGray,
+    minHeight: isSmallScreen() ? 4 : 2,
+  },
+  segmentSeparator: {
+    width: 0,
+    backgroundColor: Colors.darkGray,
+    height: '100%',
+  },
   backButton: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 60 : 40,
@@ -558,15 +618,8 @@ const styles = StyleSheet.create({
     zIndex: 10,
     width: 48,
     height: 48,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: 'rgba(0,0,0,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
   },
   centerButtonContainer: {
     position: 'absolute',
@@ -576,6 +629,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'center',
+  },
+  recordButtonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   recordButton: {
     width: 80,
@@ -590,35 +647,6 @@ const styles = StyleSheet.create({
     height: 72,
     resizeMode: 'contain',
   },
-  doneButtonText: {
-    color: Colors.white,
-    fontSize: 14,
-    fontFamily: 'Firma-Medium',
-  },
-  progressBarOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: isSmallScreen() ? 20 : (SCREEN_HEIGHT - VIDEO_HEIGHT) / 2.6,
-    zIndex: 999,
-  },
-  errorIcon: {
-    marginBottom: 16,
-    opacity: 0.8,
-  },
-  segmentSeparator: {
-    width: 0,
-    backgroundColor: Colors.darkGray,
-    height: '100%',
-  },
-  progressSegmentsContainer: {
-    flexDirection: 'row',
-    height: '100%',
-    width: '100%',
-    backgroundColor: Colors.darkGray,
-    minHeight: isSmallScreen() ? 4 : 2,
-  },
   sideButton: {
     width: 60,
     height: 60,
@@ -629,6 +657,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     resizeMode: 'contain',
+  },
+  doneButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontFamily: 'Firma-Medium',
   },
 });
 
@@ -654,7 +687,6 @@ async function mergeSegments(segments: VideoSegment[]): Promise<VideoFile> {
       height: mergedVideo.height,
     };
   } catch (error) {
-    console.error('Error in mergeSegments:', error);
     // Fallback: return the first segment if merging fails
     const totalDurationMs = segments.reduce((sum, seg) => sum + seg.duration * 1000, 0);
     return {
