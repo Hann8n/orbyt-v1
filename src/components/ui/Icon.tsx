@@ -115,6 +115,8 @@ const BACK_ARROW_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" 
 
 const FOLLOW_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="#fff" d="M10.5 20a1.5 1.5 0 0 0 3 0v-6.5H20a1.5 1.5 0 0 0 0-3h-6.5V4a1.5 1.5 0 0 0-3 0v6.5H4a1.5 1.5 0 0 0 0 3h6.5z"/></g></svg>`;
 
+const MINUS_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>minimize_fill</title><g id="minimize_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#FFFFFFFF' d='M2.5 12A1.5 1.5 0 0 1 4 10.5h16a1.5 1.5 0 0 1 0 3H4A1.5 1.5 0 0 1 2.5 12'/></g></svg>`;
+
 const MUTUAL_HEART_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M12 4.339c2.072-1.686 4.534-1.68 6.494-.538c2.095 1.221 3.569 3.7 3.504 6.592c-.079 3.52-2.752 6.634-7.323 9.424l-.721.431c-.201.119-.424.246-.642.356c-.405.206-.85.396-1.312.396s-.907-.19-1.313-.396a10 10 0 0 1-.433-.235l-.573-.338c-4.788-2.844-7.598-6.029-7.679-9.638c-.065-2.892 1.409-5.37 3.504-6.592C7.466 2.66 9.928 2.653 12 4.34M6.513 5.53c-1.444.842-2.56 2.629-2.511 4.82c.056 2.511 2.04 5.194 6.7 7.963c.302.179.604.363.891.509c.336.17.478.17.814 0c.191-.097.39-.212.59-.33l.301-.18c2.351-1.396 4.02-2.77 5.106-4.113a4.27 4.27 0 0 1-2.949-1.251l-1.19-1.19l-.762.762a4.044 4.044 0 0 1-5.719 0a2.826 2.826 0 0 1 0-3.997l2.771-2.773c-1.356-.996-2.83-.925-4.042-.22m6.498.58l-.191.186a1 1 0 0 1-.105.122l-3.517 3.52a.826.826 0 0 0 0 1.168a2.044 2.044 0 0 0 2.89 0l.866-.866a1.854 1.854 0 0 1 2.622 0l1.293 1.294a2.275 2.275 0 0 0 2.88.278q.235-.74.25-1.463c.049-2.19-1.068-3.977-2.512-4.818c-1.342-.782-3.007-.785-4.476.578" stroke-width="0.5" stroke="#fff"/></g></svg>`;
 
 const PROFILE_EDIT_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="#fff" d="M11 2a5 5 0 1 0 0 10a5 5 0 0 0 0-10m0 11q.887.002 1.724.12a1 1 0 0 1 .539 1.726a6.98 6.98 0 0 0-2.21 6.022a1 1 0 0 1-1.012 1.123c-2.01-.04-3.89-.216-5.294-.646c-.702-.215-1.364-.517-1.866-.962C2.35 19.913 2 19.28 2 18.5c0-.787.358-1.523.844-2.139c.494-.625 1.177-1.2 1.978-1.69C6.425 13.695 8.605 13 11 13m10.212 1.034a2.5 2.5 0 0 1 0 3.535l-3.418 3.418a1.5 1.5 0 0 1-.848.424l-2.309.33a1 1 0 0 1-1.132-1.133l.33-2.308a1.5 1.5 0 0 1 .424-.849l3.418-3.418a2.5 2.5 0 0 1 3.535 0Z"/></g></svg>`;
@@ -501,6 +503,19 @@ export const FollowIcon: React.FC<{ size: number; color: string; style?: StylePr
   );
 };
 
+// Custom Minus Fill Icon component
+export const MinusFillIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = MINUS_FILL_ICON_SVG.replace(/#fff/g, color);
+  return (
+    <SvgXml 
+      xml={svgXml} 
+      width={size} 
+      height={size} 
+      style={style}
+    />
+  );
+};
+
 // Custom Mutual Heart Icon component
 export const MutualHeartIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
   const svgXml = MUTUAL_HEART_ICON_SVG.replace(/#fff/g, color);
@@ -793,6 +808,21 @@ const CLOSE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" 
 
 export const CloseFillIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
   const svgXml = CLOSE_FILL_ICON_SVG.replace(/#fff/g, color);
+  return (
+    <SvgXml 
+      xml={svgXml} 
+      width={size} 
+      height={size} 
+      style={style}
+    />
+  );
+};
+
+// Custom Close Bold Icon component
+const CLOSE_BOLD_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1216" height="1312" viewBox="0 0 1216 1312"><rect width="1216" height="1312" fill="none"/><path fill="#fff" d="M1202 1066q0 40-28 68l-136 136q-28 28-68 28t-68-28L608 976l-294 294q-28 28-68 28t-68-28L42 1134q-28-28-28-68t28-68l294-294L42 410q-28-28-28-68t28-68l136-136q28-28 68-28t68 28l294 294l294-294q28-28 68-28t68 28l136 136q28 28 28 68t-28 68L880 704l294 294q28 28 28 68" stroke-width="20" stroke="#fff"/></svg>`;
+
+export const CloseBoldIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = CLOSE_BOLD_ICON_SVG.replace(/#fff/g, color).replace(/stroke="#fff"/g, `stroke="${color}"`);
   return (
     <SvgXml 
       xml={svgXml} 
@@ -1292,10 +1322,12 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'calendar') return <Calendar2FillIcon size={size} color={color} style={style} />;
     if (name === 'eye') return <EyeFillIcon size={size} color={color} style={style} />;
     if (name === 'close') return <CloseFillIcon size={size} color={color} style={style} />;
+    if (name === 'close-bold') return <CloseBoldIcon size={size} color={color} style={style} />;
     if (name === 'section-x') return <CloseFillIcon size={size} color={color} style={style} />;
     if (name === 'user') return <UserIcon size={size} color={color} style={style} />;
     if (name === 'users') return <UserIcon size={size} color={color} style={style} />;
-    if (name === 'user-plus') return <FollowIcon size={size} color={color} style={style} />;
+    if (name === 'user-plus') return <PlusIcon size={size} color={color} strokeWidth={2.5} />;
+    if (name === 'minus-fill') return <MinusFillIcon size={size} color={color} style={style} />;
     if (name === 'trash') return <TrashIcon size={size} color={color} style={style} />;
     if (name === 'delete-2-fill') return <Delete2FillIcon size={size} color={color} style={style} />;
     if (name === 'download') return <DownloadIcon size={size} color={color} style={style} />;
@@ -1315,3 +1347,5 @@ const Icon: React.FC<IconProps> = ({
 };
 
 export default Icon;
+
+

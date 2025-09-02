@@ -420,7 +420,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
         bounces={false}
         alwaysBounceVertical={false}
         removeClippedSubviews={false}
-        estimatedItemSize={64}
+
         contentContainerStyle={[
           styles.contentContainer,
           members.length === 0 && { flex: 1 }

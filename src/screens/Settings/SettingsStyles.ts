@@ -170,8 +170,7 @@ export const settingsTextStyles = StyleSheet.create({
   menuOptionText: {
     color: Colors.lightGray,
     fontSize: 18,
-    fontWeight: '500',
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Firma-SemiBold',
   },
 
   // Menu option subtitle

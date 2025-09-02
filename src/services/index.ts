@@ -20,7 +20,7 @@ export { default as ProfileCache } from './cache/ProfileCache';
 // Other Services
 export { ModerationService } from './ModerationService';
 export { default as VideoProcessingService } from './VideoProcessingService';
-export { default as WatchHistory } from './WatchHistory';
+
 
 // Types
 export * from './ModerationTypes';

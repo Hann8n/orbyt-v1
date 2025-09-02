@@ -10,11 +10,13 @@ import InsightsScreen from '../screens/InsightsScreen';
 import BlockedUsersScreen from '../screens/Settings/BlockedUsersScreen';
 import MutedUsersScreen from '../screens/Settings/MutedUsersScreen';
 
-import WatchHistoryScreen from '../screens/Settings/WatchHistoryScreen';
+
 import ContentFiltersScreen from '../screens/Settings/ContentFiltersScreen';
 import ChannelManagementScreen from '../screens/Settings/ChannelManagementScreen';
 import AboutScreen from '../screens/Settings/AboutScreen';
 import ColorPaletteScreen from '../screens/Settings/ColorPaletteScreen';
+import FollowersScreen from '../screens/Settings/FollowersScreen';
+import FollowingScreen from '../screens/Settings/FollowingScreen';
 import CreateScreen from '../screens/CreateScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ChannelScreen from '../screens/ChannelScreen';
@@ -67,7 +69,8 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
           name="Settings"
           component={SettingsScreen}
           options={{
-            animation: 'slide_from_right',
+            animation: 'slide_from_bottom',
+            presentation: 'modal',
             headerShown: false,
           }}
         />
@@ -76,6 +79,7 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
           component={InsightsScreen}
           options={{
             animation: 'slide_from_right',
+            presentation: 'modal',
             headerShown: false,
           }}
         />
@@ -84,6 +88,7 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
           component={ContentFiltersScreen}
           options={{
             animation: 'slide_from_right',
+            presentation: 'modal',
             headerShown: false,
           }}
         />
@@ -93,6 +98,7 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
           component={BlockedUsersScreen}
           options={{
             animation: 'slide_from_right',
+            presentation: 'modal',
             headerShown: false,
           }}
         />
@@ -101,22 +107,17 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
           component={MutedUsersScreen}
           options={{
             animation: 'slide_from_right',
+            presentation: 'modal',
             headerShown: false,
           }}
         />
-        <Stack.Screen
-          name="WatchHistory"
-          component={WatchHistoryScreen}
-          options={{
-            animation: 'slide_from_right',
-            headerShown: false,
-          }}
-        />
+
         <Stack.Screen
           name="ChannelManagement"
           component={ChannelManagementScreen}
           options={{
             animation: 'slide_from_right',
+            presentation: 'modal',
             headerShown: false,
           }}
         />
@@ -125,6 +126,7 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
           component={AboutScreen}
           options={{
             animation: 'slide_from_right',
+            presentation: 'modal',
             headerShown: false,
           }}
         />
@@ -133,6 +135,25 @@ const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
           component={ColorPaletteScreen}
           options={{
             animation: 'slide_from_right',
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Followers"
+          component={FollowersScreen}
+          options={{
+            animation: 'slide_from_right',
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Following"
+          component={FollowingScreen}
+          options={{
+            animation: 'slide_from_right',
+            presentation: 'modal',
             headerShown: false,
           }}
         />

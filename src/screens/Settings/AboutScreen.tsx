@@ -75,11 +75,12 @@ const AboutScreen: React.FC = () => {
   return (
     <View style={settingsLayoutStyles.container}> 
       <ListHeader
-        mode="stacked"
+        mode="sheet"
         title="about orbyt"
-        showBackButton
-        onBackPress={() => navigation.goBack()}
-        applySafeAreaTop
+        showCloseButton
+        onClosePress={() => navigation.goBack()}
+        applySafeAreaTop={false}
+        style={{ marginHorizontal: -5 }}
       />
 
       {/* Content */}

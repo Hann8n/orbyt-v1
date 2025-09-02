@@ -137,11 +137,12 @@ const HiddenPostsScreen: React.FC = () => {
     return (
       <View style={styles.safeArea}>
         <ListHeader
-          mode="stacked"
+          mode="sheet"
           title="hidden posts"
-          showBackButton
-          onBackPress={() => navigation.goBack()}
-          applySafeAreaTop
+          showCloseButton
+          onClosePress={() => navigation.goBack()}
+          applySafeAreaTop={false}
+          style={{ marginHorizontal: -5 }}
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.white} />
@@ -154,11 +155,12 @@ const HiddenPostsScreen: React.FC = () => {
   return (
     <View style={styles.safeArea}>
       <ListHeader
-        mode="stacked"
+        mode="sheet"
         title="hidden posts"
-        showBackButton
-        onBackPress={() => navigation.goBack()}
-        applySafeAreaTop
+        showCloseButton
+        onClosePress={() => navigation.goBack()}
+        applySafeAreaTop={false}
+        style={{ marginHorizontal: -5 }}
       />
 
       <FlatList

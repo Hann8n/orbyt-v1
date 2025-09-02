@@ -67,10 +67,12 @@ export type RootStackParamList = {
   BlockedUsers: undefined;
   MutedUsers: undefined;
   HiddenPosts: undefined;
-  WatchHistory: undefined;
+
   ChannelManagement: undefined;
   About: undefined;
   ColorPalette: undefined;
+  Followers: undefined;
+  Following: undefined;
   AuthorProfile: { handle: string };
 };
 

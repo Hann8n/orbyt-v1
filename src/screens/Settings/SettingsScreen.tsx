@@ -9,18 +9,21 @@ import {
   Platform,
   ScrollView,
   Switch,
+  Share,
+  Clipboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../components/ui/Icon';
 import { Colors } from '../../components/ui/UI';
 import ListHeader from '../../components/ui/ListHeader';
-import { useFeedSettings, useAuth } from '../../stores/userStore';
+import { useFeedSettings, useAuth, useCurrentUser } from '../../stores/userStore';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList, useLogout } from '../../navigation/types';
+import AccountSwitcher from '../../components/features/profile/AccountSwitcher';
 
 type SettingsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
 type SettingsScreenRouteProp = RouteProp<RootStackParamList, 'Settings'>;
@@ -34,8 +37,10 @@ const SettingsScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExperimentalFeedsEnabled, setIsExperimentalFeedsEnabled] = useState(true);
+  const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const insets = useSafeAreaInsets();
   const { getExperimentalFeedsEnabled, setExperimentalFeedsEnabled } = useFeedSettings();
+  const { currentUser } = useCurrentUser();
 
   // Load settings on mount
   useEffect(() => {
@@ -85,6 +90,22 @@ const SettingsScreen: React.FC = () => {
     Alert.alert('coming soon', `${action.toLowerCase()} will be available in a future update.`);
   };
 
+  const handleCopyProfileLink = async () => {
+    if (!currentUser?.handle) {
+      Alert.alert('Error', 'Unable to get your profile information.');
+      return;
+    }
+
+    try {
+      const profileUrl = `https://bsky.app/profile/${currentUser.handle}`;
+      await Clipboard.setString(profileUrl);
+      Alert.alert('Copied!', 'Your profile link has been copied to clipboard.');
+    } catch (error) {
+      console.error('Error copying profile link:', error);
+      Alert.alert('Error', 'Failed to copy profile link. Please try again.');
+    }
+  };
+
 
 
   const handleToggleExperimentalFeeds = async (value: boolean) => {
@@ -101,70 +122,120 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
+  const handleAccountSwitch = async (account: any) => {
+    try {
+      // Account switching is handled by the AccountSwitcher component
+      // This callback is called when account switch is successful
+      console.log('Account switched to:', account.handle);
+    } catch (error) {
+      console.error('Error in account switch callback:', error);
+    }
+  };
+
 
 
   const settingsSections = [
     {
-      title: 'account',
+      title: '', // No title for profile section
       items: [
-        
         {
-          id: 'channels',
-          label: 'channels',
-          icon: 'device-tv',
-          onPress: () => navigation.navigate('ChannelManagement'),
+          id: 'switch-account',
+          label: 'Switch account',
+          icon: 'user',
+          onPress: () => setShowAccountSwitcher(true),
           showChevron: true
         },
         {
           id: 'insights',
-          label: 'insights',
+          label: 'Insights',
           icon: 'insights',
-          onPress: () => navigation.navigate({ name: 'Insights', params: {} }),
+          onPress: () => {
+            navigation.goBack();
+            setTimeout(() => navigation.navigate({ name: 'Insights', params: {} }), 100);
+          },
           showChevron: true
         },
-        // {
-        //   id: 'notifications',
-        //   label: 'Notifications',
-        //   icon: 'notification',
-        //   onPress: () => handlePlaceholderAction('Notifications'),
-        //   showChevron: true
-        // }
+        {
+          id: 'followers',
+          label: 'Your followers',
+          icon: 'users',
+          onPress: () => {
+            navigation.goBack();
+            setTimeout(() => navigation.navigate('Followers'), 100);
+          },
+          showChevron: true
+        },
+        {
+          id: 'following',
+          label: 'People you follow',
+          icon: 'user-plus',
+          onPress: () => {
+            navigation.goBack();
+            setTimeout(() => navigation.navigate('Following'), 100);
+          },
+          showChevron: true
+        },
+        {
+          id: 'channels',
+          label: 'Your channels',
+          icon: 'device-tv',
+          onPress: () => {
+            navigation.goBack();
+            setTimeout(() => navigation.navigate('ChannelManagement'), 100);
+          },
+          showChevron: true
+        }
       ]
     },
     {
-      title: 'privacy',
+      title: 'Sharing',
+      items: [
+        {
+          id: 'copy-profile-link',
+          label: 'Copy your profile link',
+          icon: 'link',
+          onPress: handleCopyProfileLink,
+          showChevron: false
+        }
+      ]
+    },
+    {
+      title: 'Privacy',
       items: [
         {
           id: 'blocked-users',
-          label: 'blocked accounts',
-          onPress: () => navigation.navigate('BlockedUsers'),
+          label: 'Blocked accounts',
+          onPress: () => {
+            navigation.goBack();
+            setTimeout(() => navigation.navigate('BlockedUsers'), 100);
+          },
           showChevron: true
         },
         {
           id: 'muted-users',
-          label: 'muted accounts',
-          onPress: () => navigation.navigate('MutedUsers'),
+          label: 'Muted accounts',
+          onPress: () => {
+            navigation.goBack();
+            setTimeout(() => navigation.navigate('MutedUsers'), 100);
+          },
           showChevron: true
         },
       ]
     },
     {
-      title: 'content',
+      title: 'Content',
       items: [
         {
           id: 'content-filters',
-          label: 'content filters',
+          label: 'Content filters',
           icon: 'filter',
-          onPress: () => navigation.navigate('ContentFilters'),
+          onPress: () => {
+            navigation.goBack();
+            setTimeout(() => navigation.navigate('ContentFilters'), 100);
+          },
           showChevron: true
         },
-        {
-          id: 'watch-history',
-          label: 'watch history',
-          icon: 'mingcute:history-anticlockwise-line',
-          onPress: () => navigation.navigate('WatchHistory'),
-          showChevron: true
-        },
+
         // {
         //   id: 'experimental-feeds',
         //   label: 'Experimental Feeds',
@@ -182,20 +253,26 @@ const SettingsScreen: React.FC = () => {
       ]
     },
     {
-      title: 'app',
+      title: 'App',
       items: [
         {
           id: 'color-palette',
-          label: 'color palette',
+          label: 'Color palette',
           icon: 'color-picker-fill',
-          onPress: () => navigation.navigate('ColorPalette'),
+          onPress: () => {
+            navigation.goBack();
+            setTimeout(() => navigation.navigate('ColorPalette'), 100);
+          },
           showChevron: true
         },
         {
           id: 'about',
-          label: 'about orbyt',
+          label: 'About orbyt',
           icon: 'device-tv',
-          onPress: () => navigation.navigate('About'),
+          onPress: () => {
+            navigation.goBack();
+            setTimeout(() => navigation.navigate('About'), 100);
+          },
           showChevron: true
         },
         // {
@@ -227,7 +304,8 @@ const SettingsScreen: React.FC = () => {
   const listData: ListRow[] = [];
 
   settingsSections.forEach((section) => {
-    if (section.title !== 'account') {
+    // Only add section title if it's not empty
+    if (section.title) {
       listData.push({ kind: 'section-title', id: `title-${section.title}`, title: section.title });
     }
 
@@ -241,35 +319,33 @@ const SettingsScreen: React.FC = () => {
       });
     });
 
-    if (section.title === 'content') {
+    if (section.title === 'Content') {
       listData.push({
         kind: 'toggle',
         id: 'experimental-feeds',
-        label: 'experimental feeds',
-        subtitle: 'show non-video feeds',
+        label: 'Experimental feeds',
+        subtitle: 'Show non-video feeds',
         value: isExperimentalFeedsEnabled,
         onValueChange: handleToggleExperimentalFeeds,
       });
     }
-
-
   });
 
   // Add remove account row at the end
   listData.push({ kind: 'logout', id: 'logout' });
 
   return (
-    <View style={settingsLayoutStyles.container}>
+    <View style={[settingsLayoutStyles.container, { backgroundColor: Colors.black }]}>
       <ScrollView
         contentContainerStyle={settingsLayoutStyles.contentContainerWithPadding}
         showsVerticalScrollIndicator={false}
       >
         <ListHeader 
-          mode="root"
-          title="settings"
-          showBackButton
-          onBackPress={() => navigation.goBack()}
-          applySafeAreaTop
+          mode="sheet"
+          title="Settings"
+          showCloseButton
+          onClosePress={() => navigation.goBack()}
+          applySafeAreaTop={false}
           style={{ marginHorizontal: -5 }}
         />
         {listData.map((item, index) => {
@@ -337,6 +413,19 @@ const SettingsScreen: React.FC = () => {
           }
         })}
       </ScrollView>
+
+      {/* Account Switcher Modal */}
+      <AccountSwitcher
+        visible={showAccountSwitcher}
+        onDismiss={() => setShowAccountSwitcher(false)}
+        onAccountSwitch={handleAccountSwitch}
+        onAddAccount={async () => {
+          setShowAccountSwitcher(false);
+          // Navigate to login to add new account
+          await onLogout(false);
+        }}
+        onLogout={onLogout}
+      />
     </View>
   );
 };

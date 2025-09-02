@@ -296,8 +296,14 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   // Handle menu button press
   const handleMenuPress = useCallback(() => {
-    setShowProfileMenu(true);
-  }, []);
+    if (isOwnProfile) {
+      // Navigate to settings for own profile
+      navigation.navigate({ name: 'Settings', params: {} });
+    } else {
+      // Show profile menu for other profiles
+      setShowProfileMenu(true);
+    }
+  }, [isOwnProfile, navigation]);
 
   // Handle logout from menu
   const handleLogoutFromMenu = useCallback(async () => {

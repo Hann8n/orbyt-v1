@@ -186,11 +186,12 @@ const ContentFiltersScreen: React.FC = () => {
   return (
     <View style={settingsLayoutStyles.container}>
       <ListHeader
-        mode="stacked"
+        mode="sheet"
         title="content filters"
-        showBackButton
-        onBackPress={() => navigation.goBack()}
-        applySafeAreaTop
+        showCloseButton
+        onClosePress={() => navigation.goBack()}
+        applySafeAreaTop={false}
+        style={{ marginHorizontal: -5 }}
       />
 
       <ScrollView style={styles.content} contentContainerStyle={settingsLayoutStyles.contentContainer} showsVerticalScrollIndicator={false}>

@@ -220,7 +220,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
               </View>
             ) : null}
             removeClippedSubviews={false}
-            estimatedItemSize={itemHeight}
+    
           />
         );
       })()}

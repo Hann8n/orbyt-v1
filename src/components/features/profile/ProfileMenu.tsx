@@ -212,11 +212,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     }
   }, [onDismiss, onSwitchAccount]);
 
-  // Settings handler
-  const handleSettings = useCallback(() => {
-    onDismiss(); // Close the menu first
-    navigation.navigate({ name: 'Settings', params: {} });
-  }, [onDismiss, navigation]);
+
 
   // Logout handler
   const handleLogout = useCallback(async () => {
@@ -270,27 +266,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           color: Colors.lightGray
         },
         {
-          id: 'insights',
-          label: 'insights',
-          icon: 'insights',
-          onPress: () => {
-            onDismiss();
-            navigation.navigate({ name: 'Insights', params: {} });
-          },
-          color: Colors.lightGray
-        },
-        {
           id: 'switch',
           label: 'switch',
           icon: 'user-3',
           onPress: handleSwitchAccount,
-          color: Colors.lightGray
-        },
-        {
-          id: 'settings',
-          label: 'settings',
-          icon: 'settings',
-          onPress: handleSettings,
           color: Colors.lightGray
         },
         {

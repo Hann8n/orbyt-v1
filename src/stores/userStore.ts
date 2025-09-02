@@ -13,7 +13,7 @@ import { ExpoOAuthClient } from 'expo-atproto-auth';
 import { AtProtoOAuthService, OAuthSession } from '../services/auth';
 import ProfileCache from '../services/cache/ProfileCache';
 import ChannelCache from '../services/cache/ChannelCache';
-import WatchHistory from '../services/WatchHistory';
+
 import { ModerationService } from '../services/ModerationService';
 
 // Account types
@@ -768,7 +768,7 @@ export const useUserStore = create<UserState>()(
           await Promise.all([
             ProfileCache.clearCache(),
             ChannelCache.clearCache(),
-            WatchHistory.clearWatchHistory(),
+
             ModerationService.clearModerationCache(),
           ]);
           

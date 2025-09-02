@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { BackArrowIcon } from './Icon';
+import Icon, { BackArrowIcon, CloseFillIcon } from './Icon';
 import { Colors } from './UI';
 
 export type ListHeaderMode = 'sheet' | 'root' | 'stacked';
@@ -64,7 +64,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
           {right ?? (
             showCloseButton ? (
               <TouchableOpacity style={styles.iconButton} onPress={onClosePress} activeOpacity={0.7}>
-                <Icon name="close" size={20} color={Colors.lightGray} />
+                <CloseFillIcon size={20} color={Colors.white} />
               </TouchableOpacity>
             ) : (
               <View style={styles.rightSpacer} />
@@ -94,7 +94,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
         <View style={styles.rightSection}>
           {right ?? (showCloseButton ? (
             <TouchableOpacity style={styles.iconButton} onPress={onClosePress} activeOpacity={0.7}>
-              <Icon name="close" size={20} color={textColor} />
+              <CloseFillIcon size={20} color={textColor} />
             </TouchableOpacity>
           ) : (
             <View style={styles.rightSpacer} />
@@ -122,7 +122,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
       <View style={styles.rightSection}>
         {right ?? (showCloseButton ? (
           <TouchableOpacity style={styles.iconButton} onPress={onClosePress} activeOpacity={0.7}>
-            <Icon name="close" size={20} color={textColor} />
+            <CloseFillIcon size={20} color={textColor} />
           </TouchableOpacity>
         ) : (
           <View style={styles.rightSpacer} />
@@ -149,9 +149,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   containerSheet: {
-    paddingHorizontal: 15,
-    paddingTop: 5,
-    paddingBottom: 10,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   leftSection: {
     width: 44,
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   },
   titleSheet: {
     textAlign: 'left',
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
   },

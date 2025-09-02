@@ -15,10 +15,12 @@ export { default as InsightsScreen } from './InsightsScreen';
 // Settings Screens
 export { default as SettingsScreen } from './Settings/SettingsScreen';
 export { default as AboutScreen } from './Settings/AboutScreen';
-export { default as WatchHistoryScreen } from './Settings/WatchHistoryScreen';
+
 export { default as ChannelManagementScreen } from './Settings/ChannelManagementScreen';
 export { default as ColorPaletteScreen } from './Settings/ColorPaletteScreen';
 export { default as HiddenPostsScreen } from './Settings/HiddenPostsScreen';
 export { default as MutedUsersScreen } from './Settings/MutedUsersScreen';
 export { default as BlockedUsersScreen } from './Settings/BlockedUsersScreen';
 export { default as ContentFiltersScreen } from './Settings/ContentFiltersScreen';
+export { default as FollowersScreen } from './Settings/FollowersScreen';
+export { default as FollowingScreen } from './Settings/FollowingScreen';

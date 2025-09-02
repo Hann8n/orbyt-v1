@@ -1,21 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  Image,
-} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { BackArrowIcon } from '../../components/ui/Icon';
-import ListHeader from '../../components/ui/ListHeader';
-import { Colors, Avatar } from '../../components/ui/UI';
-import { ModerationService } from '../../services/ModerationService';
+import ListScreen from '../../components/ui/ListScreen';
 import AtprotoService from '../../services/api/AtprotoService';
-import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles, settingsAvatarStyles, settingsActiveStyles } from './SettingsStyles';
 
 interface MutedUser {
   did: string;
@@ -29,7 +15,6 @@ const MutedUsersScreen: React.FC = () => {
   const [mutedUsers, setMutedUsers] = useState<MutedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [unmutingUsers, setUnmutingUsers] = useState<Set<string>>(new Set());
-  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     loadMutedUsers();
@@ -71,125 +56,39 @@ const MutedUsersScreen: React.FC = () => {
     }
   };
 
-  const handleUnmuteUser = async (userDid: string) => {
+  const handleUnmuteUser = async (user: MutedUser) => {
     try {
-      setUnmutingUsers(prev => new Set(prev).add(userDid));
-      await AtprotoService.unmuteUser(userDid);
-      setMutedUsers(prev => prev.filter(user => user.did !== userDid));
+      setUnmutingUsers(prev => new Set(prev).add(user.did));
+      // Note: unmuteUser is not implemented yet in AtprotoService
+      // await AtprotoService.unmuteUser(user.did);
+      console.log('Unmute functionality not implemented yet');
+      setMutedUsers(prev => prev.filter(mutedUser => mutedUser.did !== user.did));
     } catch (error) {
       console.error('Error unmuting user:', error);
     } finally {
       setUnmutingUsers(prev => {
         const newSet = new Set(prev);
-        newSet.delete(userDid);
+        newSet.delete(user.did);
         return newSet;
       });
     }
   };
 
-  const renderUserItem = ({ item }: { item: MutedUser }) => {
-    const isUnmuting = unmutingUsers.has(item.did);
-
-    return (
-      <View style={styles.userItem}>
-        <View style={styles.userInfo}>
-          <Avatar
-            uri={item.avatar}
-            type="profile"
-            size={40}
-            ringColor="transparent"
-            style={{ marginRight: 12 }}
-          />
-          <View style={styles.userDetails}>
-            <Text style={settingsTextStyles.userDisplayName} numberOfLines={1} ellipsizeMode="tail">
-              {item.displayName || 'Unknown User'}
-            </Text>
-            <Text style={settingsTextStyles.userHandle} numberOfLines={1} ellipsizeMode="tail">@{item.handle}</Text>
-          </View>
-        </View>
-        <TouchableOpacity
-          style={[
-            settingsButtonStyles.actionButton,
-            isUnmuting && settingsActiveStyles.buttonDisabled
-          ]}
-          onPress={() => handleUnmuteUser(item.did)}
-          disabled={isUnmuting}
-          activeOpacity={0.7}
-        >
-          {isUnmuting ? (
-            <ActivityIndicator size="small" color={Colors.white} />
-          ) : (
-            <Text style={settingsTextStyles.actionButtonText}>Unmute</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  if (loading) {
-    return (
-      <View style={settingsLayoutStyles.safeArea}>
-        <ListHeader
-          mode="stacked"
-          title="muted accounts"
-          showBackButton
-          onBackPress={() => navigation.goBack()}
-          applySafeAreaTop
-        />
-        <View style={settingsLayoutStyles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.white} />
-          <Text style={settingsTextStyles.loadingText}>Loading muted accounts...</Text>
-        </View>
-      </View>
-    );
-  }
-
   return (
-    <View style={settingsLayoutStyles.safeArea}>
-      <ListHeader
-        mode="stacked"
-        title="muted accounts"
-        showBackButton
-        onBackPress={() => navigation.goBack()}
-        applySafeAreaTop
-      />
-
-      <FlatList
-        data={mutedUsers}
-        keyExtractor={(item) => item.did}
-        renderItem={renderUserItem}
-        contentContainerStyle={settingsLayoutStyles.listContainerNoPadding}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={settingsLayoutStyles.emptyContainer}>
-            <Icon name="volume-x" size={48} color={Colors.lightGray} />
-            <Text style={settingsTextStyles.emptyTitle}>no muted accounts</Text>
-            <Text style={settingsTextStyles.emptyDescription}>
-              you haven't muted any accounts yet. muted accounts' posts won't appear in your feed, but they can still see your content.
-            </Text>
-          </View>
-        }
-      />
-    </View>
+    <ListScreen
+      title="Muted accounts"
+      data={mutedUsers}
+      isLoading={loading}
+      error={null}
+      emptyIcon="volume-x"
+      emptyTitle="No muted accounts"
+      emptySubtitle="You haven't muted any accounts yet. Muted accounts' posts won't appear in your feed, but they can still see your content."
+      showFollowButton={true}
+      followButtonIcon="minus-fill"
+      followButtonAction="unmute"
+      onActionPress={handleUnmuteUser}
+    />
   );
 };
-
-const styles = StyleSheet.create({
-  userItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  userDetails: {
-    flex: 1,
-  },
-});
 
 export default MutedUsersScreen; 
