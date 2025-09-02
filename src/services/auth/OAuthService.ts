@@ -1,5 +1,19 @@
-import { ExpoOAuthClient } from 'expo-atproto-auth';
-import { Agent } from '@atproto/api';
+// Ensure minimal Event exists before dynamically importing oauth client in Expo Go
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const g: any = global as any;
+if (typeof g.Event === 'undefined') {
+  try {
+    g.Event = class Event {
+      type: string;
+      constructor(type: string) {
+        this.type = type;
+      }
+    };
+  } catch {}
+}
+
+import type { Agent } from '@atproto/api';
+import type { ExpoOAuthClient } from 'expo-atproto-auth';
 import type { OAuthSession } from './types';
 
 /**
@@ -7,11 +21,18 @@ import type { OAuthSession } from './types';
  */
 export class AtProtoOAuthService {
   private static instance: AtProtoOAuthService;
-  private auth: ExpoOAuthClient;
+  private auth!: ExpoOAuthClient;
   private currentOAuthSession: any = null; // The actual OAuth session from expo-atproto-auth
   private currentAgent: Agent | null = null; // Agent created from OAuth session
 
-  private constructor() {
+  private constructor() {}
+
+  private async ensureClientLoaded(): Promise<void> {
+    if (this.auth) return;
+    const [{ ExpoOAuthClient }, { Agent }] = await Promise.all([
+      import('expo-atproto-auth'),
+      import('@atproto/api'),
+    ]);
     this.auth = new ExpoOAuthClient({
       clientMetadata: {
         client_id: 'https://getorbyt.com/oauth-client-metadata.json',
@@ -30,6 +51,8 @@ export class AtProtoOAuthService {
       },
       handleResolver: 'https://bsky.social',
     });
+    // Create a dummy agent import to keep types available; actual instance created later
+    void Agent;
   }
 
   public static getInstance(): AtProtoOAuthService {
@@ -44,6 +67,7 @@ export class AtProtoOAuthService {
    */
   async signIn(identifier: string = 'bsky.social'): Promise<OAuthSession> {
     try {
+      await this.ensureClientLoaded();
       // Use the expo-atproto-auth library to handle the OAuth flow
       const result = await this.auth.signIn(identifier);
 
@@ -61,6 +85,7 @@ export class AtProtoOAuthService {
 
         // Store the OAuth session and create an Agent with the OAuth session
         this.currentOAuthSession = result.session;
+        const { Agent } = await import('@atproto/api');
         this.currentAgent = new Agent(result.session);
 
         return oauthSession;
@@ -80,6 +105,7 @@ export class AtProtoOAuthService {
    */
   async restoreSession(did: string): Promise<OAuthSession> {
     try {
+      await this.ensureClientLoaded();
       // Use the expo-atproto-auth library to restore the session
       const restoredSession = await this.auth.restore(did);
       
@@ -106,6 +132,7 @@ export class AtProtoOAuthService {
 
       // Store the OAuth session and create an Agent with the OAuth session
       this.currentOAuthSession = restoredSession;
+      const { Agent } = await import('@atproto/api');
       this.currentAgent = new Agent(restoredSession);
 
       return oauthSession;
@@ -159,6 +186,7 @@ export class AtProtoOAuthService {
     // Try to create agent from stored session
     if (this.currentOAuthSession) {
       try {
+        const { Agent } = await import('@atproto/api');
         this.currentAgent = new Agent(this.currentOAuthSession);
         return this.currentAgent;
       } catch (error) {

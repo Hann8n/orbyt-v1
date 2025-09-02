@@ -1,6 +1,6 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Modal, TouchableWithoutFeedback, ActivityIndicator, TextInput, Alert, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import UniversalHeader, { HeaderAction, HeaderContent, CustomActionLayout } from './UniversalHeader';
 import HeaderSkeleton from './HeaderSkeleton';
@@ -42,7 +42,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   onEditModeChange,
   onColorsChange,
 }) => {
-  const navigation = useNavigation<any>();
+  const navigation = useRouter();
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   
@@ -298,7 +298,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const handleMenuPress = useCallback(() => {
     if (isOwnProfile) {
       // Navigate to settings for own profile
-      navigation.navigate({ name: 'Settings', params: {} });
+              navigation.push('/settings');
     } else {
       // Show profile menu for other profiles
       setShowProfileMenu(true);

@@ -6,7 +6,7 @@ import {
   Text,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { isSmallScreen, isTablet } from '../../utils/helpers/screenSize';
 import Icon from './Icon';
 
@@ -17,7 +17,7 @@ interface BottomToolBarProps {
 }
 
 const BottomToolBar: React.FC<BottomToolBarProps> = ({ mode, onToolPress, flashActive }) => {
-  const navigation = useNavigation();
+  const navigation = useRouter();
 
   // Different tool configurations based on mode
   const getTools = () => {

@@ -26,17 +26,24 @@
     "paths": {
       "@stores/*": [
         "src/stores/*"
+      ],
+      "@/*": [
+        "src/*"
       ]
-    }
+    },
+    "types": [
+      "expo",
+      "expo-router"
+    ]
   },
   "include": [
     "src/**/*",
-    "index.ts",
-    "App.tsx"
+    "app/**/*"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "src/navigation/**/*"
   ],
   "extends": "expo/tsconfig.base"
 }

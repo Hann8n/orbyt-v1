@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, memo, useRef, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKeys } from '../../../services/FeedService';
@@ -15,9 +15,8 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../../navigation/types';
+import { useRouter } from 'expo-router';
+
 import Icon, { ShareIcon } from '../../ui/Icon';
 import AtprotoService from '../../../services/api/AtprotoService';
 import ProfileCache from '../../../services/cache/ProfileCache';
@@ -35,7 +34,7 @@ interface ProfileMenuProps {
   onSwitchAccount?: () => void;
 }
 
-type ProfileMenuNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>;
+
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -47,7 +46,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   onLogout,
   onSwitchAccount
 }) => {
-  const navigation = useNavigation<ProfileMenuNavigationProp>();
+  const navigation = useRouter();
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
   const { removeAccount } = useAccountManagement();

@@ -7,7 +7,7 @@ import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, MoreFillIcon } from '../../ui/Icon';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import { Avatar } from '../../ui/UI';
 import { Colors } from '../../ui/UI';
@@ -247,18 +247,14 @@ const HeaderContentComponent = memo<{
     onPress: () => void;
   };
 }>(({ content, textColor, backgroundColor, isLoading, skeleton, customDescription, mixIcon }) => {
-  const navigation = useNavigation();
+  const navigation = useRouter();
 
   const navigateToAuthorProfile = useCallback((handle: string) => {
     const clean = handle.trim();
     // Require a dot to resemble a valid Bluesky handle (e.g., name.bsky.social)
     if (!clean || !clean.includes('.')) return;
     
-    let rootNav: any = navigation;
-    while (rootNav?.getParent?.()) {
-      rootNav = rootNav.getParent();
-    }
-    rootNav?.navigate?.('AuthorProfile', { handle: clean });
+    navigation.push(`/profile/${clean}`);
   }, [navigation]);
 
   if (isLoading && skeleton) {
@@ -413,7 +409,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   mixIcon,
   applySafeArea = false,
 }) => {
-  const navigation = useNavigation();
+  const navigation = useRouter();
   const insets = useSafeAreaInsets();
   const isSmallDevice = isSmallScreen() || isTablet();
 
@@ -421,7 +417,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     if (onBackPress) {
       onBackPress();
     } else {
-      navigation.goBack();
+      navigation.back();
     }
   }, [onBackPress, navigation]);
 

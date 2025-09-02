@@ -1,28 +1,35 @@
-import React, { useCallback } from 'react';
+import React, { useState, useCallback, useMemo, memo } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
+  Text,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../../navigation/types';
-import type { FeedItem } from '../../../types';
-import EmptyFeed from './EmptyFeed';
-
+import { FlashList } from '@shopify/flash-list';
+import { useQuery } from '@tanstack/react-query';
+import { Colors, Avatar } from '../../ui/UI';
+import Icon from '../../ui/Icon';
+import { extractColorsFromImage } from '../../../utils/formatting/colorUtils';
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
-import { VideoGridItem } from './HorizontalVideoList';
-import { Colors } from '../../ui/UI';
-import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
+import ProfileCache from '../../../services/cache/ProfileCache';
+import ChannelCache from '../../../services/cache/ChannelCache';
+import { useProfile } from '../../../services/cache/ProfileCache';
+import { useChannelColors } from '../../../services/cache/ChannelCache';
+import { useCurrentUser } from '../../../stores/userStore';
 import { feedService } from '../../../services/FeedService';
 import { BlurView } from 'expo-blur';
-import Icon from '../../ui/Icon';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
+import { FeedItem } from '../../../types';
+import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
+import EmptyFeed from './EmptyFeed';
+import { VideoGridItem } from './HorizontalVideoList';
 
 
 const ITEM_MARGIN = 1; // Set divider thickness to 1 for both directions
@@ -67,7 +74,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   ListComponent,
 }) => {
   // Safe area removed for grid feed view
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useRouter();
 
   // Determine if this is a header feed (profile, channel, etc.)
   const isHeaderFeed = (
@@ -115,14 +122,17 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
         return;
       }
       feedService.setCurrentFeed(feed);
-      navigation.navigate('FeedScreen', {
-        initialUri: item.post.uri,
-        initialIndex: index,
-        feedOption,
-        userDid,
-        backgroundColor,
-        secondaryColor,
-      });
+             navigation.push({
+          pathname: '/feed',
+          params: {
+            initialUri: item.post.uri,
+            initialIndex: index.toString(),
+            feedOption,
+            userDid,
+            backgroundColor,
+            secondaryColor,
+          }
+        });
     };
 
     // Create border styles - only show borders on the inside of the grid

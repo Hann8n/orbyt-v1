@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
 import HeaderSkeleton from './HeaderSkeleton';
 import { useChannelColors } from '../../../services/cache/ChannelCache';
@@ -213,7 +213,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   applySafeArea = false,
   headerStyle,
 }) => {
-  const navigation = useNavigation<any>();
+  const navigation = useRouter();
 
   // Get channel colors from cache
   const { colors: channelColors } = useChannelColors(channel?.id || channel?.uri);
@@ -278,11 +278,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     const handleCreatorPress = channel.creator?.handle ? () => {
       const clean = channel.creator!.handle.trim();
       if (!clean) return;
-      let rootNav: any = navigation as any;
-      while (rootNav?.getParent?.()) {
-        rootNav = rootNav.getParent();
-      }
-      rootNav?.navigate?.('AuthorProfile', { handle: clean });
+      navigation.push(`/profile/${clean}`);
     } : undefined;
 
     // Create experimental badge if channel is experimental

@@ -131,7 +131,7 @@ export function useFeed(
     feedOption === 'profile' || 
     feedOption === 'likes' || 
     feedOption === 'reposts' || 
-    feedOption.startsWith('at://')
+    (feedOption && feedOption.startsWith('at://'))
   ) && Boolean(userDid);
 
   return {

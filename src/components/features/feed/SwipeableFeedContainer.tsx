@@ -262,7 +262,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   }, [feedOptions, visibleFeedOption]);
 
   // Optimized horizontal scroll handler with improved responsiveness
-  const scrollUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const handleHorizontalScroll = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;

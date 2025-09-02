@@ -113,7 +113,7 @@ class FeedStateManager {
   };
   
   // Memory management
-  private cleanupInterval: NodeJS.Timeout | null = null;
+  private cleanupInterval: ReturnType<typeof setInterval> | null = null;
   
   constructor() {
     this.startMemoryManagement();

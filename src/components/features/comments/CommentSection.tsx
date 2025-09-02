@@ -33,7 +33,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../../../services/api/AtprotoService';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { createQueryKeys } from '../../../services/FeedService';
 import { Colors } from '../../ui/UI';

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AtprotoService from '../api/AtprotoService';
-import { extractColorsFromImage, isColorDark } from '../../../src/utils/formatting/colorUtils';
+import { extractColorsFromImage, isColorDark } from '@/utils/formatting/colorUtils';
 import { 
   useQuery, 
   useMutation,

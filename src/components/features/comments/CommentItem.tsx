@@ -19,7 +19,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
  
 import AtprotoService from '../../../services/api/AtprotoService';
@@ -266,7 +266,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       }
     }, [isLiked, likeCount, comment, likeUri, properUri, properCid, animateHeart, isLiking]);
 
-    const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+    const navigation = useRouter();
 
     // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
     const navigateToAuthorProfile = useCallback((rawHandle?: string | null) => {
@@ -279,14 +279,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       // Always dismiss the sheet first if provided
       onDismiss?.();
 
-      const navState: any = navigation.getState?.();
-      const topRouteName: string | undefined = navState?.routes?.[navState?.index || 0]?.name;
-
-      let rootNav: any = navigation as any;
-      while (rootNav?.getParent?.()) {
-        rootNav = rootNav.getParent();
-      }
-      rootNav?.navigate?.('AuthorProfile', { handle: cleanHandle });
+      // Navigate to profile using Expo Router
+      navigation.push(`/profile/${cleanHandle}`);
     }, [navigation, onDismiss]);
 
     const handleAuthorPress = useCallback(

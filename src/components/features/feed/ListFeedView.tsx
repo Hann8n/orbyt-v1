@@ -79,7 +79,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   // Refs
   const flashListRef = useRef<FlashListRef<FeedItem>>(null);
   const lastScrollOffset = useRef(0);
-  const positionSaveTimeout = useRef<NodeJS.Timeout | null>(null);
+  const positionSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentVisibleVideoUri = useRef<string | null>(null);
   
   // Device detection

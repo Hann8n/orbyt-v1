@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { TouchableOpacity, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/verification/VerificationBadge';
 import Icon from './Icon';
-import { hexToRGBA } from '../../utils/formatting/colorUtils';
+import { extractColorsFromImage } from '../../utils/formatting/colorUtils';
 import { Colors } from './UI';
-import { HomeStackParamList } from '../../navigation/types';
-import { useProfile } from '../../services/cache/ProfileCache';
+
+import { useProfile, useProfileColors } from '../../services/cache/ProfileCache';
+import { useCurrentUser } from '../../stores/userStore';
  
 
 interface AuthorItemProps {
@@ -52,7 +53,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   handleColor,
   hideHandleLine,
 }) => {
-  const navigation = useNavigation<NavigationProp<HomeStackParamList>>();
+  const navigation = useRouter();
   
   // Size configuration
   const sizeConfig = {
@@ -93,11 +94,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
     } else if (handle) {
       const clean = handle.trim();
       if (!clean) return;
-      let rootNav: any = navigation as any;
-      while (rootNav?.getParent?.()) {
-        rootNav = rootNav.getParent();
-      }
-      rootNav?.navigate?.('AuthorProfile', { handle: clean });
+      navigation.push(`/profile/${clean}`);
     }
   };
 

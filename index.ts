@@ -4,7 +4,8 @@ import 'abortcontroller-polyfill';
 import { registerRootComponent } from 'expo';
 import { LogBox } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import App from './src/App';
+
+declare const global: any;
 
 // This is required for expo-auth-session to work properly
 WebBrowser.maybeCompleteAuthSession();
@@ -100,7 +101,5 @@ if (typeof global !== 'undefined') {
   }
 }
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
-registerRootComponent(App); 
+// Use standard Expo Router entry point
+import 'expo-router/entry'; 

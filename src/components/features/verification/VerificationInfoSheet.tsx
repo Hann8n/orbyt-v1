@@ -14,7 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
 import AtprotoService from '../../../services/api/AtprotoService';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { Avatar } from '../../ui/UI';
 import Icon from '../../ui/Icon';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
@@ -75,7 +75,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   onDismiss
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
-  const navigation = useNavigation<any>();
+  const navigation = useRouter();
   const snapPoints = React.useMemo(() => ['auto'] as any, []);
   const insets = useSafeAreaInsets();
 
@@ -305,11 +305,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
                   if (!target) return;
                   
                   // Navigate immediately without dismissing first
-                  navigation.navigate('AuthorProfile', { 
-                    handle: target,
-                    // Force a new screen instance
-                    key: `verifier-${target}-${Date.now()}`
-                  });
+                  navigation.push(`/profile/${profile.handle}`);
                   
                   // Dismiss the sheet after navigation starts
                   setTimeout(() => {

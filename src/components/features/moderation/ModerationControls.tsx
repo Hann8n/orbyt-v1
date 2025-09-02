@@ -1,32 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
-  Switch,
   Alert,
+  ActivityIndicator,
+  Switch,
+  ScrollView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Colors } from '../../ui/UI';
 import Icon from '../../ui/Icon';
-import ListHeader from '../../ui/ListHeader';
 import { ModerationService } from '../../../services/ModerationService';
 import { ModerationSettings, LabelPreference } from '../../../services/ModerationTypes';
-import { Colors } from '../../ui/UI';
-import UI from '../../ui/UI';
-import { RootStackParamList, useLogout } from '../../../navigation/types';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useProfile } from '../../../services/cache/ProfileCache';
+import { useChannelColors } from '../../../services/cache/ChannelCache';
+import { useCurrentUser, useAuth } from '../../../stores/userStore';
 
 interface ModerationControlsProps {
   visible: boolean;
   onClose: () => void;
   onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
 }
-
-type ModerationControlsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'BlockedUsers' | 'MutedUsers' | 'HiddenPosts'>;
 
 interface ContentTypeOption {
   id: string;
@@ -37,9 +35,9 @@ interface ContentTypeOption {
 }
 
 const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClose, onLogout }) => {
-  const navigation = useNavigation<ModerationControlsNavigationProp>();
-  const logoutFromContext = useLogout();
-  const logoutFunction = onLogout || logoutFromContext;
+  const router = useRouter();
+  const { signOut } = useAuth();
+  const logoutFunction = onLogout || signOut;
   const [settings, setSettings] = useState<ModerationSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
@@ -450,8 +448,8 @@ const styles = StyleSheet.create({
     borderRightColor: Colors.mediumGray,
   },
   toggleButtonActive: {
-    backgroundColor: UI.Colors.STATUS.SUCCESS,
-    borderRightColor: UI.Colors.STATUS.SUCCESS,
+    backgroundColor: Colors.green,
+    borderRightColor: Colors.green,
   },
   toggleButtonText: {
     fontSize: 13,

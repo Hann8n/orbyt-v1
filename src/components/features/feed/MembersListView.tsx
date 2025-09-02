@@ -10,7 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
@@ -92,7 +92,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
   isRefreshing = false,
   ListComponent,
 }) => {
-  const navigation = useNavigation<any>();
+  const navigation = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
@@ -237,11 +237,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
       // Navigate to profile
       const target = (member.handle || '').trim();
       if (!target) return;
-      let rootNav: any = navigation as any;
-      while (rootNav?.getParent?.()) {
-        rootNav = rootNav.getParent();
-      }
-      rootNav?.navigate?.('AuthorProfile', { handle: target });
+      navigation.push(`/profile/${target}`);
     }
   }, [onMemberPress, navigation]);
 

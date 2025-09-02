@@ -21,7 +21,7 @@ import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import VerificationBadge from '../verification/VerificationBadge';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalShareSheet';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalCommentSection';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -95,7 +95,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const { width, height } = useWindowDimensions();
   const { presentShareSheet } = useGlobalShareSheet();
   const { presentCommentSection } = useGlobalCommentSection();
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const navigation = useRouter();
   
   // Overlay state
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
@@ -126,11 +126,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       return;
     }
 
-    let rootNav: any = navigation as any;
-    while (rootNav?.getParent?.()) {
-      rootNav = rootNav.getParent();
-    }
-    rootNav?.navigate?.('AuthorProfile', { handle: cleanHandle });
+    navigation.push(`/profile/${cleanHandle}`);
   }, [navigation]);
 
   // Handle author press

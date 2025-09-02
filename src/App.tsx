@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, StatusBar, Appearance, AppState, LogBox } from 'react-native';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
-import { NavigationContainer } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -9,8 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Font from 'expo-font';
 
 // Local imports
-import RootNavigator from './navigation/RootNavigator';
-import LoginScreen from './screens/LoginScreen';
+import LoginScreen from '../app/login';
 import { AtprotoService } from './services/api/AtprotoService';
 import ProfileCache from './services/cache/ProfileCache';
 import StatusBarController from './components/ui/StatusBarController';
@@ -233,35 +231,12 @@ const App: React.FC<AppProps> = () => {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <QueryClientProvider client={queryClient}>
-        <NavigationContainer
-          onStateChange={(state) => {
-            try {
-              const getActiveRouteName = (navState: any): string | undefined => {
-                if (!navState) return undefined;
-                let route = navState.routes?.[navState.index ?? 0];
-                while (route?.state && route.state.routes) {
-                  route = route.state.routes[route.state.index ?? 0];
-                }
-                return route?.name;
-              };
+        <StatusBarController />
+        <GestureHandlerRootView style={styles.gestureHandler}>
 
-              const routeName = getActiveRouteName(state) || state?.routes?.[state?.index ?? 0]?.name;
-              if (routeName) {
-                // updateNavigation(routeName); // This line was removed as per the edit hint
-                try {
-              
-                } catch {}
-              }
-            } catch {}
-          }}
-        >
-          <StatusBarController />
-          <GestureHandlerRootView style={styles.gestureHandler}>
-            <RootNavigator onLogout={handleLogout} />
-            <ShareSheet />
-            <CommentSection />
-          </GestureHandlerRootView>
-        </NavigationContainer>
+          <ShareSheet />
+          <CommentSection />
+        </GestureHandlerRootView>
       </QueryClientProvider>
     </SafeAreaProvider>
   );

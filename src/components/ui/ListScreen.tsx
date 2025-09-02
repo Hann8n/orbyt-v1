@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 import { Avatar, Icon } from './UI';
@@ -63,7 +63,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
   onUserPress,
   onActionPress,
 }) => {
-  const navigation = useNavigation();
+  const navigation = useRouter();
   const insets = useSafeAreaInsets();
   const [actionUsers, setActionUsers] = useState<Set<string>>(new Set());
   const followMutation = useFollowMutation();
@@ -190,7 +190,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
       mode="sheet"
       title={title}
       showCloseButton
-      onClosePress={() => navigation.goBack()}
+              onClosePress={() => navigation.back()}
       applySafeAreaTop={false}
       style={{ marginHorizontal: -5 }}
     />

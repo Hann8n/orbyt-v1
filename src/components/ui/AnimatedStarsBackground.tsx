@@ -23,7 +23,7 @@ interface AnimatedStarsBackgroundProps {
 
 export default function AnimatedStarsBackground({ children }: AnimatedStarsBackgroundProps) {
   const starsRef = useRef<Star[]>([]);
-  const animationRef = useRef<NodeJS.Timeout | null>(null);
+  const animationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mathematical random number generator (Linear Congruential Generator)
   const random = (seed: number): number => {

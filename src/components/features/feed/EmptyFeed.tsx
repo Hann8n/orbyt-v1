@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar } from '../../ui/UI';
 import VerificationBadge from '../verification/VerificationBadge';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import ProfileCache, { useFollowMutation } from '../../../services/cache/ProfileCache';
 import AuthorItem from '../../ui/AuthorItem';
@@ -53,7 +53,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   viewableAreaHeight,
   feedOption
 }) => {
-  const navigation = useNavigation<any>();
+  const navigation = useRouter();
   const queryClient = useQueryClient();
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
   const insets = useSafeAreaInsets();

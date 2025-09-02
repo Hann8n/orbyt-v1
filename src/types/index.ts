@@ -142,6 +142,21 @@ export interface CacheEntry<T> {
   ttl: number;
 }
 
+// Text Overlay Types
+export interface TextOverlay {
+  id: string;
+  text: string;
+  position: { x: number; y: number };
+  scale?: number;
+  color?: string;
+  fontFamily?: string;
+  style?: {
+    fontSize?: number;
+    color?: string;
+    fontFamily?: string;
+  };
+}
+
 // Import existing types
 import type { ModerationDecision } from '../services/ModerationTypes';
 
