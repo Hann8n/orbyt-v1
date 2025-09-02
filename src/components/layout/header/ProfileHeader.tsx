@@ -329,13 +329,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             buttons: [
               {
                 id: 'edit',
-                label: 'edit',
-                customIcon: (
-                  <ProfileEditIcon 
-                    size={16} 
-                    color={profileColors.textColor} 
-                  />
-                ),
+                label: 'Edit profile',
                 onPress: enterEditMode,
               },
             ],
