@@ -4,6 +4,7 @@
  * Centralizes all user-related state using DIDs as primary identifiers
  * Integrates with expo-atproto-auth for OAuth session management
  */
+import React from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1030,6 +1031,22 @@ export const useFeedSettings = () => {
     getExperimentalFeedsEnabled,
     getFeedDebugOverlayEnabled,
   };
+};
+
+// Hook for automatically syncing ProfileCache with userStore
+export const useProfileCacheSync = () => {
+  const currentUser = useUserStore(state => state.currentUser);
+  
+  React.useEffect(() => {
+    if (currentUser?.did) {
+      ProfileCache.setCurrentUserDid(currentUser.did);
+    }
+    if (currentUser?.handle) {
+      ProfileCache.setCurrentUserHandle(currentUser.handle);
+    }
+  }, [currentUser?.did, currentUser?.handle]);
+  
+  return { currentUser };
 };
 
 // Hook for moderation functionality

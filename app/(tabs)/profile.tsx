@@ -19,7 +19,7 @@ import Icon from '../../src/components/ui/Icon';
 import { useQueryClient } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
 import AccountSwitcher from '../../src/components/features/profile/AccountSwitcher';
-import { useCurrentUser, useAccountManagement, useUserStore } from '../../src/stores/userStore';
+import { useCurrentUser, useAccountManagement, useUserStore, useProfileCacheSync } from '../../src/stores/userStore';
 import { Colors } from '../../src/components/ui/UI';
  
 
@@ -39,6 +39,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // User store hooks
   const { currentUser } = useCurrentUser();
   const { savedAccounts, switchAccount } = useAccountManagement();
+  
+  // Automatically sync ProfileCache with userStore
+  useProfileCacheSync();
   
   // State for the current user's handle (loaded from userStore)
   const userHandle = currentUser?.handle || null;
@@ -92,12 +95,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Memoized query options for profile feed
   const queryOptions = useMemo(() => ({ enabled: !!profileData?.did }), [profileData?.did]);
 
-  // Set current user DID in ProfileCache when userStore changes
-  useEffect(() => {
-    if (currentUser?.handle) {
-      ProfileCache.setCurrentUserHandle(currentUser.handle);
-    }
-  }, [currentUser?.did]);
+  // ProfileCache is now automatically synced via useProfileCacheSync hook
 
   // Extract and save colors when profile data is available
   useEffect(() => {
@@ -170,7 +168,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       setRefreshing(true);
 
       // Clear ProfileCache and call onLogout
-      ProfileCache.setCurrentUserHandle('');
       ProfileCache.clearCache();
       await onLogout(clearAllAccounts);
     } catch (error) {
@@ -182,7 +179,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   const handleAccountSwitch = async (account: any) => {
     try {
-      ProfileCache.setCurrentUserHandle(account.handle);
       await refetchProfile();
     } catch (error) {
       console.error('Error handling account switch:', error);
@@ -191,17 +187,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   const isOwnProfileView = useMemo(() => {
     if (isViewingOwnProfile) return true;
-    const normalizedTarget = (targetHandle || '').trim().toLowerCase();
-    const normalizedSelfHandle = (userHandle || '').trim().toLowerCase();
-    if (normalizedTarget && normalizedSelfHandle && normalizedTarget === normalizedSelfHandle) {
-      return true;
-    }
-    const currentDid = ProfileCache.getCurrentUserDid?.();
-    if (currentDid && profileData?.did) {
-      return currentDid === profileData.did;
-    }
-    return false;
-  }, [isViewingOwnProfile, targetHandle, userHandle, profileData?.did]);
+    
+    // Simple: check if the profile being viewed belongs to the current user
+    const currentDid = ProfileCache.getCurrentUserDid();
+    return currentDid && profileData?.did && currentDid === profileData.did;
+  }, [isViewingOwnProfile, profileData?.did]);
+
+  // Debug logging
+  console.log('[ProfileScreen] isOwnProfileView calculation:', {
+    isViewingOwnProfile,
+    targetHandle,
+    userHandle,
+    profileDataDid: profileData?.did,
+    currentUserDid: currentUser?.did,
+    profileCacheDid: ProfileCache.getCurrentUserDid(),
+    result: isOwnProfileView
+  });
 
   const tabOptions: TabOption[] = useMemo(() => [
     { id: 'profile', label: 'videos' },

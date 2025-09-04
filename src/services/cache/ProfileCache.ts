@@ -109,6 +109,7 @@ class ProfileCache {
    * Gets the current user's DID
    */
   static getCurrentUserDid(): string | null {
+    console.log('[ProfileCache] getCurrentUserDid called, returning:', this.currentUserDid);
     return this.currentUserDid;
   }
 

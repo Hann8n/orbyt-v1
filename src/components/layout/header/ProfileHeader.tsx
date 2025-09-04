@@ -316,6 +316,14 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const customActions = useMemo((): CustomActionLayout[] => {
     if (!profileData) return [];
 
+    // Debug logging
+    console.log('[ProfileHeader] customActions calculation:', {
+      isOwnProfile,
+      profileDataHandle: profileData?.handle,
+      profileDataDid: profileData?.did,
+      isEditMode
+    });
+
     if (isOwnProfile) {
       if (isEditMode) {
         return []; // No custom actions in edit mode since buttons are in color picker
