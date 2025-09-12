@@ -25,23 +25,7 @@ export default function TabsLayout() {
 
     const handleCapturePress = async () => {
       try {
-        Alert.alert(
-          'Create Video',
-          'Choose how you want to create your video',
-          [
-            {
-              text: 'Camera',
-              onPress: () => {
-                router.push('/(tabs)/create');
-              },
-            },
-            {
-              text: 'Gallery',
-              onPress: handleGalleryPick,
-            },
-            { text: 'Cancel', style: 'cancel' },
-          ]
-        );
+        handleGalleryPick();
       } catch {}
     };
 
