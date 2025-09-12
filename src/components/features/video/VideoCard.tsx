@@ -5,7 +5,6 @@ import React, {
   useImperativeHandle,
   useEffect,
   useCallback,
-  useMemo,
   memo,
 } from 'react';
 
@@ -65,34 +64,18 @@ export interface VideoCardProps {
 
 }
 
-// Helper for video assets extraction
-const useVideoAssets = (post: Post, isVisible: boolean) => {
-  return useMemo(() => {
-    const videoEmbed = post.embed;
-    
-    // Extract video URL from the correct location - use playlist from videoEmbed
-    const videoUrl = videoEmbed?.playlist || 
-                    post.embed?.external?.uri || 
-                    post.embed?.record?.uri || 
-                    post.embed?.url ||
-                    post.videoUrl ||
-                    '';
-    
-    // Extract thumbnail from the correct location
-    const thumbnailUrl = videoEmbed?.thumbnail || 
-                        '';
-    
-    const backgroundColors = ['#000000', '#111111'];
-    
-
-    
-    return {
-      videoEmbed,
-      videoUrl,
-      thumbnailUrl,
-      backgroundColors
-    };
-  }, [post]);
+// Helper for video assets extraction - simplified
+const getVideoAssets = (post: Post) => {
+  const videoEmbed = post.embed;
+  const videoUrl = videoEmbed?.playlist || 
+                  post.embed?.external?.uri || 
+                  post.embed?.record?.uri || 
+                  post.embed?.url ||
+                  post.videoUrl ||
+                  '';
+  const thumbnailUrl = videoEmbed?.thumbnail || '';
+  
+  return { videoEmbed, videoUrl, thumbnailUrl };
 };
 
 const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
@@ -113,52 +96,39 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
   }, ref) => {
     const { isClearViewMode } = useClearView();
     
-    // Simplified state management
+    // Consolidated state management
     const [videoState, setVideoState] = useState({
       hasError: false,
       userPaused: false,
       isReady: false,
       isBuffering: false,
-
       duration: 0,
       currentPosition: 0,
-      customDimLevel: 0,
     });
 
-    // Overlay state
-    const [isLikePending, setIsLikePending] = useState(false);
-    const [isRepostPending, setIsRepostPending] = useState(false);
-    const [isLiked, setIsLiked] = useState(!!post.viewer?.like);
-    const [likeCount, setLikeCount] = useState(post.likeCount || 0);
-    const [repostCount, setRepostCount] = useState(post.repostCount || 0);
-    const [isReposted, setIsReposted] = useState(!!post.viewer?.repost);
+    // Overlay state - consolidated
+    const [overlayState, setOverlayState] = useState({
+      isLikePending: false,
+      isRepostPending: false,
+      isLiked: !!post.viewer?.like,
+      likeCount: post.likeCount || 0,
+      repostCount: post.repostCount || 0,
+      isReposted: !!post.viewer?.repost,
+    });
 
     // Refs
     const playerRef = useRef<any>(null);
     const videoId = post.uri;
 
-    // Get combined video assets
-    const { 
-      thumbnailUrl: posterUrl, 
-      backgroundColors, 
-      videoEmbed, 
-      videoUrl 
-    } = useVideoAssets(post, isVisible);
+    // Get video assets - simplified
+    const { thumbnailUrl: posterUrl, videoEmbed, videoUrl } = getVideoAssets(post);
     
     // Extract thumbnail color for background
     const { backgroundColor: thumbnailBackgroundColor } = useThumbnailColor(posterUrl);
     
-    // Get final video URL
-    const finalVideoUrl = useMemo(() => videoUrl || '', [videoUrl]);
-
     // Track dimensions
     const { width } = Dimensions.get('window');
-    
-    // Get optimal video height
-    const cardHeight = useMemo(() => {
-      if (height) return height;
-      return width * (16/9); // Default 16:9 aspect ratio
-    }, [width, height]);
+    const cardHeight = height || width * (16/9);
 
     // Content warning state - use moderation decision directly
     const [userChoseToView, setUserChoseToView] = useState(false);
@@ -184,32 +154,15 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       setUserChoseToView(false);
     }, [post?.uri]);
 
-    // Calculate overlay opacity
-    const overlayOpacity = useMemo(() => {
-      if (hasWarning) return 1;
-      if (videoState.customDimLevel > 0) return videoState.customDimLevel;
-      return 0;
-    }, [hasWarning, videoState.customDimLevel]);
+    // Simplified video playback logic
+    const shouldPlayVideo = !shouldDisablePlayback && 
+                           !videoState.hasError && 
+                           !videoState.userPaused &&
+                           !(hasWarning && !shouldShowContent) &&
+                           shouldPlay && 
+                           !!videoUrl;
 
-    // Video playback logic - prevent playback when content is blurred
-    const shouldPlayVideo = useMemo(() => {
-      // Don't play if any of these conditions are met
-      if (shouldDisablePlayback || videoState.hasError || videoState.userPaused) return false;
-      
-      // Critical: Don't play if content is blurred and user hasn't chosen to view
-      if (hasWarning && !shouldShowContent) return false;
-      
-      // Only play if explicitly told to play and we have a video URL
-      return shouldPlay && !!finalVideoUrl;
-    }, [shouldDisablePlayback, videoState.hasError, videoState.userPaused, hasWarning, shouldShowContent, shouldPlay, finalVideoUrl]);
-
-    // Determine if video should even load (prevent loading blurred content)
-    const shouldLoadVideo = useMemo(() => {
-      // Don't load if content is blurred and user hasn't chosen to view
-      if (hasWarning && !shouldShowContent) return false;
-      
-      return !!finalVideoUrl;
-    }, [hasWarning, shouldShowContent, finalVideoUrl]);
+    const shouldLoadVideo = !(hasWarning && !shouldShowContent) && !!videoUrl;
 
     // Video playback control functions
     const play = useCallback(() => {
@@ -350,47 +303,56 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       }));
     }, []);
 
-    // Overlay interaction handlers
+    // Simplified overlay interaction handlers
     const handleLike = useCallback(async () => {
-      if (isLikePending) return;
-      setIsLikePending(true);
+      if (overlayState.isLikePending) return;
+      
+      setOverlayState(prev => ({
+        ...prev,
+        isLikePending: true,
+        isLiked: !prev.isLiked,
+        likeCount: prev.isLiked ? prev.likeCount - 1 : prev.likeCount + 1
+      }));
       
       try {
-        // Toggle like state
-        const newIsLiked = !isLiked;
-        setIsLiked(newIsLiked);
-        setLikeCount(prev => newIsLiked ? prev + 1 : prev - 1);
-        
         // TODO: Implement actual like API call
         // await AtprotoService.likePost(post.uri, post.cid);
       } catch (error) {
         // Revert on error
-        setIsLiked(!isLiked);
-        setLikeCount(prev => isLiked ? prev + 1 : prev - 1);
+        setOverlayState(prev => ({
+          ...prev,
+          isLiked: !prev.isLiked,
+          likeCount: prev.isLiked ? prev.likeCount + 1 : prev.likeCount - 1
+        }));
       } finally {
-        setIsLikePending(false);
+        setOverlayState(prev => ({ ...prev, isLikePending: false }));
       }
-    }, [isLiked, isLikePending, post.uri, post.cid]);
+    }, [overlayState.isLikePending, post.uri, post.cid]);
 
     const handleRepost = useCallback(async () => {
-      if (isRepostPending) return;
-      setIsRepostPending(true);
+      if (overlayState.isRepostPending) return;
+      
+      setOverlayState(prev => ({
+        ...prev,
+        isRepostPending: true,
+        isReposted: !prev.isReposted,
+        repostCount: prev.isReposted ? prev.repostCount - 1 : prev.repostCount + 1
+      }));
       
       try {
-        const newIsReposted = !isReposted;
-        setIsReposted(newIsReposted);
-        setRepostCount(prev => newIsReposted ? prev + 1 : prev - 1);
-        
         // TODO: Implement actual repost API call
         // await AtprotoService.repostPost(post.uri, post.cid);
       } catch (error) {
-        setIsReposted(isReposted);
-        setRepostCount(prev => isReposted ? prev + 1 : prev - 1);
+        setOverlayState(prev => ({
+          ...prev,
+          isReposted: !prev.isReposted,
+          repostCount: prev.isReposted ? prev.repostCount + 1 : prev.repostCount - 1
+        }));
         console.error('Repost error:', error);
       } finally {
-        setIsRepostPending(false);
+        setOverlayState(prev => ({ ...prev, isRepostPending: false }));
       }
-    }, [isReposted, isRepostPending, post.uri, post.cid]);
+    }, [overlayState.isRepostPending, post.uri, post.cid]);
 
     const handleSourcePress = useCallback(() => {
       // TODO: Implement source feed navigation
@@ -425,7 +387,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
             {shouldLoadVideo && (
               <Video
                 ref={playerRef}
-                source={{ uri: finalVideoUrl }}
+                source={{ uri: videoUrl }}
                 style={[styles.videoPlayer, { backgroundColor: thumbnailBackgroundColor }]}
                 resizeMode="contain"
                 poster={posterUrl}
@@ -435,11 +397,8 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 repeat={true}
                 playInBackground={false}
                 playWhenInactive={false}
-                onLoadStart={() => {
-                  onVideoStatus?.(post.uri, 'loading');
-                }}
+                onLoadStart={() => onVideoStatus?.(post.uri, 'loading')}
                 onLoad={handleLoad}
-
                 onEnd={handleEnd}
                 onError={handleError}
                 onReadyForDisplay={handleReadyForDisplay}
@@ -460,7 +419,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
             {(!shouldLoadVideo || videoState.isBuffering) && !isBlurred && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="white" />
-                {!shouldLoadVideo && !finalVideoUrl && (
+                {!shouldLoadVideo && !videoUrl && (
                   <Text style={styles.loadingText}>No video URL found</Text>
                 )}
                 {videoState.isBuffering && (
@@ -480,12 +439,12 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 onLike={handleLike}
                 onRepost={handleRepost}
                 onSourcePress={handleSourcePress}
-                isLiked={isLiked}
-                isReposted={isReposted}
-                likeCount={likeCount}
-                repostCount={repostCount}
-                isLikePending={isLikePending}
-                isRepostPending={isRepostPending}
+                isLiked={overlayState.isLiked}
+                isReposted={overlayState.isReposted}
+                likeCount={overlayState.likeCount}
+                repostCount={overlayState.repostCount}
+                isLikePending={overlayState.isLikePending}
+                isRepostPending={overlayState.isRepostPending}
               />
             )}
           </View>

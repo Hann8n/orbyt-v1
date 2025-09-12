@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence } from 'react-native-reanimated';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
@@ -103,17 +103,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Get profile colors for overlay
   const { colors: profileColors } = useProfileColors(post.author?.handle);
 
-  // Memoize author and record to prevent unnecessary re-renders
-  const author = useMemo(() => post.author || {}, [post.author]);
-  const record = useMemo(() => post.record || {}, [post.record]);
-
-  // Memoize profile picture URL
-  const profilePicUrl = useMemo(() => 
-    author.avatar && author.avatar.startsWith('http')
-      ? author.avatar
-      : 'https://via.placeholder.com/40',
-    [author.avatar]
-  );
+  // Simplified - no memoization needed for simple object access
+  const author = post.author || {};
+  const record = post.record || {};
+  const profilePicUrl = author.avatar && author.avatar.startsWith('http')
+    ? author.avatar
+    : 'https://via.placeholder.com/40';
 
   const toggleCollapsed = useCallback(() => {
     setIsOverlayCollapsed(prev => !prev);
@@ -157,8 +152,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     });
   }, [post.uri, post.cid, post.author, feedOption, sourceFeed, presentShareSheet]);
 
-  // Memoized UI components
-  // Optimistic like animation (scale pulse)
+  // Simplified UI calculations - no memoization needed
   const likeScale = useSharedValue(1);
   const likeAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: likeScale.value }],
@@ -169,14 +163,15 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const authorAvatarSize = Math.round(Math.max(46, Math.min(64, width * 0.12)));
   const repostAvatarSize = Math.round(Math.max(20, Math.min(28, width * 0.06)));
 
-  const renderLikeIcon = useCallback(() => (
+  // Simplified icon rendering - no useCallback needed for simple JSX
+  const renderLikeIcon = () => (
     <Animated.View style={likeAnimatedStyle}>
       <HeartFillIcon 
         size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
         color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.white} 
       />
     </Animated.View>
-  ), [isLiked, isTabletDevice, likeAnimatedStyle]);
+  );
 
   // Repost animation: quick tilt (wiggle) + slight scale pulse
   const repostScale = useSharedValue(1);
@@ -191,39 +186,34 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       ] as any,
     };
   });
-  const renderRepostIcon = useCallback(() => (
+  const renderRepostIcon = () => (
     <Animated.View style={repostAnimatedStyle}>
       <RefreshFillIcon 
         size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
         color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE} 
       />
     </Animated.View>
-  ), [isReposted, isTabletDevice, repostAnimatedStyle]);
+  );
 
-  const repostIcon = useMemo(() => (
+  // Simplified icon definitions - no memoization needed
+  const repostIcon = (
     <RefreshFillIcon 
       size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
       color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE} 
     />
-  ), [isReposted, isTabletDevice, actionIconSize]);
+  );
 
-  const commentIcon = useMemo(() => (
+  const commentIcon = (
     <ChatFillIcon size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} color={Colors.INTERACTIVE.COMMENT} />
-  ), [isTabletDevice, actionIconSize]);
+  );
 
   // Only use sourceFeed for yourMix feeds
   const shouldUseSourceFeed = feedOption === 'yourMix' && sourceFeed;
   
-  // Memoize source display name - only for yourMix feeds
-  const sourceDisplayName = useMemo(() => {
-    if (shouldUseSourceFeed) {
-      if (sourceFeed === 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids') {
-        return null;
-      }
-      return getFeedDisplayName(sourceFeed) || '';
-    }
-    return null;
-  }, [shouldUseSourceFeed, sourceFeed]);
+  // Simplified source display name calculation
+  const sourceDisplayName = shouldUseSourceFeed && sourceFeed !== 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids'
+    ? getFeedDisplayName(sourceFeed) || ''
+    : null;
 
   if (!isVisible) return null;
 

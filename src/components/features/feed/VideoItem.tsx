@@ -3,7 +3,7 @@
  * Updated for unified snapping system
  */
 
-import React, { useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { useRecyclingState } from '@shopify/flash-list';
 
@@ -60,19 +60,10 @@ const VideoItem: React.FC<VideoItemProps> = ({
 }) => {
   const videoRef = useRef<VideoCardRef>(null);
 
-  // Memoize device size checks to avoid repeated calls
-  const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
-  
-  // Simplified height calculation
-  const itemHeight = useMemo(() => height || SCREEN_HEIGHT, [height]);
-  
-
-
-  // Simplified video data extraction
-  const { videoEmbed, videoUrl, hasVideo } = useMemo(() => {
-    const { videoEmbed, videoUrl } = extractVideoEmbedAndUrl(post);
-    return { videoEmbed, videoUrl, hasVideo: !!videoUrl };
-  }, [post.embed, post.uri]);
+  // Simplified calculations - no memoization needed for simple operations
+  const itemHeight = height || SCREEN_HEIGHT;
+  const { videoEmbed, videoUrl } = extractVideoEmbedAndUrl(post);
+  const hasVideo = !!videoUrl;
 
   // Reset state when post changes
   useEffect(() => {
@@ -85,24 +76,20 @@ const VideoItem: React.FC<VideoItemProps> = ({
     }
   }, [post.uri]);
 
-  // Optimized memoized styles
-  const containerStyle = useMemo(() => [
-    styles.videoContainer, 
-    { height: itemHeight, marginVertical: 3 }
-  ], [itemHeight]);
+  // Simplified styles - no memoization needed for simple style objects
+  const containerStyle = [styles.videoContainer, { height: itemHeight, marginVertical: 3 }];
 
   // Early return if no video
   if (!hasVideo) {
     return null;
   }
 
-  // Simplified video status handler
-  const handleVideoStatusChange = useCallback((uri: string, status: string) => {
-    // Defer the status update to prevent React state update during render
+  // Simplified video status handler - no need for useCallback for simple functions
+  const handleVideoStatusChange = (uri: string, status: string) => {
     requestAnimationFrame(() => {
       handleVideoStatus?.(uri, status);
     });
-  }, [handleVideoStatus]);
+  };
 
   // Cleanup on unmount
   useEffect(() => {

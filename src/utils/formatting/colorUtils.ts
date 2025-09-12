@@ -420,8 +420,6 @@ export const testAccentColorBrightness = (color: string): {
 
 export async function extractColorsFromImage(imageUrl: string) {
   try {
-    console.log('[ColorUtils] extractColorsFromImage called with:', imageUrl);
-    
     // Check if the image URL is a local file
     const isLocalFile = imageUrl.startsWith('file://') || imageUrl.startsWith('/');
     
@@ -431,38 +429,19 @@ export async function extractColorsFromImage(imageUrl: string) {
       uri = `file://${imageUrl}`;
     }
 
-    console.log('[ColorUtils] Processing image URI:', uri);
-
     const result = await ImageColors.getColors(uri, {
       fallback: Colors.lightGray,
       cache: true,
       key: imageUrl,
     });
 
-    console.log('[ColorUtils] ImageColors.getColors result:', {
-      platform: result.platform,
-      result: JSON.stringify(result),
-    });
-
     const { backgroundColor, foregroundColor, accentColor } = getBestColor(result);
     const secondaryColor = getSecondaryColor(result);
     
-    console.log('[ColorUtils] getBestColor result:', {
-      backgroundColor,
-      foregroundColor,
-      accentColor,
-    });
-    
-    console.log('[ColorUtils] getSecondaryColor result:', secondaryColor);
-    
     const finalColors = ensureAccessibleColors(backgroundColor, foregroundColor);
-    
-    console.log('[ColorUtils] ensureAccessibleColors result:', finalColors);
 
     // Ensure accent color is bright and vibrant
     const brightAccentColor = ensureBrightAccentColor(accentColor || secondaryColor);
-    
-    console.log('[ColorUtils] ensureBrightAccentColor result:', brightAccentColor);
 
     const finalResult = {
       backgroundColor: finalColors.backgroundColor,
@@ -473,10 +452,8 @@ export async function extractColorsFromImage(imageUrl: string) {
       statusBarStyle: isColorDark(finalColors.backgroundColor) ? 'light' as const : 'dark' as const,
     };
     
-    console.log('[ColorUtils] Final extracted colors:', finalResult);
     return finalResult;
   } catch (error) {
-          // console.error('Error extracting colors from image:', error);
     return {
       backgroundColor: Colors.darkGray,
       foregroundColor: Colors.white,
