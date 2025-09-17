@@ -422,8 +422,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginVertical: 4,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: hexToRGBA(Colors.gray, 0.28)
+    borderWidth: 0,
+    borderColor: 'transparent'
   },
   verifierButtonGlass: {
     backgroundColor: 'transparent',
@@ -530,8 +530,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     minHeight: 44,
-    borderWidth: 2,
-    borderColor: hexToRGBA(Colors.gray, 0.28)
+    borderWidth: 0,
+    borderColor: 'transparent'
   },
   cancelButtonGlass: {
     backgroundColor: 'transparent',

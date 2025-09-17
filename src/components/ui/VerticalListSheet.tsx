@@ -168,6 +168,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     minHeight: 44,
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   cancelButtonGlass: {
     backgroundColor: 'transparent',
@@ -189,6 +191,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     backgroundColor: Colors.darkGray,
     overflow: 'hidden',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   // Applied when iOS Liquid Glass is available to avoid double-stacked
   // background and heavy stroke under the glass effect.

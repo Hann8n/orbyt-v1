@@ -29,6 +29,7 @@ import { BlurView } from 'expo-blur';
 import Svg, { Path, Rect, G } from 'react-native-svg';
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import HeaderBanner from '../../src/components/ui/HeaderBanner';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import { SearchIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
@@ -321,12 +322,25 @@ const PopularChannelsShimmer = () => (
 
 // Popular Channel Button Component using channel screen style
 const PopularChannelButton = ({ channel, onPress }: { channel: Channel; onPress: () => void }) => {
+  const shouldUseGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
+  
   return (
     <TouchableOpacity
-      style={styles.popularChannelButton}
+      style={[
+        styles.popularChannelButton,
+        shouldUseGlass && styles.popularChannelButtonGlass
+      ]}
       onPress={onPress}
       activeOpacity={0.7}
     >
+      {shouldUseGlass && (
+        <GlassView
+          style={styles.popularChannelButtonGlassView}
+          glassEffectStyle="clear"
+          tintColor="rgba(24,28,34,0.15)"
+          isInteractive
+        />
+      )}
       <View style={styles.popularChannelButtonContent}>
         <View style={styles.popularChannelAvatarContainer}>
           <Avatar
@@ -717,6 +731,7 @@ const ExploreScreen: React.FC = () => {
         }
         case 'channel': {
           const channel = searchItem.data as Channel;
+          const shouldUseGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
           
           // Safety check for channel data
           if (!channel || !channel.uri) {
@@ -725,7 +740,10 @@ const ExploreScreen: React.FC = () => {
           
           return (
             <TouchableOpacity
-              style={styles.channelItem}
+              style={[
+                styles.channelItem,
+                shouldUseGlass && styles.channelItemGlass
+              ]}
               onPress={() => {
                 if (channel.uri && channel.uri.trim()) {
                   // Navigate to channel using Expo Router
@@ -733,6 +751,14 @@ const ExploreScreen: React.FC = () => {
                 }
               }}
             >
+              {shouldUseGlass && (
+                <GlassView
+                  style={styles.channelItemGlassView}
+                  glassEffectStyle="clear"
+                  tintColor="rgba(24,28,34,0.15)"
+                  isInteractive
+                />
+              )}
               <Avatar
                 uri={channel.avatar}
                 type="channel"
@@ -1392,10 +1418,14 @@ const ExploreScreen: React.FC = () => {
                       }
                       if (result.type === 'channel') {
                         const channel = result.data as Channel;
+                        const shouldUseGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
                         return (
                           <TouchableOpacity
                             key={`combined-channel-${channel.uri || channel.cid || index}-${index}`}
-                            style={styles.channelItem}
+                            style={[
+                              styles.channelItem,
+                              shouldUseGlass && styles.channelItemGlass
+                            ]}
                             onPress={() => {
                               if (channel.uri && channel.uri.trim()) {
                                 // Navigate to channel using Expo Router
@@ -1403,6 +1433,14 @@ const ExploreScreen: React.FC = () => {
                               }
                             }}
                           >
+                            {shouldUseGlass && (
+                              <GlassView
+                                style={styles.channelItemGlassView}
+                                glassEffectStyle="clear"
+                                tintColor="rgba(24,28,34,0.15)"
+                                isInteractive
+                              />
+                            )}
                             <Avatar uri={channel.avatar} type="channel" size={40} ringColor="transparent" style={styles.channelImage} />
                             <View style={styles.channelContent}>
                               <View style={{flexDirection: 'row', alignItems: 'center'}}>
@@ -1612,6 +1650,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
+    borderWidth: 0,
+    borderColor: 'transparent',
+  },
+  channelItemGlass: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: BORDER_RADIUS.LARGE,
+    marginHorizontal: 20,
+    marginVertical: 6,
+  },
+  channelItemGlassView: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   channelImage: {
     width: 40,
@@ -1891,6 +1943,17 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     marginHorizontal: -15, // Compensate for the increased container padding
+    borderWidth: 0,
+    borderColor: 'transparent',
+  },
+  popularChannelButtonGlass: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  popularChannelButtonGlassView: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   popularChannelButtonContent: {
     flexDirection: 'row',

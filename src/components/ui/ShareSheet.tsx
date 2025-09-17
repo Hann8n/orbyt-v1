@@ -658,8 +658,8 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.LARGE,
     backgroundColor: hexToRGBA(Colors.gray, 0.12),
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: hexToRGBA(Colors.gray, 0.28)
+    borderWidth: 0,
+    borderColor: 'transparent'
   },
   optionGlass: {
     ...StyleSheet.absoluteFillObject,
@@ -692,8 +692,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     minHeight: 44,
-    borderWidth: 2,
-    borderColor: hexToRGBA(Colors.gray, 0.28)
+    borderWidth: 0,
+    borderColor: 'transparent'
   },
   cancelButtonGlass: {
     backgroundColor: 'transparent',

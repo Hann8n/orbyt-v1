@@ -406,8 +406,8 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 24,
     paddingHorizontal: 20,
-    borderWidth: 2,
-    borderColor: hexToRGBA(Colors.gray, 0.28)
+    borderWidth: 0,
+    borderColor: 'transparent'
   },
   optionText: {
     color: Colors.lightGray,
@@ -463,6 +463,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   cancelButtonGlass: {
     backgroundColor: 'transparent',

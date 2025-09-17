@@ -454,6 +454,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 12,
     overflow: 'hidden',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   accountButtonGlass: {
     backgroundColor: 'transparent',
@@ -474,6 +476,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 12,
     overflow: 'hidden',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   addAccountButtonGlass: {
     backgroundColor: 'transparent',

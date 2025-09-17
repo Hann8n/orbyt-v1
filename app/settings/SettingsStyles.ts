@@ -32,6 +32,8 @@ export const settingsButtonStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     overflow: 'hidden',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
 
   // Glass effect variant for iOS Liquid Glass
@@ -43,14 +45,14 @@ export const settingsButtonStyles = StyleSheet.create({
 
   // Action button style (unblock, unmute, etc.)
   actionButton: {
-    borderWidth: 2,
+    borderWidth: 0,
+    borderColor: 'transparent',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: BORDER_RADIUS.FULL,
     minWidth: 80,
     alignItems: 'center',
     justifyContent: 'center',
-    borderColor: hexToRGBA(Colors.gray, 0.28),
     backgroundColor: hexToRGBA(Colors.gray, 0.12),
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
