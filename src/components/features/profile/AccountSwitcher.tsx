@@ -23,6 +23,7 @@ import UI from '../../ui/UI';
 import { useQueryClient } from '@tanstack/react-query';
 import VerticalListSheet from '../../ui/VerticalListSheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -51,6 +52,10 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  
+  // Glass effect support
+  const shouldUseGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
+
 
   // User store hooks
   const { 
@@ -143,29 +148,15 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       // Check if it's an OAuth session expiration error
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       if (errorMessage.includes('expired') || errorMessage.includes('re-authenticate')) {
-        Alert.alert(
-          'Session Expired',
-          'Your OAuth session has expired. Please sign in again.',
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
-            {
-              text: 'Sign In Again',
-              onPress: async () => {
-                try {
-                  await signIn(account.handle);
-                  onAccountSwitch(account);
-                  onDismiss();
-                } catch (signInError) {
-                  console.error('Error signing in again:', signInError);
-                  Alert.alert('Error', 'Failed to sign in again. Please try again.');
-                }
-              },
-            },
-          ]
-        );
+        // Automatically trigger sign-in for expired accounts instead of showing alert
+        try {
+          await signIn(account.handle);
+          onAccountSwitch(account);
+          onDismiss();
+        } catch (signInError) {
+          console.error('Error signing in again:', signInError);
+          Alert.alert('Error', 'Failed to sign in again. Please try again.');
+        }
       } else {
         Alert.alert('Error', 'Failed to switch account. Please try again.');
       }
@@ -258,14 +249,25 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     if ((item as any).type === 'add') {
       return (
         <TouchableOpacity
-          style={styles.addAccountButton}
+          style={[
+            styles.addAccountButton,
+            shouldUseGlass && styles.addAccountButtonGlass
+          ]}
           onPress={handleAddAccount}
           activeOpacity={0.8}
           disabled={isAuthenticating}
         >
+          {shouldUseGlass && (
+            <GlassView
+              style={StyleSheet.absoluteFill}
+              glassEffectStyle="clear"
+              tintColor="rgba(24,28,34,0.15)"
+              isInteractive
+            />
+          )}
           <View style={styles.buttonContent}>
             {isAuthenticating ? (
-              <ActivityIndicator color={Colors.black} size="small" style={{ marginRight: 8 }} />
+              <ActivityIndicator color={Colors.white} size="small" style={{ marginRight: 8 }} />
             ) : (
               <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
             )}
@@ -302,16 +304,30 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         style={[
           styles.accountButton,
           isActive && styles.activeAccountButton,
+          shouldUseGlass && styles.accountButtonGlass,
         ]}
         onPress={() => !isActive && !editMode && handleSwitchAccount(account)}
-        activeOpacity={0.8}
+        activeOpacity={0.7}
         disabled={isSwitching}
       >
+        {shouldUseGlass && (
+          <GlassView
+            style={styles.accountButtonGlassView}
+            glassEffectStyle="clear"
+            tintColor="rgba(24,28,34,0.15)"
+            isInteractive
+          />
+        )}
         {isSwitching ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={Colors.white} size="small" />
             <Text style={styles.loadingText}>
-              Switching to <Text style={styles.loadingAccountName}>{displayName}</Text>
+              Switching to <Text 
+                style={styles.loadingAccountName}
+                allowFontScaling={false}
+              >
+                {displayName}
+              </Text>
             </Text>
           </View>
         ) : (
@@ -321,22 +337,31 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
                 uri={account.cachedProfile?.avatar}
                 type="profile"
                 size={48}
+                ringColor="transparent"
               />
             </View>
             <View style={styles.accountInfoContainer}>
-              <Text style={[
-                styles.accountDisplayName,
-                isActive && styles.activeAccountDisplayName
-              ]}>
+              <Text 
+                style={[
+                  styles.accountDisplayName,
+                  isActive && styles.activeAccountDisplayName
+                ]}
+                numberOfLines={1}
+                allowFontScaling={false}
+              >
                 {displayName}
               </Text>
-              <Text style={styles.accountHandle}>
+              <Text 
+                style={styles.accountHandle}
+                numberOfLines={1}
+                allowFontScaling={false}
+              >
                 @{handle}
               </Text>
             </View>
             {!editMode && (
               <View style={styles.accountArrow}>
-                <Icon name="chevron-right" size={20} color={Colors.gray} />
+                <Icon name="chevron-right" size={20} color={Colors.lightGray} />
               </View>
             )}
             {editMode && !isActive && (
@@ -408,39 +433,52 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Firma-Medium',
     marginLeft: 12,
+    lineHeight: 18,
+    includeFontPadding: false,
   },
   loadingAccountName: {
     color: Colors.white,
     fontFamily: 'Firma-Bold',
     fontWeight: 'bold',
+    lineHeight: 18,
+    includeFontPadding: false,
   },
   listContent: {
-    paddingHorizontal: 0,
+    paddingHorizontal: 12,
     paddingVertical: 0,
   },
   accountButton: {
     backgroundColor: Colors.darkGray,
     borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 16,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     marginBottom: 12,
+    overflow: 'hidden',
+  },
+  accountButtonGlass: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  accountButtonGlassView: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   activeAccountButton: {
     backgroundColor: Colors.darkGray,
   },
   addAccountButton: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.darkGray,
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 16,
     paddingHorizontal: 20,
     marginBottom: 12,
+    overflow: 'hidden',
+  },
+  addAccountButtonGlass: {
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: Colors.lightGray,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   accountButtonContent: {
     flexDirection: 'row',
@@ -448,7 +486,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   avatarContainer: {
-    marginRight: 12,
+    marginRight: 8,
   },
   addAccountIcon: {
     width: 48,
@@ -460,14 +498,15 @@ const styles = StyleSheet.create({
   },
   accountInfoContainer: {
     flex: 1,
-    paddingLeft: 8,
+    paddingLeft: 4,
   },
   accountDisplayName: {
     color: Colors.white,
-    fontSize: 18,
-    fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontSize: 15,
+    fontFamily: 'Firma-Black',
     marginBottom: 2,
+    lineHeight: 18,
+    includeFontPadding: false,
   },
   activeAccountDisplayName: {
     color: Colors.white,
@@ -478,15 +517,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addAccountButtonText: {
-    color: Colors.black,
+    color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
   },
   accountHandle: {
-    color: Colors.gray,
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
+    lineHeight: 16,
+    includeFontPadding: false,
   },
   accountArrow: {
     marginLeft: 8,

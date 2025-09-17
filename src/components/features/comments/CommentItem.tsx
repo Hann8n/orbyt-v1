@@ -585,7 +585,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       ]}>
         <View style={[
           styles.commentItemContainer,
-          { zIndex: 1, paddingVertical: 4, paddingHorizontal: 0, alignItems: 'center' },
+          { zIndex: 1, paddingVertical: 6, paddingHorizontal: 0, alignItems: 'center' },
         ]}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1 }}>
             <TouchableOpacity onPress={handleAuthorAvatarPress}>
@@ -721,7 +721,7 @@ const styles = StyleSheet.create({
     // Remove marginLeft, borderLeft, and paddingLeft for cleaner nesting
   },
   commentThreadContainer: {
-    marginBottom: 4,
+    marginBottom: 2,
     backgroundColor: 'transparent',
   },
   commentItemContainer: {
@@ -729,6 +729,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingHorizontal: 0,
     backgroundColor: 'transparent',
+    marginBottom: 2,
   },
   commentContentContainer: {
     flex: 1,
@@ -785,7 +786,7 @@ const styles = StyleSheet.create({
   commentActionsContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingRight: 10,
+    paddingRight: 0,
     paddingTop: 4,
     width: 32,
     alignSelf: 'flex-start',

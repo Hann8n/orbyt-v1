@@ -729,7 +729,7 @@ const ExploreScreen: React.FC = () => {
               onPress={() => {
                 if (channel.uri && channel.uri.trim()) {
                   // Navigate to channel using Expo Router
-                  navigation.push(`/channel/${channel.uri.trim()}`);
+                  navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
                 }
               }}
             >
@@ -1399,7 +1399,7 @@ const ExploreScreen: React.FC = () => {
                             onPress={() => {
                               if (channel.uri && channel.uri.trim()) {
                                 // Navigate to channel using Expo Router
-                                navigation.push(`/channel/${channel.uri.trim()}`);
+                                navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
                               }
                             }}
                           >
@@ -1446,7 +1446,7 @@ const ExploreScreen: React.FC = () => {
                     onPress={() => {
                       if (channel.uri && channel.uri.trim()) {
                         // Navigate to channel using Expo Router
-                        navigation.push(`/channel/${channel.uri.trim()}`);
+                        navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
                       }
                     }}
                   />

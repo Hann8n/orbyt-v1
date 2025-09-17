@@ -2,7 +2,8 @@ declare let window: any;
 
 import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image, TextInput } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image, TextInput, Platform } from 'react-native';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -84,15 +85,29 @@ const ActionButton = memo<{
   backgroundColor: string;
   size?: 'small' | 'medium' | 'large';
 }>(({ action, textColor, backgroundColor, size = 'medium' }) => {
+  const shouldUseGlass = useMemo(() => {
+    // Only target Edit / Follow / Mutuals-like actions
+    const label = (action.label || '').toLowerCase();
+    const isEdit = action.id === 'edit' || label.includes('edit');
+    const isFollowStates = action.id === 'follow' || label === 'follow' || label === 'following' || label === 'mutuals';
+    return isLiquidGlassAvailable() && (isEdit || isFollowStates);
+  }, [action.id, action.label]);
+
   const getButtonStyle = useCallback(() => {
     // Check if this is a following state (Following, Mutuals, etc.) or save button in edit mode
     const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
     const isSaveButton = action.id === 'save';
     
-    const baseStyle = {
-      backgroundColor: (isFollowingState || isSaveButton) ? textColor : hexToRGBA(textColor, 0.2),
-      borderColor: (isFollowingState || isSaveButton) ? textColor : hexToRGBA(textColor, 0.3),
-    };
+    const baseStyle = shouldUseGlass
+      ? {
+          // With glass, make inner touchable transparent and let GlassView render visuals
+          backgroundColor: 'transparent',
+          borderColor: 'transparent',
+        }
+      : {
+          backgroundColor: (isFollowingState || isSaveButton) ? textColor : hexToRGBA(textColor, 0.2),
+          borderColor: (isFollowingState || isSaveButton) ? textColor : hexToRGBA(textColor, 0.3),
+        };
 
     switch (action.variant) {
       case 'danger':
@@ -105,7 +120,7 @@ const ActionButton = memo<{
       default:
         return baseStyle;
     }
-  }, [action.variant, textColor, action.label, action.id]);
+  }, [action.variant, textColor, action.label, action.id, shouldUseGlass]);
 
   const getButtonSize = useCallback(() => {
     switch (size) {
@@ -118,6 +133,55 @@ const ActionButton = memo<{
     }
   }, [size]);
 
+  const content = (
+    action.loading ? (
+      <ActivityIndicator 
+        size="small" 
+        color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
+      />
+    ) : (
+      <View style={styles.actionContent}>
+        <Text style={[styles.actionText, { 
+          color: (action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor,
+          fontFamily: (action.variant === 'secondary' || action.id === 'save') ? 'Firma-Bold' : 'Firma-SemiBold'
+        }]}>
+          {action.label}
+        </Text>
+        {action.customIcon ? (
+          action.customIcon
+        ) : action.icon ? (
+          <Icon 
+            name={action.icon} 
+            size={16} 
+            color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
+            strokeWidth={2.5} 
+          />
+        ) : null}
+      </View>
+    )
+  );
+
+  if (shouldUseGlass) {
+    const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
+    const glassTint = isFollowingState ? hexToRGBA(textColor, 1) : hexToRGBA(textColor, 0.08);
+    return (
+      <TouchableOpacity
+        style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
+        onPress={action.onPress}
+        disabled={action.disabled || action.loading}
+        activeOpacity={0.7}
+      >
+        <GlassView
+          style={[styles.glassBackground]}
+          glassEffectStyle="clear"
+          tintColor={glassTint}
+          isInteractive
+        />
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
       style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
@@ -125,31 +189,7 @@ const ActionButton = memo<{
       disabled={action.disabled || action.loading}
       activeOpacity={0.7}
     >
-      {action.loading ? (
-        <ActivityIndicator 
-          size="small" 
-          color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
-        />
-      ) : (
-        <View style={styles.actionContent}>
-          <Text style={[styles.actionText, { 
-            color: (action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor,
-            fontFamily: (action.variant === 'secondary' || action.id === 'save') ? 'Firma-Bold' : 'Firma-SemiBold'
-          }]}>
-            {action.label}
-          </Text>
-          {action.customIcon ? (
-            action.customIcon
-          ) : action.icon ? (
-            <Icon 
-              name={action.icon} 
-              size={16} 
-              color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
-              strokeWidth={2.5} 
-            />
-          ) : null}
-        </View>
-      )}
+      {content}
     </TouchableOpacity>
   );
 });
@@ -310,6 +350,7 @@ const HeaderContentComponent = memo<{
             <TouchableOpacity
               style={[
                 styles.actionButton,
+                styles.uploadButton,
                 {
                   backgroundColor: hexToRGBA(textColor, 0.2),
                   borderColor: hexToRGBA(textColor, 0.3),
@@ -317,11 +358,19 @@ const HeaderContentComponent = memo<{
                   paddingVertical: 8,
                   minWidth: 90,
                   height: 44,
-                }
+                },
+                Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.uploadButtonGlass
               ]}
               onPress={content.onAvatarPress}
               activeOpacity={0.7}
             >
+              {Platform.OS === 'ios' && isLiquidGlassAvailable() && (
+                <GlassView
+                  style={styles.glassBackground}
+                  glassEffectStyle="clear"
+                  tintColor="rgba(255,255,255,0.05)"
+                />
+              )}
               <Text style={[styles.actionText, { color: textColor }]}>
                 Upload
               </Text>
@@ -609,6 +658,10 @@ const styles = StyleSheet.create({
     elevation: 2,
     alignSelf: 'center',
   },
+  glassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.FULL,
+  },
   actionContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -619,6 +672,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     fontSize: 17,
+  },
+  glassContainer: {
+    borderRadius: BORDER_RADIUS.FULL,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  glassTouchable: {
+    borderRadius: BORDER_RADIUS.FULL,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    width: '100%',
+    height: '100%',
   },
   customActionsLayout: {
     flexDirection: 'row',
@@ -730,6 +797,14 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     gap: 4,
+  },
+  uploadButton: {
+    overflow: 'hidden',
+  },
+  uploadButtonGlass: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   uploadLabel: {
     fontFamily: 'Firma-Bold',

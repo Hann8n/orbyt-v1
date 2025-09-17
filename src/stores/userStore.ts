@@ -356,6 +356,35 @@ export const useUserStore = create<UserState>()(
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Session restoration failed';
           console.error('[userStore] Session restoration failed:', error);
+          
+          // Check if this is an OAuth failure that requires re-authentication
+          const needsReAuth = errorMessage.includes('Session expired') || 
+                             errorMessage.includes('Failed to restore OAuth session') ||
+                             errorMessage.includes('re-authentication');
+          
+          if (needsReAuth) {
+            // Find the account and trigger re-authentication
+            const accounts = get().savedAccounts;
+            const account = accounts.find(acc => acc.did === did);
+            
+            if (account) {
+              console.log('[userStore] OAuth session failed, triggering re-authentication for:', account.handle);
+              // Clear the failed session and trigger re-authentication
+              set({ 
+                isAuthenticating: false, 
+                authError: 'Session expired. Please sign in again.',
+                currentUser: null,
+                isAuthenticated: false,
+                oauthSession: null,
+                agent: null,
+                activeAccountDid: null
+              });
+              
+              // The UI should detect this state and show login flow
+              return;
+            }
+          }
+          
           set({ 
             isAuthenticating: false, 
             authError: errorMessage 

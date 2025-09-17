@@ -53,25 +53,19 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     clearAuthError();
 
     try {
-      // Sign in with Bluesky OAuth
       await signIn('https://bsky.social');
       await onLogin('oauth-success');
     } catch (error) {
-      // Check if this is a user cancellation vs actual error
       const errorMessage = error instanceof Error ? error.message : 'OAuth login failed';
       const isUserCancellation = errorMessage.includes('cancelled') || 
                                 errorMessage.includes('Authentication was cancelled') ||
                                 errorMessage.includes('user_cancelled');
       
-      if (isUserCancellation) {
-        // User cancelled - don't show error, just log it
-
-      } else {
-        // Actual error - show to user
+      if (!isUserCancellation) {
         setOAuthError(errorMessage);
         Alert.alert(
           'OAuth Login Failed',
-          'OAuth login failed. Please try again.',
+          'Please try again.',
           [{ text: 'OK' }]
         );
       }
@@ -102,42 +96,22 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
   const handleSavedAccountLogin = async (account: SavedAccount) => {
     try {
-      // All accounts are now OAuth-only
-      try {
-        await switchAccount(account.did);
-        if (onAccountSwitch) {
-          await onAccountSwitch(account);
-        }
-      } catch (oauthError) {
-        // OAuth session might be expired, try to re-authenticate
-
-        try {
-          await signIn(account.handle);
-          // Update the account to reflect the new OAuth session
-          // This part of the logic needs to be handled by the user store or a separate service
-          // For now, we'll assume the user store will update the account if the session is valid
-          if (onAccountSwitch) {
-            await onAccountSwitch(account);
-          }
-        } catch (reAuthError) {
-          // Check if this is a user cancellation vs actual error
-          const errorMessage = reAuthError instanceof Error ? reAuthError.message : 'OAuth re-authentication failed';
-          const isUserCancellation = errorMessage.includes('cancelled') || 
-                                    errorMessage.includes('Authentication was cancelled') ||
-                                    errorMessage.includes('user_cancelled');
-          
-          if (!isUserCancellation) {
-            Alert.alert(
-              'OAuth Re-authentication Failed', 
-              'Please try signing in manually with OAuth.'
-            );
-          }
-        }
+      await switchAccount(account.did);
+      if (onAccountSwitch) {
+        await onAccountSwitch(account);
       }
     } catch (error) {
-      Alert.alert('login failed', (error as Error).message);
-    } finally {
-      // setSwitchingAccount(null); // This state is no longer needed
+      const errorMessage = error instanceof Error ? error.message : 'Account switch failed';
+      const isUserCancellation = errorMessage.includes('cancelled') || 
+                                errorMessage.includes('Authentication was cancelled') ||
+                                errorMessage.includes('user_cancelled');
+      
+      if (!isUserCancellation) {
+        Alert.alert(
+          'Account Switch Failed', 
+          'Please try signing in again.'
+        );
+      }
     }
   };
 

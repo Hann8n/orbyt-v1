@@ -21,9 +21,11 @@ import Icon, { ShareIcon } from '../../ui/Icon';
 import AtprotoService from '../../../services/api/AtprotoService';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
-import VerticalListSheet from '../../ui/VerticalListSheet';
+import { hexToRGBA } from '../../../utils/formatting/colorUtils';
+import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useAuth, useAccountManagement } from '../../../stores/userStore';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 interface ProfileMenuProps {
   visible: boolean;
@@ -322,15 +324,13 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       {/* Main menu options */}
       <View style={styles.optionsContainer}>
         {menuOptions.map((option) => (
-          <TouchableOpacity 
+          <VerticalListButton
             key={option.id}
-            style={styles.option}
+            label={option.label.charAt(0).toUpperCase() + option.label.slice(1)}
             onPress={option.onPress}
-            activeOpacity={0.7}
             disabled={isSubmitting}
-          >
-            <Text style={styles.optionText}>{option.label.charAt(0).toUpperCase() + option.label.slice(1)}</Text>
-          </TouchableOpacity>
+            danger={option.id === 'logout'}
+          />
         ))}
       </View>
 
@@ -338,14 +338,13 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       <TrueSheet
         ref={submenuSheetRef}
         sizes={['auto']}
-        backgroundColor={Colors.black}
+        backgroundColor={Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'rgba(0,0,0,0.6)' : Colors.black}
         onDismiss={() => submenuSheetRef.current?.dismiss()}
-        cornerRadius={20}
         grabber={false}
         FooterComponent={
-          <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
+          <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'transparent' : Colors.black }]}>
             <TouchableOpacity 
-              style={styles.cancelButton} 
+              style={[styles.cancelButton, Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.cancelButtonGlass]} 
               onPress={() => submenuSheetRef.current?.dismiss()} 
               activeOpacity={0.7}
             >
@@ -371,28 +370,24 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           
           {/* Submenu options */}
           <View style={styles.optionsContainer}>
-            <TouchableOpacity 
-              style={[styles.option, styles.submenuOption]}
+            <VerticalListButton
+              label="Report Account"
               onPress={() => {
                 submenuSheetRef.current?.dismiss();
                 handleReport();
               }}
-              activeOpacity={0.7}
               disabled={isSubmitting}
-            >
-              <Text style={[styles.optionText, styles.submenuText]}>Report Account</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.option, styles.submenuOption]}
+              danger
+            />
+            <VerticalListButton
+              label={isBlocked ? 'Unblock Account' : 'Block Account'}
               onPress={() => {
                 submenuSheetRef.current?.dismiss();
                 handleBlockToggle();
               }}
-              activeOpacity={0.7}
               disabled={isSubmitting}
-            >
-              <Text style={[styles.optionText, styles.submenuText]}>{isBlocked ? 'Unblock Account' : 'Block Account'}</Text>
-            </TouchableOpacity>
+              danger={!isBlocked}
+            />
           </View>
         </View>
       </TrueSheet>
@@ -407,10 +402,12 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   option: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: hexToRGBA(Colors.gray, 0.12),
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 24,
     paddingHorizontal: 20,
+    borderWidth: 2,
+    borderColor: hexToRGBA(Colors.gray, 0.28)
   },
   optionText: {
     color: Colors.lightGray,
@@ -466,6 +463,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cancelButtonGlass: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)'
   },
   cancelButtonText: {
     color: Colors.lightGray,

@@ -1,5 +1,5 @@
 // filepath: /Users/jack/Orbyt/components/VerificationInfoSheet.tsx
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -22,6 +22,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import VerificationBadge from './VerificationBadge';
 import AuthorItem from '../../ui/AuthorItem';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { hexToRGBA } from '../../../utils/formatting/colorUtils';
  
 
 interface VerificationInfoSheetProps {
@@ -76,8 +78,12 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
   const navigation = useRouter();
-  const snapPoints = React.useMemo(() => ['auto'] as any, []);
+  const snapPoints = useMemo(() => ['auto'] as any, []);
   const insets = useSafeAreaInsets();
+
+  const shouldUseGlass = useMemo(() => {
+    return Platform.OS === 'ios' && isLiquidGlassAvailable();
+  }, []);
 
   // Get profile info - use cached data if available
   const { data: profile } = useQuery({
@@ -168,23 +174,30 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   }, [visible]);
 
   // Backdrop component - TrueSheet handles backdrop automatically
-  const renderBackdrop = React.useCallback(() => null, []);
+  const renderBackdrop = useCallback(() => null, []);
 
   return (
     <TrueSheet
       ref={bottomSheetRef}
       sizes={snapPoints as any}
-      backgroundColor={Colors.black}
+      backgroundColor={shouldUseGlass ? 'rgba(0,0,0,0.6)' : Colors.black}
       onDismiss={onDismiss}
-      cornerRadius={20}
       grabber={false}
       FooterComponent={
-        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
+        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: 'transparent' }]}>
           <TouchableOpacity 
-            style={styles.cancelButton} 
+            style={[styles.cancelButton, shouldUseGlass && styles.cancelButtonGlass]} 
             onPress={onDismiss}
             activeOpacity={0.7}
           >
+            {shouldUseGlass && (
+              <GlassView
+                style={StyleSheet.absoluteFill}
+                glassEffectStyle="clear"
+                tintColor="rgba(255,255,255,0.05)"
+                isInteractive
+              />
+            )}
             <Text style={styles.cancelButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
@@ -237,7 +250,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
             <Text>{profile?.displayName || handle}</Text>
-            <Text> is a trusted verifier on Bluesky. Trusted verifiers can verify other accounts on the network.</Text>
+            <Text> is a trusted verifier on the AT Protocol. Trusted verifiers can verify other accounts on the network.</Text>
           </Text>
         </View>
           
@@ -284,35 +297,53 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             {isIssuerLoading ? (
               <VerifiedByShimmer />
             ) : (
-              <AuthorItem
-                handle={issuerProfile?.handle || actualIssuerHandle || verifierDid}
-                displayName={
-                  issuerProfile?.displayName || 
-                  actualIssuerHandle || 
-                  (isOfficialVerification ? 'bluesky' : 
-                   (verifierDid ? `verifier (${verifierDid.slice(0, 8)}...)` : 'verifier'))
-                }
-                avatar={issuerProfile?.avatar}
-                textColor={Colors.white}
-                size="large"
-                showDate={true}
-                date={issuerCreatedAt ? new Date(issuerCreatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : undefined}
-                nameFontWeight="Firma-Bold"
-                handleFontWeight="Firma-Bold"
-                style={styles.issuerListItem}
+              <TouchableOpacity
+                style={[styles.verifierButton, shouldUseGlass && styles.verifierButtonGlass]}
                 onPress={() => {
                   const target = (issuerProfile?.handle || actualIssuerHandle || verifierDid || '').trim();
                   if (!target) return;
                   
-                  // Navigate immediately without dismissing first
-                  navigation.push(`/profile/${profile.handle}`);
+                  // Navigate to the verifier's profile, not the current profile
+                  navigation.push(`/profile/${target}`);
                   
                   // Dismiss the sheet after navigation starts
                   setTimeout(() => {
                     onDismiss();
                   }, 100);
                 }}
-              />
+                activeOpacity={0.7}
+              >
+                {shouldUseGlass && (
+                  <GlassView
+                    style={styles.verifierButtonGlassView}
+                    glassEffectStyle="clear"
+                    tintColor="rgba(255,255,255,0.05)"
+                    isInteractive
+                  />
+                )}
+                <View style={styles.verifierContent}>
+                  <Avatar
+                    uri={issuerProfile?.avatar}
+                    size={48}
+                    style={styles.verifierAvatar}
+                    ringColor="transparent"
+                  />
+                  <View style={styles.verifierTextContainer}>
+                    <Text style={styles.verifierDisplayName} numberOfLines={1}>
+                      {issuerProfile?.displayName || 
+                       actualIssuerHandle || 
+                       (isOfficialVerification ? 'bluesky' : 
+                        (verifierDid ? `verifier (${verifierDid.slice(0, 8)}...)` : 'verifier'))}
+                    </Text>
+                    {issuerCreatedAt && (
+                      <Text style={styles.verifierDate}>
+                        {new Date(issuerCreatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                      </Text>
+                    )}
+                  </View>
+                  <Icon name="chevron-right" size={20} color={Colors.lightGray} />
+                </View>
+              </TouchableOpacity>
             )}
           </>
         )}
@@ -325,13 +356,13 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: 4,
-    paddingTop: 4,
+    paddingHorizontal: 12,
+    paddingTop: 8,
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
     paddingHorizontal: 15,
     paddingTop: 15,
     paddingBottom: 15,
@@ -359,7 +390,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   infoContainer: {
-    marginBottom: 30,
+    marginBottom: 20,
     paddingHorizontal: 15,
   },
   infoText: {
@@ -382,6 +413,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  verifierButton: {
+    backgroundColor: hexToRGBA(Colors.gray, 0.12),
+    borderRadius: BORDER_RADIUS.LARGE,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 12,
+    marginVertical: 4,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: hexToRGBA(Colors.gray, 0.28)
+  },
+  verifierButtonGlass: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)'
+  },
+  verifierButtonGlassView: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.LARGE,
+  },
+  verifierContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  verifierAvatar: {
+    marginRight: 8,
+  },
+  verifierTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingLeft: 4,
+  },
+  verifierDisplayName: {
+    color: Colors.white,
+    fontSize: 15,
+    fontFamily: 'Firma-Black',
+    marginBottom: 2,
+  },
+  verifierDate: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
   },
   issuerListItem: {
     marginVertical: 4,
@@ -447,12 +522,21 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   cancelButton: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: hexToRGBA(Colors.gray, 0.12),
     borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    minHeight: 44,
+    borderWidth: 2,
+    borderColor: hexToRGBA(Colors.gray, 0.28)
+  },
+  cancelButtonGlass: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)'
   },
   cancelButtonText: {
     color: Colors.lightGray,

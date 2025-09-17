@@ -1,43 +1,57 @@
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../src/components/ui/UI';
+import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 
 // Shared button styles for settings screens
 export const settingsButtonStyles = StyleSheet.create({
   // Primary button style used across most settings screens
   primaryButton: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: hexToRGBA(Colors.gray, 0.12),
     borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 16,
+    paddingVertical: 20,
     paddingHorizontal: 20,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderWidth: 2,
+    borderColor: hexToRGBA(Colors.gray, 0.28),
+    overflow: 'hidden',
   },
 
-  // Menu option style (used in SettingsScreen, ContentFiltersScreen)
+  // Menu option style (used in SettingsScreen, ContentFiltersScreen) - matches ShareSheet/VerticalListSheet pattern
   menuOption: {
     backgroundColor: Colors.darkGray,
     borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 24,
+    paddingVertical: 20,
     paddingHorizontal: 20,
+    marginHorizontal: 12,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    overflow: 'hidden',
+  },
+
+  // Glass effect variant for iOS Liquid Glass
+  menuOptionGlass: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
 
   // Action button style (unblock, unmute, etc.)
   actionButton: {
-    borderWidth: 1,
+    borderWidth: 2,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: BORDER_RADIUS.FULL,
     minWidth: 80,
     alignItems: 'center',
     justifyContent: 'center',
-    borderColor: Colors.white,
-    backgroundColor: 'transparent',
+    borderColor: hexToRGBA(Colors.gray, 0.28),
+    backgroundColor: hexToRGBA(Colors.gray, 0.12),
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -50,11 +64,11 @@ export const settingsButtonStyles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: hexToRGBA(Colors.gray, 0.12),
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.gray,
+    borderWidth: 2,
+    borderColor: hexToRGBA(Colors.gray, 0.28),
   },
 
   // Edit button style
@@ -89,14 +103,23 @@ export const settingsButtonStyles = StyleSheet.create({
     borderColor: Colors.gray,
   },
 
-  // Logout button style
+  // Logout button style - matches cancel button pattern
   logoutButton: {
-    backgroundColor: Colors.darkRed,
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 24,
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.FULL,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    minHeight: 44,
+  },
+
+  // Glass effect variant for logout button
+  logoutButtonGlass: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
 
   // Toggle button group style
@@ -166,9 +189,9 @@ export const settingsTextStyles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
   },
 
-  // Menu option text
+  // Menu option text - matches VerticalListSheet pattern
   menuOptionText: {
-    color: Colors.lightGray,
+    color: Colors.white,
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
   },
@@ -270,11 +293,12 @@ export const settingsTextStyles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // Logout button text
+  // Logout button text - matches cancel button pattern
   logoutButtonText: {
-    color: Colors.white,
-    fontSize: 18,
+    color: Colors.lightGray,
+    fontSize: 15,
     fontWeight: '600',
+    textAlign: 'center',
     fontFamily: 'Firma-SemiBold',
   },
 
@@ -348,7 +372,7 @@ export const settingsLayoutStyles = StyleSheet.create({
   // Content container with standard settings padding (5px)
   contentContainerWithPadding: {
     paddingBottom: 40,
-    paddingHorizontal: 5,
+    paddingHorizontal: 0, // Remove horizontal padding to match other sheets
   },
 
   // List container
@@ -447,10 +471,11 @@ export const settingsLayoutStyles = StyleSheet.create({
     height: 12,
   },
 
-  // Logout section
+  // Logout section - matches cancel button container pattern
   logoutSection: {
-    marginTop: 32,
-    paddingHorizontal: 0,
+    alignItems: 'center',
+    paddingTop: 20,
+    paddingHorizontal: 12,
   },
 });
 

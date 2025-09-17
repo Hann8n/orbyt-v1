@@ -1218,6 +1218,12 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'report' || name === 'warning-box') {
       return <ReportIcon size={size} color={color} />;
     }
+    if (name === 'interested') {
+      return <InterestedIcon size={size} color={color} style={style} />;
+    }
+    if (name === 'not_interested') {
+      return <NotInterestedIcon size={size} color={color} style={style} />;
+    }
     if (name === 'outlink' || name === 'external-link') {
       return <OutlinkIcon size={size} color={color} style={style} />;
     }

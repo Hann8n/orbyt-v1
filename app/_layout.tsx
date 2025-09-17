@@ -16,6 +16,7 @@ import { QUERY_CONSTANTS } from '../src/utils/constants';
 import { CommonErrorHandlers } from '../src/utils/errorHandler';
 import ShareSheet from '../src/components/ui/ShareSheet';
 import CommentSection from '../src/components/features/comments/CommentSection';
+import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
 import LoginScreen from './login';
 
 // Configure Reanimated logger to disable strict mode warnings
@@ -191,6 +192,7 @@ export default function RootLayout() {
           </Stack>
           <ShareSheet />
           <CommentSection />
+          <GlobalAccountSwitcher />
         </GestureHandlerRootView>
       </QueryClientProvider>
     </SafeAreaProvider>

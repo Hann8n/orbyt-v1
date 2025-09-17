@@ -12,43 +12,29 @@ import {
   Image,
   Modal,
   Pressable,
-  Linking,
   TextInput,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withSpring,
-  interpolate,
-  Extrapolate,
-  runOnJS,
-  useAnimatedScrollHandler,
-  useDerivedValue,
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector, FlatList as GHFlatList } from 'react-native-gesture-handler';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../../../services/api/AtprotoService';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { createQueryKeys } from '../../../services/FeedService';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
 import Icon, { HeartFillIcon, MoreFillIcon, CloseFillIcon } from '../../ui/Icon';
-import ProfileCache, { profileKeys, useProfile } from '../../../services/cache/ProfileCache';
+import ProfileCache, { useProfile } from '../../../services/cache/ProfileCache';
 import VerificationBadge from '../verification/VerificationBadge';
-import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
-import RelativeDate, { formatPostDate } from '../../ui/RelativeDate';
-import PopUpModal from '../../ui/PopUpModal';
+import RelativeDate from '../../ui/RelativeDate';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { GestureHandlerRootView, NativeViewGestureHandler } from 'react-native-gesture-handler';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ListRenderItemInfo } from 'react-native';
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { formatNumber } from '../../../utils/helpers/formatNumber';
 import { useUserSearchTrigger, UserSearchModal } from '../../ui/usersearch';
@@ -57,6 +43,8 @@ import CommentItem, { Comment, Like } from './CommentItem';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalCommentSection';
 import { useGlobalShareSheet } from '../../../hooks/useGlobalShareSheet';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { BlurView } from 'expo-blur';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -78,36 +66,6 @@ interface UserProfile {
   displayName?: string;
 }
 
-interface CommentRecord {
-  text: string;
-  embed?: {
-    $type: string;
-    images?: {
-      image: any;
-      alt: string;
-    }[];
-  };
-}
-
-interface UserProfileCache {
-  data: UserProfile | null;
-  lastFetch: number;
-  TTL: number;
-}
-
-const userProfileCache: UserProfileCache = {
-  data: null,
-  lastFetch: 0,
-  TTL: 5 * 60 * 1000, // 5 minutes
-};
-
-const SCREEN_HEIGHT = Dimensions.get('window').height;
-const MAX_TRANSLATE_Y = SCREEN_HEIGHT;
-const MIN_TRANSLATE_Y = 0;
-
-type RootStackParamList = {
-  AuthorProfile: { handle: string };
-};
 
 const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => (
   <View style={styles.likeItem}>
@@ -508,7 +466,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     const showSendButton = hasText;
     const isSendDisabled = isPosting || !hasText || charCount > MAX_COMMENT_LENGTH;
 
-    return (
+    const shouldUseGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
+    
+    const footerContent = (
       <View style={[styles.inputContainer, { paddingBottom: Math.max(5, insets.bottom) }]}>
         {replyContext && (
           <View style={styles.replyContextContainer}>
@@ -524,7 +484,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               activeOpacity={0.7}
             >
-              <Icon name="close" size={18} color={Colors.black} />
+              <Icon name="close" size={18} color={Colors.white} />
             </TouchableOpacity>
           </View>
         )}
@@ -599,6 +559,20 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         <UserSearchModal {...userSearchModalProps} />
       </View>
     );
+
+    if (shouldUseGlass) {
+      return (
+        <BlurView
+          intensity={100}
+          tint="dark"
+          style={[styles.footerBlurContainer, { backgroundColor: 'rgba(0,0,0,1)' }]}
+        >
+          {footerContent}
+        </BlurView>
+      );
+    }
+
+    return footerContent;
   }, [
     mentionInputProps, 
     replyContext, 
@@ -826,8 +800,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         ref={sheetRef}
         name="comment-section"
         sizes={['medium', 'large']}
-        cornerRadius={20}
-        backgroundColor={Colors.black}
+        backgroundColor={Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'rgba(0,0,0,0.6)' : Colors.black}
         onDismiss={handleClose}
         scrollRef={currentScrollRef}
         keyboardMode="pan"
@@ -902,15 +875,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.black,
+    backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'transparent' : Colors.black,
     minHeight: 0,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    paddingHorizontal: 0,
+    paddingVertical: 12,
   },
   tabContainer: {
     flex: 1,
@@ -939,7 +912,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
     minHeight: 220,
-    backgroundColor: Colors.black,
+    backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'transparent' : Colors.black,
   },
   emptyContent: {
     flex: 1,
@@ -955,13 +928,13 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 80,
-    backgroundColor: Colors.black,
-    paddingHorizontal: 10,
+    backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'transparent' : Colors.black,
+    paddingHorizontal: 16,
   },
   loadingContainer: {
     paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: Colors.black,
+    backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'transparent' : Colors.black,
   },
   loadingShimmer: {
     width: 40,
@@ -997,24 +970,23 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   inputContainer: {
-    paddingHorizontal: 10,
-    paddingTop: 8,
-    paddingBottom:5,
-    backgroundColor: 'rgba(0, 0, 0)',
-    borderTopWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'rgba(0,0,0,0.6)' : 'rgba(0, 0, 0)',
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     width: '100%',
   },
   sendColumn: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 4,
+    marginLeft: 8,
   },
   avatarContainer: {
-    marginRight: 10,
+    marginRight: 12,
     marginTop: 0,
   },
   avatar: {
@@ -1026,7 +998,7 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     backgroundColor: 'transparent',
     borderRadius: BORDER_RADIUS.LARGE,
     borderWidth: 0,
@@ -1038,11 +1010,11 @@ const styles = StyleSheet.create({
     color: Colors.white,
     borderColor: 'transparent',
     flex: 1,
-    minHeight: 28,
+    minHeight: 42,
     maxHeight: 120,
     paddingRight: 0,
-    paddingTop: 0,
-    paddingBottom: 0,
+    paddingTop: 9,
+    paddingBottom: 9,
     paddingLeft: 0,
     textAlignVertical: 'top',
     fontFamily: 'Firma-Regular',
@@ -1052,21 +1024,16 @@ const styles = StyleSheet.create({
   sendButton: {
     paddingHorizontal: 8,
     paddingVertical: 8,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.gray,
     borderRadius: BORDER_RADIUS.FULL,
     width: 42,
     height: 42,
     alignItems: 'center',
-    marginLeft: 6,
+    marginLeft: 8,
     marginTop: 0,
   },
-    charCount: {
-      position: 'absolute',
-      borderRadius: BORDER_RADIUS.SMALL,
-      pointerEvents: 'none',
-    },
     charCountBelow: {
       marginTop: 6,
       color: Colors.lightGray,
@@ -1092,16 +1059,16 @@ const styles = StyleSheet.create({
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      backgroundColor: 'white',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
       borderRadius: BORDER_RADIUS.MEDIUM,
       marginBottom: 12,
-      borderWidth: 0,
-      borderColor: 'transparent',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.2)',
     },
     replyContextText: {
-      color: Colors.black,
+      color: Colors.white,
       fontSize: 14,
       fontFamily: 'Firma-SemiBold',
     },
@@ -1157,6 +1124,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 2,
     fontFamily: 'Firma-Bold',
+  },
+  footerBlurContainer: {
+    backgroundColor: 'transparent',
   },
 });
 

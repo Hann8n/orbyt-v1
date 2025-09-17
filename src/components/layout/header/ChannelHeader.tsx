@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Alert } from 'react-native';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
 import HeaderSkeleton from './HeaderSkeleton';
@@ -151,20 +152,33 @@ const SubscribeButton: React.FC<{
 
   if (channel.isOwner) return null; // Don't show subscribe button for owners
 
+  const useGlass = isLiquidGlassAvailable();
+  const glassTint = isSubscribed ? hexToRGBA(textColor, 1) : hexToRGBA(accentColor, 0.08);
+
   return (
     <View style={styles.subscribeContainer}>
       <TouchableOpacity
         style={[
           styles.subscribeButton,
-          {
-            backgroundColor: isSubscribed ? accentColor : hexToRGBA(accentColor, 0.2),
-            borderColor: isSubscribed ? accentColor : hexToRGBA(accentColor, 0.4),
-          }
+          useGlass
+            ? { backgroundColor: 'transparent', borderColor: 'transparent' }
+            : {
+                backgroundColor: isSubscribed ? accentColor : hexToRGBA(accentColor, 0.2),
+                borderColor: isSubscribed ? accentColor : hexToRGBA(accentColor, 0.4),
+              },
         ]}
         onPress={handleSubscribe}
         disabled={isSubscribing}
         activeOpacity={0.7}
       >
+        {useGlass && (
+          <GlassView
+            style={styles.glassBackgroundFull}
+            glassEffectStyle="clear"
+            tintColor={glassTint}
+            isInteractive
+          />
+        )}
         {isSubscribing ? (
           <ActivityIndicator size="small" color={accentColor} />
         ) : (
@@ -172,19 +186,19 @@ const SubscribeButton: React.FC<{
             <Text style={[styles.subscribeButtonText, { color: isSubscribed ? backgroundColor : accentColor }]}>
               {isSubscribed ? 'Subscribed' : 'Subscribe'}
             </Text>
-                         {isSubscribed ? (
-               <CheckIcon 
-                 size={16} 
-                 color={backgroundColor} 
-                 strokeWidth={2.0}
-               />
-             ) : (
-               <PlusIcon 
-                 size={12} 
-                 color={accentColor} 
-                 strokeWidth={2.0}
-               />
-             )}
+            {isSubscribed ? (
+              <CheckIcon 
+                size={16} 
+                color={backgroundColor} 
+                strokeWidth={2.0}
+              />
+            ) : (
+              <PlusIcon 
+                size={12} 
+                color={accentColor} 
+                strokeWidth={2.0}
+              />
+            )}
           </>
         )}
       </TouchableOpacity>
@@ -366,6 +380,10 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
     gap: 6,
+  },
+  glassBackgroundFull: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.FULL,
   },
   subscribeButtonText: {
     fontFamily: 'Firma-Bold',

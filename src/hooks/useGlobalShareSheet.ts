@@ -40,12 +40,15 @@ export const useGlobalShareSheet = () => {
   const presentShareSheet = useCallback((newData: ShareSheetData) => {
     // Store the data globally so the ShareSheet component can access it
     currentShareSheetData = newData;
-    
-    // Notify all listeners
+
+    // Notify all listeners so the sheet content mounts before presenting
     notifyListeners();
-    
-    // Present the global ShareSheet using TrueSheet's global method
-    TrueSheet.present('share-sheet');
+
+    // Defer present to the next frame to allow React to commit the new UI
+    // This avoids measuring an empty sheet when using auto sizing
+    requestAnimationFrame(() => {
+      TrueSheet.present('share-sheet');
+    });
   }, []);
 
   const dismissShareSheet = useCallback(() => {

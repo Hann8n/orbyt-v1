@@ -28,8 +28,9 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   const navigation = useRouter();
   const params = useLocalSearchParams();
 
-  // Get the channel URI from the route parameters
-  const uri = (params.id as string) || '';
+  // Get the channel URI from the route parameters (decode for safety)
+  const uriParam = (params.id as string) || '';
+  const uri = uriParam ? decodeURIComponent(uriParam) : '';
   
   const [refreshing, setRefreshing] = useState(false);
 

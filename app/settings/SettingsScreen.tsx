@@ -26,7 +26,10 @@ import { ModerationSettings, LabelPreference } from '../../src/services/Moderati
 import { CommonErrorHandlers } from '../../src/utils/errorHandler';
 import { useProfile } from '../../src/services/cache/ProfileCache';
 import { useChannelColors } from '../../src/services/cache/ChannelCache';
-import AccountSwitcher from '../../src/components/features/profile/AccountSwitcher';
+import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalAccountSwitcher';
+import { Host, Button as ExpoButton } from '@expo/ui/swift-ui';
+import { background, foregroundColor } from '@expo/ui/swift-ui/modifiers';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 
 
@@ -38,10 +41,11 @@ const SettingsScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExperimentalFeedsEnabled, setIsExperimentalFeedsEnabled] = useState(true);
-  const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
+  const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const insets = useSafeAreaInsets();
   const { getExperimentalFeedsEnabled, setExperimentalFeedsEnabled } = useFeedSettings();
   const { currentUser } = useCurrentUser();
+  const shouldUseGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   // Load settings on mount
   useEffect(() => {
@@ -123,15 +127,6 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
-  const handleAccountSwitch = async (account: any) => {
-    try {
-      // Account switching is handled by the AccountSwitcher component
-      // This callback is called when account switch is successful
-      console.log('Account switched to:', account.handle);
-    } catch (error) {
-      console.error('Error in account switch callback:', error);
-    }
-  };
 
 
 
@@ -143,7 +138,10 @@ const SettingsScreen: React.FC = () => {
           id: 'switch-account',
           label: 'Switch account',
           icon: 'user',
-          onPress: () => setShowAccountSwitcher(true),
+          onPress: () => {
+            navigation.back();
+            setTimeout(() => presentAccountSwitcher(), 100);
+          },
           showChevron: true
         },
         {
@@ -360,13 +358,24 @@ const SettingsScreen: React.FC = () => {
               );
             case 'setting':
               return (
-                <View key={key} style={{ marginBottom: 12 }}>
+                <View key={key} style={{ marginBottom: 0 }}>
                   <TouchableOpacity
-                    style={settingsButtonStyles.menuOption}
+                    style={[
+                      settingsButtonStyles.menuOption,
+                      shouldUseGlass && settingsButtonStyles.menuOptionGlass
+                    ]}
                     onPress={item.onPress}
                     activeOpacity={0.7}
                     disabled={isSubmitting}
                   >
+                    {shouldUseGlass && (
+                      <GlassView
+                        style={StyleSheet.absoluteFill}
+                        glassEffectStyle="clear"
+                        tintColor="rgba(24,28,34,0.15)"
+                        isInteractive
+                      />
+                    )}
                     <View style={styles.menuOptionLeft}>
                       <Text style={settingsTextStyles.menuOptionText}>{item.label}</Text>
                     </View>
@@ -378,8 +387,19 @@ const SettingsScreen: React.FC = () => {
               );
             case 'toggle':
               return (
-                <View key={key} style={{ marginBottom: 12 }}>
-                  <View style={settingsButtonStyles.menuOption}>
+                <View key={key} style={{ marginBottom: 0 }}>
+                  <View style={[
+                    settingsButtonStyles.menuOption,
+                    shouldUseGlass && settingsButtonStyles.menuOptionGlass
+                  ]}>
+                    {shouldUseGlass && (
+                      <GlassView
+                        style={StyleSheet.absoluteFill}
+                        glassEffectStyle="clear"
+                        tintColor="rgba(24,28,34,0.15)"
+                        isInteractive
+                      />
+                    )}
                     <View style={styles.menuOptionLeft}>
                       <Text style={settingsTextStyles.menuOptionText}>{item.label}</Text>
                       {item.subtitle ? (
@@ -399,12 +419,58 @@ const SettingsScreen: React.FC = () => {
             case 'logout':
               return (
                 <View key={key} style={settingsLayoutStyles.logoutSection}>
+                  {/* Expo UI Button Examples */}
+                  <Host style={{ marginBottom: 16, gap: 12 }}>
+                    <ExpoButton
+                      variant="default"
+                      modifiers={[
+                        background(Colors.darkGray),
+                        foregroundColor(Colors.white)
+                      ]}
+                      onPress={() => Alert.alert('Expo UI', 'This is a default Expo UI button!')}
+                    >
+                      Default Button
+                    </ExpoButton>
+                    <ExpoButton
+                      variant="default"
+                      modifiers={[
+                        background(Colors.mediumGray),
+                        foregroundColor(Colors.white)
+                      ]}
+                      onPress={() => Alert.alert('Expo UI', 'This is a secondary Expo UI button!')}
+                    >
+                      Secondary Button
+                    </ExpoButton>
+                    <ExpoButton
+                      variant="default"
+                      modifiers={[
+                        background(Colors.red),
+                        foregroundColor(Colors.white)
+                      ]}
+                      onPress={() => Alert.alert('Expo UI', 'This is a destructive Expo UI button!')}
+                    >
+                      Destructive Button
+                    </ExpoButton>
+                  </Host>
+                  
+                  {/* Traditional React Native Button */}
                   <TouchableOpacity
-                    style={settingsButtonStyles.logoutButton}
+                    style={[
+                      settingsButtonStyles.logoutButton,
+                      shouldUseGlass && settingsButtonStyles.logoutButtonGlass
+                    ]}
                     onPress={handleRemoveAccount}
                     activeOpacity={0.7}
                     disabled={isSubmitting}
                   >
+                    {shouldUseGlass && (
+                      <GlassView
+                        style={StyleSheet.absoluteFill}
+                        glassEffectStyle="clear"
+                        tintColor="rgba(24,28,34,0.15)"
+                        isInteractive
+                      />
+                    )}
                     <Text style={settingsTextStyles.logoutButtonText}>Remove Account</Text>
                   </TouchableOpacity>
                 </View>
@@ -415,18 +481,6 @@ const SettingsScreen: React.FC = () => {
         })}
       </ScrollView>
 
-      {/* Account Switcher Modal */}
-      <AccountSwitcher
-        visible={showAccountSwitcher}
-        onDismiss={() => setShowAccountSwitcher(false)}
-        onAccountSwitch={handleAccountSwitch}
-        onAddAccount={async () => {
-          setShowAccountSwitcher(false);
-          // Navigate to login to add new account
-          await onLogout(false);
-        }}
-        onLogout={onLogout}
-      />
     </View>
   );
 };
@@ -473,4 +527,4 @@ const styles = StyleSheet.create({
 
 });
 
-export default SettingsScreen; 
+export default SettingsScreen;

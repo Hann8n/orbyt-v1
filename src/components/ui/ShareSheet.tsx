@@ -16,11 +16,13 @@ import {
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { ShareIcon, BlockIcon, ReportIcon, InterestedIcon, NotInterestedIcon } from './Icon';
+import Icon from './Icon';
 import AtprotoService from '../../services/api/AtprotoService';
 import ProfileCache from '../../services/cache/ProfileCache';
 import { useClearView } from '../../stores/uiStore';
 import { Colors } from './UI';
+import { hexToRGBA } from '../../utils/formatting/colorUtils';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useGlobalShareSheet } from '../../hooks/useGlobalShareSheet';
 
 // No props needed for global ShareSheet
@@ -53,6 +55,8 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   // Animated values for smooth transitions
   const interestedAnimation = useRef(new Animated.Value(0)).current;
   const notInterestedAnimation = useRef(new Animated.Value(0)).current;
+  const interestedScale = interestedAnimation.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
+  const notInterestedScale = notInterestedAnimation.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
 
   // TrueSheet sizes
   const snapPoints = useMemo(() => ['auto'] as any, []);
@@ -475,9 +479,8 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       <TrueSheet
         name="share-sheet"
         sizes={snapPoints}
-        backgroundColor={Colors.black}
+        backgroundColor={Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'rgba(0,0,0,0.6)' : Colors.black}
         onDismiss={dismissSheet}
-        cornerRadius={20}
         grabber={false}
       >
         <View style={styles.content}>
@@ -493,18 +496,25 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     <TrueSheet
       name="share-sheet"
       sizes={snapPoints}
-      backgroundColor={Colors.black}
+      backgroundColor={Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'rgba(0,0,0,0.6)' : Colors.black}
       onDismiss={dismissSheet}
-      cornerRadius={20}
       grabber={false}
       FooterComponent={
-        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom }]}>
+        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'transparent' : Colors.black }]}> 
           <TouchableOpacity 
-            style={styles.cancelButton} 
+            style={[styles.cancelButton, Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.cancelButtonGlass]} 
             onPress={dismissSheet} 
             activeOpacity={0.7}
             disabled={isSubmitting}
           >
+            {Platform.OS === 'ios' && isLiquidGlassAvailable() && (
+              <GlassView
+                style={StyleSheet.absoluteFill}
+                glassEffectStyle="clear"
+                tintColor="rgba(255,255,255,0.05)"
+                isInteractive
+              />
+            )}
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -532,40 +542,41 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={[styles.optionsContainer, { gap: fixedSpacing, paddingHorizontal: 15 }]}
+            contentContainerStyle={[styles.optionsContainer, { gap: fixedSpacing, paddingLeft: 20, paddingRight: 20 }]}
           >
             {menuOptions.map((option) => (
               <View key={option.id} style={styles.optionWrapper}>
                 <TouchableOpacity 
                   style={[
                     styles.option,
-                    (option as any).buttonColor ? { backgroundColor: (option as any).buttonColor } : null
-                  ]} 
+                    isLiquidGlassAvailable()
+                      ? { backgroundColor: 'transparent', borderColor: 'transparent' }
+                      : { backgroundColor: option.buttonColor, borderColor: hexToRGBA(option.color, 0.28) }
+                  ]}
                   onPress={option.onPress}
                   activeOpacity={0.7}
                   disabled={isSubmitting}
                 >
-                  {option.icon === 'share' && (
-                    <ShareIcon size={40} color={option.color} />
+                  {isLiquidGlassAvailable() && (
+                    <GlassView
+                      style={styles.optionGlass}
+                      glassEffectStyle="clear"
+                      tintColor={hexToRGBA(option.buttonColor, 0.9)}
+                      isInteractive
+                    />
                   )}
-                  {option.icon === 'eye' && (
-                    <Icon name="eye" size={40} color={option.color} />
-                  )}
-                  {option.icon === 'zen' && (
-                    <Icon name="zen" size={40} color={option.color} />
-                  )}
-                  {option.icon === 'block' && (
-                    <BlockIcon size={40} color={option.color} />
-                  )}
-                  {option.icon === 'report' && (
-                    <ReportIcon size={40} color={option.color} />
-                  )}
-                  {option.icon === 'interested' && (
-                    <InterestedIcon size={40} color={option.color} />
-                  )}
-                  {option.icon === 'not_interested' && (
-                    <NotInterestedIcon size={40} color={option.color} />
-                  )}
+                  {(() => {
+                    const scale = option.id === 'interested'
+                      ? interestedScale
+                      : option.id === 'not_interested'
+                        ? notInterestedScale
+                        : 1;
+                    return (
+                      <Animated.View style={typeof scale === 'number' ? undefined : { transform: [{ scale }] }}>
+                        <Icon name={option.icon} size={36} color={option.color} />
+                      </Animated.View>
+                    );
+                  })()}
                 </TouchableOpacity>
                 <Text style={styles.optionText}>{option.label}</Text>
               </View>
@@ -590,8 +601,8 @@ const styles = StyleSheet.create({
     height: 5,
   },
   content: {
-    paddingHorizontal: 4,
-    paddingTop: 4,
+    paddingHorizontal: 12,
+    paddingTop: 8,
   },
   headerContainer: {
     flexDirection: 'row',
@@ -612,6 +623,9 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     paddingBottom: 20,
+    // Extend options row to sheet edges while preserving overall content padding
+    marginLeft: -12,
+    marginRight: -12,
   },
   closeButton: {
     width: 30,
@@ -642,7 +656,21 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: hexToRGBA(Colors.gray, 0.12),
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: hexToRGBA(Colors.gray, 0.28)
+  },
+  optionGlass: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.LARGE,
+  },
+  iconButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: BORDER_RADIUS.FULL,
   },
   reportOption: {
     backgroundColor: Colors.red,
@@ -656,12 +684,21 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   cancelButton: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: hexToRGBA(Colors.gray, 0.12),
     borderRadius: BORDER_RADIUS.FULL,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    minHeight: 44,
+    borderWidth: 2,
+    borderColor: hexToRGBA(Colors.gray, 0.28)
+  },
+  cancelButtonGlass: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)'
   },
   cancelButtonText: {
     color: Colors.lightGray,
