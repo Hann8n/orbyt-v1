@@ -5,7 +5,6 @@ export * from './useGlobalShareSheet';
 export * from './useGlobalCommentSection';
 export * from './useGlobalAccountSwitcher';
 export { useAppStore, useAppInitialization } from '../stores/appStore';
-export { useClearView } from '../stores/uiStore';
 export { 
   useVisibilityStore,
   useVideoPlayback,

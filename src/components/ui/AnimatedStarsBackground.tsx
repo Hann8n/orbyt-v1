@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Animated, Dimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from './UI';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -22,7 +23,7 @@ interface AnimatedStarsBackgroundProps {
 }
 
 export default function AnimatedStarsBackground({ children }: AnimatedStarsBackgroundProps) {
-  const starsRef = useRef<Star[]>([]);
+  const [stars, setStars] = useState<Star[]>([]);
   const animationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mathematical random number generator (Linear Congruential Generator)
@@ -61,8 +62,9 @@ export default function AnimatedStarsBackground({ children }: AnimatedStarsBackg
     // Create varied animation durations (3-10 seconds)
     const duration = 3 + (durationSeed / 233280) * 7;
     
-    // Create varied delays (0-5 seconds)
-    const delay = (delaySeed / 233280) * 5;
+    // Create varied delays (0-2 seconds) - reduced for faster start
+    // Ensure some stars start immediately
+    const delay = index < 20 ? 0 : (delaySeed / 233280) * 2;
     
     // Determine star brightness using mathematical distribution
     const brightness = brightnessSeed / 233280;
@@ -106,7 +108,7 @@ export default function AnimatedStarsBackground({ children }: AnimatedStarsBackg
         x: position.x,
         y: position.y,
         size,
-        opacity: new Animated.Value(0),
+        opacity: new Animated.Value(0.3), // Start with some visibility
         scale: new Animated.Value(0.8),
         rotation: new Animated.Value(rotation),
         brightness: animationParams.brightnessLevel,
@@ -163,10 +165,11 @@ export default function AnimatedStarsBackground({ children }: AnimatedStarsBackg
 
   useEffect(() => {
     // Initialize stars
-    starsRef.current = generateStars();
+    const generatedStars = generateStars();
+    setStars(generatedStars);
 
     // Start animations
-    starsRef.current.forEach(star => {
+    generatedStars.forEach(star => {
       animateStar(star);
     });
 
@@ -229,12 +232,20 @@ export default function AnimatedStarsBackground({ children }: AnimatedStarsBackg
   return (
     <View style={styles.container}>
       {/* Animated stars overlay */}
-      {starsRef.current.map(star => (
+      {stars.map(star => (
         <Animated.View
           key={star.id}
           style={getStarStyle(star)}
         />
       ))}
+      
+      {/* Black gradient overlay on bottom half */}
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)', Colors.black]}
+        locations={[0.4, 0.6, 0.8, 1.0]}
+        style={styles.gradientOverlay}
+        pointerEvents="none"
+      />
       
       {/* Content */}
       <View style={styles.content}>
@@ -286,6 +297,14 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    zIndex: 1,
+    zIndex: 3,
+  },
+  gradientOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: screenHeight * 0.6, // Cover bottom 60% of screen
+    zIndex: 2,
   },
 });

@@ -19,7 +19,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import AtprotoService from '../../services/api/AtprotoService';
 import ProfileCache from '../../services/cache/ProfileCache';
-import { useClearView } from '../../stores/uiStore';
 import { Colors } from './UI';
 import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -45,7 +44,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     return true;
   };
   const queryClient = useQueryClient();
-  const { isClearViewMode, toggleClearViewMode } = useClearView();
   const SCREEN_WIDTH = Dimensions.get('window').width;
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [feedbackSent, setFeedbackSent] = useState<string | null>(null);
@@ -429,8 +427,8 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         label: 'Like',
         icon: 'interested',
         onPress: () => handleInterestFeedback('interested'),
-        color: feedbackSent === 'interested' ? Colors.interestedDark : Colors.darkYellow,
-        buttonColor: feedbackSent === 'interested' ? Colors.darkYellow : Colors.interestedDark
+        color: Colors.green,
+        buttonColor: Colors.darkGreen
       } as any);
       
       options.push({
@@ -443,17 +441,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       } as any);
     }
 
-    // Add Zen option (only when not in zen mode) - placed after Dislike
-    if (!isClearViewMode) {
-      options.push({
-        id: 'zen',
-        label: 'Zen',
-        icon: 'zen',
-        onPress: async () => toggleClearViewMode(),
-        color: Colors.green,
-        buttonColor: Colors.darkGreen
-      } as any);
-    }
 
     // Add Report/Delete option
     options.push({
@@ -473,8 +460,8 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   // Use fixed spacing instead of dynamic calculation
   const fixedSpacing = 12;
 
-  // Don't render content if in clear view mode or no data
-  if (isClearViewMode || !data) {
+  // Don't render content if no data
+  if (!data) {
     return (
       <TrueSheet
         name="share-sheet"

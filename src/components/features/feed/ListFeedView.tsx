@@ -21,7 +21,6 @@ import GridFeedView from './GridFeedView';
 import { isSmallScreen, isTablet, getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import Icon from '../../ui/Icon';
-import { useClearView } from '../../../stores/uiStore';
 import { Colors } from '../../ui/UI';
 import { preloadVideoData } from '../../../utils/helpers/video';
 import { 
@@ -66,7 +65,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   ListComponent,
 }) => {
   // Hooks
-  const { isClearViewMode, toggleClearViewMode } = useClearView();
   const insets = useSafeAreaInsets();
   
   // Simplified visibility state - only track the currently visible video URI
@@ -539,20 +537,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         }}
       />
       
-      {/* Clear view exit button */}
-      {isClearViewMode && (
-        <TouchableOpacity 
-          style={styles.clearViewExitButton}
-          onPress={toggleClearViewMode}
-          activeOpacity={0.7}
-        >
-          <Icon 
-            name="zen" 
-            size={24} 
-            color={Colors.white} 
-          />
-        </TouchableOpacity>
-      )}
     </View>
   );
 };

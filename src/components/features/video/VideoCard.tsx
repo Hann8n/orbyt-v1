@@ -26,7 +26,6 @@ import Video from 'react-native-video';
 import { Colors } from '../../ui/UI';
 import { extractVideoUrl } from '../../../utils/helpers/video';
 import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
-import { useClearView } from '../../../stores/uiStore';
 import VideoOverlayUI from './VideoOverlayUI';
 import { useThumbnailColor } from '../../../hooks/useThumbnailColor';
 
@@ -94,7 +93,6 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     isModal = false,
 
   }, ref) => {
-    const { isClearViewMode } = useClearView();
     
     // Consolidated state management
     const [videoState, setVideoState] = useState({
@@ -429,7 +427,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
             )}
 
             {/* Integrated Overlay System using VideoOverlayUI */}
-            {showOverlay && isVisible && !isClearViewMode && (
+            {showOverlay && isVisible && (
               <VideoOverlayUI
                 post={post}
                 isVisible={isVisible}
