@@ -30,7 +30,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Icon, { BackArrowIcon } from '../../src/components/ui/Icon';
 import BottomToolBar from '../../src/components/ui/BottomToolBar';
-import { isSmallScreen } from '../../src/utils/helpers/screenSize';
+import { isSmallScreen } from '../../src/utils/helpers';
 import VideoProcessingService, { VideoSegment as ProcessingVideoSegment } from '../../src/services/VideoProcessingService';
 import { Colors } from '../../src/components/ui/UI';
 

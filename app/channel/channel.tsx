@@ -62,7 +62,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'posts' | 'members'>('posts');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'horizontal'>('list');
 
   // Use feed query only for posts tab
   const feedOption = uri || '';
@@ -206,7 +206,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
           backgroundColor="transparent"
           accentColor={channelColors.accentColor}
           viewMode={viewMode}
-          onViewModeChange={activeTab === 'posts' ? setViewMode : undefined}
+          onViewModeChange={activeTab === 'posts' ? (mode: 'list' | 'grid') => setViewMode(mode) : undefined}
           showViewToggle={activeTab === 'posts'}
         />
       </ChannelHeader>

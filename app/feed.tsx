@@ -7,7 +7,7 @@ import FeedRenderer from '../src/components/features/feed/FeedRenderer';
 import { BackArrowIcon } from '../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { feedService } from '../src/services/FeedService';
-import { getViewportDimensions } from '../src/utils/helpers/screenSize';
+import { getViewportDimensions } from '../src/utils/helpers';
 import { Colors } from '../src/components/ui/UI';
 
 const FeedScreen: React.FC = memo(() => {

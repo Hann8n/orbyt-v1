@@ -26,7 +26,7 @@ import { ModerationSettings, LabelPreference } from '../../src/services/Moderati
 import { CommonErrorHandlers } from '../../src/utils/errorHandler';
 import { useProfile } from '../../src/services/cache/ProfileCache';
 import { useChannelColors } from '../../src/services/cache/ChannelCache';
-import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalAccountSwitcher';
+import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import { Host, Button as ExpoButton } from '@expo/ui/swift-ui';
 import { background, foregroundColor } from '@expo/ui/swift-ui/modifiers';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';

@@ -18,6 +18,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Platform,
+  Animated,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 
@@ -25,7 +26,7 @@ import { Image } from 'react-native';
 import Video from 'react-native-video';
 import { Colors } from '../../ui/UI';
 import { extractVideoUrl } from '../../../utils/helpers/video';
-import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
 import { useThumbnailColor } from '../../../hooks/useThumbnailColor';
 
@@ -117,6 +118,10 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     // Refs
     const playerRef = useRef<any>(null);
     const videoId = post.uri;
+    
+    // Animated value for smooth dimming transition
+    const dimmingOpacity = useRef(new Animated.Value(isVisible ? 0 : 1)).current;
+    const [shouldShowDimming, setShouldShowDimming] = useState(!isVisible);
 
     // Get video assets - simplified
     const { thumbnailUrl: posterUrl, videoEmbed, videoUrl } = getVideoAssets(post);
@@ -151,6 +156,33 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     useEffect(() => {
       setUserChoseToView(false);
     }, [post?.uri]);
+
+    // Optimized dimming animation - only when visibility actually changes
+    useEffect(() => {
+      const targetOpacity = isVisible ? 0 : 1;
+      
+      if (targetOpacity === 0) {
+        // Fading out - start animation then remove from render tree
+        Animated.timing(dimmingOpacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }).start(() => {
+          setShouldShowDimming(false);
+        });
+      } else {
+        // Fading in - add to render tree then animate
+        setShouldShowDimming(true);
+        // Use requestAnimationFrame to ensure DOM update before animation
+        requestAnimationFrame(() => {
+          Animated.timing(dimmingOpacity, {
+            toValue: 1,
+            duration: 150,
+            useNativeDriver: true,
+          }).start();
+        });
+      }
+    }, [isVisible, dimmingOpacity]);
 
     // Simplified video playback logic
     const shouldPlayVideo = !shouldDisablePlayback && 
@@ -426,6 +458,16 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
               </View>
             )}
 
+            {/* Optimized dimming overlay - only render when needed */}
+            {shouldShowDimming && (
+              <Animated.View 
+                style={[
+                  styles.dimmingOverlay, 
+                  { opacity: dimmingOpacity }
+                ]} 
+              />
+            )}
+
             {/* Integrated Overlay System using VideoOverlayUI */}
             {showOverlay && isVisible && (
               <VideoOverlayUI
@@ -552,6 +594,12 @@ const styles = StyleSheet.create({
   viewButtonText: {
     color: '#000',
     fontWeight: 'bold',
+  },
+  dimmingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    zIndex: 5,
+    pointerEvents: 'none', // Allow touch events to pass through when not dimmed
   },
 
 });

@@ -10,9 +10,11 @@ import { View, StyleSheet } from 'react-native';
 import ListFeedView from './ListFeedView';
 import GridFeedView from './GridFeedView';
 import EmptyFeed from './EmptyFeed';
+import HorizontalVideoList from './HorizontalVideoList';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import { Colors } from '../../ui/UI';
+import { feedService } from '../../../services/FeedService';
 
 // Types
 export interface Post {
@@ -50,8 +52,8 @@ interface FeedRendererProps {
   isModal?: boolean;
   
   // View mode
-  viewMode?: 'list' | 'grid';
-  onViewModeChange?: (mode: 'list' | 'grid') => void;
+  viewMode?: 'list' | 'grid' | 'horizontal';
+  onViewModeChange?: (mode: 'list' | 'grid' | 'horizontal') => void;
   
   // Callbacks
   onRetryFeed?: () => void;
@@ -336,6 +338,21 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
       );
     }
     
+    if (viewMode === 'horizontal') {
+      return (
+        <HorizontalVideoList
+          {...commonProps}
+          onVideoItemPress={(index) => {
+            // Handle horizontal video item press
+            feedService.setCurrentFeed(feed);
+            // Navigation logic would go here
+          }}
+          isError={isSearchFeed ? false : errorState.finalIsError}
+          error={isSearchFeed ? null : errorState.finalError}
+        />
+      );
+    }
+    
     return (
       <ListFeedView
         {...commonProps}
@@ -351,6 +368,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     errorState.finalIsError,
     errorState.finalError,
     shouldShowLoader,
+    feed,
   ]);
 
   return (

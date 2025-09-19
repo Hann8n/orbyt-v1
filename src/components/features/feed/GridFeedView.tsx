@@ -27,7 +27,7 @@ import { feedService } from '../../../services/FeedService';
 import { BlurView } from 'expo-blur';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import { FeedItem } from '../../../types';
-import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
+import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers';
 import EmptyFeed from './EmptyFeed';
 import { VideoGridItem } from './HorizontalVideoList';
 

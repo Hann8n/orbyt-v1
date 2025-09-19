@@ -24,7 +24,7 @@ import ProfileCache, { profileKeys } from '../../src/services/cache/ProfileCache
 import { Avatar, Icon, Colors } from '../../src/components/ui/UI';
 import { NotificationIcon } from '../../src/components/ui/Icon';
 import VerificationBadge from '../../src/components/features/verification/VerificationBadge';
-import { getBottomNavBarHeight } from '../../src/utils/helpers/screenSize';
+import { getBottomNavBarHeight } from '../../src/utils/helpers';
  
 
 const NotificationShimmer = () => (

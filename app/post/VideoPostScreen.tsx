@@ -34,7 +34,7 @@ import { Colors } from '../../src/components/ui/UI';
 import { VideoInfoDisplay } from '../../src/components/ui';
 import AuthorItem from '../../src/components/ui/AuthorItem';
 import * as Device from 'expo-device';
-import { isTablet } from '../../src/utils/helpers/screenSize';
+import { isTablet } from '../../src/utils/helpers';
 import { useCurrentUser, useAccountManagement } from '../../src/stores/userStore';
 import { useProfile, useProfileColors } from '../../src/services/cache/ProfileCache';
 import ProfileCache from '../../src/services/cache/ProfileCache';

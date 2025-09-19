@@ -3,7 +3,7 @@ import { View, StyleSheet, Dimensions } from 'react-native';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { Colors } from './UI';
 import { LinearGradient } from 'expo-linear-gradient';
-import { isSmallScreen, isTablet } from '../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet } from '../../utils/helpers';
 
 const ITEM_MARGIN = 1; // Match the grid feed margin
 

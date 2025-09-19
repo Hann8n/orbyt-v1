@@ -9,7 +9,7 @@ import { useRecyclingState } from '@shopify/flash-list';
 
 import VideoCard, { VideoCardRef } from '../video/VideoCard';
 import { extractVideoEmbedAndUrl } from '../../../utils/helpers/video';
-import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import { Colors } from '../../ui/UI';
 

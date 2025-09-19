@@ -36,10 +36,10 @@ import { Colors } from '../../src/components/ui/UI';
 import VerificationBadge from '../../src/components/features/verification/VerificationBadge';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
-import { getBottomNavBarHeight } from '../../src/utils/helpers/screenSize';
+import { getBottomNavBarHeight } from '../../src/utils/helpers';
 import { extractVideoThumbnail } from '../../src/utils/helpers/video';
-import { FORCE_SEARCH_ERROR, getForcedErrorMessage } from '../../src/utils/helpers/errorDebug';
-import { formatNumber } from '../../src/utils/helpers/formatNumber';
+import { FORCE_SEARCH_ERROR, getForcedErrorMessage } from '../../src/utils/helpers';
+import { formatNumber } from '../../src/utils/helpers';
 import { HeaderService, useStaticChannels, useHeaders } from '../../src/services/APIService';
 import { useFeed } from '../../src/hooks/useFeed';
 // import { ModerationService } from '../../src/services/ModerationService'; // Commented out since videos are disabled

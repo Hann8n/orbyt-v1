@@ -11,16 +11,15 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../ui/UI';
-import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
+import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers';
 import Icon, { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon, TvIcon } from '../../ui/Icon';
 import { Avatar } from '../../ui/UI';
-import { formatNumber } from '../../../utils/helpers/formatNumber';
+import { formatNumber } from '../../../utils/helpers';
 import { useProfileColors } from '../../../services/cache/ProfileCache';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import VerificationBadge from '../verification/VerificationBadge';
-import { useGlobalShareSheet } from '../../../hooks/useGlobalShareSheet';
-import { useGlobalCommentSection } from '../../../hooks/useGlobalCommentSection';
+import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useRouter } from 'expo-router';
 
 
@@ -304,6 +303,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       style={styles.descriptionText}
                       numberOfLines={isOverlayCollapsed ? 1 : undefined}
                       onAuthorPress={navigateToAuthorProfile}
+                      facets={record.facets}
                     />
                   </TouchableOpacity>
                   {!isOverlayCollapsed && record.createdAt && (

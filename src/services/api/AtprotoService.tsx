@@ -621,15 +621,24 @@ class AtprotoService {
     const actualParentUri = parentUri || rootUri;
     const actualParentCid = parentCid || rootCid;
     
+    // Parse rich text to extract facets for mentions, links, and hashtags
+    const { parseRichTextWithResolvedMentions } = await import('../../utils/richTextParser');
+    const parsedText = await parseRichTextWithResolvedMentions(text);
+    
     const postRecord: any = {
       $type: 'app.bsky.feed.post',
-      text,
+      text: parsedText.text,
       createdAt: new Date().toISOString(),
       reply: {
         root: { uri: rootUri, cid: rootCid },
         parent: { uri: actualParentUri, cid: actualParentCid },
       },
     };
+
+    // Add facets if they exist
+    if (parsedText.facets && parsedText.facets.length > 0) {
+      postRecord.facets = parsedText.facets;
+    }
     
     // Add images if provided
     if (images && images.length > 0) {
@@ -709,10 +718,14 @@ class AtprotoService {
       // Get video aspect ratio
       const aspectRatio = await this.getVideoAspectRatio(videoPath);
 
+      // Parse rich text to extract facets for mentions, links, and hashtags
+      const { parseRichTextWithResolvedMentions } = await import('../../utils/richTextParser');
+      const parsedText = await parseRichTextWithResolvedMentions(text);
+
       // Create the post with video embed
       const postRecord: any = {
         $type: 'app.bsky.feed.post',
-        text,
+        text: parsedText.text,
         createdAt: new Date().toISOString(),
         embed: {
           $type: 'app.bsky.embed.video',
@@ -720,6 +733,11 @@ class AtprotoService {
           aspectRatio
         }
       };
+
+      // Add facets if they exist
+      if (parsedText.facets && parsedText.facets.length > 0) {
+        postRecord.facets = parsedText.facets;
+      }
 
       // Add content warnings if provided
       if (contentWarnings && contentWarnings.length > 0) {

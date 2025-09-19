@@ -23,7 +23,7 @@ import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
  
 import AtprotoService from '../../../services/api/AtprotoService';
-import { formatNumber } from '../../../utils/helpers/formatNumber';
+import { formatNumber } from '../../../utils/helpers';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
 import { HeartFillIcon } from '../../ui/Icon';
@@ -622,6 +622,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   text={commentText}
                   style={{ color: Colors.lightGray, fontSize: 15, marginTop: 2, fontFamily: 'Firma-Regular' }}
                   onAuthorPress={handleAuthorPress}
+                  facets={comment?.post?.record?.facets || comment?.record?.facets}
                 />
               ) : null}
               {renderImages(!!commentText)}

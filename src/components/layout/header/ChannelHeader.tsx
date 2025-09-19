@@ -9,7 +9,7 @@ import { useChannelColors } from '../../../services/cache/ChannelCache';
 import Icon, { PlusIcon, CheckIcon } from '../../ui/Icon';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import { Colors } from '../../ui/UI';
-import { formatNumber } from '../../../utils/helpers/formatNumber';
+import { formatNumber } from '../../../utils/helpers';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
  
 

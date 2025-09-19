@@ -1,5 +1,5 @@
 import { Dimensions } from 'react-native';
-import { isSmallScreen, isTablet, isTallScreen } from './screenSize';
+import { isSmallScreen, isTablet, isTallScreen } from '../helpers';
 
 const { width, height } = Dimensions.get('window');
 

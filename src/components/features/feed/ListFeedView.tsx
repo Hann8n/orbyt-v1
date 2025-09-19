@@ -18,7 +18,7 @@ import { FlashList, FlashListRef, type ListRenderItemInfo } from '@shopify/flash
 import EmptyFeed from './EmptyFeed';
 import { MemoizedVideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
-import { isSmallScreen, isTablet, getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet, getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/helpers';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import Icon from '../../ui/Icon';
 import { Colors } from '../../ui/UI';

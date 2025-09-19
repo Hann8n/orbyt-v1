@@ -74,7 +74,7 @@ export interface Session {
 }
 
 // UI Types
-export type ViewMode = 'list' | 'grid';
+export type ViewMode = 'list' | 'grid' | 'horizontal';
 
 export interface ProfileColors {
   backgroundColor: string;

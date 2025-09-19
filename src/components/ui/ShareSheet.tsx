@@ -22,7 +22,7 @@ import ProfileCache from '../../services/cache/ProfileCache';
 import { Colors } from './UI';
 import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { useGlobalShareSheet } from '../../hooks/useGlobalShareSheet';
+import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
 
 // No props needed for global ShareSheet
 interface ShareSheetProps {}

@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Icon from '../../../ui/Icon';
-import { isSmallScreen, isTablet } from '../../../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet } from '../../../../utils/helpers';
 import { Colors } from '../../../ui/UI';
 import VideoCard from '../VideoCard';
 

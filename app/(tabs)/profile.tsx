@@ -87,7 +87,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'profile' | 'reposts' | 'likes'>('profile');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'horizontal'>('list');
 
   // Ensure profile data is immediately available from cache
   const profileData = cachedProfile || (colorsHandle ? ProfileCache.getProfileFromCacheSync(colorsHandle) : null);
@@ -290,7 +290,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                       textColor={isEditMode && dynamicColors ? dynamicColors.textColor : profileColors.textColor}
                       backgroundColor="transparent"
                       viewMode={viewMode}
-                      onViewModeChange={setViewMode}
+                      onViewModeChange={(mode: 'list' | 'grid') => setViewMode(mode)}
                       showViewToggle={true}
                     />
                   </ProfileHeader>

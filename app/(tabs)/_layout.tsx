@@ -8,7 +8,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { Colors } from '../../src/components/ui/UI';
 import Icon, { HomeIcon, ExploreIcon, NotificationIcon, ProfileIcon } from '../../src/components/ui/Icon';
-import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers/screenSize';
+import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();

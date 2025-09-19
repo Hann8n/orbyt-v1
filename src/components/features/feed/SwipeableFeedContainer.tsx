@@ -18,7 +18,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from '../../ui/UI';
 import FeedRenderer from './FeedRenderer';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
-import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Define the feed options type

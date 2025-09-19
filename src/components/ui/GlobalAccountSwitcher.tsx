@@ -1,5 +1,5 @@
 import React from 'react';
-import { useGlobalAccountSwitcher } from '../../hooks/useGlobalAccountSwitcher';
+import { useGlobalAccountSwitcher } from '../../hooks/useGlobalModals';
 import AccountSwitcher from '../features/profile/AccountSwitcher';
 import { useAuth } from '../../stores/userStore';
 

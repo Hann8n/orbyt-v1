@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import { Avatar } from '../../ui/UI';
 import { Colors } from '../../ui/UI';
-import { isSmallScreen, isTablet } from '../../../utils/helpers/screenSize';
+import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import { TextWithLinks } from '../../ui/TextWithLinks';
 
 // Types for the universal header system
@@ -33,6 +33,7 @@ export interface HeaderContent {
   onTitleChange?: (text: string) => void;
   subtitle?: string;
   description?: string;
+  facets?: any[];
   badge?: React.ReactNode;
   onAvatarPress?: () => void;
   onTitlePress?: () => void;
@@ -431,7 +432,7 @@ const HeaderContentComponent = memo<{
             text={content.description}
             style={[styles.description, { color: hexToRGBA(textColor, 0.75) }]}
             onAuthorPress={navigateToAuthorProfile}
-            parseUrls={true}
+            facets={content.facets}
           />
         ))}
       </View>

@@ -36,13 +36,12 @@ import RelativeDate from '../../ui/RelativeDate';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useFocusEffect } from '@react-navigation/native';
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
-import { formatNumber } from '../../../utils/helpers/formatNumber';
+import { formatNumber } from '../../../utils/helpers';
 import { useUserSearchTrigger, UserSearchModal } from '../../ui/usersearch';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import CommentItem, { Comment, Like } from './CommentItem';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useGlobalCommentSection } from '../../../hooks/useGlobalCommentSection';
-import { useGlobalShareSheet } from '../../../hooks/useGlobalShareSheet';
+import { useGlobalCommentSection, useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
 
