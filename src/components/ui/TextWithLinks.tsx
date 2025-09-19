@@ -19,6 +19,7 @@ interface TextWithLinksProps {
   style: any;
   numberOfLines?: number;
   onAuthorPress: (handle: string) => void;
+  onHashtagPress?: (hashtag: string) => void;
   facets?: RichTextFacet[];
 }
 
@@ -27,6 +28,7 @@ export const TextWithLinks: React.FC<TextWithLinksProps> = ({
   style,
   numberOfLines,
   onAuthorPress,
+  onHashtagPress,
   facets
 }) => {
   const [textParts, setTextParts] = useState<TextPart[]>([]);
@@ -166,6 +168,7 @@ export const TextWithLinks: React.FC<TextWithLinksProps> = ({
             <Text
               key={index}
               style={[style, styles.link]}
+              onPress={() => onHashtagPress?.(part.text.replace('#', ''))}
               suppressHighlighting={true}
             >
               {part.text}

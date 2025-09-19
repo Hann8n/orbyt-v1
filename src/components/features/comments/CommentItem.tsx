@@ -290,6 +290,20 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       [navigateToAuthorProfile]
     );
 
+    const handleHashtagPress = useCallback(
+      (hashtag: string) => {
+        navigation.push({
+          pathname: '/feed',
+          params: {
+            feedOption: `hashtag:${hashtag}`,
+            backgroundColor: '#000000',
+            searchQuery: `#${hashtag}`,
+          }
+        });
+      },
+      [navigation]
+    );
+
     const handleAuthorAvatarPress = useCallback(() => {
       let handle = null;
       
@@ -622,6 +636,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   text={commentText}
                   style={{ color: Colors.lightGray, fontSize: 15, marginTop: 2, fontFamily: 'Firma-Regular' }}
                   onAuthorPress={handleAuthorPress}
+                  onHashtagPress={handleHashtagPress}
                   facets={comment?.post?.record?.facets || comment?.record?.facets}
                 />
               ) : null}

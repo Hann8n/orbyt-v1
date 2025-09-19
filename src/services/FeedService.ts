@@ -79,7 +79,7 @@ export interface APIResponse {
   cursor: string | null;
 }
 
-export type FeedOption = 'yourMix' | 'profile' | 'following' | 'likes' | 'reposts' | 'search' | string;
+export type FeedOption = 'yourMix' | 'profile' | 'following' | 'likes' | 'reposts' | 'search' | 'hashtag' | string;
 
 // Configuration constants
 const FEED_CONFIG = {
@@ -454,6 +454,27 @@ class FeedService {
           };
         } catch (error) {
           console.error('Error performing search:', error);
+          return { feed: [], cursor: null };
+        }
+      } else if (feedOption.startsWith('hashtag:')) {
+        const hashtag = feedOption.substring(8); // Remove 'hashtag:' prefix
+        if (!hashtag || hashtag.trim() === '') {
+          return { feed: [], cursor: null };
+        }
+
+        try {
+          const response = await AtprotoService.searchHashtagVideosPaginated(
+            hashtag.trim(),
+            cursor as string | null,
+            FEED_CONFIG.maxPostsPerFetch
+          );
+
+          return {
+            feed: response.videos,
+            cursor: response.cursor,
+          };
+        } catch (error) {
+          console.error('Error fetching hashtag videos:', error);
           return { feed: [], cursor: null };
         }
       } else if (feedOption === 'search') {

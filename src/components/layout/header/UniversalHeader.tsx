@@ -298,6 +298,17 @@ const HeaderContentComponent = memo<{
     navigation.push(`/profile/${clean}`);
   }, [navigation]);
 
+  const navigateToHashtagFeed = useCallback((hashtag: string) => {
+    navigation.push({
+      pathname: '/feed',
+      params: {
+        feedOption: `hashtag:${hashtag}`,
+        backgroundColor: '#000000',
+        searchQuery: `#${hashtag}`,
+      }
+    });
+  }, [navigation]);
+
   if (isLoading && skeleton) {
     return skeleton;
   }
@@ -432,6 +443,7 @@ const HeaderContentComponent = memo<{
             text={content.description}
             style={[styles.description, { color: hexToRGBA(textColor, 0.75) }]}
             onAuthorPress={navigateToAuthorProfile}
+            onHashtagPress={navigateToHashtagFeed}
             facets={content.facets}
           />
         ))}

@@ -123,6 +123,18 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     navigation.push(`/profile/${cleanHandle}`);
   }, [navigation]);
 
+  // Navigation to hashtag feed
+  const navigateToHashtagFeed = useCallback((hashtag: string) => {
+    navigation.push({
+      pathname: '/feed',
+      params: {
+        feedOption: `hashtag:${hashtag}`,
+        backgroundColor: '#000000',
+        searchQuery: `#${hashtag}`,
+      }
+    });
+  }, [navigation]);
+
   // Handle author press
   const handleAuthorPress = useCallback(() => {
     const handle = author.handle?.trim();
@@ -303,6 +315,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                       style={styles.descriptionText}
                       numberOfLines={isOverlayCollapsed ? 1 : undefined}
                       onAuthorPress={navigateToAuthorProfile}
+                      onHashtagPress={navigateToHashtagFeed}
                       facets={record.facets}
                     />
                   </TouchableOpacity>

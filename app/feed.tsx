@@ -50,6 +50,10 @@ const FeedScreen: React.FC = memo(() => {
     router.back();
   }, [router]);
 
+  // Check if this is a hashtag feed
+  const isHashtagFeed = routeParams.feedOption?.startsWith('hashtag:');
+  const hashtag = isHashtagFeed ? routeParams.feedOption.substring(8) : null;
+
   return (
     <View style={styles.container}>
       <TouchableOpacity
@@ -62,6 +66,14 @@ const FeedScreen: React.FC = memo(() => {
       >
         <BackArrowIcon size={32} color={Colors.white} />
       </TouchableOpacity>
+      
+      {/* Show hashtag header if this is a hashtag feed */}
+      {isHashtagFeed && hashtag && (
+        <Text style={[styles.hashtagHeader, { top: insets.top + 15 }]}>
+          #{hashtag}
+        </Text>
+      )}
+      
       <FeedRenderer
         feedOption={routeParams.feedOption}
         userDid={routeParams.userDid}
@@ -97,6 +109,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     zIndex: 10,
+  },
+
+  hashtagHeader: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: 18,
+    color: Colors.white,
+    fontFamily: 'Firma-Bold',
+    zIndex: 10,
+    paddingTop: 4, // Align with back button vertically
   },
 });
 

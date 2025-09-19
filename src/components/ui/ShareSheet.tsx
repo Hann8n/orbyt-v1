@@ -110,6 +110,14 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
           const previousFeedback = feedbackStateMap.get(postUri);
           if (previousFeedback) {
             setFeedbackSent(previousFeedback);
+            // Update animation values to reflect the loaded state
+            if (previousFeedback === 'interested') {
+              interestedAnimation.setValue(1);
+              notInterestedAnimation.setValue(0);
+            } else if (previousFeedback === 'not_interested') {
+              interestedAnimation.setValue(0);
+              notInterestedAnimation.setValue(1);
+            }
             return;
           }
           
@@ -118,18 +126,32 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
           if (storedFeedback) {
             setFeedbackSent(storedFeedback.type);
             feedbackStateMap.set(postUri, storedFeedback.type);
+            // Update animation values to reflect the loaded state
+            if (storedFeedback.type === 'interested') {
+              interestedAnimation.setValue(1);
+              notInterestedAnimation.setValue(0);
+            } else if (storedFeedback.type === 'not_interested') {
+              interestedAnimation.setValue(0);
+              notInterestedAnimation.setValue(1);
+            }
           } else {
             setFeedbackSent(null);
+            // Reset animation values when no feedback is found
+            interestedAnimation.setValue(0);
+            notInterestedAnimation.setValue(0);
           }
         } catch (error) {
           console.error('Error loading feedback:', error);
           setFeedbackSent(null);
+          // Reset animation values on error
+          interestedAnimation.setValue(0);
+          notInterestedAnimation.setValue(0);
         }
       };
       
       loadFeedback();
     }
-  }, [postUri]);
+  }, [postUri, interestedAnimation, notInterestedAnimation]);
 
 
 
@@ -427,8 +449,8 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         label: 'Like',
         icon: 'interested',
         onPress: () => handleInterestFeedback('interested'),
-        color: Colors.green,
-        buttonColor: Colors.darkGreen
+        color: feedbackSent === 'interested' ? Colors.darkGreen : Colors.green,
+        buttonColor: feedbackSent === 'interested' ? Colors.green : Colors.darkGreen
       } as any);
       
       options.push({

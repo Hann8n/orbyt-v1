@@ -2112,6 +2112,77 @@ class AtprotoService {
   }
 
   /**
+   * Search for video posts with hashtag support
+   * @param hashtag - Hashtag to search for (without #)
+   * @param cursor - Pagination cursor
+   * @param limit - Number of results per page
+   * @returns Array of video post results and next cursor
+   */
+  static async searchHashtagVideosPaginated(hashtag: string, cursor: string | null = null, limit: number = 20): Promise<{ videos: any[], cursor: string | null }> {
+    await this.ensureSession();
+    try {
+      let params: any = { limit };
+      if (cursor !== null && cursor !== undefined) params.cursor = cursor;
+      
+      // Search for posts with hashtag (include # in search query)
+      const searchQuery = `#${hashtag}`;
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.feed.searchPosts({
+        q: searchQuery,
+        limit,
+        cursor: cursor || undefined
+      });
+      
+      let posts = response?.data?.posts || response?.data?.feed || [];
+      
+      // Filter for video posts only and normalize structure
+      const videoPosts = posts.filter((item: any) => {
+        const post = item.post || item;
+        const embed = post.embed;
+        if (!embed) return false;
+        
+        // Check for video embeds
+        if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
+          return true;
+        } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
+          return embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view';
+        }
+        return false;
+      });
+      
+      // Normalize video structure for UI consumption
+      const videos = videoPosts.map((item: any) => {
+        const post = item.post || item;
+        return {
+          post: {
+            ...post,
+            uri: post.uri,
+            cid: post.cid,
+            author: post.author,
+            record: post.record,
+            embed: post.embed,
+            likeCount: post.likeCount || 0,
+            repostCount: post.repostCount || 0,
+            replyCount: post.replyCount || 0,
+            indexedAt: post.indexedAt,
+            viewer: post.viewer || {}
+          },
+          shouldCache: true,
+          uniqueKey: post.uri,
+        };
+      });
+      
+      return { 
+        videos, 
+        cursor: response?.data?.cursor || null 
+      };
+    } catch (error: any) {
+      console.error('[AtprotoService] Error searching hashtag videos:', error);
+      return { videos: [], cursor: null };
+    }
+  }
+
+  /**
    * Search for video posts with query support
    * @param query - Search query
    * @param cursor - Pagination cursor
