@@ -28,8 +28,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Svg, { Path, Rect, G } from 'react-native-svg';
 import { Avatar, Icon } from '../../src/components/ui/UI';
-import HeaderBanner from '../../src/components/ui/HeaderBanner';
+import { useThumbnailColor } from '../../src/hooks/useThumbnailColor';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import HeaderBanner from '../../src/components/ui/HeaderBanner';
 
 import { SearchIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
@@ -322,25 +323,12 @@ const PopularChannelsShimmer = () => (
 
 // Popular Channel Button Component using channel screen style
 const PopularChannelButton = ({ channel, onPress }: { channel: Channel; onPress: () => void }) => {
-  const shouldUseGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-  
   return (
     <TouchableOpacity
-      style={[
-        styles.popularChannelButton,
-        shouldUseGlass && styles.popularChannelButtonGlass
-      ]}
+      style={styles.popularChannelButton}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      {shouldUseGlass && (
-        <GlassView
-          style={styles.popularChannelButtonGlassView}
-          glassEffectStyle="clear"
-          tintColor="rgba(24,28,34,0.15)"
-          isInteractive
-        />
-      )}
       <View style={styles.popularChannelButtonContent}>
         <View style={styles.popularChannelAvatarContainer}>
           <Avatar
@@ -731,7 +719,6 @@ const ExploreScreen: React.FC = () => {
         }
         case 'channel': {
           const channel = searchItem.data as Channel;
-          const shouldUseGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
           
           // Safety check for channel data
           if (!channel || !channel.uri) {
@@ -740,10 +727,7 @@ const ExploreScreen: React.FC = () => {
           
           return (
             <TouchableOpacity
-              style={[
-                styles.channelItem,
-                shouldUseGlass && styles.channelItemGlass
-              ]}
+              style={styles.channelItem}
               onPress={() => {
                 if (channel.uri && channel.uri.trim()) {
                   // Navigate to channel using Expo Router
@@ -751,14 +735,6 @@ const ExploreScreen: React.FC = () => {
                 }
               }}
             >
-              {shouldUseGlass && (
-                <GlassView
-                  style={styles.channelItemGlassView}
-                  glassEffectStyle="clear"
-                  tintColor="rgba(24,28,34,0.15)"
-                  isInteractive
-                />
-              )}
               <Avatar
                 uri={channel.avatar}
                 type="channel"
@@ -785,6 +761,9 @@ const ExploreScreen: React.FC = () => {
           
           // Use the same thumbnail extraction logic as GridFeedView
           const thumbnailUrl = extractVideoThumbnail(video.embed);
+          
+          // Extract thumbnail color for background
+          const { backgroundColor: thumbnailColor } = useThumbnailColor(thumbnailUrl);
           
           // Check moderation decision for blur state
           const shouldBlur = !!video.moderationDecision?.blur;
@@ -818,28 +797,15 @@ const ExploreScreen: React.FC = () => {
                 }
               }}
             >
-              <View style={styles.videoThumbnailContainer}>
-                {thumbnailUrl ? (
-                  <>
-                    <Image
-                      source={{ uri: thumbnailUrl }}
-                      style={styles.videoThumbnail}
-                      resizeMode="cover"
-                      onError={() => {
-                        console.warn('Failed to load thumbnail:', thumbnailUrl);
-                      }}
-                    />
-                    {shouldBlur && (
-                      <View style={styles.videoWarningOverlay}>
-                        <Text style={styles.videoWarningText}>
-                          {video.moderationDecision?.reason || 'Content Warning'}
-                        </Text>
-                      </View>
-                    )}
-                  </>
-                ) : (
-                  <View style={styles.videoThumbnailPlaceholder}>
-                    <Icon name="videocam" size={16} color={Colors.gray} />
+              <View style={[styles.videoThumbnailContainer, { backgroundColor: thumbnailColor }]}>
+                <View style={styles.videoThumbnailPlaceholder}>
+                  <Icon name="videocam" size={16} color={Colors.gray} />
+                </View>
+                {shouldBlur && (
+                  <View style={styles.videoWarningOverlay}>
+                    <Text style={styles.videoWarningText}>
+                      {video.moderationDecision?.reason || 'Content Warning'}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -1154,12 +1120,21 @@ const ExploreScreen: React.FC = () => {
       <View
         style={[
           styles.searchContainer,
+          Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.searchContainerGlass,
           {
             top: insets.top + 10,
             zIndex: 20,
           },
         ]}
       >
+        {Platform.OS === 'ios' && isLiquidGlassAvailable() && (
+          <GlassView
+            style={[StyleSheet.absoluteFill, { borderRadius: BORDER_RADIUS.LARGE }]}
+            glassEffectStyle="clear"
+            tintColor="white"
+            isInteractive
+          />
+        )}
         <SearchIcon size={24} color={Colors.black} style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }} />
         <TextInput
           style={styles.searchInput}
@@ -1250,7 +1225,13 @@ const ExploreScreen: React.FC = () => {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.spotlightScrollContainer}
                   keyExtractor={(video, index) => `spotlight-video-${video?.uri || index}`}
-                  renderItem={({ item: video }) => (
+                  renderItem={({ item: video }) => {
+                    const videoData = video.post || video;
+                    const thumbnailUrl = extractVideoThumbnail(videoData.embed);
+                    const { backgroundColor: thumbnailColor } = useThumbnailColor(thumbnailUrl);
+                    const shouldBlur = !!video.moderationDecision?.blur;
+                    
+                    return (
                     <TouchableOpacity
                       style={styles.spotlightVideoItem}
                       onPress={() => {
@@ -1286,41 +1267,21 @@ const ExploreScreen: React.FC = () => {
                         }
                       }}
                     >
-                      <View style={styles.spotlightVideoThumbnailContainer}>
-                        {(() => {
-                          const videoData = video.post || video;
-                          const thumbnailUrl = extractVideoThumbnail(videoData.embed);
-                          const shouldBlur = !!video.moderationDecision?.blur;
-                          if (thumbnailUrl) {
-                            return (
-                              <>
-                                <Image
-                                  source={{ uri: thumbnailUrl }}
-                                  style={styles.spotlightVideoThumbnail}
-                                  resizeMode="cover"
-                                  onError={() => {
-                                    console.warn('Failed to load spotlight thumbnail:', thumbnailUrl);
-                                  }}
-                                />
-                                {shouldBlur && (
-                                  <View style={styles.spotlightWarningOverlay}>
-                                    <Text style={styles.spotlightWarningText}>
-                                      {video.moderationDecision?.reason || 'Content Warning'}
-                                    </Text>
-                                  </View>
-                                )}
-                              </>
-                            );
-                          }
-                          return (
-                            <View style={styles.spotlightVideoThumbnailPlaceholder}>
-                              <Icon name="videocam" size={16} color={Colors.gray} />
-                            </View>
-                          );
-                        })()}
+                      <View style={[styles.spotlightVideoThumbnailContainer, { backgroundColor: thumbnailColor }]}>
+                        <View style={styles.spotlightVideoThumbnailPlaceholder}>
+                          <Icon name="videocam" size={16} color={Colors.gray} />
+                        </View>
+                        {shouldBlur && (
+                          <View style={styles.spotlightWarningOverlay}>
+                            <Text style={styles.spotlightWarningText}>
+                              {video.moderationDecision?.reason || 'Content Warning'}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </TouchableOpacity>
-                  )}
+                    );
+                  }}
                 />
               </View>
             );
@@ -1419,14 +1380,10 @@ const ExploreScreen: React.FC = () => {
                       }
                       if (result.type === 'channel') {
                         const channel = result.data as Channel;
-                        const shouldUseGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
                         return (
                           <TouchableOpacity
                             key={`combined-channel-${channel.uri || channel.cid || index}-${index}`}
-                            style={[
-                              styles.channelItem,
-                              shouldUseGlass && styles.channelItemGlass
-                            ]}
+                            style={styles.channelItem}
                             onPress={() => {
                               if (channel.uri && channel.uri.trim()) {
                                 // Navigate to channel using Expo Router
@@ -1434,14 +1391,6 @@ const ExploreScreen: React.FC = () => {
                               }
                             }}
                           >
-                            {shouldUseGlass && (
-                              <GlassView
-                                style={styles.channelItemGlassView}
-                                glassEffectStyle="clear"
-                                tintColor="rgba(24,28,34,0.15)"
-                                isInteractive
-                              />
-                            )}
                             <Avatar uri={channel.avatar} type="channel" size={40} ringColor="transparent" style={styles.channelImage} />
                             <View style={styles.channelContent}>
                               <View style={{flexDirection: 'row', alignItems: 'center'}}>
@@ -1653,18 +1602,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderWidth: 0,
     borderColor: 'transparent',
-  },
-  channelItemGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    borderRadius: BORDER_RADIUS.LARGE,
-    marginHorizontal: 20,
-    marginVertical: 6,
-  },
-  channelItemGlassView: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.LARGE,
   },
   channelImage: {
     width: 40,
@@ -1947,15 +1884,6 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: 'transparent',
   },
-  popularChannelButtonGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  popularChannelButtonGlassView: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.LARGE,
-  },
   popularChannelButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1982,6 +1910,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
+  },
+  searchContainerGlass: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: BORDER_RADIUS.LARGE,
   },
 
   followButton: {

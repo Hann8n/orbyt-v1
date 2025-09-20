@@ -407,14 +407,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
         {/* Unified Video and Overlay Container */}
         <TouchableWithoutFeedback onPress={handleVideoTap}>
           <View style={[styles.videoContainer, { backgroundColor: thumbnailBackgroundColor }]}>
-            {/* Show thumbnail if available and video not ready */}
-            {posterUrl && !videoState.isReady && (
-              <Image
-                source={{ uri: posterUrl }}
-                style={styles.thumbnailImage}
-                resizeMode={postAspectRatio ? "cover" : "contain"}
-              />
-            )}
+            {/* Thumbnail removed - using background color instead */}
             
             {/* Video Player */}
             {shouldLoadVideo && (
@@ -422,9 +415,8 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 ref={playerRef}
                 source={{ uri: videoUrl }}
                 style={[styles.videoPlayer, { backgroundColor: thumbnailBackgroundColor }]}
-                resizeMode={postAspectRatio ? "cover" : "contain"}
-                poster={posterUrl}
-                posterResizeMode={postAspectRatio ? "cover" : "contain"}
+                resizeMode="contain"
+                poster={null}
                 paused={!shouldPlayVideo}
                 muted={false}
                 repeat={true}
@@ -525,7 +517,7 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     position: 'relative',
-    overflow: 'scroll',
+    overflow: 'hidden',
   },
   videoContainer: {
     width: '100%',
@@ -540,12 +532,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-  },
-  thumbnailImage: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    zIndex: 1,
   },
   loadingOverlay: {
     position: 'absolute',

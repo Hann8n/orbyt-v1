@@ -817,7 +817,7 @@ const VideoPostScreen: React.FC = () => {
                         ref={videoRef}
                         source={{ uri: videoUri }}
                         style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
-                        resizeMode="cover"
+                        resizeMode="contain"
                         paused={!isPlaying}
                         repeat={true}
                         muted={true}
