@@ -131,7 +131,10 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     
     // Track dimensions
     const { width } = Dimensions.get('window');
-    const cardHeight = height || width * (16/9);
+    // Use provided height or calculate based on 9:16 aspect ratio if post has aspectRatio
+    const postAspectRatio = post.embed?.aspectRatio;
+    const defaultAspectRatio = postAspectRatio ? postAspectRatio.width / postAspectRatio.height : 16/9;
+    const cardHeight = height || width * defaultAspectRatio;
 
     // Content warning state - use moderation decision directly
     const [userChoseToView, setUserChoseToView] = useState(false);
@@ -192,7 +195,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                            shouldPlay && 
                            !!videoUrl;
 
-    const shouldLoadVideo = !(hasWarning && !shouldShowContent) && !!videoUrl;
+    const shouldLoadVideo = !(hasWarning && !shouldShowContent) && !!videoUrl && videoUrl.trim() !== '';
 
     // Video playback control functions
     const play = useCallback(() => {
@@ -409,7 +412,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
               <Image
                 source={{ uri: posterUrl }}
                 style={styles.thumbnailImage}
-                resizeMode="contain"
+                resizeMode={postAspectRatio ? "cover" : "contain"}
               />
             )}
             
@@ -419,9 +422,9 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 ref={playerRef}
                 source={{ uri: videoUrl }}
                 style={[styles.videoPlayer, { backgroundColor: thumbnailBackgroundColor }]}
-                resizeMode="contain"
+                resizeMode={postAspectRatio ? "cover" : "contain"}
                 poster={posterUrl}
-                posterResizeMode="contain"
+                posterResizeMode={postAspectRatio ? "cover" : "contain"}
                 paused={!shouldPlayVideo}
                 muted={false}
                 repeat={true}

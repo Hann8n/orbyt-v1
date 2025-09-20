@@ -51,7 +51,7 @@ interface VideoSegment {
 
 const CreateScreen: React.FC = () => {
   const { hasPermission, requestPermission } = useCameraPermission();
-  const { hasPermission: hasGalleryPermission, requestPermission: requestGalleryPermission } = useMediaLibraryPermissions();
+  // Gallery permissions are handled by ImagePicker automatically
   const [hasMicPermission, setHasMicPermission] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(false);
@@ -73,14 +73,13 @@ const CreateScreen: React.FC = () => {
   const device = useCameraDevice(isFrontCamera ? 'front' : 'back');
   const navigation = useRouter();
 
-  // Request camera and gallery permissions on mount
+  // Request camera permissions on mount
   useEffect(() => {
     const checkPermissions = async () => {
       if (!hasPermission) await requestPermission();
-      if (!hasGalleryPermission) await requestGalleryPermission();
     };
     checkPermissions();
-  }, [hasPermission, hasGalleryPermission, requestPermission, requestGalleryPermission]);
+  }, [hasPermission, requestPermission]);
 
   // Animated styles
   const animatedRecordingStyle = useAnimatedStyle(() => ({
@@ -522,24 +521,7 @@ const CreateScreen: React.FC = () => {
   );
 };
 
-// Custom hook to manage media library permissions
-function useMediaLibraryPermissions() {
-  const [hasPermission, setHasPermission] = useState(false);
-  const requestPermission = async () => {
-    const { status } = await MediaLibrary.requestPermissionsAsync();
-    setHasPermission(status === 'granted');
-    return status === 'granted';
-  };
-
-  useEffect(() => {
-    (async () => {
-      const { status } = await MediaLibrary.getPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
-  }, []);
-
-  return { hasPermission, requestPermission };
-}
+// Media library permissions are handled automatically by ImagePicker
 
 const styles = StyleSheet.create({
   container: {

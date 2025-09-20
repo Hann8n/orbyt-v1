@@ -259,17 +259,23 @@ const VideoEditorComponent: React.FC<VideoEditorComponentProps> = ({
 
   return (
     <View style={[styles.container, style]}>
-      <Video
-        ref={videoRef}
-        source={{ uri: videoFiles[currentSegmentIndex]?.uri }}
-        style={styles.video}
-        resizeMode="contain"
-        onLoad={handleLoad}
-        onProgress={handleProgress}
-        onEnd={handleEnd}
-        paused={!isPlaying}
-        repeat={false} // We handle our own loop logic
-      />
+      {videoFiles[currentSegmentIndex]?.uri ? (
+        <Video
+          ref={videoRef}
+          source={{ uri: videoFiles[currentSegmentIndex]?.uri }}
+          style={styles.video}
+          resizeMode="contain"
+          onLoad={handleLoad}
+          onProgress={handleProgress}
+          onEnd={handleEnd}
+          paused={!isPlaying}
+          repeat={false} // We handle our own loop logic
+        />
+      ) : (
+        <View style={[styles.video, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Text style={{ color: 'white', fontSize: 16 }}>No video available</Text>
+        </View>
+      )}
       
       {/* Overlay for added text on video */}
       {overlayText ? (

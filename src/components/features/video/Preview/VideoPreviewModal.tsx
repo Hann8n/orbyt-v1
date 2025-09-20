@@ -1,5 +1,4 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { BORDER_RADIUS } from '../../../../utils/constants';
 import {
   View,
   TouchableOpacity,
@@ -9,18 +8,16 @@ import {
   Dimensions,
   Text,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import Icon from '../../../ui/Icon';
-import { isSmallScreen, isTablet } from '../../../../utils/helpers';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../../ui/UI';
+import { BackArrowIcon } from '../../../ui/Icon';
 import VideoCard from '../VideoCard';
-
-import { useSharedValue } from 'react-native-reanimated';
 import type { VideoCardRef } from '../VideoCard';
+import * as Device from 'expo-device';
+// import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface VideoPreviewModalProps {
   visible: boolean;
@@ -43,12 +40,32 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
 }) => {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  const [platformLabel, setPlatformLabel] = useState<string>('orbyt');
   const videoCardRef = useRef<VideoCardRef>(null);
+  const insets = useSafeAreaInsets();
 
-  // Ensure videoPath is properly formatted
-  const formattedVideoPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
+  // Simple video URI formatting
+  const videoUri = videoPath && videoPath.trim() ? 
+    (videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`) : '';
 
-  // Construct a preview post object
+  // Get platform-specific label
+  const getOrbytPlatformLabel = async (): Promise<string> => {
+    if (Platform.OS === 'ios') {
+      const deviceType = await Device.getDeviceTypeAsync();
+      if (deviceType === Device.DeviceType.TABLET) {
+        return 'orbyt for iPad';
+      } else {
+        return 'orbyt for iPhone';
+      }
+    } else if (Platform.OS === 'android') {
+      return 'orbyt for Android';
+    } else if (Platform.OS === 'web') {
+      return 'orbyt for Web';
+    }
+    return 'orbyt';
+  };
+
+  // Create simple preview post for VideoCard
   const previewPost = {
     uri: 'preview-post',
     cid: 'preview-cid',
@@ -61,6 +78,11 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
     },
     record: {
       text: description,
+      createdAt: new Date().toISOString(),
+      metadata: {
+        orbyt: true,
+        platform: platformLabel,
+      },
     },
     viewer: {},
     likeCount: 0,
@@ -68,33 +90,22 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
     replyCount: 0,
     embed: {
       $type: 'app.bsky.embed.video#view',
-      playlist: formattedVideoPath, // Use string instead of array
+      playlist: videoUri,
       aspectRatio: { width: 9, height: 16 },
     },
   };
 
-  // Responsive layout
-  const isSmallDevice = isSmallScreen() || isTablet();
-  const scrollY = useSharedValue(0);
+  // Note: VideoCard handles all overlay actions internally using global hooks
 
-  // Handle video status changes
+  // Calculate 9:16 aspect ratio height
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const videoCardHeight = Math.min(screenWidth * (16/9), screenHeight * 0.8);
+
+  // Simple video status handler
   const handleVideoStatus = useCallback((uri: string, status: string) => {
-
-    
     if (status === 'ready') {
       setIsVideoReady(true);
       setVideoError(null);
-      
-      // Now that video is ready, set initial time and play state
-      if (videoCardRef.current) {
-        if (initialTime > 0) {
-          const duration = videoCardRef.current.getDuration();
-          if (duration > 0) {
-            videoCardRef.current.seek(initialTime / duration);
-          }
-        }
-        videoCardRef.current.playPause(!!initialIsPlaying);
-      }
     } else if (status === 'error') {
       setVideoError('Failed to load video');
       setIsVideoReady(false);
@@ -102,73 +113,48 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
       setVideoError(null);
       setIsVideoReady(false);
     }
-  }, [initialTime, initialIsPlaying]);
+  }, []);
 
-  // Reset state when modal becomes visible
+  // Simple close handler
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  // Reset state and fetch platform label when modal becomes visible
   useEffect(() => {
     if (visible) {
       setVideoError(null);
       setIsVideoReady(false);
+      
+      // Fetch platform-specific label
+      getOrbytPlatformLabel().then(setPlatformLabel).catch(() => {
+        setPlatformLabel('orbyt');
+      });
     }
   }, [visible]);
 
-  // Toggle play/pause on tap
-  const handleVideoTap = useCallback(() => {
-    if (videoCardRef.current) {
-      const isPlaying = videoCardRef.current.getPlayState();
-      videoCardRef.current.playPause(!isPlaying);
-    }
-  }, []);
-
-  // On close, return current time and play state
-  const handleClose = useCallback(() => {
-    if (videoCardRef.current) {
-      const currentTime = videoCardRef.current.getCurrentTime();
-      const isPlaying = videoCardRef.current.getPlayState();
-      onClose(currentTime, isPlaying);
-    } else {
-      onClose();
-    }
-  }, [onClose]);
-
-  // Show error state
-  if (videoError) {
-    return (
-      <Modal
-        visible={visible}
-        animationType="fade"
-        presentationStyle="fullScreen"
-        onRequestClose={handleClose}
-      >
-        <StatusBar barStyle="light-content" backgroundColor="transparent" />
-        <View style={styles.container}>
-          <TouchableOpacity onPress={handleClose} style={styles.floatingCloseButton}>
-            <Icon name="close" size={20} color={Colors.lightGray} />
-          </TouchableOpacity>
-          <View style={styles.errorContainer}>
-            <Icon name="alert-circle" size={60} color={Colors.white} />
-            <Text style={styles.errorText}>{videoError}</Text>
-            <Text style={styles.errorSubtext}>Please try again or select a different video.</Text>
-          </View>
-        </View>
-      </Modal>
-    );
-  }
 
   return (
     <Modal
       visible={visible}
-      animationType="fade"
+      animationType="slide"
       presentationStyle="fullScreen"
       onRequestClose={handleClose}
     >
       <StatusBar barStyle="light-content" backgroundColor="transparent" />
-      {isSmallDevice ? (
-        <View style={styles.container}>
-          <TouchableOpacity onPress={handleClose} style={styles.floatingCloseButton}>
-            <Icon name="close" size={20} color={Colors.lightGray} />
-          </TouchableOpacity>
-          <View style={styles.videoContainer}>
+      <View style={styles.container}>
+        {/* Simple back button */}
+        <TouchableOpacity
+          onPress={handleClose}
+          style={[styles.backButton, { top: insets.top + 15 }]}
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+        >
+          <BackArrowIcon size={24} color={Colors.white} />
+        </TouchableOpacity>
+        
+        {/* 9:16 VideoCard with overlay */}
+        <View style={styles.videoContainer}>
+          {videoUri ? (
             <VideoCard
               ref={videoCardRef}
               post={previewPost}
@@ -176,48 +162,32 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
               shouldCache={true}
               shouldDisablePlayback={false}
               onVideoStatus={handleVideoStatus}
-              height={Dimensions.get('window').height}
-              isPlaying={true}
+              height={videoCardHeight}
+              isPlaying={initialIsPlaying}
               showOverlay={true}
               isModal={true}
             />
-            {!isVideoReady && (
-              <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color={Colors.white} />
-                <Text style={styles.loadingText}>Loading video...</Text>
-              </View>
-            )}
-          </View>
+          ) : (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>No video available</Text>
+            </View>
+          )}
+          
+          {/* Simple loading indicator */}
+          {!isVideoReady && !videoError && videoUri && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={Colors.white} />
+            </View>
+          )}
+          
+          {/* Simple error display */}
+          {videoError && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{videoError}</Text>
+            </View>
+          )}
         </View>
-      ) : (
-        <SafeAreaView style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Icon name="close" size={20} color={Colors.lightGray} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.videoContainer}>
-            <VideoCard
-              ref={videoCardRef}
-              post={previewPost}
-              isVisible={true}
-              shouldCache={true}
-              shouldDisablePlayback={false}
-              onVideoStatus={handleVideoStatus}
-              height={Dimensions.get('window').height}
-              isPlaying={true}
-              showOverlay={true}
-              isModal={true}
-            />
-            {!isVideoReady && (
-              <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color={Colors.white} />
-                <Text style={styles.loadingText}>Loading video...</Text>
-              </View>
-            )}
-          </View>
-        </SafeAreaView>
-      )}
+      </View>
     </Modal>
   );
 };
@@ -227,66 +197,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    zIndex: 10,
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  floatingCloseButton: {
+  backButton: {
     position: 'absolute',
-    top: 50,
     left: 20,
     zIndex: 10,
     width: 40,
     height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    alignItems: 'center',
   },
   videoContainer: {
     flex: 1,
-    position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    zIndex: 5,
-  },
-  loadingText: {
-    color: Colors.white,
-    fontSize: 16,
-    marginTop: 10,
-    textAlign: 'center',
   },
   errorContainer: {
     flex: 1,
@@ -296,15 +226,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: Colors.white,
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  errorSubtext: {
-    color: Colors.white,
-    fontSize: 14,
-    marginTop: 10,
+    fontSize: 16,
     textAlign: 'center',
   },
 });

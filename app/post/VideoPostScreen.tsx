@@ -18,6 +18,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Video, { VideoRef } from 'react-native-video';
 import { Ionicons } from '@expo/vector-icons';
 import * as MediaLibrary from 'expo-media-library';
@@ -43,6 +44,7 @@ import VideoProcessingService from '../../src/services/VideoProcessingService';
 import { SavedAccount } from '../../src/stores/userStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const ASPECT_RATIO = 9 / 16; // 9:16 aspect ratio for video cards
 const VIDEO_WIDTH = SCREEN_WIDTH * 0.4; // Keep the same relative width as before
 
 // Content warning options
@@ -64,8 +66,26 @@ const COMMENT_FILTERS = [
 const VideoPostScreen: React.FC = () => {
   const params = useLocalSearchParams();
   
-  // Simple type assertion with fallbacks
-  const video = (params.video as any) || { uri: '', width: 360, height: 640 };
+  // Handle video parameter - it can come as videoPath or video object
+  const videoPath = params.videoPath as string;
+  const videoObjectString = params.video as string;
+  
+  // Parse video object if it's a string, otherwise use videoPath
+  let videoObject = null;
+  try {
+    videoObject = videoObjectString ? JSON.parse(videoObjectString) : null;
+  } catch (e) {
+    console.warn('Failed to parse video object:', e);
+  }
+  
+  // Create video object with proper structure
+  const video = videoObject || {
+    path: videoPath || '',
+    width: 360,
+    height: 640,
+    duration: 0
+  };
+  
   const textOverlays = (params.textOverlays as any) || [];
   const navigation = useRouter();
   const [description, setDescription] = useState('');
@@ -429,13 +449,48 @@ const VideoPostScreen: React.FC = () => {
     }
   };
 
-  // Ensure file:// prefix for local files
-  const videoUri = video.path.startsWith('file://') ? video.path : `file://${video.path}`;
+  // Ensure file:// prefix for local files and validate path
+  const videoUri = video.path && video.path.trim() ? (video.path.startsWith('file://') ? video.path : `file://${video.path}`) : '';
+  
+  // Debug logging and file validation
+  useEffect(() => {
+    console.log('VideoPostScreen Debug:', {
+      videoPath: videoPath,
+      videoObjectString: videoObjectString,
+      parsedVideoObject: videoObject,
+      finalVideo: video,
+      videoUri: videoUri
+    });
+    
+    // Validate video file exists if we have a local path
+    const validateVideoFile = async () => {
+      if (videoUri && videoUri.startsWith('file://')) {
+        try {
+          const filePath = videoUri.replace('file://', '');
+          const fileInfo = await FileSystem.getInfoAsync(filePath);
+          console.log('Video file validation:', {
+            path: filePath,
+            exists: fileInfo.exists,
+            size: fileInfo.exists ? (fileInfo as any).size : 0,
+            isDirectory: fileInfo.isDirectory
+          });
+          
+          if (!fileInfo.exists) {
+            setVideoError('Video file not found');
+          }
+        } catch (error) {
+          console.error('Error validating video file:', error);
+          setVideoError('Unable to access video file');
+        }
+      }
+    };
+    
+    validateVideoFile();
+  }, [videoPath, videoObjectString, videoObject, video, videoUri]);
 
-  // Calculate container size based on video aspect ratio and screen width
-  const aspectRatio = videoDimensions.width / videoDimensions.height;
+  // Calculate container size based on 9:16 aspect ratio
   const containerWidth = VIDEO_WIDTH;
-  const containerHeight = containerWidth / aspectRatio;
+  const containerHeight = containerWidth / ASPECT_RATIO;
 
   // Add orientation state
   const getOrientation = () => {
@@ -444,6 +499,7 @@ const VideoPostScreen: React.FC = () => {
   };
 
   const [orientation, setOrientation] = useState(getOrientation());
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const onChange = ({ window }: { window: { width: number; height: number } }) => {
@@ -457,7 +513,7 @@ const VideoPostScreen: React.FC = () => {
   // Layout for landscape mode
   if (orientation === 'landscape' && isTablet()) {
     return (
-      <View style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
         <View style={styles.landscapeContainer}>
           {/* Left: Info Side */}
@@ -684,73 +740,111 @@ const VideoPostScreen: React.FC = () => {
                 />
               )}
               {/* Post Button */}
-              <TouchableOpacity 
-                onPress={handlePost} 
-                style={[
-                  styles.landscapePostButton,
-                  isPosting && styles.floatingPostButtonDisabled
-                ]}
-                disabled={isPosting}
-              >
-                {isPosting ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color={Colors.lightGray} />
-                    <Text style={styles.floatingButtonLoadingText}>
-                      {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
-                        uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
-                        'Creating post...'}
-                    </Text>
-                  </View>
+              <View style={[styles.landscapePostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+                {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
+                  <TouchableOpacity 
+                    style={styles.landscapePostButtonGlass}
+                    onPress={handlePost}
+                    disabled={isPosting}
+                    activeOpacity={0.8}
+                  >
+                    <GlassView
+                      style={StyleSheet.absoluteFill}
+                      glassEffectStyle="clear"
+                      tintColor="rgba(255,255,255,0.9)"
+                      isInteractive
+                    />
+                    <View style={styles.buttonContent}>
+                      {isPosting ? (
+                        <View style={styles.loadingContainer}>
+                          <ActivityIndicator size="small" color={Colors.black} />
+                          <Text style={styles.postButtonText}>
+                            {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
+                             uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
+                             'Creating post...'}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.postButtonText}>Post</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
                 ) : (
-                  <Text style={styles.floatingPostButtonText}>
-                    Post
-                  </Text>
+                  <TouchableOpacity 
+                    style={styles.landscapePostButtonHost}
+                    onPress={handlePost}
+                    disabled={isPosting}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.buttonContent}>
+                      {isPosting ? (
+                        <View style={styles.loadingContainer}>
+                          <ActivityIndicator size="small" color={Colors.black} />
+                          <Text style={styles.postButtonText}>
+                            {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
+                             uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
+                             'Creating post...'}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.postButtonText}>Post</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
+              </View>
             </ScrollView>
           </View>
           {/* Right: Video Preview Side */}
           <View style={styles.landscapeVideoSide}>
             <View style={styles.previewSection}>
-              <TouchableOpacity onPress={handleEditVideo} activeOpacity={0.8} style={[styles.videoContainer, { width: '100%', aspectRatio: aspectRatio, maxHeight: '90%' }]}> 
+              <TouchableOpacity onPress={handleEditVideo} activeOpacity={0.8} style={[styles.videoContainer, { width: '100%', aspectRatio: ASPECT_RATIO, maxHeight: '90%' }]}> 
                 {videoLoading && (
                   <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: Colors.darkGray }]}> 
                     <ActivityIndicator size="large" color={Colors.white} />
                   </View>
                 )}
-                <View style={{ width: '100%', aspectRatio: aspectRatio, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
-                  <Video
-                    ref={videoRef}
-                    source={{ uri: videoUri }}
-                    style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
-                    resizeMode="contain"
-                    paused={!isPlaying}
-                    repeat={true}
-                    muted={true}
-                    volume={videoVolume}
-                    onLoadStart={() => {
-                      setVideoLoading(true);
-                      setVideoError(null);
-                    }}
-                    onLoad={e => {
-                      setVideoLoading(false);
-                      if (e?.naturalSize?.width && e?.naturalSize?.height) {
-                        setVideoDimensions({ width: e.naturalSize.width, height: e.naturalSize.height });
-                      }
-                      if (currentTime > 0 && videoRef.current && videoRef.current.seek) {
-                        videoRef.current.seek(currentTime);
-                      }
-                    }}
-                    onProgress={status => {
-                      if (status?.currentTime !== undefined) {
-                        setCurrentTime(status.currentTime);
-                      }
-                    }}
-                    onError={e => {
-                      setVideoLoading(false);
-                      setVideoError('Failed to load video');
-                    }}
-                  />
+                <View style={{ width: '100%', aspectRatio: ASPECT_RATIO, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
+                  {videoUri ? (
+                      <Video
+                        ref={videoRef}
+                        source={{ uri: videoUri }}
+                        style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
+                        resizeMode="cover"
+                        paused={!isPlaying}
+                        repeat={true}
+                        muted={true}
+                        volume={videoVolume}
+                      onLoadStart={() => {
+                        setVideoLoading(true);
+                        setVideoError(null);
+                      }}
+                      onLoad={e => {
+                        setVideoLoading(false);
+                        if (e?.naturalSize?.width && e?.naturalSize?.height) {
+                          setVideoDimensions({ width: e.naturalSize.width, height: e.naturalSize.height });
+                        }
+                        if (currentTime > 0 && videoRef.current && videoRef.current.seek) {
+                          videoRef.current.seek(currentTime);
+                        }
+                      }}
+                      onProgress={status => {
+                        if (status?.currentTime !== undefined) {
+                          setCurrentTime(status.currentTime);
+                        }
+                      }}
+                      onError={e => {
+                        setVideoLoading(false);
+                        setVideoError('Failed to load video');
+                      }}
+                    />
+                  ) : (
+                    <View style={{ justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+                      <Text style={{ color: Colors.white, fontSize: 16, textAlign: 'center' }}>
+                        No video source available
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 {videoError && (
                   <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 3, backgroundColor: Colors.darkGray }]}> 
@@ -790,36 +884,35 @@ const VideoPostScreen: React.FC = () => {
         <VideoPreviewModal
           visible={showPreviewModal}
           onClose={handleClosePreviewModal}
-          videoPath={video.path}
+          videoPath={video.path || ''}
           description={description}
           userProfile={profileData}
           initialTime={currentTime}
           initialIsPlaying={isPlaying}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   // ... existing portrait layout ...
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-            <BackArrowIcon size={32} color={Colors.white} />
-          </TouchableOpacity>
-          {/* Remove the account avatar/user icon button here */}
-          <TouchableOpacity onPress={handleDownloadToCameraRoll} style={styles.headerButton}>
-            <DownloadIcon size={32} color={Colors.white} />
-          </TouchableOpacity>
-        </View>
-  
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollViewContentContainer}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
+              <BackArrowIcon size={32} color={Colors.white} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleDownloadToCameraRoll} style={styles.headerButton}>
+              <DownloadIcon size={32} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
           {/* Video Preview Section */}
           <View style={styles.previewSection}>
             <TouchableOpacity onPress={handleEditVideo} activeOpacity={0.8} style={[styles.videoContainer, { width: containerWidth, height: containerHeight }]}>
@@ -830,39 +923,47 @@ const VideoPostScreen: React.FC = () => {
                 </View>
               )}
               <View style={{ width: containerWidth, height: containerHeight, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
-                <Video
-                  ref={videoRef}
-                  source={{ uri: videoUri }}
-                  style={{ width: videoDimensions.width, height: videoDimensions.height, maxWidth: containerWidth, maxHeight: containerHeight, backgroundColor: 'transparent' }}
-                  resizeMode="contain"
-                  paused={!isPlaying}
-                  repeat={true}
-                  muted={true}
-                  volume={videoVolume}
-                  onLoadStart={() => {
-                    setVideoLoading(true);
-                    setVideoError(null);
-                  }}
-                  onLoad={e => {
-                    setVideoLoading(false);
-                    if (e?.naturalSize?.width && e?.naturalSize?.height) {
-                      setVideoDimensions({ width: e.naturalSize.width, height: e.naturalSize.height });
-                    }
-                    // Seek to currentTime if not at start
-                    if (currentTime > 0 && videoRef.current && videoRef.current.seek) {
-                      videoRef.current.seek(currentTime);
-                    }
-                  }}
-                  onProgress={status => {
-                    if (status?.currentTime !== undefined) {
-                      setCurrentTime(status.currentTime);
-                    }
-                  }}
-                  onError={e => {
-                    setVideoLoading(false);
-                    setVideoError('Failed to load video');
-                  }}
-                />
+                {videoUri ? (
+                  <Video
+                    ref={videoRef}
+                    source={{ uri: videoUri }}
+                    style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
+                    resizeMode="cover"
+                    paused={!isPlaying}
+                    repeat={true}
+                    muted={true}
+                    volume={videoVolume}
+                    onLoadStart={() => {
+                      setVideoLoading(true);
+                      setVideoError(null);
+                    }}
+                    onLoad={e => {
+                      setVideoLoading(false);
+                      if (e?.naturalSize?.width && e?.naturalSize?.height) {
+                        setVideoDimensions({ width: e.naturalSize.width, height: e.naturalSize.height });
+                      }
+                      // Seek to currentTime if not at start
+                      if (currentTime > 0 && videoRef.current && videoRef.current.seek) {
+                        videoRef.current.seek(currentTime);
+                      }
+                    }}
+                    onProgress={status => {
+                      if (status?.currentTime !== undefined) {
+                        setCurrentTime(status.currentTime);
+                      }
+                    }}
+                    onError={e => {
+                      setVideoLoading(false);
+                      setVideoError('Failed to load video');
+                    }}
+                  />
+                ) : (
+                  <View style={{ justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+                    <Text style={{ color: Colors.white, fontSize: 16, textAlign: 'center' }}>
+                      No video source available
+                    </Text>
+                  </View>
+                )}
               </View>
               {/* Error message if video fails to load */}
               {videoError && (
@@ -1097,45 +1198,77 @@ const VideoPostScreen: React.FC = () => {
           
           {/* Video Information Display */}
           {videoInfo && (
-            <VideoInfoDisplay
-              videoInfo={videoInfo.originalInfo}
-            />
+            <View style={[styles.videoInfoContainer, { paddingBottom: 80 + Math.max(insets.bottom, 20) }]}>
+              <VideoInfoDisplay
+                videoInfo={videoInfo.originalInfo}
+              />
+            </View>
           )}
           
         </ScrollView>
         
 
         
-        <TouchableOpacity 
-          onPress={handlePost} 
-          style={[
-            styles.floatingPostButton,
-            isPosting && styles.floatingPostButtonDisabled
-          ]}
-          disabled={isPosting}
-        >
-          {isPosting ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={Colors.black} />
-              <Text style={styles.floatingButtonLoadingText}>
-                {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
-                 uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
-                 'Creating post...'}
-              </Text>
-            </View>
+        <View style={[styles.floatingPostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
+            <TouchableOpacity 
+              style={styles.floatingPostButtonGlass}
+              onPress={handlePost}
+              disabled={isPosting}
+              activeOpacity={0.8}
+            >
+              <GlassView
+                style={StyleSheet.absoluteFill}
+                glassEffectStyle="clear"
+                tintColor="rgba(255,255,255,0.9)"
+                isInteractive
+              />
+              <View style={styles.buttonContent}>
+                {isPosting ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={Colors.black} />
+                    <Text style={styles.postButtonText}>
+                      {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
+                       uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
+                       'Creating post...'}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.postButtonText}>Post</Text>
+                )}
+              </View>
+            </TouchableOpacity>
           ) : (
-                   <Text style={styles.floatingPostButtonText}>
-                     post
-                   </Text>
+            <TouchableOpacity 
+              style={styles.floatingPostButtonHost}
+              onPress={handlePost}
+              disabled={isPosting}
+              activeOpacity={0.8}
+            >
+              <View style={styles.buttonContent}>
+                {isPosting ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={Colors.black} />
+                    <Text style={styles.postButtonText}>
+                      {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
+                       uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
+                       'Creating post...'}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.postButtonText}>Post</Text>
+                )}
+              </View>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
       
       {/* Video Preview Modal */}
       <VideoPreviewModal
         visible={showPreviewModal}
         onClose={handleClosePreviewModal}
-        videoPath={video.path}
+        videoPath={video.path || ''}
         description={description}
         userProfile={profileData}
         initialTime={currentTime}
@@ -1182,14 +1315,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkGray,
     paddingHorizontal: 15,
   },
-  postButtonText: {
-    color: Colors.white,
-    fontFamily: 'Firma-Bold',
-    fontSize: 16,
-  },
   scrollView: {
     flex: 1,
-    paddingBottom: 50,
   },
   previewSection: {
     flex: 1,
@@ -1442,7 +1569,42 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  floatingPostButtonText: {
+  floatingPostButtonContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+  },
+  floatingPostButtonHost: {
+    height: 60,
+    borderRadius: 30, // Fully rounded (height/2)
+    backgroundColor: Colors.white,
+    shadowColor: Colors.lightGray,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  floatingPostButtonGlass: {
+    height: 60,
+    borderRadius: 30, // Fully rounded (height/2)
+    shadowColor: Colors.lightGray,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1,
+  },
+  postButtonText: {
     color: Colors.black,
     fontSize: 18,
     fontFamily: 'Firma-Black',
@@ -1457,7 +1619,10 @@ const styles = StyleSheet.create({
   },
 
   scrollViewContentContainer: {
-    paddingBottom: 150,
+    flexGrow: 1,
+  },
+  videoInfoContainer: {
+    // Dynamic paddingBottom applied inline
   },
   radioContainer: {
     position: 'relative',
@@ -1504,6 +1669,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  landscapePostButtonContainer: {
+    marginTop: 24,
+  },
+  landscapePostButtonHost: {
+    height: 60,
+    borderRadius: 30, // Fully rounded (height/2)
+    backgroundColor: Colors.white,
+    shadowColor: Colors.lightGray,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  landscapePostButtonGlass: {
+    height: 60,
+    borderRadius: 30, // Fully rounded (height/2)
+    shadowColor: Colors.lightGray,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
 });

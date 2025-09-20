@@ -54,16 +54,50 @@ export default function TabsLayout() {
           Alert.alert('Error', 'Selected video file does not exist or is not accessible.');
           return;
         }
+        
+        // Copy to cache directory
         const destPath = `${FileSystem.cacheDirectory}gallery_${Date.now()}.mp4`;
-        await FileSystem.copyAsync({ from: videoPath, to: destPath });
-        const videoFile = {
-          path: destPath.startsWith('file://') ? destPath : `file://${destPath}`,
-          duration: asset.duration || 0,
-          width: asset.width || 0,
-          height: asset.height || 0,
-        } as any;
+        let videoFile;
+        
+        try {
+          await FileSystem.copyAsync({ from: videoPath, to: destPath });
+          
+          // Verify the copied file exists
+          const copiedFileInfo = await FileSystem.getInfoAsync(destPath);
+          if (!copiedFileInfo.exists) {
+            throw new Error('Failed to copy video file');
+          }
+          
+          videoFile = {
+            path: destPath.startsWith('file://') ? destPath : `file://${destPath}`,
+            duration: asset.duration || 0,
+            width: asset.width || 0,
+            height: asset.height || 0,
+          } as any;
+          
+          console.log('Gallery video processed:', {
+            originalPath: videoPath,
+            copiedPath: destPath,
+            videoFile: videoFile,
+            fileExists: copiedFileInfo.exists,
+            fileSize: copiedFileInfo.size
+          });
+        } catch (copyError) {
+          console.error('Failed to copy video file:', copyError);
+          setIsPreparing(false);
+          Alert.alert('Error', 'Failed to process video file. Please try again.');
+          return;
+        }
+        
         setIsPreparing(false);
-        router.push({ pathname: '/post/[id]', params: { id: 'new' } });
+        router.push({ 
+          pathname: '/post/[id]', 
+          params: { 
+            id: 'new',
+            videoPath: videoFile.path,
+            video: JSON.stringify(videoFile)
+          } 
+        });
       } catch (e) {
         setIsPreparing(false);
         Alert.alert('Error', 'Failed to access gallery. Please try again.');
