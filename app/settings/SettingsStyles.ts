@@ -36,12 +36,6 @@ export const settingsButtonStyles = StyleSheet.create({
     borderColor: 'transparent',
   },
 
-  // Glass effect variant for iOS Liquid Glass
-  menuOptionGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
 
   // Action button style (unblock, unmute, etc.)
   actionButton: {
@@ -117,12 +111,6 @@ export const settingsButtonStyles = StyleSheet.create({
     minHeight: 44,
   },
 
-  // Glass effect variant for logout button
-  logoutButtonGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
 
   // Toggle button group style
   toggleButtonGroup: {

@@ -29,7 +29,6 @@ import { useChannelColors } from '../../src/services/cache/ChannelCache';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import { Host, Button as ExpoButton } from '@expo/ui/swift-ui';
 import { background, foregroundColor } from '@expo/ui/swift-ui/modifiers';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 
 
@@ -45,7 +44,6 @@ const SettingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { getExperimentalFeedsEnabled, setExperimentalFeedsEnabled } = useFeedSettings();
   const { currentUser } = useCurrentUser();
-  const shouldUseGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   // Load settings on mount
   useEffect(() => {
@@ -360,22 +358,11 @@ const SettingsScreen: React.FC = () => {
               return (
                 <View key={key} style={{ marginBottom: 0 }}>
                   <TouchableOpacity
-                    style={[
-                      settingsButtonStyles.menuOption,
-                      shouldUseGlass && settingsButtonStyles.menuOptionGlass
-                    ]}
+                    style={settingsButtonStyles.menuOption}
                     onPress={item.onPress}
                     activeOpacity={0.7}
                     disabled={isSubmitting}
                   >
-                    {shouldUseGlass && (
-                      <GlassView
-                        style={StyleSheet.absoluteFill}
-                        glassEffectStyle="clear"
-                        tintColor="rgba(24,28,34,0.15)"
-                        isInteractive
-                      />
-                    )}
                     <View style={styles.menuOptionLeft}>
                       <Text style={settingsTextStyles.menuOptionText}>{item.label}</Text>
                     </View>
@@ -388,18 +375,7 @@ const SettingsScreen: React.FC = () => {
             case 'toggle':
               return (
                 <View key={key} style={{ marginBottom: 0 }}>
-                  <View style={[
-                    settingsButtonStyles.menuOption,
-                    shouldUseGlass && settingsButtonStyles.menuOptionGlass
-                  ]}>
-                    {shouldUseGlass && (
-                      <GlassView
-                        style={StyleSheet.absoluteFill}
-                        glassEffectStyle="clear"
-                        tintColor="rgba(24,28,34,0.15)"
-                        isInteractive
-                      />
-                    )}
+                  <View style={settingsButtonStyles.menuOption}>
                     <View style={styles.menuOptionLeft}>
                       <Text style={settingsTextStyles.menuOptionText}>{item.label}</Text>
                       {item.subtitle ? (
@@ -455,22 +431,11 @@ const SettingsScreen: React.FC = () => {
                   
                   {/* Traditional React Native Button */}
                   <TouchableOpacity
-                    style={[
-                      settingsButtonStyles.logoutButton,
-                      shouldUseGlass && settingsButtonStyles.logoutButtonGlass
-                    ]}
+                    style={settingsButtonStyles.logoutButton}
                     onPress={handleRemoveAccount}
                     activeOpacity={0.7}
                     disabled={isSubmitting}
                   >
-                    {shouldUseGlass && (
-                      <GlassView
-                        style={StyleSheet.absoluteFill}
-                        glassEffectStyle="clear"
-                        tintColor="rgba(24,28,34,0.15)"
-                        isInteractive
-                      />
-                    )}
                     <Text style={settingsTextStyles.logoutButtonText}>Remove Account</Text>
                   </TouchableOpacity>
                 </View>
