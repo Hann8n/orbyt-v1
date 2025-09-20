@@ -527,7 +527,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         textColor={currentColors.textColor}
         isLoading={forceLoading || (isProfileLoading && !profileData)}
         skeleton={skeleton}
-        showGradient={false}
         applySafeArea={applySafeArea && !isEditMode}
         style={{ 
           opacity: 1,

@@ -69,8 +69,6 @@ export interface UniversalHeaderProps {
   children?: React.ReactNode;
   style?: any;
   contentStyle?: any;
-  showGradient?: boolean;
-  gradientType?: 'default' | 'channel';
   mixIcon?: {
     isInMix: boolean;
     isExcluded: boolean;
@@ -466,8 +464,6 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   children,
   style,
   contentStyle,
-  showGradient = true,
-  gradientType = 'default',
   mixIcon,
   applySafeArea = false,
 }) => {
@@ -540,24 +536,9 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     return children;
   }, [children]);
 
-  const gradientColors = useMemo((): [string, string, string] => {
-    if (gradientType === 'channel') {
-      // More intense gradient for channels to work better with light text, but still goes to 100% at bottom
-      return ['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,1)'];
-    }
-    return ['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,1)'];
-  }, [gradientType]);
 
   return (
     <Animated.View style={headerStyle} pointerEvents="box-none" collapsable={false}>
-      {/* Fade to black gradient - conditionally visible */}
-      {showGradient && (
-        <LinearGradient
-          colors={gradientColors}
-          style={styles.fadeGradient}
-          pointerEvents="none"
-        />
-      )}
       {/* Content container */}
       <Animated.View style={[styles.content, contentStyle]} pointerEvents="box-none" collapsable={false}>
         {/* Navigation and Action Buttons */}
@@ -845,14 +826,6 @@ const styles = StyleSheet.create({
   content: {
     width: '100%',
     zIndex: 1,
-  },
-  fadeGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '85%', // Extended gradient to cover more of the header
-    zIndex: 0, // Above background but below UI elements
   },
   mixIconContainer: {
     marginLeft: 8,

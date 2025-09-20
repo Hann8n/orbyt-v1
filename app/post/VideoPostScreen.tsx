@@ -17,6 +17,7 @@ import {
   StatusBar,
   Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Video, { VideoRef } from 'react-native-video';
@@ -515,6 +516,12 @@ const VideoPostScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
+        <LinearGradient
+          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)', 'transparent']}
+          locations={[0, 0.7, 1]}
+          style={[styles.statusBarGradient, { height: insets.top + 60 }]}
+          pointerEvents="none"
+        />
         <View style={styles.landscapeContainer}>
           {/* Left: Info Side */}
           <View style={styles.landscapeInfoSide}>
@@ -899,6 +906,12 @@ const VideoPostScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
+      <LinearGradient
+        colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)', 'transparent']}
+        locations={[0, 0.7, 1]}
+        style={[styles.statusBarGradient, { height: insets.top + 60 }]}
+        pointerEvents="none"
+      />
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
@@ -1696,6 +1709,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  statusBarGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 5,
   },
 
 });

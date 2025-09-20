@@ -1143,8 +1143,9 @@ const ExploreScreen: React.FC = () => {
       )}
       {showTopGradient && (
         <LinearGradient
-          colors={['rgba(0,0,0,1.0)', 'rgba(0,0,0,0.3)', 'transparent']}
-          style={[styles.topGradient, { top: insets.top }]}
+          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)', 'transparent']}
+          locations={[0, 0.7, 1]}
+          style={[styles.topGradient, { top: insets.top, height: insets.top + 60 }]}
           pointerEvents="none"
         />
       )}

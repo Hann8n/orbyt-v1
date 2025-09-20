@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../../ui/UI';
 import { BackArrowIcon } from '../../../ui/Icon';
@@ -142,6 +143,12 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
       onRequestClose={handleClose}
     >
       <StatusBar barStyle="light-content" backgroundColor="transparent" />
+      <LinearGradient
+        colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)', 'transparent']}
+        locations={[0, 0.7, 1]}
+        style={[styles.statusBarGradient, { height: insets.top + 60 }]}
+        pointerEvents="none"
+      />
       <View style={styles.container}>
         {/* Simple back button */}
         <TouchableOpacity
@@ -228,6 +235,13 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     textAlign: 'center',
+  },
+  statusBarGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 5,
   },
 });
 
