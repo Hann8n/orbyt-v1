@@ -29,6 +29,7 @@ import { extractVideoUrl } from '../../../utils/helpers/video';
 import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
 import { useThumbnailColor } from '../../../hooks/useThumbnailColor';
+import { useFocusEffect } from 'expo-router';
 
 // Use any type for post
 type Post = any;
@@ -284,6 +285,29 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       getCurrentTime,
       getDuration
     }));
+
+    // Snapshot current play state in a ref to avoid dependency loops
+    const isPlayingSnapshotRef = useRef(false);
+    useEffect(() => {
+      isPlayingSnapshotRef.current = shouldPlayVideo;
+    }, [shouldPlayVideo]);
+
+    // Pause on blur and auto-resume on focus only if it was playing before blur
+    const wasPlayingBeforeBlurRef = useRef(false);
+    useFocusEffect(
+      useCallback(() => {
+        // on focus
+        if (wasPlayingBeforeBlurRef.current) {
+          setVideoState(prev => (prev.userPaused ? { ...prev, userPaused: false } : prev));
+          wasPlayingBeforeBlurRef.current = false;
+        }
+        return () => {
+          // on blur
+          wasPlayingBeforeBlurRef.current = isPlayingSnapshotRef.current;
+          setVideoState(prev => (prev.userPaused ? prev : { ...prev, userPaused: true }));
+        };
+      }, [])
+    );
 
     // Video event handlers
     const handleLoad = useCallback((data: any) => {

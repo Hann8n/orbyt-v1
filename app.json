@@ -16,6 +16,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
       "deploymentTarget": "16.0",
+      "icon": "./src/assets/AppIcon.icon/Assets/20250402_1125_Transparent TV Screen_remix_01jqvhpp6wf5d9436vnysyh64a.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "This app needs access to your camera to take photos and record videos",

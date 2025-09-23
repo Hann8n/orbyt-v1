@@ -24,7 +24,7 @@ import Video, { VideoRef } from 'react-native-video';
 import { Ionicons } from '@expo/vector-icons';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import VideoPreviewModal from '../../src/components/features/video/Preview/VideoPreviewModal';
 import { Avatar } from '../../src/components/ui/UI';
 import VerificationBadge from '../../src/components/features/verification/VerificationBadge';
@@ -426,6 +426,27 @@ const VideoPostScreen: React.FC = () => {
       }
     }, stepTime);
   };
+
+  // Snapshot current play state to avoid dependency loop
+  const isPlayingSnapshotRef = useRef(false);
+  useEffect(() => {
+    isPlayingSnapshotRef.current = isPlaying;
+  }, [isPlaying]);
+
+  // Pause on blur and resume on focus only if it was playing before blur
+  const wasPlayingBeforeBlurRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (wasPlayingBeforeBlurRef.current) {
+        setIsPlaying(true);
+        wasPlayingBeforeBlurRef.current = false;
+      }
+      return () => {
+        wasPlayingBeforeBlurRef.current = isPlayingSnapshotRef.current;
+        setIsPlaying(false);
+      };
+    }, [])
+  );
 
   // Handler to sync time when opening full screen modal
   const handleEditVideo = () => {

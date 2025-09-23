@@ -87,8 +87,8 @@ const FEED_CONFIG = {
   maxPostsPerFetch: 50,
   maxSubscribedChannels: 50,
   defaultLimit: 50,
-  staleTime: 5 * 60 * 1000, // 5 minutes
-  cacheTime: 30 * 60 * 1000, // 30 minutes
+  staleTime: 10 * 60 * 1000, // 10 minutes - increased to reduce unnecessary refreshes
+  cacheTime: 60 * 60 * 1000, // 60 minutes - increased to better preserve video cache
 } as const;
 
 // FlashList-optimized feed state management
@@ -103,7 +103,7 @@ class FeedStateManager {
     accessCount: number;
     lastAccessed: number;
   }>();
-  private readonly CACHE_TTL = CACHE_CONFIG.STALE_TIME;
+  private readonly CACHE_TTL = FEED_CONFIG.staleTime; // Use FEED_CONFIG for consistency
   
   // Performance metrics for optimization tracking
   private performanceMetrics = {
@@ -323,15 +323,14 @@ class FeedService {
     // Create cache key for this specific feed request
     const cacheKey = `${feedOption}_${userDid || 'anonymous'}_${cursor || 'initial'}`;
     
-    // Check cache first for performance (only for initial loads)
-    if (!cursor) {
-      const cachedResult = feedStateManager.getCachedFeed(cacheKey);
-      if (cachedResult) {
-        return {
-          feed: cachedResult.data,
-          cursor: cachedResult.cursor,
-        };
-      }
+    // Check cache first for performance (for both initial loads and pagination)
+    const cachedResult = feedStateManager.getCachedFeed(cacheKey);
+    if (cachedResult) {
+      // Return cached data immediately - React Query will handle freshness
+      return {
+        feed: cachedResult.data,
+        cursor: cachedResult.cursor,
+      };
     }
 
     try {
@@ -503,8 +502,8 @@ class FeedService {
         }
       }
 
-      // Cache the result
-      if (!cursor && response) {
+      // Cache the result (both initial loads and pagination)
+      if (response) {
         feedStateManager.setCachedFeed(cacheKey, response.feed, response.cursor);
       }
 
@@ -527,7 +526,8 @@ class FeedService {
       staleTime: queryOptions.staleTime ?? FEED_CONFIG.staleTime,
       gcTime: queryOptions.cacheTime ?? FEED_CONFIG.cacheTime,
       refetchOnWindowFocus: queryOptions.refetchOnWindowFocus ?? false,
-      refetchOnMount: queryOptions.refetchOnMount ?? true,
+      refetchOnMount: queryOptions.refetchOnMount ?? false, // Changed from true to false to prevent unnecessary refreshes
+      refetchOnReconnect: queryOptions.refetchOnReconnect ?? true,
       ...queryOptions
     });
   }

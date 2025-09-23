@@ -26,7 +26,6 @@ interface HomeScreenProps {}
 
 const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
   const [currentFeed, setCurrentFeed] = useState<FeedOption>('yourMix');
-  const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const queryClient = useQueryClient();
   const navigation = useRouter();
@@ -35,14 +34,14 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
   const triggerRefresh = useCallback(() => {
     setIsRefreshing(true);
 
-    // Clear cached feed data to ensure a truly fresh fetch across feeds
-    queryClient.removeQueries({ queryKey: createQueryKeys.feed.all });
+    // Smart refresh: only invalidate current feed, preserve other feeds and video cache
+    queryClient.invalidateQueries({ 
+      queryKey: createQueryKeys.feed.infinite(currentFeed),
+      exact: false // Invalidate all related queries for this feed
+    });
 
-    // Force a remount of the feed container so all queries initialize fresh
-    setRefreshKey(prev => prev + 1);
-
-    // Also explicitly refetch the currently visible feed
-    queryClient.refetchQueries({ queryKey: createQueryKeys.feed.infinite(currentFeed) });
+    // Don't force remount - preserve video states and scroll positions
+    // Only refresh the data, not the entire component tree
 
     // Reset refreshing state after a short delay
     setTimeout(() => {
@@ -56,8 +55,8 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
     isRefreshing
   }), [isRefreshing, triggerRefresh]);
 
-  // Note: Tab press detection is now handled by Expo Router automatically
-  // The feed will refresh when the tab becomes focused
+  // Smart refresh logic: only refresh when explicitly requested
+  // No automatic refresh on tab focus to preserve video cache and user experience
 
   // Memoized feed change handler
   const handleFeedChange = useCallback((newFeed: FeedOption) => {
@@ -67,7 +66,6 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
   return (
     <View style={styles.container}>
       <SwipeableFeedContainer
-        key={refreshKey}
         initialFeed={currentFeed}
         onFeedChange={handleFeedChange}
         isRefreshing={isRefreshing}
