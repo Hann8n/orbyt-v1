@@ -25,9 +25,9 @@ export const QUERY_CONSTANTS = {
   END_REACHED_THRESHOLD: 0.8,
 } as const;
 
-// Viewability Constants - optimized for instant video playback
+// Viewability Constants - unified strategy using viewport coverage
 export const VIEWABILITY_CONSTANTS = {
-  ITEM_VISIBLE_PERCENT_THRESHOLD: 50, // Reduced from 50% to 30% for faster detection
+  VIEW_AREA_COVERAGE_PERCENT_THRESHOLD: 50, // 50% of viewport must be covered by video
   MINIMUM_VIEW_TIME: 0, // No minimum view time for instant playback
   WAIT_FOR_INTERACTION: false, // Don't wait for interaction
 } as const;

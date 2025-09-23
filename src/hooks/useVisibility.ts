@@ -112,7 +112,7 @@ export function useViewabilityTracker() {
   return {
     onViewableItemsChanged: handleViewableItemsChanged,
     viewabilityConfig: {
-      itemVisiblePercentThreshold: 50, // 50% of the item must be visible
+      viewAreaCoveragePercentThreshold: 50, // 50% of viewport must be covered
       minimumViewTime: 0, // No minimum time for immediate feedback
       waitForInteraction: false // Don't wait for user interaction
     }

@@ -263,7 +263,7 @@ const NotificationScreen: React.FC = () => {
   // Optimized viewabilityConfig
   const viewabilityConfig = useMemo(
     () => ({
-      itemVisiblePercentThreshold: 50,
+      viewAreaCoveragePercentThreshold: 50,
       minimumViewTime: 300,
     }),
     []

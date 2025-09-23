@@ -475,7 +475,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         
         // Viewability configuration - optimized for video visibility
         viewabilityConfig={{
-          itemVisiblePercentThreshold: VIEWABILITY_CONSTANTS.ITEM_VISIBLE_PERCENT_THRESHOLD,
+          viewAreaCoveragePercentThreshold: VIEWABILITY_CONSTANTS.VIEW_AREA_COVERAGE_PERCENT_THRESHOLD,
           minimumViewTime: VIEWABILITY_CONSTANTS.MINIMUM_VIEW_TIME,
           waitForInteraction: VIEWABILITY_CONSTANTS.WAIT_FOR_INTERACTION,
         }}

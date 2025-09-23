@@ -502,7 +502,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
         // Standard viewability detection
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={{
-          itemVisiblePercentThreshold: 50,
+          viewAreaCoveragePercentThreshold: 50,
           minimumViewTime: 0,
           waitForInteraction: false,
         }}
