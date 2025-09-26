@@ -27,8 +27,7 @@ import { CommonErrorHandlers } from '../../src/utils/errorHandler';
 import { useProfile } from '../../src/services/cache/ProfileCache';
 import { useChannelColors } from '../../src/services/cache/ChannelCache';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
-import { Host, Button as ExpoButton } from '@expo/ui/swift-ui';
-import { background, foregroundColor } from '@expo/ui/swift-ui/modifiers';
+ 
 
 
 
@@ -302,9 +301,8 @@ const SettingsScreen: React.FC = () => {
   // Build flat list data for FlashList
   type ListRow =
     | { kind: 'section-title'; id: string; title: string }
-    | { kind: 'setting'; id: string; label: string; showChevron?: boolean; onPress: () => void }
-    | { kind: 'toggle'; id: string; label: string; subtitle?: string; value: boolean; onValueChange: (v: boolean) => void }
-    | { kind: 'logout'; id: 'logout' }; // This is actually "remove account" now
+    | { kind: 'setting'; id: string; label: string; showChevron?: boolean; onPress: () => void; destructive?: boolean }
+    | { kind: 'toggle'; id: string; label: string; subtitle?: string; value: boolean; onValueChange: (v: boolean) => void };
 
   const listData: ListRow[] = [];
 
@@ -336,8 +334,15 @@ const SettingsScreen: React.FC = () => {
     }
   });
 
-  // Add remove account row at the end
-  listData.push({ kind: 'logout', id: 'logout' });
+  // Add remove account row at the end as a normal setting, marked destructive
+  listData.push({
+    kind: 'setting',
+    id: 'remove-account',
+    label: 'Remove Account',
+    showChevron: false,
+    onPress: handleRemoveAccount,
+    destructive: true,
+  });
 
   return (
     <View style={[settingsLayoutStyles.container, { backgroundColor: Colors.black }]}>
@@ -366,13 +371,21 @@ const SettingsScreen: React.FC = () => {
               return (
                 <View key={key} style={{ marginBottom: 0 }}>
                   <TouchableOpacity
-                    style={settingsButtonStyles.menuOption}
+                    style={[
+                      settingsButtonStyles.menuOption,
+                      item.destructive ? { backgroundColor: Colors.red } : null,
+                    ]}
                     onPress={item.onPress}
                     activeOpacity={0.7}
                     disabled={isSubmitting}
                   >
                     <View style={styles.menuOptionLeft}>
-                      <Text style={settingsTextStyles.menuOptionText}>{item.label}</Text>
+                      <Text style={[
+                        settingsTextStyles.menuOptionText,
+                        item.destructive ? { color: Colors.darkGray } : null,
+                      ]}>
+                        {item.label}
+                      </Text>
                     </View>
                     <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
                       {item.id === 'copy-profile-link' && isProfileLinkCopied ? (
@@ -404,54 +417,7 @@ const SettingsScreen: React.FC = () => {
                   </View>
                 </View>
               );
-            case 'logout':
-              return (
-                <View key={key} style={settingsLayoutStyles.logoutSection}>
-                  {/* Expo UI Button Examples */}
-                  <Host style={{ marginBottom: 16, gap: 12 }}>
-                    <ExpoButton
-                      variant="default"
-                      modifiers={[
-                        background(Colors.darkGray),
-                        foregroundColor(Colors.white)
-                      ]}
-                      onPress={() => Alert.alert('Expo UI', 'This is a default Expo UI button!')}
-                    >
-                      Default Button
-                    </ExpoButton>
-                    <ExpoButton
-                      variant="default"
-                      modifiers={[
-                        background(Colors.mediumGray),
-                        foregroundColor(Colors.white)
-                      ]}
-                      onPress={() => Alert.alert('Expo UI', 'This is a secondary Expo UI button!')}
-                    >
-                      Secondary Button
-                    </ExpoButton>
-                    <ExpoButton
-                      variant="default"
-                      modifiers={[
-                        background(Colors.red),
-                        foregroundColor(Colors.white)
-                      ]}
-                      onPress={() => Alert.alert('Expo UI', 'This is a destructive Expo UI button!')}
-                    >
-                      Destructive Button
-                    </ExpoButton>
-                  </Host>
-                  
-                  {/* Traditional React Native Button */}
-                  <TouchableOpacity
-                    style={settingsButtonStyles.logoutButton}
-                    onPress={handleRemoveAccount}
-                    activeOpacity={0.7}
-                    disabled={isSubmitting}
-                  >
-                    <Text style={settingsTextStyles.logoutButtonText}>Remove Account</Text>
-                  </TouchableOpacity>
-                </View>
-              );
+            
             default:
               return null;
           }
