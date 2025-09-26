@@ -780,7 +780,7 @@ const ExploreScreen: React.FC = () => {
                   // FeedStore is already updated with formatted data from useEffect
                   
                                             navigation.push({
-                            pathname: '/feed',
+                            pathname: '/(modals)/feed',
                             params: {
                               initialIndex: index,
                               initialUri: video.uri,
@@ -1109,9 +1109,9 @@ const ExploreScreen: React.FC = () => {
       )}
       {showTopGradient && (
         <LinearGradient
-          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)', 'transparent']}
-          locations={[0, 0.7, 1]}
-          style={[styles.topGradient, { top: insets.top, height: insets.top + 60 }]}
+          colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0.7)', 'transparent']}
+          locations={[0, 0.2, 1]}
+          style={[styles.topGradient, { top: insets.top, height: insets.top + 50 }]}
           pointerEvents="none"
         />
       )}
@@ -1251,7 +1251,7 @@ const ExploreScreen: React.FC = () => {
                           const index = formattedFeed.findIndex((v: any) => v.post.uri === videoUri);
                           const finalIndex = index >= 0 ? index : 0;
                           navigation.push({
-                            pathname: '/feed',
+                            pathname: '/(modals)/feed',
                             params: {
                               initialIndex: finalIndex,
                               initialUri: videoUri,

@@ -7,7 +7,21 @@ export default function ModalsLayout() {
       screenOptions={{
         headerShown: false,
         presentation: 'modal',
+        gestureEnabled: true,
+        gestureDirection: 'vertical',
+        animation: 'slide_from_bottom',
       }}
-    />
+    >
+      <Stack.Screen 
+        name="feed" 
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+          gestureEnabled: true,
+          gestureDirection: 'vertical',
+          animation: 'slide_from_bottom',
+        }}
+      />
+    </Stack>
   );
 }

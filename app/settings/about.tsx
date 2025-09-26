@@ -19,6 +19,7 @@ import { Colors } from '../../src/components/ui/UI';
 import Constants from 'expo-constants';
 import { useProfile } from '../../src/services/cache/ProfileCache';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
+import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
 
 interface AboutItem {
   id: string;
@@ -93,15 +94,12 @@ const AboutScreen: React.FC = () => {
         <View style={styles.heroSection}>
           <View style={styles.appIconContainer}>
             <View style={styles.appIcon}>
-                             <Image source={require('../../src/assets/logo.png')} style={styles.logoImage} />
-            </View>
-            <View style={styles.versionBadge}>
-              <Text style={styles.versionText}>v{appVersion}</Text>
+                             <Image source={require('../../src/assets/orbyticon.png')} style={styles.logoImage} />
             </View>
           </View>
           <Text style={styles.appName}>orbyt</Text>
           <Text style={styles.appTagline}>a new video app for bluesky</Text>
-                      <Text style={styles.buildInfo}>build {buildNumber}</Text>
+          <Text style={styles.buildInfo}>v{appVersion} • build {buildNumber}</Text>
         </View>
 
         {/* Orbyt Profile Card */}
@@ -122,28 +120,28 @@ const AboutScreen: React.FC = () => {
           <Text style={settingsTextStyles.sectionTitle}>links & legal</Text>
           <View style={styles.linksContainer}>
             {aboutItems.map((item, itemIndex) => (
-              <TouchableOpacity
-                key={item.id}
-                style={settingsButtonStyles.primaryButton}
-                onPress={item.onPress}
-                activeOpacity={0.7}
-                disabled={!item.onPress}
-              >
-                <View style={styles.linkItemLeft}>
-                  <View style={styles.linkTextContainer}>
-                    <Text style={settingsTextStyles.primaryButtonText}>{item.label}</Text>
-                    {item.description && (
-                      <Text style={styles.linkItemDescription}>{item.description}</Text>
+              <View key={item.id} style={{ marginBottom: 0 }}>
+                <TouchableOpacity
+                  style={settingsButtonStyles.menuOption}
+                  onPress={item.onPress}
+                  activeOpacity={0.7}
+                  disabled={!item.onPress}
+                >
+                  <View style={styles.linkItemLeft}>
+                    <View style={styles.linkTextContainer}>
+                      <Text style={settingsTextStyles.menuOptionText}>{item.label}</Text>
+                      {item.description && (
+                        <Text style={styles.linkItemDescription}>{item.description}</Text>
+                      )}
+                    </View>
+                  </View>
+                  <View style={styles.linkItemRight}>
+                    {item.showChevron && (
+                      <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
                     )}
                   </View>
-                </View>
-                <View style={styles.linkItemRight}>
-                  
-                  {item.showChevron && (
-                    <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
-                  )}
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
             ))}
           </View>
         </View>
@@ -182,21 +180,12 @@ const styles = StyleSheet.create({
   appIcon: {
     width: 100,
     height: 100,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    backgroundColor: Colors.darkGray,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.mediumGray,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
   logoImage: {
-    width: 70,
-    height: 70,
+    width: 100,
+    height: 100,
     resizeMode: 'contain',
   },
   versionBadge: {
@@ -220,7 +209,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 32,
     fontWeight: '700',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Firma-Black',
     marginBottom: 8,
   },
   appTagline: {
@@ -241,11 +230,15 @@ const styles = StyleSheet.create({
   },
 
   orbytAuthorItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: Colors.mediumGray,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    padding: 16,
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.LARGE,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 12,
+    marginVertical: 4,
+    overflow: 'hidden',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   linksSection: {
     marginBottom: 24,

@@ -44,28 +44,46 @@ const FeedScreen: React.FC = memo(() => {
     [routeParams.initialIndex, viewportDimensions.height]
   );
 
+  // Check if this is a hashtag feed
+  const isHashtagFeed = routeParams.feedOption?.startsWith('hashtag:');
+  const hashtag = isHashtagFeed ? routeParams.feedOption.substring(8) : null;
+
   // Memoized close handler
   const handleClose = useCallback(() => {
+    console.log('[FeedScreen] Back button pressed, isHashtagFeed:', isHashtagFeed);
     feedService.clearCurrentFeed();
-    navigation.back();
-  }, [navigation]);
-
-
-
-
+    // Try navigation.back() first, fallback to replace if it fails
+    try {
+      navigation.back();
+    } catch (error) {
+      console.log('[FeedScreen] navigation.back() failed, using replace:', error);
+      navigation.replace('/(tabs)');
+    }
+  }, [navigation, isHashtagFeed]);
 
   return (
     <View style={styles.container}>
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel="Back"
-        onPress={handleClose}
+        onPress={() => {
+          console.log('[FeedScreen] Back button onPress triggered');
+          handleClose();
+        }}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         style={[styles.backButton, { top: insets.top + 15 }]}
         activeOpacity={0.7}
       >
-        <BackArrowIcon size={32} color={Colors.white} />
+        <BackArrowIcon size={30} color={Colors.white} />
       </TouchableOpacity>
+      
+      {/* Show hashtag header if this is a hashtag feed */}
+      {isHashtagFeed && hashtag && (
+        <Text style={[styles.hashtagHeader, { top: insets.top + 15 }]}>
+          #{hashtag}
+        </Text>
+      )}
+      
       <FeedRenderer
         feedOption={routeParams.feedOption}
         userDid={routeParams.userDid}
@@ -99,11 +117,23 @@ const styles = StyleSheet.create({
 
   backButton: {
     position: 'absolute',
-    left: 16,
+    left: 20,
+    zIndex: 20, // Higher z-index to ensure it's above hashtag header
+  },
+
+  hashtagHeader: {
+    position: 'absolute',
+    left: 64, // Start after the back button area (20 + 44 for button width)
+    right: 64, // Same spacing on both sides for proper centering
+    textAlign: 'center',
+    fontSize: 18,
+    color: Colors.white,
+    fontFamily: 'Firma-Bold',
     zIndex: 10,
+    paddingTop: 5, // Perfect vertical alignment with back button icon center
+    includeFontPadding: false, // Remove default font padding for precise alignment
+    textAlignVertical: 'center',
   },
 });
 
 export default FeedScreen;
-
-

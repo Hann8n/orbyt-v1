@@ -24,6 +24,7 @@ import Icon, { BackArrowIcon } from '../src/components/ui/Icon';
 import { Card, Button, Badge, Divider, Loading } from '../src/components/ui/UI';
 import VerificationBadge from '../src/components/features/verification/VerificationBadge';
 import { Colors } from '../src/components/ui/UI';
+import { useUserStore } from '../src/stores/userStore';
 
 import { createQueryKeys } from '../src/services/FeedService';
 import { extractVideoUrl, extractVideoThumbnail } from '../src/utils/helpers/video';
@@ -503,6 +504,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  
 
   // Get current user
   const { data: userData, isLoading: isUserLoading } = useQuery({

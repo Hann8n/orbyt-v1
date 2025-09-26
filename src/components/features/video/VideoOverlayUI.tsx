@@ -126,7 +126,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Navigation to hashtag feed
   const navigateToHashtagFeed = useCallback((hashtag: string) => {
     navigation.push({
-      pathname: '/feed',
+      pathname: '/(modals)/feed',
       params: {
         feedOption: `hashtag:${hashtag}`,
         backgroundColor: '#000000',

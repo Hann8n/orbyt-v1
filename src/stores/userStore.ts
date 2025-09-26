@@ -74,6 +74,12 @@ interface UserState {
   // Subscribed channels - scoped by DID
   subscribedChannels: SubscribedChannel[];
   
+  // Developer access - gated by Bluesky list membership
+  isDeveloper: boolean;
+  developerListUri: string;
+  developerMembersCache: string[]; // Cached DIDs from the developer list
+  developerCacheTimestamp: number | null;
+  
   // Actions
   // Authentication
   signIn: (identifier: string) => Promise<void>;
@@ -98,6 +104,10 @@ interface UserState {
   isSubscribedToChannel: (uri: string) => boolean;
   restoreDefaultChannel: (uri: string) => Promise<void>;
   getAvailableDefaultChannels: () => Promise<SubscribedChannel[]>;
+  
+  // Developer access management
+  refreshDeveloperAccess: () => Promise<void>;
+  checkDeveloperAccess: () => boolean;
   
   // Feed settings
   setFeedMixingStrategy: (strategy: 'chronological' | 'engagement' | 'diversity' | 'weighted') => Promise<void>;
@@ -133,7 +143,12 @@ const STORAGE_KEYS = {
   ACTIVE_ACCOUNT: 'active_account_did',
   SUBSCRIBED_CHANNELS: 'subscribed_channels_v1',
   REMOVED_DEFAULTS: 'removed_default_channels_v1',
+  DEVELOPER_MEMBERS: 'developer_members_cache',
 } as const;
+
+// Developer list URI - the Bluesky list that defines developer access
+const DEVELOPER_LIST_URI = 'at://did:plc:2xrqztnmzlckb3xfuuukupso/app.bsky.graph.list/3lzjpulbx4e2r';
+const DEVELOPER_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 // Default channels
 const DEFAULT_CHANNELS = [
@@ -169,6 +184,12 @@ export const useUserStore = create<UserState>()(
       
       // Subscribed channels
       subscribedChannels: [],
+      
+      // Developer access
+      isDeveloper: false,
+      developerListUri: DEVELOPER_LIST_URI,
+      developerMembersCache: [],
+      developerCacheTimestamp: null,
       
       // Authentication actions
       signIn: async (identifier: string) => {
@@ -227,6 +248,9 @@ export const useUserStore = create<UserState>()(
           // Load user-specific data
           await get().loadUserSpecificSettings(session.did);
           await get().loadSubscribedChannels(session.did);
+          
+          // Check developer access
+          await get().refreshDeveloperAccess();
           
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Sign in failed';
@@ -352,6 +376,9 @@ export const useUserStore = create<UserState>()(
           // Load user-specific data
           await get().loadUserSpecificSettings(did);
           await get().loadSubscribedChannels(did);
+          
+          // Check developer access
+          await get().refreshDeveloperAccess();
           
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Session restoration failed';
@@ -913,6 +940,78 @@ export const useUserStore = create<UserState>()(
           set({ subscribedChannels: DEFAULT_CHANNELS });
         }
       },
+      
+      // Developer access management
+      refreshDeveloperAccess: async () => {
+        try {
+          const { agent, currentUser, developerListUri, developerCacheTimestamp } = get();
+          
+          if (!agent || !currentUser?.did) {
+            console.warn('[userStore] No agent or current user for developer access check');
+            set({ isDeveloper: false });
+            return;
+          }
+          
+          // Check if cache is still valid (24 hours)
+          const now = Date.now();
+          if (developerCacheTimestamp && (now - developerCacheTimestamp) < DEVELOPER_CACHE_TTL) {
+            // Use cached data
+            const cachedMembers = get().developerMembersCache;
+            const isDeveloper = cachedMembers.includes(currentUser.did);
+            set({ isDeveloper });
+            return;
+          }
+          
+          // Fetch fresh data from the developer list
+          console.log('[userStore] Fetching developer list membership...');
+          const allMembers: string[] = [];
+          let cursor: string | undefined;
+          
+          do {
+            try {
+              const response = await agent.api.app.bsky.graph.getList({
+                list: developerListUri,
+                limit: 100,
+                cursor,
+              });
+              
+              const members = response.data.items.map((item: any) => item.subject.did);
+              allMembers.push(...members);
+              cursor = response.data.cursor;
+            } catch (error) {
+              console.error('[userStore] Error fetching developer list:', error);
+              // On error, use cached data if available, otherwise deny access
+              const cachedMembers = get().developerMembersCache;
+              const isDeveloper = cachedMembers.length > 0 ? cachedMembers.includes(currentUser.did) : false;
+              set({ isDeveloper });
+              return;
+            }
+          } while (cursor);
+          
+          // Update cache
+          await AsyncStorage.setItem(STORAGE_KEYS.DEVELOPER_MEMBERS, JSON.stringify(allMembers));
+          
+          // Check if current user is in the developer list
+          const isDeveloper = allMembers.includes(currentUser.did);
+          
+          set({
+            isDeveloper,
+            developerMembersCache: allMembers,
+            developerCacheTimestamp: now,
+          });
+          
+          console.log(`[userStore] Developer access: ${isDeveloper ? 'GRANTED' : 'DENIED'} for ${currentUser.did}`);
+          
+        } catch (error) {
+          console.error('[userStore] Error refreshing developer access:', error);
+          // On error, deny access by default
+          set({ isDeveloper: false });
+        }
+      },
+      
+      checkDeveloperAccess: () => {
+        return get().isDeveloper;
+      },
     }),
     {
       name: 'user-store',
@@ -925,6 +1024,9 @@ export const useUserStore = create<UserState>()(
         experimentalFeedsEnabled: state.experimentalFeedsEnabled,
         feedDebugOverlayEnabled: state.feedDebugOverlayEnabled,
         subscribedChannels: state.subscribedChannels,
+        isDeveloper: state.isDeveloper,
+        developerMembersCache: state.developerMembersCache,
+        developerCacheTimestamp: state.developerCacheTimestamp,
       }),
     }
   )

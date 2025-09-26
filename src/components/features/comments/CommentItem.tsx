@@ -293,7 +293,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const handleHashtagPress = useCallback(
       (hashtag: string) => {
         navigation.push({
-          pathname: '/feed',
+          pathname: '/(modals)/feed',
           params: {
             feedOption: `hashtag:${hashtag}`,
             backgroundColor: '#000000',

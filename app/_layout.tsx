@@ -175,8 +175,8 @@ export default function RootLayout() {
         <GestureHandlerRootView style={styles.gestureHandler}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(modals)" options={{ headerShown: false }} />
             <Stack.Screen name="login" options={{ headerShown: false }} />
-            <Stack.Screen name="feed" options={{ headerShown: false }} />
             <Stack.Screen name="insights" options={{ headerShown: false }} />
             <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="channel/[id]" options={{ headerShown: false }} />

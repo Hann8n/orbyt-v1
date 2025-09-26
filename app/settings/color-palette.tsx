@@ -41,6 +41,7 @@ const ColorPaletteScreen: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [allColors, setAllColors] = useState<ColorInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
 
   // Function to convert hex to HSL for sorting by hue
   const hexToHSL = (hex: string): { h: number; s: number; l: number } => {

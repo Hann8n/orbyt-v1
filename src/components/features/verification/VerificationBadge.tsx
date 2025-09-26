@@ -75,18 +75,16 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
       return { marginLeft: customMargin, marginTop: 0 };
     }
     
-    // More precise margin calculation based on text size
-    // Use a smaller, more consistent margin for better alignment
-    let marginLeft = Math.max(1, Math.min(3, Math.round(textSize * 0.1)));
-    
-    // Fine-tune for specific ranges to ensure optimal spacing
+    // Horizontal spacing tuned to keep the badge visually attached to text
+    let marginLeft = Math.max(1, Math.min(4, Math.round(textSize * 0.12)));
     if (textSize <= 12) marginLeft = 1;
     else if (textSize <= 14) marginLeft = 1;
     else if (textSize <= 16) marginLeft = 2;
     else if (textSize <= 18) marginLeft = 2;
     else if (textSize <= 20) marginLeft = 3;
-    else marginLeft = 3;
-    
+    else marginLeft = 4;
+
+    // Keep vertical offset neutral to avoid affecting line height
     return { marginLeft, marginTop: 0 };
   };
 
@@ -233,9 +231,9 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
 
 const styles = StyleSheet.create({
   badge: {
-    // Remove alignSelf to let parent control alignment
-    // This allows better integration with flexbox layouts
     marginTop: 0,
+    marginBottom: 0,
+    alignSelf: 'center',
   }
 });
 

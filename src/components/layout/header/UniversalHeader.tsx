@@ -272,6 +272,49 @@ const CustomActionLayout = memo<{
   );
 });
 
+// Inline title that places badges exactly at the end of the last line
+const InlineTitleWithBadges: React.FC<{
+  title: string;
+  titleStyle: any;
+  color: string;
+  badges?: React.ReactNode[];
+}> = ({ title, titleStyle, color, badges = [] }) => {
+  const [lines, setLines] = React.useState<Array<{ x: number; y: number; width: number; height: number }>>([]);
+
+  const handleTextLayout = useCallback((e: any) => {
+    const l = e?.nativeEvent?.lines || [];
+    if (l.length) setLines(l.map((ln: any) => ({ x: ln.x, y: ln.y, width: ln.width, height: ln.height })));
+  }, []);
+
+  const last = lines.length ? lines[lines.length - 1] : null;
+  const spacing = 0; // spacing is controlled by VerificationBadge
+  const badgeTop = last ? last.y : 0; // align container to line top
+  const badgeLeft = last ? last.x + last.width + spacing : 0;
+
+  return (
+    <View style={styles.inlineTitleContainer}>
+      <Text style={titleStyle} onTextLayout={handleTextLayout}>
+        {title}
+      </Text>
+      {last && badges && badges.filter(Boolean).length > 0 && (
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.inlineBadgesContainer,
+            { left: badgeLeft, top: badgeTop, height: last.height, justifyContent: 'center' }
+          ]}
+        > 
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
+            {badges.map((node, idx) => (
+              <React.Fragment key={`badge-${idx}`}>{node}</React.Fragment>
+            ))}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+};
+
 // Memoized header content component
 const HeaderContentComponent = memo<{
   content: HeaderContent;
@@ -298,7 +341,7 @@ const HeaderContentComponent = memo<{
 
   const navigateToHashtagFeed = useCallback((hashtag: string) => {
     navigation.push({
-      pathname: '/feed',
+      pathname: '/(modals)/feed',
       params: {
         feedOption: `hashtag:${hashtag}`,
         backgroundColor: '#000000',
@@ -416,11 +459,12 @@ const HeaderContentComponent = memo<{
             onPress={content.onTitlePress}
             activeOpacity={content.onTitlePress ? 0.7 : 1}
           >
-            <Text style={[styles.title, { color: textColor }]}>
-              {content.title}
-            </Text>
-            {mixIconBadge}
-            {content.badge}
+            <InlineTitleWithBadges 
+              title={content.title}
+              titleStyle={[styles.title, { color: textColor }]}
+              color={textColor}
+              badges={[mixIconBadge, content.badge as React.ReactNode]}
+            />
           </TouchableOpacity>
         )}
         
@@ -746,7 +790,16 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  inlineTitleContainer: {
+    position: 'relative',
+    flexShrink: 1,
+  },
+  inlineBadgesContainer: {
+    position: 'absolute',
   },
   subtitleRow: {
     flexDirection: 'row',
@@ -761,6 +814,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Black',
     fontWeight: 'bold',
     fontSize: 28,
+    flexShrink: 1,
   },
   subtitle: {
     marginTop: 4,

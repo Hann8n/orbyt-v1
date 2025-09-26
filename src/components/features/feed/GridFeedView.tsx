@@ -123,7 +123,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
       }
       feedService.setCurrentFeed(feed);
              navigation.push({
-          pathname: '/feed',
+          pathname: '/(modals)/feed',
           params: {
             initialUri: item.post.uri,
             initialIndex: index.toString(),

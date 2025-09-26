@@ -94,7 +94,12 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
     } else if (handle) {
       const clean = handle.trim();
       if (!clean) return;
-      navigation.push(`/profile/${clean}`);
+      
+      // Navigate back first to dismiss any modal/sheet, then navigate to profile
+      navigation.back();
+      setTimeout(() => {
+        navigation.push(`/profile/${clean}`);
+      }, 100);
     }
   };
 

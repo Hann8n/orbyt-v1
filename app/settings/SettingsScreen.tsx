@@ -10,13 +10,13 @@ import {
   ScrollView,
   Switch,
   Share,
-  Clipboard,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
-import { useFeedSettings, useAuth, useCurrentUser } from '../../src/stores/userStore';
+import { useFeedSettings, useAuth, useCurrentUser, useUserStore } from '../../src/stores/userStore';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -40,10 +40,12 @@ const SettingsScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExperimentalFeedsEnabled, setIsExperimentalFeedsEnabled] = useState(true);
+  const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const insets = useSafeAreaInsets();
   const { getExperimentalFeedsEnabled, setExperimentalFeedsEnabled } = useFeedSettings();
   const { currentUser } = useCurrentUser();
+  const { isDeveloper } = useUserStore();
 
   // Load settings on mount
   useEffect(() => {
@@ -101,8 +103,12 @@ const SettingsScreen: React.FC = () => {
 
     try {
       const profileUrl = `https://bsky.app/profile/${currentUser.handle}`;
-      await Clipboard.setString(profileUrl);
-      Alert.alert('Copied!', 'Your profile link has been copied to clipboard.');
+      await Clipboard.setStringAsync(profileUrl);
+      setIsProfileLinkCopied(true);
+      // Reset the copied state after 4 seconds
+      setTimeout(() => {
+        setIsProfileLinkCopied(false);
+      }, 4000);
     } catch (error) {
       console.error('Error copying profile link:', error);
       Alert.alert('Error', 'Failed to copy profile link. Please try again.');
@@ -142,16 +148,17 @@ const SettingsScreen: React.FC = () => {
           },
           showChevron: true
         },
-        {
+        // Only show insights for developers
+        ...(isDeveloper ? [{
           id: 'insights',
           label: 'Insights',
           icon: 'insights',
-                      onPress: () => {
-              navigation.back();
-              setTimeout(() => navigation.push('/insights'), 100);
-            },
+          onPress: () => {
+            navigation.back();
+            setTimeout(() => navigation.push('/insights'), 100);
+          },
           showChevron: true
-        },
+        }] : []),
         {
           id: 'followers',
           label: 'Your followers',
@@ -252,16 +259,17 @@ const SettingsScreen: React.FC = () => {
     {
       title: 'App',
       items: [
-        {
+        // Only show color palette for developers
+        ...(isDeveloper ? [{
           id: 'color-palette',
           label: 'Color palette',
           icon: 'color-picker-fill',
-                      onPress: () => {
-              navigation.back();
-              setTimeout(() => navigation.push('/settings/color-palette'), 100);
-            },
+          onPress: () => {
+            navigation.back();
+            setTimeout(() => navigation.push('/settings/color-palette'), 100);
+          },
           showChevron: true
-        },
+        }] : []),
         {
           id: 'about',
           label: 'About orbyt',
@@ -366,9 +374,13 @@ const SettingsScreen: React.FC = () => {
                     <View style={styles.menuOptionLeft}>
                       <Text style={settingsTextStyles.menuOptionText}>{item.label}</Text>
                     </View>
-                    {item.showChevron && (
-                      <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
-                    )}
+                    <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+                      {item.id === 'copy-profile-link' && isProfileLinkCopied ? (
+                        <Icon name="check" size={24} color={Colors.lightGreen} />
+                      ) : item.showChevron ? (
+                        <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
+                      ) : null}
+                    </View>
                   </TouchableOpacity>
                 </View>
               );
