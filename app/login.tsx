@@ -18,8 +18,8 @@ import Icon, { BackArrowIcon, PlusIcon, AtLineIcon } from '../src/components/ui/
 import { Colors, Avatar } from '../src/components/ui/UI';
 import { AnimatedStarsBackground } from '../src/components/ui';
 import { SavedAccount } from '../src/stores/userStore';
-import AccountSwitcher from '../src/components/features/profile/AccountSwitcher';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
+import { useGlobalAccountSwitcher } from '../src/hooks/useGlobalModals';
 
 interface LoginScreenProps {
   onLogin: (handle: string) => Promise<void>;
@@ -29,7 +29,7 @@ interface LoginScreenProps {
 export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenProps) {
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [showAccountSwitcher, setShowAccountSwitcher] = useState<boolean>(false);
+  const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const [oauthError, setOAuthError] = useState<string | null>(null);
 
   // User store hooks
@@ -252,12 +252,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
         {hasSavedAccounts ? renderSavedAccounts() : renderManualLogin()}
 
-        {/* Account Switcher Modal */}
-        <AccountSwitcher
-          visible={showAccountSwitcher}
-          onDismiss={() => setShowAccountSwitcher(false)}
-          onAccountSwitch={handleAccountSwitch}
-        />
       </KeyboardAvoidingView>
     </AnimatedStarsBackground>
   );

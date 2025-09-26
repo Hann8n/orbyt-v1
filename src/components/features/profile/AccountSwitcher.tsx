@@ -69,6 +69,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     signIn 
   } = useAuth();
 
+
   // Get current active account from store DID to avoid stale isActive flags
   const inferredActive = accounts.find(acc => acc.did === activeAccountDid);
   const { data: activeProfile } = useProfile(inferredActive?.handle || null);
@@ -139,7 +140,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     if (DEBUG) console.log('[AccountSwitcher] handleSwitchAccount: begin', { did: account.did, handle: account.handle, activeAccountDid });
     setSwitchingAccount(account.did);
     // Proactively dismiss the sheet before switching to avoid a blank sheet during app refresh
-    // This is safe even if the callback also dismisses later
     try {
       onDismiss();
     } catch (e) {
@@ -199,6 +199,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
   const handleAddAccount = useCallback(async () => {
     setIsAddingAccount(true);
+    // Proactively dismiss the sheet before OAuth to avoid a blank sheet during app refresh
+    try {
+      onDismiss();
+    } catch (e) {
+      // no-op safeguard
+    }
     try {
       if (DEBUG) console.log('[AccountSwitcher] handleAddAccount: begin');
 

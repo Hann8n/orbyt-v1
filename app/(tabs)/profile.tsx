@@ -18,9 +18,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import Icon from '../../src/components/ui/Icon';
 import { useQueryClient } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
-import AccountSwitcher from '../../src/components/features/profile/AccountSwitcher';
 import { useCurrentUser, useAccountManagement, useUserStore, useProfileCacheSync } from '../../src/stores/userStore';
 import { Colors } from '../../src/components/ui/UI';
+import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
  
 
 type RootParamList = {
@@ -47,7 +47,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const userHandle = currentUser?.handle || null;
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [showAccountSwitcher, setShowAccountSwitcher] = useState<boolean>(false);
+  const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const [dynamicColors, setDynamicColors] = useState<{
     backgroundColor: string;
     textColor: string;
@@ -275,7 +275,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                     showBackButton={!!(providedHandle || providedDid)}
                     isOwnProfile={isOwnProfileView}
                     onLogout={handleLogout}
-                    onSwitchAccount={() => setShowAccountSwitcher(true)}
+                    onSwitchAccount={presentAccountSwitcher}
                     forceLoading={isProfileLoadingForced}
                     applySafeArea={true}
                     onColorsChange={setDynamicColors}
@@ -310,17 +310,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             />
       )}
 
-      {/* Account Switcher Modal */}
-      <AccountSwitcher
-        visible={showAccountSwitcher}
-        onDismiss={() => setShowAccountSwitcher(false)}
-        onAccountSwitch={handleAccountSwitch}
-        onAddAccount={async () => {
-          setShowAccountSwitcher(false);
-          await handleLogout(false);
-        }}
-        onLogout={onLogout}
-      />
     </View>
   );
 });
