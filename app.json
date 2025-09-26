@@ -4,18 +4,12 @@
     "slug": "byte-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/icon-dev.png",
+    "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./src/assets/adaptive-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
-      "deploymentTarget": "16.0",
       "icon": "./src/assets/AppIcon.icon/Assets/20250402_1125_Transparent TV Screen_remix_01jqvhpp6wf5d9436vnysyh64a.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -31,7 +25,7 @@
     "scheme": "com.getorbyt",
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/icon-prod.png",
+        "foregroundImage": "./src/assets/icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.orbyt.app",
@@ -69,6 +63,14 @@
               ]
             }
           }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./src/assets/TV-Raw.png",
+          "imageWidth": 200
         }
       ],
       "expo-asset",
