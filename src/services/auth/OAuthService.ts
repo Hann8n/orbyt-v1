@@ -100,11 +100,13 @@ export class AtProtoOAuthService {
     try {
       restoredSession = await this.auth.restore(did);
     } catch (err) {
-      // Normalize into a single, actionable error for callers
+      // Log the actual error for debugging but normalize for callers
+      console.log('[OAuthService] Session restoration failed, re-auth required:', err);
       throw new Error('oauth_reauth_required');
     }
     
     if (!restoredSession) {
+      console.log('[OAuthService] No session found, re-auth required');
       throw new Error('oauth_reauth_required');
     }
     

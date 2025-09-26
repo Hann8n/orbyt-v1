@@ -848,7 +848,13 @@ export const useUserStore = create<UserState>()(
             try {
               await get().restoreSession(activeAccountDid);
             } catch (error) {
-              console.warn('[userStore] Failed to restore session for active account:', error);
+              const errorMessage = error instanceof Error ? error.message : 'Session restoration failed';
+              // Only log as warning if it's not a re-auth required error
+              if (!errorMessage.includes('oauth_reauth_required')) {
+                console.warn('[userStore] Failed to restore session for active account:', error);
+              } else {
+                console.log('[userStore] Session expired, user needs to re-authenticate');
+              }
               // Session expired, user needs to re-authenticate
               set({ 
                 isAuthenticated: false,
