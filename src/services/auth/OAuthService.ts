@@ -96,18 +96,19 @@ export class AtProtoOAuthService {
    */
   async restoreSession(did: string): Promise<OAuthSession> {
     await this.ensureClientLoaded();
-    const restoredSession = await this.auth.restore(did);
+    let restoredSession: any;
+    try {
+      restoredSession = await this.auth.restore(did);
+    } catch (err) {
+      // Normalize into a single, actionable error for callers
+      throw new Error('oauth_reauth_required');
+    }
     
     if (!restoredSession) {
-      throw new Error('Failed to restore OAuth session - no session returned');
+      throw new Error('oauth_reauth_required');
     }
     
     const tokenInfo = await restoredSession.getTokenInfo();
-    
-    // Check if the session is still valid
-    if (tokenInfo.expiresAt && tokenInfo.expiresAt.getTime() < Date.now()) {
-      throw new Error('Session expired and needs re-authentication');
-    }
     
     const oauthSession: OAuthSession = {
       did: restoredSession.sub,

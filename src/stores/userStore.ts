@@ -384,38 +384,13 @@ export const useUserStore = create<UserState>()(
           const errorMessage = error instanceof Error ? error.message : 'Session restoration failed';
           console.error('[userStore] Session restoration failed:', error);
           
-          // Check if this is an OAuth failure that requires re-authentication
-          const needsReAuth = errorMessage.includes('Session expired') || 
-                             errorMessage.includes('Failed to restore OAuth session') ||
-                             errorMessage.includes('re-authentication');
-          
-          if (needsReAuth) {
-            // Find the account and trigger re-authentication
-            const accounts = get().savedAccounts;
-            const account = accounts.find(acc => acc.did === did);
-            
-            if (account) {
-              console.log('[userStore] OAuth session failed, triggering re-authentication for:', account.handle);
-              // Clear the failed session and trigger re-authentication
-              set({ 
-                isAuthenticating: false, 
-                authError: 'Session expired. Please sign in again.',
-                currentUser: null,
-                isAuthenticated: false,
-                oauthSession: null,
-                agent: null,
-                activeAccountDid: null
-              });
-              
-              // The UI should detect this state and show login flow
-              return;
-            }
+          // Normalize to actionable error for callers (switchAccount)
+          if (errorMessage.includes('oauth_reauth_required')) {
+            set({ isAuthenticating: false });
+            throw new Error('oauth_reauth_required');
           }
           
-          set({ 
-            isAuthenticating: false, 
-            authError: errorMessage 
-          });
+          set({ isAuthenticating: false, authError: errorMessage });
           throw error;
         }
       },
@@ -443,8 +418,20 @@ export const useUserStore = create<UserState>()(
           await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
           await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
           
-          // Restore session for the new account
-          await get().restoreSession(did);
+          // Try to restore session for the new account; fall back to re-auth if needed
+          try {
+            await get().restoreSession(did);
+          } catch (restoreErr) {
+            const restoreMsg = restoreErr instanceof Error ? restoreErr.message : '';
+            if (restoreMsg.includes('oauth_reauth_required')) {
+              // Use saved handle or DID to initiate sign-in
+              const account = accounts.find(acc => acc.did === did);
+              const identifier = account?.handle || did;
+              await get().signIn(identifier);
+            } else {
+              throw restoreErr;
+            }
+          }
           
           // Update state
           set({ 
@@ -885,7 +872,15 @@ export const useUserStore = create<UserState>()(
           }
           
           const accounts = JSON.parse(accountsStr);
-          set({ savedAccounts: accounts });
+          // Normalize isActive based on persisted ACTIVE_ACCOUNT to avoid stale flags
+          const activeDid = await SecureStore.getItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT);
+          const normalized = Array.isArray(accounts)
+            ? accounts.map((acc: SavedAccount) => ({
+                ...acc,
+                isActive: activeDid ? acc.did === activeDid : !!acc.isActive,
+              }))
+            : [];
+          set({ savedAccounts: normalized, activeAccountDid: activeDid || null });
         } catch (error) {
           console.error('Error loading saved accounts:', error);
           set({ savedAccounts: [] });
