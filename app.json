@@ -37,6 +37,11 @@
     "web": {
       "favicon": "./src/assets/favicon.png"
     },
+    "splash": {
+      "image": "./src/assets/TV-Raw.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "plugins": [
       "expo-font",
       "react-native-vision-camera",
@@ -63,14 +68,6 @@
               ]
             }
           }
-        }
-      ],
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#000000",
-          "image": "./src/assets/TV-Raw.png",
-          "imageWidth": 200
         }
       ],
       "expo-asset",
