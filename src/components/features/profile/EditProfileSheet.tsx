@@ -427,15 +427,9 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
 
           {/* Content */}
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* Color Theme Section */}
-            {true && (
+            {/* Color Theme Section - Temporarily Hidden */}
+            {false && (
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
-                  Profile Colors
-                </Text>
-                <Text style={[styles.sectionSubtitle, { color: hexToRGBA(currentColors.textColor, 0.7) }]}>
-                  Choose colors that represent your style
-                </Text>
                 {/* Color Picker */}
                 <ScrollView
                   horizontal
