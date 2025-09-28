@@ -1599,6 +1599,22 @@ class AtprotoService {
           (existing as any).description = updates.description;
         }
         
+        // Handle custom colors if provided
+        if (updates.customColors) {
+          // Validate color format before adding
+          const isValidColor = (color: string) => /^#[0-9A-Fa-f]{6}$/.test(color);
+          
+          if (isValidColor(updates.customColors.backgroundColor) && isValidColor(updates.customColors.textColor)) {
+            (existing as any).customColors = {
+              backgroundColor: updates.customColors.backgroundColor,
+              textColor: updates.customColors.textColor
+            };
+            console.log('[AtprotoService] Added custom colors to profile:', updates.customColors);
+          } else {
+            console.warn('[AtprotoService] Invalid color format, skipping custom colors:', updates.customColors);
+          }
+        }
+        
         // Handle avatar upload if provided
         if (updates.avatar) {
           // The avatar will be uploaded separately and set via the blob reference
@@ -2493,6 +2509,74 @@ class AtprotoService {
     } catch (error: any) {
       console.error('Error fetching static channels:', error);
       return [];
+    }
+  }
+
+  /**
+   * Get profile with custom colors support
+   * @param handle - User handle or DID
+   * @returns Profile data with custom colors if available
+   */
+  static async getProfileWithColors(handle: string): Promise<any> {
+    try {
+      await this.ensureSession();
+      
+      const { api } = await this.getApiClient();
+      const profile = await api.getProfile({ actor: handle });
+      
+      console.log('[AtprotoService] Fetched profile with colors:', {
+        handle,
+        hasCustomColors: !!(profile as any).customColors,
+        customColors: (profile as any).customColors
+      });
+      
+      return profile;
+    } catch (error: any) {
+      console.error('Error fetching profile with colors:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Extract custom colors from profile data
+   * @param profile - Profile data from API
+   * @returns Custom colors if available, null otherwise
+   */
+  static extractCustomColors(profile: any): { backgroundColor: string; textColor: string } | null {
+    if (!profile || !(profile as any).customColors) {
+      return null;
+    }
+    
+    const customColors = (profile as any).customColors;
+    
+    // Validate color format (hex colors)
+    const isValidColor = (color: string) => /^#[0-9A-Fa-f]{6}$/.test(color);
+    
+    if (!isValidColor(customColors.backgroundColor) || !isValidColor(customColors.textColor)) {
+      console.warn('[AtprotoService] Invalid custom color format:', customColors);
+      return null;
+    }
+    
+    return {
+      backgroundColor: customColors.backgroundColor,
+      textColor: customColors.textColor
+    };
+  }
+
+  /**
+   * Check if custom colors are supported by the server
+   * @returns Promise<boolean> - True if custom colors are supported
+   */
+  static async checkCustomColorsSupport(): Promise<boolean> {
+    try {
+      await this.ensureSession();
+      
+      // Try to get current user profile to check for custom color support
+      const profile = await this.getCurrentUser();
+      return !!(profile as any).customColors !== undefined;
+    } catch (error) {
+      console.warn('[AtprotoService] Custom colors support check failed:', error);
+      return false;
     }
   }
 

@@ -956,19 +956,40 @@ class ProfileCache {
 
             
             const normalizedHandle = handle.toLowerCase();
-            const profile = await AtprotoService.getProfile(handle);
+            const profile = await AtprotoService.getProfileWithColors(handle);
             if (!profile) {
               resolve(null);
               return;
             }
 
+            // Check for custom colors from server first
             let profileColors = undefined;
-            if (profile.avatar) {
+            const customColors = AtprotoService.extractCustomColors(profile);
+            
+            if (customColors) {
+              // Use server-side custom colors
+              profileColors = {
+                backgroundColor: customColors.backgroundColor,
+                foregroundColor: customColors.textColor,
+                statusBarStyle: customColors.textColor === '#FFFFFF' ? 'light' : 'dark'
+              };
+              console.log('[ProfileCache] Using server custom colors:', customColors);
+            } else if (profile.avatar) {
+              // Fallback to avatar color extraction for clients without custom color support
               try {
                 profileColors = await extractColorsFromImage(profile.avatar);
+                console.log('[ProfileCache] Using extracted avatar colors (fallback)');
               } catch (e) {
                 console.error('[ProfileCache] Error extracting colors:', e);
               }
+            } else {
+              // Final fallback to default colors
+              profileColors = {
+                backgroundColor: '#000000',
+                foregroundColor: '#FFFFFF',
+                statusBarStyle: 'light' as const
+              };
+              console.log('[ProfileCache] Using default colors (no avatar or custom colors)');
             }
 
             // Get both sides of the follow relationship from viewer data
@@ -1524,9 +1545,10 @@ export function useProfileUpdateMutation() {
       const updatedProfile = await AtprotoService.updateProfile(updates);
       console.log('[ProfileCache] AtprotoService.updateProfile result:', updatedProfile);
       
-      // Handle custom colors locally since they're not part of the Bluesky API
+      // Custom colors are now handled server-side via the AT Protocol
+      // Still update local cache for immediate UI reflection
       if (updates.customColors) {
-        console.log('[ProfileCache] Saving custom colors locally:', {
+        console.log('[ProfileCache] Updating local cache with custom colors:', {
           handle,
           backgroundColor: updates.customColors.backgroundColor,
           textColor: updates.customColors.textColor,
