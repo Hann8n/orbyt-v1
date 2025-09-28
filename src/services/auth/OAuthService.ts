@@ -15,6 +15,7 @@ if (typeof g.Event === 'undefined') {
 import type { Agent } from '@atproto/api';
 import type { ExpoOAuthClient } from 'expo-atproto-auth';
 import type { OAuthSession } from './types';
+import { PDSDiscoveryService } from '../PDSDiscoveryService';
 
 /**
  * OAuth service using expo-atproto-auth with proper session management
@@ -27,8 +28,8 @@ export class AtProtoOAuthService {
 
   private constructor() {}
 
-  private async ensureClientLoaded(): Promise<void> {
-    if (this.auth) return;
+  private async ensureClientLoaded(pdsUrl?: string): Promise<void> {
+    if (this.auth && !pdsUrl) return;
     const [{ ExpoOAuthClient }, { Agent }] = await Promise.all([
       import('expo-atproto-auth'),
       import('@atproto/api'),
@@ -49,7 +50,7 @@ export class AtProtoOAuthService {
         application_type: 'native',
         dpop_bound_access_tokens: true,
       },
-      handleResolver: 'https://bsky.social',
+      handleResolver: pdsUrl || 'https://bsky.social',
     });
     // Create a dummy agent import to keep types available; actual instance created later
     void Agent;
@@ -63,10 +64,39 @@ export class AtProtoOAuthService {
   }
 
   /**
-   * Start OAuth flow
+   * Start OAuth flow - let expo-atproto-auth handle PDS discovery
    */
   async signIn(identifier: string = 'bsky.social'): Promise<OAuthSession> {
-    await this.ensureClientLoaded();
+    await this.ensureClientLoaded(); // Use default handleResolver
+    const result = await this.auth.signIn(identifier);
+
+    if (result.status === 'success') {
+      const tokenInfo = await result.session.getTokenInfo();
+      
+      const oauthSession: OAuthSession = {
+        did: result.session.sub,
+        accessToken: 'stored-in-library',
+        refreshToken: 'stored-in-library',
+        expiresAt: tokenInfo.expiresAt ? tokenInfo.expiresAt.getTime() : Date.now() + 3600000,
+      };
+
+      this.currentOAuthSession = result.session;
+      const { Agent } = await import('@atproto/api');
+      this.currentAgent = new Agent(result.session);
+
+      return oauthSession;
+    } else if (result.status === 'error') {
+      throw new Error(`OAuth error: ${result.error}`);
+    } else {
+      throw new Error('Authentication was cancelled or failed');
+    }
+  }
+
+  /**
+   * Start OAuth flow with specific PDS URL
+   */
+  async signInWithPDS(identifier: string, pdsUrl: string): Promise<OAuthSession> {
+    await this.ensureClientLoaded(pdsUrl);
     const result = await this.auth.signIn(identifier);
 
     if (result.status === 'success') {
@@ -94,14 +124,15 @@ export class AtProtoOAuthService {
   /**
    * Restore session from stored DID
    */
-  async restoreSession(did: string): Promise<OAuthSession> {
-    await this.ensureClientLoaded();
+  async restoreSession(did: string, pdsUrl?: string): Promise<OAuthSession> {
+    await this.ensureClientLoaded(pdsUrl);
     let restoredSession: any;
     try {
       restoredSession = await this.auth.restore(did);
     } catch (err) {
-      // Log the actual error for debugging but normalize for callers
-      console.log('[OAuthService] Session restoration failed, re-auth required:', err);
+      // Session restoration failure is expected when sessions expire
+      // Log as warning rather than error to reduce noise
+      console.warn('[OAuthService] Session restoration failed, re-auth required:', err);
       throw new Error('oauth_reauth_required');
     }
     

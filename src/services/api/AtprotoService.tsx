@@ -1865,24 +1865,20 @@ class AtprotoService {
    * Search for popular feed generators (channels) with query support
    * @param query - Search query
    * @param limit - Number of results to return
-   * @returns Array of feed generator objects filtered for video-only feeds
+   * @returns Array of feed generator objects
    */
   static async searchPopularFeeds(query: string, limit: number = 5): Promise<any[]> {
     await this.ensureSession();
     try {
-      // Get experimental feeds setting first
-      const experimentalFeedsEnabled = await AsyncStorage.getItem('experimental_feeds_enabled');
-      const isEnabled = experimentalFeedsEnabled === null ? true : experimentalFeedsEnabled === 'true';
-      
-      // If experimental feeds are disabled, request more feeds to ensure we get enough video-only results
-      const requestLimit = isEnabled ? limit : Math.max(limit * 3, 15);
-      const params = { limit: requestLimit, query: query };
+      const params = { limit: limit, query: query };
       
       const { api } = await this.getApiClient();
       const response = await api.app.bsky.unspecced.getPopularFeedGenerators(params);
       
-      // Filter and mark feeds
+      // Return all feeds without filtering
       const allFeeds = response.data.feeds || [];
+      
+      // Mark feeds as experimental based on content mode but don't filter them
       const processedFeeds = allFeeds.map((feed: any) => {
         const isVideoOnly = feed.contentMode === 'app.bsky.feed.defs#contentModeVideo';
         return {
@@ -1891,14 +1887,7 @@ class AtprotoService {
         };
       });
       
-      // Filter based on experimental setting
-      let filteredFeeds = processedFeeds;
-      if (!experimentalFeedsEnabled) {
-        filteredFeeds = processedFeeds.filter((feed: any) => !feed.isExperimental);
-      }
-      
-      // Return the requested number of results (or all if fewer than requested)
-      return filteredFeeds.slice(0, limit);
+      return processedFeeds;
     } catch (error: any) {
       console.error('Error searching popular feeds:', error);
       return [];
@@ -1906,26 +1895,22 @@ class AtprotoService {
   }
 
   /**
-   * Get suggested feed generators (channels) without search query, filtered for video-only feeds
+   * Get suggested feed generators (channels) without search query
    * @param limit - Number of results to return
-   * @returns Array of feed generator objects filtered for video-only feeds
+   * @returns Array of feed generator objects
    */
   static async getSuggestedFeeds(limit: number = 10): Promise<any[]> {
     await this.ensureSession();
     try {
-      // Get experimental feeds setting first
-      const experimentalFeedsEnabled = await AsyncStorage.getItem('experimental_feeds_enabled');
-      const isEnabled = experimentalFeedsEnabled === null ? true : experimentalFeedsEnabled === 'true';
-      
-      // If experimental feeds are disabled, request more feeds to ensure we get enough video-only results
-      const requestLimit = isEnabled ? limit : Math.max(limit * 3, 30);
-      const params = { limit: requestLimit };
+      const params = { limit: limit };
       
       const { api } = await this.getApiClient();
       const response = await api.app.bsky.unspecced.getPopularFeedGenerators(params);
       
-      // Filter and mark feeds
+      // Return all feeds without filtering
       const allFeeds = response.data.feeds || [];
+      
+      // Mark feeds as experimental based on content mode but don't filter them
       const processedFeeds = allFeeds.map((feed: any) => {
         const isVideoOnly = feed.contentMode === 'app.bsky.feed.defs#contentModeVideo';
         return {
@@ -1934,14 +1919,7 @@ class AtprotoService {
         };
       });
       
-      // Filter based on experimental setting
-      let filteredFeeds = processedFeeds;
-      if (!experimentalFeedsEnabled) {
-        filteredFeeds = processedFeeds.filter((feed: any) => !feed.isExperimental);
-      }
-      
-      // Return the requested number of results (or all if fewer than requested)
-      return filteredFeeds.slice(0, limit);
+      return processedFeeds;
     } catch (error: any) {
       console.error('Error fetching suggested feeds:', error);
       return [];

@@ -52,14 +52,14 @@ const SubscribeButton: React.FC<{
   backgroundColor: string;
   accentColor: string;
 }> = ({ channel, textColor, backgroundColor, accentColor }) => {
-  const { channels, subscribeToChannel, unsubscribeFromChannel } = useSubscribedChannels();
+  const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } = useSubscribedChannels();
   const [isSubscribing, setIsSubscribing] = useState(false);
 
-  // Check if channel is subscribed by looking it up in the subscribed channels
+  // Direct subscription check - simplest possible
   const isSubscribed = useMemo(() => {
     if (!channel?.uri) return false;
-    return channels.some(subChannel => subChannel.uri === channel.uri);
-  }, [channels, channel?.uri]);
+    return subscribedChannels.some(ch => ch.uri === channel.uri);
+  }, [subscribedChannels, channel?.uri]);
 
   const handleSubscribe = useCallback(async () => {
     try {
@@ -153,7 +153,7 @@ const SubscribeButton: React.FC<{
   if (channel.isOwner) return null; // Don't show subscribe button for owners
 
   const useGlass = isLiquidGlassAvailable();
-  const glassTint = isSubscribed ? hexToRGBA(textColor, 1) : hexToRGBA(accentColor, 0.08);
+  const glassTint = isSubscribed ? hexToRGBA('#FFFFFF', 1) : hexToRGBA('#FFFFFF', 0.08);
 
   return (
     <View style={styles.subscribeContainer}>
@@ -163,8 +163,8 @@ const SubscribeButton: React.FC<{
           useGlass
             ? { backgroundColor: 'transparent', borderColor: 'transparent' }
             : {
-                backgroundColor: isSubscribed ? accentColor : hexToRGBA(accentColor, 0.2),
-                borderColor: isSubscribed ? accentColor : hexToRGBA(accentColor, 0.4),
+                backgroundColor: isSubscribed ? '#FFFFFF' : 'rgba(255, 255, 255, 0.2)',
+                borderColor: isSubscribed ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)',
               },
         ]}
         onPress={handleSubscribe}
@@ -180,10 +180,10 @@ const SubscribeButton: React.FC<{
           />
         )}
         {isSubscribing ? (
-          <ActivityIndicator size="small" color={accentColor} />
+          <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
           <>
-            <Text style={[styles.subscribeButtonText, { color: isSubscribed ? backgroundColor : accentColor }]}>
+            <Text style={[styles.subscribeButtonText, { color: isSubscribed ? backgroundColor : '#FFFFFF' }]}>
               {isSubscribed ? 'Subscribed' : 'Subscribe'}
             </Text>
             {isSubscribed ? (
@@ -195,7 +195,7 @@ const SubscribeButton: React.FC<{
             ) : (
               <PlusIcon 
                 size={12} 
-                color={accentColor} 
+                color="#FFFFFF" 
                 strokeWidth={2.0}
               />
             )}
@@ -205,10 +205,10 @@ const SubscribeButton: React.FC<{
       
       {channel.likeCount && channel.likeCount > 0 && (
         <View style={styles.likeCountContainer}>
-          <Text style={[styles.likeCountNumber, { color: textColor }]}>
+          <Text style={[styles.likeCountNumber, { color: '#FFFFFF' }]}>
             {formatNumber(channel.likeCount)}
           </Text>
-          <Text style={[styles.likeCountLabel, { color: hexToRGBA(textColor, 0.67) }]}>
+          <Text style={[styles.likeCountLabel, { color: 'rgba(255, 255, 255, 0.67)' }]}>
             members
           </Text>
         </View>
@@ -349,8 +349,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       textColor={safeTextColor}
       isLoading={!channel}
       skeleton={skeleton}
-      showGradient={true}
-      gradientType="channel" // Use channel-specific gradient
+      // Removed showGradient and gradientType as they don't exist on UniversalHeaderProps
       applySafeArea={applySafeArea}
       style={{ opacity: 1 }}
       contentStyle={[headerStyle]}

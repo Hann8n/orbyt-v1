@@ -316,12 +316,12 @@ export const Avatar: React.FC<AvatarProps> = ({
   profileColors,
 }) => {
   const defaultFallbackIcon = type === 'channel' ? 'device-tv' : 'user';
-  const iconSize = fallbackIconSize || Math.max(size * 0.4, 16);
+  const iconSize = fallbackIconSize || Math.max(size * 0.6, 20);
   
   const getBorderRadius = () => {
     switch (type) {
       case 'channel':
-        return BORDER_RADIUS.LARGE; // Consistent border radius for all channel avatars
+        return BORDER_RADIUS.MEDIUM; // Square-ish channel avatars with minimal rounding
       case 'profile':
       case 'user':
       default:
@@ -343,6 +343,26 @@ export const Avatar: React.FC<AvatarProps> = ({
         source={{ uri }}
         style={[baseStyle as ImageStyle, style as StyleProp<ImageStyle>]}
       />
+    );
+  }
+
+  // Use fallback icon if provided, otherwise use default avatar image
+  if (fallbackIcon) {
+    // Import Icon component dynamically to avoid circular dependency
+    const { default: Icon } = require('./Icon');
+    return (
+      <View style={[baseStyle, style, { 
+        backgroundColor: profileColors?.backgroundColor || Colors.darkGray,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 0, // Remove border for colored backgrounds
+      }]}>
+        <Icon 
+          name={fallbackIcon} 
+          size={iconSize} 
+          color={fallbackIconColor} 
+        />
+      </View>
     );
   }
 

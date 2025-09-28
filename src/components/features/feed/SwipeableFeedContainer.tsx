@@ -10,16 +10,20 @@ import {
   Animated,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { useVisibilityStore } from '../../../hooks/useVisibility';
 
 import { useSharedValue } from 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from '../../ui/UI';
+import { Icon, Avatar } from '../../ui/UI';
 import FeedRenderer from './FeedRenderer';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
 import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BORDER_RADIUS } from '../../../utils/constants';
+import { useRouter } from 'expo-router';
 
 // Define the feed options type
 export type FeedOption = string;
@@ -44,15 +48,19 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
 }) => {
   const flatListRef = useRef<FlatList>(null);
   const indicatorScrollViewRef = useRef<any>(null);
-  const { channels: subscribedChannels, isLoading: isLoadingChannels } = useSubscribedChannels();
+  const { subscribedChannels, getAvailableDefaultChannels, restoreDefaultChannel } = useSubscribedChannels();
   const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
+  const navigation = useRouter();
 
 
 
   // Local state for tracking which feed is visible for UI purposes
   const [visibleFeedOption, setVisibleFeedOption] = useState<FeedOption | null>(null);
   const [visibleFeedIndex, setVisibleFeedIndex] = useState(0);
+  
+  // State for available default channels
+  const [availableDefaultChannels, setAvailableDefaultChannels] = useState<any[]>([]);
 
   // Memoized screen dimensions handling
   const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
@@ -231,6 +239,23 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     }));
   }, [currentFeedOption, feedRetries]);
 
+  // Handle restoring default channel
+  const handleRestoreDefaultChannel = useCallback(async (channelUri: string) => {
+    try {
+      await restoreDefaultChannel(channelUri);
+      // Refresh available defaults
+      const defaults = await getAvailableDefaultChannels();
+      setAvailableDefaultChannels(defaults);
+    } catch (error) {
+      console.error('Error restoring default channel:', error);
+    }
+  }, [restoreDefaultChannel, getAvailableDefaultChannels]);
+
+  // Handle explore button press
+  const handleExplorePress = useCallback(() => {
+    navigation.push('/explore');
+  }, [navigation]);
+
   // Simple viewability detection for feed pages
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
     // Find the first viewable feed item
@@ -260,6 +285,23 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       setVisibleFeedIndex(0);
     }
   }, [feedOptions, visibleFeedOption]);
+
+  // Load available default channels when no channels are subscribed
+  useEffect(() => {
+    const loadAvailableDefaults = async () => {
+      if (subscribedChannels.length === 0) {
+        try {
+          const defaults = await getAvailableDefaultChannels();
+          setAvailableDefaultChannels(defaults);
+        } catch (error) {
+          console.error('Error loading available default channels:', error);
+        }
+      } else {
+        setAvailableDefaultChannels([]);
+      }
+    };
+    loadAvailableDefaults();
+  }, [subscribedChannels.length, getAvailableDefaultChannels]);
 
   // Optimized horizontal scroll handler with improved responsiveness
   const scrollUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -429,6 +471,74 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     };
   }, [currentFeedOption, currentScrollProgressRef.current, feedConfig, feedOptions, initialFeed, indicatorBaseFontSize]);
 
+  // Render empty state when no channels are subscribed
+  const renderEmptyState = useCallback(() => (
+    <View style={styles.emptyContainer}>
+      <Image 
+        source={require('../../../assets/tv_static.gif')} 
+        style={styles.tvStaticGif}
+        resizeMode="contain"
+      />
+      <Text style={styles.emptyTitle}>No channels yet</Text>
+      <Text style={styles.emptySubtitle}>Explore channels to subscribe to them</Text>
+      <TouchableOpacity
+        style={styles.exploreButton}
+        onPress={handleExplorePress}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.exploreButtonText}>Explore Channels</Text>
+      </TouchableOpacity>
+      
+      {availableDefaultChannels.length > 0 && (
+        <View style={styles.defaultChannelsContainer}>
+          <Text style={styles.defaultChannelsTitle}>Default Channels</Text>
+          {availableDefaultChannels.map((channel) => (
+            <TouchableOpacity
+              key={channel.uri}
+              style={styles.defaultChannelItem}
+              onPress={() => handleRestoreDefaultChannel(channel.uri)}
+              activeOpacity={0.7}
+            >
+              <Avatar 
+                uri={channel.avatar} 
+                type="channel" 
+                size={40} 
+                ringColor="transparent" 
+                style={styles.defaultChannelAvatar}
+                fallbackIcon={channel.uri === 'following' ? 'users' : channel.uri === 'yourMix' ? 'shuffle' : 'tv'}
+                fallbackIconSize={24}
+                fallbackIconColor={channel.uri === 'following' ? '#FFFFFF' : channel.uri === 'yourMix' ? '#FFFFFF' : Colors.lightGray}
+                profileColors={channel.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : channel.uri === 'yourMix' ? { backgroundColor: '#10B981', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
+              />
+              <View style={styles.defaultChannelContent}>
+                <Text style={styles.defaultChannelName}>{channel.displayName}</Text>
+              </View>
+              <View style={styles.defaultChannelActionButtons}>
+                <TouchableOpacity
+                  style={styles.defaultChannelRestoreButton}
+                  onPress={() => handleRestoreDefaultChannel(channel.uri)}
+                  activeOpacity={0.7}
+                >
+                  <Icon name="plus" size={16} color={Colors.green} />
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  ), [availableDefaultChannels, handleRestoreDefaultChannel, handleExplorePress]);
+
+  // Show empty state if no channels are subscribed
+  if (feedOptions.length === 0) {
+    return (
+      <GestureHandlerRootView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
+        {renderEmptyState()}
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
@@ -546,6 +656,105 @@ const styles = StyleSheet.create({
   feedPage: {
     // width will be set dynamically
     height: '100%',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingTop: 20,
+  },
+  tvStaticGif: {
+    width: 120,
+    height: 120,
+    marginBottom: 24,
+    opacity: 0.8,
+  },
+  emptyTitle: {
+    color: Colors.white,
+    fontSize: 20,
+    fontFamily: 'Firma-Bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    color: Colors.lightGray,
+    fontSize: 16,
+    fontFamily: 'Firma-Medium',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  exploreButton: {
+    backgroundColor: Colors.white,
+    borderRadius: BORDER_RADIUS.FULL,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderWidth: 0,
+    borderColor: 'transparent',
+  },
+  exploreButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontFamily: 'Firma-SemiBold',
+  },
+  defaultChannelsContainer: {
+    width: '100%',
+    maxWidth: 400,
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+  },
+  defaultChannelsTitle: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    fontFamily: 'Firma-SemiBold',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  defaultChannelItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: 'transparent',
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  defaultChannelAvatar: {
+    width: 40,
+    height: 40,
+    marginRight: 12,
+    borderWidth: 0,
+    borderColor: 'transparent',
+  },
+  defaultChannelContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  defaultChannelName: {
+    color: Colors.white,
+    fontSize: 16,
+    marginBottom: 2,
+    fontFamily: 'Firma-SemiBold',
+    flexShrink: 1,
+  },
+  defaultChannelActionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  defaultChannelRestoreButton: {
+    padding: 8,
+    backgroundColor: Colors.darkGreen,
+    borderRadius: BORDER_RADIUS.SMALL,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
 });
 

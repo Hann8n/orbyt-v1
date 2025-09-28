@@ -26,7 +26,7 @@ export interface SavedAccount {
   avatar?: string;
   lastUsed: number;
   isActive: boolean;
-  pdsUrl?: string;
+  pdsUrl: string; // Required field for PDS support
 }
 
 // Subscribed channel types
@@ -49,7 +49,7 @@ interface UserState {
     handle: string | null; // Display identifier - can change
     displayName: string | null;
     avatar: string | null;
-    pdsUrl: string | null;
+    pdsUrl: string | null; // PDS URL for the current user
   } | null;
   
   // Authentication state
@@ -82,9 +82,9 @@ interface UserState {
   
   // Actions
   // Authentication
-  signIn: (identifier: string) => Promise<void>;
+  signIn: (identifier: string, pdsUrl?: string) => Promise<void>;
   signOut: (clearAllAccounts?: boolean) => Promise<void>;
-  restoreSession: (did: string) => Promise<void>;
+  restoreSession: (did: string, pdsUrl?: string) => Promise<void>;
   
   // Account management
   switchAccount: (did: string, onComplete?: () => void) => Promise<void>;
@@ -104,6 +104,17 @@ interface UserState {
   isSubscribedToChannel: (uri: string) => boolean;
   restoreDefaultChannel: (uri: string) => Promise<void>;
   getAvailableDefaultChannels: () => Promise<SubscribedChannel[]>;
+  reorderChannels: (reorderedChannels: SubscribedChannel[]) => Promise<void>;
+  
+  // Batch operations for efficiency
+  batchSubscribeToChannels: (channels: Array<{
+    uri: string;
+    displayName: string;
+    description?: string;
+    avatar?: string;
+    memberCount?: number;
+  }>) => Promise<void>;
+  batchUnsubscribeFromChannels: (uris: string[]) => Promise<void>;
   
   // Developer access management
   refreshDeveloperAccess: () => Promise<void>;
@@ -141,8 +152,8 @@ interface UserState {
 const STORAGE_KEYS = {
   ACCOUNTS: 'saved_accounts',
   ACTIVE_ACCOUNT: 'active_account_did',
-  SUBSCRIBED_CHANNELS: 'subscribed_channels_v1',
-  REMOVED_DEFAULTS: 'removed_default_channels_v1',
+  SUBSCRIBED_CHANNELS: 'subscribed_channels_v2', // Updated to v2 for AsyncStorage
+  REMOVED_DEFAULTS: 'removed_default_channels_v2', // Updated to v2 for AsyncStorage
   DEVELOPER_MEMBERS: 'developer_members_cache',
 } as const;
 
@@ -192,12 +203,14 @@ export const useUserStore = create<UserState>()(
       developerCacheTimestamp: null,
       
       // Authentication actions
-      signIn: async (identifier: string) => {
+      signIn: async (identifier: string, pdsUrl?: string) => {
         try {
           set({ isAuthenticating: true, authError: null });
           
           const oauthService = AtProtoOAuthService.getInstance();
-          const session = await oauthService.signIn(identifier);
+          const session = pdsUrl 
+            ? await oauthService.signInWithPDS(identifier, pdsUrl)
+            : await oauthService.signIn(identifier);
           
           // Get the actual OAuth session and create agent
           const oauthSession = await oauthService.getCurrentOAuthSession();
@@ -229,6 +242,10 @@ export const useUserStore = create<UserState>()(
             await get().updateAccountProfile(session.did, profileData);
           }
           
+          // Prepare identifier for PDS discovery if not provided
+          const { PDSDiscoveryService } = await import('../services/PDSDiscoveryService');
+          const preparedIdentifier = pdsUrl || await PDSDiscoveryService.prepareIdentifier(identifier);
+          
           // Update state
           set({
             currentUser: {
@@ -236,7 +253,7 @@ export const useUserStore = create<UserState>()(
               handle: profileData?.handle || session.did,
               displayName: profileData?.displayName || null,
               avatar: profileData?.avatar || null,
-              pdsUrl: 'https://bsky.social',
+              pdsUrl: preparedIdentifier,
             },
             isAuthenticated: true,
             isAuthenticating: false,
@@ -303,12 +320,12 @@ export const useUserStore = create<UserState>()(
         }
       },
       
-      restoreSession: async (did: string) => {
+      restoreSession: async (did: string, pdsUrl?: string) => {
         try {
           set({ isAuthenticating: true, authError: null });
           
           const oauthService = AtProtoOAuthService.getInstance();
-          const session = await oauthService.restoreSession(did);
+          const session = await oauthService.restoreSession(did, pdsUrl);
           
           // Get the actual OAuth session and create agent
           const oauthSession = await oauthService.getCurrentOAuthSession();
@@ -355,13 +372,18 @@ export const useUserStore = create<UserState>()(
             await get().updateAccountProfile(did, profileData);
           }
           
+          // Get PDS URL from account or use default
+          const accounts = get().savedAccounts;
+          const account = accounts.find(acc => acc.did === did);
+          const accountPDS = account?.pdsUrl || 'https://bsky.social';
+          
           // Update state
           const currentUser = {
             did: session.did,
             handle: profileData?.handle || session.did,
             displayName: profileData?.displayName || null,
             avatar: profileData?.avatar || null,
-            pdsUrl: 'https://bsky.social',
+            pdsUrl: pdsUrl || accountPDS,
           };
           
           set({
@@ -382,14 +404,17 @@ export const useUserStore = create<UserState>()(
           
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Session restoration failed';
-          console.error('[userStore] Session restoration failed:', error);
           
           // Normalize to actionable error for callers (switchAccount)
           if (errorMessage.includes('oauth_reauth_required')) {
+            // Session expiration is expected behavior, log as warning
+            console.warn('[userStore] Session expired, re-authentication required');
             set({ isAuthenticating: false });
             throw new Error('oauth_reauth_required');
           }
           
+          // Only log as error for unexpected failures
+          console.error('[userStore] Unexpected session restoration failure:', error);
           set({ isAuthenticating: false, authError: errorMessage });
           throw error;
         }
@@ -420,14 +445,17 @@ export const useUserStore = create<UserState>()(
           
           // Try to restore session for the new account; fall back to re-auth if needed
           try {
-            await get().restoreSession(did);
+            const account = accounts.find(acc => acc.did === did);
+            const accountPDS = account?.pdsUrl;
+            await get().restoreSession(did, accountPDS);
           } catch (restoreErr) {
             const restoreMsg = restoreErr instanceof Error ? restoreErr.message : '';
             if (restoreMsg.includes('oauth_reauth_required')) {
               // Use saved handle or DID to initiate sign-in
               const account = accounts.find(acc => acc.did === did);
               const identifier = account?.handle || did;
-              await get().signIn(identifier);
+              const accountPDS = account?.pdsUrl;
+              await get().signIn(identifier, accountPDS);
             } else {
               throw restoreErr;
             }
@@ -458,6 +486,10 @@ export const useUserStore = create<UserState>()(
           // Check if account already exists
           const existingAccountIndex = accounts.findIndex(acc => acc.did === oauthSession.did);
           
+          // Get PDS URL from current user or default
+          const currentUser = get().currentUser;
+          const accountPDS = currentUser?.pdsUrl || 'https://bsky.social';
+          
           const account: SavedAccount = {
             id: oauthSession.did, // Use DID directly as account ID
             handle: profileData?.handle || oauthSession.did,
@@ -466,7 +498,7 @@ export const useUserStore = create<UserState>()(
             avatar: profileData?.avatar,
             lastUsed: Date.now(),
             isActive: true,
-            pdsUrl: 'https://bsky.social',
+            pdsUrl: accountPDS,
           };
           
 
@@ -600,10 +632,10 @@ export const useUserStore = create<UserState>()(
             set({ subscribedChannels: [...channels, newChannel] });
           }
           
-          // Save to storage
+          // Save to storage using AsyncStorage
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
           const savedChannels = get().subscribedChannels.filter(ch => !ch.isDefault);
-          await SecureStore.setItemAsync(key, JSON.stringify(savedChannels));
+          await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
           
         } catch (error) {
           console.error('Error subscribing to channel:', error);
@@ -624,22 +656,22 @@ export const useUserStore = create<UserState>()(
           if (isDefaultChannel) {
             // For default channels, add to removed defaults list
             const removedKey = getUserScopedKey(STORAGE_KEYS.REMOVED_DEFAULTS, currentUser.did);
-            const removedDefaultsStr = await SecureStore.getItemAsync(removedKey);
+            const removedDefaultsStr = await AsyncStorage.getItem(removedKey);
             const removedDefaults: string[] = removedDefaultsStr ? JSON.parse(removedDefaultsStr) : [];
             
             if (!removedDefaults.includes(uri)) {
               removedDefaults.push(uri);
-              await SecureStore.setItemAsync(removedKey, JSON.stringify(removedDefaults));
+              await AsyncStorage.setItem(removedKey, JSON.stringify(removedDefaults));
             }
           }
           
           const channels = get().subscribedChannels.filter(ch => ch.uri !== uri);
           set({ subscribedChannels: channels });
           
-          // Save to storage
+          // Save to storage using AsyncStorage
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
           const savedChannels = channels.filter(ch => !ch.isDefault);
-          await SecureStore.setItemAsync(key, JSON.stringify(savedChannels));
+          await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
           
         } catch (error) {
           console.error('Error unsubscribing from channel:', error);
@@ -681,11 +713,11 @@ export const useUserStore = create<UserState>()(
            
            // Remove from removed defaults
            const removedKey = getUserScopedKey(STORAGE_KEYS.REMOVED_DEFAULTS, currentUser.did);
-           const removedDefaultsStr = await SecureStore.getItemAsync(removedKey);
+           const removedDefaultsStr = await AsyncStorage.getItem(removedKey);
            if (removedDefaultsStr) {
              const removedDefaults = JSON.parse(removedDefaultsStr);
              const updatedRemoved = removedDefaults.filter((removedUri: string) => removedUri !== uri);
-             await SecureStore.setItemAsync(removedKey, JSON.stringify(updatedRemoved));
+             await AsyncStorage.setItem(removedKey, JSON.stringify(updatedRemoved));
            }
            
          } catch (error) {
@@ -712,6 +744,132 @@ export const useUserStore = create<UserState>()(
             return [];
           }
         },
+
+        reorderChannels: async (reorderedChannels: SubscribedChannel[]) => {
+          try {
+            const currentUser = get().currentUser;
+            if (!currentUser?.did) {
+              throw new Error('No active user');
+            }
+            
+            // Update the order field for each channel based on its position in the array
+            const updatedChannels = reorderedChannels.map((channel, index) => ({
+              ...channel,
+              order: index,
+            }));
+            
+            set({ subscribedChannels: updatedChannels });
+            
+            // Save to storage (only non-default channels) using AsyncStorage
+            const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
+            const savedChannels = updatedChannels.filter(ch => !ch.isDefault);
+            await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
+            
+            // Save channel order separately for all channels (including defaults)
+            const channelOrderKey = getUserScopedKey('channel_order_v2', currentUser.did);
+            const channelOrder = updatedChannels.map(ch => ({ uri: ch.uri, order: ch.order }));
+            await AsyncStorage.setItem(channelOrderKey, JSON.stringify(channelOrder));
+            
+          } catch (error) {
+            console.error('Error reordering channels:', error);
+            throw error;
+          }
+        },
+      
+      // Batch operations for efficiency
+      batchSubscribeToChannels: async (channels: Array<{
+        uri: string;
+        displayName: string;
+        description?: string;
+        avatar?: string;
+        memberCount?: number;
+      }>) => {
+        try {
+          const currentUser = get().currentUser;
+          if (!currentUser?.did) {
+            throw new Error('No active user');
+          }
+          
+          const currentChannels = get().subscribedChannels;
+          const newChannels: SubscribedChannel[] = [];
+          
+          // Process all channels in batch
+          for (const channelData of channels) {
+            const existingIndex = currentChannels.findIndex(ch => ch.uri === channelData.uri);
+            
+            if (existingIndex >= 0) {
+              // Update existing channel
+              newChannels.push({
+                ...currentChannels[existingIndex],
+                ...channelData,
+                subscribedAt: Date.now(),
+              });
+            } else {
+              // Add new channel
+              newChannels.push({
+                ...channelData,
+                isDefault: false,
+                order: currentChannels.length + newChannels.length,
+                subscribedAt: Date.now(),
+              });
+            }
+          }
+          
+          // Update state with all new channels
+          set({ subscribedChannels: [...currentChannels, ...newChannels] });
+          
+          // Single storage operation for all changes
+          const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
+          const savedChannels = get().subscribedChannels.filter(ch => !ch.isDefault);
+          await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
+          
+        } catch (error) {
+          console.error('Error batch subscribing to channels:', error);
+          throw error;
+        }
+      },
+      
+      batchUnsubscribeFromChannels: async (uris: string[]) => {
+        try {
+          const currentUser = get().currentUser;
+          if (!currentUser?.did) {
+            throw new Error('No active user');
+          }
+          
+          const currentChannels = get().subscribedChannels;
+          const removedDefaults: string[] = [];
+          
+          // Process all unsubscriptions
+          for (const uri of uris) {
+            const isDefaultChannel = DEFAULT_CHANNELS.some(ch => ch.uri === uri);
+            if (isDefaultChannel) {
+              removedDefaults.push(uri);
+            }
+          }
+          
+          // Update removed defaults if any
+          if (removedDefaults.length > 0) {
+            const removedKey = getUserScopedKey(STORAGE_KEYS.REMOVED_DEFAULTS, currentUser.did);
+            const existingRemovedStr = await AsyncStorage.getItem(removedKey);
+            const existingRemoved: string[] = existingRemovedStr ? JSON.parse(existingRemovedStr) : [];
+            const updatedRemoved = [...new Set([...existingRemoved, ...removedDefaults])];
+            await AsyncStorage.setItem(removedKey, JSON.stringify(updatedRemoved));
+          }
+          
+          // Filter out unsubscribed channels
+          const updatedChannels = currentChannels.filter(ch => !uris.includes(ch.uri));
+          set({ subscribedChannels: updatedChannels });
+          
+          // Single storage operation for all changes
+          const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
+          const savedChannels = updatedChannels.filter(ch => !ch.isDefault);
+          await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
+          
+        } catch (error) {
+          console.error('Error batch unsubscribing from channels:', error);
+          throw error;
+        }
+      },
       
       // Feed settings actions
       setFeedMixingStrategy: async (strategy: 'chronological' | 'engagement' | 'diversity' | 'weighted') => {
@@ -844,9 +1002,13 @@ export const useUserStore = create<UserState>()(
           if (activeAccountDid) {
             set({ activeAccountDid });
             
-            // Try to restore session
+            // Try to restore session with account's PDS
+            const accounts = get().savedAccounts;
+            const account = accounts.find(acc => acc.did === activeAccountDid);
+            const accountPDS = account?.pdsUrl;
+            
             try {
-              await get().restoreSession(activeAccountDid);
+              await get().restoreSession(activeAccountDid, accountPDS);
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Session restoration failed';
               // Only log as warning if it's not a re-auth required error
@@ -923,18 +1085,68 @@ export const useUserStore = create<UserState>()(
           // Load user-specific channel subscriptions
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did);
           const removedKey = getUserScopedKey(STORAGE_KEYS.REMOVED_DEFAULTS, did);
+          const orderKey = getUserScopedKey('channel_order_v2', did);
           
-          const savedChannelsStr = await SecureStore.getItemAsync(key);
-          const removedDefaultsStr = await SecureStore.getItemAsync(removedKey);
+          // Try AsyncStorage first (v2), fallback to SecureStore (v1) for migration
+          let savedChannelsStr = await AsyncStorage.getItem(key);
+          let removedDefaultsStr = await AsyncStorage.getItem(removedKey);
+          let channelOrderStr = await AsyncStorage.getItem(orderKey);
+          
+          // Migration from v1 to v2: if not found in AsyncStorage, try SecureStore
+          if (!savedChannelsStr) {
+            try {
+              const v1Key = getUserScopedKey('subscribed_channels_v1', did);
+              const v1RemovedKey = getUserScopedKey('removed_default_channels_v1', did);
+              const v1OrderKey = getUserScopedKey('channel_order_v1', did);
+              
+              savedChannelsStr = await SecureStore.getItemAsync(v1Key);
+              removedDefaultsStr = await SecureStore.getItemAsync(v1RemovedKey);
+              channelOrderStr = await SecureStore.getItemAsync(v1OrderKey);
+              
+              // If found in v1, migrate to v2
+              if (savedChannelsStr || removedDefaultsStr || channelOrderStr) {
+                if (savedChannelsStr) await AsyncStorage.setItem(key, savedChannelsStr);
+                if (removedDefaultsStr) await AsyncStorage.setItem(removedKey, removedDefaultsStr);
+                if (channelOrderStr) await AsyncStorage.setItem(orderKey, channelOrderStr);
+                console.log('[userStore] Migrated channel data from v1 to v2');
+              }
+            } catch (migrationError) {
+              console.warn('[userStore] Migration from v1 to v2 failed:', migrationError);
+            }
+          }
           
           const savedChannels: SubscribedChannel[] = savedChannelsStr ? JSON.parse(savedChannelsStr) : [];
           const removedDefaults: string[] = removedDefaultsStr ? JSON.parse(removedDefaultsStr) : [];
+          const channelOrder: { uri: string; order: number }[] = channelOrderStr ? JSON.parse(channelOrderStr) : [];
           
           // Combine default channels (excluding removed ones) with saved channels
           const defaultChannels = DEFAULT_CHANNELS.filter(ch => !removedDefaults.includes(ch.uri));
           const allChannels = [...defaultChannels, ...savedChannels];
           
-          set({ subscribedChannels: allChannels });
+          // Apply saved channel order if available
+          let sortedChannels = allChannels;
+          if (channelOrder.length > 0) {
+            // Create a map of URI to order for quick lookup
+            const orderMap = new Map(channelOrder.map(item => [item.uri, item.order]));
+            
+            // Sort channels based on saved order, with fallback to original order
+            sortedChannels = allChannels.sort((a, b) => {
+              const orderA = orderMap.get(a.uri) ?? a.order;
+              const orderB = orderMap.get(b.uri) ?? b.order;
+              return orderA - orderB;
+            });
+            
+            // Update the order field to match the sorted positions
+            sortedChannels = sortedChannels.map((channel, index) => ({
+              ...channel,
+              order: index,
+            }));
+          } else {
+            // No saved order, just sort by existing order field
+            sortedChannels = allChannels.sort((a, b) => a.order - b.order);
+          }
+          
+          set({ subscribedChannels: sortedChannels });
           
         } catch (error) {
           console.error('Error loading subscribed channels:', error);
@@ -1093,6 +1305,9 @@ export const useChannelSubscriptions = () => {
   const isSubscribedToChannel = useUserStore(state => state.isSubscribedToChannel);
   const restoreDefaultChannel = useUserStore(state => state.restoreDefaultChannel);
   const getAvailableDefaultChannels = useUserStore(state => state.getAvailableDefaultChannels);
+  const reorderChannels = useUserStore(state => state.reorderChannels);
+  const batchSubscribeToChannels = useUserStore(state => state.batchSubscribeToChannels);
+  const batchUnsubscribeFromChannels = useUserStore(state => state.batchUnsubscribeFromChannels);
   
   return {
     subscribedChannels,
@@ -1101,6 +1316,9 @@ export const useChannelSubscriptions = () => {
     isSubscribedToChannel,
     restoreDefaultChannel,
     getAvailableDefaultChannels,
+    reorderChannels,
+    batchSubscribeToChannels,
+    batchUnsubscribeFromChannels,
   };
 };
 

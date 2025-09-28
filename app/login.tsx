@@ -12,7 +12,10 @@ import {
   Image,
   ScrollView,
   Linking,
+  TextInput,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, PlusIcon, AtLineIcon } from '../src/components/ui/Icon';
 import { Colors, Avatar } from '../src/components/ui/UI';
@@ -20,6 +23,7 @@ import { AnimatedStarsBackground } from '../src/components/ui';
 import { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
 import { useGlobalAccountSwitcher } from '../src/hooks/useGlobalModals';
+import { PDSDiscoveryService } from '../src/services/PDSDiscoveryService';
 
 interface LoginScreenProps {
   onLogin: (handle: string) => Promise<void>;
@@ -27,10 +31,13 @@ interface LoginScreenProps {
 }
 
 export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenProps) {
+  const DEBUG = __DEV__ && false;
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [username, setUsername] = useState<string>('');
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const [oauthError, setOAuthError] = useState<string | null>(null);
+  const [showCustomPDS, setShowCustomPDS] = useState<boolean>(false);
 
   // User store hooks
   const { 
@@ -42,20 +49,44 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   
   const { 
     savedAccounts, 
-    switchAccount 
+    switchAccount,
+    loadSavedAccounts 
   } = useAccountManagement();
 
   const hasSavedAccounts = savedAccounts.length > 0;
 
   const handleLogin = async () => {
+    if (showCustomPDS && !username.trim()) {
+      Alert.alert('Error', 'Please enter your username or handle');
+      return;
+    }
+
     setIsLoading(true);
     setOAuthError(null);
     clearAuthError();
 
     try {
-      await signIn('https://bsky.social');
+      if (showCustomPDS) {
+        // For custom PDS, use the username input
+        if (DEBUG) console.log('[LoginScreen] handleLogin: custom PDS login begin');
+        const identifier = await PDSDiscoveryService.prepareIdentifier(username.trim());
+        await signIn(identifier);
+        if (DEBUG) console.log('[LoginScreen] handleLogin: custom PDS login success');
+      } else {
+        // For Bluesky login, use the default Bluesky PDS
+        // This will open the Bluesky OAuth flow without requiring a specific handle
+        if (DEBUG) console.log('[LoginScreen] handleLogin: Bluesky OAuth login begin');
+        await signIn('https://bsky.social');
+        if (DEBUG) console.log('[LoginScreen] handleLogin: Bluesky OAuth login success');
+      }
+      
+      // Reload accounts to show the new one (same as AccountSwitcher)
+      await loadSavedAccounts();
+      if (DEBUG) console.log('[LoginScreen] handleLogin: success, accounts reloaded');
+      
       await onLogin('oauth-success');
     } catch (error) {
+      // Check if this is a user cancellation vs actual error
       const errorMessage = error instanceof Error ? error.message : 'OAuth login failed';
       const isUserCancellation = errorMessage.includes('cancelled') || 
                                 errorMessage.includes('Authentication was cancelled') ||
@@ -64,15 +95,19 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       if (!isUserCancellation) {
         setOAuthError(errorMessage);
         Alert.alert(
-          'OAuth Login Failed',
-          'Please try again.',
+          'OAuth Sign-in Failed',
+          showCustomPDS 
+            ? 'Failed to sign in with custom PDS. Please check your username and try again.'
+            : 'Failed to sign in with Bluesky. Please try again.',
           [{ text: 'OK' }]
         );
       }
+      if (DEBUG) console.log('[LoginScreen] handleLogin: error', errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
+
 
   // Check for saved accounts on mount
   useEffect(() => {
@@ -119,32 +154,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     Linking.openURL('https://bsky.app');
   };
 
-  const renderLoginButton = () => (
-    <TouchableOpacity
-      style={[
-        styles.loginButton, 
-        isLoading && styles.loginButtonLoading
-      ]}
-      onPress={handleLogin}
-      disabled={isLoading}
-    >
-      {isLoading ? (
-        <View style={styles.buttonContent}>
-          <ActivityIndicator color={Colors.black} size="small" style={{ marginRight: 8 }} />
-          <Text style={styles.loginButtonText}>
-            Signing in...
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.buttonContent}>
-          <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
-          <Text style={styles.loginButtonText}>
-            Sign in with Bluesky
-          </Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+
 
   const renderSavedAccounts = () => (
     <View style={styles.savedAccountsContainer}>
@@ -217,7 +227,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         <View style={styles.divider} />
       </View>
       
-      {renderLoginButton()}
     </View>
   );
 
@@ -229,7 +238,92 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         </View>
       )}
 
-      {renderLoginButton()}
+      {/* Username input for custom PDS */}
+      {showCustomPDS && (
+        <View style={styles.inputContainer}>
+          <Icon name="at" size={20} color={Colors.gray} style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your username or handle"
+            placeholderTextColor={Colors.gray}
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="go"
+            onSubmitEditing={handleLogin}
+            editable={!isLoading}
+          />
+        </View>
+      )}
+
+      {/* Sign in button */}
+      <TouchableOpacity
+        style={styles.liquidGlassButton}
+        onPress={handleLogin}
+        disabled={isLoading || (showCustomPDS && !username.trim())}
+        activeOpacity={0.8}
+      >
+        <BlurView
+          intensity={20}
+          tint="light"
+          style={styles.blurContainer}
+        >
+          <LinearGradient
+            colors={
+              showCustomPDS && !username.trim()
+                ? ['rgba(128, 128, 128, 0.3)', 'rgba(128, 128, 128, 0.1)']
+                : showCustomPDS
+                ? ['rgba(3, 133, 255, 0.8)', 'rgba(3, 133, 255, 0.6)']
+                : ['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)']
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.glassGradient}
+          >
+            <View style={styles.glassOverlay}>
+              {isLoading ? (
+                <View style={styles.buttonContent}>
+                  <ActivityIndicator 
+                    color={showCustomPDS ? Colors.white : Colors.black} 
+                    size="small" 
+                    style={{ marginRight: 8 }} 
+                  />
+                  <Text style={[
+                    showCustomPDS ? styles.loginButtonText : styles.blueskyButtonText,
+                    showCustomPDS && !username.trim() && styles.disabledText
+                  ]}>
+                    Signing in...
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.buttonContent}>
+                  {!showCustomPDS && <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />}
+                  <Text style={[
+                    showCustomPDS ? styles.loginButtonText : styles.blueskyButtonText,
+                    showCustomPDS && !username.trim() && styles.disabledText
+                  ]}>
+                    {showCustomPDS ? 'Sign In' : 'Sign in with Bluesky'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </LinearGradient>
+        </BlurView>
+      </TouchableOpacity>
+
+      {/* Custom PDS text button */}
+      <TouchableOpacity
+        style={styles.customPDSTextButton}
+        onPress={() => setShowCustomPDS(!showCustomPDS)}
+        disabled={isLoading}
+      >
+        {showCustomPDS ? (
+          <Text style={styles.customPDSTextButtonText}>Back</Text>
+        ) : (
+          <Text style={styles.customPDSTextButtonText}>Custom PDS</Text>
+        )}
+      </TouchableOpacity>
     </View>
   );
 
@@ -296,9 +390,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.white,
     borderRadius: BORDER_RADIUS.MEDIUM,
-    marginBottom: 20,
+    marginBottom: 24,
     paddingHorizontal: 20,
     height: 56,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   inputIcon: {
     marginRight: 12,
@@ -308,7 +407,7 @@ const styles = StyleSheet.create({
     color: Colors.black,
     fontSize: 16,
     height: '100%',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Firma-Medium',
   },
   passwordInput: {
     paddingRight: 50,
@@ -320,29 +419,79 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
   },
-  loginButton: {
-    backgroundColor: Colors.white,
+  liquidGlassButton: {
     width: '100%',
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    marginTop: 8,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  blurContainer: {
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    overflow: 'hidden',
+  },
+  glassGradient: {
     paddingVertical: 16,
     paddingHorizontal: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 16,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  loginButtonDisabled: {
-    opacity: 0.5,
-    backgroundColor: Colors.darkGray,
+  glassOverlay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabledText: {
+    opacity: 0.6,
   },
   loginButtonLoading: {
     opacity: 0.7,
   },
   loginButtonText: {
-    color: Colors.black,
+    color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
+    fontFamily: 'Firma-Bold',
+  },
+  blueskyButton: {
+    backgroundColor: Colors.white,
+    width: '100%',
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  blueskyButtonText: {
+    color: Colors.black,
+    fontSize: 18,
+    fontFamily: 'Firma-Bold',
+  },
+  customPDSTextButton: {
+    alignSelf: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  customPDSTextButtonText: {
+    color: Colors.lightGray,
+    fontSize: 16,
     fontFamily: 'Firma-SemiBold',
+    textAlign: 'center',
   },
   loginButtonTextDisabled: {
     color: Colors.gray,
@@ -570,6 +719,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Firma-Medium',
     marginHorizontal: 16,
+  },
+  pdsButton: {
+    backgroundColor: Colors.darkGray,
+    marginTop: 12,
+  },
+  pdsButtonText: {
+    color: Colors.white,
   },
 
 });

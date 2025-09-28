@@ -26,6 +26,8 @@ interface User {
     following?: string;
   };
   isFollowing?: boolean;
+  isChannel?: boolean;
+  uri?: string;
 }
 
 interface ListScreenProps {
@@ -111,7 +113,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
       >
         <Avatar 
           uri={item.avatar} 
-          type="profile" 
+          type={item.isChannel ? "channel" : "profile"} 
           size={40} 
           ringColor="transparent" 
           style={styles.profileImage} 
@@ -119,9 +121,9 @@ const ListScreen: React.FC<ListScreenProps> = ({
         <View style={styles.profileContent}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={styles.displayName} numberOfLines={1}>
-              {item.displayName || item.handle || 'Unknown user'}
+              {item.displayName || item.handle || (item.isChannel ? 'Unknown channel' : 'Unknown user')}
             </Text>
-            {item.handle && item.handle.trim() && item.handle.length > 0 && (
+            {item.handle && item.handle.trim() && item.handle.length > 0 && !item.isChannel && (
               <VerificationBadge 
                 handle={item.handle.trim()} 
                 textSize={14} 
@@ -129,6 +131,11 @@ const ListScreen: React.FC<ListScreenProps> = ({
               />
             )}
           </View>
+          {item.description && (
+            <Text style={styles.description} numberOfLines={2}>
+              {item.description}
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
       {showFollowButton && (
@@ -279,7 +286,6 @@ const styles = StyleSheet.create({
   profileImage: {
     width: 40,
     height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
     marginRight: 12,
     borderWidth: 0,
     borderColor: 'transparent',
@@ -294,6 +300,11 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     fontFamily: 'Firma-SemiBold',
     flexShrink: 1,
+  },
+  description: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
   },
   handleText: {
     color: Colors.lightGray,

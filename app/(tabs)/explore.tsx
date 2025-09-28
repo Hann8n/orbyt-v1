@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
@@ -31,6 +31,7 @@ import { Avatar, Icon } from '../../src/components/ui/UI';
 import { useThumbnailColor } from '../../src/hooks/useThumbnailColor';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import HeaderBanner from '../../src/components/ui/HeaderBanner';
+import { TabNavigation, TabOption } from '../../src/components/layout/header';
 
 import { SearchIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
@@ -205,9 +206,9 @@ const FeedShimmer = () => (
 const HeaderSpacerShimmer = ({ isHeaderVisible, isSearching }: { isHeaderVisible: boolean; isSearching?: boolean }) => {
   const insets = useSafeAreaInsets();
   
-  // When searching, use search bar spacing
+  // When searching, use search bar spacing + tabs spacing
   if (isSearching) {
-    return <View style={{ height: insets.top + 10 + 55 + 10 }} />; // safe area + top margin + search height + bottom margin
+    return <View style={{ height: insets.top + 10 + 55 + 5 + 40 + 5 }} />; // safe area + top margin + search height + reduced margin + tabs height + reduced margin
   }
   
   // When no header is available, use search bar spacing
@@ -356,6 +357,171 @@ const PopularChannelButton = ({ channel, onPress }: { channel: Channel; onPress:
   );
 };
 
+// Profiles Feed Renderer Component
+const ProfilesFeedRenderer = ({ searchResults, onFollow, followedUsers, cacheUpdateTrigger }: {
+  searchResults: SearchResult[];
+  onFollow: (profile: Profile) => void;
+  followedUsers: Set<string>;
+  cacheUpdateTrigger: number;
+}) => {
+  const navigation = useRouter();
+  const queryClient = useQueryClient();
+
+  const profiles = searchResults
+    .filter((result): result is any => result.type === 'profile')
+    .map(result => result.data as Profile)
+    .filter((profile, index, self) => 
+      index === self.findIndex(p => p.did === profile.did)
+    );
+
+  return (
+    <FlashList
+      data={profiles}
+      keyExtractor={(profile) => `profile-${profile.did || profile.handle}`}
+      renderItem={({ item: profile }) => (
+        <View style={styles.profileItem}>
+          <TouchableOpacity
+            style={styles.profileTouchable}
+            onPress={() => {
+              if (profile.handle) {
+                const handle = profile.handle.trim();
+                if (handle && handle.trim()) {
+                  queryClient.prefetchQuery({
+                    queryKey: profileKeys.detail(handle.trim()),
+                    queryFn: () => ProfileCache.getProfile(handle.trim()),
+                    staleTime: ProfileCache.cacheExpiry
+                  }).finally(() => {
+                    const target = handle.trim();
+                    if (target) { navigation.push(`/profile/${target}`); }
+                  });
+                }
+              }
+            }}
+          >
+            <Avatar
+              uri={profile.avatar}
+              type="profile"
+              size={40}
+              ringColor="transparent"
+              style={styles.profileImage}
+            />
+            <View style={styles.profileContent}>
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                <Text style={styles.displayName} numberOfLines={1}>
+                  {profile.displayName || profile.handle || 'Unknown user'}
+                </Text>
+                {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
+                  <VerificationBadge 
+                    handle={profile.handle.trim()} 
+                    textSize={14} 
+                    textColor={Colors.white}
+                  />
+                )}
+              </View>
+            </View>
+          </TouchableOpacity>
+          {!profile.isFollowing && (
+            <TouchableOpacity
+              style={styles.followButton}
+              onPress={() => onFollow(profile)}
+            >
+              {followedUsers.has(profile.handle || profile.did) ? (
+                <Icon name="checkmark" size={16} color={Colors.lightGray} />
+              ) : (
+                <Icon name="user-plus" size={16} color={Colors.lightGray} />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+      contentContainerStyle={styles.listContainer}
+      showsVerticalScrollIndicator={false}
+      ListEmptyComponent={() => (
+        <View style={styles.emptyTabContent}>
+          <Text style={styles.emptyTabText}>No profiles found</Text>
+        </View>
+      )}
+    />
+  );
+};
+
+// Channels Feed Renderer Component
+const ChannelsFeedRenderer = ({ searchResults }: { searchResults: SearchResult[] }) => {
+  const navigation = useRouter();
+
+  const channels = searchResults
+    .filter((result): result is any => result.type === 'channel')
+    .map(result => result.data as Channel)
+    .filter((channel, index, self) => 
+      index === self.findIndex(c => c.uri === channel.uri)
+    );
+
+  return (
+    <FlashList
+      data={channels}
+      keyExtractor={(channel) => `channel-${channel.uri || channel.cid}`}
+      renderItem={({ item: channel }) => (
+        <TouchableOpacity
+          style={styles.channelItem}
+          onPress={() => {
+            if (channel.uri && channel.uri.trim()) {
+              navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
+            }
+          }}
+        >
+          <Avatar
+            uri={channel.avatar}
+            type="channel"
+            size={40}
+            ringColor="transparent"
+            style={styles.channelImage}
+          />
+          <View style={styles.channelContent}>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <Text style={styles.channelName} numberOfLines={1}>
+                {channel.displayName || 'Unknown channel'}
+              </Text>
+              {channel.isExperimental && (
+                <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
+      contentContainerStyle={styles.listContainer}
+      showsVerticalScrollIndicator={false}
+      ListEmptyComponent={() => (
+        <View style={styles.emptyTabContent}>
+          <Text style={styles.emptyTabText}>No channels found</Text>
+        </View>
+      )}
+    />
+  );
+};
+
+
+// Custom Feed Renderer for Search Results
+const SearchFeedRenderer = ({ feedOption, searchResults, onFollow, followedUsers, cacheUpdateTrigger }: {
+  feedOption: string;
+  searchResults: SearchResult[];
+  onFollow: (profile: Profile) => void;
+  followedUsers: Set<string>;
+  cacheUpdateTrigger: number;
+}) => {
+  if (feedOption === 'profiles') {
+    return (
+      <ProfilesFeedRenderer
+        searchResults={searchResults}
+        onFollow={onFollow}
+        followedUsers={followedUsers}
+        cacheUpdateTrigger={cacheUpdateTrigger}
+      />
+    );
+  } else if (feedOption === 'channels') {
+    return <ChannelsFeedRenderer searchResults={searchResults} />;
+  }
+  return null;
+};
 
 const ExploreScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -363,6 +529,17 @@ const ExploreScreen: React.FC = () => {
   const [allSuggestions, setAllSuggestions] = useState<any[]>([]);
   const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
   const [cacheUpdateTrigger, setCacheUpdateTrigger] = useState(0);
+  const [activeTab, setActiveTab] = useState<'profiles' | 'channels'>('profiles');
+  
+  // Ref for the swipeable FlatList
+  const swipeableFlatListRef = useRef<FlatList>(null);
+
+  // Define tab options for search results
+  const tabOptions: TabOption[] = useMemo(() => [
+    { id: 'profiles', label: 'Profiles' },
+    { id: 'channels', label: 'Channels' },
+  ], []);
+
 
   const navigation = useRouter();
   const queryClient = useQueryClient();
@@ -370,6 +547,32 @@ const ExploreScreen: React.FC = () => {
   // Use the follow mutation hook for proper cache management
   const followMutation = useFollowMutation();
   const insets = useSafeAreaInsets();
+
+  // Handle follow action
+  const handleFollow = useCallback((profile: Profile) => {
+    if (profile.handle) {
+      // Use the follow mutation hook for proper cache management
+      followMutation.mutate({
+        handle: profile.handle,
+        isFollowing: true
+      });
+      
+      // Add to followed users set for visual feedback
+      setFollowedUsers(prev => new Set(prev).add(profile.handle || profile.did));
+      
+      // Trigger cache update to refresh the UI
+      setCacheUpdateTrigger(prev => prev + 1);
+      
+      // Remove after 3 seconds
+      setTimeout(() => {
+        setFollowedUsers(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(profile.handle || profile.did);
+          return newSet;
+        });
+      }, 3000);
+    }
+  }, [followMutation]);
   
   // Initialize current user for ProfileCache on mount
   useEffect(() => {
@@ -380,7 +583,12 @@ const ExploreScreen: React.FC = () => {
           ProfileCache.setCurrentUserDid(currentUser.did);
         }
       } catch (error) {
-        console.error('Error initializing profile cache:', error);
+        // Silently handle rate limiting errors during initialization
+        if (error?.message?.includes('Rate Limit Exceeded')) {
+          console.warn('Rate limited during cache initialization, skipping...');
+        } else {
+          console.error('Error initializing profile cache:', error);
+        }
       }
     };
     
@@ -451,29 +659,33 @@ const ExploreScreen: React.FC = () => {
       return [];
     }
 
+
     // Convert feed items to search results format
     return searchFeed.map((feedItem, index) => {
       const post = feedItem.post;
       
-      // Check if this is a channel (has text but no author, or has author but text is the channel name)
-      const postText = (post as any).text;
-      const isChannel = postText && (
-        !post.author || 
-        (post.author && postText === post.author.displayName) ||
-        post.uri?.includes('app.bsky.feed.generator')
-      );
+      // Better channel detection logic - check for feed generator URIs
+      const isChannel = post.uri?.includes('app.bsky.feed.generator');
       
       if (isChannel) {
+        // For channels, the post structure is different - it contains channel data directly
         return {
           type: 'channel' as const,
           data: {
             uri: post.uri,
             cid: post.cid,
-            displayName: postText || 'Unknown channel',
-            description: postText || '',
-            creator: post.author || {},
-            avatar: (post as any).avatar || post.author?.avatar || '', // Use channel avatar first, fallback to creator avatar
-            isExperimental: false, // Will be determined by the channel data
+            did: (post.author as any)?.did || '',
+            displayName: (post as any).text || post.author?.displayName || 'Unknown channel',
+            description: (post as any).description || '',
+            creator: {
+              did: (post.author as any)?.did || '',
+              handle: post.author?.handle || '',
+              displayName: post.author?.displayName || '',
+              avatar: post.author?.avatar || '',
+            },
+            avatar: (post as any).avatar || post.author?.avatar || '',
+            likeCount: (post as any).likeCount || 0,
+            isExperimental: (post as any).isExperimental || false,
           } as Channel,
           relevance: 10 - index,
         };
@@ -482,6 +694,7 @@ const ExploreScreen: React.FC = () => {
       // Determine result type based on post content
       if (post.author) {
         const handle = post.author.handle;
+        const postText = (post as any).text || '';
         // Get cached profile data for accurate following status
         const cachedProfile = handle ? ProfileCache.getProfileFromCacheSync(handle) : null;
         
@@ -501,6 +714,7 @@ const ExploreScreen: React.FC = () => {
       
       // For channel-like content with embed
       if (post.embed?.$type === 'app.bsky.embed.record') {
+        const postText = (post as any).text || '';
         return {
           type: 'channel' as const,
           data: {
@@ -516,6 +730,7 @@ const ExploreScreen: React.FC = () => {
       
       // Default to profile
       const handle = post.author?.handle;
+      const postText = (post as any).text || '';
       const cachedProfile = handle ? ProfileCache.getProfileFromCacheSync(handle) : null;
       
       return {
@@ -606,15 +821,6 @@ const ExploreScreen: React.FC = () => {
     []
   );
 
-  // Type predicate for SearchResult
-  function isSearchResult(item: ListItem): item is SearchResult {
-    return (
-      typeof item === 'object' &&
-      'type' in item &&
-      item.type !== 'section-header' &&
-      'data' in item
-    );
-  }
 
 
 
@@ -624,275 +830,7 @@ const ExploreScreen: React.FC = () => {
 
 
 
-  // Render each search result item
-  const renderSearchResult = useCallback(({ item }: { item: ListItem }) => {
-    if (isSearchResult(item)) {
-      const searchItem = item as SearchResult;
-      switch (searchItem.type) {
-        case 'profile': {
-          const profile = searchItem.data as Profile;
-          
-          // Safety check for profile data
-          if (!profile || !profile.handle) {
-            return null;
-          }
-          
-          return (
-            <View style={styles.profileItem}>
-              <TouchableOpacity
-                style={styles.profileTouchable}
-                onPress={() => {
-                  if (profile.handle) {
-                    const handle = profile.handle.trim();
-                    if (handle && handle.trim()) {
-                      queryClient.prefetchQuery({
-                        queryKey: profileKeys.detail(handle.trim()),
-                        queryFn: () => ProfileCache.getProfile(handle.trim()),
-                        staleTime: ProfileCache.cacheExpiry
-                        }).finally(() => {
-                          const target = handle.trim();
-                          if (target) { navigation.push(`/profile/${target}`); }
-                        });
-                    }
-                  }
-                }}
-              >
-                <Avatar
-                  uri={profile.avatar}
-                  type="profile"
-                  size={40}
-                  ringColor="transparent"
-                  style={styles.profileImage}
-                />
-                <View style={styles.profileContent}>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Text style={styles.displayName} numberOfLines={1}>
-                      {profile.displayName || profile.handle || 'Unknown user'}
-                    </Text>
-                    {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
-                      <VerificationBadge 
-                        handle={profile.handle.trim()} 
-                        textSize={14} 
-                        textColor={Colors.white}
-                      />
-                    )}
-                  </View>
-                </View>
-              </TouchableOpacity>
-              {!profile.isFollowing && (
-                <TouchableOpacity
-                  style={styles.followButton}
-                  onPress={() => {
-                    if (profile.handle) {
-                      // Use the follow mutation hook for proper cache management
-                      followMutation.mutate({
-                        handle: profile.handle,
-                        isFollowing: true
-                      });
-                      
-                      // Add to followed users set for visual feedback
-                      setFollowedUsers(prev => new Set(prev).add(profile.handle || profile.did));
-                      
-                      // Trigger cache update to refresh the UI
-                      setCacheUpdateTrigger(prev => prev + 1);
-                      
-                      // Remove after 3 seconds
-                      setTimeout(() => {
-                        setFollowedUsers(prev => {
-                          const newSet = new Set(prev);
-                          newSet.delete(profile.handle || profile.did);
-                          return newSet;
-                        });
-                      }, 3000);
-                    }
-                  }}
-                >
-                  {followedUsers.has(profile.handle || profile.did) ? (
-                    <Icon name="checkmark" size={16} color={Colors.lightGray} />
-                  ) : (
-                    <Icon name="user-plus" size={16} color={Colors.lightGray} />
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
-          );
-        }
-        case 'channel': {
-          const channel = searchItem.data as Channel;
-          
-          // Safety check for channel data
-          if (!channel || !channel.uri) {
-            return null;
-          }
-          
-          return (
-            <TouchableOpacity
-              style={styles.channelItem}
-              onPress={() => {
-                if (channel.uri && channel.uri.trim()) {
-                  // Navigate to channel using Expo Router
-                  navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
-                }
-              }}
-            >
-              <Avatar
-                uri={channel.avatar}
-                type="channel"
-                size={40}
-                ringColor="transparent"
-                style={styles.channelImage}
-              />
-              <View style={styles.channelContent}>
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                  <Text style={styles.channelName} numberOfLines={1}>
-                    {channel.displayName || 'Unknown channel'}
-                  </Text>
-                  {channel.isExperimental && (
-                    <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-          );
-        }
-        case 'video': {
-          const video = searchItem.data;
-          const author = video.author || {};
-          
-          // Use the same thumbnail extraction logic as GridFeedView
-          const thumbnailUrl = extractVideoThumbnail(video.embed);
-          
-          // Extract thumbnail color for background
-          const { backgroundColor: thumbnailColor } = useThumbnailColor(thumbnailUrl);
-          
-          // Check moderation decision for blur state
-          const shouldBlur = !!video.moderationDecision?.blur;
-          
-          return (
-            <TouchableOpacity
-              style={styles.videoItem}
-              onPress={() => {
-                if (video.uri) {
-                  // Find the index of this video in the allVideos array
-                  const videoIndex = 0; // allVideos.findIndex(v => v.uri === video.uri); // Removed allVideos
-                  const index = videoIndex >= 0 ? videoIndex : 0;
-                  
-                  // FeedStore is already updated with formatted data from useEffect
-                  
-                                            navigation.push({
-                            pathname: '/(modals)/feed',
-                            params: {
-                              initialIndex: index,
-                              initialUri: video.uri,
-                              feedOption: 'search',
-                              userDid: undefined,
-                              backgroundColor: 'transparent',
-                              secondaryColor: Colors.white,
-                              searchQuery: debouncedQuery,
-                              hasNextPage: hasSearchNextPage ? 'true' : 'false',
-                              isFetchingNextPage: isSearchFetchingNextPage ? 'true' : 'false',
-                              fetchNextPage: 'function'
-                            }
-                          });
-                }
-              }}
-            >
-              <View style={[styles.videoThumbnailContainer, { backgroundColor: thumbnailColor }]}>
-                <View style={styles.videoThumbnailPlaceholder}>
-                  <Icon name="videocam" size={16} color={Colors.gray} />
-                </View>
-                {shouldBlur && (
-                  <View style={styles.videoWarningOverlay}>
-                    <Text style={styles.videoWarningText}>
-                      {video.moderationDecision?.reason || 'Content Warning'}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.videoContent}>
-                <Text style={styles.videoTitle} numberOfLines={2}>
-                  {video.text || video.record?.text || 'Untitled video'}
-                </Text>
-                <Text style={styles.videoAuthor} numberOfLines={1}>
-                  by @{author.handle || 'unknown'}
-                </Text>
-                {video.likeCount && video.likeCount > 0 && (
-                  <Text style={styles.videoStats}>
-                    {formatNumber(video.likeCount)} likes
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        }
-      }
-    }
-    return null;
-  }, [navigation, queryClient, debouncedQuery, hasSearchNextPage, isSearchFetchingNextPage, fetchSearchNextPage]);
 
-  // Organize search results into sections
-  const organizedSearchResults = useMemo(() => {
-    if (!searchResults.length) return [];
-    
-    // Separate profiles and channels (videos commented out)
-    const profiles = searchResults
-      .filter((result): result is any => result.type === 'profile')
-      .map(result => result.data as Profile)
-      .filter((profile, index, self) => 
-        index === self.findIndex(p => p.did === profile.did)
-      );
-    
-    const channels = searchResults
-      .filter((result): result is any => result.type === 'channel')
-      .map(result => result.data as Channel)
-      .filter((channel, index, self) => 
-        index === self.findIndex(c => c.uri === channel.uri)
-      );
-    
-    // const videos = searchResults
-    //   .filter((result): result is SearchResult => result.type === 'video')
-    //   .map(result => result.data);
-    
-    const sections: ListItem[] = [];
-    
-    // Add people and channels section if either exists
-    if (profiles.length > 0 || channels.length > 0) {
-      sections.push({ type: 'people-channels-section' as const, profiles, channels, key: 'people-channels' });
-    }
-    
-    // Comment out video grid
-    // if (videos.length > 0) {
-    //   sections.push({
-    //     type: 'video-grid',
-    //     videos: videos,
-    //     key: 'videos-grid'
-    //   });
-    // }
-    
-    return sections;
-  }, [searchResults]);
-
-  // Get combined profiles and channels for unified feed
-  const combinedResults = useMemo(() => {
-    const peopleChannelsSection = organizedSearchResults.find(section => section.type === 'people-channels-section') as PeopleChannelsSection;
-    const profiles = peopleChannelsSection?.profiles || [];
-    const channels = peopleChannelsSection?.channels || [];
-    
-    // Get the original search results to preserve relevance ordering
-    const profileResults = searchResults
-      .filter((result): result is any => result.type === 'profile')
-      .map(result => ({ type: 'profile' as const, data: result.data as Profile, relevance: result.relevance }));
-    
-    const channelResults = searchResults
-      .filter((result): result is any => result.type === 'channel')
-      .map(result => ({ type: 'channel' as const, data: result.data as Channel, relevance: result.relevance }));
-    
-    // Combine and sort by relevance to mix profiles and channels together
-    const combined = [...profileResults, ...channelResults];
-    combined.sort((a, b) => b.relevance - a.relevance);
-    
-    return combined;
-  }, [organizedSearchResults, searchResults]);
 
 
   const isLoadingResults = isSearchLoading || isSearchError;
@@ -914,6 +852,13 @@ const ExploreScreen: React.FC = () => {
     },
     enabled: debouncedQuery.length === 0,
     staleTime: 60 * 1000, // 1 minute
+    retry: (failureCount, error) => {
+      // Don't retry on rate limiting errors
+      if (error?.message?.includes('Rate Limit Exceeded')) {
+        return false;
+      }
+      return failureCount < 2; // Reduced retry count
+    },
   });
 
   // Fetch suggested feeds when there is no search query
@@ -1013,7 +958,7 @@ const ExploreScreen: React.FC = () => {
   const computedHeaderHeight = useMemo(() => {
     // When searching or header not visible, reserve space for the search bar area so content starts below it
     if (isSearching || !isHeaderVisible) {
-      return insets.top + 10 + 55 + 10; // safe area + top margin + search height + bottom margin
+      return insets.top + 10 + 55 + 10 + 50 + 10; // safe area + top margin + search height + bottom margin + tabs height + bottom margin
     }
     // Allow per-header custom ratio via HeaderService metadata; fallback to 30%
     const ratio = Math.max(0.2, Math.min(0.5, headers?.[0]?.heightRatio ?? 0.30));
@@ -1090,29 +1035,17 @@ const ExploreScreen: React.FC = () => {
     return data;
   })();
 
-  const searchList: any[] = isLoadingResults
-    ? ([] as any[])
-    : (() => {
-        const results = organizedSearchResults as unknown as any[];
-        // Add search bar spacer at the beginning to prevent content from being hidden behind search bar
-        return [{ type: 'header-spacer' as const, key: 'search-bar-spacer' }, ...results];
-      })();
-
-  const listData: any[] = isSearching ? searchList : suggestionsList;
+  const listData: any[] = suggestionsList;
 
   return (
     <View style={[styles.container, Platform.OS === 'android' ? { paddingTop: 0 } : null]}>
       <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
 
       {showTopGradient && (
-        <View style={[styles.topSafeOverlay, { height: insets.top }]} />
-      )}
-      {showTopGradient && (
-        <LinearGradient
-          colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0.7)', 'transparent']}
-          locations={[0, 0.2, 1]}
-          style={[styles.topGradient, { top: insets.top, height: insets.top + 50 }]}
-          pointerEvents="none"
+        <BlurView
+          intensity={80}
+          tint="dark"
+          style={[styles.topGradient, { top: 0, height: insets.top + 70 + 40 }]}
         />
       )}
 
@@ -1153,15 +1086,95 @@ const ExploreScreen: React.FC = () => {
           </TouchableOpacity>
         )}
       </View>
-      
-      <FlashList
-        ListHeaderComponent={
-          !isSearching && isHeaderVisible ? (
-            <HeaderBanner headers={headers} height={computedHeaderHeight} />
-          ) : null
-        }
 
-        data={listData}
+      {/* Search Results with Swipeable Tabs */}
+      {isSearching && (
+        <>
+          {/* Tab Navigation */}
+          <View
+            style={[
+              styles.searchTabsContainer,
+              {
+                top: insets.top + 65, // Position closer to search bar
+                zIndex: 20,
+              },
+            ]}
+          >
+            <View style={styles.tabNavigationWrapper}>
+              <TabNavigation
+                tabs={tabOptions}
+                activeTab={activeTab}
+                onTabPress={(tabId) => {
+                  const newTab = tabId as 'profiles' | 'channels';
+                  setActiveTab(newTab);
+                  // Scroll to the appropriate tab
+                  const index = newTab === 'profiles' ? 0 : 1;
+                  swipeableFlatListRef.current?.scrollToIndex({
+                    index,
+                    animated: true,
+                  });
+                }}
+                textColor={Colors.white}
+                backgroundColor="transparent"
+                style={styles.searchTabs}
+              />
+            </View>
+          </View>
+
+          {/* Swipeable Content */}
+          <View
+            style={[
+              styles.searchResultsContainer,
+              {
+                top: insets.top + 65 + 50, // Position below tab navigation
+                bottom: getBottomNavBarHeight(insets), // Account for bottom nav
+                zIndex: 19,
+              },
+            ]}
+          >
+            <FlatList
+              ref={swipeableFlatListRef}
+              data={['profiles', 'channels']}
+              renderItem={({ item: feedType }) => (
+                <View style={styles.searchFeedPage}>
+                  <SearchFeedRenderer
+                    feedOption={feedType}
+                    searchResults={searchResults}
+                    onFollow={handleFollow}
+                    followedUsers={followedUsers}
+                    cacheUpdateTrigger={cacheUpdateTrigger}
+                  />
+                </View>
+              )}
+              keyExtractor={(item) => item}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(event) => {
+                const index = Math.round(event.nativeEvent.contentOffset.x / Dimensions.get('window').width);
+                setActiveTab(index === 0 ? 'profiles' : 'channels');
+              }}
+              style={styles.searchFeedList}
+              initialScrollIndex={activeTab === 'profiles' ? 0 : 1}
+              getItemLayout={(_, index) => ({
+                length: Dimensions.get('window').width,
+                offset: Dimensions.get('window').width * index,
+                index,
+              })}
+            />
+          </View>
+        </>
+      )}
+      
+      {!isSearching && (
+        <FlashList
+          ListHeaderComponent={
+            isHeaderVisible ? (
+              <HeaderBanner headers={headers} height={computedHeaderHeight} />
+            ) : null
+          }
+
+          data={listData}
         keyExtractor={(item: any, index: number) => {
           if (typeof item === 'string') return `shimmer-${index}`;
           if (item && typeof item === 'object' && 'type' in item) {
@@ -1169,21 +1182,6 @@ const ExploreScreen: React.FC = () => {
             if (anyItem.type === 'section-header') return anyItem.key || `${anyItem.title}-${index}`;
             if (anyItem.type === 'spotlight-videos') return anyItem.key || `spotlight-${index}`;
             if (anyItem.type === 'video-grid') return anyItem.key || `key-${index}`;
-            if (isSearchResult(anyItem)) {
-              const searchResult = anyItem as SearchResult;
-              if (searchResult.type === 'profile') {
-                const profile = searchResult.data as Profile;
-                return `search-profile-${profile.did || profile.handle || index}-${index}`;
-              }
-              if (searchResult.type === 'channel') {
-                const channel = searchResult.data as Channel;
-                return `search-channel-${channel.uri || channel.cid || index}-${index}`;
-              }
-              if (searchResult.type === 'video') {
-                const video = (searchResult as any).data;
-                return `search-video-${video?.uri || video?.cid || index}-${index}`;
-              }
-            }
           }
           return `item-${index}`;
         }}
@@ -1294,133 +1292,6 @@ const ExploreScreen: React.FC = () => {
             if (item.type === 'channel') return <ChannelShimmer />;
             return <VideoShimmer />;
           }
-          if (isSearchResult(item)) {
-            return renderSearchResult({ item });
-          }
-          if (item.type === 'people-channels-section') {
-            return (
-              <View style={styles.peopleChannelsContainer}>
-                {combinedResults.length > 0 ? (
-                  <>
-                    {combinedResults.map((result, index: number) => {
-                      if (result.type === 'profile') {
-                        const profile = result.data as Profile;
-                        return (
-                          <View
-                            key={`combined-profile-${profile.did || profile.handle || index}-${index}`}
-                            style={styles.profileItem}
-                          >
-                            <TouchableOpacity
-                              style={styles.profileTouchable}
-                              onPress={() => {
-                                if (profile.handle) {
-                                  const handle = profile.handle.trim();
-                                  if (handle && handle.trim()) {
-                                    queryClient.prefetchQuery({
-                                      queryKey: profileKeys.detail(handle.trim()),
-                                      queryFn: () => ProfileCache.getProfile(handle.trim()),
-                                      staleTime: ProfileCache.cacheExpiry,
-                                    }).finally(() => {
-                                      const target = handle.trim();
-                                      if (target) { navigation.push(`/profile/${target}`); }
-                                    });
-                                  }
-                                }
-                              }}
-                            >
-                              <Avatar uri={profile.avatar} type="profile" size={40} ringColor="transparent" style={styles.profileImage} />
-                              <View style={styles.profileContent}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                  <Text style={styles.displayName}>
-                                    {profile.displayName || profile.handle || 'Unknown user'}
-                                  </Text>
-                                  {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
-                                    <VerificationBadge handle={profile.handle.trim()} textSize={14} textColor={Colors.white} />
-                                  )}
-                                </View>
-                              </View>
-                            </TouchableOpacity>
-                            {!profile.isFollowing && (
-                              <TouchableOpacity
-                                style={styles.followButton}
-                                onPress={() => {
-                                  if (profile.handle) {
-                                    // Use the follow mutation hook for proper cache management
-                                    followMutation.mutate({
-                                      handle: profile.handle,
-                                      isFollowing: true
-                                    });
-                                    
-                                    // Add to followed users set for visual feedback
-                                    setFollowedUsers(prev => new Set(prev).add(profile.handle || profile.did));
-                                    
-                                    // Trigger cache update to refresh the UI
-                                    setCacheUpdateTrigger(prev => prev + 1);
-                                    
-                                    // Remove after 3 seconds
-                                    setTimeout(() => {
-                                      setFollowedUsers(prev => {
-                                        const newSet = new Set(prev);
-                                        newSet.delete(profile.handle || profile.did);
-                                        return newSet;
-                                      });
-                                    }, 3000);
-                                  }
-                                }}
-                              >
-                                {followedUsers.has(profile.handle || profile.did) ? (
-                                  <Icon name="checkmark" size={16} color={Colors.lightGray} />
-                                ) : (
-                                  <Icon name="user-plus" size={16} color={Colors.lightGray} />
-                                )}
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                        );
-                      }
-                      if (result.type === 'channel') {
-                        const channel = result.data as Channel;
-                        return (
-                          <TouchableOpacity
-                            key={`combined-channel-${channel.uri || channel.cid || index}-${index}`}
-                            style={styles.channelItem}
-                            onPress={() => {
-                              if (channel.uri && channel.uri.trim()) {
-                                // Navigate to channel using Expo Router
-                                navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
-                              }
-                            }}
-                          >
-                            <Avatar uri={channel.avatar} type="channel" size={40} ringColor="transparent" style={styles.channelImage} />
-                            <View style={styles.channelContent}>
-                              <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                <Text style={styles.channelName} numberOfLines={1}>
-                                  {channel.displayName || 'Unknown channel'}
-                                </Text>
-                                {channel.isExperimental && (
-                                  <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
-                                )}
-                              </View>
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      }
-                      return null;
-                    })}
-                    {isSearchFetchingNextPage && (
-                      <View style={styles.loadingMoreContainer}>
-                        <ActivityIndicator size="small" color={Colors.white} />
-                      </View>
-                    )}
-                  </>
-                ) : (
-                  <View style={styles.emptyTabContent}>
-                    <Text style={styles.emptyTabText}>No results found</Text>
-                  </View>
-                )}
-              </View>
-            );
-          }
           if (item.type === 'popular-channels-section') {
             if (!('channels' in item) || !Array.isArray(item.channels)) {
               return <PopularChannelsShimmer />;
@@ -1466,7 +1337,9 @@ const ExploreScreen: React.FC = () => {
           if (isSearchingLocal && !isLoadingResults) {
             return (
               <View style={styles.emptyContainer}>
-                <Text style={styles.noResults}>No results found for "{debouncedQuery}"</Text>
+                <Text style={styles.noResults}>
+                  No {activeTab} found for "{debouncedQuery}"
+                </Text>
                 <Text style={styles.noResultsSubtext}>Try searching for something else</Text>
               </View>
             );
@@ -1497,7 +1370,8 @@ const ExploreScreen: React.FC = () => {
           }
           return null;
         }}
-      />
+        />
+      )}
     </View>
   );
 };
@@ -1916,6 +1790,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
     borderRadius: BORDER_RADIUS.LARGE,
+  },
+
+  searchTabsContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    paddingLeft: 5,
+    paddingRight: 0,
+    paddingTop: 0,
+  },
+  tabNavigationWrapper: {
+    backgroundColor: 'transparent',
+    borderRadius: BORDER_RADIUS.LARGE,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  searchTabs: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  searchResultsContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.black,
+  },
+  searchFeedList: {
+    flex: 1,
+  },
+  searchFeedPage: {
+    width: Dimensions.get('window').width,
+    height: '100%',
   },
 
   followButton: {

@@ -30,6 +30,10 @@ interface VerticalListSheetProps {
    * Enable iOS 26 Liquid Glass background when available
    */
   enableGlass?: boolean;
+  /**
+   * Name for global TrueSheet methods
+   */
+  name?: string;
 }
 
 const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
@@ -42,6 +46,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   cancelButtonText = 'Cancel',
   scrollRef,
   enableGlass = true,
+  name,
 }) => {
   // Bottom sheet ref and snap points
   const bottomSheetRef = useRef<TrueSheet>(null);
@@ -66,6 +71,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   return (
     <TrueSheet
       ref={bottomSheetRef}
+      name={name}
       sizes={snapPoints as any}
       backgroundColor={shouldUseGlass ? 'rgba(0,0,0,0.6)' : Colors.black}
       onDismiss={onDismiss}

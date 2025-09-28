@@ -75,7 +75,7 @@ export function useFeed(
   const { currentUser } = useCurrentUser();
 
   // Get subscribed channels for your mix feed
-  const { channels: subscribedChannels = [] } = useSubscribedChannels();
+  const { subscribedChannels = [] } = useSubscribedChannels();
 
   // Invalidate feed queries when user changes
   useEffect(() => {

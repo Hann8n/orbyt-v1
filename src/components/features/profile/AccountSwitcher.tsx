@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  TextInput,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +22,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import VerticalListSheet from '../../ui/VerticalListSheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { PDSDiscoveryService } from '../../../services/PDSDiscoveryService';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -48,6 +53,10 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const [switchingAccount, setSwitchingAccount] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [isAddingAccount, setIsAddingAccount] = useState(false);
+  const [showUsernameInput, setShowUsernameInput] = useState(false);
+  const [username, setUsername] = useState('');
+  const [pdsError, setPdsError] = useState<string | null>(null);
+  const [isValidatingPds, setIsValidatingPds] = useState(false);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   
@@ -81,7 +90,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     setLoading(true);
     try {
       if (DEBUG) console.log('[AccountSwitcher] loadAccounts: start');
-      // Use savedAccounts from the user store
+      // Get fresh savedAccounts from the user store to ensure we have the latest state
       const savedAccountsData = savedAccounts;
       if (DEBUG) console.log('[AccountSwitcher] loadAccounts: savedAccounts len =', savedAccountsData.length);
       
@@ -184,7 +193,10 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             try {
               if (DEBUG) console.log('[AccountSwitcher] removing account', account.did);
               await removeAccount(account.did);
-              // Reload accounts after removal
+              // Add a small delay to ensure the store state is updated
+              await new Promise(resolve => setTimeout(resolve, 100));
+              // Force reload accounts after removal to ensure state is synchronized
+              setLoading(true);
               await loadAccounts();
               if (DEBUG) console.log('[AccountSwitcher] removed account and reloaded');
             } catch (error) {
@@ -197,22 +209,17 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     );
   }, [removeAccount, loadAccounts]);
 
-  const handleAddAccount = useCallback(async () => {
+  const handleBlueskyLogin = useCallback(async () => {
     setIsAddingAccount(true);
-    // Proactively dismiss the sheet before OAuth to avoid a blank sheet during app refresh
+    
     try {
-      onDismiss();
-    } catch (e) {
-      // no-op safeguard
-    }
-    try {
-      if (DEBUG) console.log('[AccountSwitcher] handleAddAccount: begin');
+      if (DEBUG) console.log('[AccountSwitcher] handleBlueskyLogin: begin');
 
       await signIn('https://bsky.social');
       
       // Reload accounts to show the new one
       await loadAccounts();
-      if (DEBUG) console.log('[AccountSwitcher] handleAddAccount: success, accounts reloaded');
+      if (DEBUG) console.log('[AccountSwitcher] handleBlueskyLogin: success, accounts reloaded');
       
 
     } catch (error) {
@@ -229,23 +236,125 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           [{ text: 'OK' }]
         );
       }
-      if (DEBUG) console.log('[AccountSwitcher] handleAddAccount: error', errorMessage);
+      if (DEBUG) console.log('[AccountSwitcher] handleBlueskyLogin: error', errorMessage);
     } finally {
       setIsAddingAccount(false);
     }
   }, [signIn, loadAccounts]);
 
-  // Prepare list data including the add account option and edit button
+  const handleUsernameLogin = useCallback(async () => {
+    const trimmedUsername = username.trim();
+    
+    if (!trimmedUsername) {
+      setPdsError('Please enter your username or handle');
+      return;
+    }
+
+    // Basic validation for common formats
+    if (!trimmedUsername.includes('.') && !trimmedUsername.includes('@')) {
+      setPdsError('Please enter a full handle (e.g., user.domain.com) or email');
+      return;
+    }
+
+    setPdsError(null);
+    setIsAddingAccount(true);
+    setIsValidatingPds(true);
+    setShowUsernameInput(false);
+    
+    // Use TrueSheet global method to dismiss the username input sheet before OAuth
+    try {
+      await TrueSheet.dismiss('username-input');
+      // Small delay to ensure the username input sheet is properly dismissed
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } catch (e) {
+      console.error('[AccountSwitcher] Error dismissing username input:', e);
+    }
+    
+    try {
+      if (DEBUG) console.log('[AccountSwitcher] handleUsernameLogin: begin', { username: trimmedUsername });
+
+      // Prepare identifier and let expo-atproto-auth handle the rest
+      const identifier = await PDSDiscoveryService.prepareIdentifier(trimmedUsername);
+      if (DEBUG) console.log('[AccountSwitcher] prepared identifier:', identifier);
+      
+      await signIn(identifier);
+      
+      // Reload accounts to show the new one
+      await loadAccounts();
+      if (DEBUG) console.log('[AccountSwitcher] handleUsernameLogin: success, accounts reloaded');
+      
+
+    } catch (error) {
+      // Check if this is a user cancellation vs actual error
+      const errorMessage = error instanceof Error ? error.message : 'OAuth sign-in failed';
+      const isUserCancellation = errorMessage.includes('cancelled') || 
+                                errorMessage.includes('Authentication was cancelled') ||
+                                errorMessage.includes('user_cancelled');
+      
+      if (!isUserCancellation) {
+        // More specific error messages based on common issues
+        let userFriendlyMessage = `Could not connect to ${trimmedUsername}`;
+        
+        if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
+          userFriendlyMessage = `Network error connecting to ${trimmedUsername}. Please check your internet connection and try again.`;
+        } else if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+          userFriendlyMessage = `Could not find the server for ${trimmedUsername}. Please check the handle and try again.`;
+        } else if (errorMessage.includes('invalid') || errorMessage.includes('malformed')) {
+          userFriendlyMessage = `Invalid handle format: ${trimmedUsername}. Please enter a valid handle (e.g., user.domain.com).`;
+        }
+        
+        Alert.alert(
+          'Connection Failed',
+          userFriendlyMessage,
+          [{ text: 'OK' }]
+        );
+      }
+      if (DEBUG) console.log('[AccountSwitcher] handleUsernameLogin: error', errorMessage);
+    } finally {
+      setIsAddingAccount(false);
+      setIsValidatingPds(false);
+      setUsername('');
+    }
+  }, [signIn, loadAccounts, onDismiss, username]);
+
+  const handleBlueskyAddAccount = useCallback(async () => {
+    // Use TrueSheet global method to dismiss the main sheet first
+    try {
+      await TrueSheet.dismiss('account-switcher');
+      // Wait for dismissal to complete before proceeding with OAuth
+      await new Promise(resolve => setTimeout(resolve, 200));
+      await handleBlueskyLogin();
+    } catch (e) {
+      console.error('[AccountSwitcher] Error in handleBlueskyAddAccount:', e);
+    }
+  }, [handleBlueskyLogin]);
+
+  const handleCustomPDSAddAccount = useCallback(async () => {
+    console.log('[AccountSwitcher] Dismissing main sheet and showing username input');
+    // Use TrueSheet global method to dismiss the main sheet first, then present the username input
+    try {
+      await TrueSheet.dismiss('account-switcher'); // Dismiss the parent sheet first
+      // Wait a bit for the dismissal to complete before showing the username input
+      await new Promise(resolve => setTimeout(resolve, 200));
+      setShowUsernameInput(true); // Set state to true first
+      // Then use TrueSheet global method to present the username input sheet
+      await TrueSheet.present('username-input');
+    } catch (error) {
+      console.error('[AccountSwitcher] Error in handleCustomPDSAddAccount:', error);
+    }
+  }, []);
+
+  // Prepare list data including the add account options and edit button
   const listData = useMemo(() => {
     const accountItems = accounts.map(account => ({
       type: 'account' as const,
       data: account,
     }));
 
-    // Add the "Add Account" option only when in edit mode and onAddAccount is provided
+    // Add the "Add Account" options only when in edit mode and onAddAccount is provided
     if (editMode && onAddAccount) {
       accountItems.push({
-        type: 'add' as const,
+        type: 'addButtons' as const,
         data: null,
       } as any);
     }
@@ -260,36 +369,68 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   }, [accounts, onAddAccount, editMode]);
 
   const renderAccountItem = useCallback(({ item }: { item: typeof listData[0] }) => {
-    if ((item as any).type === 'add') {
+    if ((item as any).type === 'addButtons') {
       return (
-        <TouchableOpacity
-          style={[
-            styles.addAccountButton,
-            shouldUseGlass && styles.addAccountButtonGlass
-          ]}
-          onPress={handleAddAccount}
-          activeOpacity={0.8}
-          disabled={isAuthenticating}
-        >
-          {shouldUseGlass && (
-            <GlassView
-              style={StyleSheet.absoluteFill}
-              glassEffectStyle="clear"
-              tintColor="rgba(24,28,34,0.15)"
-              isInteractive
-            />
-          )}
-          <View style={styles.buttonContent}>
-            {isAuthenticating ? (
-              <ActivityIndicator color={Colors.white} size="small" style={{ marginRight: 8 }} />
-            ) : (
-              <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
-            )}
-            <Text style={styles.addAccountButtonText}>
-              {isAuthenticating ? 'Signing in...' : 'Add Account'}
-            </Text>
+        <View style={styles.addAccountSection}>
+          <Text style={styles.addAccountHeader}>Add Account</Text>
+          <View style={styles.addButtonsContainer}>
+            <TouchableOpacity
+              style={[
+                styles.addAccountButton,
+                styles.addAccountButtonHalf,
+                shouldUseGlass && styles.addAccountButtonGlass
+              ]}
+              onPress={handleBlueskyAddAccount}
+              activeOpacity={0.8}
+              disabled={isAuthenticating}
+            >
+              {shouldUseGlass && (
+                <GlassView
+                  style={StyleSheet.absoluteFill}
+                  glassEffectStyle="clear"
+                  tintColor="rgba(24,28,34,0.15)"
+                  isInteractive
+                />
+              )}
+              <View style={styles.buttonContent}>
+                {isAuthenticating ? (
+                  <ActivityIndicator color={Colors.white} size="small" style={{ marginRight: 8 }} />
+                ) : (
+                  <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
+                )}
+                <Text style={styles.addAccountButtonText}>
+                  {isAuthenticating ? 'Signing in...' : 'Bluesky'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.addAccountButton,
+                styles.addAccountButtonHalf,
+                shouldUseGlass && styles.addAccountButtonGlass
+              ]}
+              onPress={handleCustomPDSAddAccount}
+              activeOpacity={0.8}
+              disabled={isAuthenticating}
+            >
+              {shouldUseGlass && (
+                <GlassView
+                  style={StyleSheet.absoluteFill}
+                  glassEffectStyle="clear"
+                  tintColor="rgba(24,28,34,0.15)"
+                  isInteractive
+                />
+              )}
+              <View style={styles.buttonContent}>
+                <Icon name="at" size={20} color={Colors.lightGray} style={{ marginRight: 8 }} />
+                <Text style={styles.addAccountButtonText}>
+                  Custom PDS
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       );
     }
 
@@ -403,37 +544,124 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         )}
       </TouchableOpacity>
     );
-  }, [switchingAccount, editMode, customColors, handleSwitchAccount, handleRemoveAccount, handleAddAccount, isAuthenticating]);
+  }, [switchingAccount, editMode, customColors, handleSwitchAccount, handleRemoveAccount, handleBlueskyAddAccount, handleCustomPDSAddAccount, isAuthenticating]);
 
   const keyExtractor = useCallback((item: typeof listData[0]) => {
     const type = (item as any).type;
-    if (type === 'add') return 'add';
+    if (type === 'addButtons') return 'addButtons';
     if (type === 'edit') return 'edit';
     return item.data.id;
   }, []);
 
   return (
-    <VerticalListSheet
-      visible={visible}
-      onDismiss={onDismiss}
-      title="switch account"
-      showCancelButton={true}
-    >
+    <>
+      <VerticalListSheet
+        visible={visible}
+        onDismiss={onDismiss}
+        title="Switch Account"
+        showCancelButton={true}
+        name="account-switcher"
+      >
+        
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.lightGray} />
+          </View>
+        ) : (
+          <FlashList
+            data={listData}
+            renderItem={renderAccountItem}
+            keyExtractor={keyExtractor}
+            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom }]}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </VerticalListSheet>
       
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.lightGray} />
-        </View>
-      ) : (
-        <FlashList
-          data={listData}
-          renderItem={renderAccountItem}
-          keyExtractor={keyExtractor}
-          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom }]}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-    </VerticalListSheet>
+       <VerticalListSheet
+         visible={showUsernameInput}
+         onDismiss={async () => {
+           console.log('[AccountSwitcher] Username input dismissed');
+           setShowUsernameInput(false);
+           setUsername('');
+           setPdsError(null);
+         }}
+         title="Add Account"
+         showCancelButton={false}
+         name="username-input"
+       >
+          <View style={styles.usernameInputContainer}>
+            {pdsError && (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{pdsError}</Text>
+              </View>
+            )}
+            
+            <View style={styles.inputContainer}>
+              <Icon name="at" size={20} color={Colors.gray} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your handle (e.g., user.domain.com)"
+                placeholderTextColor={Colors.gray}
+                value={username}
+                onChangeText={(text) => {
+                  setUsername(text);
+                  if (pdsError) setPdsError(null); // Clear error when user starts typing
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="go"
+                onSubmitEditing={handleUsernameLogin}
+                editable={!isAddingAccount && !isValidatingPds}
+                autoFocus
+              />
+            </View>
+            
+            <Text style={styles.helpText}>
+              Enter your full handle (e.g., user.domain.com) or email address
+            </Text>
+            
+            <TouchableOpacity
+              style={[
+                styles.liquidGlassButton,
+                (!username.trim() || isAddingAccount || isValidatingPds) && styles.loginButtonDisabled
+              ]}
+              onPress={handleUsernameLogin}
+              disabled={!username.trim() || isAddingAccount || isValidatingPds}
+            >
+              <BlurView
+                intensity={20}
+                tint="light"
+                style={styles.blurContainer}
+              >
+                <LinearGradient
+                  colors={
+                    (!username.trim() || isAddingAccount || isValidatingPds)
+                      ? ['rgba(128, 128, 128, 0.3)', 'rgba(128, 128, 128, 0.1)']
+                      : ['rgba(3, 133, 255, 0.8)', 'rgba(3, 133, 255, 0.6)']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.glassGradient}
+                >
+                  <View style={styles.glassOverlay}>
+                    {isAddingAccount || isValidatingPds ? (
+                      <View style={styles.buttonContent}>
+                        <ActivityIndicator color={Colors.white} size="small" style={{ marginRight: 8 }} />
+                        <Text style={styles.loginButtonText}>
+                          {isValidatingPds ? 'Connecting...' : 'Signing in...'}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.loginButtonText}>Sign In</Text>
+                    )}
+                  </View>
+                </LinearGradient>
+              </BlurView>
+            </TouchableOpacity>
+          </View>
+        </VerticalListSheet>
+    </>
   );
 };
 
@@ -495,15 +723,34 @@ const styles = StyleSheet.create({
   activeAccountButton: {
     backgroundColor: Colors.darkGray,
   },
+  addAccountSection: {
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  addAccountHeader: {
+    color: Colors.lightGray,
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Firma-SemiBold',
+    marginBottom: 12,
+    textAlign: 'left',
+  },
+  addButtonsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   addAccountButton: {
     backgroundColor: Colors.darkGray,
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 16,
     paddingHorizontal: 20,
-    marginBottom: 12,
     overflow: 'hidden',
     borderWidth: 0,
     borderColor: 'transparent',
+  },
+  addAccountButtonHalf: {
+    flex: 1,
+    marginBottom: 0,
   },
   addAccountButtonGlass: {
     backgroundColor: 'transparent',
@@ -576,6 +823,97 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
+  },
+  usernameInputContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    marginBottom: 20,
+    paddingHorizontal: 16,
+    height: 56,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    color: Colors.white,
+    fontSize: 16,
+    height: '100%',
+    fontFamily: 'Firma-SemiBold',
+  },
+  liquidGlassButton: {
+    borderRadius: BORDER_RADIUS.LARGE,
+    marginTop: 8,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  blurContainer: {
+    borderRadius: BORDER_RADIUS.LARGE,
+    overflow: 'hidden',
+  },
+  glassGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: BORDER_RADIUS.LARGE,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  glassOverlay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loginButton: {
+    backgroundColor: Colors.bluesky,
+    borderRadius: BORDER_RADIUS.LARGE,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loginButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: Colors.darkGray,
+  },
+  loginButtonText: {
+    color: Colors.white,
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Firma-SemiBold',
+  },
+  errorContainer: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+    borderRadius: BORDER_RADIUS.SMALL,
+  },
+  errorText: {
+    color: '#ff4444',
+    fontSize: 14,
+    fontFamily: 'Firma-Medium',
+    textAlign: 'center',
+  },
+  helpText: {
+    color: Colors.gray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 20,
+    lineHeight: 18,
   },
 });
 

@@ -871,7 +871,7 @@
     "@babel/plugin-transform-react-jsx-development" "^7.27.1"
     "@babel/plugin-transform-react-pure-annotations" "^7.27.1"
 
-"@babel/preset-typescript@^7.16.7", "@babel/preset-typescript@^7.23.0":
+"@babel/preset-typescript@^7.16.7", "@babel/preset-typescript@^7.17.12", "@babel/preset-typescript@^7.23.0":
   version "7.27.1"
   resolved "https://registry.yarnpkg.com/@babel/preset-typescript/-/preset-typescript-7.27.1.tgz#190742a6428d282306648a55b0529b561484f912"
   integrity sha512-l7WfQfX0WK4M0v2RudjuQK4u99BS6yLHYEmdtVPP7lKV013zr9DygFuWNlnbvQ9LR+LS0Egz/XAvGx5U9MX0fQ==
@@ -5439,6 +5439,13 @@ react-native-compressor@^1.12.0:
   version "1.12.0"
   resolved "https://registry.yarnpkg.com/react-native-compressor/-/react-native-compressor-1.12.0.tgz#4c387f100ec6d98adbee10c22496d0e42397d8bf"
   integrity sha512-NMAYpXnTLwx/KecwlLF+9Dnrn/tKV5UVfta8Lk9eROsb05JYnUoKLprRzSSpHcyLjIdQAVaTtx2lPYsappMezw==
+
+react-native-draggable-flatlist@^4.0.3:
+  version "4.0.3"
+  resolved "https://registry.yarnpkg.com/react-native-draggable-flatlist/-/react-native-draggable-flatlist-4.0.3.tgz#eb0bb3149059f48855b53aeb9728ab2eb361e4db"
+  integrity sha512-2F4x5BFieWdGq9SetD2nSAR7s7oQCSgNllYgERRXXtNfSOuAGAVbDb/3H3lP0y5f7rEyNwabKorZAD/SyyNbDw==
+  dependencies:
+    "@babel/preset-typescript" "^7.17.12"
 
 react-native-flipper@^0.273.0:
   version "0.273.0"

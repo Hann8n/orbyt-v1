@@ -1056,10 +1056,10 @@ export const ArrowLeftFillIcon: React.FC<{ size: number; color: string; style?: 
 };
 
 // Custom At Line Icon component
-const AT_LINE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="M4.5 12A7.5 7.5 0 0 1 12 4.5c5.05 0 7.917 4.167 7.51 7.834c-.113 1.009-.402 1.558-.623 1.85c-.26.344-.732.67-1.184.654c-.33-.012-.232-.475-.21-.689l.5-5a1.5 1.5 0 0 0-2.396-1.347A5.5 5.5 0 0 0 12.031 6.5C9.008 6.5 6.5 8.948 6.5 12c0 3.056 2.518 5.5 5.538 5.5a5.55 5.55 0 0 0 3.096-.946q.244.334.584.604c1.108.878 2.582.869 3.953.184a4.54 4.54 0 0 0 1.61-1.35c.585-.774 1.046-1.85 1.21-3.326C23.083 7.333 18.949 1.5 12 1.5C6.201 1.5 1.5 6.201 1.5 12S6.201 22.5 12 22.5c1.674 0 3.26-.393 4.668-1.092a1.5 1.5 0 0 0-1.336-2.687A7.5 7.5 0 0 1 4.5 12m5 0c0-1.366 1.135-2.5 2.53-2.5c1.609 0 2.808 1.481 2.484 3.016c-.24 1.143-1.28 1.984-2.476 1.984c-1.4 0-2.538-1.137-2.538-2.5"/></g></svg>`;
+const AT_LINE_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>at_line</title><g id="at_line" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011l.018.43l.005.012l.008.007l.201.093c.012.004.023 0 .029-.008l.004-.014l-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z'/><path fill='#000000FF' d='M4 12a8 8 0 0 1 8-8c5.367 0 8.445 4.445 8.006 8.39-.12 1.086-.438 1.723-.72 2.095-.281.373-.571.54-.733.62-.753.377-1.133.212-1.283.093-.19-.15-.372-.503-.284-1.034l.006-.032.503-5.032a1 1 0 0 0-1.867-.59A5.025 5.025 0 0 0 12.03 7C9.279 7 7 9.229 7 12c0 2.774 2.288 5 5.038 5 1.212 0 2.35-.436 3.237-1.176.175.36.425.682.753.942.917.726 2.172.752 3.42.128.337-.168.91-.51 1.434-1.203.524-.694.956-1.682 1.112-3.08C22.556 7.554 18.633 2 12 2 6.477 2 2 6.477 2 12s4.477 10 10 10a9.963 9.963 0 0 0 4.445-1.04 1 1 0 0 0-.89-1.791A8 8 0 0 1 4 12m5 0c0-1.647 1.364-3 3.03-3 1.92 0 3.364 1.767 2.974 3.62-.291 1.378-1.539 2.38-2.966 2.38C10.368 15 9 13.645 9 12'/></g></svg>`;
 
 export const AtLineIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
-  const svgXml = AT_LINE_ICON_SVG.replace(/#fff/g, color);
+  const svgXml = AT_LINE_ICON_SVG.replace(/#000000FF/g, color);
   return (
     <SvgXml 
       xml={svgXml} 
@@ -1159,6 +1159,17 @@ export const Shuffle2FillIcon: React.FC<{ size: number; color: string; style?: S
   );
 };
 
+export const MenuFillIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  return (
+    <SvgXml 
+      xml={`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>menu_fill</title><g id="menu_fill" fill='none'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='${color}' d='M20 17.5a1.5 1.5 0 0 1 .144 2.993L20 20.5H4a1.5 1.5 0 0 1-.144-2.993L4 17.5zm0-7a1.5 1.5 0 0 1 0 3H4a1.5 1.5 0 0 1 0-3zm0-7a1.5 1.5 0 0 1 0 3H4a1.5 1.5 0 1 1 0-3z'/></g></svg>`}
+      width={size} 
+      height={size} 
+      style={style} 
+    />
+  );
+};
+
 interface IconProps {
   name: string;
   size?: number;
@@ -1236,6 +1247,9 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'message-delete') {
       return <CloseFillIcon size={size} color={color} style={style} />;
     }
+    if (name === 'menu-fill' || name === 'drag-handle') {
+      return <MenuFillIcon size={size} color={color} style={style} />;
+    }
     if (name === 'checkmark' || name === 'check') {
       return <CheckIcon size={size} color={color} strokeWidth={strokeWidth} />;
     }
@@ -1310,6 +1324,9 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'camera-rotate' || name === 'camera-rotate-fill') {
       return <CameraRotateIcon size={size} color={color} style={style} />;
     }
+    if (name === 'at' || name === 'at-line') {
+      return <AtLineIcon size={size} color={color} style={style} />;
+    }
 
     // Explicit mapping of remaining names to local SVGs only
     // Common aliases routed to existing local icons
@@ -1327,6 +1344,7 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'user') return <UserIcon size={size} color={color} style={style} />;
     if (name === 'users') return <UserIcon size={size} color={color} style={style} />;
     if (name === 'user-plus') return <PlusIcon size={size} color={color} strokeWidth={2.5} />;
+    if (name === 'plus') return <PlusIcon size={size} color={color} strokeWidth={2.5} />;
     if (name === 'minus-fill') return <MinusFillIcon size={size} color={color} style={style} />;
     if (name === 'trash') return <TrashIcon size={size} color={color} style={style} />;
     if (name === 'delete-2-fill') return <Delete2FillIcon size={size} color={color} style={style} />;
