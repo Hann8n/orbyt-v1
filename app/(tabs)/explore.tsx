@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
@@ -358,11 +358,12 @@ const PopularChannelButton = ({ channel, onPress }: { channel: Channel; onPress:
 };
 
 // Profiles Feed Renderer Component
-const ProfilesFeedRenderer = ({ searchResults, onFollow, followedUsers, cacheUpdateTrigger }: {
+const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUsers, cacheUpdateTrigger, isLoading }: {
   searchResults: SearchResult[];
   onFollow: (profile: Profile) => void;
   followedUsers: Set<string>;
   cacheUpdateTrigger: number;
+  isLoading?: boolean;
 }) => {
   const navigation = useRouter();
   const queryClient = useQueryClient();
@@ -373,6 +374,19 @@ const ProfilesFeedRenderer = ({ searchResults, onFollow, followedUsers, cacheUpd
     .filter((profile, index, self) => 
       index === self.findIndex(p => p.did === profile.did)
     );
+
+  // Show shimmer loading state when loading
+  if (isLoading) {
+    return (
+      <FlashList
+        data={Array(15).fill(0)}
+        keyExtractor={(_, index) => `profile-shimmer-${index}`}
+        renderItem={() => <ProfileShimmer />}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+      />
+    );
+  }
 
   return (
     <FlashList
@@ -443,10 +457,10 @@ const ProfilesFeedRenderer = ({ searchResults, onFollow, followedUsers, cacheUpd
       )}
     />
   );
-};
+});
 
 // Channels Feed Renderer Component
-const ChannelsFeedRenderer = ({ searchResults }: { searchResults: SearchResult[] }) => {
+const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading }: { searchResults: SearchResult[]; isLoading?: boolean }) => {
   const navigation = useRouter();
 
   const channels = searchResults
@@ -455,6 +469,19 @@ const ChannelsFeedRenderer = ({ searchResults }: { searchResults: SearchResult[]
     .filter((channel, index, self) => 
       index === self.findIndex(c => c.uri === channel.uri)
     );
+
+  // Show shimmer loading state when loading
+  if (isLoading) {
+    return (
+      <FlashList
+        data={Array(15).fill(0)}
+        keyExtractor={(_, index) => `channel-shimmer-${index}`}
+        renderItem={() => <ChannelShimmer />}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+      />
+    );
+  }
 
   return (
     <FlashList
@@ -497,16 +524,17 @@ const ChannelsFeedRenderer = ({ searchResults }: { searchResults: SearchResult[]
       )}
     />
   );
-};
+});
 
 
 // Custom Feed Renderer for Search Results
-const SearchFeedRenderer = ({ feedOption, searchResults, onFollow, followedUsers, cacheUpdateTrigger }: {
+const SearchFeedRenderer = React.memo(({ feedOption, searchResults, onFollow, followedUsers, cacheUpdateTrigger, isLoading }: {
   feedOption: string;
   searchResults: SearchResult[];
   onFollow: (profile: Profile) => void;
   followedUsers: Set<string>;
   cacheUpdateTrigger: number;
+  isLoading?: boolean;
 }) => {
   if (feedOption === 'profiles') {
     return (
@@ -515,13 +543,14 @@ const SearchFeedRenderer = ({ feedOption, searchResults, onFollow, followedUsers
         onFollow={onFollow}
         followedUsers={followedUsers}
         cacheUpdateTrigger={cacheUpdateTrigger}
+        isLoading={isLoading}
       />
     );
   } else if (feedOption === 'channels') {
-    return <ChannelsFeedRenderer searchResults={searchResults} />;
+    return <ChannelsFeedRenderer searchResults={searchResults} isLoading={isLoading} />;
   }
   return null;
-};
+});
 
 const ExploreScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -531,8 +560,6 @@ const ExploreScreen: React.FC = () => {
   const [cacheUpdateTrigger, setCacheUpdateTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState<'profiles' | 'channels'>('profiles');
   
-  // Ref for the swipeable FlatList
-  const swipeableFlatListRef = useRef<FlatList>(null);
 
   // Define tab options for search results
   const tabOptions: TabOption[] = useMemo(() => [
@@ -933,12 +960,12 @@ const ExploreScreen: React.FC = () => {
   // Limit suggested feeds to 5 for display
   const limitedSuggestedFeeds = useMemo(() => (suggestedFeeds ? suggestedFeeds.slice(0, 5) : []), [suggestedFeeds]);
 
-  // Update all suggestions when new data comes in (only for initial load)
+  // Update all suggestions when new data comes in
   useEffect(() => {
-    if (suggestedAccounts && allSuggestions.length === 0) {
+    if (suggestedAccounts && suggestedAccounts.length > 0) {
       setAllSuggestions(suggestedAccounts);
     }
-  }, [suggestedAccounts, allSuggestions.length]);
+  }, [suggestedAccounts]);
 
   // Batch prefetch suggested channels when they load
   useEffect(() => {
@@ -1107,12 +1134,6 @@ const ExploreScreen: React.FC = () => {
                 onTabPress={(tabId) => {
                   const newTab = tabId as 'profiles' | 'channels';
                   setActiveTab(newTab);
-                  // Scroll to the appropriate tab
-                  const index = newTab === 'profiles' ? 0 : 1;
-                  swipeableFlatListRef.current?.scrollToIndex({
-                    index,
-                    animated: true,
-                  });
                 }}
                 textColor={Colors.white}
                 backgroundColor="transparent"
@@ -1121,7 +1142,7 @@ const ExploreScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Swipeable Content */}
+          {/* Tab Content */}
           <View
             style={[
               styles.searchResultsContainer,
@@ -1132,36 +1153,16 @@ const ExploreScreen: React.FC = () => {
               },
             ]}
           >
-            <FlatList
-              ref={swipeableFlatListRef}
-              data={['profiles', 'channels']}
-              renderItem={({ item: feedType }) => (
-                <View style={styles.searchFeedPage}>
-                  <SearchFeedRenderer
-                    feedOption={feedType}
-                    searchResults={searchResults}
-                    onFollow={handleFollow}
-                    followedUsers={followedUsers}
-                    cacheUpdateTrigger={cacheUpdateTrigger}
-                  />
-                </View>
-              )}
-              keyExtractor={(item) => item}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(event) => {
-                const index = Math.round(event.nativeEvent.contentOffset.x / Dimensions.get('window').width);
-                setActiveTab(index === 0 ? 'profiles' : 'channels');
-              }}
-              style={styles.searchFeedList}
-              initialScrollIndex={activeTab === 'profiles' ? 0 : 1}
-              getItemLayout={(_, index) => ({
-                length: Dimensions.get('window').width,
-                offset: Dimensions.get('window').width * index,
-                index,
-              })}
-            />
+            <View style={styles.searchFeedPage}>
+              <SearchFeedRenderer
+                feedOption={activeTab}
+                searchResults={searchResults}
+                onFollow={handleFollow}
+                followedUsers={followedUsers}
+                cacheUpdateTrigger={cacheUpdateTrigger}
+                isLoading={isSearchLoading}
+              />
+            </View>
           </View>
         </>
       )}
@@ -1291,6 +1292,65 @@ const ExploreScreen: React.FC = () => {
             if (item.type === 'profile') return <ProfileShimmer />;
             if (item.type === 'channel') return <ChannelShimmer />;
             return <VideoShimmer />;
+          }
+          if (item.type === 'profile' && "data" in item) {
+            const profile = item.data as Profile;
+            return (
+              <View style={styles.profileItem}>
+                <TouchableOpacity
+                  style={styles.profileTouchable}
+                  onPress={() => {
+                    if (profile.handle) {
+                      const handle = profile.handle.trim();
+                      if (handle && handle.trim()) {
+                        queryClient.prefetchQuery({
+                          queryKey: profileKeys.detail(handle.trim()),
+                          queryFn: () => ProfileCache.getProfile(handle.trim()),
+                          staleTime: ProfileCache.cacheExpiry
+                        }).finally(() => {
+                          const target = handle.trim();
+                          if (target) { navigation.push(`/profile/${target}`); }
+                        });
+                      }
+                    }
+                  }}
+                >
+                  <Avatar
+                    uri={profile.avatar}
+                    type="profile"
+                    size={40}
+                    ringColor="transparent"
+                    style={styles.profileImage}
+                  />
+                  <View style={styles.profileContent}>
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                      <Text style={styles.displayName} numberOfLines={1}>
+                        {profile.displayName || profile.handle || 'Unknown user'}
+                      </Text>
+                      {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
+                        <VerificationBadge 
+                          handle={profile.handle.trim()} 
+                          textSize={14} 
+                          textColor={Colors.white}
+                        />
+                      )}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+                {!profile.isFollowing && (
+                  <TouchableOpacity
+                    style={styles.followButton}
+                    onPress={() => handleFollow(profile)}
+                  >
+                    {followedUsers.has(profile.handle || profile.did) ? (
+                      <Icon name="checkmark" size={16} color={Colors.lightGray} />
+                    ) : (
+                      <Icon name="user-plus" size={16} color={Colors.lightGray} />
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
           }
           if (item.type === 'popular-channels-section') {
             if (!('channels' in item) || !Array.isArray(item.channels)) {
@@ -1817,12 +1877,8 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: Colors.black,
   },
-  searchFeedList: {
-    flex: 1,
-  },
   searchFeedPage: {
-    width: Dimensions.get('window').width,
-    height: '100%',
+    flex: 1,
   },
 
   followButton: {

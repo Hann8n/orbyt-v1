@@ -55,6 +55,14 @@ interface UserProfile {
 
 interface CommentRecord {
   text: string;
+  facets?: Array<{
+    index: { byteStart: number; byteEnd: number };
+    features: Array<{
+      $type: string;
+      uri?: string;
+      tag?: string;
+    }>;
+  }>;
   embed?: {
     $type: string;
     images?: {

@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import { useRouter } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
@@ -86,16 +87,6 @@ const isVideoOrProfileNotification = (notification: any): boolean => {
   return false;
 };
 
-// Header component for the list
-const ActivityHeader = () => (
-  <View style={styles.headerContainer}>
-    <NotificationIcon 
-      size={24} 
-      color={Colors.white} 
-    />
-    <Text style={styles.header}>activity</Text>
-  </View>
-);
 
 const NotificationScreen: React.FC = () => {
   const navigation = useRouter();
@@ -271,29 +262,57 @@ const NotificationScreen: React.FC = () => {
 
   // Create shimmer placeholders based on estimated count
   const shimmerItems = useMemo(() => {
-    return Array(8).fill(0);
+    return Array(15).fill(0);
   }, []);
+
+  // Header component for the list
+  const ListHeaderComponent = () => (
+    <View style={styles.listHeader}>
+      <NotificationIcon 
+        size={24} 
+        color={Colors.white} 
+      />
+      <Text style={styles.header}>activity</Text>
+    </View>
+  );
 
   if (isError) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
-        <ActivityHeader />
-        <View style={[styles.errorContainer, { paddingBottom: bottomNavBarHeight }]}>
-          <Text style={styles.errorText}>
-            something went wrong loading notifications.
-          </Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>try again</Text>
-          </TouchableOpacity>
+      <View style={[styles.container, Platform.OS === 'android' ? { paddingTop: 0 } : null]}>
+        <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
+
+        {/* Dark blurred header - only covering status bar */}
+        <BlurView
+          intensity={80}
+          tint="dark"
+          style={[styles.topGradient, { top: 0, height: insets.top }]}
+        />
+
+        <View style={[styles.errorContainer, { paddingTop: insets.top + 20, paddingBottom: bottomNavBarHeight }]}>
+          <ListHeaderComponent />
+          <View style={styles.errorContent}>
+            <Text style={styles.errorText}>
+              something went wrong loading notifications.
+            </Text>
+            <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+              <Text style={styles.retryButtonText}>try again</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
+    <View style={[styles.container, Platform.OS === 'android' ? { paddingTop: 0 } : null]}>
+      <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
+
+      {/* Dark blurred header - only covering status bar */}
+      <BlurView
+        intensity={80}
+        tint="dark"
+        style={[styles.topGradient, { top: 0, height: insets.top }]}
+      />
       
       {/* Content */}
       <FlatList
@@ -305,7 +324,11 @@ const NotificationScreen: React.FC = () => {
         data={isLoading ? shimmerItems : notifications}
         renderItem={isLoading ? () => <NotificationShimmer /> : renderNotificationContent}
         keyExtractor={(item, index) => isLoading ? `shimmer-${index}` : item.uri || `notification-${index}`}
-        ListHeaderComponent={ActivityHeader}
+        ListHeaderComponent={() => (
+          <View style={{ paddingTop: insets.top + 10 }}>
+            <ListHeaderComponent />
+          </View>
+        )}
         onScroll={({ nativeEvent }) => {
           const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
           preloadNextPage(contentOffset.y, contentSize.height, layoutMeasurement.height);
@@ -355,7 +378,7 @@ const NotificationScreen: React.FC = () => {
           </View>
         ) : null}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -366,13 +389,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  headerContainer: {
+  topGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 100,
+    zIndex: 5,
+  },
+  listHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: 20,
-    paddingTop: 15,
-    paddingBottom: 5,
-    backgroundColor: 'transparent',
+    paddingVertical: 10,
+    marginBottom: 10,
   },
   header: {
     color: Colors.white,
@@ -417,9 +445,12 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
+    padding: 20,
+  },
+  errorContent: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
   errorText: {
     color: Colors.white,

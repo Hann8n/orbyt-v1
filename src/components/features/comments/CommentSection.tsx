@@ -308,6 +308,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   }, []);
 
+  // Clear reply context when post changes or component unmounts
+  useEffect(() => {
+    return () => {
+      setReplyContext(null);
+    };
+  }, [post?.uri]);
+
   const handleCancelReply = useCallback(() => {
     setReplyContext(null);
     // Keep focus on input after canceling reply
@@ -459,7 +466,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   // Create a stable footer component as ReactElement for TrueSheet compatibility
   const FooterComponent = useMemo(() => {
-    const placeholder = (totalComments === 0 ? 'add a comment...' : 'Say something nice...');
+    const placeholder = replyContext 
+      ? `Replying to ${replyContext.authorName}`.length > 15 
+        ? `Replying to ${replyContext.authorName.substring(0, 12)}...`
+        : `Replying to ${replyContext.authorName}`
+      : (totalComments === 0 ? 'add a comment...' : 'Say something nice...');
 
     const hasText = newCommentText.trim().length > 0;
     const showSendButton = hasText;
@@ -469,24 +480,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     
     const footerContent = (
       <View style={[styles.inputContainer, { paddingBottom: Math.max(5, insets.bottom) }]}>
-        {replyContext && (
-          <View style={styles.replyContextContainer}>
-            <Text
-              style={styles.replyContextText}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {`Replying to ${replyContext.authorName}`}
-            </Text>
-            <TouchableOpacity
-              onPress={handleCancelReply}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              activeOpacity={0.7}
-            >
-              <Icon name="close" size={18} color={Colors.white} />
-            </TouchableOpacity>
-          </View>
-        )}
         <View style={styles.inputRow}>
           {currentUserProfile?.avatar && (
             <View style={styles.avatarContainer}>
@@ -527,22 +520,40 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             />
           </View>
           <View style={styles.sendColumn}>
-            {showSendButton && (
+            {replyContext ? (
               <TouchableOpacity
                 style={[
                   styles.sendButton,
-                  isSendDisabled && styles.sendButtonDisabled
+                  !hasText && styles.cancelReplyButton
                 ]}
-                onPress={handleSendComment}
-                disabled={isSendDisabled}
+                onPress={hasText ? handleSendComment : handleCancelReply}
+                disabled={hasText && isSendDisabled}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Icon 
-                  name="send-plane-fill" 
-                  size={22} 
-                  color={Colors.black}
+                  name={hasText ? "send-plane-fill" : "close"}
+                  size={hasText ? 22 : 18}
+                  color={hasText ? Colors.black : Colors.lightGray}
                 />
               </TouchableOpacity>
+            ) : (
+              showSendButton && (
+                <TouchableOpacity
+                  style={[
+                    styles.sendButton,
+                    isSendDisabled && styles.sendButtonDisabled
+                  ]}
+                  onPress={handleSendComment}
+                  disabled={isSendDisabled}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Icon 
+                    name="send-plane-fill" 
+                    size={22} 
+                    color={Colors.black}
+                  />
+                </TouchableOpacity>
+              )
             )}
             {showCharCount && (
               <Text style={[
@@ -1054,22 +1065,8 @@ const styles = StyleSheet.create({
     sendButtonDisabled: {
       opacity: 0.5,
     },
-    replyContextContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+    cancelReplyButton: {
       backgroundColor: 'rgba(255, 255, 255, 0.1)',
-      borderRadius: BORDER_RADIUS.MEDIUM,
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.2)',
-    },
-    replyContextText: {
-      color: Colors.white,
-      fontSize: 14,
-      fontFamily: 'Firma-SemiBold',
     },
   modalOverlay: {
     flex: 1,
