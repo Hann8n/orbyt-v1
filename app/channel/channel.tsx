@@ -248,9 +248,28 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
               isVisible={true}
             />
           ) : (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ color: channelColors.textColor }}>Loading channel...</Text>
-            </View>
+            <FeedRenderer
+              feedOption=""
+              userDid={undefined}
+              headerComponent={headerComponent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={channelColors.textColor}
+                />
+              }
+              backgroundColor={Colors.black}
+              secondaryColor={channelColors.textColor}
+              isProfileLoading={isLoadingChannel && !channelDataForFeed}
+              isRefreshing={refreshing}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onPositionChange={handlePositionChange}
+              initialPosition={undefined}
+              queryOptions={{ enabled: false }}
+              isVisible={true}
+            />
           )
         ) : (
           <MembersListView

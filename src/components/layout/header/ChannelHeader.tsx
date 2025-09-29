@@ -317,11 +317,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   const skeleton = useMemo(() => (
     <HeaderSkeleton
       textColor={safeTextColor}
+      backgroundColor={safeBackgroundColor}
       showAvatar={true}
       showDescription={true}
       avatarStyle="rounded-square"
     />
-  ), [safeTextColor]);
+  ), [safeTextColor, safeBackgroundColor]);
 
   // Create children with subscribe button and other content
   const headerChildren = useMemo(() => (
