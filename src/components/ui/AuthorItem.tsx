@@ -4,11 +4,11 @@ import { TouchableOpacity, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/verification/VerificationBadge';
-import Icon from './Icon';
+import Icon, { FollowIcon, CheckIcon } from './Icon';
 import { extractColorsFromImage } from '../../utils/formatting/colorUtils';
 import { Colors } from './UI';
 
-import { useProfile, useProfileColors } from '../../services/cache/ProfileCache';
+import { useProfile, useProfileColors, useFollowMutation } from '../../services/cache/ProfileCache';
 import { useCurrentUser } from '../../stores/userStore';
  
 
@@ -88,6 +88,8 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   const { data: cachedProfile } = useProfile(handle);
   const actualIsFollowing = cachedProfile?.isFollowing ?? isFollowing;
 
+  const followMutation = useFollowMutation();
+
   const handlePress = () => {
     if (onPress) {
       onPress();
@@ -102,6 +104,14 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
       }, 100);
     }
   };
+
+  const handleFollowPress = useCallback(() => {
+    if (onFollowPress) {
+      onFollowPress();
+    } else if (handle) {
+      followMutation.mutate({ handle, isFollowing: !actualIsFollowing });
+    }
+  }, [onFollowPress, handle, followMutation, actualIsFollowing]);
 
   return (
     <TouchableOpacity
@@ -158,17 +168,19 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           <TouchableOpacity
             style={[
               styles.followButton,
-              { borderColor: textColor || Colors.white },
-              actualIsFollowing && { backgroundColor: textColor || Colors.white }
+              {
+                backgroundColor: textColor || Colors.white,
+                borderColor: textColor || Colors.white,
+              }
             ]}
-            onPress={onFollowPress}
+            onPress={handleFollowPress}
+            activeOpacity={0.8}
           >
-            <Text style={[
-              styles.followButtonText,
-              { color: actualIsFollowing ? '#000' : (textColor || Colors.white) }
-            ]}>
-              {actualIsFollowing ? 'Following' : 'Follow'}
-            </Text>
+            {actualIsFollowing ? (
+              <CheckIcon size={16} color={Colors.black} strokeWidth={2} />
+            ) : (
+              <FollowIcon size={16} color={Colors.black} />
+            )}
           </TouchableOpacity>
         ) : showArrow && (
           <View style={styles.accountArrow}>

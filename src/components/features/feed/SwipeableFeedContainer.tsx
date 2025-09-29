@@ -37,6 +37,8 @@ interface SwipeableFeedContainerProps {
   isRefreshing?: boolean;
   forceError?: boolean; // Add debug flag to force error responses
   applySafeArea?: boolean;
+  // Optional override for indicator text size (used by Home screen)
+  indicatorFontSize?: number;
 }
 
 const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
@@ -45,6 +47,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   isRefreshing = false,
   forceError = false, // Add debug flag to force error responses
   applySafeArea = false,
+  indicatorFontSize,
 }) => {
   const flatListRef = useRef<FlatList>(null);
   const indicatorScrollViewRef = useRef<any>(null);
@@ -396,12 +399,13 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
 
   // Dynamic base font size for channel indicators based on screen size
   const indicatorBaseFontSize = useMemo(() => {
+    if (typeof indicatorFontSize === 'number' && indicatorFontSize > 0) return indicatorFontSize;
     if (isTablet()) return 20;
     if (isSmallScreen()) return 16;
     const minDimension = Math.min(screenWidth, screenHeight);
     if (minDimension >= 420) return 18; // large phones/phablets
     return 16;
-  }, [screenWidth, screenHeight]);
+  }, [screenWidth, screenHeight, indicatorFontSize]);
 
   // Render individual feed with comprehensive memoization
   const renderFeed = useCallback(({ item: feedOption, index }: { item: FeedOption; index: number }) => {
@@ -765,6 +769,7 @@ const areEqual = (prevProps: SwipeableFeedContainerProps, nextProps: SwipeableFe
   if (prevProps.isRefreshing !== nextProps.isRefreshing) return false;
   if (prevProps.forceError !== nextProps.forceError) return false;
   if (prevProps.applySafeArea !== nextProps.applySafeArea) return false;
+  if (prevProps.indicatorFontSize !== nextProps.indicatorFontSize) return false;
   
   return true;
 };

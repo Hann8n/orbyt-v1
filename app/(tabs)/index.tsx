@@ -71,6 +71,7 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
         isRefreshing={isRefreshing}
         forceError={FORCE_FEED_ERROR}
         applySafeArea={true}
+        indicatorFontSize={18}
       />
     </View>
   );
