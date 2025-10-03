@@ -254,7 +254,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   }, [handleBlueskyLogin]);
 
   const handleCustomPDSAddAccount = useCallback(async () => {
-    console.log('[AccountSwitcher] Dismissing main sheet and showing custom PDS input');
     // Use TrueSheet global method to dismiss the main sheet first, then present the custom PDS input
     try {
       await TrueSheet.dismiss('account-switcher'); // Dismiss the parent sheet first
@@ -414,7 +413,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             if (staleFlag) {
               console.warn('[AccountSwitcher] isActive discrepancy', { did: account.did, itemFlag: account.isActive, derived: isActive, activeAccountDid });
             }
-            console.log('[AccountSwitcher] account row press', { did: account.did, isActive, editMode, activeAccountDid });
           }
           if (!isActive && !editMode) handleSwitchAccount(account);
         }}
@@ -525,7 +523,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
        <CustomPDSInputSheet
          visible={showUsernameInput}
          onDismiss={async () => {
-           console.log('[AccountSwitcher] Custom PDS input dismissed');
            setShowUsernameInput(false);
          }}
          onSignIn={handleCustomPDSSignIn}

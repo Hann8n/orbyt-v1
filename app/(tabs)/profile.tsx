@@ -125,7 +125,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           foregroundColor: colors.foregroundColor
         });
      } catch (error) {
-        console.error("Error extracting/saving colors:", error);
      }
   };
 
@@ -166,7 +165,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         // handled by hooks
       }
     } catch (error) {
-      console.error('Error during refresh:', error);
       setProfileError("Failed to refresh profile.");
     } finally {
       setRefreshing(false);
@@ -182,7 +180,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       ProfileCache.clearCache();
       await onLogout(clearAllAccounts);
     } catch (error) {
-      console.error('Error during logout:', error);
     } finally {
       setRefreshing(false);
     }
@@ -192,7 +189,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     try {
       await refetchProfile();
     } catch (error) {
-      console.error('Error handling account switch:', error);
     }
   };
 
@@ -204,16 +200,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     return currentDid && profileData?.did && currentDid === profileData.did;
   }, [isViewingOwnProfile, profileData?.did]);
 
-  // Debug logging
-  console.log('[ProfileScreen] isOwnProfileView calculation:', {
-    isViewingOwnProfile,
-    targetHandle,
-    userHandle,
-    profileDataDid: profileData?.did,
-    currentUserDid: currentUser?.did,
-    profileCacheDid: ProfileCache.getCurrentUserDid(),
-    result: isOwnProfileView
-  });
 
   const tabOptions: TabOption[] = useMemo(() => [
     { id: 'profile', label: 'videos' },

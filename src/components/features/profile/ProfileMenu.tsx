@@ -54,6 +54,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   const { removeAccount } = useAccountManagement();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isBlocked, setIsBlocked] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
   const insets = useSafeAreaInsets();
   
   // TrueSheet refs for proper stacking
@@ -74,10 +75,27 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     initialData: false
   });
 
+  // Check mute status for non-own profiles
+  const { data: muteStatus = false } = useQuery({
+    queryKey: ['mutes', 'status', profile?.did || ''],
+    queryFn: async () => {
+      if (!profile?.did) return false;
+      const mutedUsers = await AtprotoService.getMutedUsersFromAPI();
+      return mutedUsers.includes(profile.did);
+    },
+    enabled: visible && !!profile?.did && !isOwnProfile,
+    initialData: false
+  });
+
   // Update isBlocked state when blockStatus changes
   useEffect(() => {
     setIsBlocked(blockStatus);
   }, [blockStatus]);
+
+  // Update isMuted state when muteStatus changes
+  useEffect(() => {
+    setIsMuted(muteStatus);
+  }, [muteStatus]);
 
   // Block/unblock handler
   const handleBlockToggle = useCallback(async () => {
@@ -119,6 +137,47 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       setIsSubmitting(false);
     }
   }, [profile?.did, isBlocked, onDismiss, queryClient]);
+
+  // Mute/unmute handler
+  const handleMuteToggle = useCallback(async () => {
+    if (!profile?.did) return;
+
+    try {
+      setIsSubmitting(true);
+      
+      if (isMuted) {
+        await AtprotoService.unmuteUser(profile.did);
+        queryClient.invalidateQueries({ queryKey: ['mutes', 'status', profile.did] });
+        setIsMuted(false);
+      } else {
+        Alert.alert(
+          'mute user',
+          'are you sure you want to mute this user? you will not see their posts in your timeline.',
+          [
+            {
+              text: 'cancel',
+              style: 'cancel'
+            },
+            {
+              text: 'mute',
+              style: 'destructive',
+              onPress: async () => {
+                await AtprotoService.muteUser(profile.did);
+                queryClient.invalidateQueries({ queryKey: ['mutes', 'status', profile.did] });
+                setIsMuted(true);
+                onDismiss();
+              }
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error toggling mute status:', error);
+      Alert.alert('error', 'failed to update mute status. please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [profile?.did, isMuted, onDismiss, queryClient]);
 
   // Report handler
   const handleReport = useCallback(async () => {
@@ -292,12 +351,9 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         },
         {
           id: 'mute',
-          label: 'mute',
-          icon: 'volume-x',
-          onPress: () => {
-            Alert.alert('mute', 'mute functionality will be implemented in a future update.');
-            onDismiss();
-          },
+          label: isMuted ? 'unmute' : 'mute',
+          icon: isMuted ? 'volume-2' : 'volume-x',
+          onPress: handleMuteToggle,
           color: Colors.lightGray
         },
         {

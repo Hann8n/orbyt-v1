@@ -355,7 +355,6 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
         }
       });
 
-      console.log('[EditProfileSheet] Profile update successful:', result);
       onDismiss();
     } catch (error) {
       console.error('[EditProfileSheet] Error updating profile:', error);

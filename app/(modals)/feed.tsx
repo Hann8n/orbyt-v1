@@ -50,13 +50,11 @@ const FeedScreen: React.FC = memo(() => {
 
   // Memoized close handler
   const handleClose = useCallback(() => {
-    console.log('[FeedScreen] Back button pressed, isHashtagFeed:', isHashtagFeed);
     feedService.clearCurrentFeed();
     // Try navigation.back() first, fallback to replace if it fails
     try {
       navigation.back();
     } catch (error) {
-      console.log('[FeedScreen] navigation.back() failed, using replace:', error);
       navigation.replace('/(tabs)');
     }
   }, [navigation, isHashtagFeed]);
@@ -67,7 +65,6 @@ const FeedScreen: React.FC = memo(() => {
         accessibilityRole="button"
         accessibilityLabel="Back"
         onPress={() => {
-          console.log('[FeedScreen] Back button onPress triggered');
           handleClose();
         }}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

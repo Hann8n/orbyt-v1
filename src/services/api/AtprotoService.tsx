@@ -1203,14 +1203,48 @@ class AtprotoService {
     }
   }
 
-  // Note: Mute/unmute functionality may need to be implemented differently
-  // as the API methods are not available in the current version
-  static async muteUser(did: string): Promise<void> {
-    throw new Error('Mute functionality not implemented');
+  /**
+   * Mute a user
+   * @param did - User DID to mute
+   * @returns Promise indicating success
+   */
+  static async muteUser(did: string): Promise<boolean> {
+    try {
+      await this.ensureSession();
+      
+      const { api } = await this.getApiClient();
+      
+      await api.app.bsky.graph.muteActor({
+        actor: did
+      });
+      
+      return true;
+    } catch (error: any) {
+      console.error('Error muting user:', error);
+      return false;
+    }
   }
 
+  /**
+   * Unmute a user
+   * @param did - User DID to unmute
+   * @returns Promise indicating success
+   */
   static async unmuteUser(did: string): Promise<boolean> {
-    throw new Error('Unmute functionality not implemented');
+    try {
+      await this.ensureSession();
+      
+      const { api } = await this.getApiClient();
+      
+      await api.app.bsky.graph.unmuteActor({
+        actor: did
+      });
+      
+      return true;
+    } catch (error: any) {
+      console.error('Error unmuting user:', error);
+      return false;
+    }
   }
 
   static async getPost(uri: string): Promise<any> {
@@ -1573,19 +1607,11 @@ class AtprotoService {
     };
   }): Promise<any> {
     try {
-      console.log('[AtprotoService] updateProfile called with:', {
-        displayName: updates.displayName,
-        description: updates.description,
-        hasAvatar: !!updates.avatar,
-        customColors: updates.customColors,
-      });
-      
       await this.ensureSession();
       
       // Use the correct upsertProfile method as per Bluesky documentation
       const { api } = await this.getApiClient();
       const updatedProfile = await api.upsertProfile(existingProfile => {
-        console.log('[AtprotoService] Existing profile before update:', existingProfile);
         
         const existing = existingProfile ?? {};
         
@@ -1605,18 +1631,15 @@ class AtprotoService {
           // We'll handle this in the main function
         }
         
-        console.log('[AtprotoService] Profile after updates:', existing);
         return existing;
       });
       
       // Handle avatar upload separately if provided
       if (updates.avatar) {
         try {
-          console.log('[AtprotoService] Processing avatar upload:', updates.avatar);
           
           // Check if this is a CDN URL (existing avatar) - we can't re-upload these
           if (updates.avatar.startsWith('https://') && updates.avatar.includes('cdn.bsky.app')) {
-            console.log('[AtprotoService] Skipping upload for existing CDN avatar');
             
             // Don't proceed with upload for existing avatars
             return;
@@ -1636,7 +1659,6 @@ class AtprotoService {
             throw new Error('Unsupported avatar format');
           }
 
-          console.log('[AtprotoService] Image blob created, size:', imageBlob.size);
 
           // Upload the image to Bluesky
           const { api } = await this.getApiClient();
@@ -1644,7 +1666,6 @@ class AtprotoService {
             encoding: 'image/jpeg'
           });
 
-          console.log('[AtprotoService] Avatar uploaded successfully:', uploadResult.data.blob);
 
           // Update profile with the new avatar
           await api.upsertProfile(existingProfile => {
@@ -1653,7 +1674,6 @@ class AtprotoService {
             return existing;
           });
           
-          console.log('[AtprotoService] Profile updated with new avatar');
         } catch (error) {
           console.error('[AtprotoService] Error uploading avatar:', error);
           throw new Error('Failed to upload avatar image');

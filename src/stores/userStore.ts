@@ -4,7 +4,7 @@
  * Centralizes all user-related state using DIDs as primary identifiers
  * Integrates with expo-atproto-auth for OAuth session management
  */
-import React from 'react';
+import React, { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -311,7 +311,6 @@ export const useUserStore = create<UserState>()(
             subscribedChannels: [],
           });
           
-          console.log('[userStore] Sign out completed successfully');
           
         } catch (error) {
           console.error('Error during sign out:', error);
@@ -1015,7 +1014,6 @@ export const useUserStore = create<UserState>()(
               if (!errorMessage.includes('oauth_reauth_required')) {
                 console.warn('[userStore] Failed to restore session for active account:', error);
               } else {
-                console.log('[userStore] Session expired, user needs to re-authenticate');
               }
               // Session expired, user needs to re-authenticate
               set({ 
@@ -1108,7 +1106,6 @@ export const useUserStore = create<UserState>()(
                 if (savedChannelsStr) await AsyncStorage.setItem(key, savedChannelsStr);
                 if (removedDefaultsStr) await AsyncStorage.setItem(removedKey, removedDefaultsStr);
                 if (channelOrderStr) await AsyncStorage.setItem(orderKey, channelOrderStr);
-                console.log('[userStore] Migrated channel data from v1 to v2');
               }
             } catch (migrationError) {
               console.warn('[userStore] Migration from v1 to v2 failed:', migrationError);
@@ -1176,7 +1173,6 @@ export const useUserStore = create<UserState>()(
           }
           
           // Fetch fresh data from the developer list
-          console.log('[userStore] Fetching developer list membership...');
           const allMembers: string[] = [];
           let cursor: string | undefined;
           
@@ -1213,7 +1209,6 @@ export const useUserStore = create<UserState>()(
             developerCacheTimestamp: now,
           });
           
-          console.log(`[userStore] Developer access: ${isDeveloper ? 'GRANTED' : 'DENIED'} for ${currentUser.did}`);
           
         } catch (error) {
           console.error('[userStore] Error refreshing developer access:', error);
@@ -1322,15 +1317,6 @@ export const useChannelSubscriptions = () => {
   };
 };
 
-export const useUserDataManagement = () => {
-  const invalidateAllUserData = useUserStore(state => state.invalidateAllUserData);
-  const clearAllCaches = useUserStore(state => state.clearAllCaches);
-  
-  return {
-    invalidateAllUserData,
-    clearAllCaches,
-  };
-};
 
 // Hook for accessing the agent directly
 export const useAgent = () => {
@@ -1387,7 +1373,7 @@ export const useFeedSettings = () => {
 export const useProfileCacheSync = () => {
   const currentUser = useUserStore(state => state.currentUser);
   
-  React.useEffect(() => {
+  useEffect(() => {
     if (currentUser?.did) {
       ProfileCache.setCurrentUserDid(currentUser.did);
     }
@@ -1403,7 +1389,7 @@ export const useProfileCacheSync = () => {
 export const useProfilePrecache = () => {
   const currentUser = useUserStore(state => state.currentUser);
   
-  React.useEffect(() => {
+  useEffect(() => {
     if (currentUser?.did) {
       ProfileCache.precacheCurrentUserProfile();
     }

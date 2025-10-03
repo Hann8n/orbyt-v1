@@ -1,5 +1,4 @@
 // Main app entry point
-export { default as App } from './App';
 
 // Re-export organized modules for easy access
 export * from './types';

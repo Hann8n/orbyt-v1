@@ -77,29 +77,15 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   useEffect(() => {
     const extractDefaultColors = async () => {
       if (profileData?.avatar) {
-        console.log('[ProfileHeader] Extracting colors from avatar:', profileData.avatar);
         try {
           const colors = await extractColorsFromImage(profileData.avatar);
-          console.log('[ProfileHeader] Extracted colors from avatar:', {
-            backgroundColor: colors.backgroundColor,
-            foregroundColor: colors.foregroundColor,
-            textColor: colors.textColor,
-            secondaryColor: colors.secondaryColor,
-            accentColor: colors.accentColor,
-            statusBarStyle: colors.statusBarStyle,
-          });
           
           setExtractedDefaultColors({
             backgroundColor: colors.backgroundColor,
             textColor: colors.foregroundColor,
           });
           
-          console.log('[ProfileHeader] Set extracted default colors:', {
-            backgroundColor: colors.backgroundColor,
-            textColor: colors.foregroundColor,
-          });
         } catch (error) {
-          console.error('[ProfileHeader] Error extracting default colors:', error);
           // Fallback to black/white if extraction fails
           setExtractedDefaultColors({
             backgroundColor: '#000000',
@@ -107,7 +93,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           });
         }
       } else {
-        console.log('[ProfileHeader] No avatar available for color extraction');
       }
     };
 
@@ -127,7 +112,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         isFollowing: !isCurrentlyFollowing,
       });
     } catch (error) {
-      console.error('Error during follow/unfollow:', error);
     }
   }, [profileData, followMutation]);
 
@@ -153,12 +137,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const customActions = useMemo((): CustomActionLayout[] => {
     if (!profileData) return [];
 
-    // Debug logging
-    console.log('[ProfileHeader] customActions calculation:', {
-      isOwnProfile,
-      profileDataHandle: profileData?.handle,
-      profileDataDid: profileData?.did,
-    });
 
     if (isOwnProfile) {
       return [
@@ -262,14 +240,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   // Get colors for description and tab navigation
   const dynamicColors = useMemo(() => {
-    console.log('[ProfileHeader] dynamicColors calculation:', {
-      profileColors: {
-        backgroundColor: profileColors.backgroundColor,
-        textColor: profileColors.textColor,
-      },
-    });
-    
-    console.log('[ProfileHeader] Using profile colors for dynamic colors');
     return {
       backgroundColor: profileColors.backgroundColor,
       textColor: profileColors.textColor,

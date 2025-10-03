@@ -109,7 +109,6 @@ class ProfileCache {
    * Gets the current user's DID
    */
   static getCurrentUserDid(): string | null {
-    console.log('[ProfileCache] getCurrentUserDid called, returning:', this.currentUserDid);
     return this.currentUserDid;
   }
 
@@ -214,7 +213,6 @@ class ProfileCache {
             }
             resolve(freshProfile);
           } catch (error) {
-            console.error('[ProfileCache] Error in getProfileByDid:', error, 'DID:', did);
             // If there's an error fetching fresh data but we have cached data, return that
             try {
               const cachedProfile = await this.getProfileFromCacheByDid(did);
@@ -223,7 +221,6 @@ class ProfileCache {
                 resolve(cachedProfile);
               }
             } catch (cacheError) {
-              console.error('[ProfileCache] Error retrieving from cache:', cacheError);
               resolve(null);
             }
           }
@@ -294,7 +291,6 @@ class ProfileCache {
             }
             resolve(freshProfile);
           } catch (error) {
-            console.error('[ProfileCache] Error in getProfile:', error, 'Handle:', handle);
             // If there's an error fetching fresh data but we have cached data, return that
             try {
               const normalizedHandle = handle.trim().toLowerCase();
@@ -304,7 +300,6 @@ class ProfileCache {
                 resolve(cachedProfile);
               }
             } catch (cacheError) {
-              console.error('[ProfileCache] Error retrieving from cache:', cacheError);
               resolve(null);
             }
           }
@@ -329,7 +324,6 @@ class ProfileCache {
             this.notifyProfileUpdated(did);
             resolve(freshProfile);
           } catch (error) {
-            console.error('[ProfileCache] Error refreshing profile by DID:', error);
             resolve(null);
           }
         }, 0);
@@ -356,7 +350,6 @@ class ProfileCache {
             this.notifyProfileUpdated(normalizedHandle);
             resolve(freshProfile);
           } catch (error) {
-            console.error('[ProfileCache] Error refreshing profile:', error);
             resolve(null);
           }
         }, 0);
@@ -407,7 +400,6 @@ class ProfileCache {
                     profileColors = await extractColorsFromImage(profile.avatar);
                   }
                 } catch (e) {
-                  console.error('[ProfileCache] Error extracting colors:', e);
                 }
 
                 // Get following status from viewer relationship data
@@ -469,7 +461,6 @@ class ProfileCache {
             }
             resolve();
           } catch (error) {
-            console.error('[ProfileCache] Error in cacheProfiles:', error);
             resolve();
           }
         }, 0);
@@ -522,7 +513,6 @@ class ProfileCache {
             }
             resolve();
           } catch (error) {
-            console.error('[ProfileCache] Error updating following status:', error);
             resolve();
           }
         }, 0);
@@ -543,11 +533,6 @@ class ProfileCache {
   ): Promise<void> {
     if (!handle) return;
     
-    console.log('[ProfileCache] updateProfileColors called:', {
-      handle,
-      backgroundColor,
-      foregroundColor,
-    });
     
     return new Promise((resolve) => {
       // Move color updates to background
@@ -564,11 +549,6 @@ class ProfileCache {
               cachedProfile = (await this.getProfileFromCache(normalizedHandle)) || undefined;
             }
             
-            console.log('[ProfileCache] Found cached profile for colors update:', {
-              handle: normalizedHandle,
-              hasCachedProfile: !!cachedProfile,
-              existingColors: cachedProfile?.profileColors,
-            });
             
             if (cachedProfile) {
               const oldColors = cachedProfile.profileColors;
@@ -582,10 +562,6 @@ class ProfileCache {
               
               cachedProfile.lastUpdated = Date.now();
               
-              console.log('[ProfileCache] Updated profile colors:', {
-                oldColors,
-                newColors: cachedProfile.profileColors,
-              });
               
               // Update both memory and storage
               this.memoryCache.set(normalizedHandle, {...cachedProfile});
@@ -594,13 +570,10 @@ class ProfileCache {
               // Notify subscribers of a profile update
               this.notifyProfileUpdated(normalizedHandle);
               
-              console.log('[ProfileCache] Colors saved to cache successfully');
             } else {
-              console.log('[ProfileCache] No cached profile found for colors update');
             }
             resolve();
           } catch (error) {
-            console.error('[ProfileCache] Error updating profile colors:', error);
             resolve();
           }
         }, 0);
@@ -661,7 +634,6 @@ class ProfileCache {
             }
             resolve();
           } catch (error) {
-            console.error('[ProfileCache] Error updating verification status:', error);
             resolve();
           }
         }, 0);
@@ -705,7 +677,6 @@ class ProfileCache {
             await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(merged));
             this.notifyProfileUpdated(normalizedHandle);
           } catch (error) {
-            console.error('[ProfileCache] Error applying server profile:', error);
           } finally {
             resolve();
           }
@@ -736,7 +707,6 @@ class ProfileCache {
             // Return verification status from cached profile data
             resolve(profile.verification?.isVerified || false);
           } catch (error) {
-            console.error('[ProfileCache] Error checking verification:', error);
             resolve(false);
           }
         }, 0);
@@ -766,7 +736,6 @@ class ProfileCache {
             // Return verification data from cached profile
             resolve(profile.verification || null);
           } catch (error) {
-            console.error('[ProfileCache] Error getting verification details:', error);
             resolve(null);
           }
         }, 0);
@@ -813,7 +782,6 @@ class ProfileCache {
         try {
           callback();
         } catch (e) {
-          console.error('[ProfileCache] Error in profile update callback:', e);
         }
       });
     }
@@ -841,7 +809,6 @@ class ProfileCache {
               try {
                 profileColors = await extractColorsFromImage(profile.avatar);
               } catch (e) {
-                console.error('[ProfileCache] Error extracting colors:', e);
               }
             }
 
@@ -968,7 +935,6 @@ class ProfileCache {
               try {
                 profileColors = await extractColorsFromImage(profile.avatar);
               } catch (e) {
-                console.error('[ProfileCache] Error extracting colors:', e);
               }
             }
 
@@ -1089,7 +1055,6 @@ class ProfileCache {
               resolve(null);
             }
           } catch (error) {
-            console.error('[ProfileCache] Error getting profile from cache by DID:', error);
             resolve(null);
           }
         }, 0);
@@ -1117,7 +1082,6 @@ class ProfileCache {
               resolve(null);
             }
           } catch (error) {
-            console.error('[ProfileCache] Error getting profile from cache:', error);
             resolve(null);
           }
         }, 0);
@@ -1168,7 +1132,6 @@ class ProfileCache {
             this.notifyProfileUpdated(normalizedHandle);
             resolve();
           } catch (error) {
-            console.error('[ProfileCache] Error invalidating profile:', error);
             resolve();
           }
         }, 0);
@@ -1201,7 +1164,6 @@ class ProfileCache {
             }
             resolve();
           } catch (error) {
-            console.error('[ProfileCache] Error clearing profile cache:', error);
             resolve();
           }
         }, 0);
@@ -1225,7 +1187,6 @@ class ProfileCache {
       // Don't reset initialization flag - keep it initialized
       // Don't clear AsyncStorage cache - preserve it for app restart
     } catch (error) {
-      console.error('[ProfileCache] Error during cleanup:', error);
     }
   }
 
@@ -1315,14 +1276,12 @@ class ProfileCache {
                   // Fetch and cache the profile
                   await this.getProfile(handle);
                 } catch (error) {
-                  console.warn(`[ProfileCache] Error prefetching profile ${handle}:`, error);
                 }
               }));
             }
             
             resolve();
           } catch (error) {
-            console.error('[ProfileCache] Error in batch prefetch:', error);
             resolve();
           }
         }, 0);
@@ -1527,31 +1486,18 @@ export function useProfileUpdateMutation() {
         };
       }
     }) => {
-      console.log('[ProfileCache] Updating profile with:', {
-        handle,
-        updates,
-        hasCustomColors: !!updates.customColors,
-      });
       
       const updatedProfile = await AtprotoService.updateProfile(updates);
-      console.log('[ProfileCache] AtprotoService.updateProfile result:', updatedProfile);
       
       // Handle custom colors locally since they're not part of the Bluesky API
       if (updates.customColors) {
-        console.log('[ProfileCache] Saving custom colors locally:', {
-          handle,
-          backgroundColor: updates.customColors.backgroundColor,
-          textColor: updates.customColors.textColor,
-        });
         await ProfileCache.updateProfileColors(handle, updates.customColors.backgroundColor, updates.customColors.textColor);
       }
       
       // Immediately apply to local cache for fast UI reflection
       try {
         await ProfileCache.applyServerProfile(handle, updatedProfile);
-        console.log('[ProfileCache] Applied server profile to cache');
       } catch (error) {
-        console.error('[ProfileCache] Error applying server profile:', error);
       }
       return { handle, updatedProfile };
     },
@@ -1604,7 +1550,6 @@ export function useProfileUpdateMutation() {
       queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
     },
     onError: (error, { handle }, context) => {
-      console.error('Profile update failed:', error);
       if (context?.previousProfile) {
         queryClient.setQueryData(profileKeys.detail(handle), context.previousProfile);
       }

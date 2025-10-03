@@ -137,7 +137,6 @@ export class AtProtoOAuthService {
     }
     
     if (!restoredSession) {
-      console.log('[OAuthService] No session found, re-auth required');
       throw new Error('oauth_reauth_required');
     }
     

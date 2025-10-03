@@ -260,6 +260,10 @@ const createQueryKeys = {
     all: ['blocks'] as const,
     status: (did: string) => [...createQueryKeys.blocks.all, did] as const,
   },
+  mutes: {
+    all: ['mutes'] as const,
+    status: (did: string) => [...createQueryKeys.mutes.all, did] as const,
+  },
   feed: {
     all: ['feed'] as const,
     byOption: (feedOption: string) => [...createQueryKeys.feed.all, feedOption] as const,
