@@ -195,7 +195,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
         { rotate: rotateStr as any },
         { scale: repostScale.value as any },
       ] as any,
-    };
+};
   });
   const renderRepostIcon = () => (
     <Animated.View style={repostAnimatedStyle}>
@@ -783,4 +783,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default VideoOverlayUI;
+export default React.memo(VideoOverlayUI);

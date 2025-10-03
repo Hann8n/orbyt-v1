@@ -23,7 +23,7 @@ interface TextWithLinksProps {
   facets?: RichTextFacet[];
 }
 
-export const TextWithLinks: React.FC<TextWithLinksProps> = ({
+const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
   text,
   style,
   numberOfLines,
@@ -204,4 +204,5 @@ const styles = StyleSheet.create({
 });
 
 // Also export a simpler version that only handles author mentions (alias for backward compatibility)
+export const TextWithLinks = React.memo(TextWithLinksBase);
 export const TextWithAuthorLinks = TextWithLinks;

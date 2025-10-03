@@ -237,4 +237,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default VerificationBadge;
+export default React.memo(VerificationBadge);
