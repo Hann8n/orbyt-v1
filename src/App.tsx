@@ -14,7 +14,7 @@ import ProfileCache from './services/cache/ProfileCache';
 import StatusBarController from './components/ui/StatusBarController';
 import { Colors } from './components/ui/UI';
 import { useAppStore } from './stores/appStore';
-import { useAuth, useAccountManagement, useUserStore } from './stores/userStore';
+import { useAuth, useAccountManagement, useUserStore, useProfilePrecache } from './stores/userStore';
 import { QUERY_CONSTANTS, STORAGE_KEYS, ERROR_MESSAGES } from './utils/constants';
 import { CommonErrorHandlers } from './utils/errorHandler';
 import { AtProtoOAuthService } from './services/auth';
@@ -94,6 +94,9 @@ const App: React.FC<AppProps> = () => {
   } = useAccountManagement();
   
   const { initializeUserState } = useUserStore();
+  
+  // Precache current user profile on app launch
+  useProfilePrecache();
   
   // Add initialization state
   const [isInitializing, setIsInitializing] = useState(true);

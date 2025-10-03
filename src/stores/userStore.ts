@@ -1399,6 +1399,17 @@ export const useProfileCacheSync = () => {
   return { currentUser };
 };
 
+// Hook for precaching current user profile on app launch
+export const useProfilePrecache = () => {
+  const currentUser = useUserStore(state => state.currentUser);
+  
+  React.useEffect(() => {
+    if (currentUser?.did) {
+      ProfileCache.precacheCurrentUserProfile();
+    }
+  }, [currentUser?.did]);
+};
+
 // Hook for moderation functionality
 export const useModeration = () => {
   const getModerationOpts = useUserStore(state => state.getModerationOpts);

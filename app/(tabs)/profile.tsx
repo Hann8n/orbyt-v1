@@ -67,9 +67,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const didQuery = useProfileByDid(targetDid);
   const handleQuery = useProfile(targetDid ? null : targetHandle);
 
-  const cachedProfile = didQuery.data || handleQuery.data;
+  // Use existing ProfileCache functionality with immediate fallback for own profile
+  const cachedProfile = didQuery.data || handleQuery.data || 
+    (isViewingOwnProfile && currentUser ? {
+      did: currentUser.did,
+      handle: currentUser.handle,
+      displayName: currentUser.displayName,
+      avatar: currentUser.avatar,
+      description: '',
+      isFollowing: false,
+      isFollowedBy: false,
+      lastUpdated: Date.now(),
+    } : null);
+  
   const refetchProfile = didQuery.refetch || handleQuery.refetch;
-  const isProfileLoading = (didQuery.isLoading || handleQuery.isLoading);
+  const isProfileLoading = (didQuery.isLoading || handleQuery.isLoading) && !cachedProfile;
   const isProfileFetchError = (didQuery.isError || handleQuery.isError);
   
   // Colors keyed by handle; if navigating by DID, use fetched handle

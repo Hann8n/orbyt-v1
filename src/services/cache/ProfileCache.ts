@@ -127,6 +127,7 @@ class ProfileCache {
     return this.currentUserHandle;
   }
 
+
   /**
    * Get a profile from memory cache by DID synchronously (for immediate access)
    * This prevents flashing by providing instant access to cached data
@@ -1327,6 +1328,17 @@ class ProfileCache {
         }, 0);
       });
     });
+  }
+
+  /**
+   * Precache the current user's profile on app launch
+   * Uses existing ProfileCache methods for simplicity
+   */
+  static async precacheCurrentUserProfile(): Promise<void> {
+    if (!this.currentUserDid) return;
+    
+    // Use existing getProfileByDid method - it handles caching automatically
+    this.getProfileByDid(this.currentUserDid);
   }
 }
 

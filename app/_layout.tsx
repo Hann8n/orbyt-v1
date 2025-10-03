@@ -11,7 +11,7 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 import StatusBarController from '../src/components/ui/StatusBarController';
 import { Colors } from '../src/components/ui/UI';
 import { useAppStore } from '../src/stores/appStore';
-import { useAuth, useAccountManagement, useUserStore } from '../src/stores/userStore';
+import { useAuth, useAccountManagement, useUserStore, useProfilePrecache } from '../src/stores/userStore';
 import { QUERY_CONSTANTS } from '../src/utils/constants';
 import { CommonErrorHandlers } from '../src/utils/errorHandler';
 import ShareSheet from '../src/components/ui/ShareSheet';
@@ -72,6 +72,9 @@ export default function RootLayout() {
   const { switchAccount } = useAccountManagement();
   const { initializeUserState } = useUserStore();
   const [isInitializing, setIsInitializing] = useState(true);
+  
+  // Precache current user profile on app launch
+  useProfilePrecache();
 
   useEffect(() => {
     const loadFonts = async () => {
