@@ -26,6 +26,7 @@ import { PDSDiscoveryService } from '../../../services/PDSDiscoveryService';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import CustomPDSInputSheet from '../../ui/CustomPDSInputSheet';
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -54,9 +55,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const [editMode, setEditMode] = useState(false);
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [showUsernameInput, setShowUsernameInput] = useState(false);
-  const [username, setUsername] = useState('');
-  const [pdsError, setPdsError] = useState<string | null>(null);
-  const [isValidatingPds, setIsValidatingPds] = useState(false);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   
@@ -242,80 +240,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     }
   }, [signIn, loadAccounts]);
 
-  const handleUsernameLogin = useCallback(async () => {
-    const trimmedUsername = username.trim();
-    
-    if (!trimmedUsername) {
-      setPdsError('Please enter your username or handle');
-      return;
-    }
-
-    // Basic validation for common formats
-    if (!trimmedUsername.includes('.') && !trimmedUsername.includes('@')) {
-      setPdsError('Please enter a full handle (e.g., user.domain.com) or email');
-      return;
-    }
-
-    setPdsError(null);
-    setIsAddingAccount(true);
-    setIsValidatingPds(true);
-    setShowUsernameInput(false);
-    
-    // Use TrueSheet global method to dismiss the username input sheet before OAuth
-    try {
-      await TrueSheet.dismiss('username-input');
-      // Small delay to ensure the username input sheet is properly dismissed
-      await new Promise(resolve => setTimeout(resolve, 100));
-    } catch (e) {
-      console.error('[AccountSwitcher] Error dismissing username input:', e);
-    }
-    
-    try {
-      if (DEBUG) console.log('[AccountSwitcher] handleUsernameLogin: begin', { username: trimmedUsername });
-
-      // Prepare identifier and let expo-atproto-auth handle the rest
-      const identifier = await PDSDiscoveryService.prepareIdentifier(trimmedUsername);
-      if (DEBUG) console.log('[AccountSwitcher] prepared identifier:', identifier);
-      
-      await signIn(identifier);
-      
-      // Reload accounts to show the new one
-      await loadAccounts();
-      if (DEBUG) console.log('[AccountSwitcher] handleUsernameLogin: success, accounts reloaded');
-      
-
-    } catch (error) {
-      // Check if this is a user cancellation vs actual error
-      const errorMessage = error instanceof Error ? error.message : 'OAuth sign-in failed';
-      const isUserCancellation = errorMessage.includes('cancelled') || 
-                                errorMessage.includes('Authentication was cancelled') ||
-                                errorMessage.includes('user_cancelled');
-      
-      if (!isUserCancellation) {
-        // More specific error messages based on common issues
-        let userFriendlyMessage = `Could not connect to ${trimmedUsername}`;
-        
-        if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
-          userFriendlyMessage = `Network error connecting to ${trimmedUsername}. Please check your internet connection and try again.`;
-        } else if (errorMessage.includes('not found') || errorMessage.includes('404')) {
-          userFriendlyMessage = `Could not find the server for ${trimmedUsername}. Please check the handle and try again.`;
-        } else if (errorMessage.includes('invalid') || errorMessage.includes('malformed')) {
-          userFriendlyMessage = `Invalid handle format: ${trimmedUsername}. Please enter a valid handle (e.g., user.domain.com).`;
-        }
-        
-        Alert.alert(
-          'Connection Failed',
-          userFriendlyMessage,
-          [{ text: 'OK' }]
-        );
-      }
-      if (DEBUG) console.log('[AccountSwitcher] handleUsernameLogin: error', errorMessage);
-    } finally {
-      setIsAddingAccount(false);
-      setIsValidatingPds(false);
-      setUsername('');
-    }
-  }, [signIn, loadAccounts, onDismiss, username]);
 
   const handleBlueskyAddAccount = useCallback(async () => {
     // Use TrueSheet global method to dismiss the main sheet first
@@ -330,19 +254,39 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   }, [handleBlueskyLogin]);
 
   const handleCustomPDSAddAccount = useCallback(async () => {
-    console.log('[AccountSwitcher] Dismissing main sheet and showing username input');
-    // Use TrueSheet global method to dismiss the main sheet first, then present the username input
+    console.log('[AccountSwitcher] Dismissing main sheet and showing custom PDS input');
+    // Use TrueSheet global method to dismiss the main sheet first, then present the custom PDS input
     try {
       await TrueSheet.dismiss('account-switcher'); // Dismiss the parent sheet first
-      // Wait a bit for the dismissal to complete before showing the username input
+      // Wait a bit for the dismissal to complete before showing the custom PDS input
       await new Promise(resolve => setTimeout(resolve, 200));
       setShowUsernameInput(true); // Set state to true first
-      // Then use TrueSheet global method to present the username input sheet
-      await TrueSheet.present('username-input');
+      // Then use TrueSheet global method to present the custom PDS input sheet
+      await TrueSheet.present('custom-pds-input');
     } catch (error) {
       console.error('[AccountSwitcher] Error in handleCustomPDSAddAccount:', error);
     }
   }, []);
+
+  const handleCustomPDSSignIn = useCallback(async (identifier: string) => {
+    setIsAddingAccount(true);
+    
+    try {
+      if (DEBUG) console.log('[AccountSwitcher] handleCustomPDSSignIn: begin', { identifier });
+
+      await signIn(identifier);
+      
+      // Reload accounts to show the new one
+      await loadAccounts();
+      if (DEBUG) console.log('[AccountSwitcher] handleCustomPDSSignIn: success, accounts reloaded');
+      
+    } catch (error) {
+      // Re-throw the error so the CustomPDSInputSheet can handle it
+      throw error;
+    } finally {
+      setIsAddingAccount(false);
+    }
+  }, [signIn, loadAccounts]);
 
   // Prepare list data including the add account options and edit button
   const listData = useMemo(() => {
@@ -578,89 +522,16 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         )}
       </VerticalListSheet>
       
-       <VerticalListSheet
+       <CustomPDSInputSheet
          visible={showUsernameInput}
          onDismiss={async () => {
-           console.log('[AccountSwitcher] Username input dismissed');
+           console.log('[AccountSwitcher] Custom PDS input dismissed');
            setShowUsernameInput(false);
-           setUsername('');
-           setPdsError(null);
          }}
+         onSignIn={handleCustomPDSSignIn}
          title="Add Account"
-         showCancelButton={false}
-         name="username-input"
-       >
-          <View style={styles.usernameInputContainer}>
-            {pdsError && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{pdsError}</Text>
-              </View>
-            )}
-            
-            <View style={styles.inputContainer}>
-              <Icon name="at" size={20} color={Colors.gray} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your handle (e.g., user.domain.com)"
-                placeholderTextColor={Colors.gray}
-                value={username}
-                onChangeText={(text) => {
-                  setUsername(text);
-                  if (pdsError) setPdsError(null); // Clear error when user starts typing
-                }}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="go"
-                onSubmitEditing={handleUsernameLogin}
-                editable={!isAddingAccount && !isValidatingPds}
-                autoFocus
-              />
-            </View>
-            
-            <Text style={styles.helpText}>
-              Enter your full handle (e.g., user.domain.com) or email address
-            </Text>
-            
-            <TouchableOpacity
-              style={[
-                styles.liquidGlassButton,
-                (!username.trim() || isAddingAccount || isValidatingPds) && styles.loginButtonDisabled
-              ]}
-              onPress={handleUsernameLogin}
-              disabled={!username.trim() || isAddingAccount || isValidatingPds}
-            >
-              <BlurView
-                intensity={20}
-                tint="light"
-                style={styles.blurContainer}
-              >
-                <LinearGradient
-                  colors={
-                    (!username.trim() || isAddingAccount || isValidatingPds)
-                      ? ['rgba(128, 128, 128, 0.3)', 'rgba(128, 128, 128, 0.1)']
-                      : ['rgba(3, 133, 255, 0.8)', 'rgba(3, 133, 255, 0.6)']
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.glassGradient}
-                >
-                  <View style={styles.glassOverlay}>
-                    {isAddingAccount || isValidatingPds ? (
-                      <View style={styles.buttonContent}>
-                        <ActivityIndicator color={Colors.white} size="small" style={{ marginRight: 8 }} />
-                        <Text style={styles.loginButtonText}>
-                          {isValidatingPds ? 'Connecting...' : 'Signing in...'}
-                        </Text>
-                      </View>
-                    ) : (
-                      <Text style={styles.loginButtonText}>Sign In</Text>
-                    )}
-                  </View>
-                </LinearGradient>
-              </BlurView>
-            </TouchableOpacity>
-          </View>
-        </VerticalListSheet>
+         name="custom-pds-input"
+       />
     </>
   );
 };
@@ -823,97 +694,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
-  },
-  usernameInputContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    marginBottom: 20,
-    paddingHorizontal: 16,
-    height: 56,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    color: Colors.white,
-    fontSize: 16,
-    height: '100%',
-    fontFamily: 'Firma-SemiBold',
-  },
-  liquidGlassButton: {
-    borderRadius: BORDER_RADIUS.LARGE,
-    marginTop: 8,
-    marginBottom: 16,
-    overflow: 'hidden',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  blurContainer: {
-    borderRadius: BORDER_RADIUS.LARGE,
-    overflow: 'hidden',
-  },
-  glassGradient: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: BORDER_RADIUS.LARGE,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  glassOverlay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loginButton: {
-    backgroundColor: Colors.bluesky,
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loginButtonDisabled: {
-    opacity: 0.5,
-    backgroundColor: Colors.darkGray,
-  },
-  loginButtonText: {
-    color: Colors.white,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
-  },
-  errorContainer: {
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: 'rgba(255, 68, 68, 0.1)',
-    borderRadius: BORDER_RADIUS.SMALL,
-  },
-  errorText: {
-    color: '#ff4444',
-    fontSize: 14,
-    fontFamily: 'Firma-Medium',
-    textAlign: 'center',
-  },
-  helpText: {
-    color: Colors.gray,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
-    textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 20,
-    lineHeight: 18,
   },
 });
 

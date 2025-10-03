@@ -16,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import { useRouter } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
@@ -281,11 +280,12 @@ const NotificationScreen: React.FC = () => {
       <View style={[styles.container, Platform.OS === 'android' ? { paddingTop: 0 } : null]}>
         <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
 
-        {/* Dark blurred header - only covering status bar */}
-        <BlurView
-          intensity={80}
-          tint="dark"
-          style={[styles.topGradient, { top: 0, height: insets.top }]}
+        {/* Status bar gradient overlay */}
+        <LinearGradient
+          colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.3)', 'transparent']}
+          locations={[0, 0.7, 1]}
+          style={[styles.topGradient, { top: 0, height: insets.top + 30 }]}
+          pointerEvents="none"
         />
 
         <View style={[styles.errorContainer, { paddingTop: insets.top + 20, paddingBottom: bottomNavBarHeight }]}>
@@ -307,11 +307,12 @@ const NotificationScreen: React.FC = () => {
     <View style={[styles.container, Platform.OS === 'android' ? { paddingTop: 0 } : null]}>
       <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
 
-      {/* Dark blurred header - only covering status bar */}
-      <BlurView
-        intensity={80}
-        tint="dark"
-        style={[styles.topGradient, { top: 0, height: insets.top }]}
+      {/* Status bar gradient overlay */}
+      <LinearGradient
+        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.3)', 'transparent']}
+        locations={[0, 0.7, 1]}
+        style={[styles.topGradient, { top: 0, height: insets.top + 30 }]}
+        pointerEvents="none"
       />
       
       {/* Content */}

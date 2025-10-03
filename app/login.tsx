@@ -9,7 +9,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Image,
   ScrollView,
   Linking,
   TextInput,
@@ -19,7 +18,7 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, PlusIcon, AtLineIcon } from '../src/components/ui/Icon';
 import { Colors, Avatar } from '../src/components/ui/UI';
-import { AnimatedStarsBackground } from '../src/components/ui';
+import { AnimatedStarsBackground, AnimatedTV, CustomPDSInputSheet } from '../src/components/ui';
 import { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
 import { useGlobalAccountSwitcher } from '../src/hooks/useGlobalModals';
@@ -34,10 +33,9 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   const DEBUG = __DEV__ && false;
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [username, setUsername] = useState<string>('');
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const [oauthError, setOAuthError] = useState<string | null>(null);
-  const [showCustomPDS, setShowCustomPDS] = useState<boolean>(false);
+  const [showCustomPDSSheet, setShowCustomPDSSheet] = useState<boolean>(false);
 
   // User store hooks
   const { 
@@ -56,29 +54,16 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   const hasSavedAccounts = savedAccounts.length > 0;
 
   const handleLogin = async () => {
-    if (showCustomPDS && !username.trim()) {
-      Alert.alert('Error', 'Please enter your username or handle');
-      return;
-    }
-
     setIsLoading(true);
     setOAuthError(null);
     clearAuthError();
 
     try {
-      if (showCustomPDS) {
-        // For custom PDS, use the username input
-        if (DEBUG) console.log('[LoginScreen] handleLogin: custom PDS login begin');
-        const identifier = await PDSDiscoveryService.prepareIdentifier(username.trim());
-        await signIn(identifier);
-        if (DEBUG) console.log('[LoginScreen] handleLogin: custom PDS login success');
-      } else {
-        // For Bluesky login, use the default Bluesky PDS
-        // This will open the Bluesky OAuth flow without requiring a specific handle
-        if (DEBUG) console.log('[LoginScreen] handleLogin: Bluesky OAuth login begin');
-        await signIn('https://bsky.social');
-        if (DEBUG) console.log('[LoginScreen] handleLogin: Bluesky OAuth login success');
-      }
+      // For Bluesky login, use the default Bluesky PDS
+      // This will open the Bluesky OAuth flow without requiring a specific handle
+      if (DEBUG) console.log('[LoginScreen] handleLogin: Bluesky OAuth login begin');
+      await signIn('https://bsky.social');
+      if (DEBUG) console.log('[LoginScreen] handleLogin: Bluesky OAuth login success');
       
       // Reload accounts to show the new one (same as AccountSwitcher)
       await loadSavedAccounts();
@@ -96,13 +81,34 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         setOAuthError(errorMessage);
         Alert.alert(
           'OAuth Sign-in Failed',
-          showCustomPDS 
-            ? 'Failed to sign in with custom PDS. Please check your username and try again.'
-            : 'Failed to sign in with Bluesky. Please try again.',
+          'Failed to sign in with Bluesky. Please try again.',
           [{ text: 'OK' }]
         );
       }
       if (DEBUG) console.log('[LoginScreen] handleLogin: error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCustomPDSSignIn = async (identifier: string) => {
+    setIsLoading(true);
+    setOAuthError(null);
+    clearAuthError();
+
+    try {
+      if (DEBUG) console.log('[LoginScreen] handleCustomPDSSignIn: custom PDS login begin');
+      await signIn(identifier);
+      if (DEBUG) console.log('[LoginScreen] handleCustomPDSSignIn: custom PDS login success');
+      
+      // Reload accounts to show the new one (same as AccountSwitcher)
+      await loadSavedAccounts();
+      if (DEBUG) console.log('[LoginScreen] handleCustomPDSSignIn: success, accounts reloaded');
+      
+      await onLogin('oauth-success');
+    } catch (error) {
+      // Re-throw the error so the CustomPDSInputSheet can handle it
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -238,30 +244,11 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         </View>
       )}
 
-      {/* Username input for custom PDS */}
-      {showCustomPDS && (
-        <View style={styles.inputContainer}>
-          <Icon name="at" size={20} color={Colors.gray} style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your username or handle"
-            placeholderTextColor={Colors.gray}
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="go"
-            onSubmitEditing={handleLogin}
-            editable={!isLoading}
-          />
-        </View>
-      )}
-
       {/* Sign in button */}
       <TouchableOpacity
         style={styles.liquidGlassButton}
         onPress={handleLogin}
-        disabled={isLoading || (showCustomPDS && !username.trim())}
+        disabled={isLoading}
         activeOpacity={0.8}
       >
         <BlurView
@@ -270,13 +257,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           style={styles.blurContainer}
         >
           <LinearGradient
-            colors={
-              showCustomPDS && !username.trim()
-                ? ['rgba(128, 128, 128, 0.3)', 'rgba(128, 128, 128, 0.1)']
-                : showCustomPDS
-                ? ['rgba(3, 133, 255, 0.8)', 'rgba(3, 133, 255, 0.6)']
-                : ['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)']
-            }
+            colors={['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.glassGradient}
@@ -285,25 +266,19 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
               {isLoading ? (
                 <View style={styles.buttonContent}>
                   <ActivityIndicator 
-                    color={showCustomPDS ? Colors.white : Colors.black} 
+                    color={Colors.black} 
                     size="small" 
                     style={{ marginRight: 8 }} 
                   />
-                  <Text style={[
-                    showCustomPDS ? styles.loginButtonText : styles.blueskyButtonText,
-                    showCustomPDS && !username.trim() && styles.disabledText
-                  ]}>
+                  <Text style={styles.blueskyButtonText}>
                     Signing in...
                   </Text>
                 </View>
               ) : (
                 <View style={styles.buttonContent}>
-                  {!showCustomPDS && <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />}
-                  <Text style={[
-                    showCustomPDS ? styles.loginButtonText : styles.blueskyButtonText,
-                    showCustomPDS && !username.trim() && styles.disabledText
-                  ]}>
-                    {showCustomPDS ? 'Sign In' : 'Sign in with Bluesky'}
+                  <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
+                  <Text style={styles.blueskyButtonText}>
+                    Sign in with Bluesky
                   </Text>
                 </View>
               )}
@@ -315,14 +290,10 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       {/* Custom PDS text button */}
       <TouchableOpacity
         style={styles.customPDSTextButton}
-        onPress={() => setShowCustomPDS(!showCustomPDS)}
+        onPress={() => setShowCustomPDSSheet(true)}
         disabled={isLoading}
       >
-        {showCustomPDS ? (
-          <Text style={styles.customPDSTextButtonText}>Back</Text>
-        ) : (
-          <Text style={styles.customPDSTextButtonText}>Custom PDS</Text>
-        )}
+        <Text style={styles.customPDSTextButtonText}>Custom Login</Text>
       </TouchableOpacity>
     </View>
   );
@@ -339,12 +310,29 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         {/* Logo and App Name */}
         {!hasSavedAccounts && (
           <View style={styles.logoContainer}>
-            <Image source={require('../src/assets/logo.png')} style={styles.logo} />
-            <Text style={styles.appName}>orbyt</Text>
+            <View style={styles.logoBackground}>
+              <LinearGradient
+                colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 0)']}
+                locations={[0, 0.1, 0.9, 1]}
+                style={styles.logoGradient}
+              >
+                <AnimatedTV size={120} />
+                <Text style={styles.appName}>orbyt</Text>
+              </LinearGradient>
+            </View>
           </View>
         )}
 
         {hasSavedAccounts ? renderSavedAccounts() : renderManualLogin()}
+
+        {/* Custom PDS Input Sheet */}
+        <CustomPDSInputSheet
+          visible={showCustomPDSSheet}
+          onDismiss={() => setShowCustomPDSSheet(false)}
+          onSignIn={handleCustomPDSSignIn}
+          title="Custom Login"
+          name="login-custom-pds"
+        />
 
       </KeyboardAvoidingView>
     </AnimatedStarsBackground>
@@ -366,10 +354,20 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  logo: {
-    width: 100,
-    height: 100,
-    marginBottom: 16,
+  logoBackground: {
+    borderRadius: 25,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  logoGradient: {
+    paddingVertical: 30,
+    paddingHorizontal: 40,
+    alignItems: 'center',
+    borderRadius: 25,
   },
   appName: {
     color: Colors.white,
@@ -384,40 +382,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 'auto',
     marginBottom: 40,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    marginBottom: 24,
-    paddingHorizontal: 20,
-    height: 56,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    color: Colors.black,
-    fontSize: 16,
-    height: '100%',
-    fontFamily: 'Firma-Medium',
-  },
-  passwordInput: {
-    paddingRight: 50,
-  },
-  eyeIcon: {
-    padding: 12,
-    position: 'absolute',
-    right: 8,
-    height: '100%',
-    justifyContent: 'center',
   },
   liquidGlassButton: {
     width: '100%',
@@ -449,33 +413,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  disabledText: {
-    opacity: 0.6,
-  },
-  loginButtonLoading: {
-    opacity: 0.7,
-  },
-  loginButtonText: {
-    color: Colors.white,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Firma-Bold',
-  },
-  blueskyButton: {
-    backgroundColor: Colors.white,
-    width: '100%',
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
   blueskyButtonText: {
     color: Colors.black,
     fontSize: 18,
@@ -492,9 +429,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
     textAlign: 'center',
-  },
-  loginButtonTextDisabled: {
-    color: Colors.gray,
   },
   savedAccountsContainer: {
     width: '100%',

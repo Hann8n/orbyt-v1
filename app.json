@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
-      "icon": "src/assets/AppIcon.icon",
+      "icon": "./src/assets/icon.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "This app needs access to your camera to take photos and record videos",

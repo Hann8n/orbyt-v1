@@ -25,7 +25,6 @@ import ChannelCache, { useChannelColors } from '../../src/services/cache/Channel
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import Svg, { Path, Rect, G } from 'react-native-svg';
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -1033,10 +1032,8 @@ const ExploreScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
 
       {showTopGradient && (
-        <BlurView
-          intensity={80}
-          tint="dark"
-          style={[styles.topGradient, { top: 0, height: insets.top + 70 + 40 }]}
+        <View
+          style={[styles.topGradient, { top: 0, height: insets.top + 70 + 40, backgroundColor: Colors.black }]}
         />
       )}
 
