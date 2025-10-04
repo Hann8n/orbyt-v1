@@ -16,24 +16,19 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { BackArrowIcon, PlusIcon, AtLineIcon } from '../src/components/ui/Icon';
-import { Colors, Avatar } from '../src/components/ui/UI';
+import Icon from '../src/components/ui/Icon';
+import { Colors } from '../src/components/ui/UI';
 import { AnimatedStarsBackground, AnimatedTV, CustomPDSInputSheet } from '../src/components/ui';
-import { SavedAccount } from '../src/stores/userStore';
-import { useAuth, useAccountManagement } from '../src/stores/userStore';
-import { useGlobalAccountSwitcher } from '../src/hooks/useGlobalModals';
-import { PDSDiscoveryService } from '../src/services/PDSDiscoveryService';
+import { useAuth } from '../src/stores/userStore';
 
 interface LoginScreenProps {
   onLogin: (handle: string) => Promise<void>;
-  onAccountSwitch?: (account: SavedAccount) => Promise<void>;
 }
 
-export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenProps) {
+export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const DEBUG = __DEV__ && false;
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const [oauthError, setOAuthError] = useState<string | null>(null);
   const [showCustomPDSSheet, setShowCustomPDSSheet] = useState<boolean>(false);
 
@@ -44,14 +39,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     signIn, 
     clearAuthError 
   } = useAuth();
-  
-  const { 
-    savedAccounts, 
-    switchAccount,
-    loadSavedAccounts 
-  } = useAccountManagement();
-
-  const hasSavedAccounts = savedAccounts.length > 0;
 
   const handleLogin = async () => {
     setIsLoading(true);
@@ -65,9 +52,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       await signIn('https://bsky.social');
       if (DEBUG) console.log('[LoginScreen] handleLogin: Bluesky OAuth login success');
       
-      // Reload accounts to show the new one (same as AccountSwitcher)
-      await loadSavedAccounts();
-      if (DEBUG) console.log('[LoginScreen] handleLogin: success, accounts reloaded');
+      if (DEBUG) console.log('[LoginScreen] handleLogin: success');
       
       await onLogin('oauth-success');
     } catch (error) {
@@ -78,10 +63,18 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                                 errorMessage.includes('user_cancelled');
       
       if (!isUserCancellation) {
+        // Enhanced error logging for production debugging
+        console.error('[LoginScreen] OAuth login error:', {
+          error: errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString(),
+          identifier: 'https://bsky.social'
+        });
+        
         setOAuthError(errorMessage);
         Alert.alert(
           'OAuth Sign-in Failed',
-          'Failed to sign in with Bluesky. Please try again.',
+          `Failed to sign in with Bluesky.\n\nError: ${errorMessage}\n\nPlease check the console logs for more details.`,
           [{ text: 'OK' }]
         );
       }
@@ -101,12 +94,17 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       await signIn(identifier);
       if (DEBUG) console.log('[LoginScreen] handleCustomPDSSignIn: custom PDS login success');
       
-      // Reload accounts to show the new one (same as AccountSwitcher)
-      await loadSavedAccounts();
-      if (DEBUG) console.log('[LoginScreen] handleCustomPDSSignIn: success, accounts reloaded');
-      
       await onLogin('oauth-success');
     } catch (error) {
+      // Enhanced error logging for production debugging
+      const errorMessage = error instanceof Error ? error.message : 'Custom PDS login failed';
+      console.error('[LoginScreen] Custom PDS login error:', {
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+        identifier
+      });
+      
       // Re-throw the error so the CustomPDSInputSheet can handle it
       throw error;
     } finally {
@@ -115,46 +113,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   };
 
 
-  // Check for saved accounts on mount
-  useEffect(() => {
-    const checkSavedAccounts = async () => {
-      try {
-        // The savedAccounts are now managed by the user store, so we don't need to fetch them here
-        // unless we want to re-render the component to show them immediately after login.
-        // For now, we'll rely on the user store's initial state.
-      } catch (error) {
-        // Silently handle error checking saved accounts
-      }
-    };
-    checkSavedAccounts();
-  }, []);
-
-  const handleAccountSwitch = async (account: SavedAccount) => {
-    if (onAccountSwitch) {
-      await onAccountSwitch(account);
-    }
-  };
-
-  const handleSavedAccountLogin = async (account: SavedAccount) => {
-    try {
-      await switchAccount(account.did);
-      if (onAccountSwitch) {
-        await onAccountSwitch(account);
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Account switch failed';
-      const isUserCancellation = errorMessage.includes('cancelled') || 
-                                errorMessage.includes('Authentication was cancelled') ||
-                                errorMessage.includes('user_cancelled');
-      
-      if (!isUserCancellation) {
-        Alert.alert(
-          'Account Switch Failed', 
-          'Please try signing in again.'
-        );
-      }
-    }
-  };
 
   const handleCreateAccount = () => {
     Linking.openURL('https://bsky.app');
@@ -162,79 +120,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
 
 
-  const renderSavedAccounts = () => (
-    <View style={styles.savedAccountsContainer}>
-      <View style={styles.headerSection}>
-        <Text style={styles.chooseAccountTitle}>Choose an Account</Text>
-        <Text style={styles.chooseAccountSubtitle}>
-          Select an account to continue or sign in with a new one
-        </Text>
-      </View>
-      
-      <View style={styles.accountsSection}>
-        <ScrollView 
-          style={styles.accountsList} 
-          contentContainerStyle={styles.accountsListContent}
-          showsVerticalScrollIndicator={false}
-          bounces={true}
-          overScrollMode="always"
-          scrollEventThrottle={16}
-          decelerationRate="normal"
-        >
-          {savedAccounts.map((account, index) => (
-            <TouchableOpacity
-                              key={account.did}
-              style={[
-                styles.accountItem,
-                index === 0 && styles.firstAccountItem,
-                index === savedAccounts.length - 1 && styles.lastAccountItem
-              ]}
-              onPress={() => handleSavedAccountLogin(account)}
-              // disabled={switchingAccount === account.id} // This state is no longer needed
-              activeOpacity={0.8}
-            >
-              {/* {switchingAccount === account.id ? ( // This state is no longer needed
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator color={Colors.white} size="small" />
-                  <Text style={styles.loadingText}>
-                    Signing in to <Text style={styles.loadingAccountName}>{account.displayName || account.handle}</Text>
-                  </Text>
-                </View>
-              ) : ( */}
-                <View style={styles.accountButtonContent}>
-                  <View style={styles.avatarContainer}>
-                    <Avatar
-                      uri={account.avatar}
-                      type="profile"
-                      size={48}
-                    />
-                  </View>
-                  <View style={styles.accountInfoContainer}>
-                    <Text style={styles.accountDisplayName}>
-                      {account.displayName || account.handle || 'User'}
-                    </Text>
-                    <Text style={styles.accountHandle}>
-                      @{account.handle}
-                    </Text>
-                  </View>
-                  <View style={styles.accountArrow}>
-                    <Icon name="chevron-right" size={20} color={Colors.gray} />
-                  </View>
-                </View>
-              {/* )} */}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-      
-      <View style={styles.dividerContainer}>
-        <View style={styles.divider} />
-        <Text style={styles.dividerText}>or</Text>
-        <View style={styles.divider} />
-      </View>
-      
-    </View>
-  );
 
   const renderManualLogin = () => (
     <View style={styles.formContainer}>
@@ -308,22 +193,20 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         }]}
       >
         {/* Logo and App Name */}
-        {!hasSavedAccounts && (
-          <View style={styles.logoContainer}>
-            <View style={styles.logoBackground}>
-              <LinearGradient
-                colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 0)']}
-                locations={[0, 0.1, 0.9, 1]}
-                style={styles.logoGradient}
-              >
-                <AnimatedTV size={120} />
-                <Text style={styles.appName}>orbyt</Text>
-              </LinearGradient>
-            </View>
+        <View style={styles.logoContainer}>
+          <View style={styles.logoBackground}>
+            <LinearGradient
+              colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 0)']}
+              locations={[0, 0.1, 0.9, 1]}
+              style={styles.logoGradient}
+            >
+              <AnimatedTV size={120} />
+              <Text style={styles.appName}>orbyt</Text>
+            </LinearGradient>
           </View>
-        )}
+        </View>
 
-        {hasSavedAccounts ? renderSavedAccounts() : renderManualLogin()}
+        {renderManualLogin()}
 
         {/* Custom PDS Input Sheet */}
         <CustomPDSInputSheet
@@ -430,147 +313,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
     textAlign: 'center',
   },
-  savedAccountsContainer: {
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
-    marginTop: 'auto',
-    marginBottom: 40,
-    flex: 1,
-  },
-  chooseAccountTitle: {
-    color: Colors.white,
-    fontSize: 28,
-    fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
-    marginBottom: 8,
-    textAlign: 'left',
-  },
-  chooseAccountSubtitle: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Firma-Regular',
-    textAlign: 'left',
-    lineHeight: 22,
-  },
-  headerSection: {
-    marginBottom: 32,
-  },
-  accountsSection: {
-    flex: 1,
-    marginBottom: 24,
-  },
-  savedAccountsTitle: {
-    color: Colors.white,
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
-    fontFamily: 'Firma-Bold',
-  },
-  accountsList: {
-    flex: 1,
-    marginBottom: 16,
-  },
-  accountsListContent: {
-    paddingBottom: 16,
-    paddingTop: 8,
-  },
-  accountItem: {
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-
-  accountButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  avatarContainer: {
-    marginRight: 12,
-  },
-  accountInfoContainer: {
-    flex: 1,
-    paddingLeft: 8,
-  },
-  accountButtonText: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'left',
-    fontFamily: 'Firma-SemiBold',
-  },
-
-
-  manualLoginButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 24,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: Colors.darkGray,
-  },
-
-  manualLoginText: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
-  },
-  backToAccountsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 24,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: BORDER_RADIUS.LARGE,
-    backgroundColor: Colors.darkGray,
-  },
-  backIcon: {
-    marginRight: 12,
-  },
-  backToAccountsText: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingVertical: 8,
-  },
-  loadingText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-Medium',
-    marginLeft: 12,
-  },
-  buttonLoadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonLoadingText: {
-    color: Colors.black,
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Firma-SemiBold',
-    marginLeft: 12,
-  },
-  loadingAccountName: {
-    color: Colors.white,
-    fontFamily: 'Firma-Bold',
-    fontWeight: 'bold',
-  },
 
   errorContainer: {
     marginBottom: 16,
@@ -616,43 +358,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  firstAccountItem: {
-    marginTop: 0,
-  },
-  lastAccountItem: {
-    marginBottom: 0,
-  },
-  accountDisplayName: {
-    color: Colors.white,
-    fontSize: 18,
-    fontFamily: 'Firma-Bold',
-    marginBottom: 2,
-  },
-  accountHandle: {
-    color: Colors.gray,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
-  },
-  accountArrow: {
-    marginLeft: 8,
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.gray,
-    opacity: 0.3,
-  },
-  dividerText: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Firma-Medium',
-    marginHorizontal: 16,
   },
   pdsButton: {
     backgroundColor: Colors.darkGray,
