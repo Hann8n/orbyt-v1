@@ -523,12 +523,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             {renderLikeIcon()}
             <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(likeCount)}</Text>
           </TouchableOpacity>
-                 </View>
-       </View>
-     </View>
-     </>
-   );
- };
+        </View>
+      </View>
+    </View>
+    </>
+  );
+};
 
 // Styles
 const styles = StyleSheet.create({

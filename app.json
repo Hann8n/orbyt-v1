@@ -38,7 +38,7 @@
       "favicon": "./src/assets/favicon.png"
     },
     "splash": {
-      "image": "./src/assets/TV-Raw.png",
+      "image": "./src/assets/icon-with-padding.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
