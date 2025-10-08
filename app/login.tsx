@@ -132,14 +132,37 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   };
 
   const handleSavedAccountLogin = async (account: SavedAccount) => {
+    console.log('[LoginScreen] Starting account login for:', account.handle, 'DID:', account.did);
+    
     try {
-      // First check if the account has a valid session
-      const hasValidSession = await checkAccountSessionValidity(account.did);
+      // Skip session validation for now - go straight to account switching
+      // This will help us see if the issue is in validation or switching
+      console.log('[LoginScreen] Attempting direct account switch...');
       
-      if (!hasValidSession) {
+      await switchAccount(account.did);
+      console.log('[LoginScreen] Account switch successful');
+      
+      if (onAccountSwitch) {
+        await onAccountSwitch(account);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Account switch failed';
+      console.error('[LoginScreen] Account switch failed with error:', {
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined,
+        accountHandle: account.handle,
+        accountDid: account.did,
+        accountPds: account.pdsUrl
+      });
+      
+      const isUserCancellation = errorMessage.includes('cancelled') || 
+                                errorMessage.includes('user_cancelled');
+      
+      if (!isUserCancellation) {
+        // Show detailed error information for debugging
         Alert.alert(
-          'Session Expired', 
-          `Your session for @${account.handle} has expired. Please sign in again.`,
+          'Account Switch Failed', 
+          `Failed to switch to @${account.handle}.\n\nError: ${errorMessage}\n\nPlease try signing in again.`,
           [
             { text: 'Cancel', style: 'cancel' },
             { 
@@ -151,43 +174,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
             }
           ]
         );
-        return;
-      }
-      
-      // Session is valid, proceed with account switch
-      await switchAccount(account.did);
-      if (onAccountSwitch) {
-        await onAccountSwitch(account);
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Account switch failed';
-      const isUserCancellation = errorMessage.includes('cancelled') || 
-                                errorMessage.includes('user_cancelled');
-      
-      if (!isUserCancellation) {
-        console.error('[LoginScreen] Account switch failed:', errorMessage);
-        
-        if (errorMessage.includes('Session expired')) {
-          Alert.alert(
-            'Session Expired', 
-            `Your session for @${account.handle} has expired. Please sign in again.`,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { 
-                text: 'Sign In', 
-                onPress: () => {
-                  // Trigger a fresh OAuth flow for this account
-                  handleLogin();
-                }
-              }
-            ]
-          );
-        } else {
-          Alert.alert(
-            'Account Switch Failed', 
-            'Unable to switch to this account. Please try signing in again.'
-          );
-        }
       }
     }
   };

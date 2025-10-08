@@ -316,15 +316,24 @@ export const useUserStore = create<UserState>()(
       },
       
       restoreSession: async (did: string, pdsUrl?: string) => {
+        console.log('[userStore] === RESTORE SESSION START ===');
+        console.log('[userStore] DID:', did);
+        console.log('[userStore] PDS URL:', pdsUrl);
+        
         try {
           set({ isAuthenticating: true, authError: null });
           
+          console.log('[userStore] Getting OAuth service instance...');
           const oauthService = AtProtoOAuthService.getInstance();
-          const session = await oauthService.restoreSession(did, pdsUrl);
           
-          // Get the actual OAuth session and create agent
+          console.log('[userStore] Calling OAuth service restoreSession...');
+          const session = await oauthService.restoreSession(did, pdsUrl);
+          console.log('[userStore] OAuth service restoreSession completed');
+          
+          console.log('[userStore] Getting OAuth session and agent...');
           const oauthSession = await oauthService.getCurrentOAuthSession();
           const agent = await oauthService.getCurrentAgent();
+          console.log('[userStore] OAuth session and agent retrieved');
           
           // Fetch profile data using the OAuth service
           let profileData = null;
@@ -396,6 +405,13 @@ export const useUserStore = create<UserState>()(
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Session restoration failed';
           
+          console.error('[userStore] ❌ RESTORE SESSION FAILED');
+          console.error('[userStore] DID:', did);
+          console.error('[userStore] PDS URL:', pdsUrl);
+          console.error('[userStore] Error message:', errorMessage);
+          console.error('[userStore] Error stack:', error instanceof Error ? error.stack : 'No stack');
+          console.error('[userStore] Full error object:', error);
+          
           // Normalize to actionable error for callers (switchAccount)
           if (errorMessage.includes('oauth_reauth_required')) {
             // Session expiration is expected behavior, log as warning
@@ -433,24 +449,27 @@ export const useUserStore = create<UserState>()(
       
       // Account management actions
       switchAccount: async (did: string, onComplete?: () => void) => {
+        console.log('[userStore] === SWITCH ACCOUNT START ===');
+        console.log('[userStore] Target DID:', did);
+        
         try {
           set({ isSwitchingAccount: true });
           
-          // Clear all current user data
+          console.log('[userStore] Clearing all caches...');
           await get().clearAllCaches();
           
-          // Clear current feed
-          // feedService.clearCurrentFeed(); // This line is removed
-          // feedService.clearFeedCache(); // This line is removed
+          console.log('[userStore] Getting saved accounts...');
+          const savedAccounts = get().savedAccounts;
+          console.log('[userStore] Found', savedAccounts.length, 'saved accounts');
           
           // Update account statuses
-          const accounts = get().savedAccounts.map(acc => ({
+          const accounts = savedAccounts.map(acc => ({
             ...acc,
             isActive: acc.did === did,
             lastUsed: acc.did === did ? Date.now() : acc.lastUsed,
           }));
           
-          // Save updated accounts
+          console.log('[userStore] Saving updated accounts...');
           await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
           await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
           
@@ -458,12 +477,17 @@ export const useUserStore = create<UserState>()(
           try {
             const account = accounts.find(acc => acc.did === did);
             const accountPDS = account?.pdsUrl;
+            console.log('[userStore] Found account for DID:', account?.handle, 'PDS:', accountPDS);
+            
+            console.log('[userStore] Attempting to restore session...');
             await get().restoreSession(did, accountPDS);
+            console.log('[userStore] Session restoration successful');
           } catch (restoreErr) {
             const restoreMsg = restoreErr instanceof Error ? restoreErr.message : '';
-            console.warn('[userStore] Session restoration failed for account switch:', {
+            console.error('[userStore] ❌ Session restoration failed for account switch:', {
               did,
-              error: restoreMsg
+              error: restoreMsg,
+              stack: restoreErr instanceof Error ? restoreErr.stack : undefined
             });
             
             // Don't try to re-authenticate automatically - this requires user interaction

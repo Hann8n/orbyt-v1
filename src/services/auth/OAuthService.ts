@@ -106,35 +106,41 @@ export class AtProtoOAuthService {
     const resolvedPdsUrl = pdsUrl || 'https://bsky.social';
     
     try {
-      console.log('[OAuthService] Restoring session for DID:', did, 'PDS:', resolvedPdsUrl);
-      await this.initializeClient(resolvedPdsUrl);
+      console.log('[OAuthService] === SESSION RESTORATION START ===');
+      console.log('[OAuthService] DID:', did);
+      console.log('[OAuthService] PDS URL:', resolvedPdsUrl);
+      console.log('[OAuthService] Environment:', __DEV__ ? 'development' : 'production');
       
+      console.log('[OAuthService] Initializing client...');
+      await this.initializeClient(resolvedPdsUrl);
+      console.log('[OAuthService] Client initialized successfully');
+      
+      console.log('[OAuthService] Attempting to restore session...');
       const restoredSession = await this.auth.restore(did);
       
       if (!restoredSession) {
-        console.log('[OAuthService] No session found for DID:', did);
+        console.log('[OAuthService] ❌ No session found for DID:', did);
+        console.log('[OAuthService] === SESSION RESTORATION FAILED ===');
         throw new Error('oauth_reauth_required');
       }
       
-      console.log('[OAuthService] Session restored successfully for DID:', did);
-      return this.handleSuccessfulAuth(restoredSession, resolvedPdsUrl);
+      console.log('[OAuthService] ✅ Session restored successfully for DID:', did);
+      console.log('[OAuthService] Processing successful auth...');
+      const result = this.handleSuccessfulAuth(restoredSession, resolvedPdsUrl);
+      console.log('[OAuthService] === SESSION RESTORATION SUCCESS ===');
+      return result;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown restore error';
-      console.warn('[OAuthService] Session restoration failed:', {
-        did,
-        pdsUrl: resolvedPdsUrl,
-        error: errorMsg,
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      console.error('[OAuthService] ❌ SESSION RESTORATION FAILED');
+      console.error('[OAuthService] DID:', did);
+      console.error('[OAuthService] PDS URL:', resolvedPdsUrl);
+      console.error('[OAuthService] Error message:', errorMsg);
+      console.error('[OAuthService] Error stack:', error instanceof Error ? error.stack : 'No stack');
+      console.error('[OAuthService] Error type:', typeof error);
+      console.error('[OAuthService] Full error object:', error);
       
-      // Provide more specific error information for debugging
-      if (errorMsg.includes('Network') || errorMsg.includes('fetch')) {
-        throw new Error('Network error during session restoration');
-      } else if (errorMsg.includes('expired') || errorMsg.includes('invalid')) {
-        throw new Error('oauth_reauth_required');
-      } else {
-        throw new Error('oauth_reauth_required');
-      }
+      // Always throw oauth_reauth_required for now to simplify debugging
+      throw new Error('oauth_reauth_required');
     }
   }
 
