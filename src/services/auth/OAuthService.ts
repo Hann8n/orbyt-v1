@@ -12,7 +12,7 @@ if (typeof g.Event === 'undefined') {
   } catch {}
 }
 
-import type { Agent } from '@atproto/api';
+import { Agent } from '@atproto/api';
 import type { ExpoOAuthClient } from 'expo-atproto-auth';
 import type { OAuthSession } from './types';
 
@@ -29,10 +29,7 @@ export class AtProtoOAuthService {
 
   private async ensureClientLoaded(pdsUrl?: string): Promise<void> {
     if (this.auth) return;
-    const [{ ExpoOAuthClient }, { Agent }] = await Promise.all([
-      import('expo-atproto-auth'),
-      import('@atproto/api'),
-    ]);
+    const { ExpoOAuthClient } = await import('expo-atproto-auth');
     this.auth = new ExpoOAuthClient({
       clientMetadata: {
         client_id: 'https://getorbyt.com/oauth-client-metadata.json',
@@ -41,7 +38,7 @@ export class AtProtoOAuthService {
         logo_uri: 'https://getorbyt.com/TV-Raw.png',
         tos_uri: 'https://getorbyt.com/terms.html',
         policy_uri: 'https://getorbyt.com/privacy.html',
-        redirect_uris: ['com.getorbyt://oauth/callback'],
+        redirect_uris: ['com.getorbyt:/oauth/callback'],
         scope: 'atproto transition:generic',
         grant_types: ['authorization_code', 'refresh_token'],
         response_types: ['code'],
@@ -51,8 +48,6 @@ export class AtProtoOAuthService {
       },
       handleResolver: pdsUrl || 'https://bsky.social',
     });
-    // Create a dummy agent import to keep types available; actual instance created later
-    void Agent;
   }
 
   public static getInstance(): AtProtoOAuthService {
@@ -87,7 +82,6 @@ export class AtProtoOAuthService {
 
         // Store the OAuth session and create an Agent with the OAuth session
         this.currentOAuthSession = result.session;
-        const { Agent } = await import('@atproto/api');
         this.currentAgent = new Agent(result.session);
         console.log('[OAuthService] Session created for DID:', result.session.sub);
 
@@ -137,7 +131,6 @@ export class AtProtoOAuthService {
 
         console.log('[OAuthService] Session created for DID:', result.session.sub);
         this.currentOAuthSession = result.session;
-        const { Agent } = await import('@atproto/api');
         this.currentAgent = new Agent(result.session);
 
         return oauthSession;
@@ -203,7 +196,6 @@ export class AtProtoOAuthService {
 
       // Store the OAuth session and create an Agent with the OAuth session
       this.currentOAuthSession = restoredSession;
-      const { Agent } = await import('@atproto/api');
       this.currentAgent = new Agent(restoredSession);
       console.log('[OAuthService] Session restored for DID:', restoredSession.sub);
 
@@ -261,7 +253,6 @@ export class AtProtoOAuthService {
     // Try to create agent from stored session
     if (this.currentOAuthSession) {
       try {
-        const { Agent } = await import('@atproto/api');
         this.currentAgent = new Agent(this.currentOAuthSession);
         return this.currentAgent;
       } catch (error) {
