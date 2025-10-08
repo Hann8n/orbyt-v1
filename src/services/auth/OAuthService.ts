@@ -27,7 +27,7 @@ export class AtProtoOAuthService {
 
   private constructor() {}
 
-  private async ensureClientLoaded(): Promise<void> {
+  private async ensureClientLoaded(pdsUrl?: string): Promise<void> {
     if (this.auth) return;
     const [{ ExpoOAuthClient }, { Agent }] = await Promise.all([
       import('expo-atproto-auth'),
@@ -41,7 +41,7 @@ export class AtProtoOAuthService {
         logo_uri: 'https://getorbyt.com/TV-Raw.png',
         tos_uri: 'https://getorbyt.com/terms.html',
         policy_uri: 'https://getorbyt.com/privacy.html',
-        redirect_uris: ['com.getorbyt:/oauth/callback'],
+        redirect_uris: ['com.getorbyt://oauth/callback'],
         scope: 'atproto transition:generic',
         grant_types: ['authorization_code', 'refresh_token'],
         response_types: ['code'],
@@ -49,7 +49,7 @@ export class AtProtoOAuthService {
         application_type: 'native',
         dpop_bound_access_tokens: true,
       },
-      handleResolver: 'https://bsky.social',
+      handleResolver: pdsUrl || 'https://bsky.social',
     });
     // Create a dummy agent import to keep types available; actual instance created later
     void Agent;
@@ -67,35 +67,97 @@ export class AtProtoOAuthService {
    */
   async signIn(identifier: string = 'bsky.social'): Promise<OAuthSession> {
     try {
+      console.log('[OAuthService] Starting signIn with identifier:', identifier);
       await this.ensureClientLoaded();
-      // Use the expo-atproto-auth library to handle the OAuth flow
+      console.log('[OAuthService] Client loaded, initiating OAuth flow');
+      
       const result = await this.auth.signIn(identifier);
+      console.log('[OAuthService] OAuth result status:', result.status);
 
       if (result.status === 'success') {
-        // Get token info from the session
+        console.log('[OAuthService] OAuth success, getting token info');
         const tokenInfo = await result.session.getTokenInfo();
         
-        // Convert to our session format
         const oauthSession: OAuthSession = {
           did: result.session.sub,
-          accessToken: 'stored-in-library', // The library handles tokens internally
-          refreshToken: 'stored-in-library', // The library handles tokens internally
-          expiresAt: tokenInfo.expiresAt ? tokenInfo.expiresAt.getTime() : Date.now() + 3600000, // 1 hour default
+          accessToken: 'stored-in-library',
+          refreshToken: 'stored-in-library',
+          expiresAt: tokenInfo.expiresAt ? tokenInfo.expiresAt.getTime() : Date.now() + 3600000,
         };
 
         // Store the OAuth session and create an Agent with the OAuth session
         this.currentOAuthSession = result.session;
         const { Agent } = await import('@atproto/api');
         this.currentAgent = new Agent(result.session);
+        console.log('[OAuthService] Session created for DID:', result.session.sub);
 
         return oauthSession;
       } else if (result.status === 'error') {
-        throw new Error(`OAuth error: ${result.error}`);
+        const errorMsg = `OAuth error: ${JSON.stringify(result.error)}`;
+        console.error('[OAuthService] OAuth error:', errorMsg);
+        throw new Error(errorMsg);
       } else {
-        throw new Error('Authentication was cancelled or failed');
+        const errorMsg = `Authentication failed with status: ${result.status}`;
+        console.error('[OAuthService] Authentication failed:', errorMsg);
+        throw new Error(errorMsg);
       }
-
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown OAuth error';
+      console.error('[OAuthService] SignIn failed:', {
+        identifier,
+        error: errorMsg,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Start OAuth flow with specific PDS URL
+   */
+  async signInWithPDS(identifier: string, pdsUrl: string): Promise<OAuthSession> {
+    try {
+      console.log('[OAuthService] Starting signInWithPDS with identifier:', identifier, 'PDS:', pdsUrl);
+      await this.ensureClientLoaded(pdsUrl);
+      console.log('[OAuthService] Client loaded with PDS, initiating OAuth flow');
+      
+      const result = await this.auth.signIn(identifier);
+      console.log('[OAuthService] OAuth result status:', result.status);
+
+      if (result.status === 'success') {
+        console.log('[OAuthService] OAuth success, getting token info');
+        const tokenInfo = await result.session.getTokenInfo();
+        
+        const oauthSession: OAuthSession = {
+          did: result.session.sub,
+          accessToken: 'stored-in-library',
+          refreshToken: 'stored-in-library',
+          expiresAt: tokenInfo.expiresAt ? tokenInfo.expiresAt.getTime() : Date.now() + 3600000,
+        };
+
+        console.log('[OAuthService] Session created for DID:', result.session.sub);
+        this.currentOAuthSession = result.session;
+        const { Agent } = await import('@atproto/api');
+        this.currentAgent = new Agent(result.session);
+
+        return oauthSession;
+      } else if (result.status === 'error') {
+        const errorMsg = `OAuth error: ${JSON.stringify(result.error)}`;
+        console.error('[OAuthService] OAuth error:', errorMsg);
+        throw new Error(errorMsg);
+      } else {
+        const errorMsg = `Authentication failed with status: ${result.status}`;
+        console.error('[OAuthService] Authentication failed:', errorMsg);
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown OAuth error';
+      console.error('[OAuthService] SignInWithPDS failed:', {
+        identifier,
+        pdsUrl,
+        error: errorMsg,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw error;
     }
   }
@@ -103,26 +165,35 @@ export class AtProtoOAuthService {
   /**
    * Restore session from stored DID
    */
-  async restoreSession(did: string): Promise<OAuthSession> {
+  async restoreSession(did: string, pdsUrl?: string): Promise<OAuthSession> {
     try {
-      await this.ensureClientLoaded();
-      // Use the expo-atproto-auth library to restore the session
-      const restoredSession = await this.auth.restore(did);
+      console.log('[OAuthService] Starting restoreSession for DID:', did, 'PDS:', pdsUrl || 'default');
+      await this.ensureClientLoaded(pdsUrl);
+      
+      let restoredSession: any;
+      try {
+        console.log('[OAuthService] Attempting to restore session');
+        restoredSession = await this.auth.restore(did);
+        console.log('[OAuthService] Session restore result:', restoredSession ? 'success' : 'failed');
+      } catch (err) {
+        // Session restoration failure is expected when sessions expire
+        console.warn('[OAuthService] Session restoration failed, re-auth required:', {
+          did,
+          pdsUrl,
+          error: err instanceof Error ? err.message : 'Unknown error',
+          stack: err instanceof Error ? err.stack : undefined
+        });
+        throw new Error('oauth_reauth_required');
+      }
       
       if (!restoredSession) {
-        throw new Error('Failed to restore OAuth session - no session returned');
+        console.warn('[OAuthService] No session returned from restore for DID:', did);
+        throw new Error('oauth_reauth_required');
       }
       
-      // Get token info from the restored session
+      console.log('[OAuthService] Getting token info for restored session');
       const tokenInfo = await restoredSession.getTokenInfo();
       
-      // Check if the session is still valid
-      if (tokenInfo.expiresAt && tokenInfo.expiresAt.getTime() < Date.now()) {
-        console.warn('[OAuth] Session has expired, user needs to re-authenticate');
-        throw new Error('Session expired and needs re-authentication');
-      }
-      
-      // Convert to our session format
       const oauthSession: OAuthSession = {
         did: restoredSession.sub,
         accessToken: 'stored-in-library',
@@ -134,13 +205,17 @@ export class AtProtoOAuthService {
       this.currentOAuthSession = restoredSession;
       const { Agent } = await import('@atproto/api');
       this.currentAgent = new Agent(restoredSession);
+      console.log('[OAuthService] Session restored for DID:', restoredSession.sub);
 
       return oauthSession;
     } catch (error) {
-      console.error('[OAuth] Failed to restore session:', error);
-      // Clear any partial state
-      this.currentOAuthSession = null;
-      this.currentAgent = null;
+      const errorMsg = error instanceof Error ? error.message : 'Unknown restore error';
+      console.error('[OAuthService] RestoreSession failed:', {
+        did,
+        pdsUrl,
+        error: errorMsg,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw error;
     }
   }
