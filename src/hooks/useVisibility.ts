@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { useCallback, useRef } from 'react';
 
-// Very simple state structure to track visible items
+// Simple state structure to track visible videos
 interface VisibilityState {
   // Currently visible video URI
   visibleVideoUri: string | null;
@@ -61,6 +61,7 @@ export const useVisibilityStore = create<VisibilityState>((set) => ({
 // Simple hook to determine if a video should play
 export function useVideoPlayback(uri: string, isComponentVisible: boolean) {
   const {
+    visibleVideoUri,
     isAppActive,
     isAppForegrounded,
     isPlaybackDisabled
@@ -70,11 +71,13 @@ export function useVideoPlayback(uri: string, isComponentVisible: boolean) {
   // 1. The component itself reports as visible
   // 2. The app is active and foregrounded
   // 3. Playback is not globally disabled
+  // 4. This is the currently visible video
   const shouldPlay = 
     isComponentVisible && 
     isAppActive && 
     isAppForegrounded && 
-    !isPlaybackDisabled;
+    !isPlaybackDisabled &&
+    visibleVideoUri === uri;
     
   return { shouldPlay };
 }

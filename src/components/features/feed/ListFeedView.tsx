@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
 
 import EmptyFeed from './EmptyFeed';
-import { MemoizedVideoItem } from './VideoItem';
+import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
 import { isSmallScreen, isTablet, getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/helpers';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
@@ -261,10 +261,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     const isVideoVisible = item.post.uri === visibleVideoUri && isVisible;
     
     return (
-      <MemoizedVideoItem
+      <VideoItem
+        key={`${item.post.uri}_${index}`}
         post={item.post}
         feedItem={item}
-        isPlaying={isVideoVisible}
         handleVideoStatus={handleVideoStatus}
         height={cardHeight}
         feedOption={feedOption as 'yourMix' | 'following' | 'discover'}
@@ -292,9 +292,9 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     return 'default';
   }, []);
 
-  // Key extractor for optimal performance
-  const keyExtractor = useCallback((item: FeedItem) => {
-    return item.endCard ? 'end-card' : `${item.post.uri}_${item.post.cid}`;
+  // Key extractor with compound keys to force component recreation
+  const keyExtractor = useCallback((item: FeedItem, index: number) => {
+    return item.endCard ? 'end-card' : `${item.post.uri}_${index}_${item.post.cid}`;
   }, []);
 
   // Grid item press handler

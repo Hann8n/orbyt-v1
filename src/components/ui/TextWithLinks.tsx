@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Text, Alert, Linking } from 'react-native';
 import { StyleSheet } from 'react-native';
+import { useMappingHelper } from '@shopify/flash-list';
 import type { RichTextFacet } from '../../utils/richTextParser';
 
 interface TextPart {
@@ -32,6 +33,7 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
   facets
 }) => {
   const [textParts, setTextParts] = useState<TextPart[]>([]);
+  const { getMappingKey } = useMappingHelper();
 
   const handleUrlPress = async (url: string) => {
     const normalizedUrl = url.startsWith('http') ? url : `https://${url}`;
@@ -139,10 +141,13 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
   return (
     <Text style={style} numberOfLines={numberOfLines}>
       {textParts.map((part, index) => {
+        // Use getMappingKey to generate optimized keys for FlashList recycling
+        const mappingKey = getMappingKey(part.text, index);
+        
         if (part.isAuthor && part.handle) {
           return (
             <Text
-              key={index}
+              key={mappingKey}
               style={[style, styles.authorLink]}
               onPress={() => onAuthorPress(part.handle!)}
               suppressHighlighting={true}
@@ -154,7 +159,7 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
         if (part.isUrl) {
           return (
             <Text
-              key={index}
+              key={mappingKey}
               style={[style, styles.link]}
               onPress={() => handleUrlPress(part.url || part.text)}
               suppressHighlighting={true}
@@ -166,7 +171,7 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
         if (part.isHashtag) {
           return (
             <Text
-              key={index}
+              key={mappingKey}
               style={[style, styles.link]}
               onPress={() => onHashtagPress?.(part.text.replace('#', ''))}
               suppressHighlighting={true}
@@ -178,7 +183,7 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
         if (part.isEmail) {
           return (
             <Text
-              key={index}
+              key={mappingKey}
               style={[style, styles.link]}
               onPress={() => handleEmailPress(part.text)}
               suppressHighlighting={true}
@@ -187,7 +192,7 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
             </Text>
           );
         }
-        return <Text key={index}>{part.text}</Text>;
+        return <Text key={mappingKey}>{part.text}</Text>;
       })}
     </Text>
   );

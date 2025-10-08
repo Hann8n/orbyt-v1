@@ -36,7 +36,6 @@ export interface FeedItem {
 export interface VideoItemProps {
   post: Post;
   feedItem?: FeedItem;
-  isPlaying?: boolean;
   handleVideoStatus?: (uri: string, status: string) => void;
   height?: number;
   feedOption?: string;
@@ -49,7 +48,6 @@ export interface VideoItemProps {
 const VideoItem: React.FC<VideoItemProps> = ({
   post,
   feedItem,
-  isPlaying = false,
   handleVideoStatus,
   height,
   feedOption,
@@ -84,18 +82,37 @@ const VideoItem: React.FC<VideoItemProps> = ({
     return null;
   }
 
-  // Simplified video status handler - no need for useCallback for simple functions
+  // Simple video status handler - uses post URI for tracking
   const handleVideoStatusChange = (uri: string, status: string) => {
     requestAnimationFrame(() => {
       handleVideoStatus?.(uri, status);
     });
   };
 
-  // Cleanup on unmount
+  // Enhanced cleanup on unmount for better memory management
   useEffect(() => {
     return () => {
-      if (videoRef.current?.unload) {
-        videoRef.current.unload();
+      if (videoRef.current) {
+        // Ensure video is paused
+        try {
+          videoRef.current.pause?.();
+        } catch (e) {
+          // Silently handle pause errors
+        }
+        
+        // Reset position to beginning
+        try {
+          videoRef.current.seek?.(0);
+        } catch (e) {
+          // Silently handle seek errors
+        }
+        
+        // Unload video resources
+        try {
+          videoRef.current.unload?.();
+        } catch (e) {
+          // Silently handle unload errors
+        }
       }
     };
   }, []);
@@ -110,26 +127,13 @@ const VideoItem: React.FC<VideoItemProps> = ({
         onVideoStatus={handleVideoStatusChange}
         height={itemHeight}
         moderationDecision={moderationDecision}
-        isPlaying={isPlaying}
         showOverlay={true}
-                feedOption={feedOption as any}
+        feedOption={feedOption as any}
         isModal={isModal}
       />
     </View>
   );
 };
-
-// Optimized React.memo for FlashList performance
-const MemoizedVideoItem = React.memo(VideoItem, (prevProps, nextProps) => {
-  // Only re-render on critical changes
-  return (
-    prevProps.post.uri === nextProps.post.uri &&
-    prevProps.isVisible === nextProps.isVisible &&
-    prevProps.isPlaying === nextProps.isPlaying &&
-    prevProps.height === nextProps.height &&
-    prevProps.moderationDecision?.blur === nextProps.moderationDecision?.blur
-  );
-});
 
 const styles = StyleSheet.create({
   videoContainer: {
@@ -144,4 +148,4 @@ const styles = StyleSheet.create({
 });
 
 export default VideoItem;
-export { MemoizedVideoItem, VideoItem };
+export { VideoItem };

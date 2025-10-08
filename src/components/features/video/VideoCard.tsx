@@ -7,6 +7,7 @@ import React, {
   useCallback,
   memo,
 } from 'react';
+import { useRecyclingState } from '@shopify/flash-list';
 
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
@@ -96,25 +97,25 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
 
   }, ref) => {
     
-    // Consolidated state management
-    const [videoState, setVideoState] = useState({
+    // Enhanced video state management with automatic recycling
+    const [videoState, setVideoState] = useRecyclingState({
       hasError: false,
       userPaused: false,
       isReady: false,
       isBuffering: false,
       duration: 0,
       currentPosition: 0,
-    });
+    }, [post.uri]); // Auto-resets when post.uri changes
 
-    // Overlay state - consolidated
-    const [overlayState, setOverlayState] = useState({
+    // Overlay state - using recycling state for automatic reset
+    const [overlayState, setOverlayState] = useRecyclingState({
       isLikePending: false,
       isRepostPending: false,
       isLiked: !!post.viewer?.like,
       likeCount: post.likeCount || 0,
       repostCount: post.repostCount || 0,
       isReposted: !!post.viewer?.repost,
-    });
+    }, [post.uri]); // Auto-resets when post.uri changes
 
     // Refs
     const playerRef = useRef<any>(null);
@@ -137,28 +138,26 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const defaultAspectRatio = postAspectRatio ? postAspectRatio.width / postAspectRatio.height : 16/9;
     const cardHeight = height || width * defaultAspectRatio;
 
-    // Content warning state - use moderation decision directly
+    // Simplified content warning state
     const [userChoseToView, setUserChoseToView] = useState(false);
     
-    // Get moderation decision from props or attached to post
+    // Get moderation decision and derive all blur states in one place
     const decision = moderationDecision || post?.moderationDecision || post?.post?.moderationDecision;
-    
-    // Determine if content should be blurred
     const shouldBlur = decision?.blur || false;
     const shouldShowContent = !shouldBlur || userChoseToView;
     const isBlurred = shouldBlur && !shouldShowContent;
     const hasWarning = shouldBlur;
     const reason = decision?.reason;
-    const informs = decision?.informs || [];
     
     // Handle user choosing to view content
     const handleViewContent = useCallback(() => {
       setUserChoseToView(true);
     }, []);
     
-    // Reset when post changes
+    // Only reset userChoseToView when post changes - videoState is handled by useRecyclingState
     useEffect(() => {
       setUserChoseToView(false);
+      // No need to reset videoState - handled automatically by useRecyclingState
     }, [post?.uri]);
 
     // Optimized dimming animation - only when visibility actually changes
@@ -188,52 +187,33 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       }
     }, [isVisible, dimmingOpacity]);
 
-    // Simplified video playback logic
+    // Isolated video playback logic - only depends on this video's state
     const shouldPlayVideo = !shouldDisablePlayback && 
                            !videoState.hasError && 
                            !videoState.userPaused &&
                            !(hasWarning && !shouldShowContent) &&
-                           shouldPlay && 
+                           isVisible && // Use visibility instead of external shouldPlay prop
                            !!videoUrl;
 
     const shouldLoadVideo = !(hasWarning && !shouldShowContent) && !!videoUrl && videoUrl.trim() !== '';
 
-    // Video playback control functions
-    const play = useCallback(() => {
-      if (videoState.hasError) return;
-      // Don't play if content is blurred and user hasn't chosen to view
-      if (hasWarning && !shouldShowContent) return;
-      setVideoState(prev => ({ ...prev, userPaused: false }));
-    }, [videoState.hasError, hasWarning, shouldShowContent]);
-
-    const pause = useCallback(() => {
-      setVideoState(prev => ({ ...prev, userPaused: true }));
-    }, []);
-
-    const togglePlay = useCallback(() => {
-      // Don't toggle if content is blurred and user hasn't chosen to view
-      if (hasWarning && !shouldShowContent) return;
+    // Simplified video playback control functions
+    const togglePlayback = useCallback((shouldPlay?: boolean) => {
+      // Don't play if content is blurred or has error
+      if ((hasWarning && !shouldShowContent) || videoState.hasError || shouldDisablePlayback) return;
       
-      if (videoState.userPaused) {
-        play();
-      } else {
-        pause();
-      }
-    }, [videoState.userPaused, play, pause, hasWarning, shouldShowContent]);
+      // If shouldPlay is provided, use it, otherwise toggle current state
+      const newPausedState = shouldPlay !== undefined ? !shouldPlay : !videoState.userPaused;
+      setVideoState(prev => ({ ...prev, userPaused: newPausedState }));
+    }, [videoState.hasError, hasWarning, shouldShowContent, shouldDisablePlayback]);
 
-        // Tap to pause/play handler
-    const handleVideoTap = useCallback(() => {
-      if (shouldDisablePlayback || videoState.hasError) return;
-      
-      // Don't allow play/pause if content is blurred and user hasn't chosen to view
-      if (hasWarning && !shouldShowContent) return;
-
-      // Direct state update to avoid function call overhead
-      setVideoState(prev => ({ 
-        ...prev,
-        userPaused: !prev.userPaused
-      }));
-    }, [shouldDisablePlayback, videoState.hasError, hasWarning, shouldShowContent]);
+    // Simplified play/pause functions that use the main toggle function
+    const play = useCallback(() => togglePlayback(true), [togglePlayback]);
+    const pause = useCallback(() => togglePlayback(false), [togglePlayback]);
+    const togglePlay = useCallback(() => togglePlayback(), [togglePlayback]);
+    
+    // Tap handler uses the same toggle function
+    const handleVideoTap = useCallback(() => togglePlayback(), [togglePlayback]);
 
     const seekTo = useCallback((position: number) => {
       if (playerRef.current) {
@@ -246,17 +226,21 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       seekTo(position);
     }, [seekTo]);
 
+    // Enhanced unload function that properly cleans up resources
     const unload = useCallback(() => {
       if (playerRef.current) {
+        // First pause the video
+        if (!videoState.userPaused) {
+          setVideoState(prev => ({ ...prev, userPaused: true }));
+        }
+        // Then reset position
         playerRef.current.seek(0);
+        setVideoState(prev => ({ ...prev, currentPosition: 0 }));
       }
-    }, []);
+    }, [videoState.userPaused]);
 
-    const playPause = useCallback((shouldPlay: boolean) => {
-      // Don't play if content is blurred and user hasn't chosen to view
-      if (shouldPlay && hasWarning && !shouldShowContent) return;
-      setVideoState(prev => ({ ...prev, userPaused: !shouldPlay }));
-    }, [hasWarning, shouldShowContent]);
+    // Use our main togglePlayback function
+    const playPause = useCallback((shouldPlay: boolean) => togglePlayback(shouldPlay), [togglePlayback]);
 
     const getPlayState = useCallback(() => {
       // Return false if content is blurred and user hasn't chosen to view
@@ -286,30 +270,21 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       getDuration
     }));
 
-    // Snapshot current play state in a ref to avoid dependency loops
-    const isPlayingSnapshotRef = useRef(false);
-    useEffect(() => {
-      isPlayingSnapshotRef.current = shouldPlayVideo;
-    }, [shouldPlayVideo]);
-
-    // Pause on blur and auto-resume on focus only if it was playing before blur
-    const wasPlayingBeforeBlurRef = useRef(false);
+    // Simplified focus effect - pause on blur, resume on focus if needed
     useFocusEffect(
       useCallback(() => {
-        // on focus
-        if (wasPlayingBeforeBlurRef.current) {
-          setVideoState(prev => (prev.userPaused ? { ...prev, userPaused: false } : prev));
-          wasPlayingBeforeBlurRef.current = false;
-        }
+        // On focus - do nothing, let visibility control playback
+        
         return () => {
-          // on blur
-          wasPlayingBeforeBlurRef.current = isPlayingSnapshotRef.current;
-          setVideoState(prev => (prev.userPaused ? prev : { ...prev, userPaused: true }));
+          // On blur - always pause to conserve resources
+          if (!videoState.userPaused) {
+            togglePlayback(false);
+          }
         };
-      }, [])
+      }, [videoState.userPaused, togglePlayback])
     );
 
-    // Video event handlers
+    // Video event handlers - use post URI for simple tracking
     const handleLoad = useCallback((data: any) => {
       if (!data || !data.duration) return;
       const duration = data.duration * 1000;
@@ -325,16 +300,10 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
 
 
 
+    // Simplified handleEnd that uses seekTo
     const handleEnd = useCallback(() => {
-      setVideoState(prev => ({
-        ...prev,
-        currentPosition: 0
-      }));
-      
-      if (playerRef.current) {
-        playerRef.current.seek(0);
-      }
-    }, []);
+      seekTo(0); // This already updates state and seeks the player
+    }, [seekTo]);
 
     const handleError = useCallback((error: any) => {
       setVideoState(prev => ({
@@ -415,7 +384,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       // TODO: Implement source feed navigation
     }, []);
 
-    // Video Status Reporting
+    // Video Status Reporting - use post URI for simple tracking
     useEffect(() => {
       if (shouldPlayVideo) {
         onVideoStatus?.(post.uri, 'playing');
@@ -440,7 +409,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 source={{ uri: videoUrl }}
                 style={[styles.videoPlayer, { backgroundColor: thumbnailBackgroundColor }]}
                 resizeMode="contain"
-                poster={null}
+                // Removed poster to avoid conflict with renderLoader
                 paused={!shouldPlayVideo}
                 muted={false}
                 repeat={true}
@@ -452,28 +421,30 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 onError={handleError}
                 onReadyForDisplay={handleReadyForDisplay}
                 onBuffer={handleBuffering}
+                progressUpdateInterval={500} // Reduce update frequency for better performance
                 bufferConfig={{
-                  minBufferMs: 1500,
-                  bufferForPlaybackMs: 500,
-                  bufferForPlaybackAfterRebufferMs: 1500
+                  minBufferMs: 15000, // Increase buffer size for smoother playback
+                  maxBufferMs: 50000,
+                  bufferForPlaybackMs: 2500,
+                  bufferForPlaybackAfterRebufferMs: 5000
                 }}
                 ignoreSilentSwitch="ignore"
                 allowsExternalPlayback={false}
-                automaticallyWaitsToMinimizeStalling={false}
+                automaticallyWaitsToMinimizeStalling={true} // Enable auto-waiting to reduce stalling
                 useTextureView={false}
+                renderLoader={() => (
+                  <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color="white" />
+                  </View>
+                )}
               />
             )}
             
-            {/* Loading indicator when no video URL or buffering */}
-            {(!shouldLoadVideo || videoState.isBuffering) && !isBlurred && (
+            {/* Loading indicator only shown when needed */}
+            {!shouldLoadVideo && !isBlurred && !videoUrl && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="white" />
-                {!shouldLoadVideo && !videoUrl && (
-                  <Text style={styles.loadingText}>No video URL found</Text>
-                )}
-                {videoState.isBuffering && (
-                  <Text style={styles.loadingText}>Buffering...</Text>
-                )}
+                <Text style={styles.loadingText}>No video URL found</Text>
               </View>
             )}
 
