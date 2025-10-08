@@ -48,7 +48,8 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   const { 
     savedAccounts, 
     switchAccount,
-    loadSavedAccounts 
+    loadSavedAccounts,
+    checkAccountSessionValidity
   } = useAccountManagement();
 
   const hasSavedAccounts = savedAccounts.length > 0;
@@ -132,6 +133,28 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
   const handleSavedAccountLogin = async (account: SavedAccount) => {
     try {
+      // First check if the account has a valid session
+      const hasValidSession = await checkAccountSessionValidity(account.did);
+      
+      if (!hasValidSession) {
+        Alert.alert(
+          'Session Expired', 
+          `Your session for @${account.handle} has expired. Please sign in again.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Sign In', 
+              onPress: () => {
+                // Trigger a fresh OAuth flow
+                handleLogin();
+              }
+            }
+          ]
+        );
+        return;
+      }
+      
+      // Session is valid, proceed with account switch
       await switchAccount(account.did);
       if (onAccountSwitch) {
         await onAccountSwitch(account);
@@ -139,14 +162,32 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Account switch failed';
       const isUserCancellation = errorMessage.includes('cancelled') || 
-                                errorMessage.includes('Authentication was cancelled') ||
                                 errorMessage.includes('user_cancelled');
       
       if (!isUserCancellation) {
-        Alert.alert(
-          'Account Switch Failed', 
-          'Please try signing in again.'
-        );
+        console.error('[LoginScreen] Account switch failed:', errorMessage);
+        
+        if (errorMessage.includes('Session expired')) {
+          Alert.alert(
+            'Session Expired', 
+            `Your session for @${account.handle} has expired. Please sign in again.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Sign In', 
+                onPress: () => {
+                  // Trigger a fresh OAuth flow for this account
+                  handleLogin();
+                }
+              }
+            ]
+          );
+        } else {
+          Alert.alert(
+            'Account Switch Failed', 
+            'Unable to switch to this account. Please try signing in again.'
+          );
+        }
       }
     }
   };

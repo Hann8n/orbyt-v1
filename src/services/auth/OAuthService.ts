@@ -123,9 +123,18 @@ export class AtProtoOAuthService {
       console.warn('[OAuthService] Session restoration failed:', {
         did,
         pdsUrl: resolvedPdsUrl,
-        error: errorMsg
+        error: errorMsg,
+        stack: error instanceof Error ? error.stack : undefined
       });
-      throw new Error('oauth_reauth_required');
+      
+      // Provide more specific error information for debugging
+      if (errorMsg.includes('Network') || errorMsg.includes('fetch')) {
+        throw new Error('Network error during session restoration');
+      } else if (errorMsg.includes('expired') || errorMsg.includes('invalid')) {
+        throw new Error('oauth_reauth_required');
+      } else {
+        throw new Error('oauth_reauth_required');
+      }
     }
   }
 
@@ -264,6 +273,40 @@ export class AtProtoOAuthService {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Check if a specific DID has a valid session without switching to it
+   */
+  async hasValidSession(did: string, pdsUrl?: string): Promise<boolean> {
+    try {
+      const resolvedPdsUrl = pdsUrl || 'https://bsky.social';
+      console.log('[OAuthService] Checking session validity for DID:', did, 'PDS:', resolvedPdsUrl);
+      
+      await this.initializeClient(resolvedPdsUrl);
+      const session = await this.auth.restore(did);
+      
+      if (!session) {
+        console.log('[OAuthService] No session found for DID:', did);
+        return false;
+      }
+      
+      // Check if the session is valid by getting token info
+      const tokenInfo = await session.getTokenInfo();
+      const now = Date.now();
+      
+      // Check if token is expired or expires soon (within 5 minutes)
+      if (tokenInfo.expiresAt && tokenInfo.expiresAt.getTime() < now + 5 * 60 * 1000) {
+        console.log('[OAuthService] Session expires soon or is expired for DID:', did);
+        return false;
+      }
+      
+      console.log('[OAuthService] Valid session found for DID:', did);
+      return true;
+    } catch (error) {
+      console.warn('[OAuthService] Session check failed for DID:', did, error);
+      return false;
+    }
   }
 
   /**

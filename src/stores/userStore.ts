@@ -143,6 +143,7 @@ interface UserState {
   
   // Session management
   checkSessionHealth: () => Promise<boolean>;
+  checkAccountSessionValidity: (did: string) => Promise<boolean>;
   
   // Initialization
   initializeUserState: () => Promise<void>;
@@ -453,22 +454,29 @@ export const useUserStore = create<UserState>()(
           await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
           await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
           
-          // Try to restore session for the new account; fall back to re-auth if needed
+          // Try to restore session for the new account
           try {
             const account = accounts.find(acc => acc.did === did);
             const accountPDS = account?.pdsUrl;
             await get().restoreSession(did, accountPDS);
           } catch (restoreErr) {
             const restoreMsg = restoreErr instanceof Error ? restoreErr.message : '';
-            if (restoreMsg.includes('oauth_reauth_required')) {
-              // Use saved handle or DID to initiate sign-in
-              const account = accounts.find(acc => acc.did === did);
-              const identifier = account?.handle || did;
-              const accountPDS = account?.pdsUrl;
-              await get().signIn(identifier, accountPDS);
-            } else {
-              throw restoreErr;
-            }
+            console.warn('[userStore] Session restoration failed for account switch:', {
+              did,
+              error: restoreMsg
+            });
+            
+            // Don't try to re-authenticate automatically - this requires user interaction
+            // Instead, clear the user state and require manual re-authentication
+            set({ 
+              isAuthenticated: false,
+              currentUser: null,
+              oauthSession: null,
+              agent: null,
+            });
+            
+            // Throw a specific error that the UI can handle
+            throw new Error('Session expired - please sign in again');
           }
           
           // Update state
@@ -1019,6 +1027,19 @@ export const useUserStore = create<UserState>()(
           return isHealthy;
         } catch (error) {
           console.error('[userStore] Session health check failed:', error);
+          return false;
+        }
+      },
+
+      checkAccountSessionValidity: async (did: string) => {
+        try {
+          const oauthService = AtProtoOAuthService.getInstance();
+          const account = get().savedAccounts.find(acc => acc.did === did);
+          const pdsUrl = account?.pdsUrl;
+          
+          return await oauthService.hasValidSession(did, pdsUrl);
+        } catch (error) {
+          console.error('[userStore] Account session validity check failed:', error);
           return false;
         }
       },
