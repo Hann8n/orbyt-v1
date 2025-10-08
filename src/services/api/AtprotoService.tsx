@@ -121,7 +121,7 @@ class AtprotoService {
       try {
         // Check if there's an OAuth session
         const oauthService = AtProtoOAuthService.getInstance();
-        const oauthSession = await oauthService.getCurrentSession();
+        const oauthSession = await oauthService.getCurrentOAuthSession();
         
         if (oauthSession) {
       
@@ -146,7 +146,7 @@ class AtprotoService {
   static async getCurrentUserDid(): Promise<string | null> {
     try {
       const oauthService = AtProtoOAuthService.getInstance();
-      const oauthSession = await oauthService.getCurrentSession();
+      const oauthSession = await oauthService.getCurrentOAuthSession();
       return oauthSession?.did || null;
     } catch (error) {
       console.error('Error getting current user DID:', error);
@@ -159,7 +159,7 @@ class AtprotoService {
    */
   static async getApiClient(): Promise<{ api: any; isOAuth: boolean }> {
     const oauthService = AtProtoOAuthService.getInstance();
-    const oauthSession = await oauthService.getCurrentSession();
+    const oauthSession = await oauthService.getCurrentOAuthSession();
     
     if (oauthSession) {
       const oauthAgent = await oauthService.getCurrentAgent();
@@ -179,7 +179,7 @@ class AtprotoService {
    */
   static async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
     const oauthService = AtProtoOAuthService.getInstance();
-    const oauthSession = await oauthService.getCurrentSession();
+    const oauthSession = await oauthService.getCurrentOAuthSession();
     
     if (oauthSession) {
       return await oauthService.makeAuthenticatedRequest(url, options);
@@ -405,7 +405,7 @@ class AtprotoService {
       
       // For OAuth sessions, get the DID from the OAuth service
       const oauthService = AtProtoOAuthService.getInstance();
-      const oauthSession = await oauthService.getCurrentSession();
+      const oauthSession = await oauthService.getCurrentOAuthSession();
       if (!oauthSession) {
         throw new Error('No OAuth session available');
       }
@@ -439,7 +439,7 @@ class AtprotoService {
       
       // For OAuth, the authentication is handled by the agent automatically
       const oauthService = AtProtoOAuthService.getInstance();
-      const oauthSession = await oauthService.getCurrentSession();
+      const oauthSession = await oauthService.getCurrentOAuthSession();
       
       if (!oauthSession) {
         throw new Error('No OAuth session available');
@@ -1090,7 +1090,7 @@ class AtprotoService {
     
     // For OAuth sessions, get the DID from the OAuth service
     const oauthService = AtProtoOAuthService.getInstance();
-    const oauthSession = await oauthService.getCurrentSession();
+    const oauthSession = await oauthService.getCurrentOAuthSession();
     if (!oauthSession) {
       throw new Error('No OAuth session available');
     }
@@ -1124,7 +1124,7 @@ class AtprotoService {
     
     // For OAuth sessions, get the DID from the OAuth service
     const oauthService = AtProtoOAuthService.getInstance();
-    const oauthSession = await oauthService.getCurrentSession();
+    const oauthSession = await oauthService.getCurrentOAuthSession();
     if (!oauthSession) {
       throw new Error('No OAuth session available');
     }
