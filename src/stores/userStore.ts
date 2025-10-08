@@ -220,6 +220,7 @@ export const useUserStore = create<UserState>()(
           let profileData = null;
           if (agent) {
             try {
+              console.log('[userStore] Fetching profile data for new session');
               const response = await agent.api.app.bsky.actor.getProfile({
                 actor: session.did
               });
@@ -229,9 +230,17 @@ export const useUserStore = create<UserState>()(
               if (profileData) {
                 await ProfileCache.cacheProfiles([profileData]);
               }
+              console.log('[userStore] Profile data fetched and cached successfully');
             } catch (profileError) {
-              console.warn('[userStore] Failed to fetch profile data:', profileError);
+              console.warn('[userStore] Failed to fetch profile data during sign-in:', {
+                did: session.did,
+                error: profileError instanceof Error ? profileError.message : 'Unknown error'
+              });
+              // Don't fail the entire sign-in process if profile fetching fails
+              // We'll use the session data and try to get profile later
             }
+          } else {
+            console.warn('[userStore] No agent available for profile fetching during sign-in');
           }
           
           // Save account
@@ -407,14 +416,34 @@ export const useUserStore = create<UserState>()(
           // Normalize to actionable error for callers (switchAccount)
           if (errorMessage.includes('oauth_reauth_required')) {
             // Session expiration is expected behavior, log as warning
-            console.warn('[userStore] Session expired, re-authentication required');
-            set({ isAuthenticating: false });
+            console.warn('[userStore] Session expired, re-authentication required for DID:', did);
+            set({ 
+              isAuthenticating: false,
+              isAuthenticated: false,
+              currentUser: null,
+              oauthSession: null,
+              agent: null,
+              activeAccountDid: null,
+            });
             throw new Error('oauth_reauth_required');
           }
           
           // Only log as error for unexpected failures
-          console.error('[userStore] Unexpected session restoration failure:', error);
-          set({ isAuthenticating: false, authError: errorMessage });
+          console.error('[userStore] Unexpected session restoration failure:', {
+            did,
+            pdsUrl,
+            error: errorMessage,
+            stack: error instanceof Error ? error.stack : undefined
+          });
+          set({ 
+            isAuthenticating: false,
+            isAuthenticated: false,
+            authError: errorMessage,
+            currentUser: null,
+            oauthSession: null,
+            agent: null,
+            activeAccountDid: null,
+          });
           throw error;
         }
       },
@@ -1007,20 +1036,29 @@ export const useUserStore = create<UserState>()(
             const accountPDS = account?.pdsUrl;
             
             try {
+              console.log('[userStore] Attempting to restore session for active account:', activeAccountDid);
               await get().restoreSession(activeAccountDid, accountPDS);
+              console.log('[userStore] Successfully restored session for active account');
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Session restoration failed';
-              // Only log as warning if it's not a re-auth required error
-              if (!errorMessage.includes('oauth_reauth_required')) {
-                console.warn('[userStore] Failed to restore session for active account:', error);
+              
+              if (errorMessage.includes('oauth_reauth_required')) {
+                console.log('[userStore] Session expired for active account, user needs to re-authenticate');
               } else {
+                console.warn('[userStore] Failed to restore session for active account:', {
+                  did: activeAccountDid,
+                  pdsUrl: accountPDS,
+                  error: errorMessage
+                });
               }
-              // Session expired, user needs to re-authenticate
+              
+              // Session expired or failed, user needs to re-authenticate
               set({ 
                 isAuthenticated: false,
                 currentUser: null,
                 oauthSession: null,
                 agent: null,
+                activeAccountDid: null,
               });
             }
           }

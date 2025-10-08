@@ -28,7 +28,8 @@ export class AtProtoOAuthService {
   private constructor() {}
 
   private async ensureClientLoaded(pdsUrl?: string): Promise<void> {
-    if (this.auth) return;
+    // Always create a new client with the correct PDS URL
+    // This ensures we're using the right PDS for each operation
     const { ExpoOAuthClient } = await import('expo-atproto-auth');
     this.auth = new ExpoOAuthClient({
       clientMetadata: {
@@ -48,6 +49,7 @@ export class AtProtoOAuthService {
       },
       handleResolver: pdsUrl || 'https://bsky.social',
     });
+    console.log('[OAuthService] Client loaded with handleResolver:', pdsUrl || 'https://bsky.social');
   }
 
   public static getInstance(): AtProtoOAuthService {
