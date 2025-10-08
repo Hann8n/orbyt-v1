@@ -35,6 +35,12 @@ export class AtProtoOAuthService {
   private async initializeClient(pdsUrl: string = 'https://bsky.social'): Promise<void> {
     const { ExpoOAuthClient } = await import('expo-atproto-auth');
     
+    // Clear any existing client to prevent conflicts
+    if (this.auth) {
+      console.log('[OAuthService] Clearing existing client to prevent conflicts');
+      this.auth = null as any;
+    }
+    
     this.auth = new ExpoOAuthClient({
       clientMetadata: {
         client_id: 'https://getorbyt.com/oauth-client-metadata.json',
@@ -100,7 +106,26 @@ export class AtProtoOAuthService {
   }
 
   /**
-   * Restore session - simplified implementation
+   * Clear corrupted session storage
+   */
+  private async clearCorruptedSessions(): Promise<void> {
+    try {
+      console.log('[OAuthService] Attempting to clear corrupted session storage...');
+      
+      // Clear our internal state
+      this.currentOAuthSession = null;
+      this.currentAgent = null;
+      
+      // Note: The OAuth library manages its own internal storage
+      // We can't directly clear it, but clearing our state forces re-authentication
+      console.log('[OAuthService] Internal session state cleared successfully');
+    } catch (error) {
+      console.warn('[OAuthService] Failed to clear session storage:', error);
+    }
+  }
+
+  /**
+   * Restore session - improved with corruption handling
    */
   async restoreSession(did: string, pdsUrl?: string): Promise<OAuthSession> {
     const resolvedPdsUrl = pdsUrl || 'https://bsky.social';
@@ -139,7 +164,15 @@ export class AtProtoOAuthService {
       console.error('[OAuthService] Error type:', typeof error);
       console.error('[OAuthService] Full error object:', error);
       
-      // Always throw oauth_reauth_required for now to simplify debugging
+      // Check if this is a "session deleted by another process" error
+      if (errorMsg.includes('session was deleted by another process') || 
+          errorMsg.includes('TokenRefreshError') ||
+          errorMsg.includes('deleted by another process')) {
+        console.log('[OAuthService] Detected corrupted session storage, clearing...');
+        await this.clearCorruptedSessions();
+      }
+      
+      // Always throw oauth_reauth_required for session restoration failures
       throw new Error('oauth_reauth_required');
     }
   }

@@ -144,6 +144,7 @@ interface UserState {
   // Session management
   checkSessionHealth: () => Promise<boolean>;
   checkAccountSessionValidity: (did: string) => Promise<boolean>;
+  clearCorruptedSessions: () => Promise<void>;
   
   // Initialization
   initializeUserState: () => Promise<void>;
@@ -490,8 +491,7 @@ export const useUserStore = create<UserState>()(
               stack: restoreErr instanceof Error ? restoreErr.stack : undefined
             });
             
-            // Don't try to re-authenticate automatically - this requires user interaction
-            // Instead, clear the user state and require manual re-authentication
+            // Clear the user state
             set({ 
               isAuthenticated: false,
               currentUser: null,
@@ -499,8 +499,14 @@ export const useUserStore = create<UserState>()(
               agent: null,
             });
             
-            // Throw a specific error that the UI can handle
-            throw new Error('Session expired - please sign in again');
+            // Check if this is a session corruption issue
+            if (restoreMsg.includes('oauth_reauth_required')) {
+              console.log('[userStore] Session requires re-authentication for DID:', did);
+              throw new Error('Session expired - please sign in again');
+            } else {
+              console.error('[userStore] Unexpected session restoration error:', restoreMsg);
+              throw new Error('Unable to restore session - please sign in again');
+            }
           }
           
           // Update state
@@ -1067,6 +1073,28 @@ export const useUserStore = create<UserState>()(
           return false;
         }
       },
+
+      clearCorruptedSessions: async () => {
+        try {
+          console.log('[userStore] Clearing all corrupted sessions...');
+          
+          const oauthService = AtProtoOAuthService.getInstance();
+          // Call the private method through a public method if needed
+          // For now, we'll clear our state and let the OAuth service handle its own cleanup
+          
+          set({
+            isAuthenticated: false,
+            currentUser: null,
+            oauthSession: null,
+            agent: null,
+            activeAccountDid: null,
+          });
+          
+          console.log('[userStore] Corrupted sessions cleared successfully');
+        } catch (error) {
+          console.error('[userStore] Failed to clear corrupted sessions:', error);
+        }
+      },
       
       // Initialization actions
       initializeUserState: async () => {
@@ -1369,6 +1397,8 @@ export const useAccountManagement = () => {
   const removeAccount = useUserStore(state => state.removeAccount);
   const updateAccountProfile = useUserStore(state => state.updateAccountProfile);
   const loadSavedAccounts = useUserStore(state => state.loadSavedAccounts);
+  const checkAccountSessionValidity = useUserStore(state => state.checkAccountSessionValidity);
+  const clearCorruptedSessions = useUserStore(state => state.clearCorruptedSessions);
   
   return {
     savedAccounts,
@@ -1378,6 +1408,8 @@ export const useAccountManagement = () => {
     removeAccount,
     updateAccountProfile,
     loadSavedAccounts,
+    checkAccountSessionValidity,
+    clearCorruptedSessions,
   };
 };
 

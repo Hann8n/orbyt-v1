@@ -49,7 +49,8 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     savedAccounts, 
     switchAccount,
     loadSavedAccounts,
-    checkAccountSessionValidity
+    checkAccountSessionValidity,
+    clearCorruptedSessions
   } = useAccountManagement();
 
   const hasSavedAccounts = savedAccounts.length > 0;
@@ -159,21 +160,44 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                                 errorMessage.includes('user_cancelled');
       
       if (!isUserCancellation) {
-        // Show detailed error information for debugging
-        Alert.alert(
-          'Account Switch Failed', 
-          `Failed to switch to @${account.handle}.\n\nError: ${errorMessage}\n\nPlease try signing in again.`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Sign In', 
-              onPress: () => {
-                // Trigger a fresh OAuth flow
-                handleLogin();
+        // Check if this is a session corruption issue
+        if (errorMessage.includes('Session expired') || errorMessage.includes('Unable to restore session')) {
+          Alert.alert(
+            'Session Issue', 
+            `There's an issue with the saved session for @${account.handle}. This can happen after app updates or device changes.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Clear & Sign In', 
+                onPress: async () => {
+                  try {
+                    await clearCorruptedSessions();
+                    handleLogin();
+                  } catch (clearError) {
+                    console.error('[LoginScreen] Failed to clear corrupted sessions:', clearError);
+                    handleLogin();
+                  }
+                }
               }
-            }
-          ]
-        );
+            ]
+          );
+        } else {
+          // Show detailed error information for debugging
+          Alert.alert(
+            'Account Switch Failed', 
+            `Failed to switch to @${account.handle}.\n\nError: ${errorMessage}\n\nPlease try signing in again.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Sign In', 
+                onPress: () => {
+                  // Trigger a fresh OAuth flow
+                  handleLogin();
+                }
+              }
+            ]
+          );
+        }
       }
     }
   };
