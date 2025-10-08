@@ -59,33 +59,28 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     clearAuthError();
 
     try {
-      // For Bluesky login, use the default Bluesky PDS
-      // This will open the Bluesky OAuth flow without requiring a specific handle
-      if (DEBUG) console.log('[LoginScreen] handleLogin: Bluesky OAuth login begin');
+      console.log('[LoginScreen] Starting OAuth login');
       await signIn('https://bsky.social');
-      if (DEBUG) console.log('[LoginScreen] handleLogin: Bluesky OAuth login success');
       
-      // Reload accounts to show the new one (same as AccountSwitcher)
+      // Reload accounts to show the new one
       await loadSavedAccounts();
-      if (DEBUG) console.log('[LoginScreen] handleLogin: success, accounts reloaded');
+      console.log('[LoginScreen] OAuth login successful');
       
       await onLogin('oauth-success');
     } catch (error) {
-      // Check if this is a user cancellation vs actual error
       const errorMessage = error instanceof Error ? error.message : 'OAuth login failed';
       const isUserCancellation = errorMessage.includes('cancelled') || 
-                                errorMessage.includes('Authentication was cancelled') ||
                                 errorMessage.includes('user_cancelled');
       
       if (!isUserCancellation) {
+        console.error('[LoginScreen] OAuth login failed:', errorMessage);
         setOAuthError(errorMessage);
         Alert.alert(
-          'OAuth Sign-in Failed',
+          'Sign-in Failed',
           'Failed to sign in with Bluesky. Please try again.',
           [{ text: 'OK' }]
         );
       }
-      if (DEBUG) console.log('[LoginScreen] handleLogin: error', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -97,16 +92,16 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     clearAuthError();
 
     try {
-      if (DEBUG) console.log('[LoginScreen] handleCustomPDSSignIn: custom PDS login begin');
+      console.log('[LoginScreen] Starting custom PDS OAuth login for:', identifier);
       await signIn(identifier);
-      if (DEBUG) console.log('[LoginScreen] handleCustomPDSSignIn: custom PDS login success');
       
-      // Reload accounts to show the new one (same as AccountSwitcher)
+      // Reload accounts to show the new one
       await loadSavedAccounts();
-      if (DEBUG) console.log('[LoginScreen] handleCustomPDSSignIn: success, accounts reloaded');
+      console.log('[LoginScreen] Custom PDS OAuth login successful');
       
       await onLogin('oauth-success');
     } catch (error) {
+      console.error('[LoginScreen] Custom PDS OAuth login failed:', error);
       // Re-throw the error so the CustomPDSInputSheet can handle it
       throw error;
     } finally {

@@ -17,20 +17,24 @@ import type { ExpoOAuthClient } from 'expo-atproto-auth';
 import type { OAuthSession } from './types';
 
 /**
- * OAuth service using expo-atproto-auth with proper session management
+ * Modern OAuth service with clean architecture
+ * No backwards compatibility - optimized for current implementation
  */
 export class AtProtoOAuthService {
   private static instance: AtProtoOAuthService;
   private auth!: ExpoOAuthClient;
-  private currentOAuthSession: any = null; // The actual OAuth session from expo-atproto-auth
-  private currentAgent: Agent | null = null; // Agent created from OAuth session
+  private currentOAuthSession: any = null;
+  private currentAgent: Agent | null = null;
 
   private constructor() {}
 
-  private async ensureClientLoaded(pdsUrl?: string): Promise<void> {
-    // Always create a new client with the correct PDS URL
-    // This ensures we're using the right PDS for each operation
+  /**
+   * Initialize OAuth client with specific PDS URL
+   * Always creates a fresh client to ensure correct PDS resolution
+   */
+  private async initializeClient(pdsUrl: string = 'https://bsky.social'): Promise<void> {
     const { ExpoOAuthClient } = await import('expo-atproto-auth');
+    
     this.auth = new ExpoOAuthClient({
       clientMetadata: {
         client_id: 'https://getorbyt.com/oauth-client-metadata.json',
@@ -47,9 +51,10 @@ export class AtProtoOAuthService {
         application_type: 'native',
         dpop_bound_access_tokens: true,
       },
-      handleResolver: pdsUrl || 'https://bsky.social',
+      handleResolver: pdsUrl,
     });
-    console.log('[OAuthService] Client loaded with handleResolver:', pdsUrl || 'https://bsky.social');
+    
+    console.log('[OAuthService] Client initialized with PDS:', pdsUrl);
   }
 
   public static getInstance(): AtProtoOAuthService {
@@ -60,34 +65,19 @@ export class AtProtoOAuthService {
   }
 
   /**
-   * Start OAuth flow
+   * Sign in with OAuth - clean implementation
    */
-  async signIn(identifier: string = 'bsky.social'): Promise<OAuthSession> {
+  async signIn(identifier: string, pdsUrl?: string): Promise<OAuthSession> {
+    const resolvedPdsUrl = pdsUrl || 'https://bsky.social';
+    
     try {
-      console.log('[OAuthService] Starting signIn with identifier:', identifier);
-      await this.ensureClientLoaded();
-      console.log('[OAuthService] Client loaded, initiating OAuth flow');
+      console.log('[OAuthService] Starting OAuth flow for:', identifier, 'PDS:', resolvedPdsUrl);
+      await this.initializeClient(resolvedPdsUrl);
       
       const result = await this.auth.signIn(identifier);
-      console.log('[OAuthService] OAuth result status:', result.status);
-
+      
       if (result.status === 'success') {
-        console.log('[OAuthService] OAuth success, getting token info');
-        const tokenInfo = await result.session.getTokenInfo();
-        
-        const oauthSession: OAuthSession = {
-          did: result.session.sub,
-          accessToken: 'stored-in-library',
-          refreshToken: 'stored-in-library',
-          expiresAt: tokenInfo.expiresAt ? tokenInfo.expiresAt.getTime() : Date.now() + 3600000,
-        };
-
-        // Store the OAuth session and create an Agent with the OAuth session
-        this.currentOAuthSession = result.session;
-        this.currentAgent = new Agent(result.session);
-        console.log('[OAuthService] Session created for DID:', result.session.sub);
-
-        return oauthSession;
+        return this.handleSuccessfulAuth(result.session, resolvedPdsUrl);
       } else if (result.status === 'error') {
         const errorMsg = `OAuth error: ${JSON.stringify(result.error)}`;
         console.error('[OAuthService] OAuth error:', errorMsg);
@@ -101,6 +91,7 @@ export class AtProtoOAuthService {
       const errorMsg = error instanceof Error ? error.message : 'Unknown OAuth error';
       console.error('[OAuthService] SignIn failed:', {
         identifier,
+        pdsUrl: resolvedPdsUrl,
         error: errorMsg,
         stack: error instanceof Error ? error.stack : undefined
       });
@@ -109,108 +100,58 @@ export class AtProtoOAuthService {
   }
 
   /**
-   * Start OAuth flow with specific PDS URL
-   */
-  async signInWithPDS(identifier: string, pdsUrl: string): Promise<OAuthSession> {
-    try {
-      console.log('[OAuthService] Starting signInWithPDS with identifier:', identifier, 'PDS:', pdsUrl);
-      await this.ensureClientLoaded(pdsUrl);
-      console.log('[OAuthService] Client loaded with PDS, initiating OAuth flow');
-      
-      const result = await this.auth.signIn(identifier);
-      console.log('[OAuthService] OAuth result status:', result.status);
-
-      if (result.status === 'success') {
-        console.log('[OAuthService] OAuth success, getting token info');
-        const tokenInfo = await result.session.getTokenInfo();
-        
-        const oauthSession: OAuthSession = {
-          did: result.session.sub,
-          accessToken: 'stored-in-library',
-          refreshToken: 'stored-in-library',
-          expiresAt: tokenInfo.expiresAt ? tokenInfo.expiresAt.getTime() : Date.now() + 3600000,
-        };
-
-        console.log('[OAuthService] Session created for DID:', result.session.sub);
-        this.currentOAuthSession = result.session;
-        this.currentAgent = new Agent(result.session);
-
-        return oauthSession;
-      } else if (result.status === 'error') {
-        const errorMsg = `OAuth error: ${JSON.stringify(result.error)}`;
-        console.error('[OAuthService] OAuth error:', errorMsg);
-        throw new Error(errorMsg);
-      } else {
-        const errorMsg = `Authentication failed with status: ${result.status}`;
-        console.error('[OAuthService] Authentication failed:', errorMsg);
-        throw new Error(errorMsg);
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown OAuth error';
-      console.error('[OAuthService] SignInWithPDS failed:', {
-        identifier,
-        pdsUrl,
-        error: errorMsg,
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Restore session from stored DID
+   * Restore session - simplified implementation
    */
   async restoreSession(did: string, pdsUrl?: string): Promise<OAuthSession> {
+    const resolvedPdsUrl = pdsUrl || 'https://bsky.social';
+    
     try {
-      console.log('[OAuthService] Starting restoreSession for DID:', did, 'PDS:', pdsUrl || 'default');
-      await this.ensureClientLoaded(pdsUrl);
+      console.log('[OAuthService] Restoring session for DID:', did, 'PDS:', resolvedPdsUrl);
+      await this.initializeClient(resolvedPdsUrl);
       
-      let restoredSession: any;
-      try {
-        console.log('[OAuthService] Attempting to restore session');
-        restoredSession = await this.auth.restore(did);
-        console.log('[OAuthService] Session restore result:', restoredSession ? 'success' : 'failed');
-      } catch (err) {
-        // Session restoration failure is expected when sessions expire
-        console.warn('[OAuthService] Session restoration failed, re-auth required:', {
-          did,
-          pdsUrl,
-          error: err instanceof Error ? err.message : 'Unknown error',
-          stack: err instanceof Error ? err.stack : undefined
-        });
-        throw new Error('oauth_reauth_required');
-      }
+      const restoredSession = await this.auth.restore(did);
       
       if (!restoredSession) {
-        console.warn('[OAuthService] No session returned from restore for DID:', did);
+        console.log('[OAuthService] No session found for DID:', did);
         throw new Error('oauth_reauth_required');
       }
       
-      console.log('[OAuthService] Getting token info for restored session');
-      const tokenInfo = await restoredSession.getTokenInfo();
+      console.log('[OAuthService] Session restored successfully for DID:', did);
+      return this.handleSuccessfulAuth(restoredSession, resolvedPdsUrl);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown restore error';
+      console.warn('[OAuthService] Session restoration failed:', {
+        did,
+        pdsUrl: resolvedPdsUrl,
+        error: errorMsg
+      });
+      throw new Error('oauth_reauth_required');
+    }
+  }
+
+  /**
+   * Handle successful authentication - centralized logic
+   */
+  private handleSuccessfulAuth(session: any, pdsUrl: string): OAuthSession {
+    try {
+      const tokenInfo = session.getTokenInfo();
       
       const oauthSession: OAuthSession = {
-        did: restoredSession.sub,
+        did: session.sub,
         accessToken: 'stored-in-library',
         refreshToken: 'stored-in-library',
         expiresAt: tokenInfo.expiresAt ? tokenInfo.expiresAt.getTime() : Date.now() + 3600000,
       };
 
-      // Store the OAuth session and create an Agent with the OAuth session
-      this.currentOAuthSession = restoredSession;
-      this.currentAgent = new Agent(restoredSession);
-      console.log('[OAuthService] Session restored for DID:', restoredSession.sub);
-
+      // Store session and create agent
+      this.currentOAuthSession = session;
+      this.currentAgent = new Agent(session);
+      
+      console.log('[OAuthService] Authentication successful for DID:', session.sub);
       return oauthSession;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown restore error';
-      console.error('[OAuthService] RestoreSession failed:', {
-        did,
-        pdsUrl,
-        error: errorMsg,
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      throw error;
+      console.error('[OAuthService] Failed to process successful auth:', error);
+      throw new Error('Failed to process authentication result');
     }
   }
 
@@ -218,23 +159,23 @@ export class AtProtoOAuthService {
    * Get current session
    */
   async getCurrentSession(): Promise<OAuthSession | null> {
-    if (this.currentOAuthSession) {
-      try {
-        const tokenInfo = await this.currentOAuthSession.getTokenInfo();
-        
-        return {
-          did: this.currentOAuthSession.sub,
-          accessToken: 'stored-in-library',
-          refreshToken: 'stored-in-library',
-          expiresAt: tokenInfo.expiresAt ? tokenInfo.expiresAt.getTime() : Date.now() + 3600000,
-        };
-      } catch (error) {
-        console.error('[OAuth] Failed to get current session:', error);
-        return null;
-      }
+    if (!this.currentOAuthSession) {
+      return null;
     }
-    
-    return null;
+
+    try {
+      const tokenInfo = await this.currentOAuthSession.getTokenInfo();
+      
+      return {
+        did: this.currentOAuthSession.sub,
+        accessToken: 'stored-in-library',
+        refreshToken: 'stored-in-library',
+        expiresAt: tokenInfo.expiresAt ? tokenInfo.expiresAt.getTime() : Date.now() + 3600000,
+      };
+    } catch (error) {
+      console.error('[OAuthService] Failed to get current session:', error);
+      return null;
+    }
   }
 
   /**
@@ -252,14 +193,12 @@ export class AtProtoOAuthService {
       return this.currentAgent;
     }
 
-    // Try to create agent from stored session
     if (this.currentOAuthSession) {
       try {
         this.currentAgent = new Agent(this.currentOAuthSession);
         return this.currentAgent;
       } catch (error) {
-        console.error('[OAuth] Failed to create agent from stored session:', error);
-        // Clear invalid session
+        console.error('[OAuthService] Failed to create agent from session:', error);
         await this.signOut();
         return null;
       }
@@ -269,42 +208,75 @@ export class AtProtoOAuthService {
   }
 
   /**
-   * Get the current user's profile information
+   * Get current user profile
    */
   async getCurrentUserProfile(): Promise<any | null> {
     try {
       const agent = await this.getCurrentAgent();
-      if (!agent) {
-        return null;
-      }
-
       const session = await this.getCurrentSession();
-      if (!session) {
+      
+      if (!agent || !session) {
         return null;
       }
 
-      // Get the user's profile using the agent
       const response = await agent.api.app.bsky.actor.getProfile({
         actor: session.did
       });
 
       return response.data;
     } catch (error) {
-      console.error('[OAuth] Failed to get current user profile:', error);
+      console.error('[OAuthService] Failed to get user profile:', error);
       return null;
     }
   }
 
   /**
-   * Sign out
+   * Check if current session is valid and healthy
+   */
+  async isSessionHealthy(): Promise<boolean> {
+    if (!this.currentOAuthSession) {
+      return false;
+    }
+
+    try {
+      const tokenInfo = await this.currentOAuthSession.getTokenInfo();
+      const now = Date.now();
+      
+      // Check if token is expired or expires soon (within 5 minutes)
+      if (tokenInfo.expiresAt && tokenInfo.expiresAt.getTime() < now + 5 * 60 * 1000) {
+        console.log('[OAuthService] Session expires soon or is expired');
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.warn('[OAuthService] Session health check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Refresh session if needed
+   */
+  async refreshSessionIfNeeded(): Promise<boolean> {
+    if (!(await this.isSessionHealthy())) {
+      console.log('[OAuthService] Session needs refresh, but auto-refresh not implemented');
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Sign out - clean state
    */
   async signOut(): Promise<void> {
     this.currentOAuthSession = null;
     this.currentAgent = null;
+    console.log('[OAuthService] Signed out successfully');
   }
 
   /**
-   * Make authenticated request using the OAuth Agent
+   * Make authenticated request
    */
   async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
     const agent = await this.getCurrentAgent();
@@ -312,14 +284,11 @@ export class AtProtoOAuthService {
       throw new Error('No active session');
     }
 
-    // For direct HTTP requests, we can get the OAuth session from our stored instance
-    // Most API calls should use the agent.api methods instead
     const oauthSession = await this.getCurrentOAuthSession();
     if (oauthSession && typeof oauthSession.fetchHandler === 'function') {
       return oauthSession.fetchHandler(url, options);
     }
     
-    // Fallback to fetch if available
     return fetch(url, options);
   }
 }

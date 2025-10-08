@@ -88,7 +88,7 @@ interface UserState {
   
   // Account management
   switchAccount: (did: string, onComplete?: () => void) => Promise<void>;
-  addAccount: (oauthSession: OAuthSession, profileData?: any) => Promise<void>;
+  addAccount: (oauthSession: OAuthSession, profileData?: any, pdsUrl?: string) => Promise<void>;
   removeAccount: (did: string) => Promise<void>;
   updateAccountProfile: (did: string, profileData: any) => Promise<void>;
   
@@ -140,6 +140,9 @@ interface UserState {
   
   // Moderation integration
   getModerationOpts: () => Promise<any>;
+  
+  // Session management
+  checkSessionHealth: () => Promise<boolean>;
   
   // Initialization
   initializeUserState: () => Promise<void>;
@@ -208,75 +211,58 @@ export const useUserStore = create<UserState>()(
           set({ isAuthenticating: true, authError: null });
           
           const oauthService = AtProtoOAuthService.getInstance();
-          const session = pdsUrl 
-            ? await oauthService.signInWithPDS(identifier, pdsUrl)
-            : await oauthService.signIn(identifier);
+          const session = await oauthService.signIn(identifier, pdsUrl);
           
           // Get the actual OAuth session and create agent
           const oauthSession = await oauthService.getCurrentOAuthSession();
-          const agent = oauthSession ? new Agent(oauthSession) : null;
+          const agent = await oauthService.getCurrentAgent();
           
-          // Get user profile data using the agent to fetch from API
+          // Fetch profile data using the OAuth service
           let profileData = null;
-          if (agent) {
-            try {
-              console.log('[userStore] Fetching profile data for new session');
-              const response = await agent.api.app.bsky.actor.getProfile({
-                actor: session.did
-              });
-              profileData = response.data;
-              
-              // Cache the profile data
-              if (profileData) {
-                await ProfileCache.cacheProfiles([profileData]);
-              }
+          try {
+            console.log('[userStore] Fetching profile data for new session');
+            profileData = await oauthService.getCurrentUserProfile();
+            
+            if (profileData) {
+              await ProfileCache.cacheProfiles([profileData]);
               console.log('[userStore] Profile data fetched and cached successfully');
-            } catch (profileError) {
-              console.warn('[userStore] Failed to fetch profile data during sign-in:', {
-                did: session.did,
-                error: profileError instanceof Error ? profileError.message : 'Unknown error'
-              });
-              // Don't fail the entire sign-in process if profile fetching fails
-              // We'll use the session data and try to get profile later
             }
-          } else {
-            console.warn('[userStore] No agent available for profile fetching during sign-in');
+          } catch (profileError) {
+            console.warn('[userStore] Failed to fetch profile data during sign-in:', {
+              did: session.did,
+              error: profileError instanceof Error ? profileError.message : 'Unknown error'
+            });
+            // Continue without profile data - we'll try again later
           }
           
-          // Save account
-          await get().addAccount(session, profileData);
+          // Save account with PDS URL
+          await get().addAccount(session, profileData, pdsUrl);
           
-          // Update account profile if we have fresh data
-          if (profileData) {
-            await get().updateAccountProfile(session.did, profileData);
-          }
-          
-          // Prepare identifier for PDS discovery if not provided
-          const { PDSDiscoveryService } = await import('../services/PDSDiscoveryService');
-          const preparedIdentifier = pdsUrl || await PDSDiscoveryService.prepareIdentifier(identifier);
-          
-          // Update state
+          // Update state immediately
           set({
             currentUser: {
               did: session.did,
-              handle: profileData?.handle || session.did,
+              handle: profileData?.handle || null,
               displayName: profileData?.displayName || null,
               avatar: profileData?.avatar || null,
-              pdsUrl: preparedIdentifier,
+              pdsUrl: pdsUrl || 'https://bsky.social',
             },
             isAuthenticated: true,
             isAuthenticating: false,
+            authError: null,
             oauthSession,
             agent,
             activeAccountDid: session.did,
           });
           
-          // Load user-specific data
-          await get().loadUserSpecificSettings(session.did);
-          await get().loadSubscribedChannels(session.did);
-          
-          // Check developer access
-          await get().refreshDeveloperAccess();
+          // Load user-specific data asynchronously
+          Promise.all([
+            get().loadUserSpecificSettings(session.did),
+            get().loadSubscribedChannels(session.did),
+            get().refreshDeveloperAccess()
+          ]).catch(error => {
+            console.warn('[userStore] Failed to load some user settings:', error);
+          });
           
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Sign in failed';
@@ -337,40 +323,36 @@ export const useUserStore = create<UserState>()(
           
           // Get the actual OAuth session and create agent
           const oauthSession = await oauthService.getCurrentOAuthSession();
-          const agent = oauthSession ? new Agent(oauthSession) : null;
+          const agent = await oauthService.getCurrentAgent();
           
-          // Get user profile data using the agent to fetch from API
+          // Fetch profile data using the OAuth service
           let profileData = null;
-          if (agent) {
-            try {
-              const response = await agent.api.app.bsky.actor.getProfile({
-                actor: did
-              });
-              profileData = response.data;
-              
-              // Cache the profile data
-              if (profileData) {
-                await ProfileCache.cacheProfiles([profileData]);
-              }
-            } catch (profileError) {
-              console.warn('[userStore] Failed to fetch profile data during restore:', profileError);
-              
-              // Fallback to cached profile data
-              profileData = await ProfileCache.getProfileByDid(did);
-              
-              // If still no profile data, create a basic one from account data
-              if (!profileData) {
-                const accounts = get().savedAccounts;
-                const account = accounts.find(acc => acc.did === did);
-                if (account) {
-                  profileData = {
-                    did: account.did,
-                    handle: account.handle,
-                    displayName: account.displayName,
-                    avatar: account.avatar,
-                    lastUpdated: Date.now(),
-                  };
-                }
+          try {
+            console.log('[userStore] Fetching profile data for restored session');
+            profileData = await oauthService.getCurrentUserProfile();
+            
+            if (profileData) {
+              await ProfileCache.cacheProfiles([profileData]);
+              console.log('[userStore] Profile data fetched successfully');
+            }
+          } catch (profileError) {
+            console.warn('[userStore] Failed to fetch profile data during restore:', profileError);
+            
+            // Fallback to cached profile data
+            profileData = await ProfileCache.getProfileByDid(did);
+            
+            // If still no profile data, create a basic one from account data
+            if (!profileData) {
+              const accounts = get().savedAccounts;
+              const account = accounts.find(acc => acc.did === did);
+              if (account) {
+                profileData = {
+                  did: account.did,
+                  handle: account.handle,
+                  displayName: account.displayName,
+                  avatar: account.avatar,
+                  lastUpdated: Date.now(),
+                };
               }
             }
           }
@@ -507,16 +489,15 @@ export const useUserStore = create<UserState>()(
         }
       },
       
-      addAccount: async (oauthSession: OAuthSession, profileData?: any) => {
+      addAccount: async (oauthSession: OAuthSession, profileData?: any, pdsUrl?: string) => {
         try {
           const accounts = get().savedAccounts;
           
           // Check if account already exists
           const existingAccountIndex = accounts.findIndex(acc => acc.did === oauthSession.did);
           
-          // Get PDS URL from current user or default
-          const currentUser = get().currentUser;
-          const accountPDS = currentUser?.pdsUrl || 'https://bsky.social';
+          // Use provided PDS URL or default
+          const accountPDS = pdsUrl || 'https://bsky.social';
           
           const account: SavedAccount = {
             id: oauthSession.did, // Use DID directly as account ID
@@ -1015,6 +996,30 @@ export const useUserStore = create<UserState>()(
         } catch (error) {
           console.error('Error getting moderation options:', error);
           return {};
+        }
+      },
+      
+      // Session management
+      checkSessionHealth: async () => {
+        try {
+          const oauthService = AtProtoOAuthService.getInstance();
+          const isHealthy = await oauthService.isSessionHealthy();
+          
+          if (!isHealthy && get().isAuthenticated) {
+            console.log('[userStore] Session is unhealthy, signing out user');
+            set({ 
+              isAuthenticated: false,
+              currentUser: null,
+              oauthSession: null,
+              agent: null,
+              activeAccountDid: null,
+            });
+          }
+          
+          return isHealthy;
+        } catch (error) {
+          console.error('[userStore] Session health check failed:', error);
+          return false;
         }
       },
       
