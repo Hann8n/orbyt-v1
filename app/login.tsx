@@ -18,11 +18,18 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, PlusIcon, AtLineIcon } from '../src/components/ui/Icon';
 import { Colors, Avatar } from '../src/components/ui/UI';
-import { AnimatedStarsBackground, AnimatedTV, CustomPDSInputSheet } from '../src/components/ui';
+import { 
+  AnimatedStarsBackground, 
+  AnimatedTV, 
+  CustomPDSInputSheet, 
+  AppPasswordInputSheet,
+  SessionDiagnosticsTool
+} from '../src/components/ui';
 import { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
 import { useGlobalAccountSwitcher } from '../src/hooks/useGlobalModals';
 import { PDSDiscoveryService } from '../src/services/PDSDiscoveryService';
+import { isUserCancellation, getErrorMessage, shouldShowError } from '../src/utils/errorHandler';
 
 interface LoginScreenProps {
   onLogin: (handle: string) => Promise<void>;
@@ -36,12 +43,15 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const [oauthError, setOAuthError] = useState<string | null>(null);
   const [showCustomPDSSheet, setShowCustomPDSSheet] = useState<boolean>(false);
+  const [showAppPasswordSheet, setShowAppPasswordSheet] = useState<boolean>(false);
+  const [showDiagnosticsTool, setShowDiagnosticsTool] = useState<boolean>(false);
 
   // User store hooks
   const { 
     isAuthenticating, 
     authError, 
     signIn, 
+    signInWithAppPassword,
     clearAuthError 
   } = useAuth();
   
@@ -70,19 +80,28 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       
       await onLogin('oauth-success');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'OAuth login failed';
-      const isUserCancellation = errorMessage.includes('cancelled') || 
-                                errorMessage.includes('user_cancelled');
-      
-      if (!isUserCancellation) {
-        console.error('[LoginScreen] OAuth login failed:', errorMessage);
-        setOAuthError(errorMessage);
-        Alert.alert(
-          'Sign-in Failed',
-          'Failed to sign in with Bluesky. Please try again.',
-          [{ text: 'OK' }]
-        );
+      // Don't show errors for user cancellation
+      if (isUserCancellation(error)) {
+        console.log('[LoginScreen] User cancelled OAuth login');
+        return;
       }
+      
+      const errorMessage = getErrorMessage(error);
+      console.error('[LoginScreen] OAuth login failed:', errorMessage);
+      setOAuthError(errorMessage);
+      
+      // Show error with app password fallback option
+      Alert.alert(
+        'Sign-in Failed',
+        errorMessage,
+        [
+          { text: 'OK', style: 'cancel' },
+          { 
+            text: 'Try App Password', 
+            onPress: () => setShowAppPasswordSheet(true)
+          }
+        ]
+      );
     } finally {
       setIsLoading(false);
     }
@@ -103,9 +122,68 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       
       await onLogin('oauth-success');
     } catch (error) {
-      console.error('[LoginScreen] Custom PDS OAuth login failed:', error);
-      // Re-throw the error so the CustomPDSInputSheet can handle it
-      throw error;
+      // Don't show errors for user cancellation
+      if (isUserCancellation(error)) {
+        console.log('[LoginScreen] User cancelled custom PDS login');
+        return;
+      }
+      
+      const errorMessage = getErrorMessage(error);
+      console.error('[LoginScreen] Custom PDS OAuth login failed:', errorMessage);
+      
+      // Show error with app password fallback option
+      Alert.alert(
+        'Custom PDS Sign-in Failed',
+        errorMessage,
+        [
+          { text: 'OK', style: 'cancel' },
+          { 
+            text: 'Try App Password', 
+            onPress: () => setShowAppPasswordSheet(true)
+          }
+        ]
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAppPasswordSignIn = async (username: string, appPassword: string) => {
+    setIsLoading(true);
+    setOAuthError(null);
+    clearAuthError();
+
+    try {
+      console.log('[LoginScreen] Starting app password login for:', username);
+      await signInWithAppPassword(username, appPassword);
+      
+      // Reload accounts to show the new one
+      await loadSavedAccounts();
+      console.log('[LoginScreen] App password login successful');
+      
+      await onLogin('app-password-success');
+    } catch (error) {
+      // Don't show errors for user cancellation
+      if (isUserCancellation(error)) {
+        console.log('[LoginScreen] User cancelled app password login');
+        return;
+      }
+      
+      const errorMessage = getErrorMessage(error);
+      console.error('[LoginScreen] App password login failed:', errorMessage);
+      
+      // Show error with OAuth fallback option
+      Alert.alert(
+        'App Password Sign-in Failed',
+        errorMessage,
+        [
+          { text: 'OK', style: 'cancel' },
+          { 
+            text: 'Try OAuth', 
+            onPress: () => handleLogin()
+          }
+        ]
+      );
     } finally {
       setIsLoading(false);
     }
@@ -134,12 +212,41 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 
   const handleSavedAccountLogin = async (account: SavedAccount) => {
     console.log('[LoginScreen] Starting account login for:', account.handle, 'DID:', account.did);
+    setIsLoading(true);
     
     try {
-      // Skip session validation for now - go straight to account switching
-      // This will help us see if the issue is in validation or switching
-      console.log('[LoginScreen] Attempting direct account switch...');
+      // First check if the account has a valid session
+      console.log('[LoginScreen] Checking session validity before switching...');
+      const hasValidSession = await checkAccountSessionValidity(account.did);
       
+      if (!hasValidSession) {
+        console.log('[LoginScreen] No valid session found for account');
+        setIsLoading(false);
+        
+        Alert.alert(
+          'Session Expired', 
+          `Your session for @${account.handle} has expired. You need to sign in again.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Sign In with OAuth', 
+              onPress: () => {
+                handleLogin();
+              }
+            },
+            {
+              text: 'App Password',
+              onPress: () => {
+                setShowAppPasswordSheet(true);
+              }
+            }
+          ]
+        );
+        return;
+      }
+      
+      // Session is valid, proceed with account switch
+      console.log('[LoginScreen] Session is valid, proceeding with account switch');
       await switchAccount(account.did);
       console.log('[LoginScreen] Account switch successful');
       
@@ -147,6 +254,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         await onAccountSwitch(account);
       }
     } catch (error) {
+      setIsLoading(false);
       const errorMessage = error instanceof Error ? error.message : 'Account switch failed';
       console.error('[LoginScreen] Account switch failed with error:', {
         error: errorMessage,
@@ -161,7 +269,11 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       
       if (!isUserCancellation) {
         // Check if this is a session corruption issue
-        if (errorMessage.includes('Session expired') || errorMessage.includes('Unable to restore session')) {
+        if (errorMessage.includes('Session expired') || 
+            errorMessage.includes('Unable to restore session') || 
+            errorMessage.includes('oauth_reauth_required') ||
+            errorMessage.includes('No session available')) {
+          
           Alert.alert(
             'Session Issue', 
             `There's an issue with the saved session for @${account.handle}. This can happen after app updates or device changes.`,
@@ -171,15 +283,44 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                 text: 'Clear & Sign In', 
                 onPress: async () => {
                   try {
+                    setIsLoading(true);
                     await clearCorruptedSessions();
                     handleLogin();
                   } catch (clearError) {
                     console.error('[LoginScreen] Failed to clear corrupted sessions:', clearError);
                     handleLogin();
+                  } finally {
+                    setIsLoading(false);
                   }
+                }
+              },
+              {
+                text: 'Try App Password',
+                onPress: () => {
+                  setShowAppPasswordSheet(true);
                 }
               }
             ]
+          );
+        } else if (errorMessage.includes('Network') || 
+                  errorMessage.includes('fetch') || 
+                  errorMessage.includes('ENOTFOUND') ||
+                  errorMessage.includes('ETIMEDOUT')) {
+          
+          // Network error
+          Alert.alert(
+            'Network Error', 
+            `Unable to connect to the server. Please check your internet connection and try again.`,
+            [{ text: 'OK' }]
+          );
+        } else if (errorMessage.includes('rate limit') || 
+                  errorMessage.includes('Rate Limit')) {
+          
+          // Rate limit error
+          Alert.alert(
+            'Rate Limit Exceeded', 
+            `Too many login attempts. Please wait a few minutes and try again.`,
+            [{ text: 'OK' }]
           );
         } else {
           // Show detailed error information for debugging
@@ -194,11 +335,19 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                   // Trigger a fresh OAuth flow
                   handleLogin();
                 }
+              },
+              {
+                text: 'Try App Password',
+                onPress: () => {
+                  setShowAppPasswordSheet(true);
+                }
               }
             ]
           );
         }
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -337,7 +486,9 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       <TouchableOpacity
         style={styles.customPDSTextButton}
         onPress={() => setShowCustomPDSSheet(true)}
+        onLongPress={() => setShowAppPasswordSheet(true)}
         disabled={isLoading}
+        delayLongPress={500}
       >
         <Text style={styles.customPDSTextButtonText}>Custom Login</Text>
       </TouchableOpacity>
@@ -369,16 +520,62 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           </View>
         )}
 
-        {hasSavedAccounts ? renderSavedAccounts() : renderManualLogin()}
+      {hasSavedAccounts ? renderSavedAccounts() : renderManualLogin()}
 
-        {/* Custom PDS Input Sheet */}
-        <CustomPDSInputSheet
-          visible={showCustomPDSSheet}
-          onDismiss={() => setShowCustomPDSSheet(false)}
-          onSignIn={handleCustomPDSSignIn}
-          title="Custom Login"
-          name="login-custom-pds"
-        />
+      {/* Debug Tools */}
+      {__DEV__ && (
+        <View style={styles.debugTools}>
+          <TouchableOpacity
+            style={styles.debugButton}
+            onPress={async () => {
+              try {
+                setIsLoading(true);
+                await clearCorruptedSessions();
+                await loadSavedAccounts();
+                Alert.alert('Success', 'All sessions have been cleared.');
+              } catch (error) {
+                console.error('Failed to clear sessions:', error);
+                Alert.alert('Error', 'Failed to clear sessions.');
+              } finally {
+                setIsLoading(false);
+              }
+            }}
+          >
+            <Text style={styles.debugButtonText}>Clear All Sessions</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.debugButton, { marginTop: 8 }]}
+            onPress={() => setShowDiagnosticsTool(true)}
+          >
+            <Text style={styles.debugButtonText}>Session Diagnostics</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Custom PDS Input Sheet */}
+      <CustomPDSInputSheet
+        visible={showCustomPDSSheet}
+        onDismiss={() => setShowCustomPDSSheet(false)}
+        onSignIn={handleCustomPDSSignIn}
+        title="Custom Login"
+        name="login-custom-pds"
+      />
+
+      {/* App Password Input Sheet */}
+      <AppPasswordInputSheet
+        visible={showAppPasswordSheet}
+        onDismiss={() => setShowAppPasswordSheet(false)}
+        onSignIn={handleAppPasswordSignIn}
+        title="App Password Login"
+        name="login-app-password"
+      />
+      
+      {/* Session Diagnostics Tool */}
+      <SessionDiagnosticsTool
+        visible={showDiagnosticsTool}
+        onDismiss={() => setShowDiagnosticsTool(false)}
+      />
 
       </KeyboardAvoidingView>
     </AnimatedStarsBackground>
@@ -706,6 +903,27 @@ const styles = StyleSheet.create({
   },
   pdsButtonText: {
     color: Colors.white,
+  },
+  
+  // Debug tools
+  debugTools: {
+    marginTop: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  debugButton: {
+    backgroundColor: 'rgba(255, 0, 0, 0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 0, 0, 0.3)',
+  },
+  debugButtonText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 12,
+    fontFamily: 'Firma-Medium',
   },
 
 });

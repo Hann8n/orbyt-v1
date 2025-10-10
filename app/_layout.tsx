@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, StatusBar, Appearance, AppState, LogBox } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, StatusBar, Appearance, AppState } from 'react-native';
 import { Stack, Redirect } from 'expo-router';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -25,13 +25,6 @@ configureReanimatedLogger({
   strict: false,
 });
 
-// Ignore multiformats warnings
-LogBox.ignoreLogs([
-  'multiformats',
-  'Attempted to import the module',
-  'which is not listed in the "exports"',
-  'Falling back to file-based resolution',
-]);
 
 Appearance.setColorScheme('dark');
 
@@ -119,7 +112,7 @@ export default function RootLayout() {
 
   const handleLogin = async (handle: string) => {
     try {
-      if (handle === 'oauth-success') return Promise.resolve();
+      if (handle === 'oauth-success' || handle === 'app-password-success') return Promise.resolve();
       await signIn(handle);
       return Promise.resolve();
     } catch (error) {

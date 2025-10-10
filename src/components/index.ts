@@ -21,7 +21,7 @@ export { default as ListFeedView } from './features/feed/ListFeedView';
 export { default as GridFeedView } from './features/feed/GridFeedView';
 export { default as SwipeableFeedContainer } from './features/feed/SwipeableFeedContainer';
 export { default as EmptyFeed } from './features/feed/EmptyFeed';
-export { MemoizedVideoItem } from './features/feed/VideoItem';
+export { default as MemoizedVideoItem } from './features/feed/VideoItem';
 
 // Layout Components
 export { default as UniversalHeader } from './layout/header/UniversalHeader';

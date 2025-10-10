@@ -72,6 +72,16 @@ export class ErrorHandler {
   }
 
   /**
+   * Check if error is a user cancellation
+   */
+  static isUserCancellation(error: unknown): boolean {
+    const message = this.getErrorMessage(error).toLowerCase();
+    return message.includes('cancelled') || 
+           message.includes('user_cancelled') || 
+           message.includes('status: cancel');
+  }
+
+  /**
    * Get appropriate error message based on error type
    */
   static getAppropriateMessage(error: unknown): string {
@@ -122,8 +132,26 @@ export class ErrorHandler {
 /**
  * Predefined error handlers for common operations
  */
+// Utility functions for compatibility with existing code
+export function isUserCancellation(error: unknown): boolean {
+  return ErrorHandler.isUserCancellation(error);
+}
+
+export function getErrorMessage(error: unknown): string {
+  return ErrorHandler.getErrorMessage(error);
+}
+
+export function shouldShowError(error: unknown): boolean {
+  return !ErrorHandler.isUserCancellation(error);
+}
+
 export const CommonErrorHandlers = {
-  login: (error: unknown) => ErrorHandler.handleError(error, 'Login'),
+  login: (error: unknown) => {
+    // Don't show errors for user cancellation
+    if (!ErrorHandler.isUserCancellation(error)) {
+      ErrorHandler.handleError(error, 'Login');
+    }
+  },
   logout: (error: unknown) => ErrorHandler.handleError(error, 'Logout'),
   feedLoad: (error: unknown) => ErrorHandler.handleError(error, 'Feed Load'),
   videoPlayback: (error: unknown) => ErrorHandler.handleError(error, 'Video Playback'),

@@ -176,9 +176,15 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
   const handleRemoveAccount = useCallback(async (account: AccountWithProfile) => {
     if (DEBUG) console.log('[AccountSwitcher] handleRemoveAccount prompt for', account.did);
+    
+    const isActiveAccount = account.did === activeAccountDid;
+    const alertMessage = isActiveAccount 
+      ? `Are you sure you want to remove ${account.displayName || account.handle}? This will sign you out.`
+      : `Are you sure you want to remove ${account.displayName || account.handle}?`;
+    
     Alert.alert(
       'Remove Account',
-      `Are you sure you want to remove ${account.displayName || account.handle}?`,
+      alertMessage,
       [
         {
           text: 'Cancel',
@@ -191,21 +197,29 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             try {
               if (DEBUG) console.log('[AccountSwitcher] removing account', account.did);
               await removeAccount(account.did);
+              
               // Add a small delay to ensure the store state is updated
               await new Promise(resolve => setTimeout(resolve, 100));
+              
               // Force reload accounts after removal to ensure state is synchronized
               setLoading(true);
               await loadAccounts();
               if (DEBUG) console.log('[AccountSwitcher] removed account and reloaded');
             } catch (error) {
               console.error('Error removing account:', error);
-              Alert.alert('Error', 'Failed to remove account. Please try again.');
+              
+              // Use simple error handler
+              const { shouldShowError, getErrorMessage } = await import('../../../utils/errorHandler');
+              
+              if (shouldShowError(error)) {
+                Alert.alert('Error', getErrorMessage(error));
+              }
             }
           },
         },
       ]
     );
-  }, [removeAccount, loadAccounts]);
+  }, [removeAccount, loadAccounts, activeAccountDid]);
 
   const handleBlueskyLogin = useCallback(async () => {
     setIsAddingAccount(true);
@@ -221,20 +235,22 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       
 
     } catch (error) {
-      // Check if this is a user cancellation vs actual error
-      const errorMessage = error instanceof Error ? error.message : 'OAuth sign-in failed';
-      const isUserCancellation = errorMessage.includes('cancelled') || 
-                                errorMessage.includes('Authentication was cancelled') ||
-                                errorMessage.includes('user_cancelled');
+      // Use simple error handler
+      const { isUserCancellation, getErrorMessage } = await import('../../../utils/errorHandler');
       
-      if (!isUserCancellation) {
+      // Don't show errors for user cancellation
+      if (!isUserCancellation(error)) {
+        const errorMessage = getErrorMessage(error);
         Alert.alert(
           'OAuth Sign-in Failed',
-          'Failed to sign in with Bluesky. Please try again.',
-          [{ text: 'OK' }]
+          errorMessage,
+          [
+            { text: 'OK', style: 'cancel' }
+          ]
         );
       }
-      if (DEBUG) console.log('[AccountSwitcher] handleBlueskyLogin: error', errorMessage);
+      
+      if (DEBUG) console.log('[AccountSwitcher] handleBlueskyLogin: error', getErrorMessage(error));
     } finally {
       setIsAddingAccount(false);
     }

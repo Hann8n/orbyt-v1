@@ -1,11 +1,37 @@
+// CRITICAL: Apply polyfills IMMEDIATELY - must be first thing to execute
+// This ensures EventTarget and AbortController are available before any modules load
+
+// Apply polyfills FIRST as required by expo-atproto-auth
 import 'event-target-polyfill';
-import 'abortcontroller-polyfill';
+import 'abortcontroller-polyfill/dist/polyfill-patch-fetch';
 
-import { registerRootComponent } from 'expo';
-import { LogBox } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
-
+// Ensure polyfills are applied to global scope immediately
 declare const global: any;
+
+// Additional safety check - ensure Event is available
+if (typeof global.Event === 'undefined') {
+  console.warn('[index.ts] Event polyfill not applied, applying fallback');
+  global.Event = class Event {
+    type: string;
+    constructor(type: string) {
+      this.type = type;
+    }
+  };
+}
+
+// Additional safety check - ensure CustomEvent is available
+if (typeof global.CustomEvent === 'undefined') {
+  console.warn('[index.ts] CustomEvent polyfill not applied, applying fallback');
+  global.CustomEvent = class CustomEvent extends global.Event {
+    detail: any;
+    constructor(type: string, options: any = {}) {
+      super(type);
+      this.detail = options.detail || null;
+    }
+  };
+}
+
+import * as WebBrowser from 'expo-web-browser';
 
 // This is required for expo-auth-session to work properly
 WebBrowser.maybeCompleteAuthSession();
@@ -38,68 +64,5 @@ if (typeof global.TextDecoder === 'undefined') {
   }
 }
 
-// Custom console warning interceptor to catch multiformats warnings
-const originalWarn = console.warn;
-console.warn = (...args) => {
-  const message = args.join(' ');
-  if (message.includes('multiformats') || 
-      message.includes('Attempted to import the module') ||
-      message.includes('which is not listed in the "exports"') ||
-      message.includes('Falling back to file-based resolution') ||
-      message.includes('cjs/src/cid.js') ||
-      message.includes('cjs/src/basics.js')) {
-    return; // Suppress these warnings
-  }
-  originalWarn.apply(console, args);
-};
-
-// Also intercept console.error for similar messages
-const originalError = console.error;
-console.error = (...args) => {
-  const message = args.join(' ');
-  if (message.includes('multiformats') || 
-      message.includes('Attempted to import the module') ||
-      message.includes('which is not listed in the "exports"') ||
-      message.includes('Falling back to file-based resolution') ||
-      message.includes('cjs/src/cid.js') ||
-      message.includes('cjs/src/basics.js')) {
-    return; // Suppress these warnings
-  }
-  originalError.apply(console, args);
-};
-
-// Also try LogBox as backup
-LogBox.ignoreLogs([
-  'multiformats',
-  'Attempted to import the module',
-  'which is not listed in the "exports"',
-  'Falling back to file-based resolution',
-]);
-
-// More specific patterns to catch the exact warnings
-LogBox.ignoreLogs([
-  'Attempted to import the module "/Users/jack/orbyt/node_modules/multiformats/cjs/src/cid.js"',
-  'Attempted to import the module "/Users/jack/orbyt/node_modules/multiformats/cjs/src/basics.js"',
-]);
-
-// Additional: Suppress warnings at the global level
-if (typeof global !== 'undefined') {
-  const originalConsoleWarn = global.console?.warn;
-  if (originalConsoleWarn) {
-    global.console.warn = (...args) => {
-      const message = args.join(' ');
-      if (message.includes('multiformats') || 
-          message.includes('Attempted to import the module') ||
-          message.includes('which is not listed in the "exports"') ||
-          message.includes('Falling back to file-based resolution') ||
-          message.includes('cjs/src/cid.js') ||
-          message.includes('cjs/src/basics.js')) {
-        return; // Suppress these warnings
-      }
-      originalConsoleWarn.apply(global.console, args);
-    };
-  }
-}
-
-// Use standard Expo Router entry point
+// Import expo-router entry point LAST
 import 'expo-router/entry'; 

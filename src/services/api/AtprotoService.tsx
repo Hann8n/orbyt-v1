@@ -77,6 +77,15 @@ type AuthorFilter =
 class AtprotoService {
   static agent = new AtpAgent({ service: SERVICE_URL });
   private static _sessionPromise: Promise<any> | null = null;
+  private static _appPasswordSessionPromise: Promise<any> | null = null;
+  private static _sessionCache: {
+    oauth: { session: any; timestamp: number } | null;
+    appPassword: { session: any; timestamp: number } | null;
+  } = {
+    oauth: null,
+    appPassword: null
+  };
+  private static readonly SESSION_CACHE_TTL = 60 * 1000; // 1 minute
   
   // Performance caching for frequently accessed data
   private static _feedCache = new Map<string, { data: any; timestamp: number }>();
@@ -106,34 +115,339 @@ class AtprotoService {
   }
 
   /**
-   * Ensures a valid OAuth session exists
+   * Creates a session using app password authentication
+   * @param username - Username or handle
+   * @param appPassword - App password
+   * @param pdsUrl - Optional PDS URL (defaults to bsky.social)
+   */
+  static async createAppPasswordSession(
+    username: string, 
+    appPassword: string, 
+    pdsUrl: string = 'https://bsky.social'
+  ): Promise<any> {
+    try {
+      console.log('[AtprotoService] Creating app password session for:', username, 'PDS:', pdsUrl);
+      
+      // Clear any existing app password session first
+      await this.clearAppPasswordSession();
+      
+      // Create a new agent for app password authentication
+      const agent = new AtpAgent({ service: pdsUrl });
+      
+      // Add retry logic for login to handle rate limiting
+      let retryCount = 0;
+      const maxRetries = 3;
+      let lastError = null;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          // Create session using app password
+          console.log(`[AtprotoService] Attempting app password login (attempt ${retryCount + 1}/${maxRetries + 1})`);
+          const response = await agent.login({
+            identifier: username,
+            password: appPassword,
+          });
+          
+          // Store the session data
+          const sessionData = {
+            did: response.data.did,
+            handle: response.data.handle,
+            email: response.data.email,
+            accessJwt: response.data.accessJwt,
+            refreshJwt: response.data.refreshJwt,
+            type: 'app_password',
+            pdsUrl: pdsUrl,
+            createdAt: new Date().toISOString(),
+            lastRefreshed: Date.now(),
+          };
+          
+          console.log('[AtprotoService] App password login successful for DID:', sessionData.did);
+    
+          // Store session in secure storage
+          await SecureStore.setItemAsync('APP_PASSWORD_SESSION', JSON.stringify(sessionData));
+          
+          // Store the app password securely for session restoration
+          await SecureStore.setItemAsync('APP_PASSWORD_SECRET', appPassword);
+          
+          // Update the static agent with the new session
+          this.agent = agent;
+          
+          // Cache the session
+          this._sessionCache.appPassword = {
+            session: sessionData,
+            timestamp: Date.now()
+          };
+          
+          // Clear any pending session promise
+          this._appPasswordSessionPromise = null;
+          
+          return sessionData;
+        } catch (error) {
+          lastError = error;
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          
+          // Check if this is a rate limit error
+          if (errorMsg.includes('rate') || errorMsg.includes('limit')) {
+            retryCount++;
+            if (retryCount <= maxRetries) {
+              const backoffTime = Math.pow(2, retryCount) * 1000; // Exponential backoff: 2s, 4s, 8s
+              console.warn(`[AtprotoService] Rate limited during app password login, retrying in ${backoffTime}ms`);
+              await new Promise(resolve => setTimeout(resolve, backoffTime));
+            } else {
+              console.error('[AtprotoService] App password login failed after multiple attempts due to rate limiting');
+              throw new Error('App password login failed: Rate limit exceeded. Please try again later.');
+            }
+          } else {
+            // For other errors, don't retry
+            console.error('[AtprotoService] App password login failed:', errorMsg);
+            throw error;
+          }
+        }
+      }
+      
+      // This should never be reached due to the error handling above
+      throw lastError || new Error('App password login failed: Unknown error');
+    } catch (error: any) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[AtprotoService] App password login failed:', errorMsg);
+      throw new Error(`App password login failed: ${errorMsg}`);
+    }
+  }
+
+  /**
+   * Restores an app password session from storage
+   */
+  static async restoreAppPasswordSession(): Promise<any | null> {
+    // Check if we have a cached session that's still valid
+    const now = Date.now();
+    if (this._sessionCache.appPassword && 
+        (now - this._sessionCache.appPassword.timestamp) < this.SESSION_CACHE_TTL) {
+      console.log('[AtprotoService] Using cached app password session');
+      return this._sessionCache.appPassword.session;
+    }
+
+    // If there's an active session restoration in progress, return that promise
+    if (this._appPasswordSessionPromise) {
+      console.log('[AtprotoService] Using in-progress app password session restoration');
+      return this._appPasswordSessionPromise;
+    }
+
+    // Otherwise, create a new session promise
+    console.log('[AtprotoService] Starting new app password session restoration');
+    this._appPasswordSessionPromise = (async () => {
+      try {
+        const sessionData = await SecureStore.getItemAsync('APP_PASSWORD_SESSION');
+        if (!sessionData) {
+          console.log('[AtprotoService] No app password session found in storage');
+          return null;
+        }
+
+        const session = JSON.parse(sessionData);
+        
+        // Check if the session is still valid (not expired)
+        const sessionAge = now - new Date(session.createdAt).getTime();
+        const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
+        
+        if (sessionAge > maxSessionAge) {
+          console.log('[AtprotoService] App password session is expired (age:', sessionAge, 'ms)');
+          // Session is too old, clear it
+          await this.clearAppPasswordSession();
+          return null;
+        }
+        
+        console.log('[AtprotoService] Found valid app password session for:', session.handle || session.did);
+        
+        // Try to restore the session using stored tokens first
+        if (session.accessJwt && session.refreshJwt) {
+          try {
+            console.log('[AtprotoService] Attempting to restore app password session using stored tokens');
+            
+            // Create a new agent with the session
+            const agentWithSession = new AtpAgent({ 
+              service: session.pdsUrl,
+              session: {
+                did: session.did,
+                handle: session.handle,
+                email: session.email,
+                accessJwt: session.accessJwt,
+                refreshJwt: session.refreshJwt,
+                active: true,
+              }
+            });
+            
+            // Test if the session is still valid with a lightweight API call
+            // We'll just check if the session is valid without making a full profile request
+            await agentWithSession.api.app.bsky.actor.getSuggestions({ limit: 1 });
+            
+            console.log('[AtprotoService] Successfully restored app password session using tokens');
+            this.agent = agentWithSession;
+            
+            // Cache the session
+            this._sessionCache.appPassword = {
+              session: session,
+              timestamp: now
+            };
+            
+            return session;
+          } catch (error) {
+            console.log('[AtprotoService] Stored app password tokens are invalid, trying to refresh...');
+            // If stored tokens don't work, fall back to re-authentication
+          }
+        }
+
+        // Fallback: Get the stored app password and re-authenticate
+        console.log('[AtprotoService] Attempting to restore app password session using stored credentials');
+        const storedAppPassword = await SecureStore.getItemAsync('APP_PASSWORD_SECRET');
+        if (!storedAppPassword) {
+          console.error('[AtprotoService] App password not found in secure storage');
+          throw new Error('App password not found in secure storage');
+        }
+
+        // Create agent with the stored session
+        const agent = new AtpAgent({ service: session.pdsUrl });
+        
+        // Add exponential backoff for login attempts
+        let retryCount = 0;
+        const maxRetries = 3;
+        let lastError = null;
+        
+        while (retryCount < maxRetries) {
+          try {
+            // Restore the session by logging in again
+            console.log(`[AtprotoService] Attempting login (attempt ${retryCount + 1}/${maxRetries})`);
+            await agent.login({
+              identifier: session.handle || session.did,
+              password: storedAppPassword,
+            });
+            
+            console.log('[AtprotoService] Successfully restored app password session using credentials');
+            this.agent = agent;
+            
+            // Update the stored session with new tokens
+            const updatedSession = {
+              ...session,
+              accessJwt: agent.session?.accessJwt,
+              refreshJwt: agent.session?.refreshJwt,
+              lastRefreshed: now
+            };
+            
+            await SecureStore.setItemAsync('APP_PASSWORD_SESSION', JSON.stringify(updatedSession));
+            
+            // Cache the session
+            this._sessionCache.appPassword = {
+              session: updatedSession,
+              timestamp: now
+            };
+            
+            return updatedSession;
+          } catch (error) {
+            lastError = error;
+            const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+            
+            // Check if this is a rate limit error
+            if (errorMsg.includes('rate') || errorMsg.includes('limit')) {
+              retryCount++;
+              const backoffTime = Math.pow(2, retryCount) * 1000; // Exponential backoff: 2s, 4s, 8s
+              console.warn(`[AtprotoService] Rate limited, retrying in ${backoffTime}ms`);
+              await new Promise(resolve => setTimeout(resolve, backoffTime));
+            } else {
+              // For other errors, don't retry
+              throw error;
+            }
+          }
+        }
+        
+        // If we've exhausted all retries
+        console.error('[AtprotoService] Failed to restore app password session after multiple attempts');
+        throw lastError || new Error('Failed to restore app password session after multiple attempts');
+      } catch (error) {
+        console.error('[AtprotoService] Failed to restore app password session:', error);
+        // Clear the session if restoration fails
+        await this.clearAppPasswordSession();
+        return null;
+      } finally {
+        // Clear the session promise so subsequent calls will create a new one
+        setTimeout(() => {
+          this._appPasswordSessionPromise = null;
+        }, 1000); // Wait 1 second before allowing new restoration attempts
+      }
+    })();
+
+    return this._appPasswordSessionPromise;
+  }
+
+  /**
+   * Ensures a valid session exists (OAuth or app password)
    * This optimized version prevents duplicate session checks when multiple
    * queries fire at once
    */
   static async ensureSession(): Promise<any> {
+    // Check if we have a cached session
+    const now = Date.now();
+    
+    // First try OAuth cache
+    if (this._sessionCache.oauth && 
+        (now - this._sessionCache.oauth.timestamp) < this.SESSION_CACHE_TTL) {
+      console.log('[AtprotoService] Using cached OAuth session for ensureSession');
+      return { did: this._sessionCache.oauth.session.did, type: 'oauth' };
+    }
+    
+    // Then try app password cache
+    if (this._sessionCache.appPassword && 
+        (now - this._sessionCache.appPassword.timestamp) < this.SESSION_CACHE_TTL) {
+      console.log('[AtprotoService] Using cached app password session for ensureSession');
+      return { did: this._sessionCache.appPassword.session.did, type: 'app_password' };
+    }
+    
     // If there's an active session fetch in progress, return that promise
     if (this._sessionPromise) {
+      console.log('[AtprotoService] Using in-progress session promise for ensureSession');
       return this._sessionPromise;
     }
 
     // Otherwise, create a new session promise
+    console.log('[AtprotoService] Starting new session check for ensureSession');
     this._sessionPromise = (async () => {
       try {
-        // Check if there's an OAuth session
+        // Check if there's an OAuth session first
         const oauthService = AtProtoOAuthService.getInstance();
-        const oauthSession = await oauthService.getCurrentOAuthSession();
-        
-        if (oauthSession) {
-      
-          return { did: oauthSession.did, type: 'oauth' };
+        try {
+          const oauthSession = await oauthService.getCurrentOAuthSession();
+          
+          if (oauthSession) {
+            console.log('[AtprotoService] Found valid OAuth session for DID:', oauthSession.did);
+            // Cache the session
+            this._sessionCache.oauth = {
+              session: oauthSession,
+              timestamp: now
+            };
+            return { did: oauthSession.did, type: 'oauth' };
+          }
+        } catch (oauthError) {
+          console.log('[AtprotoService] Failed to get OAuth session:', 
+            oauthError instanceof Error ? oauthError.message : 'Unknown error');
         }
 
-        throw new Error('No OAuth session available. Please log in first.');
+        // Fall back to app password session
+        try {
+          const appPasswordSession = await this.restoreAppPasswordSession();
+          if (appPasswordSession) {
+            console.log('[AtprotoService] Found valid app password session for DID:', appPasswordSession.did);
+            // Cache the session (already done in restoreAppPasswordSession)
+            return { did: appPasswordSession.did, type: 'app_password' };
+          }
+        } catch (appPasswordError) {
+          console.log('[AtprotoService] Failed to get app password session:', 
+            appPasswordError instanceof Error ? appPasswordError.message : 'Unknown error');
+        }
+
+        console.log('[AtprotoService] No valid session found');
+        throw new Error('No session available. Please log in first.');
       } finally {
         // Clear the session promise so subsequent calls will create a new one
         setTimeout(() => {
           this._sessionPromise = null;
-        }, 50);
+        }, 1000); // Increased to 1 second to reduce concurrent requests
       }
     })();
 
@@ -141,37 +455,149 @@ class AtprotoService {
   }
 
   /**
-   * Get the current user's DID from OAuth session
+   * Get the current user's DID from session (OAuth or app password)
    */
   static async getCurrentUserDid(): Promise<string | null> {
     try {
+      // Check if we have a cached session
+      const now = Date.now();
+      
+      // First try OAuth
+      if (this._sessionCache.oauth && 
+          (now - this._sessionCache.oauth.timestamp) < this.SESSION_CACHE_TTL) {
+        console.log('[AtprotoService] Using cached OAuth session');
+        return this._sessionCache.oauth.session.did;
+      }
+      
+      // Then try app password
+      if (this._sessionCache.appPassword && 
+          (now - this._sessionCache.appPassword.timestamp) < this.SESSION_CACHE_TTL) {
+        console.log('[AtprotoService] Using cached app password session');
+        return this._sessionCache.appPassword.session.did;
+      }
+      
+      // If no valid cache, try to get a fresh session
+      console.log('[AtprotoService] No cached session, fetching fresh session');
+      
+      // Try OAuth first
       const oauthService = AtProtoOAuthService.getInstance();
-      const oauthSession = await oauthService.getCurrentOAuthSession();
-      return oauthSession?.did || null;
+      try {
+        const oauthSession = await oauthService.getCurrentOAuthSession();
+        if (oauthSession?.did) {
+          console.log('[AtprotoService] Got OAuth session for DID:', oauthSession.did);
+          // Cache the session
+          this._sessionCache.oauth = {
+            session: oauthSession,
+            timestamp: now
+          };
+          return oauthSession.did;
+        }
+      } catch (oauthError) {
+        console.log('[AtprotoService] Failed to get OAuth session:', 
+          oauthError instanceof Error ? oauthError.message : 'Unknown error');
+      }
+      
+      // Then try app password
+      try {
+        const appPasswordSession = await this.restoreAppPasswordSession();
+        if (appPasswordSession?.did) {
+          console.log('[AtprotoService] Got app password session for DID:', appPasswordSession.did);
+          // Cache the session
+          this._sessionCache.appPassword = {
+            session: appPasswordSession,
+            timestamp: now
+          };
+          return appPasswordSession.did;
+        }
+      } catch (appPasswordError) {
+        console.log('[AtprotoService] Failed to get app password session:', 
+          appPasswordError instanceof Error ? appPasswordError.message : 'Unknown error');
+      }
+      
+      console.log('[AtprotoService] No valid session found');
+      return null;
     } catch (error) {
-      console.error('Error getting current user DID:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[AtprotoService] Error getting current user DID:', errorMsg);
       return null;
     }
   }
 
   /**
-   * Get the OAuth API client
+   * Get the API client (OAuth or app password)
    */
   static async getApiClient(): Promise<{ api: any; isOAuth: boolean }> {
-    const oauthService = AtProtoOAuthService.getInstance();
-    const oauthSession = await oauthService.getCurrentOAuthSession();
-    
-    if (oauthSession) {
-      const oauthAgent = await oauthService.getCurrentAgent();
-      if (oauthAgent) {
-
-        return { api: oauthAgent.api, isOAuth: true };
-      } else {
-        throw new Error('OAuth agent not available');
+    try {
+      // Check for cached sessions first
+      const now = Date.now();
+      
+      // Try OAuth first
+      if (this._sessionCache.oauth && 
+          (now - this._sessionCache.oauth.timestamp) < this.SESSION_CACHE_TTL) {
+        console.log('[AtprotoService] Using cached OAuth session for API client');
+        const oauthService = AtProtoOAuthService.getInstance();
+        const oauthAgent = await oauthService.getCurrentAgent();
+        if (oauthAgent) {
+          return { api: oauthAgent.api, isOAuth: true };
+        }
       }
+      
+      // Then try app password
+      if (this._sessionCache.appPassword && 
+          (now - this._sessionCache.appPassword.timestamp) < this.SESSION_CACHE_TTL &&
+          this.agent) {
+        console.log('[AtprotoService] Using cached app password session for API client');
+        return { api: this.agent.api, isOAuth: false };
+      }
+      
+      // If no valid cache, try to get fresh sessions
+      console.log('[AtprotoService] No cached session for API client, fetching fresh session');
+      
+      // Try OAuth first
+      const oauthService = AtProtoOAuthService.getInstance();
+      try {
+        const oauthSession = await oauthService.getCurrentOAuthSession();
+        if (oauthSession) {
+          console.log('[AtprotoService] Got OAuth session for API client');
+          const oauthAgent = await oauthService.getCurrentAgent();
+          if (oauthAgent) {
+            // Cache the session
+            this._sessionCache.oauth = {
+              session: oauthSession,
+              timestamp: now
+            };
+            return { api: oauthAgent.api, isOAuth: true };
+          }
+        }
+      } catch (oauthError) {
+        console.log('[AtprotoService] Failed to get OAuth session for API client:', 
+          oauthError instanceof Error ? oauthError.message : 'Unknown error');
+      }
+      
+      // Then try app password
+      try {
+        const appPasswordSession = await this.restoreAppPasswordSession();
+        if (appPasswordSession && this.agent) {
+          console.log('[AtprotoService] Got app password session for API client');
+          // Cache the session
+          this._sessionCache.appPassword = {
+            session: appPasswordSession,
+            timestamp: now
+          };
+          return { api: this.agent.api, isOAuth: false };
+        }
+      } catch (appPasswordError) {
+        console.log('[AtprotoService] Failed to get app password session for API client:', 
+          appPasswordError instanceof Error ? appPasswordError.message : 'Unknown error');
+      }
+      
+      console.log('[AtprotoService] No valid session found for API client');
+      throw new Error('No session available');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[AtprotoService] Error getting API client:', errorMsg);
+      throw new Error(`Failed to get API client: ${errorMsg}`);
     }
-
-    throw new Error('No OAuth session available');
   }
 
   /**
@@ -401,20 +827,40 @@ class AtprotoService {
 
   static async getCurrentUser(): Promise<any> {
     try {
-      const { api } = await this.getApiClient();
-      
-      // For OAuth sessions, get the DID from the OAuth service
-      const oauthService = AtProtoOAuthService.getInstance();
-      const oauthSession = await oauthService.getCurrentOAuthSession();
-      if (!oauthSession) {
-        throw new Error('No OAuth session available');
+      // First try to get the current user DID
+      const userDid = await this.getCurrentUserDid();
+      if (!userDid) {
+        console.log('[AtprotoService] No user DID available');
+        throw new Error('No session available');
       }
       
-      const response = await api.app.bsky.actor.getProfile({ actor: oauthSession.did });
+      // Then get the API client
+      const { api, isOAuth } = await this.getApiClient();
+      if (!api) {
+        console.log('[AtprotoService] No API client available');
+        throw new Error('No API client available');
+      }
+      
+      console.log(`[AtprotoService] Getting profile for DID ${userDid} using ${isOAuth ? 'OAuth' : 'app password'} session`);
+      const response = await api.app.bsky.actor.getProfile({ actor: userDid });
+      
+      // Cache the profile data
+      if (response?.data) {
+        console.log('[AtprotoService] Successfully retrieved user profile');
+      }
+      
       return response.data;
     } catch (error: any) {
-      console.error('Error getting current user:', error);
-      return null;
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[AtprotoService] Error getting current user:', errorMsg);
+      
+      // Check if this is a session error and clear the session cache
+      if (errorMsg.includes('session') || errorMsg.includes('auth') || errorMsg.includes('token')) {
+        console.log('[AtprotoService] Clearing session cache due to session error');
+        this._sessionCache = { oauth: null, appPassword: null };
+      }
+      
+      throw error;
     }
   }
 
@@ -1559,6 +2005,29 @@ class AtprotoService {
     } catch (error: any) {
       console.error('Error muting post comments:', error);
       return false;
+    }
+  }
+
+  /**
+   * Clear app password session from storage
+   */
+  static async clearAppPasswordSession(): Promise<void> {
+    try {
+      console.log('[AtprotoService] Clearing app password session');
+      await SecureStore.deleteItemAsync('APP_PASSWORD_SESSION');
+      await SecureStore.deleteItemAsync('APP_PASSWORD_SECRET');
+      
+      // Reset agent to default
+      this.agent = new AtpAgent({ service: SERVICE_URL });
+      
+      // Clear all session caches
+      this._appPasswordSessionPromise = null;
+      this._sessionCache.appPassword = null;
+      
+      console.log('[AtprotoService] App password session cleared successfully');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[AtprotoService] Failed to clear app password session:', errorMsg);
     }
   }
 
