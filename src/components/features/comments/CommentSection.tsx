@@ -40,7 +40,7 @@ import { formatNumber } from '../../../utils/helpers';
 import { useUserSearchTrigger, UserSearchModal } from '../../ui/usersearch';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import CommentItem, { Comment, Like } from './CommentItem';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUserStore } from '../../../stores/userStore';
 import { useGlobalCommentSection, useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
@@ -264,29 +264,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const autoFocusOnOpen = false;
 
   // Get current user's profile for avatar
-  const [currentUserHandle, setCurrentUserHandle] = useState<string | null>(null);
+  const { currentUser } = useUserStore();
+  const currentUserHandle = currentUser?.handle || null;
   const { data: currentUserProfile } = useProfile(currentUserHandle);
-
-  // Load current user handle
-  useEffect(() => {
-    const loadCurrentUserHandle = async () => {
-      try {
-        const storedHandle = await AsyncStorage.getItem('CURRENT_USER_HANDLE');
-        if (storedHandle) {
-          setCurrentUserHandle(storedHandle);
-        } else {
-          const user = await AtprotoService.getCurrentUser();
-          if (user?.handle) {
-            setCurrentUserHandle(user.handle);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading current user handle for comment input:', error);
-      }
-    };
-
-    loadCurrentUserHandle();
-  }, []);
 
   const handleReplyPress = useCallback((comment: Comment) => {
     const properUri = comment?.uri || comment?.post?.uri;

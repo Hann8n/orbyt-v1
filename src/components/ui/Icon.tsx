@@ -17,7 +17,7 @@ const Colors = {
   yellow: '#FFD700',
 };
 import AtprotoService from '../../services/api/AtprotoService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUserStore } from '../../stores/userStore';
 import { useProfile } from '../../services/cache/ProfileCache';
 
 // SVG content as strings - updated to match the actual icon files
@@ -255,38 +255,15 @@ export const NotificationIcon: React.FC<{ size: number; color: string; style?: S
 
 // Custom Profile Icon component that uses current user's avatar
 export const ProfileIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
-  const [currentUserHandle, setCurrentUserHandle] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Get current user handle from storage
-  useEffect(() => {
-    const loadCurrentUserHandle = async () => {
-      try {
-        const storedHandle = await AsyncStorage.getItem('CURRENT_USER_HANDLE');
-        if (storedHandle) {
-          setCurrentUserHandle(storedHandle);
-        } else {
-          // Fallback to fetching current user
-          const user = await AtprotoService.getCurrentUser();
-          if (user?.handle) {
-            setCurrentUserHandle(user.handle);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading current user handle for profile icon:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadCurrentUserHandle();
-  }, []);
+  // Get current user from userStore instead of AsyncStorage
+  const { currentUser } = useUserStore();
+  const currentUserHandle = currentUser?.handle || null;
 
   // Use ProfileCache to get cached profile data
   const { data: profileData } = useProfile(currentUserHandle);
 
   // If we have cached profile data with an avatar, show the avatar
-  if (profileData?.avatar && !isLoading) {
+  if (profileData?.avatar) {
     // Use cached profile color for the ring, fallback to the passed color
     const ringColor = profileData.profileColors?.foregroundColor || color;
     

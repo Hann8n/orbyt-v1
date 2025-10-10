@@ -9,6 +9,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Colors } from '../../src/components/ui/UI';
 import Icon, { HomeIcon, ExploreIcon, NotificationIcon, ProfileIcon } from '../../src/components/ui/Icon';
 import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
+import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
@@ -160,6 +161,38 @@ export default function TabsLayout() {
     );
   };
 
+  const ProfileTabButton = ({ children }: { children?: React.ReactNode }) => {
+    const { presentAccountSwitcher } = useGlobalAccountSwitcher();
+
+    const handlePress = () => {
+      // Navigate to profile screen
+      router.push('/profile');
+    };
+
+    const handleLongPress = () => {
+      // Open account switcher
+      presentAccountSwitcher();
+    };
+
+    return (
+      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <TouchableOpacity
+          onPress={handlePress}
+          onLongPress={handleLongPress}
+          activeOpacity={0.7}
+          style={{
+            width: tabIconSize,
+            height: tabIconSize,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {children}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -204,7 +237,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen name="notifications" options={{ title: 'Notifications' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+      <Tabs.Screen 
+        name="profile" 
+        options={{ 
+          title: 'Profile',
+          tabBarButton: (props) => <ProfileTabButton {...props} />,
+        }} 
+      />
     </Tabs>
   );
 }

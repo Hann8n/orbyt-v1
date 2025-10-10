@@ -24,6 +24,7 @@ import ProfileCache, { profileKeys } from '../../src/services/cache/ProfileCache
 import { Avatar, Icon, Colors } from '../../src/components/ui/UI';
 import { NotificationIcon } from '../../src/components/ui/Icon';
 import VerificationBadge from '../../src/components/features/verification/VerificationBadge';
+import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../src/utils/helpers';
  
 
@@ -290,14 +291,10 @@ const NotificationScreen: React.FC = () => {
 
         <View style={[styles.errorContainer, { paddingTop: insets.top + 20, paddingBottom: bottomNavBarHeight }]}>
           <ListHeaderComponent />
-          <View style={styles.errorContent}>
-            <Text style={styles.errorText}>
-              something went wrong loading notifications.
-            </Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-              <Text style={styles.retryButtonText}>try again</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyFeed 
+            type="no-connection" 
+            onRetry={() => refetch()}
+          />
         </View>
       </View>
     );
@@ -369,9 +366,7 @@ const NotificationScreen: React.FC = () => {
         }}
         viewabilityConfig={viewabilityConfig}
         ListEmptyComponent={!isLoading ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>no video activity yet</Text>
-          </View>
+          <EmptyFeed type="no-videos" />
         ) : null}
         ListFooterComponent={isFetchingNextPage ? (
           <View style={styles.loadingMoreContainer}>

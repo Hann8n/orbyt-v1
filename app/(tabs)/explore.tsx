@@ -293,8 +293,30 @@ const PopularChannelsShimmer = () => (
   </View>
 );
 
+const SpotlightShimmer = () => (
+  <View style={styles.spotlightContainer}>
+    <FlatList
+      data={Array(4).fill(0)} // Show 4 shimmer videos
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.spotlightScrollContainer}
+      keyExtractor={(_, index) => `spotlight-shimmer-${index}`}
+      renderItem={({ item, index }) => (
+        <View style={styles.spotlightVideoItem}>
+          <ShimmerPlaceholder
+            LinearGradient={LinearGradient}
+            style={[styles.spotlightVideoThumbnail, { borderWidth: 0, borderColor: 'transparent' }]}
+            shimmerColors={Colors.SHIMMER.PRIMARY}
+            duration={1500}
+          />
+        </View>
+      )}
+    />
+  </View>
+);
+
 // Header spacer shimmer skeleton component
-const HeaderSpacerShimmer = ({ isHeaderVisible, isSearching }: { isHeaderVisible: boolean; isSearching?: boolean }) => {
+const HeaderSpacerShimmer = ({ isHeaderVisible, isSearching, computedHeaderHeight }: { isHeaderVisible: boolean; isSearching?: boolean; computedHeaderHeight: number }) => {
   const insets = useSafeAreaInsets();
   
   // When searching, use search bar spacing + tabs spacing
@@ -302,12 +324,8 @@ const HeaderSpacerShimmer = ({ isHeaderVisible, isSearching }: { isHeaderVisible
     return <View style={{ height: insets.top + 10 + 55 + 5 + 40 + 5 }} />; // safe area + top margin + search height + reduced margin + tabs height + reduced margin
   }
   
-  // When no header is available, use search bar spacing
-  // When header is available, use header height
-  const headerHeight = isHeaderVisible 
-    ? Math.round(Dimensions.get('window').height * 0.30) // Use same ratio as computedHeaderHeight
-    : insets.top + 10 + 55 + 10; // safe area + top margin + search height + bottom margin
-  return <View style={{ height: headerHeight }} />;
+  // Use the same computed header height as the rest of the component
+  return <View style={{ height: computedHeaderHeight }} />;
 };
 
 
@@ -978,6 +996,10 @@ const ExploreScreen: React.FC = () => {
       items.push({ type: 'header-spacer' as const, key: 'search-bar-spacer-shimmer' });
     }
     
+    // Spotlight section header and videos
+    items.push({ type: 'section-header' as const, key: 'spotlight-header-shimmer' });
+    items.push({ type: 'spotlight-videos' as const, key: 'spotlight-videos-shimmer' });
+    
     // Section header for popular channels
     items.push({ type: 'section-header' as const, key: 'feeds-header-shimmer' });
     // Popular channels section
@@ -1166,10 +1188,14 @@ const ExploreScreen: React.FC = () => {
             );
           }
           if (item.type === 'header-spacer') {
-            return <HeaderSpacerShimmer isHeaderVisible={isHeaderVisible} isSearching={isSearching} />;
+            return <HeaderSpacerShimmer isHeaderVisible={isHeaderVisible} isSearching={isSearching} computedHeaderHeight={computedHeaderHeight} />;
           }
           if (item.type === 'spotlight-videos') {
-            if (!('videos' in item) || !Array.isArray(item.videos)) {
+            // Check if this is a shimmer item (no videos property)
+            if (!('videos' in item)) {
+              return <SpotlightShimmer />;
+            }
+            if (!Array.isArray(item.videos)) {
               return null;
             }
             return (
@@ -1368,25 +1394,18 @@ const ExploreScreen: React.FC = () => {
           if (!isSearchingLocal && !(isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingSpotlightFeed)) {
             if (suggestionsError || suggestedFeedsError || spotlightFeedError) {
               return (
-                <View style={styles.errorContainer}>
-                  <EmptyFeed type="no-connection" />
-                  <TouchableOpacity
-                    style={styles.retryButton}
-                    onPress={() => {
-                      refetchSuggestions();
-                      refetchSuggestedFeeds();
-                      refetchSpotlightFeed();
-                    }}
-                  >
-                    <Text style={styles.retryButtonText}>Try Again</Text>
-                  </TouchableOpacity>
-                </View>
+                <EmptyFeed 
+                  type="no-connection" 
+                  onRetry={() => {
+                    refetchSuggestions();
+                    refetchSuggestedFeeds();
+                    refetchSpotlightFeed();
+                  }}
+                />
               );
             }
             return (
-              <View style={styles.initialStateContainer}>
-                <Text style={styles.initialStateText}>No suggestions available</Text>
-              </View>
+              <EmptyFeed type="no-videos" />
             );
           }
           return null;
