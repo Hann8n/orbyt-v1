@@ -22,7 +22,6 @@ import {
   AnimatedStarsBackground, 
   AnimatedTV, 
   CustomPDSInputSheet, 
-  AppPasswordInputSheet,
   SessionDiagnosticsTool
 } from '../src/components/ui';
 import { SavedAccount } from '../src/stores/userStore';
@@ -43,7 +42,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const [oauthError, setOAuthError] = useState<string | null>(null);
   const [showCustomPDSSheet, setShowCustomPDSSheet] = useState<boolean>(false);
-  const [showAppPasswordSheet, setShowAppPasswordSheet] = useState<boolean>(false);
   const [showDiagnosticsTool, setShowDiagnosticsTool] = useState<boolean>(false);
 
   // User store hooks
@@ -51,7 +49,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     isAuthenticating, 
     authError, 
     signIn, 
-    signInWithAppPassword,
     clearAuthError 
   } = useAuth();
   
@@ -96,10 +93,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         errorMessage,
         [
           { text: 'OK', style: 'cancel' },
-          { 
-            text: 'Try App Password', 
-            onPress: () => setShowAppPasswordSheet(true)
-          }
         ]
       );
     } finally {
@@ -137,10 +130,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         errorMessage,
         [
           { text: 'OK', style: 'cancel' },
-          { 
-            text: 'Try App Password', 
-            onPress: () => setShowAppPasswordSheet(true)
-          }
         ]
       );
     } finally {
@@ -148,46 +137,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     }
   };
 
-  const handleAppPasswordSignIn = async (username: string, appPassword: string) => {
-    setIsLoading(true);
-    setOAuthError(null);
-    clearAuthError();
-
-    try {
-      console.log('[LoginScreen] Starting app password login for:', username);
-      await signInWithAppPassword(username, appPassword);
-      
-      // Reload accounts to show the new one
-      await loadSavedAccounts();
-      console.log('[LoginScreen] App password login successful');
-      
-      await onLogin('app-password-success');
-    } catch (error) {
-      // Don't show errors for user cancellation
-      if (isUserCancellation(error)) {
-        console.log('[LoginScreen] User cancelled app password login');
-        return;
-      }
-      
-      const errorMessage = getErrorMessage(error);
-      console.error('[LoginScreen] App password login failed:', errorMessage);
-      
-      // Show error with OAuth fallback option
-      Alert.alert(
-        'App Password Sign-in Failed',
-        errorMessage,
-        [
-          { text: 'OK', style: 'cancel' },
-          { 
-            text: 'Try OAuth', 
-            onPress: () => handleLogin()
-          }
-        ]
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
 
   // Check for saved accounts on mount
@@ -234,12 +183,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                 handleLogin();
               }
             },
-            {
-              text: 'App Password',
-              onPress: () => {
-                setShowAppPasswordSheet(true);
-              }
-            }
           ]
         );
         return;
@@ -294,12 +237,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                   }
                 }
               },
-              {
-                text: 'Try App Password',
-                onPress: () => {
-                  setShowAppPasswordSheet(true);
-                }
-              }
             ]
           );
         } else if (errorMessage.includes('Network') || 
@@ -336,12 +273,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                   handleLogin();
                 }
               },
-              {
-                text: 'Try App Password',
-                onPress: () => {
-                  setShowAppPasswordSheet(true);
-                }
-              }
             ]
           );
         }
@@ -486,7 +417,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       <TouchableOpacity
         style={styles.customPDSTextButton}
         onPress={() => setShowCustomPDSSheet(true)}
-        onLongPress={() => setShowAppPasswordSheet(true)}
         disabled={isLoading}
         delayLongPress={500}
       >
@@ -562,14 +492,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         name="login-custom-pds"
       />
 
-      {/* App Password Input Sheet */}
-      <AppPasswordInputSheet
-        visible={showAppPasswordSheet}
-        onDismiss={() => setShowAppPasswordSheet(false)}
-        onSignIn={handleAppPasswordSignIn}
-        title="App Password Login"
-        name="login-app-password"
-      />
       
       {/* Session Diagnostics Tool */}
       <SessionDiagnosticsTool

@@ -1,6 +1,6 @@
 # OAuth Authentication for Orbyt
 
-This is a clean, simple OAuth implementation for atproto using React Native and Expo with the `expo-atproto-auth` library.
+This is a clean, simple OAuth-only implementation for atproto using React Native and Expo with the `expo-atproto-auth` library.
 
 ## Features
 
@@ -11,6 +11,7 @@ This is a clean, simple OAuth implementation for atproto using React Native and 
 - ✅ **Session Restoration**: Automatically restores sessions on app restart
 - ✅ **Account Management**: Integrates with AccountManager for multi-account support
 - ✅ **TypeScript Support**: Fully typed for better development experience
+- ✅ **Simplified Authentication**: OAuth-only flow eliminates complexity
 
 ## Configuration
 

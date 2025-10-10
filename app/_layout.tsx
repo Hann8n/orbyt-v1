@@ -112,7 +112,7 @@ export default function RootLayout() {
 
   const handleLogin = async (handle: string) => {
     try {
-      if (handle === 'oauth-success' || handle === 'app-password-success') return Promise.resolve();
+      if (handle === 'oauth-success') return Promise.resolve();
       await signIn(handle);
       return Promise.resolve();
     } catch (error) {

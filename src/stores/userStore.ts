@@ -85,7 +85,6 @@ interface UserState {
   // Actions
   // Authentication
   signIn: (identifier: string, pdsUrl?: string) => Promise<void>;
-  signInWithAppPassword: (username: string, appPassword: string, pdsUrl?: string) => Promise<void>;
   signOut: (clearAllAccounts?: boolean) => Promise<void>;
   restoreSession: (did: string, pdsUrl?: string) => Promise<void>;
   
@@ -285,63 +284,6 @@ export const useUserStore = create<UserState>()(
         }
       },
 
-      // App password authentication
-      signInWithAppPassword: async (username: string, appPassword: string, pdsUrl?: string) => {
-        try {
-          set({ isAuthenticating: true, authError: null });
-          
-          const resolvedPdsUrl = pdsUrl || 'https://bsky.social';
-          console.log('[userStore] Starting app password sign-in for:', username, 'PDS:', resolvedPdsUrl);
-          
-          // Create app password session
-          const session = await AtprotoService.createAppPasswordSession(username, appPassword, resolvedPdsUrl);
-          
-          // Fetch profile data
-          let profileData = null;
-          try {
-            console.log('[userStore] Fetching profile data for app password session');
-            profileData = await AtprotoService.getCurrentUser();
-            
-            if (profileData) {
-              await ProfileCache.cacheProfiles([profileData]);
-              console.log('[userStore] Profile data fetched and cached successfully');
-            }
-          } catch (profileError) {
-            console.warn('[userStore] Failed to fetch profile data during app password sign-in:', {
-              did: session.did,
-              error: profileError instanceof Error ? profileError.message : 'Unknown error'
-            });
-            // Continue without profile data - we'll try again later
-          }
-          
-          // Save account with PDS URL
-          await get().addAccount(session, profileData, resolvedPdsUrl);
-          
-          // Update state immediately
-          set({
-            currentUser: {
-              did: session.did,
-              handle: session.handle || profileData?.handle || null,
-              displayName: profileData?.displayName || null,
-              avatar: profileData?.avatar || null,
-              pdsUrl: resolvedPdsUrl,
-            },
-            isAuthenticated: true,
-            isAuthenticating: false,
-          });
-          
-          console.log('[userStore] App password sign-in successful');
-          return session;
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'App password sign-in failed';
-          console.error('[userStore] App password sign-in failed:', errorMessage);
-          set({ 
-            authError: errorMessage,
-            isAuthenticating: false 
-          });
-          throw error;
-        }
-      },
       
       signOut: async (clearAllAccounts: boolean = false) => {
         try {
@@ -354,8 +296,6 @@ export const useUserStore = create<UserState>()(
           const oauthService = AtProtoOAuthService.getInstance();
           await oauthService.signOut();
           
-          // Clear app password session if it exists
-          await AtprotoService.clearAppPasswordSession();
           
           // Clear active account - user has logged out
           await SecureStore.deleteItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT);
@@ -1147,22 +1087,6 @@ export const useUserStore = create<UserState>()(
               oauthError instanceof Error ? oauthError.message : 'Unknown error');
           }
           
-          // If OAuth session is unhealthy, try app password session
-          if (!isHealthy) {
-            console.log('[userStore] Checking app password session health...');
-            try {
-              const appPasswordSession = await AtprotoService.restoreAppPasswordSession();
-              if (appPasswordSession && appPasswordSession.did === currentUser.did) {
-                console.log('[userStore] App password session is healthy');
-                isHealthy = true;
-              } else {
-                console.log('[userStore] No matching app password session found');
-              }
-            } catch (appPasswordError) {
-              console.log('[userStore] App password session health check failed:', 
-                appPasswordError instanceof Error ? appPasswordError.message : 'Unknown error');
-            }
-          }
           
           // If both session types are unhealthy, sign out the user
           if (!isHealthy && get().isAuthenticated) {
@@ -1210,22 +1134,6 @@ export const useUserStore = create<UserState>()(
               oauthError instanceof Error ? oauthError.message : 'Unknown error');
           }
           
-          // If OAuth session is invalid, try app password session
-          if (!isValid) {
-            console.log('[userStore] Checking app password session validity...');
-            try {
-              const appPasswordSession = await AtprotoService.restoreAppPasswordSession();
-              if (appPasswordSession && appPasswordSession.did === did) {
-                console.log('[userStore] App password session is valid');
-                isValid = true;
-              } else {
-                console.log('[userStore] No valid app password session found');
-              }
-            } catch (appPasswordError) {
-              console.log('[userStore] App password session validity check failed:', 
-                appPasswordError instanceof Error ? appPasswordError.message : 'Unknown error');
-            }
-          }
           
           return isValid;
         } catch (error) {
@@ -1243,8 +1151,6 @@ export const useUserStore = create<UserState>()(
           const oauthService = AtProtoOAuthService.getInstance();
           oauthService.clearSession();
           
-          // Clear app password sessions
-          await AtprotoService.clearAppPasswordSession();
           
           // Clear secure storage items related to sessions
           try {
@@ -1323,54 +1229,6 @@ export const useUserStore = create<UserState>()(
               const errorMessage = oauthError instanceof Error ? oauthError.message : 'OAuth session restoration failed';
               console.log('[userStore] Failed to restore OAuth session:', errorMessage);
               
-              // If OAuth fails, try app password
-              if (errorMessage.includes('oauth_reauth_required') || 
-                  errorMessage.includes('expired') || 
-                  errorMessage.includes('invalid')) {
-                
-                console.log('[userStore] Trying app password session...');
-                try {
-                  const appPasswordSession = await AtprotoService.restoreAppPasswordSession();
-                  
-                  if (appPasswordSession && appPasswordSession.did === activeAccountDid) {
-                    console.log('[userStore] Successfully restored app password session');
-                    
-                    // Update state with app password session
-                    set({
-                      currentUser: {
-                        did: appPasswordSession.did,
-                        handle: appPasswordSession.handle || account.handle,
-                        displayName: account.displayName || null,
-                        avatar: account.avatar || null,
-                        pdsUrl: appPasswordSession.pdsUrl || accountPDS,
-                      },
-                      isAuthenticated: true,
-                      isAuthenticating: false,
-                    });
-                    
-                    sessionRestored = true;
-                    
-                    // Try to fetch profile data
-                    try {
-                      const profileData = await AtprotoService.getCurrentUser();
-                      if (profileData) {
-                        await ProfileCache.cacheProfiles([profileData]);
-                        await get().updateAccountProfile(activeAccountDid, profileData);
-                      }
-                    } catch (profileError) {
-                      console.warn('[userStore] Failed to fetch profile data during initialization:', profileError);
-                    }
-                    
-                    // Load user-specific data
-                    await get().loadUserSpecificSettings(activeAccountDid);
-                    await get().loadSubscribedChannels(activeAccountDid);
-                  }
-                } catch (appPasswordError) {
-                  const appErrorMsg = appPasswordError instanceof Error ? 
-                    appPasswordError.message : 'App password session restoration failed';
-                  console.log('[userStore] Failed to restore app password session:', appErrorMsg);
-                }
-              }
             }
             
             // If no session could be restored, clear the active account
@@ -1625,7 +1483,6 @@ export const useAuth = () => {
   const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
   const authError = useUserStore(state => state.authError);
   const signIn = useUserStore(state => state.signIn);
-  const signInWithAppPassword = useUserStore(state => state.signInWithAppPassword);
   const signOut = useUserStore(state => state.signOut);
   const restoreSession = useUserStore(state => state.restoreSession);
   const clearAuthError = useUserStore(state => state.clearAuthError);
@@ -1636,7 +1493,6 @@ export const useAuth = () => {
     isSwitchingAccount,
     authError,
     signIn,
-    signInWithAppPassword,
     signOut,
     restoreSession,
     clearAuthError,

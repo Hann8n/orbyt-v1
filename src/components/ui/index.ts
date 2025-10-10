@@ -24,7 +24,6 @@ export { default as HeaderBanner } from './HeaderBanner';
 export { default as AnimatedStarsBackground } from './AnimatedStarsBackground';
 export { default as ListScreen } from './ListScreen';
 export { default as CustomPDSInputSheet } from './CustomPDSInputSheet';
-export { default as AppPasswordInputSheet } from './AppPasswordInputSheet';
 export { default as SessionDiagnosticsTool } from './SessionDiagnosticsTool';
 export { AnimatedTV } from './AnimatedTV';
 
