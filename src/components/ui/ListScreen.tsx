@@ -131,11 +131,6 @@ const ListScreen: React.FC<ListScreenProps> = ({
               />
             )}
           </View>
-          {item.description && (
-            <Text style={styles.description} numberOfLines={2}>
-              {item.description}
-            </Text>
-          )}
         </View>
       </TouchableOpacity>
       {showFollowButton && (
@@ -148,18 +143,15 @@ const ListScreen: React.FC<ListScreenProps> = ({
         >
           {actionUsers.has(item.handle || item.did) ? (
             <Icon 
-              name={followButtonAction === 'follow' ? 'checkmark' : 
-                    followButtonAction === 'unfollow' ? 'user-plus' :
-                    followButtonAction === 'unblock' ? 'checkmark' :
-                    followButtonAction === 'unmute' ? 'checkmark' : 'checkmark'} 
+              name='checkmark' 
               size={16} 
-              color={Colors.lightGray} 
+              color={Colors.black} 
             />
           ) : (
             <Icon 
               name={followButtonIcon} 
               size={16} 
-              color={Colors.lightGray} 
+              color={Colors.black} 
             />
           )}
         </TouchableOpacity>
@@ -275,7 +267,7 @@ const styles = StyleSheet.create({
   profileItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 20,
   },
   profileTouchable: {
@@ -286,12 +278,14 @@ const styles = StyleSheet.create({
   profileImage: {
     width: 40,
     height: 40,
+    borderRadius: BORDER_RADIUS.LARGE,
     marginRight: 12,
     borderWidth: 0,
     borderColor: 'transparent',
   },
   profileContent: {
     flex: 1,
+    minWidth: 0,
     justifyContent: 'center',
   },
   displayName: {
@@ -301,11 +295,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
     flexShrink: 1,
   },
-  description: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
-  },
   handleText: {
     color: Colors.lightGray,
     fontSize: 14,
@@ -314,12 +303,14 @@ const styles = StyleSheet.create({
   followButton: {
     width: 32,
     height: 32,
-    borderWidth: 3,
-    borderColor: Colors.lightGray,
+    borderWidth: 0,
+    borderColor: 'transparent',
     borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.lightGray,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
+    marginLeft: 10,
   },
   actionButton: {
     borderColor: Colors.red,
