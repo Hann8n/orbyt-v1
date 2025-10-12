@@ -10,6 +10,7 @@ import React, {
 import { useRecyclingState } from '@shopify/flash-list';
 
 import { BORDER_RADIUS } from '../../../utils/constants';
+import { AtprotoService } from '../../../services/api/AtprotoService';
 import {
   View,
   Text,
@@ -115,6 +116,8 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       likeCount: post.likeCount || 0,
       repostCount: post.repostCount || 0,
       isReposted: !!post.viewer?.repost,
+      likeUri: post.viewer?.like, // Track like URI for proper unlike functionality
+      repostUri: post.viewer?.repost, // Track repost URI for proper unrepost functionality
     }, [post.uri]); // Auto-resets when post.uri changes
 
     // Refs
@@ -333,6 +336,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const handleLike = useCallback(async () => {
       if (overlayState.isLikePending) return;
       
+      // Optimistic update
       setOverlayState(prev => ({
         ...prev,
         isLikePending: true,
@@ -341,10 +345,17 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       }));
       
       try {
-        // TODO: Implement actual like API call
-        // await AtprotoService.likePost(post.uri, post.cid);
+        if (!overlayState.isLiked) {
+          const likeUri = await AtprotoService.likePost(post.uri, post.cid);
+          setOverlayState(prev => ({ ...prev, likeUri }));
+        } else {
+          if (!overlayState.likeUri) throw new Error('No like URI found');
+          await AtprotoService.deleteLike(overlayState.likeUri);
+          setOverlayState(prev => ({ ...prev, likeUri: undefined }));
+        }
       } catch (error) {
-        // Revert on error
+        console.error('Like action failed:', error);
+        // Revert optimistic update
         setOverlayState(prev => ({
           ...prev,
           isLiked: !prev.isLiked,
@@ -353,11 +364,12 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       } finally {
         setOverlayState(prev => ({ ...prev, isLikePending: false }));
       }
-    }, [overlayState.isLikePending, post.uri, post.cid]);
+    }, [overlayState.isLikePending, overlayState.isLiked, overlayState.likeCount, overlayState.likeUri, post.uri, post.cid]);
 
     const handleRepost = useCallback(async () => {
       if (overlayState.isRepostPending) return;
       
+      // Optimistic update
       setOverlayState(prev => ({
         ...prev,
         isRepostPending: true,
@@ -366,19 +378,26 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       }));
       
       try {
-        // TODO: Implement actual repost API call
-        // await AtprotoService.repostPost(post.uri, post.cid);
+        if (!overlayState.isReposted) {
+          const repostUri = await AtprotoService.repostPost(post.uri, post.cid);
+          setOverlayState(prev => ({ ...prev, repostUri }));
+        } else {
+          if (!overlayState.repostUri) throw new Error('No repost URI found');
+          await AtprotoService.deleteRepost(overlayState.repostUri);
+          setOverlayState(prev => ({ ...prev, repostUri: undefined }));
+        }
       } catch (error) {
+        console.error('Repost action failed:', error);
+        // Revert optimistic update
         setOverlayState(prev => ({
           ...prev,
           isReposted: !prev.isReposted,
           repostCount: prev.isReposted ? prev.repostCount + 1 : prev.repostCount - 1
         }));
-        console.error('Repost error:', error);
       } finally {
         setOverlayState(prev => ({ ...prev, isRepostPending: false }));
       }
-    }, [overlayState.isRepostPending, post.uri, post.cid]);
+    }, [overlayState.isRepostPending, overlayState.isReposted, overlayState.repostCount, overlayState.repostUri, post.uri, post.cid]);
 
     const handleSourcePress = useCallback(() => {
       // TODO: Implement source feed navigation

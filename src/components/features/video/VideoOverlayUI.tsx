@@ -120,10 +120,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
   const navigateToAuthorProfile = useCallback((rawHandle?: string | null) => {
     const cleanHandle = (rawHandle || '').trim();
-    if (!cleanHandle) {
-      return;
-    }
-
+    if (!cleanHandle) return;
     navigation.push(`/profile/${cleanHandle}`);
   }, [navigation]);
 
