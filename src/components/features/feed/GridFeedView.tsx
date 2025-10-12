@@ -152,12 +152,12 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
           borderStyle,
         ]}
         itemStyle={{ 
-          borderRadius: 0,
+          borderRadius: BORDER_RADIUS.MEDIUM,
           backgroundColor: 'transparent',
           padding: 0
         }}
         thumbnailStyle={{ 
-          borderRadius: 0,
+          borderRadius: BORDER_RADIUS.MEDIUM,
           backgroundColor: 'transparent'
         }}
       />
@@ -258,14 +258,14 @@ const styles = StyleSheet.create({
   gridItem: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 0, // Square corners
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.black, // Changed back to black
     // All margins for dividers are set dynamically in renderGridItem
   },
   thumbnail: {
     width: '100%',
     height: '100%',
-    borderRadius: 0, // Square corners
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   itemOverlay: {
     position: 'absolute',

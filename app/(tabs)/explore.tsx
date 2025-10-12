@@ -305,7 +305,7 @@ const SpotlightShimmer = () => (
         <View style={styles.spotlightVideoItem}>
           <ShimmerPlaceholder
             LinearGradient={LinearGradient}
-            style={[styles.spotlightVideoThumbnail, { borderWidth: 0, borderColor: 'transparent' }]}
+            style={[styles.spotlightVideoThumbnail, { borderWidth: 0, borderColor: 'transparent', borderRadius: BORDER_RADIUS.MEDIUM }]}
             shimmerColors={Colors.SHIMMER.PRIMARY}
             duration={1500}
           />

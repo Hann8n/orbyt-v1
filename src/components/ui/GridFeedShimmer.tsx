@@ -4,6 +4,7 @@ import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { Colors } from './UI';
 import { LinearGradient } from 'expo-linear-gradient';
 import { isSmallScreen, isTablet } from '../../utils/helpers';
+import { BORDER_RADIUS } from '../../utils/constants';
 
 const ITEM_MARGIN = 1; // Match the grid feed margin
 
@@ -94,13 +95,13 @@ const styles = StyleSheet.create({
   gridItem: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 0,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: Colors.black,
   },
   shimmerItem: {
     width: '100%',
     height: '100%',
-    borderRadius: 0,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
 });
 

@@ -405,11 +405,16 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               disabled={profileUpdateMutation.isPending}
             >
               {isLiquidGlassAvailable ? (
-                <GlassView style={styles.saveButtonGlass}>
+                <GlassView 
+                  style={styles.saveButtonGlass}
+                  glassEffectStyle="clear"
+                  tintColor={hexToRGBA(currentColors.textColor, 0.9)}
+                  isInteractive
+                >
                   {profileUpdateMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.black} />
+                    <ActivityIndicator size="small" color={currentColors.backgroundColor} />
                   ) : (
-                    <Text style={[styles.saveButtonText, { color: currentColors.textColor }]}>Save</Text>
+                    <Text style={[styles.saveButtonText, { color: currentColors.backgroundColor }]}>Save</Text>
                   )}
                 </GlassView>
               ) : (
@@ -549,7 +554,6 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                 placeholder="Tell us about yourself"
                 placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
                 multiline
-                numberOfLines={4}
                 maxLength={256}
               />
             </View>
@@ -580,14 +584,14 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'Firma-Bold',
     fontSize: 18,
-    fontWeight: '600',
+
   },
   cancelButton: {
     paddingVertical: 8,
     paddingHorizontal: 4,
   },
   cancelButtonText: {
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Firma-Bold',
     fontSize: 17,
   },
   saveButton: {
@@ -736,7 +740,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginTop: 8,
-    minHeight: 100,
+    minHeight: 80,
+    maxHeight: 200,
     textAlignVertical: 'top',
   },
   colorPickerPlaceholder: {
