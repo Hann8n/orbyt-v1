@@ -73,27 +73,19 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       ref={bottomSheetRef}
       name={name}
       sizes={snapPoints as any}
-      backgroundColor={shouldUseGlass ? 'rgba(0,0,0,0.6)' : Colors.black}
+      backgroundColor={Colors.black}
       onDismiss={onDismiss}
       grabber={false}
       keyboardMode="pan"
       scrollRef={scrollRef}
       FooterComponent={
         showCancelButton ? (
-          <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: 'transparent' }]}> 
+          <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 
             <TouchableOpacity 
-              style={[styles.cancelButton, shouldUseGlass && styles.cancelButtonGlass]} 
+              style={styles.cancelButton} 
               onPress={onDismiss} 
               activeOpacity={0.7}
             >
-              {shouldUseGlass && (
-                <GlassView
-                  style={StyleSheet.absoluteFill}
-                  glassEffectStyle="clear"
-                  tintColor="rgba(24,28,34,0.15)"
-                  isInteractive
-                />
-              )}
               <Text style={styles.cancelButtonText}>{cancelButtonText}</Text>
             </TouchableOpacity>
           </View>
@@ -177,11 +169,6 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: 'transparent',
   },
-  cancelButtonGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)'
-  },
   cancelButtonText: {
     color: Colors.lightGray,
     fontSize: 15,
@@ -194,26 +181,18 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingHorizontal: 20,
     marginHorizontal: 12,
-    marginBottom: 4,
+    marginBottom: 12,
     backgroundColor: Colors.darkGray,
     overflow: 'hidden',
     borderWidth: 0,
     borderColor: 'transparent',
-  },
-  // Applied when iOS Liquid Glass is available to avoid double-stacked
-  // background and heavy stroke under the glass effect.
-  listButtonGlass: {
-    backgroundColor: 'transparent',
-    borderColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   listButtonDanger: {
     backgroundColor: 'rgba(255,80,80,0.12)',
     borderColor: 'rgba(255,80,80,0.25)',
-  },
-  listButtonDangerGlass: {
-    backgroundColor: 'transparent',
-    borderColor: 'rgba(255,80,80,0.22)',
     borderWidth: 1,
   },
   listButtonContent: {
@@ -241,26 +220,16 @@ export const VerticalListButton: React.FC<{
   disabled?: boolean;
   danger?: boolean;
 }> = ({ label, onPress, icon, disabled, danger }) => {
-  const useGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
   return (
     <TouchableOpacity
       style={[
         styles.listButton,
         danger && styles.listButtonDanger,
-        useGlass && (danger ? styles.listButtonDangerGlass : styles.listButtonGlass),
       ]}
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.7}
     >
-      {useGlass && (
-        <GlassView
-          style={StyleSheet.absoluteFill}
-          glassEffectStyle="clear"
-          tintColor={danger ? 'rgba(255,80,80,0.10)' : 'rgba(24,28,34,0.15)'}
-          isInteractive
-        />
-      )}
       <View style={styles.listButtonContent}>
         <Text style={[styles.listButtonText, danger && styles.listButtonTextDanger]}>
           {label}

@@ -139,13 +139,6 @@ const HorizontalVideoList: React.FC<HorizontalVideoListProps> = ({
         refreshControl={refreshControl as any}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        ListFooterComponent={
-          isFetchingNextPage ? (
-            <View style={styles.footerLoader}>
-              <ActivityIndicator size="small" color={secondaryColor} />
-            </View>
-          ) : null
-        }
         removeClippedSubviews={true}
         maxToRenderPerBatch={5}
         windowSize={7}

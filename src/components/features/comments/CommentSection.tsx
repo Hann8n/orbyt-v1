@@ -23,8 +23,7 @@ import Animated, {
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../../../services/api/AtprotoService';
-import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ActivityIndicator } from 'react-native';
 import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { createQueryKeys } from '../../../services/FeedService';
 import { Colors } from '../../ui/UI';
@@ -44,6 +43,8 @@ import { useUserStore } from '../../../stores/userStore';
 import { useGlobalCommentSection, useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
+import AuthorItem from '../../ui/AuthorItem';
+import { useRouter } from 'expo-router';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -66,33 +67,6 @@ interface UserProfile {
 }
 
 
-const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => (
-  <View style={styles.likeItem}>
-    <UI.Avatar
-      uri={like.actor.avatar}
-      type="profile"
-      size={40}
-      style={styles.likeAvatar}
-    />
-    <View style={styles.likeContent}>
-      <View style={styles.likeNameRow}>
-        <Text style={styles.likeName}>
-          {like.actor.displayName || like.actor.handle}
-        </Text>
-        {like.actor.handle && (
-          <VerificationBadge
-            handle={like.actor.handle}
-            textSize={14}
-            textColor={Colors.white}
-            autoPosition={true}
-          />
-        )}
-      </View>
-    </View>
-  </View>
-));
-
-const MemoizedLikeItem = React.memo(LikeItem);
 
 interface CommentSectionProps {
   post?: Post;
@@ -138,30 +112,22 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const onToggleLike = globalData?.onToggleLike ?? propOnToggleLike;
   const isLikePending = globalData?.isLikePending ?? propIsLikePending;
   const handleHeaderSharePress = useCallback(async () => {
-    // Dismiss the comment section first to avoid sheet stacking issues
-    try {
-      await sheetRef.current?.dismiss();
-    } catch {}
+    // Dismiss the comment section first
+    onDismiss?.();
     
-    // Wait a bit for the dismiss animation to complete
+    // Wait for dismiss animation then open share sheet
     setTimeout(() => {
-      // Use global share sheet if post data is available
       if (post?.uri && post?.author?.did) {
         presentShareSheet({
           postUri: post.uri,
           postCid: post.cid,
           authorDid: post.author.did,
           authorName: post.author.displayName || post.author.handle,
-          feedOption: undefined, // Not available in comment section context
-          sourceFeed: undefined, // Not available in comment section context
         });
       } else {
-        // Fallback to prop callback if available
         onOpenShareSheet?.();
       }
-    }, ); // Wait 300ms for dismiss animation
-    
-    onDismiss?.();
+    }, 300);
   }, [post, presentShareSheet, onOpenShareSheet, onDismiss]);
   
   const insets = useSafeAreaInsets();
@@ -243,10 +209,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const commentsListRef = useRef<any>(null);
   const likesListRef = useRef<any>(null);
   
-  // Create a stable scrollRef that points to the active list
-  const currentScrollRef = useMemo(() => {
-    return activeTab === 'comments' ? commentsListRef : likesListRef;
-  }, [activeTab]);
+  // Simple scroll ref for active tab
+  const currentScrollRef = activeTab === 'comments' ? commentsListRef : likesListRef;
 
   const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
 
@@ -260,8 +224,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   } | null>(null);
 
   const inputRef = useRef<any>(null);
-  // Disable auto-engage of input when the comment sheet opens
-  const autoFocusOnOpen = false;
 
   // Get current user's profile for avatar
   const { currentUser } = useUserStore();
@@ -361,7 +323,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   );
   
   const renderLikeItem = useCallback(
-    ({ item }: { item: Like }) => <MemoizedLikeItem like={item} />,
+    ({ item }: { item: Like }) => <LikeItem like={item} />,
     []
   );
 
@@ -372,9 +334,48 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     return Math.random().toString(36);
   }, []);
 
+
   const handleClose = useCallback(() => {
+    setNewCommentText('');
+    setActiveTab('comments');
+    setLikesQueryEnabled(false);
+    setFullscreenImageUri(null);
+    setInputSelection({ start: 0, end: 0 });
+    setReplyContext(null);
+    setIsPosting(false);
     onDismiss?.();
   }, [onDismiss]);
+
+  const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => {
+    const navigation = useRouter();
+    
+    const handlePress = () => {
+      // Close the comments section first
+      onDismiss?.();
+      
+      // Then navigate to profile after a short delay
+      setTimeout(() => {
+        navigation.push(`/profile/${like.actor.handle}`);
+      }, 100);
+    };
+
+    return (
+      <AuthorItem
+        handle={like.actor.handle}
+        displayName={like.actor.displayName}
+        avatar={like.actor.avatar}
+        size="medium"
+        showArrow={false}
+        backgroundColor="transparent"
+        hideHandleLine={true}
+        noRing={true}
+        customFontSize={16}
+        onPress={handlePress}
+        style={styles.likeItem}
+      />
+    );
+  });
+
 
   const tabOptions: TabOption[] = [
     { id: 'comments', label: totalComments > 0 ? `${formatNumber(totalComments)} Comments` : 'Comments' },
@@ -444,20 +445,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   }, [newCommentText, post, replyContext, isPosting, queryClient]);
 
-  // Create a stable footer component as ReactElement for TrueSheet compatibility
+  // Simple footer component
   const FooterComponent = useMemo(() => {
     const placeholder = replyContext 
-      ? `Replying to ${replyContext.authorName}`.length > 15 
-        ? `Replying to ${replyContext.authorName.substring(0, 12)}...`
-        : `Replying to ${replyContext.authorName}`
-      : (totalComments === 0 ? 'add a comment...' : 'Say something nice...');
+      ? `Replying to ${replyContext.authorName}`
+      : 'Say something nice...';
 
     const hasText = newCommentText.trim().length > 0;
-    const showSendButton = hasText;
     const isSendDisabled = isPosting || !hasText || charCount > MAX_COMMENT_LENGTH;
 
-    const shouldUseGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-    
     const footerContent = (
       <View style={[styles.inputContainer, { paddingBottom: Math.max(5, insets.bottom) }]}>
         <View style={styles.inputRow}>
@@ -487,16 +483,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               autoCorrect={true}
               autoCapitalize="sentences"
               textAlignVertical="top"
-              onFocus={() => {
-                // Ensure proper keyboard handling for TrueSheet
-                if (Platform.OS === 'ios') {
-                  setTimeout(() => {
-                    if (inputRef.current?.focus) {
-                      inputRef.current.focus();
-                    }
-                  }, 50);
-                }
-              }}
             />
           </View>
           <View style={styles.sendColumn}>
@@ -517,7 +503,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 />
               </TouchableOpacity>
             ) : (
-              showSendButton && (
+              hasText && (
                 <TouchableOpacity
                   style={[
                     styles.sendButton,
@@ -550,23 +536,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       </View>
     );
 
-    if (shouldUseGlass) {
-      return (
-        <BlurView
-          intensity={100}
-          tint="dark"
-          style={[styles.footerBlurContainer, { backgroundColor: 'rgba(0,0,0,1)' }]}
-        >
-          {footerContent}
-        </BlurView>
-      );
-    }
-
     return footerContent;
   }, [
     mentionInputProps, 
     replyContext, 
-    totalComments, 
     newCommentText, 
     isPosting, 
     charCount, 
@@ -587,32 +560,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   }, [visible]);
 
-  // Focus input when sheet becomes visible and comments tab is active (disabled by autoFocusOnOpen)
-  useFocusEffect(
-    useCallback(() => {
-      if (autoFocusOnOpen && visible && activeTab === 'comments') {
-        const timer = setTimeout(() => {
-          if (inputRef.current?.focus) {
-            inputRef.current.focus();
-          }
-        }, 200);
-        return () => clearTimeout(timer);
-      }
-      return () => {};
-    }, [visible, activeTab, autoFocusOnOpen])
-  );
-
-  // Handle tab changes to focus input when switching to comments (disabled by autoFocusOnOpen)
-  useEffect(() => {
-    if (autoFocusOnOpen && activeTab === 'comments' && visible) {
-      const timer = setTimeout(() => {
-        if (inputRef.current?.focus) {
-          inputRef.current.focus();
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [activeTab, visible, autoFocusOnOpen]);
 
 
 
@@ -666,29 +613,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           <FlashList
             ref={commentsListRef}
             ListHeaderComponent={renderHeader}
-            data={Array.from({ length: 6 })}
-            renderItem={() => (
-              <View style={styles.shimmerItem}>
-                <ShimmerPlaceholder
-                  LinearGradient={LinearGradient}
-                  style={styles.shimmerAvatar}
-                  shimmerColors={Colors.SHIMMER.PRIMARY}
-                />
-                <View style={styles.shimmerContent}>
-                  <ShimmerPlaceholder
-                    LinearGradient={LinearGradient}
-                    style={styles.shimmerName}
-                    shimmerColors={Colors.SHIMMER.PRIMARY}
-                  />
-                  <ShimmerPlaceholder
-                    LinearGradient={LinearGradient}
-                    style={styles.shimmerText}
-                    shimmerColors={Colors.SHIMMER.PRIMARY}
-                  />
-                </View>
+            data={[]}
+            renderItem={() => null}
+            ListEmptyComponent={() => (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={Colors.lightGray} />
               </View>
             )}
-            keyExtractor={(_, idx) => `shimmer-${idx}`}
+            keyExtractor={() => 'empty'}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
@@ -707,7 +639,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyContent}>
-                <Text style={styles.emptyText}>no comments yet</Text>
+                <Text style={styles.emptyText}>start the conversation</Text>
               </View>
             </View>
           )}
@@ -730,24 +662,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           <FlashList
             ref={likesListRef}
             ListHeaderComponent={renderHeader}
-            data={Array.from({ length: 6 })}
-            renderItem={() => (
-              <View style={styles.shimmerItem}>
-                <ShimmerPlaceholder
-                  LinearGradient={LinearGradient}
-                  style={styles.shimmerAvatar}
-                  shimmerColors={Colors.SHIMMER.PRIMARY}
-                />
-                <View style={styles.shimmerContent}>
-                  <ShimmerPlaceholder
-                    LinearGradient={LinearGradient}
-                    style={styles.shimmerName}
-                    shimmerColors={Colors.SHIMMER.PRIMARY}
-                  />
-                </View>
+            data={[]}
+            renderItem={() => null}
+            ListEmptyComponent={() => (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={Colors.lightGray} />
               </View>
             )}
-            keyExtractor={(_, idx) => `shimmer-like-${idx}`}
+            keyExtractor={() => 'empty'}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
@@ -765,7 +687,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           renderItem={renderLikeItem}
           ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>no likes yet</Text>
+              <View style={styles.emptyContent}>
+                <Text style={styles.emptyText}>be the first like</Text>
+              </View>
             </View>
           )}
           contentContainerStyle={styles.listContent}
@@ -790,7 +714,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         ref={sheetRef}
         name="comment-section"
         sizes={['medium', 'large']}
-        backgroundColor={Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'rgba(0,0,0,0.6)' : Colors.black}
+        backgroundColor={Colors.black}
         onDismiss={handleClose}
         scrollRef={currentScrollRef}
         keyboardMode="pan"
@@ -820,34 +744,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 source={{ uri: fullscreenImageUri }}
                 style={styles.fullscreenImage}
               />
-              {(() => {
-                let altText: string | undefined = undefined;
-                for (const comment of comments) {
-                  const record = comment?.record || comment?.post?.record;
-                  const embed = record?.embed || comment?.embed || comment?.post?.embed;
-                  if (embed && typeof embed === 'object') {
-                    if (embed.$type === 'app.bsky.embed.external' && embed.external && embed.external.uri === fullscreenImageUri) {
-                      altText = embed.external.description || embed.external.title || undefined;
-                      break;
-                    }
-                    if (Array.isArray(embed.images)) {
-                      for (const img of embed.images) {
-                        if ((img.fullsize === fullscreenImageUri || img.thumb === fullscreenImageUri) && img.alt) {
-                          altText = img.alt;
-                          break;
-                        }
-                      }
-                    }
-                  }
-                  if (altText) break;
-                }
-                if (altText) {
-                  return (
-                    <Text style={styles.altText}>{altText}</Text>
-                  );
-                }
-                return null;
-              })()}
             </>
           )}
           <Pressable
@@ -865,7 +761,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'transparent' : Colors.black,
+    backgroundColor: Colors.black,
     minHeight: 0,
   },
   header: {
@@ -873,7 +769,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 0,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
   tabContainer: {
     flex: 1,
@@ -900,9 +797,9 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     minHeight: 220,
-    backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'transparent' : Colors.black,
+    backgroundColor: Colors.black,
   },
   emptyContent: {
     flex: 1,
@@ -918,52 +815,21 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 80,
-    backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'transparent' : Colors.black,
+    backgroundColor: Colors.black,
     paddingHorizontal: 16,
   },
   loadingContainer: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'transparent' : Colors.black,
-  },
-  loadingShimmer: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
-  },
-  shimmerItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 8,
-    backgroundColor: 'transparent',
-  },
-  shimmerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
-    marginRight: 12,
-  },
-  shimmerContent: {
     flex: 1,
     justifyContent: 'center',
-  },
-  shimmerName: {
-    width: '55%',
-    height: 18,
-    borderRadius: BORDER_RADIUS.SMALL,
-    marginBottom: 2,
-  },
-  shimmerText: {
-    width: '85%',
-    height: 16,
-    borderRadius: BORDER_RADIUS.SMALL,
-    marginTop: 2,
+    alignItems: 'center',
+    backgroundColor: Colors.black,
+    minHeight: 200,
   },
   inputContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
-    backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'rgba(0,0,0,0.6)' : 'rgba(0, 0, 0)',
+    backgroundColor: Colors.black,
   },
   inputRow: {
     flexDirection: 'row',
@@ -1076,33 +942,13 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   likeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  likeAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
-    marginRight: 12,
-    borderWidth: 0,
-  },
-  likeContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  likeNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  likeName: {
-    color: Colors.white,
-    fontSize: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 0,
     marginBottom: 2,
-    fontFamily: 'Firma-Bold',
+    alignItems: 'flex-start',
   },
   footerBlurContainer: {
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.black,
   },
 });
 

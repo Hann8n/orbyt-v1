@@ -376,6 +376,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       title={handle}
       showCancelButton={true}
       cancelButtonText="Cancel"
+      enableGlass={false}
     >
       {/* Main menu options */}
       <View style={styles.optionsContainer}>
@@ -394,13 +395,13 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       <TrueSheet
         ref={submenuSheetRef}
         sizes={['auto']}
-        backgroundColor={Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'rgba(0,0,0,0.6)' : Colors.black}
+        backgroundColor={Colors.black}
         onDismiss={() => submenuSheetRef.current?.dismiss()}
         grabber={false}
         FooterComponent={
-          <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'transparent' : Colors.black }]}>
+          <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}>
             <TouchableOpacity 
-              style={[styles.cancelButton, Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.cancelButtonGlass]} 
+              style={styles.cancelButton} 
               onPress={() => submenuSheetRef.current?.dismiss()} 
               activeOpacity={0.7}
             >
@@ -521,11 +522,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 0,
     borderColor: 'transparent',
-  },
-  cancelButtonGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)'
   },
   cancelButtonText: {
     color: Colors.lightGray,

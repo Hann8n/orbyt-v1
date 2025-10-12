@@ -488,7 +488,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       <TrueSheet
         name="share-sheet"
         sizes={snapPoints}
-        backgroundColor={Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'rgba(0,0,0,0.6)' : Colors.black}
+        backgroundColor={Colors.black}
         onDismiss={dismissSheet}
         grabber={false}
       >
@@ -505,25 +505,17 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     <TrueSheet
       name="share-sheet"
       sizes={snapPoints}
-      backgroundColor={Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'rgba(0,0,0,0.6)' : Colors.black}
+      backgroundColor={Colors.black}
       onDismiss={dismissSheet}
       grabber={false}
       FooterComponent={
-        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Platform.OS === 'ios' && isLiquidGlassAvailable() ? 'transparent' : Colors.black }]}> 
+        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 
           <TouchableOpacity 
-            style={[styles.cancelButton, Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.cancelButtonGlass]} 
+            style={styles.cancelButton} 
             onPress={dismissSheet} 
             activeOpacity={0.7}
             disabled={isSubmitting}
           >
-            {Platform.OS === 'ios' && isLiquidGlassAvailable() && (
-              <GlassView
-                style={StyleSheet.absoluteFill}
-                glassEffectStyle="clear"
-                tintColor="rgba(255,255,255,0.05)"
-                isInteractive
-              />
-            )}
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -558,22 +550,12 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                 <TouchableOpacity 
                   style={[
                     styles.option,
-                    isLiquidGlassAvailable()
-                      ? { backgroundColor: 'transparent', borderColor: 'transparent' }
-                      : { backgroundColor: option.buttonColor, borderColor: hexToRGBA(option.color, 0.28) }
+                    { backgroundColor: option.buttonColor, borderColor: hexToRGBA(option.color, 0.28) }
                   ]}
                   onPress={option.onPress}
                   activeOpacity={0.7}
                   disabled={isSubmitting}
                 >
-                  {isLiquidGlassAvailable() && (
-                    <GlassView
-                      style={styles.optionGlass}
-                      glassEffectStyle="clear"
-                      tintColor={hexToRGBA(option.buttonColor, 0.9)}
-                      isInteractive
-                    />
-                  )}
                   {(() => {
                     const scale = option.id === 'interested'
                       ? interestedScale
@@ -670,10 +652,6 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: 'transparent'
   },
-  optionGlass: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.LARGE,
-  },
   iconButton: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -703,11 +681,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderWidth: 0,
     borderColor: 'transparent'
-  },
-  cancelButtonGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)'
   },
   cancelButtonText: {
     color: Colors.lightGray,

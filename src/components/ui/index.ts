@@ -19,7 +19,6 @@ export { default as ShareSheet } from './ShareSheet';
 export { default as RelativeDate } from './RelativeDate';
 export { default as VideoInfoDisplay } from './VideoInfoDisplay';
 export { default as AuthorItem } from './AuthorItem';
-export { default as GridFeedShimmer } from './GridFeedShimmer';
 export { default as HeaderBanner } from './HeaderBanner';
 export { default as AnimatedStarsBackground } from './AnimatedStarsBackground';
 export { default as ListScreen } from './ListScreen';

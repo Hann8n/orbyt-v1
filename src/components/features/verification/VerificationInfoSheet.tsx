@@ -82,7 +82,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   const insets = useSafeAreaInsets();
 
   const shouldUseGlass = useMemo(() => {
-    return Platform.OS === 'ios' && isLiquidGlassAvailable();
+    return false; // Disabled for consistent black background
   }, []);
 
   // Get profile info - use cached data if available
@@ -180,24 +180,16 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
     <TrueSheet
       ref={bottomSheetRef}
       sizes={snapPoints as any}
-      backgroundColor={shouldUseGlass ? 'rgba(0,0,0,0.6)' : Colors.black}
+      backgroundColor={Colors.black}
       onDismiss={onDismiss}
       grabber={false}
       FooterComponent={
-        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: 'transparent' }]}>
+        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}>
           <TouchableOpacity 
-            style={[styles.cancelButton, shouldUseGlass && styles.cancelButtonGlass]} 
+            style={styles.cancelButton} 
             onPress={onDismiss}
             activeOpacity={0.7}
           >
-            {shouldUseGlass && (
-              <GlassView
-                style={StyleSheet.absoluteFill}
-                glassEffectStyle="clear"
-                tintColor="rgba(255,255,255,0.05)"
-                isInteractive
-              />
-            )}
             <Text style={styles.cancelButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
@@ -297,8 +289,15 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             {isIssuerLoading ? (
               <VerifiedByShimmer />
             ) : (
-              <TouchableOpacity
-                style={[styles.verifierButton, shouldUseGlass && styles.verifierButtonGlass]}
+              <AuthorItem
+                handle={issuerProfile?.handle || actualIssuerHandle || verifierDid || ''}
+                displayName={issuerProfile?.displayName || 
+                  actualIssuerHandle || 
+                  (isOfficialVerification ? 'bluesky' : 
+                    (verifierDid ? `verifier (${verifierDid.slice(0, 8)}...)` : 'verifier'))}
+                avatar={issuerProfile?.avatar}
+                size="large"
+                showArrow={true}
                 onPress={() => {
                   const target = (issuerProfile?.handle || actualIssuerHandle || verifierDid || '').trim();
                   if (!target) return;
@@ -311,39 +310,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
                     onDismiss();
                   }, 100);
                 }}
-                activeOpacity={0.7}
-              >
-                {shouldUseGlass && (
-                  <GlassView
-                    style={styles.verifierButtonGlassView}
-                    glassEffectStyle="clear"
-                    tintColor="rgba(255,255,255,0.05)"
-                    isInteractive
-                  />
-                )}
-                <View style={styles.verifierContent}>
-                  <Avatar
-                    uri={issuerProfile?.avatar}
-                    size={48}
-                    style={styles.verifierAvatar}
-                    ringColor="transparent"
-                  />
-                  <View style={styles.verifierTextContainer}>
-                    <Text style={styles.verifierDisplayName} numberOfLines={1}>
-                      {issuerProfile?.displayName || 
-                       actualIssuerHandle || 
-                       (isOfficialVerification ? 'bluesky' : 
-                        (verifierDid ? `verifier (${verifierDid.slice(0, 8)}...)` : 'verifier'))}
-                    </Text>
-                    {issuerCreatedAt && (
-                      <Text style={styles.verifierDate}>
-                        {new Date(issuerCreatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                      </Text>
-                    )}
-                  </View>
-                  <Icon name="chevron-right" size={20} color={Colors.lightGray} />
-                </View>
-              </TouchableOpacity>
+                style={styles.verifierItem}
+              />
             )}
           </>
         )}
@@ -407,56 +375,17 @@ const styles = StyleSheet.create({
   verifiedByLabel: {
     color: Colors.gray,
     fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontWeight: '600',
+    fontFamily: 'Firma-SemiBold',
     marginBottom: 8,
     marginTop: 8,
     paddingHorizontal: 15,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  verifierButton: {
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+  verifierItem: {
     marginHorizontal: 12,
-    marginVertical: 4,
-    overflow: 'hidden',
-    borderWidth: 0,
-    borderColor: 'transparent'
-  },
-  verifierButtonGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)'
-  },
-  verifierButtonGlassView: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.LARGE,
-  },
-  verifierContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  verifierAvatar: {
-    marginRight: 8,
-  },
-  verifierTextContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingLeft: 4,
-  },
-  verifierDisplayName: {
-    color: Colors.white,
-    fontSize: 15,
-    fontFamily: 'Firma-Black',
-    marginBottom: 2,
-  },
-  verifierDate: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
+    marginBottom: 12,
   },
   issuerListItem: {
     marginVertical: 4,
@@ -532,11 +461,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderWidth: 0,
     borderColor: 'transparent'
-  },
-  cancelButtonGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)'
   },
   cancelButtonText: {
     color: Colors.lightGray,

@@ -13,7 +13,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../../src/services/api/AtprotoService';
@@ -26,27 +25,23 @@ import { NotificationIcon } from '../../src/components/ui/Icon';
 import VerificationBadge from '../../src/components/features/verification/VerificationBadge';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../src/utils/helpers';
- 
 
-const NotificationShimmer = () => (
-  <View style={styles.notificationItem}>
-    <ShimmerPlaceholder
-      LinearGradient={LinearGradient}
-      style={[styles.profileImage, { borderWidth: 0, borderColor: 'transparent' }]}
-      shimmerColors={Colors.SHIMMER.PRIMARY}
-    />
-    <View style={styles.notificationContent}>
-      <ShimmerPlaceholder
-        LinearGradient={LinearGradient}
-        style={{ width: '40%', height: 16, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
-        shimmerColors={Colors.SHIMMER.PRIMARY}
-      />
-      <ShimmerPlaceholder
-        LinearGradient={LinearGradient}
-        style={{ width: '55%', height: 16, borderRadius: BORDER_RADIUS.SMALL }}
-        shimmerColors={Colors.SHIMMER.PRIMARY}
-      />
+// Import radar.gif for empty notifications state
+const RadarGif = require('../../src/assets/radar.gif');
+
+// Custom empty state for notifications
+const EmptyNotifications = () => (
+  <View style={styles.emptyContainer}>
+    <View style={styles.emptyContent}>
+      <Image source={RadarGif} style={styles.radarGif} />
+       <Text style={styles.emptyText}>no recent notifications</Text>
     </View>
+  </View>
+);
+
+const NotificationLoading = () => (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color={Colors.white} />
   </View>
 );
 
@@ -260,9 +255,9 @@ const NotificationScreen: React.FC = () => {
     []
   );
 
-  // Create shimmer placeholders based on estimated count
-  const shimmerItems = useMemo(() => {
-    return Array(15).fill(0);
+  // Create loading items for initial load
+  const loadingItems = useMemo(() => {
+    return Array(1).fill(0); // Just show one loading spinner
   }, []);
 
   // Header component for the list
@@ -319,9 +314,9 @@ const NotificationScreen: React.FC = () => {
           paddingHorizontal: 20,
           paddingBottom: bottomNavBarHeight + 5,
         }}
-        data={isLoading ? shimmerItems : notifications}
-        renderItem={isLoading ? () => <NotificationShimmer /> : renderNotificationContent}
-        keyExtractor={(item, index) => isLoading ? `shimmer-${index}` : item.uri || `notification-${index}`}
+        data={isLoading ? loadingItems : notifications}
+        renderItem={isLoading ? () => <NotificationLoading /> : renderNotificationContent}
+        keyExtractor={(item, index) => isLoading ? `loading-${index}` : item.uri || `notification-${index}`}
         ListHeaderComponent={() => (
           <View style={{ paddingTop: insets.top + 10 }}>
             <ListHeaderComponent />
@@ -366,7 +361,7 @@ const NotificationScreen: React.FC = () => {
         }}
         viewabilityConfig={viewabilityConfig}
         ListEmptyComponent={!isLoading ? (
-          <EmptyFeed type="no-videos" />
+          <EmptyNotifications />
         ) : null}
         ListFooterComponent={isFetchingNextPage ? (
           <View style={styles.loadingMoreContainer}>
@@ -467,11 +462,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'Firma-Bold',
   },
-  emptyContainer: {
-    padding: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   emptyText: {
     color: Colors.lightGray,
     fontSize: 16,
@@ -481,6 +471,30 @@ const styles = StyleSheet.create({
   loadingMoreContainer: {
     padding: 20,
     alignItems: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100, // Space below header
+    paddingBottom: 100, // Space above bottom nav bar
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 60,
+  },
+  emptyContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radarGif: {
+    width: 120,
+    height: 120,
+    resizeMode: 'contain',
+    marginBottom: 16,
   },
 });
 

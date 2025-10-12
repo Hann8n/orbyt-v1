@@ -31,6 +31,9 @@ interface AuthorItemProps {
   handleFontWeight?: 'Firma-Regular' | 'Firma-Medium' | 'Firma-SemiBold' | 'Firma-Bold' | 'Firma-Black';
   handleColor?: string;
   hideHandleLine?: boolean;
+  hideDisplayName?: boolean;
+  noRing?: boolean;
+  customFontSize?: number;
 }
 
 const AuthorItem: React.FC<AuthorItemProps> = ({
@@ -48,10 +51,13 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   showFollowButton = false,
   isFollowing = false,
   onFollowPress,
-  nameFontWeight = 'Firma-SemiBold',
+  nameFontWeight = 'Firma-Bold',
   handleFontWeight = 'Firma-SemiBold',
   handleColor,
   hideHandleLine,
+  hideDisplayName,
+  noRing,
+  customFontSize,
 }) => {
   const navigation = useRouter();
   
@@ -129,21 +135,24 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
             uri={actualAvatar}
             type="profile"
             size={config.avatarSize}
+            noRing={noRing}
           />
         </View>
         <View style={styles.accountInfoContainer}>
           <View style={styles.nameRow}>
-            <Text style={[ 
-              styles.accountDisplayName,
-              { 
-                color: textColor || Colors.white,
-                fontSize: config.nameFontSize,
-                fontFamily: nameFontWeight,
-              }
-            ]} numberOfLines={1}>
-              {actualDisplayName}
-            </Text>
-            {handle && (
+            {!hideDisplayName && (
+              <Text style={[ 
+                styles.accountDisplayName,
+                { 
+                  color: textColor || Colors.white,
+                  fontSize: customFontSize || config.nameFontSize,
+                  fontFamily: nameFontWeight,
+                }
+              ]} numberOfLines={1}>
+                {actualDisplayName}
+              </Text>
+            )}
+            {handle && !hideDisplayName && (
               <VerificationBadge
                 handle={handle}
                 textSize={config.badgeTextSize}
@@ -212,11 +221,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   avatarContainer: {
-    marginRight: 12,
+    marginRight: 8,
   },
   accountInfoContainer: {
     flex: 1,
-    paddingLeft: 8,
+    paddingLeft: 4,
   },
   accountDisplayName: {
     color: Colors.white,

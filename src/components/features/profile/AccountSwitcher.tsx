@@ -58,8 +58,8 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   
-  // Glass effect support
-  const shouldUseGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
+  // Glass effect support - disabled for consistent black background
+  const shouldUseGlass = false;
 
 
   // User store hooks
@@ -336,21 +336,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             <TouchableOpacity
               style={[
                 styles.addAccountButton,
-                styles.addAccountButtonHalf,
-                shouldUseGlass && styles.addAccountButtonGlass
+                styles.addAccountButtonHalf
               ]}
               onPress={handleBlueskyAddAccount}
               activeOpacity={0.8}
               disabled={isAuthenticating}
             >
-              {shouldUseGlass && (
-                <GlassView
-                  style={StyleSheet.absoluteFill}
-                  glassEffectStyle="clear"
-                  tintColor="rgba(24,28,34,0.15)"
-                  isInteractive
-                />
-              )}
               <View style={styles.buttonContent}>
                 {isAuthenticating ? (
                   <ActivityIndicator color={Colors.white} size="small" style={{ marginRight: 8 }} />
@@ -366,21 +357,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             <TouchableOpacity
               style={[
                 styles.addAccountButton,
-                styles.addAccountButtonHalf,
-                shouldUseGlass && styles.addAccountButtonGlass
+                styles.addAccountButtonHalf
               ]}
               onPress={handleCustomPDSAddAccount}
               activeOpacity={0.8}
               disabled={isAuthenticating}
             >
-              {shouldUseGlass && (
-                <GlassView
-                  style={StyleSheet.absoluteFill}
-                  glassEffectStyle="clear"
-                  tintColor="rgba(24,28,34,0.15)"
-                  isInteractive
-                />
-              )}
               <View style={styles.buttonContent}>
                 <Icon name="at" size={20} color={Colors.lightGray} style={{ marginRight: 8 }} />
                 <Text style={styles.addAccountButtonText}>
@@ -421,7 +403,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         style={[
           styles.accountButton,
           isActive && styles.activeAccountButton,
-          shouldUseGlass && styles.accountButtonGlass,
         ]}
         onPress={() => {
           if (DEBUG) {
@@ -435,14 +416,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         activeOpacity={0.7}
         disabled={isSwitching}
       >
-        {shouldUseGlass && (
-          <GlassView
-            style={styles.accountButtonGlassView}
-            glassEffectStyle="clear"
-            tintColor="rgba(24,28,34,0.15)"
-            isInteractive
-          />
-        )}
         {isSwitching ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={Colors.white} size="small" />
@@ -595,15 +568,6 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: 'transparent',
   },
-  accountButtonGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  accountButtonGlassView: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.LARGE,
-  },
   activeAccountButton: {
     backgroundColor: Colors.darkGray,
   },
@@ -635,11 +599,6 @@ const styles = StyleSheet.create({
   addAccountButtonHalf: {
     flex: 1,
     marginBottom: 0,
-  },
-  addAccountButtonGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
   },
   accountButtonContent: {
     flexDirection: 'row',

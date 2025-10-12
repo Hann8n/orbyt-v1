@@ -152,12 +152,12 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
           borderStyle,
         ]}
         itemStyle={{ 
-          borderRadius: BORDER_RADIUS.MEDIUM,
+          borderRadius: 0,
           backgroundColor: 'transparent',
           padding: 0
         }}
         thumbnailStyle={{ 
-          borderRadius: BORDER_RADIUS.MEDIUM,
+          borderRadius: 0,
           backgroundColor: 'transparent'
         }}
       />
@@ -193,10 +193,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
             bounces={false}
             ListHeaderComponent={headerComponent}
             ListEmptyComponent={
-              isProfileLoading ? (
-                <View style={[styles.loadingContainer, { backgroundColor }]}> 
-                </View>
-              ) : isError ? (
+              isError ? (
                 <EmptyFeed 
                   type="error" 
                   secondaryColor={secondaryColor} 
@@ -224,11 +221,6 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
             scrollEnabled={feed.length > 0}
             onEndReached={hasNextPage ? onLoadMore : undefined}
             onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-            ListFooterComponent={isFetchingNextPage ? (
-              <View style={styles.footerLoader}>
-                <ActivityIndicator size="small" color={secondaryColor} />
-              </View>
-            ) : null}
             removeClippedSubviews={false}
     
           />
@@ -258,14 +250,14 @@ const styles = StyleSheet.create({
   gridItem: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: 0,
     backgroundColor: Colors.black, // Changed back to black
     // All margins for dividers are set dynamically in renderGridItem
   },
   thumbnail: {
     width: '100%',
     height: '100%',
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: 0,
   },
   itemOverlay: {
     position: 'absolute',
@@ -308,12 +300,6 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 9,
     fontFamily: 'Firma-Regular',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 300,
   },
   footerLoader: {
     paddingVertical: 20,

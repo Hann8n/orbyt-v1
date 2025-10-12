@@ -14,7 +14,6 @@ export { default as PopUpModal } from './ui/PopUpModal';
 export { TextWithLinks, TextWithAuthorLinks } from './ui/TextWithLinks';
 export { default as VideoInfoDisplay } from './ui/VideoInfoDisplay';
 export { default as RelativeDate } from './ui/RelativeDate';
-export { default as GridFeedShimmer } from './ui/GridFeedShimmer';
 
 // Feature Components
 export { default as ListFeedView } from './features/feed/ListFeedView';

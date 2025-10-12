@@ -23,8 +23,6 @@ import { useRouter } from 'expo-router';
 import ProfileCache, { profileKeys, useFollowMutation } from '../../src/services/cache/ProfileCache';
 import ChannelCache, { useChannelColors } from '../../src/services/cache/ChannelCache';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
-import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
-import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Rect, G } from 'react-native-svg';
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -34,6 +32,7 @@ import { TabNavigation, TabOption } from '../../src/components/layout/header';
 import { SearchIcon, FollowIcon, CheckIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import VerificationBadge from '../../src/components/features/verification/VerificationBadge';
+import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
 import { getBottomNavBarHeight } from '../../src/utils/helpers';
@@ -124,7 +123,12 @@ interface HeaderSpacer {
   key: string;
 }
 
-type ListItem = SearchResult | SectionHeader | SpotlightVideosSection | PeopleChannelsSection | PopularChannelsSection | HeaderSpacer;
+interface LoadingItem {
+  type: 'loading';
+  key: string;
+}
+
+type ListItem = SearchResult | SectionHeader | SpotlightVideosSection | PeopleChannelsSection | PopularChannelsSection | HeaderSpacer | LoadingItem;
 
 
 
@@ -201,122 +205,39 @@ const unifiedSearchKeys = {
   infiniteSearch: (query: string) => [...unifiedSearchKeys.infinite(), query] as const,
 };
 
-// Better shimmer components with improved animations and layout
-const ProfileShimmer = () => (
-  <View style={styles.profileItem}>
-    <ShimmerPlaceholder
-      LinearGradient={LinearGradient}
-      style={[styles.profileImage, { borderWidth: 0, borderColor: 'transparent' }]}
-      shimmerColors={Colors.SHIMMER.PRIMARY}
-      duration={1500}
-    />
-    <View style={styles.profileContent}>
-      <ShimmerPlaceholder
-        LinearGradient={LinearGradient}
-        style={{ width: 120, height: 16, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
-        shimmerColors={Colors.SHIMMER.PRIMARY}
-        duration={1500}
-      />
-      <ShimmerPlaceholder
-        LinearGradient={LinearGradient}
-        style={{ width: 80, height: 12, borderRadius: BORDER_RADIUS.SMALL }}
-        shimmerColors={Colors.SHIMMER.PRIMARY}
-        duration={1500}
-      />
-    </View>
-    <View style={styles.followButtonShimmer} />
+// Simple loading components with ActivityIndicator
+const ProfileLoading = () => (
+  <View style={[styles.profileItem, styles.loadingContainer]}>
+    <ActivityIndicator size="small" color={Colors.white} />
   </View>
 );
 
-const ChannelShimmer = () => (
-  <View style={styles.channelItem}>
-    <ShimmerPlaceholder
-      LinearGradient={LinearGradient}
-      style={[styles.channelImage, { borderWidth: 0, borderColor: 'transparent' }]}
-      shimmerColors={Colors.SHIMMER.PRIMARY}
-      duration={1500}
-    />
-    <View style={styles.channelContent}>
-      <ShimmerPlaceholder
-        LinearGradient={LinearGradient}
-        style={{ width: 140, height: 16, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
-        shimmerColors={Colors.SHIMMER.PRIMARY}
-        duration={1500}
-      />
-      <ShimmerPlaceholder
-        LinearGradient={LinearGradient}
-        style={{ width: 100, height: 12, borderRadius: BORDER_RADIUS.SMALL }}
-        shimmerColors={Colors.SHIMMER.PRIMARY}
-        duration={1500}
-      />
-    </View>
+const ChannelLoading = () => (
+  <View style={[styles.channelItem, styles.loadingContainer]}>
+    <ActivityIndicator size="small" color={Colors.white} />
   </View>
 );
 
-const SectionHeaderShimmer = () => (
-  <View style={styles.sectionHeader}>
-    <ShimmerPlaceholder
-      LinearGradient={LinearGradient}
-      style={{ width: 120, height: 18, borderRadius: BORDER_RADIUS.SMALL }}
-      shimmerColors={Colors.SHIMMER.PRIMARY}
-      duration={1500}
-    />
+const SectionHeaderLoading = () => (
+  <View style={[styles.sectionHeader, styles.loadingContainer]}>
+    <ActivityIndicator size="small" color={Colors.white} />
   </View>
 );
 
-const PopularChannelsShimmer = () => (
-  <View>
-    {Array(3).fill(0).map((_, index) => (
-      <View key={`popular-channel-shimmer-${index}`} style={styles.channelItem}>
-        <ShimmerPlaceholder
-          LinearGradient={LinearGradient}
-          style={[styles.channelImage, { borderWidth: 0, borderColor: 'transparent' }]}
-          shimmerColors={Colors.SHIMMER.PRIMARY}
-          duration={1500}
-        />
-        <View style={styles.channelContent}>
-          <ShimmerPlaceholder
-            LinearGradient={LinearGradient}
-            style={{ width: 140, height: 16, marginBottom: 4, borderRadius: BORDER_RADIUS.SMALL }}
-            shimmerColors={Colors.SHIMMER.PRIMARY}
-            duration={1500}
-          />
-          <ShimmerPlaceholder
-            LinearGradient={LinearGradient}
-            style={{ width: 100, height: 12, borderRadius: BORDER_RADIUS.SMALL }}
-            shimmerColors={Colors.SHIMMER.PRIMARY}
-            duration={1500}
-          />
-        </View>
-      </View>
-    ))}
+const PopularChannelsLoading = () => (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="small" color={Colors.white} />
   </View>
 );
 
-const SpotlightShimmer = () => (
-  <View style={styles.spotlightContainer}>
-    <FlatList
-      data={Array(4).fill(0)} // Show 4 shimmer videos
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.spotlightScrollContainer}
-      keyExtractor={(_, index) => `spotlight-shimmer-${index}`}
-      renderItem={({ item, index }) => (
-        <View style={styles.spotlightVideoItem}>
-          <ShimmerPlaceholder
-            LinearGradient={LinearGradient}
-            style={[styles.spotlightVideoThumbnail, { borderWidth: 0, borderColor: 'transparent', borderRadius: BORDER_RADIUS.MEDIUM }]}
-            shimmerColors={Colors.SHIMMER.PRIMARY}
-            duration={1500}
-          />
-        </View>
-      )}
-    />
+const SpotlightLoading = () => (
+  <View style={[styles.spotlightContainer, styles.loadingContainer]}>
+    <ActivityIndicator size="small" color={Colors.white} />
   </View>
 );
 
-// Header spacer shimmer skeleton component
-const HeaderSpacerShimmer = ({ isHeaderVisible, isSearching, computedHeaderHeight }: { isHeaderVisible: boolean; isSearching?: boolean; computedHeaderHeight: number }) => {
+// Header spacer component
+const HeaderSpacer = ({ isHeaderVisible, isSearching, computedHeaderHeight }: { isHeaderVisible: boolean; isSearching?: boolean; computedHeaderHeight: number }) => {
   const insets = useSafeAreaInsets();
   
   // When searching, use search bar spacing + tabs spacing
@@ -359,12 +280,13 @@ const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: (
 };
 
 // Profiles Feed Renderer Component
-const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUsers, cacheUpdateTrigger, isLoading }: {
+const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUsers, cacheUpdateTrigger, isLoading, onProfilePress }: {
   searchResults: SearchResult[];
   onFollow: (profile: Profile) => void;
   followedUsers: Set<string>;
   cacheUpdateTrigger: number;
   isLoading?: boolean;
+  onProfilePress?: (profile: Profile) => void;
 }) => {
   const navigation = useRouter();
   const queryClient = useQueryClient();
@@ -376,16 +298,12 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
       index === self.findIndex(p => p.did === profile.did)
     );
 
-  // Show shimmer loading state when loading
+  // Show loading state when loading
   if (isLoading) {
     return (
-      <FlashList
-        data={Array(8).fill(0)}
-        keyExtractor={(_, index) => `profile-shimmer-${index}`}
-        renderItem={() => <ProfileShimmer />}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.white} />
+      </View>
     );
   }
 
@@ -398,17 +316,22 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
           <TouchableOpacity
             style={styles.profileTouchable}
             onPress={() => {
-              if (profile.handle) {
-                const handle = profile.handle.trim();
-                if (handle && handle.trim()) {
-                  queryClient.prefetchQuery({
-                    queryKey: profileKeys.detail(handle.trim()),
-                    queryFn: () => ProfileCache.getProfile(handle.trim()),
-                    staleTime: ProfileCache.cacheExpiry
-                  }).finally(() => {
-                    const target = handle.trim();
-                    if (target) { navigation.push(`/profile/${target}`); }
-                  });
+              if (onProfilePress) {
+                onProfilePress(profile);
+              } else {
+                // Fallback to original behavior
+                if (profile.handle) {
+                  const handle = profile.handle.trim();
+                  if (handle && handle.trim()) {
+                    queryClient.prefetchQuery({
+                      queryKey: profileKeys.detail(handle.trim()),
+                      queryFn: () => ProfileCache.getProfile(handle.trim()),
+                      staleTime: ProfileCache.cacheExpiry
+                    }).finally(() => {
+                      const target = handle.trim();
+                      if (target) { navigation.push(`/profile/${target}`); }
+                    });
+                  }
                 }
               }
             }}
@@ -458,7 +381,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
 });
 
 // Channels Feed Renderer Component
-const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading }: { searchResults: SearchResult[]; isLoading?: boolean }) => {
+const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPress }: { searchResults: SearchResult[]; isLoading?: boolean; onChannelPress?: (channel: Channel) => void }) => {
   const navigation = useRouter();
 
   const channels = searchResults
@@ -468,16 +391,12 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading }: { searchR
       index === self.findIndex(c => c.uri === channel.uri)
     );
 
-  // Show shimmer loading state when loading
+  // Show loading state when loading
   if (isLoading) {
     return (
-      <FlashList
-        data={Array(8).fill(0)}
-        keyExtractor={(_, index) => `channel-shimmer-${index}`}
-        renderItem={() => <ChannelShimmer />}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.white} />
+      </View>
     );
   }
 
@@ -489,8 +408,13 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading }: { searchR
         <TouchableOpacity
           style={styles.channelItem}
           onPress={() => {
-            if (channel.uri && channel.uri.trim()) {
-              navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
+            if (onChannelPress) {
+              onChannelPress(channel);
+            } else {
+              // Fallback to original behavior
+              if (channel.uri && channel.uri.trim()) {
+                navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
+              }
             }
           }}
         >
@@ -526,13 +450,15 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading }: { searchR
 
 
 // Custom Feed Renderer for Search Results
-const SearchFeedRenderer = React.memo(({ feedOption, searchResults, onFollow, followedUsers, cacheUpdateTrigger, isLoading }: {
+const SearchFeedRenderer = React.memo(({ feedOption, searchResults, onFollow, followedUsers, cacheUpdateTrigger, isLoading, onProfilePress, onChannelPress }: {
   feedOption: string;
   searchResults: SearchResult[];
   onFollow: (profile: Profile) => void;
   followedUsers: Set<string>;
   cacheUpdateTrigger: number;
   isLoading?: boolean;
+  onProfilePress?: (profile: Profile) => void;
+  onChannelPress?: (channel: Channel) => void;
 }) => {
   if (feedOption === 'profiles') {
     return (
@@ -542,13 +468,158 @@ const SearchFeedRenderer = React.memo(({ feedOption, searchResults, onFollow, fo
         followedUsers={followedUsers}
         cacheUpdateTrigger={cacheUpdateTrigger}
         isLoading={isLoading}
+        onProfilePress={onProfilePress}
       />
     );
   } else if (feedOption === 'channels') {
-    return <ChannelsFeedRenderer searchResults={searchResults} isLoading={isLoading} />;
+    return <ChannelsFeedRenderer searchResults={searchResults} isLoading={isLoading} onChannelPress={onChannelPress} />;
   }
   return null;
 });
+
+// Visit History Component
+const VisitHistoryList = ({ 
+  visitHistory, 
+  onHistoryItemPress, 
+  onClearHistory,
+  currentColors 
+}: {
+  visitHistory: Array<{ type: 'profile' | 'channel'; data: Profile | Channel; visitedAt: number }>;
+  onHistoryItemPress: (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => void;
+  onClearHistory: () => void;
+  currentColors: { backgroundColor: string; textColor: string };
+}) => {
+  if (visitHistory.length === 0) {
+    return (
+      <View style={styles.searchHistoryContainer}>
+        <View style={styles.searchHistoryHeader}>
+          <Text style={[styles.searchHistoryTitle, { color: currentColors.textColor }]}>
+            Recently Visited
+          </Text>
+        </View>
+        <View style={styles.emptyHistoryContainer}>
+          <Text style={[styles.emptyHistoryText, { color: hexToRGBA(currentColors.textColor, 0.6) }]}>
+            No recent visits
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const formatTimeAgo = (timestamp: number) => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / (1000 * 60));
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
+  };
+
+  return (
+    <View style={styles.searchHistoryContainer}>
+      <View style={styles.searchHistoryHeader}>
+        <Text style={[styles.searchHistoryTitle, { color: currentColors.textColor }]}>
+          Recently Visited
+        </Text>
+        <TouchableOpacity onPress={onClearHistory} style={styles.clearHistoryButton}>
+          <Text style={[styles.clearHistoryText, { color: hexToRGBA(currentColors.textColor, 0.7) }]}>
+            Clear
+          </Text>
+        </TouchableOpacity>
+      </View>
+      <FlatList
+        data={visitHistory}
+        keyExtractor={(item, index) => {
+          if (item.type === 'profile') {
+            return `history-profile-${(item.data as Profile).did}`;
+          } else {
+            return `history-channel-${(item.data as Channel).uri}`;
+          }
+        }}
+        renderItem={({ item }) => {
+          const isProfile = item.type === 'profile';
+          const profileData = isProfile ? (item.data as Profile) : null;
+          const channelData = !isProfile ? (item.data as Channel) : null;
+          
+          if (isProfile && profileData) {
+            return (
+              <View style={styles.profileItem}>
+                <TouchableOpacity
+                  style={styles.profileTouchable}
+                  onPress={() => onHistoryItemPress(item)}
+                  activeOpacity={0.7}
+                >
+                  <Avatar
+                    uri={profileData.avatar}
+                    type="profile"
+                    size={40}
+                    ringColor="transparent"
+                    style={styles.profileImage}
+                  />
+                  <View style={styles.profileContent}>
+                    <View style={{flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0}}>
+                      <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
+                        {profileData.displayName || profileData.handle || 'Unknown user'}
+                      </Text>
+                      {profileData.handle && profileData.handle.trim() && profileData.handle.length > 0 && (
+                        <VerificationBadge 
+                          handle={profileData.handle.trim()} 
+                          textSize={14} 
+                          textColor={Colors.white}
+                        />
+                      )}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+                <Text style={styles.historyTime}>
+                  {formatTimeAgo(item.visitedAt)}
+                </Text>
+              </View>
+            );
+          } else if (!isProfile && channelData) {
+            return (
+              <View style={styles.channelItem}>
+                <TouchableOpacity
+                  style={{flex: 1, flexDirection: 'row', alignItems: 'center'}}
+                  onPress={() => onHistoryItemPress(item)}
+                  activeOpacity={0.7}
+                >
+                  <Avatar
+                    uri={channelData.avatar}
+                    type="channel"
+                    size={40}
+                    ringColor="transparent"
+                    style={styles.channelImage}
+                  />
+                  <View style={styles.channelContent}>
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                      <Text style={styles.channelName} numberOfLines={1}>
+                        {channelData.displayName || 'Unknown channel'}
+                      </Text>
+                      {channelData.isExperimental && (
+                        <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
+                      )}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+                <Text style={styles.historyTime}>
+                  {formatTimeAgo(item.visitedAt)}
+                </Text>
+              </View>
+            );
+          }
+          return null;
+        }}
+        showsVerticalScrollIndicator={false}
+        style={styles.historyList}
+      />
+    </View>
+  );
+};
 
 const ExploreScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -557,6 +628,12 @@ const ExploreScreen: React.FC = () => {
   const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
   const [cacheUpdateTrigger, setCacheUpdateTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState<'profiles' | 'channels'>('profiles');
+  const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
+  const [visitHistory, setVisitHistory] = useState<Array<{
+    type: 'profile' | 'channel';
+    data: Profile | Channel;
+    visitedAt: number;
+  }>>([]);
   
 
   // Define tab options for search results
@@ -809,8 +886,131 @@ const ExploreScreen: React.FC = () => {
   const handleClearSearch = () => {
     setSearchQuery('');
     setDebouncedQuery('');
+    setIsSearchFocused(false);
     Keyboard.dismiss();
   };
+
+  // Load visit history from storage
+  const loadVisitHistory = useCallback(async () => {
+    try {
+      // Using AsyncStorage for persistence
+      const AsyncStorage = await import('@react-native-async-storage/async-storage');
+      const history = await AsyncStorage.default.getItem('visitHistory');
+      if (history) {
+        setVisitHistory(JSON.parse(history));
+      }
+    } catch (error) {
+      console.warn('Failed to load visit history:', error);
+    }
+  }, []);
+
+  // Save visited profile or channel to history
+  const saveToVisitHistory = useCallback(async (type: 'profile' | 'channel', data: Profile | Channel) => {
+    try {
+      const AsyncStorage = await import('@react-native-async-storage/async-storage');
+      const historyItem = {
+        type,
+        data,
+        visitedAt: Date.now(),
+      };
+      
+      // Remove any existing entry for this item and add to beginning
+      const newHistory = [
+        historyItem,
+        ...visitHistory.filter(item => {
+          if (type === 'profile') {
+            return (item.data as Profile).did !== (data as Profile).did;
+          } else {
+            return (item.data as Channel).uri !== (data as Channel).uri;
+          }
+        })
+      ].slice(0, 20); // Keep last 20 visited items
+      
+      setVisitHistory(newHistory);
+      await AsyncStorage.default.setItem('visitHistory', JSON.stringify(newHistory));
+    } catch (error) {
+      console.warn('Failed to save visit history:', error);
+    }
+  }, [visitHistory]);
+
+  // Clear visit history
+  const clearVisitHistory = useCallback(async () => {
+    try {
+      const AsyncStorage = await import('@react-native-async-storage/async-storage');
+      setVisitHistory([]);
+      await AsyncStorage.default.removeItem('visitHistory');
+    } catch (error) {
+      console.warn('Failed to clear visit history:', error);
+    }
+  }, []);
+
+  // Handle visit history item selection
+  const handleHistoryItemPress = useCallback((item: { type: 'profile' | 'channel'; data: Profile | Channel }) => {
+    if (item.type === 'profile') {
+      const profile = item.data as Profile;
+      if (profile.handle) {
+        const handle = profile.handle.trim();
+        if (handle && handle.trim()) {
+          queryClient.prefetchQuery({
+            queryKey: profileKeys.detail(handle.trim()),
+            queryFn: () => ProfileCache.getProfile(handle.trim()),
+            staleTime: ProfileCache.cacheExpiry
+          }).finally(() => {
+            const target = handle.trim();
+            if (target) { 
+              navigation.push(`/profile/${target}`); 
+              setIsSearchFocused(false);
+            }
+          });
+        }
+      }
+    } else if (item.type === 'channel') {
+      const channel = item.data as Channel;
+      if (channel.uri) {
+        navigation.push(`/channel/${encodeURIComponent(channel.uri)}`);
+        setIsSearchFocused(false);
+      }
+    }
+  }, [queryClient, navigation]);
+
+  // Load visit history on mount
+  useEffect(() => {
+    loadVisitHistory();
+  }, [loadVisitHistory]);
+
+  // Handle profile navigation with visit tracking
+  const handleProfileNavigation = useCallback((profile: Profile) => {
+    saveToVisitHistory('profile', profile);
+    if (profile.handle) {
+      const handle = profile.handle.trim();
+      if (handle && handle.trim()) {
+        queryClient.prefetchQuery({
+          queryKey: profileKeys.detail(handle.trim()),
+          queryFn: () => ProfileCache.getProfile(handle.trim()),
+          staleTime: ProfileCache.cacheExpiry
+        }).finally(() => {
+          const target = handle.trim();
+          if (target) { navigation.push(`/profile/${target}`); }
+        });
+      }
+    }
+  }, [saveToVisitHistory, queryClient, navigation]);
+
+  // Handle channel navigation with visit tracking
+  const handleChannelNavigation = useCallback((channel: Channel) => {
+    saveToVisitHistory('channel', channel);
+    if (channel.uri) {
+      navigation.push(`/channel/${encodeURIComponent(channel.uri)}`);
+    }
+  }, [saveToVisitHistory, navigation]);
+
+  // Save to history when user submits search (on return key)
+  const handleSearchSubmit = useCallback(() => {
+    if (searchQuery.trim()) {
+      // For now, we don't save search queries to history since we're tracking visits instead
+      // This function is kept for compatibility with the TextInput onSubmitEditing
+    }
+  }, [searchQuery]);
   
 
 
@@ -964,7 +1164,9 @@ const ExploreScreen: React.FC = () => {
     () => !isLoadingHeaders && headers.length > 0,
     [isLoadingHeaders, headers.length]
   );
-  const isSearching = debouncedQuery.length > 0;
+  const isSearching = isSearchFocused || debouncedQuery.length > 0;
+  const showSearchHistory = isSearchFocused && debouncedQuery.length === 0;
+  const showSearchResults = isSearchFocused && debouncedQuery.length > 0;
   const computedHeaderHeight = useMemo(() => {
     // When searching or header not visible, reserve space for the search bar area so content starts below it
     if (isSearching || !isHeaderVisible) {
@@ -982,40 +1184,30 @@ const ExploreScreen: React.FC = () => {
   );
 
 
-  // Create shimmer items for suggested content with section headers
-  const shimmerSuggestedItems = useMemo(() => {
+  // Create loading items for suggested content
+  const loadingSuggestedItems = useMemo(() => {
     const items = [];
     
     // Add header spacer only when not searching AND no header is visible
     if (!isSearching && !isHeaderVisible) {
-      items.push({ type: 'header-spacer' as const, key: 'header-spacer-shimmer' });
+      items.push({ type: 'header-spacer' as const, key: 'header-spacer-loading' });
     }
     
     // Add search bar spacer when searching to prevent content from being hidden behind search bar
     if (isSearching) {
-      items.push({ type: 'header-spacer' as const, key: 'search-bar-spacer-shimmer' });
+      items.push({ type: 'header-spacer' as const, key: 'search-bar-spacer-loading' });
     }
     
-    // Spotlight section header and videos
-    items.push({ type: 'section-header' as const, key: 'spotlight-header-shimmer' });
-    items.push({ type: 'spotlight-videos' as const, key: 'spotlight-videos-shimmer' });
-    
-    // Section header for popular channels
-    items.push({ type: 'section-header' as const, key: 'feeds-header-shimmer' });
-    // Popular channels section
-    items.push({ type: 'popular-channels-section' as const, key: 'popular-channels-shimmer' });
-    // Section header for accounts
-    items.push({ type: 'section-header' as const, key: 'accounts-header-shimmer' });
-    // Account items - reduced to 6 for better performance
-    items.push(...Array(6).fill(0).map((_, index) => ({ type: 'profile' as const, key: `profile-shimmer-${index}` })));
+    // Add loading indicator
+    items.push({ type: 'loading' as const, key: 'loading-indicator' });
     
     return items;
   }, [isSearching, isHeaderVisible]);
 
   const suggestionsList: any[] = (() => {
-    // Show shimmer while loading
+    // Show loading while loading
     if (isLoadingSuggestions || isLoadingChannelDids || isLoadingSuggestedFeeds || isLoadingSpotlightFeed) {
-      return shimmerSuggestedItems as unknown as any[];
+      return loadingSuggestedItems as unknown as any[];
     }
     if (suggestionsError || channelDidsError || suggestedFeedsError || spotlightFeedError) {
       return [];
@@ -1085,63 +1277,90 @@ const ExploreScreen: React.FC = () => {
           placeholderTextColor={Colors.gray}
           value={searchQuery}
           onChangeText={setSearchQuery}
+          onFocus={() => setIsSearchFocused(true)}
+          onBlur={() => setIsSearchFocused(false)}
+          onSubmitEditing={handleSearchSubmit}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardAppearance="dark"
           returnKeyType="search"
         />
-        {searchQuery.length > 0 && (
+        {isSearching && (
           <TouchableOpacity onPress={handleClearSearch} style={styles.clearButton}>
             <Icon name="close-circle" size={22.5} color={Colors.darkGray} />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Search Results with Swipeable Tabs */}
+      {/* Search History or Search Results */}
       {isSearching && (
         <>
-          {/* Tab Navigation */}
-          <View
-            style={[
-              styles.searchTabsContainer,
-              {
-                top: insets.top + 65, // Position closer to search bar
-                zIndex: 20,
-              },
-            ]}
-          >
-            <View style={styles.tabNavigationWrapper}>
-              <TabNavigation
-                tabs={tabOptions}
-                activeTab={activeTab}
-                onTabPress={(tabId) => {
-                  const newTab = tabId as 'profiles' | 'channels';
-                  setActiveTab(newTab);
-                }}
-                textColor={Colors.white}
-                backgroundColor="transparent"
-                style={styles.searchTabs}
+          {showSearchHistory ? (
+            <View
+              style={[
+                styles.searchHistoryWrapper,
+                {
+                  top: insets.top + 65,
+                  bottom: getBottomNavBarHeight(insets),
+                  zIndex: 20,
+                },
+              ]}
+            >
+              <VisitHistoryList
+                visitHistory={visitHistory}
+                onHistoryItemPress={handleHistoryItemPress}
+                onClearHistory={clearVisitHistory}
+                currentColors={{ backgroundColor: Colors.black, textColor: Colors.white }}
               />
             </View>
-          </View>
+          ) : showSearchResults ? (
+            <>
+              {/* Tab Navigation */}
+              <View
+                style={[
+                  styles.searchTabsContainer,
+                  {
+                    top: insets.top + 65, // Position closer to search bar
+                    zIndex: 20,
+                  },
+                ]}
+              >
+                <View style={styles.tabNavigationWrapper}>
+                  <TabNavigation
+                    tabs={tabOptions}
+                    activeTab={activeTab}
+                    onTabPress={(tabId) => {
+                      const newTab = tabId as 'profiles' | 'channels';
+                      setActiveTab(newTab);
+                    }}
+                    textColor={Colors.white}
+                    backgroundColor="transparent"
+                    style={styles.searchTabs}
+                  />
+                </View>
+              </View>
 
-          {/* Tab Content */}
-          <SearchSwipePager
-            topOffset={insets.top + 65 + 50}
-            bottomOffset={getBottomNavBarHeight(insets)}
-            activeTab={activeTab}
-            onActiveTabChange={setActiveTab}
-            renderTabContent={(tabId) => (
-              <SearchFeedRenderer
-                feedOption={tabId}
-                searchResults={searchResults}
-                onFollow={handleFollow}
-                followedUsers={followedUsers}
-                cacheUpdateTrigger={cacheUpdateTrigger}
-                isLoading={isSearchLoading}
+              {/* Tab Content */}
+              <SearchSwipePager
+                topOffset={insets.top + 65 + 50}
+                bottomOffset={getBottomNavBarHeight(insets)}
+                activeTab={activeTab}
+                onActiveTabChange={setActiveTab}
+                renderTabContent={(tabId) => (
+                  <SearchFeedRenderer
+                    feedOption={tabId}
+                    searchResults={searchResults}
+                    onFollow={handleFollow}
+                    followedUsers={followedUsers}
+                    cacheUpdateTrigger={cacheUpdateTrigger}
+                    isLoading={isSearchLoading}
+                    onProfilePress={handleProfileNavigation}
+                    onChannelPress={handleChannelNavigation}
+                  />
+                )}
               />
-            )}
-          />
+            </>
+          ) : null}
         </>
       )}
       
@@ -1167,13 +1386,13 @@ const ExploreScreen: React.FC = () => {
         renderItem={(params: any) => {
           const { item } = params;
           if (typeof item === 'string') {
-            if (item === 'profile') return <ProfileShimmer />;
-            if (item === 'channel') return <ChannelShimmer />;
+            if (item === 'profile') return <ProfileLoading />;
+            if (item === 'channel') return <ChannelLoading />;
             return null;
           }
           if (item.type === 'section-header') {
             if (!('title' in item) || !item.title) {
-              return <SectionHeaderShimmer />;
+              return <SectionHeaderLoading />;
             }
             return (
               <View style={styles.sectionHeader}>
@@ -1188,12 +1407,19 @@ const ExploreScreen: React.FC = () => {
             );
           }
           if (item.type === 'header-spacer') {
-            return <HeaderSpacerShimmer isHeaderVisible={isHeaderVisible} isSearching={isSearching} computedHeaderHeight={computedHeaderHeight} />;
+            return <HeaderSpacer isHeaderVisible={isHeaderVisible} isSearching={isSearching} computedHeaderHeight={computedHeaderHeight} />;
+          }
+          if (item.type === 'loading') {
+            return (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.white} />
+              </View>
+            );
           }
           if (item.type === 'spotlight-videos') {
-            // Check if this is a shimmer item (no videos property)
+            // Check if this is a loading item (no videos property)
             if (!('videos' in item)) {
-              return <SpotlightShimmer />;
+              return <SpotlightLoading />;
             }
             if (!Array.isArray(item.videos)) {
               return null;
@@ -1279,8 +1505,8 @@ const ExploreScreen: React.FC = () => {
             (item.type === 'profile' || item.type === 'channel' || item.type === 'video') &&
             !("data" in item)
           ) {
-            if (item.type === 'profile') return <ProfileShimmer />;
-            if (item.type === 'channel') return <ChannelShimmer />;
+            if (item.type === 'profile') return <ProfileLoading />;
+            if (item.type === 'channel') return <ChannelLoading />;
             return null;
           }
           if (item.type === 'profile' && "data" in item) {
@@ -1341,7 +1567,7 @@ const ExploreScreen: React.FC = () => {
           }
           if (item.type === 'popular-channels-section') {
             if (!('channels' in item) || !Array.isArray(item.channels)) {
-              return <PopularChannelsShimmer />;
+              return <PopularChannelsLoading />;
             }
             return (
               <View>
@@ -1479,6 +1705,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 20,
+    position: 'relative',
   },
   profileTouchable: {
     flexDirection: 'row',
@@ -1517,6 +1744,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderWidth: 0,
     borderColor: 'transparent',
+    position: 'relative',
   },
   channelImage: {
     width: 40,
@@ -1533,7 +1761,6 @@ const styles = StyleSheet.create({
   channelName: {
     color: Colors.white,
     fontSize: 16,
-    marginBottom: 2,
     fontFamily: 'Firma-SemiBold',
     flexShrink: 1,
   },
@@ -1832,13 +2059,65 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     marginLeft: 10,
   },
-  followButtonShimmer: {
-    width: 32,
-    height: 32,
-    borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.darkGray,
+
+  // Search History Styles
+  searchHistoryWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.black,
+  },
+  searchHistoryContainer: {
+    flex: 1,
+    paddingTop: 10,
+  },
+  searchHistoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  searchHistoryTitle: {
+    fontFamily: 'Firma-Black',
+    fontSize: 18,
+  },
+  clearHistoryButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  clearHistoryText: {
+    fontFamily: 'Firma-Regular',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  emptyHistoryContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyHistoryText: {
+    fontFamily: 'Firma-Regular',
+    fontSize: 16,
+  },
+  historyList: {
+    flex: 1,
+  },
+  historyTime: {
+    fontFamily: 'Firma-Regular',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.5)',
+    alignSelf: 'center',
   },
 
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100, // Space below header
+    paddingBottom: 100, // Space above bottom nav bar
+  },
 
 });
 

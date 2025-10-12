@@ -10,11 +10,11 @@ import VerificationBadge from '../verification/VerificationBadge';
 import { useRouter } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import ProfileCache, { useFollowMutation } from '../../../services/cache/ProfileCache';
-import AuthorItem from '../../ui/AuthorItem';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Use require for static RN asset to avoid TS module typing issues
 const UFOGif = require('../../../assets/UFO5504.gif');
 const LivingGif = require('../../../assets/livinga18.gif');
+const TVStaticGif = require('../../../assets/tv_static.gif');
 
 interface EmptyFeedProps {
   secondaryColor?: string;
@@ -58,9 +58,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
   const insets = useSafeAreaInsets();
 
-  // Fetch suggested users when this is a following feed with no videos
+  // Fetch suggested users when this is a following feed with no videos or as end card
   const isFollowingFeed = feedOption === 'following';
-  // Force suggested accounts for timeline feed testing
+  // Show suggestions for following feed (both empty state and end card)
   const shouldShowSuggestions = isFollowingFeed;
 
   // Simple unified empty message for no-videos state
@@ -102,9 +102,21 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           defaultMessage: "follow accounts to see their posts here"
         };
       case 'end':
+        const endMessage = () => {
+          switch (feedOption) {
+            case 'following':
+              return "";
+            case 'yourMix':
+              return "that's all for now";
+            case 'discover':
+              return "explore more content";
+            default:
+              return "that's all for now";
+          }
+        };
         return {
           icon: 'video-movies-vintage-tv-1',
-          defaultMessage: "that's all for now"
+          defaultMessage: endMessage()
         };
       case 'no-videos':
       default:
@@ -122,26 +134,50 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   const iconColor = profileColors ? profileColors.textColor : (secondaryColor || Colors.lightGray);
   const textColor = Colors.lightGray;
 
-  // Render suggested user item using AuthorItem component
+  // Render suggested user item using explore screen UI pattern
   const renderSuggestedUser = ({ item }: { item: SuggestedUser }) => {
+    const isFollowing = ProfileCache.getProfileFromCacheSync(item.handle || '')?.isFollowing ?? !!item.viewer?.following;
+    
     return (
-      <AuthorItem
-        handle={item.handle}
-        displayName={item.displayName}
-        avatar={item.avatar}
-        textColor={textColor}
-        backgroundColor={profileColors?.backgroundColor || 'transparent'}
-        size="medium"
-        showArrow={false}
-        showFollowButton={true}
-        onFollowPress={() => {
-          followMutation.mutate({ 
-            handle: item.handle, 
-            isFollowing: !(ProfileCache.getProfileFromCacheSync(item.handle)?.isFollowing ?? !!item.viewer?.following)
-          });
-        }}
-        style={styles.profileItem}
-      />
+      <View style={styles.profileItem}>
+        <View style={styles.profileTouchable}>
+          <Avatar
+            uri={item.avatar}
+            type="profile"
+            size={40}
+            ringColor="transparent"
+            style={styles.profileImage}
+          />
+          <View style={styles.profileContent}>
+            <View style={{flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0}}>
+              <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
+                {item.displayName || item.handle || 'Unknown user'}
+              </Text>
+              {item.handle && item.handle.trim() && item.handle.length > 0 && (
+                <VerificationBadge 
+                  handle={item.handle.trim()} 
+                  textSize={14} 
+                  textColor={Colors.white}
+                />
+              )}
+            </View>
+          </View>
+        </View>
+        {!isFollowing && (
+          <TouchableOpacity
+            style={styles.followButton}
+            onPress={() => {
+              followMutation.mutate({ 
+                handle: item.handle, 
+                isFollowing: !isFollowing
+              });
+            }}
+            activeOpacity={0.8}
+          >
+            <Icon name="user-plus" size={16} color={Colors.black} />
+          </TouchableOpacity>
+        )}
+      </View>
     );
   };
 
@@ -169,23 +205,17 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
               }
         ]}
       >
-        <View style={[styles.contentContainer, shouldOffsetTop && { paddingTop: topThirdOffset }]}>
+        <View style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}>
           <View style={styles.iconContainer}>
-            {isProfileFeed && type === 'no-videos' ? (
-              <Image source={UFOGif} style={styles.ufoGif} />
-            ) : (
-              <Icon 
-                name={icon} 
-                size={72} 
-                color={iconColor} 
-              />
-            )}
+            <Image source={TVStaticGif} style={styles.ufoGif} />
           </View>
-          <Text style={[styles.emptyText, { color: textColor }]}>
-            {displayMessage}
-          </Text>
+          {displayMessage && (
+            <Text style={[styles.emptyText, { color: textColor }]}>
+              {displayMessage}
+            </Text>
+          )}
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: textColor }]}>
+            <Text style={styles.sectionTitle}>
               suggested accounts
             </Text>
           </View>
@@ -203,6 +233,43 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   }
   // Special case: end of feed card
   if (type === 'end') {
+    // For following feed, show the "follow accounts" UI with suggestions
+    if (feedOption === 'following' && shouldShowSuggestions && suggestedUsers.length > 0) {
+      return (
+        <View 
+          style={[
+            styles.emptyContainer,
+            { justifyContent: 'center' },
+            viewableAreaHeight ? { height: viewableAreaHeight } : {}
+          ]}
+        >
+          <View style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+            <View style={styles.iconContainer}>
+              <Image source={TVStaticGif} style={styles.ufoGif} />
+            </View>
+            {displayMessage && (
+              <Text style={[styles.emptyText, { color: textColor }]}> 
+                {displayMessage}
+              </Text>
+            )}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                suggested accounts
+              </Text>
+            </View>
+            <FlatList
+              data={suggestedUsers}
+              renderItem={renderSuggestedUser}
+              keyExtractor={(item) => item.did}
+              scrollEnabled={false}
+              style={styles.suggestionsList}
+              contentContainerStyle={styles.listContainer}
+            />
+          </View>
+        </View>
+      );
+    }
+    
     return (
       <View 
         style={[
@@ -294,8 +361,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   ufoGif: {
-    width: 72,
-    height: 72,
+    width: 120,
+    height: 120,
     resizeMode: 'contain',
   },
   retryButton: {
@@ -321,6 +388,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Firma-Bold',
     fontWeight: 'bold',
+    color: Colors.white,
   },
   suggestionsList: {
     width: '100%',
@@ -333,31 +401,46 @@ const styles = StyleSheet.create({
   profileItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 0,
+    position: 'relative',
+  },
+  profileTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   profileImage: {
     width: 40,
     height: 40,
     borderRadius: BORDER_RADIUS.LARGE,
     marginRight: 12,
-    borderWidth: 1,
-    borderColor: Colors.gray,
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   profileContent: {
     flex: 1,
+    minWidth: 0,
     justifyContent: 'center',
   },
   displayName: {
-    fontWeight: 'bold',
-    fontSize: 14,
+    color: Colors.white,
+    fontSize: 16,
     marginBottom: 2,
     fontFamily: 'Firma-SemiBold',
     flexShrink: 1,
   },
-  handleText: {
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
+  followButton: {
+    width: 32,
+    height: 32,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    borderRadius: BORDER_RADIUS.SMALL,
+    backgroundColor: Colors.lightGray,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    marginLeft: 10,
   },
 
 });
