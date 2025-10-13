@@ -457,16 +457,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     const footerContent = (
       <View style={[styles.inputContainer, { paddingBottom: Math.max(5, insets.bottom) }]}>
         <View style={styles.inputRow}>
-          {currentUserProfile?.avatar && (
-            <View style={styles.avatarContainer}>
-              <UI.Avatar
-                uri={currentUserProfile.avatar}
-                type="profile"
-                size={42}
-                style={styles.avatar}
-              />
-            </View>
-          )}
+          <View style={styles.avatarContainer}>
+            <UI.Avatar
+              uri={currentUserProfile?.avatar}
+              type="profile"
+              size={42}
+              style={styles.avatar}
+            />
+          </View>
           <View style={styles.inputWrapper}>
             <TextInput
               {...mentionInputProps}

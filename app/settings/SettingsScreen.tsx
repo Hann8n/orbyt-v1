@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
-import { useFeedSettings, useAuth, useCurrentUser, useUserStore } from '../../src/stores/userStore';
+import { useFeedSettings, useAuth, useCurrentUser, useUserStore, useAccountManagement } from '../../src/stores/userStore';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -45,6 +45,7 @@ const SettingsScreen: React.FC = () => {
   const { getExperimentalFeedsEnabled, setExperimentalFeedsEnabled } = useFeedSettings();
   const { currentUser } = useCurrentUser();
   const { isDeveloper } = useUserStore();
+  const { savedAccounts } = useAccountManagement();
 
   // Load settings on mount
   useEffect(() => {
@@ -58,6 +59,37 @@ const SettingsScreen: React.FC = () => {
     };
     loadSettings();
   }, []);
+
+  const handleLogout = async () => {
+    if (isSubmitting) return;
+    
+    Alert.alert(
+      'Log out',
+      'Are you sure you want to log out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Log out',
+          style: 'default',
+          onPress: async () => {
+            setIsSubmitting(true);
+            try {
+              // Use userStore to handle logout without removing accounts (clearAllAccounts = false)
+              await onLogout(false);
+            } catch (error) {
+              console.error('error during logout:', error);
+              Alert.alert('Error', 'Failed to log out. Please try again.');
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleRemoveAccount = async () => {
     if (isSubmitting) return;
@@ -334,11 +366,20 @@ const SettingsScreen: React.FC = () => {
     }
   });
 
-  // Add remove account row at the end as a normal setting, marked destructive
+  // Add logout and remove account rows at the end
+  listData.push({
+    kind: 'setting',
+    id: 'logout',
+    label: 'Log out',
+    showChevron: false,
+    onPress: handleLogout,
+    destructive: false,
+  });
+
   listData.push({
     kind: 'setting',
     id: 'remove-account',
-    label: 'Remove Account',
+    label: savedAccounts.length > 1 ? 'Remove Accounts' : 'Remove Account',
     showChevron: false,
     onPress: handleRemoveAccount,
     destructive: true,

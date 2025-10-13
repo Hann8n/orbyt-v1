@@ -23,6 +23,10 @@ interface VerticalListSheetProps {
   showCancelButton?: boolean;
   cancelButtonText?: string;
   /**
+   * Custom header button to replace the close button
+   */
+  customHeaderButton?: React.ReactNode;
+  /**
    * Pass the scrollable ref (e.g., FlashList/ScrollView) for better scroll interop with the sheet
    */
   scrollRef?: React.RefObject<any>;
@@ -44,6 +48,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   snapPoints = ['auto'],
   showCancelButton = true,
   cancelButtonText = 'Cancel',
+  customHeaderButton,
   scrollRef,
   enableGlass = true,
   name,
@@ -98,13 +103,17 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
           <Text style={styles.headerTitle} numberOfLines={1}>
             {title}
           </Text>
-          <TouchableOpacity 
-            style={styles.closeButton} 
-            onPress={onDismiss}
-            activeOpacity={0.7}
-          >
-            <Icon name="close" size={20} color={Colors.white} />
-          </TouchableOpacity>
+          {customHeaderButton ? (
+            customHeaderButton
+          ) : (
+            <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={onDismiss}
+              activeOpacity={0.7}
+            >
+              <Icon name="close" size={20} color={Colors.white} />
+            </TouchableOpacity>
+          )}
         </View>
         
         {/* Content */}
@@ -125,12 +134,12 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: 0,
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
     paddingHorizontal: 15,
     paddingTop: 15,
     paddingBottom: 15,
@@ -151,11 +160,11 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingBottom: 20,
+    paddingBottom: 8,
   },
   cancelContainer: {
     alignItems: 'center',
-    paddingTop: 20,
+    paddingTop: 8,
   },
   cancelButton: {
     backgroundColor: Colors.darkGray,

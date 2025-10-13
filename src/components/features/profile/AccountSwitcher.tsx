@@ -18,6 +18,7 @@ import ProfileCache, { useProfile, CachedProfile } from '../../../services/cache
 import { Colors, Avatar } from '../../ui/UI';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import UI from '../../ui/UI';
+import AuthorItem from '../../ui/AuthorItem';
 import { useQueryClient } from '@tanstack/react-query';
 import VerticalListSheet from '../../ui/VerticalListSheet';
 import { useAccountManagement, useAuth } from '../../../stores/userStore';
@@ -306,7 +307,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     }
   }, [signIn, loadAccounts]);
 
-  // Prepare list data including the add account options and edit button
+  // Prepare list data including the add account options
   const listData = useMemo(() => {
     const accountItems = accounts.map(account => ({
       type: 'account' as const,
@@ -320,12 +321,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         data: null,
       } as any);
     }
-
-    // Add the edit/done button
-    accountItems.push({
-      type: 'edit' as const,
-      data: null,
-    } as any);
 
     return accountItems;
   }, [accounts, onAddAccount, editMode]);
@@ -378,21 +373,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       );
     }
 
-    if ((item as any).type === 'edit') {
-      return (
-        <TouchableOpacity
-          onPress={() => {
-            if (DEBUG) console.log('[AccountSwitcher] toggle editMode ->', !editMode);
-            setEditMode(!editMode);
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.editButtonText}>
-            {editMode ? 'Done' : 'Edit'}
-          </Text>
-        </TouchableOpacity>
-      );
-    }
 
     const account = item.data as AccountWithProfile;
     const isActive = account.did === activeAccountDid; // derive from store to avoid stale flags
@@ -401,91 +381,69 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     const displayName = account.cachedProfile?.displayName || account.displayName || account.handle;
     const handle = account.cachedProfile?.handle || account.handle;
     
-    return (
-      <TouchableOpacity
-        style={[
-          styles.accountButton,
-          isActive && styles.activeAccountButton,
-        ]}
-        onPress={() => {
-          if (DEBUG) {
-            const staleFlag = account.isActive !== isActive;
-            if (staleFlag) {
-              console.warn('[AccountSwitcher] isActive discrepancy', { did: account.did, itemFlag: account.isActive, derived: isActive, activeAccountDid });
-            }
-          }
-          if (!isActive && !editMode) handleSwitchAccount(account);
-        }}
-        activeOpacity={0.7}
-        disabled={isSwitching}
-      >
-        {isSwitching ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color={Colors.white} size="small" />
-            <Text style={styles.loadingText}>
-              Switching to <Text 
-                style={styles.loadingAccountName}
-                allowFontScaling={false}
-              >
-                {displayName}
-              </Text>
+    if (isSwitching) {
+      return (
+        <View style={[styles.accountButton, styles.loadingContainer]}>
+          <ActivityIndicator color={Colors.white} size="small" />
+          <Text style={styles.loadingText}>
+            Switching to <Text 
+              style={styles.loadingAccountName}
+              allowFontScaling={false}
+            >
+              {displayName}
             </Text>
-          </View>
-        ) : (
-          <View style={styles.accountButtonContent}>
-            <View style={styles.avatarContainer}>
-              <Avatar
-                uri={account.cachedProfile?.avatar}
-                type="profile"
-                size={48}
-                ringColor="transparent"
-              />
-            </View>
-            <View style={styles.accountInfoContainer}>
-              <Text 
-                style={[
-                  styles.accountDisplayName,
-                  isActive && styles.activeAccountDisplayName
-                ]}
-                numberOfLines={1}
-                allowFontScaling={false}
-              >
-                {displayName}
-              </Text>
-              <Text 
-                style={styles.accountHandle}
-                numberOfLines={1}
-                allowFontScaling={false}
-              >
-                @{handle}
-              </Text>
-            </View>
-            {!editMode && (
-              <View style={styles.accountArrow}>
-                <Icon name="chevron-right" size={20} color={Colors.lightGray} />
-              </View>
-            )}
-            {editMode && (
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => handleRemoveAccount(account)}
-                activeOpacity={0.7}
-              >
-                <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-      </TouchableOpacity>
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.accountButton}>
+        <AuthorItem
+          handle={handle}
+          displayName={displayName}
+          avatar={account.cachedProfile?.avatar}
+          size="large"
+          showArrow={!editMode && !isActive}
+          showDeleteButton={editMode}
+          onDeletePress={() => handleRemoveAccount(account)}
+          backgroundColor={Colors.darkGray}
+          onPress={() => {
+            if (DEBUG) {
+              const staleFlag = account.isActive !== isActive;
+              if (staleFlag) {
+                console.warn('[AccountSwitcher] isActive discrepancy', { did: account.did, itemFlag: account.isActive, derived: isActive, activeAccountDid });
+              }
+            }
+            if (!isActive && !editMode) handleSwitchAccount(account);
+          }}
+          style={isActive ? styles.activeAccountButton : undefined}
+        />
+      </View>
     );
   }, [switchingAccount, editMode, customColors, handleSwitchAccount, handleRemoveAccount, handleBlueskyAddAccount, handleCustomPDSAddAccount, isAuthenticating]);
 
   const keyExtractor = useCallback((item: typeof listData[0]) => {
     const type = (item as any).type;
     if (type === 'addButtons') return 'addButtons';
-    if (type === 'edit') return 'edit';
     return item.data.id;
   }, []);
+
+  // Custom header button for edit mode toggle
+  const customHeaderButton = (
+    <TouchableOpacity
+      onPress={() => {
+        if (DEBUG) console.log('[AccountSwitcher] toggle editMode ->', !editMode);
+        setEditMode(!editMode);
+      }}
+      activeOpacity={0.7}
+      style={styles.headerEditButton}
+    >
+      <Text style={styles.headerEditButtonText}>
+        {editMode ? 'Done' : 'Edit'}
+      </Text>
+    </TouchableOpacity>
+  );
 
   return (
     <>
@@ -493,7 +451,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         visible={visible}
         onDismiss={onDismiss}
         title="Switch Account"
-        showCancelButton={true}
+        customHeaderButton={customHeaderButton}
         name="account-switcher"
       >
         
@@ -526,14 +484,18 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 };
 
 const styles = StyleSheet.create({
-  editButtonText: {
+  headerEditButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 50,
+  },
+  headerEditButtonText: {
     color: Colors.lightGray,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    textAlign: 'center',
     fontFamily: 'Firma-SemiBold',
-    marginTop: 8,
-    marginBottom: 12,
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -562,17 +524,10 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   accountButton: {
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-    overflow: 'hidden',
-    borderWidth: 0,
-    borderColor: 'transparent',
+    marginBottom: 0,
   },
   activeAccountButton: {
-    backgroundColor: Colors.darkGray,
+    // AuthorItem handles its own styling
   },
   addAccountSection: {
     marginTop: 20,
@@ -603,14 +558,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginBottom: 0,
   },
-  accountButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  avatarContainer: {
-    marginRight: 8,
-  },
   addAccountIcon: {
     width: 48,
     height: 48,
@@ -618,21 +565,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.lightGray,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  accountInfoContainer: {
-    flex: 1,
-    paddingLeft: 4,
-  },
-  accountDisplayName: {
-    color: Colors.white,
-    fontSize: 15,
-    fontFamily: 'Firma-Black',
-    marginBottom: 2,
-    lineHeight: 18,
-    includeFontPadding: false,
-  },
-  activeAccountDisplayName: {
-    color: Colors.white,
   },
   buttonContent: {
     flexDirection: 'row',
@@ -644,31 +576,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
-  },
-  accountHandle: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
-    lineHeight: 16,
-    includeFontPadding: false,
-  },
-  accountArrow: {
-    marginLeft: 8,
-  },
-  accountButtonText: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'left',
-    fontFamily: 'Firma-SemiBold',
-  },
-  deleteButton: {
-    padding: 8,
-    backgroundColor: hexToRGBA(UI.Colors.STATUS.ERROR, 0.1),
-    borderRadius: BORDER_RADIUS.SMALL,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
   },
 });
 

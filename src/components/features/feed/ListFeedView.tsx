@@ -12,7 +12,6 @@ import {
   ScaledSize,
   TouchableOpacity,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
 
@@ -429,12 +428,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         if (h > 0 && h !== listHeight) setListHeight(h);
       }}
     > 
-      <LinearGradient
-        colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)', 'transparent']}
-        locations={[0, 0.7, 1]}
-        style={[styles.statusBarGradient, { height: insets.top + 60 }]}
-        pointerEvents="none"
-      />
       <FlashList
         ref={flashListRef}
         data={listData}
@@ -579,13 +572,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-  },
-  statusBarGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 5,
   },
 });
 

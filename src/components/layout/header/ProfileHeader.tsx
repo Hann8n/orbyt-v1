@@ -280,6 +280,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         applySafeArea={applySafeArea}
         style={{ opacity: 1 }}
         contentStyle={[headerStyle]}
+        showShadowGradient={false}
       >
         {children}
       </UniversalHeader>

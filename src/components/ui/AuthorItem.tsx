@@ -5,8 +5,9 @@ import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/verification/VerificationBadge';
 import Icon, { FollowIcon, CheckIcon } from './Icon';
-import { extractColorsFromImage } from '../../utils/formatting/colorUtils';
+import { extractColorsFromImage, hexToRGBA } from '../../utils/formatting/colorUtils';
 import { Colors } from './UI';
+import UI from './UI';
 
 import { useProfile, useProfileColors, useFollowMutation } from '../../services/cache/ProfileCache';
 import { useCurrentUser } from '../../stores/userStore';
@@ -34,6 +35,8 @@ interface AuthorItemProps {
   hideDisplayName?: boolean;
   noRing?: boolean;
   customFontSize?: number;
+  showDeleteButton?: boolean;
+  onDeletePress?: () => void;
 }
 
 const AuthorItem: React.FC<AuthorItemProps> = ({
@@ -58,6 +61,8 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   hideDisplayName,
   noRing,
   customFontSize,
+  showDeleteButton = false,
+  onDeletePress,
 }) => {
   const navigation = useRouter();
   
@@ -191,6 +196,14 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
               <FollowIcon size={16} color={Colors.black} />
             )}
           </TouchableOpacity>
+        ) : showDeleteButton ? (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={onDeletePress}
+            activeOpacity={0.7}
+          >
+            <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
+          </TouchableOpacity>
         ) : showArrow && (
           <View style={styles.accountArrow}>
             <Icon 
@@ -272,6 +285,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
     fontWeight: '600',
     textAlign: 'center',
+  },
+  deleteButton: {
+    padding: 8,
+    backgroundColor: hexToRGBA(UI.Colors.STATUS.ERROR, 0.1),
+    borderRadius: BORDER_RADIUS.SMALL,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
 });
 

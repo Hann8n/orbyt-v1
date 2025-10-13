@@ -209,7 +209,7 @@ const SubscribeButton: React.FC<{
             {formatNumber(channel.likeCount)}
           </Text>
           <Text style={[styles.likeCountLabel, { color: 'rgba(255, 255, 255, 0.67)' }]}>
-            members
+            likes
           </Text>
         </View>
       )}
@@ -367,6 +367,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 6,
     marginTop: 12,
+    marginBottom: 20,
     width: '100%',
   },
   subscribeButton: {

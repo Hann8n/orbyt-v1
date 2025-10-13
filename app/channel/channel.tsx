@@ -13,13 +13,11 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import ChannelHeader from '../../src/components/layout/header/ChannelHeader';
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
-import MembersListView from '../../src/components/features/feed/MembersListView';
 import { Colors } from '../../src/components/ui/UI';
 
 import { useChannelColors, useChannel, useChannelColorsMutation, default as ChannelCache } from '../../src/services/cache/ChannelCache';
 import ProfileCache from '../../src/services/cache/ProfileCache';
 import { extractColorsFromImage } from '../../src/utils/formatting/colorUtils';
-import { TabNavigation, TabOption } from '../../src/components/layout/header';
 import Icon from '../../src/components/ui/Icon';
 
 interface ChannelScreenProps {}
@@ -60,15 +58,14 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   const { colors: channelColors } = useChannelColors(uri || '');
   const colorsMutation = useChannelColorsMutation();
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'posts' | 'members'>('posts');
+  // View mode state
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'horizontal'>('list');
 
-  // Use feed query only for posts tab
+  // Use feed query for channel posts
   const feedOption = uri || '';
   const channelDataForFeed = channelData;
 
-  // Memoized query options - always enable when tab is selected
+  // Memoized query options - always enabled for channel posts
   const queryOptions = useMemo(() => ({ 
     enabled: !!feedOption && feedOption.startsWith('at://') && !!channelDataForFeed?.did
   }), [feedOption, channelDataForFeed?.did]);
@@ -158,11 +155,6 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   const handlePositionChange = useCallback((position: number) => {
   }, []);
 
-  // Memoized tab options
-  const tabOptions: TabOption[] = useMemo(() => [
-    { id: 'posts', label: 'posts' },
-    { id: 'members', label: 'members' },
-  ], []);
 
   const showErrorScreen = !!channelError && !refreshing;
 
@@ -197,19 +189,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
         showBackButton={true}
         onBackPress={handleBackPress}
         applySafeArea={true}
-      >
-        <TabNavigation
-          tabs={tabOptions}
-          activeTab={activeTab}
-          onTabPress={(tabId) => setActiveTab(tabId as any)}
-          textColor={channelColors.textColor}
-          backgroundColor="transparent"
-          accentColor={channelColors.accentColor}
-          viewMode={viewMode}
-          onViewModeChange={activeTab === 'posts' ? (mode: 'list' | 'grid') => setViewMode(mode) : undefined}
-          showViewToggle={activeTab === 'posts'}
-        />
-      </ChannelHeader>
+      />
     </View>
   );
 
@@ -223,63 +203,51 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
       {showErrorScreen ? (
         renderErrorScreen()
       ) : (
-        activeTab === 'posts' ? (
-          channelDataForFeed && feedOption.startsWith('at://') ? (
-            <FeedRenderer
-              feedOption={feedOption.startsWith('at://') ? feedOption : ''}
-              userDid={channelDataForFeed?.did}
-              headerComponent={headerComponent}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  tintColor={channelColors.textColor}
-                />
-              }
-              backgroundColor={Colors.black}
-              secondaryColor={channelColors.textColor}
-              isProfileLoading={isLoadingChannel && !channelDataForFeed}
-              isRefreshing={refreshing}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              onPositionChange={handlePositionChange}
-              initialPosition={undefined}
-              queryOptions={queryOptions}
-              isVisible={true}
-            />
-          ) : (
-            <FeedRenderer
-              feedOption=""
-              userDid={undefined}
-              headerComponent={headerComponent}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  tintColor={channelColors.textColor}
-                />
-              }
-              backgroundColor={Colors.black}
-              secondaryColor={channelColors.textColor}
-              isProfileLoading={isLoadingChannel && !channelDataForFeed}
-              isRefreshing={refreshing}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              onPositionChange={handlePositionChange}
-              initialPosition={undefined}
-              queryOptions={{ enabled: false }}
-              isVisible={true}
-            />
-          )
-        ) : (
-          <MembersListView
-            channelUri={uri || ''}
-            backgroundColor={Colors.black}
-            textColor={channelColors.textColor}
+        channelDataForFeed && feedOption.startsWith('at://') ? (
+          <FeedRenderer
+            feedOption={feedOption.startsWith('at://') ? feedOption : ''}
+            userDid={channelDataForFeed?.did}
             headerComponent={headerComponent}
-            isVisible={true}
-            onRefresh={onRefresh}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={channelColors.textColor}
+              />
+            }
+            backgroundColor={Colors.black}
+            secondaryColor={channelColors.textColor}
+            isProfileLoading={isLoadingChannel && !channelDataForFeed}
             isRefreshing={refreshing}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onPositionChange={handlePositionChange}
+            initialPosition={undefined}
+            queryOptions={queryOptions}
+            isVisible={true}
+          />
+        ) : (
+          <FeedRenderer
+            feedOption=""
+            userDid={undefined}
+            headerComponent={headerComponent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={channelColors.textColor}
+              />
+            }
+            backgroundColor={Colors.black}
+            secondaryColor={channelColors.textColor}
+            isProfileLoading={isLoadingChannel && !channelDataForFeed}
+            isRefreshing={refreshing}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onPositionChange={handlePositionChange}
+            initialPosition={undefined}
+            queryOptions={{ enabled: false }}
+            isVisible={true}
           />
         )
       )}

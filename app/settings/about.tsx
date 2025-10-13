@@ -8,7 +8,6 @@ import {
   ScrollView,
   Linking,
   Platform,
-  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +15,7 @@ import Icon, { BackArrowIcon } from '../../src/components/ui/Icon';
 import ListHeader from '../../src/components/ui/ListHeader';
 import AuthorItem from '../../src/components/ui/AuthorItem';
 import { Colors } from '../../src/components/ui/UI';
+import { AnimatedTV } from '../../src/components/ui';
 import Constants from 'expo-constants';
 import { useProfile } from '../../src/services/cache/ProfileCache';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
@@ -93,9 +93,7 @@ const AboutScreen: React.FC = () => {
         {/* Hero Section */}
         <View style={styles.heroSection}>
           <View style={styles.appIconContainer}>
-            <View style={styles.appIcon}>
-                             <Image source={require('../../src/assets/orbyticon.png')} style={styles.logoImage} />
-            </View>
+            <AnimatedTV size={100} />
           </View>
           <Text style={styles.appName}>orbyt</Text>
           <Text style={styles.appTagline}>a new video app for bluesky</Text>
@@ -174,19 +172,7 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   appIconContainer: {
-    position: 'relative',
     marginBottom: 20,
-  },
-  appIcon: {
-    width: 100,
-    height: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoImage: {
-    width: 100,
-    height: 100,
-    resizeMode: 'contain',
   },
   versionBadge: {
     position: 'absolute',

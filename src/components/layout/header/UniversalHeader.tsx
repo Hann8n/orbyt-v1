@@ -75,6 +75,7 @@ export interface UniversalHeaderProps {
     onPress: () => void;
   };
   applySafeArea?: boolean;
+  showShadowGradient?: boolean;
 }
 
 // Memoized action button component for performance
@@ -510,6 +511,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   contentStyle,
   mixIcon,
   applySafeArea = false,
+  showShadowGradient = true,
 }) => {
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
@@ -641,6 +643,15 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       {/* Additional Children */}
       {additionalChildren}
       </Animated.View>
+      
+      {/* Black shadow gradient at bottom - under all UI */}
+      {showShadowGradient && (
+        <LinearGradient
+          colors={['transparent', 'rgba(0, 0, 0, 0.95)']}
+          style={styles.shadowGradient}
+          pointerEvents="none"
+        />
+      )}
     </Animated.View>
   );
 };
@@ -904,6 +915,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     padding: 0,
     margin: 0,
+  },
+  shadowGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '75%',
+    zIndex: 0,
   },
 });
 
