@@ -17,13 +17,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, PlusIcon, AtLineIcon } from '../src/components/ui/Icon';
-import { Colors, Avatar } from '../src/components/ui/UI';
+import { Colors } from '../src/components/ui/UI';
 import { 
   AnimatedStarsBackground, 
   AnimatedTV, 
-  CustomPDSInputSheet, 
-  SessionDiagnosticsTool
+  CustomPDSInputSheet
 } from '../src/components/ui';
+import AuthorItem from '../src/components/ui/AuthorItem';
 import { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
 import { useGlobalAccountSwitcher } from '../src/hooks/useGlobalModals';
@@ -42,7 +42,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const [oauthError, setOAuthError] = useState<string | null>(null);
   const [showCustomPDSSheet, setShowCustomPDSSheet] = useState<boolean>(false);
-  const [showDiagnosticsTool, setShowDiagnosticsTool] = useState<boolean>(false);
 
   // User store hooks
   const { 
@@ -56,8 +55,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     savedAccounts, 
     switchAccount,
     loadSavedAccounts,
-    checkAccountSessionValidity,
-    clearCorruptedSessions
+    checkAccountSessionValidity
   } = useAccountManagement();
 
   const hasSavedAccounts = savedAccounts.length > 0;
@@ -225,16 +223,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
               { 
                 text: 'Clear & Sign In', 
                 onPress: async () => {
-                  try {
-                    setIsLoading(true);
-                    await clearCorruptedSessions();
-                    handleLogin();
-                  } catch (clearError) {
-                    console.error('[LoginScreen] Failed to clear corrupted sessions:', clearError);
-                    handleLogin();
-                  } finally {
-                    setIsLoading(false);
-                  }
+                  handleLogin();
                 }
               },
             ]
@@ -308,68 +297,27 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           decelerationRate="normal"
         >
           {savedAccounts.map((account, index) => (
-            <TouchableOpacity
-                              key={account.did}
+            <AuthorItem
+              key={account.did}
+              handle={account.handle}
+              displayName={account.displayName || account.handle || 'User'}
+              avatar={account.avatar}
+              onPress={() => handleSavedAccountLogin(account)}
+              size="large"
+              showArrow={true}
               style={[
-                styles.accountItem,
                 index === 0 && styles.firstAccountItem,
                 index === savedAccounts.length - 1 && styles.lastAccountItem
               ]}
-              onPress={() => handleSavedAccountLogin(account)}
-              // disabled={switchingAccount === account.id} // This state is no longer needed
-              activeOpacity={0.8}
-            >
-              {/* {switchingAccount === account.id ? ( // This state is no longer needed
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator color={Colors.white} size="small" />
-                  <Text style={styles.loadingText}>
-                    Signing in to <Text style={styles.loadingAccountName}>{account.displayName || account.handle}</Text>
-                  </Text>
-                </View>
-              ) : ( */}
-                <View style={styles.accountButtonContent}>
-                  <View style={styles.avatarContainer}>
-                    <Avatar
-                      uri={account.avatar}
-                      type="profile"
-                      size={48}
-                    />
-                  </View>
-                  <View style={styles.accountInfoContainer}>
-                    <Text style={styles.accountDisplayName}>
-                      {account.displayName || account.handle || 'User'}
-                    </Text>
-                    <Text style={styles.accountHandle}>
-                      @{account.handle}
-                    </Text>
-                  </View>
-                  <View style={styles.accountArrow}>
-                    <Icon name="chevron-right" size={20} color={Colors.gray} />
-                  </View>
-                </View>
-              {/* )} */}
-            </TouchableOpacity>
+            />
           ))}
         </ScrollView>
       </View>
-      
-      <View style={styles.dividerContainer}>
-        <View style={styles.divider} />
-        <Text style={styles.dividerText}>or</Text>
-        <View style={styles.divider} />
-      </View>
-      
     </View>
   );
 
-  const renderManualLogin = () => (
-    <View style={styles.formContainer}>
-      {oauthError && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{oauthError}</Text>
-        </View>
-      )}
-
+  const renderLoginButtons = () => (
+    <View style={[styles.loginButtonsContainer, { paddingBottom: Math.max(20, insets.bottom) }]}>
       {/* Sign in button */}
       <TouchableOpacity
         style={styles.liquidGlassButton}
@@ -425,63 +373,53 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     </View>
   );
 
-  return (
-    <AnimatedStarsBackground>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.container, { 
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom 
-        }]}
-      >
-        {/* Logo and App Name */}
-        {!hasSavedAccounts && (
-          <View style={styles.logoContainer}>
-            <View style={styles.logoBackground}>
-              <LinearGradient
-                colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 0)']}
-                locations={[0, 0.1, 0.9, 1]}
-                style={styles.logoGradient}
-              >
-                <AnimatedTV size={120} />
-                <Text style={styles.appName}>orbyt</Text>
-              </LinearGradient>
-            </View>
-          </View>
-        )}
-
-      {hasSavedAccounts ? renderSavedAccounts() : renderManualLogin()}
-
-      {/* Debug Tools */}
-      {__DEV__ && (
-        <View style={styles.debugTools}>
-          <TouchableOpacity
-            style={styles.debugButton}
-            onPress={async () => {
-              try {
-                setIsLoading(true);
-                await clearCorruptedSessions();
-                await loadSavedAccounts();
-                Alert.alert('Success', 'All sessions have been cleared.');
-              } catch (error) {
-                console.error('Failed to clear sessions:', error);
-                Alert.alert('Error', 'Failed to clear sessions.');
-              } finally {
-                setIsLoading(false);
-              }
-            }}
-          >
-            <Text style={styles.debugButtonText}>Clear All Sessions</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.debugButton, { marginTop: 8 }]}
-            onPress={() => setShowDiagnosticsTool(true)}
-          >
-            <Text style={styles.debugButtonText}>Session Diagnostics</Text>
-          </TouchableOpacity>
+  const renderManualLogin = () => (
+    <View style={styles.formContainer}>
+      {oauthError && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{oauthError}</Text>
         </View>
       )}
+
+      {renderLoginButtons()}
+    </View>
+  );
+
+  const renderContent = () => (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[styles.container, { 
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom 
+      }]}
+    >
+      {/* Logo and App Name */}
+      {!hasSavedAccounts && (
+        <View style={styles.logoContainer}>
+          <View style={styles.logoBackground}>
+            <LinearGradient
+              colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 0)']}
+              locations={[0, 0.1, 0.9, 1]}
+              style={styles.logoGradient}
+            >
+              <AnimatedTV size={120} />
+              <Text style={styles.appName}>orbyt</Text>
+            </LinearGradient>
+          </View>
+        </View>
+      )}
+
+      {hasSavedAccounts ? (
+        <>
+          {renderSavedAccounts()}
+          <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.divider} />
+          </View>
+          {renderLoginButtons()}
+        </>
+      ) : renderManualLogin()}
 
       {/* Custom PDS Input Sheet */}
       <CustomPDSInputSheet
@@ -491,15 +429,12 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         title="Custom Login"
         name="login-custom-pds"
       />
+    </KeyboardAvoidingView>
+  );
 
-      
-      {/* Session Diagnostics Tool */}
-      <SessionDiagnosticsTool
-        visible={showDiagnosticsTool}
-        onDismiss={() => setShowDiagnosticsTool(false)}
-      />
-
-      </KeyboardAvoidingView>
+  return hasSavedAccounts ? renderContent() : (
+    <AnimatedStarsBackground>
+      {renderContent()}
     </AnimatedStarsBackground>
   );
 }
@@ -510,6 +445,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 20,
+    backgroundColor: Colors.black,
   },
   logoContainer: {
     alignItems: 'center',
@@ -547,6 +483,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 'auto',
     marginBottom: 40,
+  },
+  loginButtonsContainer: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
   },
   liquidGlassButton: {
     width: '100%',
@@ -599,8 +540,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
-    marginTop: 'auto',
-    marginBottom: 40,
     flex: 1,
   },
   chooseAccountTitle: {
@@ -623,7 +562,6 @@ const styles = StyleSheet.create({
   },
   accountsSection: {
     flex: 1,
-    marginBottom: 24,
   },
   savedAccountsTitle: {
     color: Colors.white,
@@ -635,38 +573,9 @@ const styles = StyleSheet.create({
   },
   accountsList: {
     flex: 1,
-    marginBottom: 16,
   },
   accountsListContent: {
-    paddingBottom: 16,
     paddingTop: 8,
-  },
-  accountItem: {
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-
-  accountButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  avatarContainer: {
-    marginRight: 12,
-  },
-  accountInfoContainer: {
-    flex: 1,
-    paddingLeft: 8,
-  },
-  accountButtonText: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'left',
-    fontFamily: 'Firma-SemiBold',
   },
 
 
@@ -788,24 +697,12 @@ const styles = StyleSheet.create({
   lastAccountItem: {
     marginBottom: 0,
   },
-  accountDisplayName: {
-    color: Colors.white,
-    fontSize: 18,
-    fontFamily: 'Firma-Bold',
-    marginBottom: 2,
-  },
-  accountHandle: {
-    color: Colors.gray,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
-  },
-  accountArrow: {
-    marginLeft: 8,
-  },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
+    marginTop: 24,
+    marginBottom: 24,
+    marginHorizontal: 24,
   },
   divider: {
     flex: 1,
@@ -827,25 +724,5 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
   
-  // Debug tools
-  debugTools: {
-    marginTop: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  debugButton: {
-    backgroundColor: 'rgba(255, 0, 0, 0.2)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 0, 0, 0.3)',
-  },
-  debugButtonText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 12,
-    fontFamily: 'Firma-Medium',
-  },
 
 });

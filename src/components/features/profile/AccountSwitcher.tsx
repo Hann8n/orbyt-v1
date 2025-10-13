@@ -198,13 +198,16 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               if (DEBUG) console.log('[AccountSwitcher] removing account', account.did);
               await removeAccount(account.did);
               
-              // Add a small delay to ensure the store state is updated
-              await new Promise(resolve => setTimeout(resolve, 100));
+              // If this was the active account, the user will be signed out
+              // so we should dismiss the modal
+              if (isActiveAccount) {
+                onDismiss();
+              } else {
+                // For non-active accounts, just update the local UI state
+                setAccounts(prevAccounts => prevAccounts.filter(acc => acc.did !== account.did));
+              }
               
-              // Force reload accounts after removal to ensure state is synchronized
-              setLoading(true);
-              await loadAccounts();
-              if (DEBUG) console.log('[AccountSwitcher] removed account and reloaded');
+              if (DEBUG) console.log('[AccountSwitcher] removed account and updated UI');
             } catch (error) {
               console.error('Error removing account:', error);
               
@@ -219,7 +222,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         },
       ]
     );
-  }, [removeAccount, loadAccounts, activeAccountDid]);
+  }, [removeAccount, activeAccountDid, onDismiss]);
 
   const handleBlueskyLogin = useCallback(async () => {
     setIsAddingAccount(true);
@@ -366,7 +369,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               <View style={styles.buttonContent}>
                 <Icon name="at" size={20} color={Colors.lightGray} style={{ marginRight: 8 }} />
                 <Text style={styles.addAccountButtonText}>
-                  Custom PDS
+                  Custom
                 </Text>
               </View>
             </TouchableOpacity>
@@ -462,7 +465,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
                 <Icon name="chevron-right" size={20} color={Colors.lightGray} />
               </View>
             )}
-            {editMode && !isActive && (
+            {editMode && (
               <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={() => handleRemoveAccount(account)}
