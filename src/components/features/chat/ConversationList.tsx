@@ -116,7 +116,7 @@ export default function ConversationList({ onConversationPress }: ConversationLi
                   ]}
                   numberOfLines={1}
                 >
-                  {item.lastMessageText || 'No messages yet'}
+                  {item.lastMessage?.embed && !item.lastMessageText ? 'sent a post' : (item.lastMessageText || 'No messages yet')}
                 </Text>
               </View>
             </View>

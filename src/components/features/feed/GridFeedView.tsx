@@ -81,7 +81,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
     feedOption === 'profile' ||
     feedOption === 'likes' ||
     feedOption === 'reposts' ||
-    feedOption.startsWith('at://')
+    (feedOption && feedOption.startsWith('at://'))
   );
 
   // Initialize infinite scroll hook with cursor-based loading

@@ -86,7 +86,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     feedOption === FEED_TYPES.PROFILE ||
     feedOption === FEED_TYPES.LIKES ||
     feedOption === FEED_TYPES.REPOSTS ||
-    feedOption.startsWith('at://')
+    (feedOption && feedOption.startsWith('at://'))
   ), [feedOption]);
 
   // Viewport calculations

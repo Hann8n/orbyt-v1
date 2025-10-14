@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Alert, Text, ActivityIndicator, TouchableOpacity, TextInput, Image } from 'react-native';
-import { GiftedChat, IMessage, Send, Bubble, InputToolbar, Composer } from 'react-native-gifted-chat';
+import { GiftedChat, IMessage, Send, InputToolbar, Composer } from 'react-native-gifted-chat';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -20,6 +20,7 @@ import { AtprotoService } from '../../../services/api/AtprotoService';
 import AuthorItem from '../../ui/AuthorItem';
 import MessageReactions from './MessageReactions';
 import ChatActionsSheet from './ChatActionsSheet';
+import EmbeddedPostCard from './EmbeddedPostCard';
 
 interface ChatScreenProps {
   conversationId: string;
@@ -168,6 +169,8 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       received: undefined,
       // Include reactions data for the MessageReactions component
       reactions: msg.reactions || [],
+      // Include embed data for embedded posts
+      embed: msg.embed,
     }));
   }, [currentUserId, currentUser]);
 
@@ -257,50 +260,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     }
   };
 
-  const renderBubble = (props: any) => (
-    <Bubble
-      {...props}
-      wrapperStyle={{
-        right: {
-          backgroundColor: Colors.green,
-          marginVertical: 2,
-          marginHorizontal: 8,
-          borderRadius: BORDER_RADIUS.LARGE,
-          paddingHorizontal: 10,
-          paddingVertical: 6,
-          maxWidth: '85%',
-          minWidth: 60,
-          alignSelf: 'flex-end',
-        },
-        left: {
-          backgroundColor: Colors.darkGray,
-          marginVertical: 2,
-          marginHorizontal: 8,
-          borderRadius: BORDER_RADIUS.LARGE,
-          paddingHorizontal: 10,
-          paddingVertical: 6,
-          maxWidth: '85%',
-          minWidth: 60,
-          alignSelf: 'flex-start',
-        },
-      }}
-      textStyle={{
-        right: {
-          color: Colors.black,
-          fontFamily: 'Firma-Regular',
-          fontSize: 16,
-          lineHeight: 22,
-        },
-        left: {
-          color: Colors.white,
-          fontFamily: 'Firma-Regular',
-          fontSize: 16,
-          lineHeight: 22,
-        },
-      }}
-      renderTime={() => null}
-    />
-  );
 
   const renderComposer = (props: any) => {
     return (
@@ -387,72 +346,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
 
   const renderAvatar = () => null;
 
-  const renderMessage = (props: any) => {
-    const isCurrentUser = props.currentMessage?.user?._id === currentUserId;
-    const message = props.currentMessage;
-    const isSelected = selectedMessageId === String(message._id);
-    
-    return (
-      <View style={[
-        styles.messageContainer,
-        isCurrentUser ? styles.messageContainerRight : styles.messageContainerLeft
-      ]}>
-        {/* Inline emoji reaction bar - appears above message when selected */}
-        {isSelected && (
-          <TouchableOpacity 
-            style={[
-              styles.inlineEmojiBar,
-              isCurrentUser ? styles.inlineEmojiBarRight : styles.inlineEmojiBarLeft
-            ]}
-            activeOpacity={1}
-            onPress={() => {
-              // Prevent tap from bubbling up to dismiss the bar
-            }}
-          >
-            {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) => {
-              // Check if current user has already reacted with this emoji
-              const hasCurrentUserReaction = message.reactions?.some(
-                reaction => reaction.value === emoji && reaction.sender.did === currentUserId
-              );
-              
-              return (
-                <TouchableOpacity
-                  key={emoji}
-                  style={[
-                    styles.emojiButton,
-                    hasCurrentUserReaction && styles.emojiButtonSelected
-                  ]}
-                  onPress={() => handleEmojiSelect(emoji, String(message._id))}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[
-                    styles.emojiText,
-                    hasCurrentUserReaction && styles.emojiTextSelected
-                  ]}>
-                    {emoji}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </TouchableOpacity>
-        )}
-        
-        {props.renderBubble(props)}
-        
-        {/* Display reactions if they exist */}
-        {message.reactions && message.reactions.length > 0 && (
-          <MessageReactions
-            reactions={message.reactions}
-            currentUserId={currentUserId}
-            onReactionPress={(emoji, isCurrentUserReacted) => 
-              handleReactionPress(String(message._id), emoji, isCurrentUserReacted)
-            }
-            messageId={String(message._id)}
-          />
-        )}
-      </View>
-    );
-  };
 
   // Get the other user (not the current user) from the conversation
   const getOtherUser = () => {
@@ -497,6 +390,179 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     );
   };
 
+  const renderMessage = (props: any) => {
+    const message = props.currentMessage;
+    const hasEmbed = message.embed?.record;
+    const isCurrentUser = message.user._id === currentUserId;
+    const isSelected = selectedMessageId === String(message._id);
+    
+    // For messages with embeds, render custom layout with proper alignment
+    if (hasEmbed) {
+      return (
+        <TouchableOpacity 
+          style={[
+            styles.embeddedMessageContainer,
+            isCurrentUser ? styles.messageContainerRight : styles.messageContainerLeft
+          ]}
+          onLongPress={() => {
+            setSelectedMessageId(String(message._id));
+          }}
+          onPress={() => {
+            setSelectedMessageId(null);
+          }}
+          activeOpacity={1}
+        >
+          {/* Inline emoji reaction bar - appears above message when selected */}
+          {isSelected && (
+            <View 
+              style={[
+                styles.inlineEmojiBar,
+                isCurrentUser ? styles.inlineEmojiBarRight : styles.inlineEmojiBarLeft
+              ]}
+            >
+              {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) => {
+                // Check if current user has already reacted with this emoji
+                const hasCurrentUserReaction = message.reactions?.some(
+                  reaction => reaction.value === emoji && reaction.sender.did === currentUserId
+                );
+                
+                return (
+                  <TouchableOpacity
+                    key={emoji}
+                    style={[
+                      styles.emojiButton,
+                      hasCurrentUserReaction && styles.emojiButtonSelected
+                    ]}
+                    onPress={() => handleEmojiSelect(emoji, String(message._id))}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.emojiText,
+                      hasCurrentUserReaction && styles.emojiTextSelected
+                    ]}>
+                      {emoji}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+          {/* Show message text if present */}
+          {message.text && (
+            <View style={[
+              styles.messageBubble,
+              message.user._id === currentUserId ? styles.sentMessage : styles.receivedMessage
+            ]}>
+              <Text style={[
+                styles.messageText,
+                message.user._id === currentUserId ? styles.sentMessageText : styles.receivedMessageText
+              ]}>
+                {message.text}
+              </Text>
+            </View>
+          )}
+          
+          {/* Show embedded post */}
+          <View style={styles.embeddedPostContainer}>
+            <EmbeddedPostCard
+              postUri={message.embed.record.uri}
+              postCid={message.embed.record.cid}
+              isCurrentUser={isCurrentUser}
+            />
+          </View>
+          
+          {/* Show reactions if present */}
+          {message.reactions && message.reactions.length > 0 && (
+            <MessageReactions
+              messageId={String(message._id)}
+              reactions={message.reactions}
+              currentUserId={currentUserId}
+              onReactionPress={(emoji, isCurrentUserReacted) =>
+                handleReactionPress(String(message._id), emoji, isCurrentUserReacted)
+              }
+            />
+          )}
+        </TouchableOpacity>
+      );
+    }
+    
+    // For regular messages without embeds, use default rendering with proper alignment
+    return (
+      <TouchableOpacity 
+        style={[
+          styles.defaultMessageContainer,
+          isCurrentUser ? styles.messageContainerRight : styles.messageContainerLeft
+        ]}
+        onLongPress={() => {
+          setSelectedMessageId(String(message._id));
+        }}
+        onPress={() => {
+          setSelectedMessageId(null);
+        }}
+        activeOpacity={1}
+      >
+        {/* Inline emoji reaction bar - appears above message when selected */}
+        {isSelected && (
+          <View 
+            style={[
+              styles.inlineEmojiBar,
+              isCurrentUser ? styles.inlineEmojiBarRight : styles.inlineEmojiBarLeft
+            ]}
+          >
+            {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) => {
+              // Check if current user has already reacted with this emoji
+              const hasCurrentUserReaction = message.reactions?.some(
+                reaction => reaction.value === emoji && reaction.sender.did === currentUserId
+              );
+              
+              return (
+                <TouchableOpacity
+                  key={emoji}
+                  style={[
+                    styles.emojiButton,
+                    hasCurrentUserReaction && styles.emojiButtonSelected
+                  ]}
+                  onPress={() => handleEmojiSelect(emoji, String(message._id))}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.emojiText,
+                    hasCurrentUserReaction && styles.emojiTextSelected
+                  ]}>
+                    {emoji}
+                  </Text>
+                </TouchableOpacity>
+              );
+              })}
+          </View>
+        )}
+        <View style={[
+          styles.messageBubble,
+          message.user._id === currentUserId ? styles.sentMessage : styles.receivedMessage
+        ]}>
+          <Text style={[
+            styles.messageText,
+            message.user._id === currentUserId ? styles.sentMessageText : styles.receivedMessageText
+          ]}>
+            {message.text}
+          </Text>
+        </View>
+        
+        {/* Show reactions if present */}
+        {message.reactions && message.reactions.length > 0 && (
+          <MessageReactions
+            messageId={String(message._id)}
+            reactions={message.reactions}
+            currentUserId={currentUserId}
+            onReactionPress={(emoji, isCurrentUserReacted) => 
+              handleReactionPress(String(message._id), emoji, isCurrentUserReacted)
+            }
+          />
+        )}
+      </TouchableOpacity>
+    );
+  };
+
   if (isLoading || isLoadingConversation || isLoadingOtherUser || !isUserReady) {
     return (
       <View style={styles.loadingContainer}>
@@ -517,14 +583,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   }
 
   return (
-    <TouchableOpacity 
-      style={styles.container}
-      activeOpacity={1}
-      onPress={() => {
-        // Dismiss emoji bar when tapping outside
-        setSelectedMessageId(null);
-      }}
-    >
+    <View style={styles.container}>
       {/* Chat Header */}
       <View style={styles.chatHeader}>
         <View style={styles.headerContent}>
@@ -592,7 +651,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
           avatar: currentUser?.avatar,
         }}
         renderSend={renderSend}
-        renderBubble={renderBubble}
         renderMessage={renderMessage}
         renderComposer={renderComposer}
         renderInputToolbar={renderInputToolbar}
@@ -615,15 +673,9 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         scrollToBottomStyle={styles.scrollToBottomContainer}
         bottomOffset={0}
         isKeyboardInternallyHandled={true}
-        onLongPress={(context, message) => {
-          setSelectedMessageId(String(message._id));
-        }}
+        keyboardShouldPersistTaps="handled"
         onPressAvatar={() => {
           // Dismiss emoji bar when tapping avatar
-          setSelectedMessageId(null);
-        }}
-        onPress={() => {
-          // Dismiss emoji bar when tapping elsewhere
           setSelectedMessageId(null);
         }}
       />
@@ -636,7 +688,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         otherUserDid={otherUserDid}
       />
       
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -756,16 +808,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingBottom: 0,
     paddingTop: 8,
-  },
-  messageContainer: {
-    marginVertical: 4,
-    paddingHorizontal: 8,
-  },
-  messageContainerLeft: {
-    alignItems: 'flex-start',
-  },
-  messageContainerRight: {
-    alignItems: 'flex-end',
   },
   daySeparator: {
     flexDirection: 'row',
@@ -911,5 +953,48 @@ const styles = StyleSheet.create({
   },
   emojiTextSelected: {
     // Keep default text styling for selected state
+  },
+  // Embedded message styles
+  embeddedMessageContainer: {
+    marginVertical: 4,
+    paddingHorizontal: 16,
+  },
+  defaultMessageContainer: {
+    marginVertical: 4,
+    paddingHorizontal: 16,
+  },
+  messageContainerLeft: {
+    alignItems: 'flex-start',
+  },
+  messageContainerRight: {
+    alignItems: 'flex-end',
+  },
+  embeddedPostContainer: {
+    marginTop: 8,
+  },
+  messageBubble: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    maxWidth: '80%',
+    alignSelf: 'flex-start',
+  },
+  sentMessage: {
+    backgroundColor: Colors.green,
+    alignSelf: 'flex-end',
+  },
+  receivedMessage: {
+    backgroundColor: Colors.darkGray,
+    alignSelf: 'flex-start',
+  },
+  messageText: {
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  sentMessageText: {
+    color: Colors.black,
+  },
+  receivedMessageText: {
+    color: Colors.white,
   },
 });
