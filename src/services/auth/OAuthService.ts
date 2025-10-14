@@ -50,7 +50,7 @@ export class AtProtoOAuthService {
           tos_uri: 'https://getorbyt.com/terms.html',
           policy_uri: 'https://getorbyt.com/privacy.html',
           redirect_uris: ['com.getorbyt:/oauth/callback'], // Single slash is correct
-          scope: 'atproto transition:generic',
+                scope: 'atproto transition:generic transition:chat.bsky',
           grant_types: ['authorization_code', 'refresh_token'],
           response_types: ['code'],
           token_endpoint_auth_method: 'none',

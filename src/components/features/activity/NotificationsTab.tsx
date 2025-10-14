@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { BORDER_RADIUS } from '../../src/utils/constants';
+import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
@@ -8,26 +8,23 @@ import {
   Image,
   TouchableOpacity,
   RefreshControl,
-  StatusBar,
-  Platform,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AtprotoService from '../../src/services/api/AtprotoService';
+import AtprotoService from '../../../services/api/AtprotoService';
 import { useRouter } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
-import ProfileCache, { profileKeys } from '../../src/services/cache/ProfileCache';
-import { Avatar, Icon, Colors } from '../../src/components/ui/UI';
-import { NotificationIcon } from '../../src/components/ui/Icon';
-import VerificationBadge from '../../src/components/features/verification/VerificationBadge';
-import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
-import { getBottomNavBarHeight } from '../../src/utils/helpers';
+import ProfileCache, { profileKeys } from '../../../services/cache/ProfileCache';
+import { Avatar, Icon, Colors } from '../../../components/ui/UI';
+import VerificationBadge from '../verification/VerificationBadge';
+import EmptyFeed from '../feed/EmptyFeed';
+import { getBottomNavBarHeight } from '../../../utils/helpers';
 
 // Import radar.gif for empty notifications state
-const RadarGif = require('../../src/assets/radar.gif');
+const RadarGif = require('../../../assets/radar.gif');
 
 // Custom empty state for notifications
 const EmptyNotifications = () => (
@@ -82,8 +79,7 @@ const isVideoOrProfileNotification = (notification: any): boolean => {
   return false;
 };
 
-
-const NotificationScreen: React.FC = () => {
+const NotificationsTab: React.FC = () => {
   const navigation = useRouter();
   const [isScrolling, setIsScrolling] = useState(false);
   const queryClient = useQueryClient();
@@ -135,8 +131,6 @@ const NotificationScreen: React.FC = () => {
     staleTime: 60 * 1000, // 1 minute
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
-
-  // No automatic refresh on focus - only on first load and manual refresh
 
   // Flatten notifications from all pages
   const notifications = useMemo(() => {
@@ -260,153 +254,83 @@ const NotificationScreen: React.FC = () => {
     return Array(1).fill(0); // Just show one loading spinner
   }, []);
 
-  // Header component for the list
-  const ListHeaderComponent = () => (
-    <View style={styles.listHeader}>
-      <NotificationIcon 
-        size={24} 
-        color={Colors.white} 
-      />
-      <Text style={styles.header}>activity</Text>
-    </View>
-  );
-
   if (isError) {
     return (
-      <View style={[styles.container, Platform.OS === 'android' ? { paddingTop: 0 } : null]}>
-        <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
-
-        {/* Status bar gradient overlay */}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.3)', 'transparent']}
-          locations={[0, 0.7, 1]}
-          style={[styles.topGradient, { top: 0, height: insets.top + 30 }]}
-          pointerEvents="none"
+      <View style={styles.errorContainer}>
+        <EmptyFeed 
+          type="no-connection" 
+          onRetry={() => refetch()}
         />
-
-        <View style={[styles.errorContainer, { paddingTop: insets.top + 20, paddingBottom: bottomNavBarHeight }]}>
-          <ListHeaderComponent />
-          <EmptyFeed 
-            type="no-connection" 
-            onRetry={() => refetch()}
-          />
-        </View>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, Platform.OS === 'android' ? { paddingTop: 0 } : null]}>
-      <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
-
-      {/* Status bar gradient overlay */}
-      <LinearGradient
-        colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.3)', 'transparent']}
-        locations={[0, 0.7, 1]}
-        style={[styles.topGradient, { top: 0, height: insets.top + 30 }]}
-        pointerEvents="none"
-      />
-      
-      {/* Content */}
-      <FlatList
-        style={styles.listContainer}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingBottom: bottomNavBarHeight + 5,
-        }}
-        data={isLoading ? loadingItems : notifications}
-        renderItem={isLoading ? () => <NotificationLoading /> : renderNotificationContent}
-        keyExtractor={(item, index) => isLoading ? `loading-${index}` : item.uri || `notification-${index}`}
-        ListHeaderComponent={() => (
-          <View style={{ paddingTop: insets.top + 10 }}>
-            <ListHeaderComponent />
-          </View>
-        )}
-        onScroll={({ nativeEvent }) => {
-          const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
-          preloadNextPage(contentOffset.y, contentSize.height, layoutMeasurement.height);
-        }}
-        scrollEventThrottle={16}
-        onScrollBeginDrag={handleScrollBeginDrag}
-        onScrollEndDrag={handleScrollEndDrag}
-        onMomentumScrollEnd={handleMomentumScrollEnd}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching && !isFetchingNextPage}
-            onRefresh={async () => {
-              try {
-                await refetch();
-              } catch (error) {
-                console.error('Failed to refetch notifications:', error);
-              }
-            }}
-            tintColor={Colors.white}
-          />
+    <FlatList
+      style={styles.listContainer}
+      contentContainerStyle={{
+        paddingHorizontal: 20,
+        paddingBottom: bottomNavBarHeight + 5,
+      }}
+      data={isLoading ? loadingItems : notifications}
+      renderItem={isLoading ? () => <NotificationLoading /> : renderNotificationContent}
+      keyExtractor={(item, index) => isLoading ? `loading-${index}` : item.uri || `notification-${index}`}
+      onScroll={({ nativeEvent }) => {
+        const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
+        preloadNextPage(contentOffset.y, contentSize.height, layoutMeasurement.height);
+      }}
+      scrollEventThrottle={16}
+      onScrollBeginDrag={handleScrollBeginDrag}
+      onScrollEndDrag={handleScrollEndDrag}
+      onMomentumScrollEnd={handleMomentumScrollEnd}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefetching && !isFetchingNextPage}
+          onRefresh={async () => {
+            try {
+              await refetch();
+            } catch (error) {
+              console.error('Failed to refetch notifications:', error);
+            }
+          }}
+          tintColor={Colors.white}
+        />
+      }
+      onEndReached={() => {
+        if (hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
         }
-        onEndReached={() => {
-          if (hasNextPage && !isFetchingNextPage) {
-            fetchNextPage();
-          }
-        }}
-        onEndReachedThreshold={0.5}
-        showsVerticalScrollIndicator={false}
-        removeClippedSubviews={Platform.OS === 'android'}
-        maxToRenderPerBatch={10}
-        windowSize={21}
-        initialNumToRender={15}
-        updateCellsBatchingPeriod={30}
-        maintainVisibleContentPosition={{ 
-          minIndexForVisible: 0, 
-          autoscrollToTopThreshold: undefined 
-        }}
-        viewabilityConfig={viewabilityConfig}
-        ListEmptyComponent={!isLoading ? (
-          <EmptyNotifications />
-        ) : null}
-        ListFooterComponent={isFetchingNextPage ? (
-          <View style={styles.loadingMoreContainer}>
-            <ActivityIndicator size="small" color={Colors.white} />
-          </View>
-        ) : null}
-      />
-    </View>
+      }}
+      onEndReachedThreshold={0.5}
+      showsVerticalScrollIndicator={false}
+      removeClippedSubviews={Platform.OS === 'android'}
+      maxToRenderPerBatch={10}
+      windowSize={21}
+      initialNumToRender={15}
+      updateCellsBatchingPeriod={30}
+      maintainVisibleContentPosition={{ 
+        minIndexForVisible: 0, 
+        autoscrollToTopThreshold: undefined 
+      }}
+      viewabilityConfig={viewabilityConfig}
+      ListEmptyComponent={!isLoading ? (
+        <EmptyNotifications />
+      ) : null}
+      ListFooterComponent={isFetchingNextPage ? (
+        <View style={styles.loadingMoreContainer}>
+          <ActivityIndicator size="small" color={Colors.white} />
+        </View>
+      ) : null}
+    />
   );
 };
 
-export default NotificationScreen;
+export default NotificationsTab;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.black,
-  },
-  topGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 100,
-    zIndex: 5,
-  },
-  listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    marginBottom: 10,
-  },
-  header: {
-    color: Colors.white,
-    fontSize: 30,
-    fontFamily: 'Firma-Bold',
-    marginLeft: 8,
-  },
-  headerIcon: {
-    width: 24,
-    height: 24,
-  },
   listContainer: {
     flex: 1,
   },
-
   notificationItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -438,36 +362,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  errorContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: Colors.white,
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-    fontFamily: 'Firma-Medium',
-  },
-  retryButton: {
-    backgroundColor: Colors.white,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: BORDER_RADIUS.LARGE,
-  },
-  retryButtonText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Firma-Bold',
-  },
-  emptyText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    textAlign: 'center',
-    fontFamily: 'Firma-Medium',
-  },
   loadingMoreContainer: {
     padding: 20,
     alignItems: 'center',
@@ -496,5 +390,10 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     marginBottom: 16,
   },
+  emptyText: {
+    color: Colors.lightGray,
+    fontSize: 16,
+    textAlign: 'center',
+    fontFamily: 'Firma-Medium',
+  },
 });
-

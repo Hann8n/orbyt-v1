@@ -10,11 +10,14 @@ import { Colors } from '../../src/components/ui/UI';
 import Icon, { HomeIcon, ExploreIcon, NotificationIcon, ProfileIcon } from '../../src/components/ui/Icon';
 import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
+import { useUnreadCount } from '../../src/hooks/useUnreadCount';
+import { NotificationIndicator } from '../../src/components/ui/NotificationIndicator';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isSmallDevice = isSmallScreen() || isTablet();
+  const { hasUnread } = useUnreadCount();
 
   const tabIconSize = Math.round(Math.max(26, Math.min(36, width * 0.085)));
   const tabIconSizeSm = Math.max(24, Math.min(34, tabIconSize - 2));
@@ -200,7 +203,7 @@ export default function TabsLayout() {
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: (route.name === 'explore' || route.name === 'notifications') ? Colors.black : 'transparent',
+          backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent',
           height: getBottomNavBarHeight(insets),
           paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 4) : 4,
           paddingTop: isSmallDevice ? 2 : 6,
@@ -217,8 +220,17 @@ export default function TabsLayout() {
               return <HomeIcon size={tabIconSize} color={color as string} />;
             case 'explore':
               return <ExploreIcon size={tabIconSize} color={color as string} style={{ transform: [{ scaleX: -1 }] }} />;
-            case 'notifications':
-              return <NotificationIcon size={tabIconSizeSm} color={color as string} />;
+            case 'activity':
+              return (
+                <View style={{ position: 'relative' }}>
+                  <NotificationIcon size={tabIconSizeSm} color={color as string} />
+                  <NotificationIndicator 
+                    hasUnread={hasUnread} 
+                    size="small" 
+                    position="top-right" 
+                  />
+                </View>
+              );
             case 'profile':
               return <ProfileIcon size={tabIconSize} color={color as string} />;
             default:
@@ -236,7 +248,7 @@ export default function TabsLayout() {
           tabBarButton: (props) => <CaptureTabButton {...props} />,
         }}
       />
-      <Tabs.Screen name="notifications" options={{ title: 'Notifications' }} />
+      <Tabs.Screen name="activity" options={{ title: 'Activity' }} />
       <Tabs.Screen 
         name="profile" 
         options={{ 

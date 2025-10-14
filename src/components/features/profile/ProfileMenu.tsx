@@ -34,6 +34,8 @@ interface ProfileMenuProps {
   isOwnProfile?: boolean;
   onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
   onSwitchAccount?: () => void;
+  canMessage?: boolean | null;
+  onMessagePress?: () => void;
 }
 
 
@@ -46,7 +48,9 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   handle,
   isOwnProfile = false,
   onLogout,
-  onSwitchAccount
+  onSwitchAccount,
+  canMessage = null,
+  onMessagePress
 }) => {
   const navigation = useRouter();
   const queryClient = useQueryClient();
@@ -341,7 +345,24 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         }
       ];
     } else {
-      return [
+      const options = [];
+      
+      // Add message option if available
+      if (canMessage === true && onMessagePress) {
+        options.push({
+          id: 'message',
+          label: 'message',
+          icon: 'inbox',
+          onPress: () => {
+            onDismiss();
+            onMessagePress();
+          },
+          color: Colors.lightGray
+        });
+      }
+      
+      // Add other options
+      options.push(
         {
           id: 'share',
           label: 'share',
@@ -363,7 +384,9 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           onPress: handleReportOrBlock,
           color: Colors.lightGray
         }
-      ];
+      );
+      
+      return options;
     }
   };
 
@@ -455,7 +478,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 const styles = StyleSheet.create({
   optionsContainer: {
     flexDirection: 'column',
-    gap: 12,
     marginTop: 0,
   },
   option: {

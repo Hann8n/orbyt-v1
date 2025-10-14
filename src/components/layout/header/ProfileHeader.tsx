@@ -8,7 +8,8 @@ import VerificationInfoSheet from '../../features/verification/VerificationInfoS
 import ProfileMenu from '../../features/profile/ProfileMenu';
 import EditProfileSheet from '../../features/profile/EditProfileSheet';
 import ProfileCache from '../../../services/cache/ProfileCache';
-import { FollowIcon, MutualHeartIcon, ProfileEditIcon} from '../../ui/Icon';
+import ChatService from '../../../services/ChatService';
+import { FollowIcon, MutualHeartIcon, ProfileEditIcon, InboxIcon} from '../../ui/Icon';
 import { hexToRGBA, extractColorsFromImage } from '../../../utils/formatting/colorUtils';
 
 interface ProfileHeaderProps {
@@ -42,6 +43,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showEditSheet, setShowEditSheet] = useState(false);
+  const [canMessage, setCanMessage] = useState<boolean | null>(null);
   
   const [extractedDefaultColors, setExtractedDefaultColors] = useState<{
     backgroundColor: string;
@@ -61,6 +63,25 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   // Ensure profile data is immediately available from cache to prevent flashing
   const profileData = profile || (handle ? ProfileCache.getProfileFromCacheSync(handle) : null);
+  // Check if the current user can message this profile
+  useEffect(() => {
+    const checkAvailability = async () => {
+      if (!profileData?.did || isOwnProfile) {
+        setCanMessage(null);
+        return;
+      }
+      try {
+        const available = await ChatService.getConversationAvailability(profileData.did);
+        setCanMessage(available);
+      } catch {
+        setCanMessage(false);
+      }
+    };
+    checkAvailability();
+  }, [profileData?.did, isOwnProfile]);
+
+
+  // (moved up so hooks below can safely reference profileData)
 
   // Edit sheet functions
   const openEditSheet = useCallback(() => {
@@ -70,6 +91,24 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const closeEditSheet = useCallback(() => {
     setShowEditSheet(false);
   }, []);
+
+  const handleMessagePress = useCallback(async () => {
+    if (!profileData?.did) return;
+    
+    try {
+      // Try to get existing conversation or create new one
+      const conversation = await ChatService.createConversation({
+        recipientDid: profileData.did,
+      });
+      
+      // Navigate to chat screen
+      navigation.push(`/chat/${conversation.id}`);
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      // For now, just navigate to the chat tab
+      navigation.push('/chat');
+    }
+  }, [profileData?.did, navigation]);
 
 
 
@@ -182,25 +221,27 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         customIcon = undefined;
       }
 
+      const buttons: HeaderAction[] = [
+        {
+          id: 'follow',
+          label,
+          icon,
+          customIcon,
+          onPress: handleFollowUnfollow,
+        } as HeaderAction
+      ];
+
       return [
         {
           type: 'button',
           menuIcon: {
             onPress: handleMenuPress,
           },
-          buttons: [
-            {
-              id: 'follow',
-              label,
-              icon,
-              customIcon,
-              onPress: handleFollowUnfollow,
-            },
-          ],
+          buttons,
         },
       ];
     }
-  }, [profileData, isOwnProfile, handleFollowUnfollow, openEditSheet, handleMenuPress]);
+  }, [profileData, isOwnProfile, handleFollowUnfollow, openEditSheet, handleMenuPress, profileColors.textColor]);
 
   // Create header content with custom description component
   const headerContent = useMemo((): HeaderContent => {
@@ -300,6 +341,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         isOwnProfile={isOwnProfile}
         onLogout={handleLogoutFromMenu}
         onSwitchAccount={onSwitchAccount}
+        canMessage={canMessage}
+        onMessagePress={handleMessagePress}
       />
     </>
   );

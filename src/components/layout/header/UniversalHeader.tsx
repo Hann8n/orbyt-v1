@@ -86,11 +86,12 @@ const ActionButton = memo<{
   size?: 'small' | 'medium' | 'large';
 }>(({ action, textColor, backgroundColor, size = 'medium' }) => {
   const shouldUseGlass = useMemo(() => {
-    // Only target Edit / Follow / Mutuals-like actions
+    // Only target Edit / Follow / Mutuals-like actions / Message actions
     const label = (action.label || '').toLowerCase();
     const isEdit = action.id === 'edit' || label.includes('edit');
     const isFollowStates = action.id === 'follow' || label === 'follow' || label === 'following' || label === 'mutuals';
-    return isLiquidGlassAvailable() && (isEdit || isFollowStates);
+    const isMessage = action.id === 'message' || label === 'message';
+    return isLiquidGlassAvailable() && (isEdit || isFollowStates || isMessage);
   }, [action.id, action.label]);
 
   const getButtonStyle = useCallback(() => {
@@ -123,6 +124,18 @@ const ActionButton = memo<{
   }, [action.variant, textColor, action.label, action.id, shouldUseGlass]);
 
   const getButtonSize = useCallback(() => {
+    // Icon-only buttons should be circular
+    if (!action.label) {
+      switch (size) {
+        case 'small':
+          return { width: 32, height: 32, borderRadius: 100 };
+        case 'large':
+          return { width: 48, height: 48, borderRadius: 100 };
+        default:
+          return { width: 44, height: 44, borderRadius: 100 };
+      }
+    }
+    
     switch (size) {
       case 'small':
         return { paddingHorizontal: 12, paddingVertical: 6, minWidth: 70, height: 32 };
@@ -131,39 +144,52 @@ const ActionButton = memo<{
       default:
         return { paddingHorizontal: 16, paddingVertical: 8, minWidth: 90, height: 44 };
     }
-  }, [size]);
+  }, [size, action.label]);
 
-  const content = (
-    action.loading ? (
-      <ActivityIndicator 
-        size="small" 
-        color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
-      />
-    ) : (
-      <View style={styles.actionContent}>
-        <Text style={[styles.actionText, { 
-          color: (action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor,
-          fontFamily: (action.variant === 'secondary' || action.id === 'save') ? 'Firma-Bold' : 'Firma-SemiBold'
-        }]}>
-          {action.label}
-        </Text>
-        {action.customIcon ? (
-          action.customIcon
-        ) : action.icon ? (
-          <Icon 
-            name={action.icon} 
-            size={16} 
-            color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
-            strokeWidth={2.5} 
-          />
-        ) : null}
-      </View>
-    )
+  const content = action.loading ? (
+    <ActivityIndicator 
+      size="small" 
+      color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
+    />
+  ) : action.label ? (
+    <View style={styles.actionContent}>
+      <Text style={[styles.actionText, { 
+        color: (action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor,
+        fontFamily: (action.variant === 'secondary' || action.id === 'save') ? 'Firma-Bold' : 'Firma-SemiBold'
+      }]}>
+        {action.label}
+      </Text>
+      {action.customIcon ? (
+        action.customIcon
+      ) : action.icon ? (
+        <Icon 
+          name={action.icon} 
+          size={16} 
+          color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
+          strokeWidth={2.5} 
+        />
+      ) : null}
+    </View>
+  ) : (
+    // Icon-only button
+    <View style={styles.iconOnlyContent}>
+      {action.customIcon ? (
+        action.customIcon
+      ) : action.icon ? (
+        <Icon 
+          name={action.icon} 
+          size={16} 
+          color={textColor} 
+          strokeWidth={2.5} 
+        />
+      ) : null}
+    </View>
   );
 
   if (shouldUseGlass) {
     const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
-    const glassTint = isFollowingState ? hexToRGBA(textColor, 1) : hexToRGBA(textColor, 0.08);
+    const isMessageButton = action.id === 'message';
+    const glassTint = isFollowingState ? hexToRGBA(textColor, 1) : isMessageButton ? hexToRGBA(textColor, 0.08) : hexToRGBA(textColor, 0.08);
     return (
       <TouchableOpacity
         style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
@@ -715,6 +741,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+  },
+  iconOnlyContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionText: {
     fontFamily: 'Firma-SemiBold',
