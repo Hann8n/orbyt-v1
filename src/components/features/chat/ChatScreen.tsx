@@ -4,6 +4,7 @@ import { GiftedChat, IMessage, Send, InputToolbar, Composer } from 'react-native
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { Animated as RNAnimated } from 'react-native';
 
 import { Colors } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
@@ -156,13 +157,16 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
 
   // Convert API messages to GiftedChat format
   const convertToGiftedChatMessages = useCallback((apiMessages: Message[]): ChatMessage[] => {
+    // Derive the other user's display name from normalized conversation members
+    const otherMember = conversationData?.members?.find(m => m.did !== currentUserId);
+    const otherDisplayName = otherMember?.displayName || otherMember?.handle || 'Other';
     return apiMessages.map((msg) => ({
       _id: msg.id,
       text: msg.text,
       createdAt: new Date(msg.createdAt),
       user: {
         _id: msg.senderDid,
-        name: msg.senderDid === currentUserId ? 'You' : 'Other',
+        name: msg.senderDid === currentUserId ? 'You' : otherDisplayName,
         avatar: msg.senderDid === currentUserId ? currentUser?.avatar : undefined,
       },
       sent: undefined,
@@ -172,7 +176,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       // Include embed data for embedded posts
       embed: msg.embed,
     }));
-  }, [currentUserId, currentUser]);
+  }, [currentUserId, currentUser, conversationData?.members]);
 
   // Update messages when data changes
   useEffect(() => {
@@ -216,28 +220,126 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   // Handle inline emoji selection
   const handleEmojiSelect = useCallback((emoji: string, messageId: string) => {
     // Find the message to check current reactions
-    const message = messages.find(msg => String(msg._id) === messageId);
-    const isCurrentUserReacted = message?.reactions?.some(
+    const targetMessage = messages.find(msg => String(msg._id) === messageId);
+    const isCurrentUserReacted = targetMessage?.reactions?.some(
       reaction => reaction.value === emoji && reaction.sender.did === currentUserId
     );
-    
+
+    // Prepare optimistic update
+    const previousMessages = messages;
+
     if (isCurrentUserReacted) {
-      removeReactionMutation.mutate({ messageId, emoji });
+      // Optimistically remove
+      setMessages(prev => prev.map(m => {
+        if (String(m._id) !== messageId) return m;
+        const nextReactions = (m.reactions || []).filter(r => !(r.value === emoji && r.sender.did === currentUserId));
+        return { ...m, reactions: nextReactions } as ChatMessage;
+      }));
+
+      removeReactionMutation.mutate(
+        { messageId, emoji },
+        {
+          onError: () => {
+            // Rollback
+            setMessages(previousMessages);
+          },
+          onSettled: () => {
+            // Refresh to sync with server
+            queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+          }
+        }
+      );
     } else {
-      addReactionMutation.mutate({ messageId, emoji });
+      // Optimistically add
+      const optimisticReaction: ReactionView = {
+        value: emoji,
+        sender: {
+          did: currentUserId,
+          handle: currentUser?.handle || '',
+          displayName: currentUser?.displayName || currentUser?.handle || 'You',
+          avatar: currentUser?.avatar,
+        },
+        createdAt: new Date().toISOString(),
+      };
+
+      setMessages(prev => prev.map(m => {
+        if (String(m._id) !== messageId) return m;
+        const nextReactions = [...(m.reactions || []), optimisticReaction];
+        return { ...m, reactions: nextReactions } as ChatMessage;
+      }));
+
+      addReactionMutation.mutate(
+        { messageId, emoji },
+        {
+          onError: () => {
+            // Rollback
+            setMessages(previousMessages);
+          },
+          onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+          }
+        }
+      );
     }
-    
+
     setSelectedMessageId(null); // Hide the emoji bar
-  }, [addReactionMutation, removeReactionMutation, messages, currentUserId]);
+  }, [addReactionMutation, removeReactionMutation, messages, currentUserId, currentUser, queryClient, conversationId]);
 
   // Handle reaction press (toggle add/remove)
   const handleReactionPress = useCallback((messageId: string, emoji: string, isCurrentUserReacted: boolean) => {
+    const previousMessages = messages;
+
     if (isCurrentUserReacted) {
-      removeReactionMutation.mutate({ messageId, emoji });
+      // Optimistically remove
+      setMessages(prev => prev.map(m => {
+        if (String(m._id) !== messageId) return m;
+        const nextReactions = (m.reactions || []).filter(r => !(r.value === emoji && r.sender.did === currentUserId));
+        return { ...m, reactions: nextReactions } as ChatMessage;
+      }));
+
+      removeReactionMutation.mutate(
+        { messageId, emoji },
+        {
+          onError: () => {
+            setMessages(previousMessages);
+          },
+          onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+          }
+        }
+      );
     } else {
-      addReactionMutation.mutate({ messageId, emoji });
+      // Optimistically add
+      const optimisticReaction: ReactionView = {
+        value: emoji,
+        sender: {
+          did: currentUserId,
+          handle: currentUser?.handle || '',
+          displayName: currentUser?.displayName || currentUser?.handle || 'You',
+          avatar: currentUser?.avatar,
+        },
+        createdAt: new Date().toISOString(),
+      };
+
+      setMessages(prev => prev.map(m => {
+        if (String(m._id) !== messageId) return m;
+        const nextReactions = [...(m.reactions || []), optimisticReaction];
+        return { ...m, reactions: nextReactions } as ChatMessage;
+      }));
+
+      addReactionMutation.mutate(
+        { messageId, emoji },
+        {
+          onError: () => {
+            setMessages(previousMessages);
+          },
+          onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+          }
+        }
+      );
     }
-  }, [addReactionMutation, removeReactionMutation]);
+  }, [addReactionMutation, removeReactionMutation, messages, currentUserId, currentUser, queryClient, conversationId]);
 
 
 
@@ -291,7 +393,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       <TouchableOpacity
         style={[
           styles.sendButton,
-          !hasText && styles.sendButtonInactive,
+          { backgroundColor: hasText ? Colors.green : Colors.gray },
           isDisabled && styles.sendButtonDisabled
         ]}
         onPress={() => {
@@ -310,6 +412,8 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
             };
             console.log('[ChatScreen] Calling onSend with message:', message);
             props.onSend([message]);
+            // Clear the input text
+            props.onTextChanged('');
           }
         }}
         activeOpacity={0.8}
@@ -399,67 +503,30 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     // For messages with embeds, render custom layout with proper alignment
     if (hasEmbed) {
       return (
-        <TouchableOpacity 
+        <View 
           style={[
             styles.embeddedMessageContainer,
             isCurrentUser ? styles.messageContainerRight : styles.messageContainerLeft
           ]}
-          onLongPress={() => {
-            setSelectedMessageId(String(message._id));
-          }}
-          onPress={() => {
-            setSelectedMessageId(null);
-          }}
-          activeOpacity={1}
         >
-          {/* Inline emoji reaction bar - appears above message when selected */}
-          {isSelected && (
-            <View 
-              style={[
-                styles.inlineEmojiBar,
-                isCurrentUser ? styles.inlineEmojiBarRight : styles.inlineEmojiBarLeft
-              ]}
-            >
-              {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) => {
-                // Check if current user has already reacted with this emoji
-                const hasCurrentUserReaction = message.reactions?.some(
-                  reaction => reaction.value === emoji && reaction.sender.did === currentUserId
-                );
-                
-                return (
-                  <TouchableOpacity
-                    key={emoji}
-                    style={[
-                      styles.emojiButton,
-                      hasCurrentUserReaction && styles.emojiButtonSelected
-                    ]}
-                    onPress={() => handleEmojiSelect(emoji, String(message._id))}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[
-                      styles.emojiText,
-                      hasCurrentUserReaction && styles.emojiTextSelected
-                    ]}>
-                      {emoji}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
           {/* Show message text if present */}
           {message.text && (
-            <View style={[
-              styles.messageBubble,
-              message.user._id === currentUserId ? styles.sentMessage : styles.receivedMessage
-            ]}>
+            <TouchableOpacity
+              activeOpacity={1}
+              onLongPress={() => setSelectedMessageId(String(message._id))}
+              onPress={() => setSelectedMessageId(null)}
+              style={[
+                styles.messageBubble,
+                message.user._id === currentUserId ? styles.sentMessage : styles.receivedMessage
+              ]}
+            >
               <Text style={[
                 styles.messageText,
                 message.user._id === currentUserId ? styles.sentMessageText : styles.receivedMessageText
               ]}>
                 {message.text}
               </Text>
-            </View>
+            </TouchableOpacity>
           )}
           
           {/* Show embedded post */}
@@ -468,21 +535,63 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
               postUri={message.embed.record.uri}
               postCid={message.embed.record.cid}
               isCurrentUser={isCurrentUser}
-            />
-          </View>
-          
-          {/* Show reactions if present */}
-          {message.reactions && message.reactions.length > 0 && (
-            <MessageReactions
-              messageId={String(message._id)}
-              reactions={message.reactions}
+              reactions={isSelected ? [] : message.reactions}
               currentUserId={currentUserId}
+              messageId={String(message._id)}
               onReactionPress={(emoji, isCurrentUserReacted) =>
                 handleReactionPress(String(message._id), emoji, isCurrentUserReacted)
               }
+              onLongPress={() => setSelectedMessageId(String(message._id))}
             />
+          </View>
+          {/* Anchored popover reaction picker below embedded content */}
+          {isSelected && (
+            <RNAnimated.View
+              style={[
+                styles.pickerContainer,
+                isCurrentUser ? styles.inlineEmojiBarRight : styles.inlineEmojiBarLeft,
+              ]}
+            >
+              <View style={styles.inlineEmojiBarContent}>
+                {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji, idx, arr) => {
+                  const currentUserReaction = message.reactions?.find(
+                    reaction => reaction.value === emoji && reaction.sender.did === currentUserId
+                  );
+                  const otherUserReaction = message.reactions?.find(
+                    reaction => reaction.value === emoji && reaction.sender.did !== currentUserId
+                  );
+                  const hasCurrentUserReaction = !!currentUserReaction;
+                  const hasOtherUserReaction = !!otherUserReaction;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={emoji}
+                      style={[
+                        styles.emojiButton,
+                        idx === 0 && styles.emojiSegmentFirst,
+                        idx > 0 && idx < arr.length - 1 && styles.emojiSegmentMiddle,
+                        idx === arr.length - 1 && styles.emojiSegmentLast,
+                        hasCurrentUserReaction && styles.emojiButtonSelected,
+                        hasOtherUserReaction && styles.emojiButtonOtherUser,
+                      ]}
+                      onPress={() => handleEmojiSelect(emoji, String(message._id))}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.emojiText,
+                        hasCurrentUserReaction && styles.emojiTextSelected
+                      ]}>
+                        {emoji}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </RNAnimated.View>
           )}
-        </TouchableOpacity>
+          
+          {/* Reactions moved into EmbeddedPostCard when embed is present */}
+        </View>
       );
     }
     
@@ -501,41 +610,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         }}
         activeOpacity={1}
       >
-        {/* Inline emoji reaction bar - appears above message when selected */}
-        {isSelected && (
-          <View 
-            style={[
-              styles.inlineEmojiBar,
-              isCurrentUser ? styles.inlineEmojiBarRight : styles.inlineEmojiBarLeft
-            ]}
-          >
-            {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) => {
-              // Check if current user has already reacted with this emoji
-              const hasCurrentUserReaction = message.reactions?.some(
-                reaction => reaction.value === emoji && reaction.sender.did === currentUserId
-              );
-              
-              return (
-                <TouchableOpacity
-                  key={emoji}
-                  style={[
-                    styles.emojiButton,
-                    hasCurrentUserReaction && styles.emojiButtonSelected
-                  ]}
-                  onPress={() => handleEmojiSelect(emoji, String(message._id))}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[
-                    styles.emojiText,
-                    hasCurrentUserReaction && styles.emojiTextSelected
-                  ]}>
-                    {emoji}
-                  </Text>
-                </TouchableOpacity>
-              );
-              })}
-          </View>
-        )}
         <View style={[
           styles.messageBubble,
           message.user._id === currentUserId ? styles.sentMessage : styles.receivedMessage
@@ -547,9 +621,54 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
             {message.text}
           </Text>
         </View>
+        {/* Anchored popover reaction picker below message bubble */}
+        {isSelected && (
+          <RNAnimated.View
+            style={[
+              styles.pickerContainer,
+              isCurrentUser ? styles.inlineEmojiBarRight : styles.inlineEmojiBarLeft,
+            ]}
+          >
+            <View style={styles.inlineEmojiBarContent}>
+              {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji, idx, arr) => {
+                const currentUserReaction = message.reactions?.find(
+                  reaction => reaction.value === emoji && reaction.sender.did === currentUserId
+                );
+                const otherUserReaction = message.reactions?.find(
+                  reaction => reaction.value === emoji && reaction.sender.did !== currentUserId
+                );
+                const hasCurrentUserReaction = !!currentUserReaction;
+                const hasOtherUserReaction = !!otherUserReaction;
+                
+                return (
+                  <TouchableOpacity
+                    key={emoji}
+                    style={[
+                      styles.emojiButton,
+                      idx === 0 && styles.emojiSegmentFirst,
+                      idx > 0 && idx < arr.length - 1 && styles.emojiSegmentMiddle,
+                      idx === arr.length - 1 && styles.emojiSegmentLast,
+                      hasCurrentUserReaction && styles.emojiButtonSelected,
+                      hasOtherUserReaction && styles.emojiButtonOtherUser,
+                    ]}
+                    onPress={() => handleEmojiSelect(emoji, String(message._id))}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.emojiText,
+                      hasCurrentUserReaction && styles.emojiTextSelected
+                    ]}>
+                      {emoji}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </RNAnimated.View>
+        )}
         
         {/* Show reactions if present */}
-        {message.reactions && message.reactions.length > 0 && (
+        {!isSelected && message.reactions && message.reactions.length > 0 && (
           <MessageReactions
             messageId={String(message._id)}
             reactions={message.reactions}
@@ -603,17 +722,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                   onPress={() => router.push(`/profile/${otherUser.did}`)}
                   activeOpacity={0.7}
                 >
-                  <View style={styles.headerAvatar}>
-                    {otherUser.avatar ? (
-                      <Image source={{ uri: otherUser.avatar }} style={styles.headerAvatarImage} />
-                    ) : (
-                      <View style={styles.headerAvatarPlaceholder}>
-                        <Text style={styles.headerAvatarText}>
-                          {(otherUser.displayName || otherUser.handle || 'U').charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
                   <Text style={styles.headerDisplayName} numberOfLines={1}>
                     {otherUser.displayName || otherUser.handle || 'User'}
                   </Text>
@@ -701,7 +809,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     borderBottomWidth: 1,
     borderBottomColor: Colors.darkGray,
-    paddingTop: 4,
+    paddingTop: 0,
     paddingBottom: 12,
     paddingHorizontal: 12,
   },
@@ -748,7 +856,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Bold',
   },
   headerDisplayName: {
-    fontSize: 16,
+    fontSize: 20,
     fontFamily: 'Firma-SemiBold',
     color: Colors.white,
   },
@@ -807,7 +915,7 @@ const styles = StyleSheet.create({
   messagesContainer: {
     paddingHorizontal: 0,
     paddingBottom: 0,
-    paddingTop: 8,
+    paddingTop: 0,
   },
   daySeparator: {
     flexDirection: 'row',
@@ -834,8 +942,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.darkGray,
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 12,
   },
   inputRow: {
     flexDirection: 'row',
@@ -878,7 +985,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignSelf: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.gray,
     borderRadius: BORDER_RADIUS.FULL,
     width: 42,
     height: 42,
@@ -907,21 +1013,64 @@ const styles = StyleSheet.create({
   },
   inlineEmojiBar: {
     flexDirection: 'row',
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginBottom: 8,
     alignItems: 'center',
-    justifyContent: 'space-around',
-    shadowColor: '#000',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    minHeight: 28,
+    marginBottom: 8,
+    shadowColor: Colors.black,
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  pickerContainer: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  inlineEmojiBarContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  popoverTail: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 6,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: 'rgba(255, 255, 255, 0.12)',
+    alignSelf: 'center',
+  },
+  popoverTailLeft: {
+    marginLeft: 12,
+  },
+  popoverTailRight: {
+    marginRight: 12,
+    alignSelf: 'flex-end',
   },
   inlineEmojiBarLeft: {
     alignSelf: 'flex-start',
@@ -932,24 +1081,38 @@ const styles = StyleSheet.create({
     maxWidth: '80%',
   },
   emojiButton: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.FULL,
-    backgroundColor: 'transparent',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'transparent',
+    minHeight: 28,
+    minWidth: 28,
+  },
+  emojiSegmentFirst: {
+    borderTopLeftRadius: BORDER_RADIUS.FULL,
+    borderBottomLeftRadius: BORDER_RADIUS.FULL,
+  },
+  emojiSegmentMiddle: {
+    // No special styling for middle segments
+  },
+  emojiSegmentLast: {
+    borderTopRightRadius: BORDER_RADIUS.FULL,
+    borderBottomRightRadius: BORDER_RADIUS.FULL,
   },
   emojiButtonSelected: {
-    backgroundColor: Colors.green,
-    borderWidth: 1,
-    borderColor: Colors.green,
-    borderRadius: BORDER_RADIUS.FULL,
-    padding: 4,
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    borderColor: 'rgba(34, 197, 94, 0.18)',
+  },
+  emojiButtonOtherUser: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
   },
   emojiText: {
-    fontSize: 24,
+    fontSize: 18,
     textAlign: 'center',
+    lineHeight: 20,
   },
   emojiTextSelected: {
     // Keep default text styling for selected state

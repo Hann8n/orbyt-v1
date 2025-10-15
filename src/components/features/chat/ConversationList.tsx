@@ -69,6 +69,7 @@ export default function ConversationList({ onConversationPress }: ConversationLi
 
   const renderConversation = ({ item }: { item: Conversation }) => {
     const otherMember = item.members.find(member => member.did !== currentUserDid) || item.members[0];
+    const hasEmbed = !!(item.lastMessage && 'embed' in item.lastMessage && (item.lastMessage as any).embed);
     
     return (
       <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)}>
@@ -97,7 +98,7 @@ export default function ConversationList({ onConversationPress }: ConversationLi
                     styles.conversationName,
                     item.unreadCount > 0 && styles.unreadConversationName
                   ]} numberOfLines={1}>
-                    {otherMember.displayName || otherMember.handle}
+                    {otherMember?.displayName || otherMember?.handle}
                   </Text>
                   {item.lastMessageCreatedAt && (
                     <RelativeDate
@@ -116,7 +117,7 @@ export default function ConversationList({ onConversationPress }: ConversationLi
                   ]}
                   numberOfLines={1}
                 >
-                  {item.lastMessage?.embed && !item.lastMessageText ? 'sent a post' : (item.lastMessageText || 'No messages yet')}
+                  {hasEmbed && !item.lastMessageText ? 'sent a post' : (item.lastMessageText || 'No messages yet')}
                 </Text>
               </View>
             </View>

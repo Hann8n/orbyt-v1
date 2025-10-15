@@ -15,6 +15,7 @@ interface GroupedReaction {
   emoji: string;
   count: number;
   isCurrentUserReacted: boolean;
+  hasOtherUserReaction: boolean;
 }
 
 export default function MessageReactions({ 
@@ -28,7 +29,7 @@ export default function MessageReactions({
   
   // Group reactions by emoji and count them
   const groupedReactions: GroupedReaction[] = React.useMemo(() => {
-    const reactionMap = new Map<string, { count: number; isCurrentUserReacted: boolean }>();
+    const reactionMap = new Map<string, { count: number; isCurrentUserReacted: boolean; hasOtherUserReaction: boolean }>();
     
     reactions.forEach((reaction) => {
       const existing = reactionMap.get(reaction.value);
@@ -36,11 +37,14 @@ export default function MessageReactions({
         existing.count += 1;
         if (reaction.sender.did === currentUserId) {
           existing.isCurrentUserReacted = true;
+        } else {
+          existing.hasOtherUserReaction = true;
         }
       } else {
         reactionMap.set(reaction.value, {
           count: 1,
           isCurrentUserReacted: reaction.sender.did === currentUserId,
+          hasOtherUserReaction: reaction.sender.did !== currentUserId,
         });
       }
     });
@@ -49,6 +53,7 @@ export default function MessageReactions({
       emoji,
       count: data.count,
       isCurrentUserReacted: data.isCurrentUserReacted,
+      hasOtherUserReaction: data.hasOtherUserReaction,
     }));
   }, [reactions, currentUserId]);
 
@@ -93,13 +98,11 @@ export default function MessageReactions({
 
   return (
     <View style={styles.reactionsContainer}>
-      <View style={[
-        styles.combinedReactionBubble,
-        hasCurrentUserReaction && styles.currentUserReactionBubble,
-      ]}>
-        <View style={styles.reactionsContent}>
+      <View style={styles.reactionsContent}>
           {groupedReactions.map((reaction, index) => {
             const animValue = animationValues.get(reaction.emoji) || new Animated.Value(1);
+            const isFirst = index === 0;
+            const isLast = index === groupedReactions.length - 1;
             
             return (
               <Animated.View
@@ -112,7 +115,11 @@ export default function MessageReactions({
                 <TouchableOpacity
                   style={[
                     styles.reactionButton,
-                    reaction.isCurrentUserReacted && styles.reactionButtonActive,
+                    isFirst && styles.reactionSegmentFirst,
+                    !isFirst && !isLast && styles.reactionSegmentMiddle,
+                    isLast && styles.reactionSegmentLast,
+                    reaction.isCurrentUserReacted && styles.reactionButtonCurrentUser,
+                    reaction.hasOtherUserReaction && !reaction.isCurrentUserReacted && styles.reactionButtonOtherUser,
                   ]}
                   onPress={() => {
                     animateReaction(reaction.emoji);
@@ -139,7 +146,6 @@ export default function MessageReactions({
               </Animated.View>
             );
           })}
-        </View>
       </View>
     </View>
   );
@@ -148,7 +154,7 @@ export default function MessageReactions({
 const styles = StyleSheet.create({
   reactionsContainer: {
     marginTop: 8,
-    marginHorizontal: 8,
+    marginHorizontal: 0,
     alignItems: 'center',
   },
   combinedReactionBubble: {
@@ -170,15 +176,25 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   currentUserReactionBubble: {
-    backgroundColor: Colors.green,
-    borderColor: Colors.green,
+    backgroundColor: Colors.darkGreen,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   reactionsContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     flexWrap: 'wrap',
-    gap: 2,
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
   },
   individualReaction: {
     alignItems: 'center',
@@ -188,15 +204,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: BORDER_RADIUS.SMALL,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     backgroundColor: 'transparent',
-    minHeight: 24,
-    minWidth: 24,
+    minHeight: 28,
+    minWidth: 28,
   },
-  reactionButtonActive: {
-    // No special styling - matches default button
+  reactionSegmentFirst: {
+    borderTopLeftRadius: BORDER_RADIUS.FULL,
+    borderBottomLeftRadius: BORDER_RADIUS.FULL,
+  },
+  reactionSegmentMiddle: {
+    // No special styling for middle segments
+  },
+  reactionSegmentLast: {
+    borderTopRightRadius: BORDER_RADIUS.FULL,
+    borderBottomRightRadius: BORDER_RADIUS.FULL,
+  },
+  reactionButtonCurrentUser: {
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    borderColor: 'rgba(34, 197, 94, 0.18)',
+  },
+  reactionButtonOtherUser: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
   },
   emoji: {
     fontSize: 15,

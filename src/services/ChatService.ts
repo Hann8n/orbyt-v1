@@ -764,7 +764,20 @@ class ChatService {
     console.log('[ChatService] Debug - Members from API:', apiConv.members);
     
     // Properly map members - they should be an array of objects with did, handle, displayName, etc.
-    const members = Array.isArray(apiConv.members) ? apiConv.members : [];
+    const members = Array.isArray(apiConv.members)
+      ? apiConv.members.map((member: any) => {
+          if (!member) return member;
+          // Normalize deleted accounts coming through as missing.invalid
+          if (member.handle === 'missing.invalid') {
+            return {
+              ...member,
+              displayName: 'Account Deleted',
+              avatar: undefined,
+            };
+          }
+          return member;
+        })
+      : [];
     console.log('[ChatService] Debug - Mapped members:', members);
     
     return {
@@ -794,7 +807,19 @@ class ChatService {
       facets: apiMsg.facets || apiMsg.message?.facets,
       embed: apiMsg.embed || apiMsg.message?.embed,
       reactions: apiMsg.reactions || apiMsg.message?.reactions,
-      sender: apiMsg.sender || apiMsg.message?.sender,
+      sender: (() => {
+        const s = apiMsg.sender || apiMsg.message?.sender;
+        if (!s) return s;
+        // Normalize deleted accounts coming through as missing.invalid
+        if (s.handle === 'missing.invalid') {
+          return {
+            ...s,
+            displayName: 'Deleted account',
+            avatar: undefined,
+          };
+        }
+        return s;
+      })(),
       sentAt: apiMsg.sentAt || apiMsg.message?.sentAt,
       conversationId: apiMsg.convoId || apiMsg.conversationId,
       sent: (apiMsg.sender?.did || apiMsg.message?.sender?.did) === currentUserDid,

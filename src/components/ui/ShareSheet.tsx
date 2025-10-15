@@ -3,6 +3,7 @@ import { BORDER_RADIUS } from '../../utils/constants';
 import { Animated } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKeys } from '../../services/FeedService';
+import { convertAtUriToBlueskyUrl } from '../../utils/blueskyLinks';
 import {
   View,
   Text,
@@ -398,21 +399,8 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   // Share link handler
   const handleShare = useCallback(async () => {
     try {
-      // Convert AT URI to a web URL
-      let shareUrl = postUri;
-      
-      if (postUri.startsWith('at://')) {
-        // Extract the necessary parts from the AT URI
-        const parts = postUri.replace('at://', '').split('/');
-        if (parts.length >= 3) {
-          const did = parts[0];
-          const collection = parts[1];
-          const rkey = parts[2];
-          
-          // Format as a bsky.app URL
-          shareUrl = `https://bsky.app/profile/${did}/post/${rkey}`;
-        }
-      }
+      // Convert AT URI to a web URL using the utility function
+      const shareUrl = convertAtUriToBlueskyUrl(postUri);
       
       await Share.share({
         message: Platform.OS === 'ios' ? '' : shareUrl,

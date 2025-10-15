@@ -14,19 +14,32 @@ import { useThumbnailColor } from '../../../hooks/useThumbnailColor';
 import { ModerationDecision } from '../../../services/ModerationTypes';
 import { feedService } from '../../../services/FeedService';
 import { openPostInBluesky } from '../../../utils/blueskyLinks';
+import MessageReactions from './MessageReactions';
+import { ReactionView } from '../../../services/ChatService';
 
 interface EmbeddedPostCardProps {
   postUri: string;
   postCid: string;
   moderationDecision?: ModerationDecision;
   isCurrentUser?: boolean;
+  // Optional chat reaction support
+  reactions?: ReactionView[];
+  currentUserId?: string;
+  messageId?: string;
+  onReactionPress?: (emoji: string, isCurrentUserReacted: boolean) => void;
+  onLongPress?: () => void;
 }
 
 export default function EmbeddedPostCard({ 
   postUri, 
   postCid, 
   moderationDecision,
-  isCurrentUser = false
+  isCurrentUser = false,
+  reactions,
+  currentUserId,
+  messageId,
+  onReactionPress,
+  onLongPress,
 }: EmbeddedPostCardProps) {
   const router = useRouter();
   const [userChoseToView, setUserChoseToView] = useState(false);
@@ -130,8 +143,7 @@ export default function EmbeddedPostCard({
     const text = post?.record?.text || '';
     if (!text) return null;
     
-    // Truncate long text for preview
-    return text.length > 100 ? text.substring(0, 100) + '...' : text;
+    return text;
   };
 
   // Get external link info
@@ -232,6 +244,29 @@ export default function EmbeddedPostCard({
     }
   }, [post?.uri, isVideo, post?.moderationDecision, router]);
 
+  // Format relative time
+  const formatRelativeTime = (timestamp: string): string => {
+    const now = new Date();
+    const postDate = new Date(timestamp);
+    const diffInSeconds = Math.floor((now.getTime() - postDate.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) {
+      return 'now';
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes}m`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours}h`;
+    } else if (diffInSeconds < 604800) {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days}d`;
+    } else {
+      const weeks = Math.floor(diffInSeconds / 604800);
+      return `${weeks}w`;
+    }
+  };
+
   // Show loading state
   if (isLoading) {
     return (
@@ -274,6 +309,76 @@ export default function EmbeddedPostCard({
       : `https://${author.avatar.replace(/^https?:\/\//, '')}`
     : undefined;
 
+  // Unified post card component
+  const renderUnifiedPostCard = (text?: string, showImage?: boolean) => {
+    return (
+      <View style={styles.cleanPostContainer}>
+        <View style={styles.cleanPostHeader}>
+          <Avatar 
+            uri={avatarUrl}
+            type="profile"
+            size={32}
+            fallbackIcon="user"
+            fallbackIconColor={Colors.white}
+            style={styles.cleanAvatar}
+          />
+          <Text style={styles.cleanAuthorName} numberOfLines={1}>
+            {author.displayName || author.handle || 'Unknown'}
+          </Text>
+          <View style={styles.headerBlueskyLogo}>
+            <Icon name="bluesky-icon" size={18} color={Colors.bluesky} />
+          </View>
+        </View>
+        
+        {text && (
+          <Text style={styles.cleanPostText}>
+            {text}
+          </Text>
+        )}
+        
+        {showImage && thumbnailUrl && (
+          <View style={styles.cleanImageContainer}>
+            <Image 
+              source={{ uri: thumbnailUrl }}
+              style={styles.cleanImage}
+              resizeMode="cover"
+            />
+            {isBlurred && (
+              <BlurView intensity={80} tint="dark" style={styles.cleanBlurOverlay} />
+            )}
+            {isBlurred && (
+              <View style={styles.cleanWarningOverlay}>
+                <Pressable onPress={handleViewContent}>
+                  <View style={styles.cleanViewButton}>
+                    <Text style={styles.cleanViewButtonText}>Show Content</Text>
+                  </View>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        )}
+        
+        <View style={styles.cleanPostActions}>
+          <View style={styles.actionItem}>
+            <Icon name="heart" size={14} color={Colors.lightGray} />
+            <Text style={styles.actionText}>{post?.likeCount || 0}</Text>
+          </View>
+          <View style={styles.actionItem}>
+            <Icon name="repeat" size={14} color={Colors.lightGray} />
+            <Text style={styles.actionText}>{post?.repostCount || 0}</Text>
+          </View>
+          <View style={styles.actionItem}>
+            <Icon name="message" size={14} color={Colors.lightGray} />
+            <Text style={styles.actionText}>{post?.replyCount || 0}</Text>
+          </View>
+          <Text style={styles.relativeTime}>
+            {post?.indexedAt ? formatRelativeTime(post.indexedAt) : ''}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   // Render post content based on type
   const renderPostContent = () => {
     if (isVideo) {
@@ -290,7 +395,7 @@ export default function EmbeddedPostCard({
             <Avatar 
               uri={avatarUrl}
               type="profile"
-              size={26}
+              size={32}
               fallbackIcon="user"
               fallbackIconColor={Colors.white}
               style={styles.authorAvatar}
@@ -302,7 +407,6 @@ export default function EmbeddedPostCard({
             </View>
           </View>
           
-          
           {isBlurred && (
             <BlurView intensity={80} tint="dark" style={styles.blurOverlay} />
           )}
@@ -325,190 +429,27 @@ export default function EmbeddedPostCard({
       );
     }
     
+    // All non-video post types use the unified card with different parameters
     if (isImage) {
-      return (
-        <View style={styles.textPostContainer}>
-          <View style={styles.textPostContent}>
-            <View style={styles.textPostHeader}>
-              <Avatar 
-                uri={avatarUrl}
-                type="profile"
-                size={32}
-                fallbackIcon="user"
-                fallbackIconColor={Colors.white}
-                style={styles.textPostAvatar}
-              />
-              <View style={styles.textPostAuthorInfo}>
-                <Text style={styles.textPostAuthor} numberOfLines={1}>
-                  {author.displayName || author.handle || 'Unknown'}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.textPostText} numberOfLines={3}>
-              {postText || 'Image Post'}
-            </Text>
-            {thumbnailUrl && (
-              <View style={styles.textPostImageContainer}>
-                <Image 
-                  source={{ uri: thumbnailUrl }}
-                  style={styles.textPostImage}
-                  resizeMode="cover"
-                />
-                {isBlurred && (
-                  <BlurView intensity={80} tint="dark" style={styles.textPostBlurOverlay} />
-                )}
-                {isBlurred && (
-                  <View style={styles.textPostWarningOverlay}>
-                    <Pressable onPress={handleViewContent}>
-                      <View style={styles.textPostViewButton}>
-                        <Text style={styles.textPostViewButtonText}>Show Content</Text>
-                      </View>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            )}
-            <View style={styles.blueskyLogoContainer}>
-              <Icon name="bluesky-icon" size={20} color={Colors.bluesky} />
-            </View>
-          </View>
-        </View>
-      );
+      return renderUnifiedPostCard(postText, true);
     }
     
     if (isExternalLink && externalLinkInfo) {
-      return (
-        <View style={styles.textPostContainer}>
-          <View style={styles.textPostContent}>
-            <View style={styles.textPostHeader}>
-              <Avatar 
-                uri={avatarUrl}
-                type="profile"
-                size={32}
-                fallbackIcon="user"
-                fallbackIconColor={Colors.white}
-                style={styles.textPostAvatar}
-              />
-              <View style={styles.textPostAuthorInfo}>
-                <Text style={styles.textPostAuthor} numberOfLines={1}>
-                  {author.displayName || author.handle || 'Unknown'}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.textPostText} numberOfLines={3}>
-              {postText || 'External Link'}
-            </Text>
-            <View style={styles.blueskyLogoContainer}>
-              <Icon name="bluesky-icon" size={20} color={Colors.bluesky} />
-            </View>
-          </View>
-        </View>
-      );
+      return renderUnifiedPostCard(postText, false);
     }
     
     if (isQuoted && quotedPostInfo) {
-      return (
-        <View style={styles.textPostContainer}>
-          <View style={styles.textPostContent}>
-            <View style={styles.textPostHeader}>
-              <Avatar 
-                uri={avatarUrl}
-                type="profile"
-                size={32}
-                fallbackIcon="user"
-                fallbackIconColor={Colors.white}
-                style={styles.textPostAvatar}
-              />
-              <View style={styles.textPostAuthorInfo}>
-                <Text style={styles.textPostAuthor} numberOfLines={1}>
-                  {author.displayName || author.handle || 'Unknown'}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.textPostText} numberOfLines={3}>
-              {quotedPostInfo.text || quotedPostInfo.value?.text || 'Quoted Post'}
-            </Text>
-            <View style={styles.blueskyLogoContainer}>
-              <Icon name="bluesky-icon" size={20} color={Colors.bluesky} />
-            </View>
-          </View>
-        </View>
-      );
+      const quotedText = quotedPostInfo.text || quotedPostInfo.value?.text || 'Quoted Post';
+      return renderUnifiedPostCard(quotedText, false);
     }
     
-    // Fallback for text-only posts or posts with thumbnails
+    // Fallback for posts with thumbnails
     if (thumbnailUrl) {
-      return (
-        <View style={styles.thumbnailContainer}>
-          <Image 
-            source={{ uri: thumbnailUrl }}
-            style={styles.thumbnail}
-            resizeMode="cover"
-          />
-          
-          {/* Author overlay in bottom left */}
-          <View style={styles.authorOverlay}>
-            <Avatar 
-              uri={avatarUrl}
-              type="profile"
-              size={24}
-              fallbackIcon="user"
-              fallbackIconColor={Colors.white}
-              style={styles.authorAvatar}
-            />
-            <Text style={styles.authorName} numberOfLines={1}>
-              {author.displayName || author.handle || 'Unknown'}
-            </Text>
-          </View>
-          
-          {isBlurred && (
-            <BlurView intensity={80} tint="dark" style={styles.blurOverlay} />
-          )}
-          {isBlurred && (
-            <View style={styles.contentWarningOverlay}>
-              <View style={styles.warningMessage}>
-                <Text style={styles.warningTitle}>Content Warning</Text>
-                <Text style={styles.warningText}>
-                  {reason || 'This content may not be appropriate for all viewers.'}
-                </Text>
-                <Pressable onPress={handleViewContent}>
-                  <View style={styles.viewButton}>
-                    <Text style={styles.viewButtonText}>Show Content</Text>
-                  </View>
-                </Pressable>
-              </View>
-            </View>
-          )}
-        </View>
-      );
+      return renderUnifiedPostCard(postText || 'Post', true);
     }
     
     // Text-only post fallback
-    return (
-      <View style={styles.textPostContainer}>
-        <View style={styles.textPostContent}>
-          <View style={styles.textPostHeader}>
-            <Avatar 
-              uri={avatarUrl}
-              type="profile"
-              size={24}
-              fallbackIcon="user"
-              fallbackIconColor={Colors.white}
-              style={styles.textPostAvatar}
-            />
-            <Text style={styles.textPostAuthor} numberOfLines={1}>
-              {author.displayName || author.handle || 'Unknown'}
-            </Text>
-          </View>
-          <Text style={styles.textPostText} numberOfLines={3}>
-            {postText || 'Post'}
-          </Text>
-          <View style={styles.blueskyLogoContainer}>
-            <Icon name="bluesky-icon" size={20} color={Colors.bluesky} />
-          </View>
-        </View>
-      </View>
-    );
+    return renderUnifiedPostCard(postText || 'Post', false);
   };
 
   return (
@@ -518,16 +459,26 @@ export default function EmbeddedPostCard({
         isCurrentUser ? styles.containerRight : styles.containerLeft
       ]}
       onPress={handlePostPress}
+      onLongPress={onLongPress}
+      delayLongPress={300}
       hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
     >
       {renderPostContent()}
+      {/* Inline message reactions if provided via props */}
+      {reactions && reactions.length > 0 && currentUserId && messageId && onReactionPress ? (
+        <MessageReactions
+          messageId={messageId}
+          reactions={reactions}
+          currentUserId={currentUserId}
+          onReactionPress={onReactionPress}
+        />
+      ) : null}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 4,
   },
   containerLeft: {
     alignItems: 'flex-start',
@@ -620,6 +571,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 8,
   },
+  postStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  statText: {
+    fontSize: 12,
+    color: Colors.lightGray,
+    marginLeft: 4,
+    fontFamily: 'Firma-Medium',
+  },
   blueskyLogoContainer: {
     position: 'absolute',
     top: 12,
@@ -628,6 +596,123 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Modern clean post styles
+  cleanPostContainer: {
+    width: 320,
+    backgroundColor: Colors.darkGray,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cleanPostHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  cleanAvatar: {
+    marginRight: 12,
+  },
+  cleanAuthorName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.white,
+    flex: 1,
+  },
+  headerBlueskyLogo: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cleanPostActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  actionText: {
+    fontSize: 13,
+    color: Colors.lightGray,
+    marginLeft: 6,
+    fontFamily: 'Firma-Medium',
+  },
+  relativeTime: {
+    fontSize: 13,
+    color: Colors.lightGray,
+    fontFamily: 'Firma-Medium',
+    marginLeft: 'auto',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  cleanPostText: {
+    fontSize: 15,
+    color: Colors.white,
+    lineHeight: 22,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    fontFamily: 'Firma-Regular',
+  },
+  cleanImageContainer: {
+    position: 'relative',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  cleanImage: {
+    width: '100%',
+    height: 160,
+  },
+  cleanBlurOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  cleanWarningOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cleanViewButton: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: BORDER_RADIUS.SMALL,
+  },
+  cleanViewButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  cleanFooter: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    paddingTop: 8,
+    alignItems: 'flex-end',
+  },
+  blueskyIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.SMALL,
+  },
+  blueskyIndicatorText: {
+    fontSize: 10,
+    color: Colors.bluesky,
+    marginLeft: 4,
+    fontFamily: 'Firma-Medium',
   },
   // Image within text post styles
   textPostImageContainer: {
