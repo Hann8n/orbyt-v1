@@ -1182,7 +1182,6 @@ class AtprotoService {
           // No need for separate API calls - verification data is included in the profile
           return profileData;
         } catch (error: any) {
-          // console.error('Error getting profile by DID:', error);
           return null;
         }
       });
@@ -1216,7 +1215,6 @@ class AtprotoService {
           // No need for separate API calls - verification data is included in the profile
           return profileData;
         } catch (error: any) {
-          // console.error('Error getting profile:', error);
           return null;
         }
       });

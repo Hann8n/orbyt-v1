@@ -147,5 +147,5 @@ const styles = StyleSheet.create({
   }
 });
 
-export default VideoItem;
+export default React.memo(VideoItem);
 export { VideoItem };
