@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { VideoFile } from 'react-native-vision-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 import Compressor from 'react-native-compressor';
+import { logger } from '../utils/logger';
 
 export interface VideoSegment {
   startTime: number;
@@ -320,7 +321,7 @@ class VideoProcessingService {
       }
       return fileInfo.size || 0;
     } catch (error) {
-      console.warn('Could not get file size:', error);
+      logger.warn('Could not get file size', { component: 'VideoProcessingService' });
       return 0;
     }
   }
@@ -390,7 +391,7 @@ class VideoProcessingService {
             };
           }
         } catch (error) {
-          console.warn(`Compression level ${level.name} failed:`, error);
+          logger.warn(`Compression level ${level.name} failed`, { component: 'VideoProcessingService' });
           continue;
         }
       }
@@ -421,12 +422,12 @@ class VideoProcessingService {
           height: 1920,
         };
       } catch (error) {
-        console.error('Minimal compression also failed:', error);
+        logger.error('Minimal compression also failed', error, { component: 'VideoProcessingService' });
         throw new Error('Video compression failed');
       }
 
     } catch (error) {
-      console.error('Error in variable compression:', error);
+      logger.error('Error in variable compression', error, { component: 'VideoProcessingService' });
       throw error;
     }
   }
@@ -502,7 +503,7 @@ class VideoProcessingService {
       };
 
     } catch (error) {
-      console.error('Error merging video segments:', error);
+      logger.error('Error merging video segments', error, { component: 'VideoProcessingService' });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to merge video segments: ${errorMessage}`);
     }
@@ -541,7 +542,7 @@ class VideoProcessingService {
       return mergedVideoPath;
 
     } catch (error) {
-      console.error('Compressor merge failed:', error);
+      logger.error('Compressor merge failed', error, { component: 'VideoProcessingService' });
       
       // Fallback: use the first video if merging fails
       if (videoPaths.length > 0) {
@@ -610,7 +611,7 @@ class VideoProcessingService {
       return outputPath;
 
     } catch (error) {
-      console.error('Error creating concatenated video:', error);
+      logger.error('Error creating concatenated video', error, { component: 'VideoProcessingService' });
       throw error;
     }
   }
@@ -622,7 +623,7 @@ class VideoProcessingService {
     try {
       await FileSystem.deleteAsync(tempDir, { idempotent: true });
     } catch (error) {
-      console.warn('Failed to cleanup temp files:', error);
+      logger.warn('Failed to cleanup temp files', { component: 'VideoProcessingService' });
     }
   }
 
@@ -635,7 +636,7 @@ class VideoProcessingService {
       return await this.compressVideoWithSizeLimit(videoPath, MAX_FILE_SIZE);
 
     } catch (error) {
-      console.error('Error optimizing video:', error);
+      logger.error('Error optimizing video', error, { component: 'VideoProcessingService' });
       // Return original video if optimization fails
       return {
         path: videoPath,
@@ -654,7 +655,7 @@ class VideoProcessingService {
       const fileInfo = await FileSystem.getInfoAsync(videoPath);
       return fileInfo.exists;
     } catch (error) {
-      console.error('Error validating video file:', error);
+      logger.error('Error validating video file', error, { component: 'VideoProcessingService' });
       return false;
     }
   }
@@ -694,7 +695,7 @@ class VideoProcessingService {
         needsCompression,
       };
     } catch (error) {
-      console.error('Error checking video size:', error);
+      logger.error('Error checking video size', error, { component: 'VideoProcessingService' });
       return {
         isValid: false,
         sizeMB: 0,
@@ -748,7 +749,7 @@ class VideoProcessingService {
         sizeReduction: this.formatFileSize(sizeReduction),
       };
     } catch (error) {
-      console.error('Error getting compression stats:', error);
+      logger.error('Error getting compression stats', error, { component: 'VideoProcessingService' });
       return {
         originalSize: 'Unknown',
         compressedSize: 'Unknown',
