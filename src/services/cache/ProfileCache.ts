@@ -184,49 +184,41 @@ class ProfileCache {
     
     this.initialize();
     
-    return new Promise((resolve) => {
-      // Move cache operations to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            // Check memory cache first (fastest)
-            const memoryCached = this.memoryCache.get(did);
-            if (memoryCached && this.isCacheValid(memoryCached)) {
-              resolve(memoryCached);
-              return;
-            }
-            
-            // Try to get from async storage
-            const cachedProfile = await this.getProfileFromCacheByDid(did);
-            
-            // If found in cache and not expired, store in memory and return it
-            if (cachedProfile && this.isCacheValid(cachedProfile)) {
-              this.memoryCache.set(did, cachedProfile);
-              resolve(cachedProfile);
-              return;
-            }
-            
-            // Otherwise fetch fresh profile data
-            const freshProfile = await this.fetchAndCacheProfileByDid(did);
-            if (freshProfile) {
-              this.memoryCache.set(did, freshProfile);
-            }
-            resolve(freshProfile);
-          } catch (error) {
-            // If there's an error fetching fresh data but we have cached data, return that
-            try {
-              const cachedProfile = await this.getProfileFromCacheByDid(did);
-              if (cachedProfile) {
-                this.memoryCache.set(did, cachedProfile);
-                resolve(cachedProfile);
-              }
-            } catch (cacheError) {
-              resolve(null);
-            }
-          }
-        }, 0);
-      });
-    });
+    try {
+      // Check memory cache first (fastest)
+      const memoryCached = this.memoryCache.get(did);
+      if (memoryCached && this.isCacheValid(memoryCached)) {
+        return memoryCached;
+      }
+      
+      // Try to get from async storage
+      const cachedProfile = await this.getProfileFromCacheByDid(did);
+      
+      // If found in cache and not expired, store in memory and return it
+      if (cachedProfile && this.isCacheValid(cachedProfile)) {
+        this.memoryCache.set(did, cachedProfile);
+        return cachedProfile;
+      }
+      
+      // Otherwise fetch fresh profile data
+      const freshProfile = await this.fetchAndCacheProfileByDid(did);
+      if (freshProfile) {
+        this.memoryCache.set(did, freshProfile);
+      }
+      return freshProfile;
+    } catch (error) {
+      // If there's an error fetching fresh data but we have cached data, return that
+      try {
+        const cachedProfile = await this.getProfileFromCacheByDid(did);
+        if (cachedProfile) {
+          this.memoryCache.set(did, cachedProfile);
+          return cachedProfile;
+        }
+      } catch (cacheError) {
+        return null;
+      }
+      return null;
+    }
   }
 
 
@@ -235,77 +227,64 @@ class ProfileCache {
     
     this.initialize();
     
-    return new Promise((resolve) => {
-      // Move cache operations to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            // Ensure handle is properly formatted
-            // Some handles might contain extra characters or malformed URLs
-            let cleanHandle = handle.trim().toLowerCase();
-            
-            // If handle contains a URL or protocol, extract just the handle part
-            if (cleanHandle.includes('://') || cleanHandle.includes('/')) {
-              // Extract just the domain part if it's a URL-like format
-              const parts = cleanHandle.split('/');
-              for (const part of parts) {
-                if (part.includes('.')) {
-                  cleanHandle = part;
-                  break;
-                }
-              }
-            }
-            
-            // Special case for verifier handles which might not follow standard format
-            if (cleanHandle === 'verifier' || cleanHandle === 'bsky.app') {
-              // Allow these special handles to pass through
-            } 
-            // Check for valid handle format (should contain at least one dot)
-            else if (!cleanHandle.includes('.')) {
-              // console.warn(`[ProfileCache] Invalid handle format: ${handle}, original: ${handle}`);
-              resolve(null);
-              return;
-            }
-            
-            // Check memory cache first (fastest)
-            const memoryCached = this.memoryCache.get(cleanHandle);
-            if (memoryCached && this.isCacheValid(memoryCached)) {
-              resolve(memoryCached);
-              return;
-            }
-            
-            // Try to get from async storage
-            const cachedProfile = await this.getProfileFromCache(cleanHandle);
-            
-            // If found in cache and not expired, store in memory and return it
-            if (cachedProfile && this.isCacheValid(cachedProfile)) {
-              this.memoryCache.set(cleanHandle, cachedProfile);
-              resolve(cachedProfile);
-              return;
-            }
-            
-            // Otherwise fetch fresh profile data
-            const freshProfile = await this.fetchAndCacheProfile(cleanHandle);
-            if (freshProfile) {
-              this.memoryCache.set(cleanHandle, freshProfile);
-            }
-            resolve(freshProfile);
-          } catch (error) {
-            // If there's an error fetching fresh data but we have cached data, return that
-            try {
-              const normalizedHandle = handle.trim().toLowerCase();
-              const cachedProfile = await this.getProfileFromCache(normalizedHandle);
-              if (cachedProfile) {
-                this.memoryCache.set(normalizedHandle, cachedProfile);
-                resolve(cachedProfile);
-              }
-            } catch (cacheError) {
-              resolve(null);
-            }
+    try {
+      // Ensure handle is properly formatted
+      let cleanHandle = handle.trim().toLowerCase();
+      
+      // If handle contains a URL or protocol, extract just the handle part
+      if (cleanHandle.includes('://') || cleanHandle.includes('/')) {
+        const parts = cleanHandle.split('/');
+        for (const part of parts) {
+          if (part.includes('.')) {
+            cleanHandle = part;
+            break;
           }
-        }, 0);
-      });
-    });
+        }
+      }
+      
+      // Special case for verifier handles which might not follow standard format
+      if (cleanHandle !== 'verifier' && cleanHandle !== 'bsky.app') {
+        // Check for valid handle format (should contain at least one dot)
+        if (!cleanHandle.includes('.')) {
+          return null;
+        }
+      }
+      
+      // Check memory cache first (fastest)
+      const memoryCached = this.memoryCache.get(cleanHandle);
+      if (memoryCached && this.isCacheValid(memoryCached)) {
+        return memoryCached;
+      }
+      
+      // Try to get from async storage
+      const cachedProfile = await this.getProfileFromCache(cleanHandle);
+      
+      // If found in cache and not expired, store in memory and return it
+      if (cachedProfile && this.isCacheValid(cachedProfile)) {
+        this.memoryCache.set(cleanHandle, cachedProfile);
+        return cachedProfile;
+      }
+      
+      // Otherwise fetch fresh profile data
+      const freshProfile = await this.fetchAndCacheProfile(cleanHandle);
+      if (freshProfile) {
+        this.memoryCache.set(cleanHandle, freshProfile);
+      }
+      return freshProfile;
+    } catch (error) {
+      // If there's an error fetching fresh data but we have cached data, return that
+      try {
+        const normalizedHandle = handle.trim().toLowerCase();
+        const cachedProfile = await this.getProfileFromCache(normalizedHandle);
+        if (cachedProfile) {
+          this.memoryCache.set(normalizedHandle, cachedProfile);
+          return cachedProfile;
+        }
+      } catch (cacheError) {
+        return null;
+      }
+      return null;
+    }
   }
 
   /**
