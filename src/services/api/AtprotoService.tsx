@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ModerationDecision, ModerationSettings, LabelPreference, ModerationOpts, LabelDefinition } from '../ModerationTypes';
 import { AtProtoOAuthService } from '../auth/OAuthService';
 import { StaticChannelsService } from '../APIService';
+import { logger } from '../../utils/logger';
 
 
 const SERVICE_URL = 'https://bsky.social';
@@ -162,12 +163,12 @@ class AtprotoService {
     
     // If there's an active session fetch in progress, return that promise
     if (this._sessionPromise) {
-      console.log('[AtprotoService] Using in-progress session promise for ensureSession');
+      logger.debug('Using in-progress session promise', { component: 'AtprotoService', action: 'ensureSession' });
       return this._sessionPromise;
     }
 
     // Otherwise, create a new session promise
-    console.log('[AtprotoService] Starting new session check for ensureSession');
+    logger.debug('Starting new session check', { component: 'AtprotoService', action: 'ensureSession' });
     this._sessionPromise = (async () => {
       try {
         // Check if there's an OAuth session first
@@ -176,7 +177,7 @@ class AtprotoService {
           const oauthSession = await oauthService.getCurrentOAuthSession();
           
           if (oauthSession) {
-            console.log('[AtprotoService] Found valid OAuth session for DID:', oauthSession.did);
+            logger.debug(`Found valid OAuth session for DID: ${oauthSession.did}`, { component: 'AtprotoService' });
             // Cache the session
             this._sessionCache.oauth = {
               session: oauthSession,
@@ -185,12 +186,11 @@ class AtprotoService {
             return { did: oauthSession.did, type: 'oauth' };
           }
         } catch (oauthError) {
-          console.log('[AtprotoService] Failed to get OAuth session:', 
-            oauthError instanceof Error ? oauthError.message : 'Unknown error');
+          logger.debug('Failed to get OAuth session', { component: 'AtprotoService' });
         }
 
 
-        console.log('[AtprotoService] No valid session found');
+        logger.debug('No valid session found', { component: 'AtprotoService' });
         throw new Error('No session available. Please log in first.');
       } finally {
         // Clear the session promise so subsequent calls will create a new one
@@ -220,14 +220,14 @@ class AtprotoService {
       
       
       // If no valid cache, try to get a fresh session
-      console.log('[AtprotoService] No cached session, fetching fresh session');
+      logger.debug('No cached session, fetching fresh session', { component: 'AtprotoService' });
       
       // Try OAuth first
       const oauthService = AtProtoOAuthService.getInstance();
       try {
         const oauthSession = await oauthService.getCurrentOAuthSession();
         if (oauthSession?.did) {
-          console.log('[AtprotoService] Got OAuth session for DID:', oauthSession.did);
+          logger.debug(`Got OAuth session for DID: ${oauthSession.did}`, { component: 'AtprotoService' });
           // Cache the session
           this._sessionCache.oauth = {
             session: oauthSession,
@@ -236,17 +236,16 @@ class AtprotoService {
           return oauthSession.did;
         }
       } catch (oauthError) {
-        console.log('[AtprotoService] Failed to get OAuth session:', 
-          oauthError instanceof Error ? oauthError.message : 'Unknown error');
+        logger.debug('Failed to get OAuth session', { component: 'AtprotoService' });
       }
       
       // Then try app password
       
-      console.log('[AtprotoService] No valid session found');
+      logger.debug('No valid session found', { component: 'AtprotoService' });
       return null;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[AtprotoService] Error getting current user DID:', errorMsg);
+      logger.error('Error getting current user DID', error, { component: 'AtprotoService' });
       return null;
     }
   }
@@ -272,14 +271,14 @@ class AtprotoService {
       
       
       // If no valid cache, try to get fresh sessions
-      console.log('[AtprotoService] No cached session for API client, fetching fresh session');
+      logger.debug('No cached session for API client, fetching fresh session', { component: 'AtprotoService' });
       
       // Try OAuth first
       const oauthService = AtProtoOAuthService.getInstance();
       try {
         const oauthSession = await oauthService.getCurrentOAuthSession();
         if (oauthSession) {
-          console.log('[AtprotoService] Got OAuth session for API client');
+          logger.debug('Got OAuth session for API client', { component: 'AtprotoService' });
           const oauthAgent = await oauthService.getCurrentAgent();
           if (oauthAgent) {
             // Cache the session
@@ -291,17 +290,16 @@ class AtprotoService {
           }
         }
       } catch (oauthError) {
-        console.log('[AtprotoService] Failed to get OAuth session for API client:', 
-          oauthError instanceof Error ? oauthError.message : 'Unknown error');
+        logger.debug('Failed to get OAuth session for API client', { component: 'AtprotoService' });
       }
       
       // Then try app password
       
-      console.log('[AtprotoService] No valid session found for API client');
+      logger.debug('No valid session found for API client', { component: 'AtprotoService' });
       throw new Error('No session available');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[AtprotoService] Error getting API client:', errorMsg);
+      logger.error('Error getting API client', error, { component: 'AtprotoService' });
       throw new Error(`Failed to get API client: ${errorMsg}`);
     }
   }
@@ -361,11 +359,7 @@ class AtprotoService {
             
             response = await api.app.bsky.feed.getAuthorFeed(params);
           } catch (authorError: any) {
-            console.error('[AtprotoService] Author feed error details:', {
-              message: authorError.message,
-              status: authorError.status,
-              error: authorError
-            });
+            logger.error('Author feed error', authorError, { component: 'AtprotoService' });
             return { feed: [], cursor: null };
           }
         } else if (feedType === 'likes') {
@@ -379,11 +373,7 @@ class AtprotoService {
             
             response = await api.app.bsky.feed.getActorLikes(params);
           } catch (likesError: any) {
-            console.error('[AtprotoService] Likes feed error details:', {
-              message: likesError.message,
-              status: likesError.status,
-              error: likesError
-            });
+            logger.error('Likes feed error', likesError, { component: 'AtprotoService' });
             return { feed: [], cursor: null };
           }
         } else {
@@ -404,13 +394,13 @@ class AtprotoService {
           
           // Validate feed URI format before making the request
           if (!feed) {
-            console.warn('[AtprotoService] No feed specified, returning empty feed');
+            logger.warn('No feed specified, returning empty feed', { component: 'AtprotoService' });
             return { feed: [], cursor: null };
           }
           
           // Validate AT-URI format
           if (!feed.startsWith('at://') && !feed.startsWith('did:')) {
-            console.warn('[AtprotoService] Invalid feed URI format:', feed);
+            logger.warn(`Invalid feed URI format: ${feed}`, { component: 'AtprotoService' });
             return { feed: [], cursor: null };
           }
           
@@ -423,14 +413,10 @@ class AtprotoService {
           try {
             response = await api.app.bsky.feed.getFeed(params);
           } catch (customFeedError: any) {
-            console.error('[AtprotoService] Custom feed error details:', {
-              message: customFeedError.message,
-              status: customFeedError.status,
-              error: customFeedError
-            });
+            logger.error('Custom feed error', customFeedError, { component: 'AtprotoService' });
             // Check if it's a feed validation error
             if (customFeedError.message && customFeedError.message.includes('feed must be a valid at-uri')) {
-              console.warn('[AtprotoService] Invalid feed URI:', feed);
+              logger.warn(`Invalid feed URI: ${feed}`, { component: 'AtprotoService' });
               return { feed: [], cursor: null };
             }
             return { feed: [], cursor: null };
@@ -439,7 +425,7 @@ class AtprotoService {
         
         // Ensure the response has the expected data structure
         if (!response?.data || !response.data.feed) {
-          console.warn('Unexpected feed response format:', response);
+          logger.warn('Unexpected feed response format', { component: 'AtprotoService' });
           return { feed: [], cursor: null };
         }
 
@@ -543,7 +529,7 @@ class AtprotoService {
       // Then get the API client
       const { api, isOAuth } = await this.getApiClient();
       if (!api) {
-        console.log('[AtprotoService] No API client available');
+        logger.warn('No API client available', { component: 'AtprotoService' });
         throw new Error('No API client available');
       }
       
@@ -558,11 +544,11 @@ class AtprotoService {
       return response.data;
     } catch (error: any) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[AtprotoService] Error getting current user:', errorMsg);
+      logger.error('Error getting current user', error, { component: 'AtprotoService' });
       
       // Check if this is a session error and clear the session cache
       if (errorMsg.includes('session') || errorMsg.includes('auth') || errorMsg.includes('token')) {
-        console.log('[AtprotoService] Clearing session cache due to session error');
+        logger.debug('Clearing session cache due to session error', { component: 'AtprotoService' });
         this._sessionCache = { oauth: null };
       }
       
@@ -615,7 +601,7 @@ class AtprotoService {
       const json = await response.json();
       return { conversations: json.convos || [], cursor: json.cursor || null };
     } catch (error: any) {
-      console.error("Error fetching conversations:", error.message, error.stack);
+      logger.error('Error fetching conversations', error, { component: 'AtprotoService' });
       throw error;
     }
   }
@@ -645,7 +631,7 @@ class AtprotoService {
         { headers }
       );
       if (response.status === 501) {
-        console.warn("Service not implemented (HTTP 501). Returning empty messages.");
+        logger.warn('Service not implemented (HTTP 501), returning empty messages', { component: 'AtprotoService' });
         return { messages: [], cursor: null };
       }
       if (!response.ok) {
@@ -654,7 +640,7 @@ class AtprotoService {
       const json = await response.json();
       return { messages: json.logs, cursor: json.cursor || null };
     } catch (error: any) {
-      console.error("Error fetching messages:", error.message, error.stack);
+      logger.error('Error fetching messages', error, { component: 'AtprotoService' });
       throw error;
     }
   }
