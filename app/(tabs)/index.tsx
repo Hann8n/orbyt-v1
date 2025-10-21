@@ -18,7 +18,6 @@ import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 import { useGlobalCommentSection, useGlobalShareSheet } from '../../src/hooks/useGlobalModals';
 import { createQueryKeys } from '../../src/services/FeedService';
 import { APP_CONSTANTS } from '../../src/utils/constants';
-import { FORCE_FEED_ERROR } from '../../src/utils/helpers';
 import { SwipeableFeedContainer } from '../../src/components';
 import { HomeScreenRef, FeedOption } from '../../src/types';
 
@@ -69,7 +68,6 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
         initialFeed={currentFeed}
         onFeedChange={handleFeedChange}
         isRefreshing={isRefreshing}
-        forceError={FORCE_FEED_ERROR}
         applySafeArea={true}
         indicatorFontSize={18}
       />

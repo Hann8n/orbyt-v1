@@ -288,7 +288,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     );
 
     // Video event handlers - use post URI for simple tracking
-    const handleLoad = useCallback((data: any) => {
+    const handleLoad = useCallback((data: { duration?: number }) => {
       if (!data || !data.duration) return;
       const duration = data.duration * 1000;
       setVideoState(prev => ({
@@ -308,7 +308,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       seekTo(0); // This already updates state and seeks the player
     }, [seekTo]);
 
-    const handleError = useCallback((error: any) => {
+    const handleError = useCallback((error: Error | unknown) => {
       setVideoState(prev => ({
         ...prev,
         hasError: true,

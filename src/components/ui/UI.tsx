@@ -770,6 +770,66 @@ const styles = StyleSheet.create({
 });
 
 // ============================================================================
+// COMMON STYLE UTILITIES
+// ============================================================================
+
+/**
+ * Common style patterns to avoid duplication across components
+ */
+export const CommonStyles = StyleSheet.create({
+  // Position utilities
+  absoluteFill: StyleSheet.absoluteFillObject,
+  absolute: {
+    position: 'absolute',
+  },
+  
+  // Flex utilities
+  flexRow: {
+    flexDirection: 'row',
+  },
+  flexColumn: {
+    flexDirection: 'column',
+  },
+  flexCenter: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  flex1: {
+    flex: 1,
+  },
+  
+  // Overlay utilities
+  overlayDark: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.overlayBlack50,
+  },
+  overlayLight: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.overlayWhite10,
+  },
+  
+  // Common spacing
+  padding: {
+    padding: 16,
+  },
+  paddingHorizontal: {
+    paddingHorizontal: 16,
+  },
+  paddingVertical: {
+    paddingVertical: 16,
+  },
+  margin: {
+    margin: 16,
+  },
+  marginHorizontal: {
+    marginHorizontal: 16,
+  },
+  marginVertical: {
+    marginVertical: 16,
+  },
+});
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -783,6 +843,7 @@ export default {
   Divider,
   Badge,
   Avatar,
+  CommonStyles,
   hexToRGBA,
   isColorDark,
   getContrastRatio,

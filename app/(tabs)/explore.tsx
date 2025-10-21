@@ -37,7 +37,6 @@ import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
 import { getBottomNavBarHeight } from '../../src/utils/helpers';
 import { extractVideoThumbnail } from '../../src/utils/helpers/video';
-import { FORCE_SEARCH_ERROR, getForcedErrorMessage } from '../../src/utils/helpers';
 import { formatNumber } from '../../src/utils/helpers';
 import { HeaderService, useStaticChannels, useHeaders } from '../../src/services/APIService';
 import { useFeed } from '../../src/hooks/useFeed';
@@ -1054,10 +1053,6 @@ const ExploreScreen: React.FC = () => {
   } = useQuery({
     queryKey: ['suggestedAccounts', 5],
     queryFn: async () => {
-      // Force error if debug flag is enabled
-      if (FORCE_SEARCH_ERROR) {
-        throw getForcedErrorMessage('suggested accounts');
-      }
       return await AtprotoService.getSuggestedAccounts(5);
     },
     enabled: debouncedQuery.length === 0,
@@ -1087,10 +1082,6 @@ const ExploreScreen: React.FC = () => {
   } = useQuery({
     queryKey: ['staticChannels', channelDids],
     queryFn: async () => {
-      // Force error if debug flag is enabled
-      if (FORCE_SEARCH_ERROR) {
-        throw getForcedErrorMessage('static channels');
-      }
       // Get static channels from the web API
       return await AtprotoService.getStaticChannels(20);
     },
@@ -1107,10 +1098,6 @@ const ExploreScreen: React.FC = () => {
   } = useQuery({
     queryKey: ['spotlightFeed'],
     queryFn: async () => {
-      // Force error if debug flag is enabled
-      if (FORCE_SEARCH_ERROR) {
-        throw getForcedErrorMessage('spotlight feed');
-      }
       // Get custom spotlight feed
       const response = await AtprotoService.getFeed(null, 'at://did:plc:l3l3fjuwhv4mh4ih5y7ewrue/app.bsky.feed.generator/aaaiu3akzsv6q', {}, true, 10, 'custom');
       let feed = response.feed || [];
