@@ -102,6 +102,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   
   // Overlay state
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
+  const [hasLongText, setHasLongText] = useState(false);
 
   // Get profile colors for overlay
   const { colors: profileColors } = useProfileColors(post.author?.handle);
@@ -115,6 +116,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   const toggleCollapsed = useCallback(() => {
     setIsOverlayCollapsed(prev => !prev);
+  }, []);
+
+  // Handle text layout to detect if text is longer than 2 lines
+  const handleTextLayout = useCallback((event: any) => {
+    const { lines } = event.nativeEvent;
+    setHasLongText(lines.length > 2);
   }, []);
 
   // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
@@ -235,9 +242,11 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       {/* Gradient overlay with hardware acceleration */}
       <View style={[styles.uiOverlay, { height: height * 0.8 }]} pointerEvents="none">
         <LinearGradient
-          colors={isOverlayCollapsed 
+          colors={hasLongText && isOverlayCollapsed
             ? ['transparent', 'transparent', 'transparent', 'transparent']
-            : ['rgba(0, 0, 0, 0.95)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.3)', 'transparent']
+            : hasLongText
+            ? ['rgba(0, 0, 0, 0.95)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.3)', 'transparent']
+            : ['transparent', 'transparent', 'transparent', 'transparent']
           }
           locations={[0, 0.4, 0.6, 1]}
           style={{ flex: 1 }}
@@ -306,54 +315,35 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
           )}
           
           {/* Description container */}
-          {(record.text || !record.text) && (
+          {record.text && (
             <View style={styles.descriptionContainer}>
-              {record.text ? (
-                <>
-                  <TouchableOpacity onPress={toggleCollapsed} activeOpacity={0.8}>
-                    <TextWithAuthorLinks
-                      text={record.text}
-                      style={styles.descriptionText}
-                      numberOfLines={isOverlayCollapsed ? 1 : undefined}
-                      onAuthorPress={navigateToAuthorProfile}
-                      onHashtagPress={navigateToHashtagFeed}
-                      facets={record.facets}
-                    />
-                  </TouchableOpacity>
-                  {!isOverlayCollapsed && record.createdAt && (
-                    <>
-                      <View style={styles.divider} />
-                      <Text style={styles.dateText}>
-                        {new Date(record.createdAt).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                        {record.metadata?.orbyt && record.metadata?.platform && (
-                          <Text style={styles.orbytText}> • {record.metadata.platform}</Text>
-                        )}
-                      </Text>
-                    </>
-                  )}
-                </>
+              {/* Hidden text to measure layout */}
+              <Text
+                style={[styles.descriptionText, { position: 'absolute', opacity: 0 }]}
+                onTextLayout={handleTextLayout}
+              >
+                {record.text}
+              </Text>
+              
+              {hasLongText ? (
+                <TouchableOpacity onPress={toggleCollapsed} activeOpacity={0.8}>
+                  <TextWithAuthorLinks
+                    text={record.text}
+                    style={styles.descriptionText}
+                    numberOfLines={isOverlayCollapsed ? 2 : undefined}
+                    onAuthorPress={navigateToAuthorProfile}
+                    onHashtagPress={navigateToHashtagFeed}
+                    facets={record.facets}
+                  />
+                </TouchableOpacity>
               ) : (
-                <>
-                  <TouchableOpacity onPress={toggleCollapsed} activeOpacity={0.8}>
-                    <Text style={styles.showMoreText}>Show more</Text>
-                  </TouchableOpacity>
-                  {!isOverlayCollapsed && record.createdAt && (
-                    <Text style={styles.dateText}>
-                      {new Date(record.createdAt).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                      {record.metadata?.orbyt && record.metadata?.platform && (
-                        <Text style={styles.orbytText}> • {record.metadata.platform}</Text>
-                      )}
-                    </Text>
-                  )}
-                </>
+                <TextWithAuthorLinks
+                  text={record.text}
+                  style={styles.descriptionText}
+                  onAuthorPress={navigateToAuthorProfile}
+                  onHashtagPress={navigateToHashtagFeed}
+                  facets={record.facets}
+                />
               )}
             </View>
           )}
@@ -615,34 +605,12 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   showMoreText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-Regular',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  dateText: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.75)',
     fontSize: 14,
     fontFamily: 'Firma-Regular',
-    marginTop: 4,
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowColor: 'rgba(40, 22, 22, 0.15)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
-  },
-  orbytText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginVertical: 4,
   },
   authorInfoContainer: {
     flexDirection: 'row',
