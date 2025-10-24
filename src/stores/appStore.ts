@@ -44,7 +44,7 @@ export const useAppStore = create<AppState>()(
   )
 );
 
-// Convenience hooks
+// Convenience hooks - optimized with individual selectors
 export const useAppInitialization = () => {
   const fontsLoaded = useAppStore(state => state.fontsLoaded);
   const appState = useAppStore(state => state.appState);

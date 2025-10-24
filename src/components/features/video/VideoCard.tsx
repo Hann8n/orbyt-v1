@@ -8,6 +8,7 @@ import React, {
   memo,
 } from 'react';
 import { useRecyclingState } from '@shopify/flash-list';
+import { useRouter } from 'expo-router';
 
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { AtprotoService } from '../../../services/api/AtprotoService';
@@ -399,9 +400,15 @@ error('Repost action failed:', error);
       }
     }, [overlayState.isRepostPending, overlayState.isReposted, overlayState.repostCount, overlayState.repostUri, post.uri, post.cid]);
 
+    const navigation = useRouter();
+    
     const handleSourcePress = useCallback(() => {
-      // TODO: Implement source feed navigation
-    }, []);
+      if (sourceFeed && sourceFeed.startsWith('at://')) {
+        // Navigate to channel page
+        const encodedUri = encodeURIComponent(sourceFeed);
+        navigation.push(`/channel/${encodedUri}`);
+      }
+    }, [sourceFeed, navigation]);
 
     // Video Status Reporting - use post URI for simple tracking
     useEffect(() => {

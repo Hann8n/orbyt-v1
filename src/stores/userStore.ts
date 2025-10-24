@@ -7,6 +7,7 @@
 import React, { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+// Note: Using individual selectors instead of shallow comparison for better performance
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Agent } from '@atproto/api';
@@ -1400,7 +1401,7 @@ export const useUserStore = create<UserState>()(
   )
 );
 
-// Convenience hooks
+// Convenience hooks - optimized with individual selectors to prevent over-subscription
 export const useAuth = () => {
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const isAuthenticating = useUserStore(state => state.isAuthenticating);

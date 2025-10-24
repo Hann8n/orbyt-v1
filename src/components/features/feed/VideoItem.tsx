@@ -129,6 +129,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
         moderationDecision={moderationDecision}
         showOverlay={true}
         feedOption={feedOption as any}
+        sourceFeed={feedItem?.sourceFeed}
         isModal={isModal}
       />
     </View>

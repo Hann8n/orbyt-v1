@@ -9,8 +9,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import { NativeScrollEvent } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
-import { useSubscribedChannels } from './useSubscribedChannels';
-import { useCurrentUser } from '../stores/userStore';
+import { useUserStore } from '../stores/userStore';
 import { preloadThumbnailColors } from '../utils/helpers/video';
 
 // Optimized feed configuration for smooth performance
@@ -72,10 +71,11 @@ export function useFeed(
   } = options;
 
   const queryClient = useQueryClient();
-  const { currentUser } = useCurrentUser();
+  // Use direct selector to prevent re-renders when other user data changes
+  const currentUser = useUserStore(state => state.currentUser);
 
-  // Get subscribed channels for your mix feed
-  const { subscribedChannels = [] } = useSubscribedChannels();
+  // Get subscribed channels for your mix feed - use direct selector
+  const subscribedChannels = useUserStore(state => state.subscribedChannels);
 
   // Invalidate feed queries when user changes
   useEffect(() => {

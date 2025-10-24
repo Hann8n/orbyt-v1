@@ -60,10 +60,19 @@ if (typeof global !== 'undefined' && !global.location) {
 }
 
 export default function RootLayout() {
-  const { fontsLoaded, appState, setFontsLoaded, setAppState } = useAppStore();
-  const { isAuthenticated, isAuthenticating, signIn, signOut } = useAuth();
-  const { switchAccount } = useAccountManagement();
-  const { initializeUserState } = useUserStore();
+  // Use individual selectors to prevent unnecessary re-renders
+  const fontsLoaded = useAppStore(state => state.fontsLoaded);
+  const appState = useAppStore(state => state.appState);
+  const setFontsLoaded = useAppStore(state => state.setFontsLoaded);
+  const setAppState = useAppStore(state => state.setAppState);
+  
+  const isAuthenticated = useUserStore(state => state.isAuthenticated);
+  const isAuthenticating = useUserStore(state => state.isAuthenticating);
+  const signIn = useUserStore(state => state.signIn);
+  const signOut = useUserStore(state => state.signOut);
+  const switchAccount = useUserStore(state => state.switchAccount);
+  const initializeUserState = useUserStore(state => state.initializeUserState);
+  
   const [isInitializing, setIsInitializing] = useState(true);
   
   // Precache current user profile on app launch

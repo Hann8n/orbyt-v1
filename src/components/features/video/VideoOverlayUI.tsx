@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence } from 'react-native-reanimated';
 import { useMappingHelper } from '@shopify/flash-list';
 import { BORDER_RADIUS } from '../../../utils/constants';
@@ -17,6 +17,7 @@ import Icon, { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon, TvIco
 import { Avatar } from '../../ui/UI';
 import { formatNumber } from '../../../utils/helpers';
 import { useProfileColors } from '../../../services/cache/ProfileCache';
+import { useChannelColors } from '../../../services/cache/ChannelCache';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import VerificationBadge from '../verification/VerificationBadge';
@@ -106,13 +107,19 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Get profile colors for overlay
   const { colors: profileColors } = useProfileColors(post.author?.handle);
+  
+  // Get channel colors for source feed
+  const { colors: channelColors } = useChannelColors(sourceFeed);
 
-  // Simplified - no memoization needed for simple object access
-  const author = post.author || {};
-  const record = post.record || {};
-  const profilePicUrl = author.avatar && author.avatar.startsWith('http')
-    ? author.avatar
-    : 'https://via.placeholder.com/40';
+  // Memoize expensive calculations to prevent rerenders
+  const author = useMemo(() => post.author || {}, [post.author]);
+  const record = useMemo(() => post.record || {}, [post.record]);
+  const profilePicUrl = useMemo(() => 
+    author.avatar && author.avatar.startsWith('http')
+      ? author.avatar
+      : 'https://via.placeholder.com/40',
+    [author.avatar]
+  );
 
   const toggleCollapsed = useCallback(() => {
     setIsOverlayCollapsed(prev => !prev);
@@ -171,26 +178,31 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     });
   }, [post.uri, post.cid, post.author, feedOption, sourceFeed, presentShareSheet]);
 
-  // Simplified UI calculations - no memoization needed
+  // Memoize UI calculations to prevent recalculation on every render
   const likeScale = useSharedValue(1);
   const likeAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: likeScale.value }],
   }));
-  const contentPadding = Math.round(Math.max(8, Math.min(14, width * 0.025)));
-  const actionIconSize = Math.round(Math.max(28, Math.min(40, width * 0.085)));
-  const smallIconSize = Math.max(14, Math.min(20, Math.round(width * 0.05)));
-  const authorAvatarSize = Math.round(Math.max(46, Math.min(64, width * 0.12)));
-  const repostAvatarSize = Math.round(Math.max(20, Math.min(28, width * 0.06)));
+  
+  const uiCalculations = useMemo(() => ({
+    contentPadding: Math.round(Math.max(8, Math.min(14, width * 0.025))),
+    actionIconSize: Math.round(Math.max(28, Math.min(40, width * 0.085))),
+    smallIconSize: Math.max(14, Math.min(20, Math.round(width * 0.05))),
+    authorAvatarSize: Math.round(Math.max(46, Math.min(64, width * 0.12))),
+    repostAvatarSize: Math.round(Math.max(20, Math.min(28, width * 0.06))),
+  }), [width]);
+  
+  const { contentPadding, actionIconSize, smallIconSize, authorAvatarSize, repostAvatarSize } = uiCalculations;
 
-  // Simplified icon rendering - no useCallback needed for simple JSX
-  const renderLikeIcon = () => (
+  // Memoize icon rendering to prevent unnecessary recreations
+  const renderLikeIcon = useCallback(() => (
     <Animated.View style={likeAnimatedStyle}>
       <HeartFillIcon 
         size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
         color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.white} 
       />
     </Animated.View>
-  );
+  ), [likeAnimatedStyle, isTabletDevice, actionIconSize, isLiked]);
 
   // Repost animation: quick tilt (wiggle) + slight scale pulse
   const repostScale = useSharedValue(1);
@@ -205,34 +217,57 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       ] as any,
 };
   });
-  const renderRepostIcon = () => (
+  
+  const renderRepostIcon = useCallback(() => (
     <Animated.View style={repostAnimatedStyle}>
       <RefreshFillIcon 
         size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
         color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE} 
       />
     </Animated.View>
-  );
+  ), [repostAnimatedStyle, isTabletDevice, actionIconSize, isReposted]);
 
-  // Simplified icon definitions - no memoization needed
-  const repostIcon = (
+  // Memoize static icons to prevent recreation
+  const repostIcon = useMemo(() => (
     <RefreshFillIcon 
       size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
       color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE} 
     />
-  );
+  ), [isTabletDevice, actionIconSize, isReposted]);
 
-  const commentIcon = (
+  const commentIcon = useMemo(() => (
     <ChatFillIcon size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} color={Colors.INTERACTIVE.COMMENT} />
-  );
+  ), [isTabletDevice, actionIconSize]);
 
-  // Only use sourceFeed for yourMix feeds
-  const shouldUseSourceFeed = feedOption === 'yourMix' && sourceFeed;
+  // Memoize source feed calculations to prevent unnecessary recalculations
+  const shouldUseSourceFeed = useMemo(() => 
+    feedOption === 'yourMix' && sourceFeed,
+    [feedOption, sourceFeed]
+  );
   
-  // Simplified source display name calculation
-  const sourceDisplayName = shouldUseSourceFeed && sourceFeed !== 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids'
-    ? getFeedDisplayName(sourceFeed) || ''
-    : null;
+  const sourceDisplayName = useMemo(() => {
+    if (!shouldUseSourceFeed || sourceFeed === 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids') {
+      return null;
+    }
+    return getFeedDisplayName(sourceFeed) || '';
+  }, [shouldUseSourceFeed, sourceFeed]);
+
+  // Memoize dynamic styles to prevent style object recreation
+  const overlayContentStyle = useMemo(() => [
+    styles.overlayContentContainer,
+    { padding: contentPadding },
+    isModal ? { bottom: 0 } : (isSmallScreenDevice || isTabletDevice) ? { bottom: bottomNavBarHeight} : {},
+  ], [contentPadding, isModal, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight]);
+
+  const gradientColors = useMemo(() => {
+    if (hasLongText && isOverlayCollapsed) {
+      return ['transparent', 'transparent', 'transparent', 'transparent'] as const;
+    }
+    if (hasLongText) {
+      return ['rgba(0, 0, 0, 0.95)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.3)', 'transparent'] as const;
+    }
+    return ['transparent', 'transparent', 'transparent', 'transparent'] as const;
+  }, [hasLongText, isOverlayCollapsed]);
 
   if (!isVisible) return null;
 
@@ -242,12 +277,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       {/* Gradient overlay with hardware acceleration */}
       <View style={[styles.uiOverlay, { height: height * 0.8 }]} pointerEvents="none">
         <LinearGradient
-          colors={hasLongText && isOverlayCollapsed
-            ? ['transparent', 'transparent', 'transparent', 'transparent']
-            : hasLongText
-            ? ['rgba(0, 0, 0, 0.95)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.3)', 'transparent']
-            : ['transparent', 'transparent', 'transparent', 'transparent']
-          }
+          colors={gradientColors}
           locations={[0, 0.4, 0.6, 1]}
           style={{ flex: 1 }}
           pointerEvents="none"
@@ -257,11 +287,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       </View>
       
       <View 
-        style={[
-          styles.overlayContentContainer,
-          { padding: contentPadding },
-          isModal ? { bottom: 0 } : (isSmallScreenDevice || isTabletDevice) ? { bottom: bottomNavBarHeight} : {},
-        ]} 
+        style={overlayContentStyle} 
         pointerEvents="box-none"
       >
         <View style={styles.infoColumn} pointerEvents="box-none">
@@ -396,14 +422,14 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   <View style={{ marginRight: 4 }}>
                     <TvIcon 
                       size={isTabletDevice ? Math.max(smallIconSize, 14) : smallIconSize}
-                      color={sourceDisplayName === 'for your consideration' ? Colors.lightGray : '#cfd6e8'}
+                      color={channelColors.primaryColor || Colors.blue}
                     />
                   </View>
                   <Text style={[
                     isTabletDevice
                       ? styles.sourceTextTablet
                       : styles.sourceText,
-                    { color: sourceDisplayName === 'for your consideration' ? Colors.lightGray : '#cfd6e8' }
+                    { color: Colors.white }
                   ]}>
                     {sourceDisplayName}
                   </Text>

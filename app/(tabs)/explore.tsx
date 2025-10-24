@@ -483,7 +483,7 @@ const VisitHistoryList = ({
   onClearHistory,
   currentColors 
 }: {
-  visitHistory: Array<{ type: 'profile' | 'channel'; data: Profile | Channel; visitedAt: number }>;
+  visitHistory: Array<{ type: 'profile' | 'channel'; data: Profile | Channel }>;
   onHistoryItemPress: (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => void;
   onClearHistory: () => void;
   currentColors: { backgroundColor: string; textColor: string };
@@ -505,18 +505,6 @@ const VisitHistoryList = ({
     );
   }
 
-  const formatTimeAgo = (timestamp: number) => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return `${days}d ago`;
-  };
 
   return (
     <View style={styles.searchHistoryContainer}>
@@ -574,9 +562,6 @@ const VisitHistoryList = ({
                     </View>
                   </View>
                 </TouchableOpacity>
-                <Text style={styles.historyTime}>
-                  {formatTimeAgo(item.visitedAt)}
-                </Text>
               </View>
             );
           } else if (!isProfile && channelData) {
@@ -605,9 +590,6 @@ const VisitHistoryList = ({
                     </View>
                   </View>
                 </TouchableOpacity>
-                <Text style={styles.historyTime}>
-                  {formatTimeAgo(item.visitedAt)}
-                </Text>
               </View>
             );
           }
@@ -631,7 +613,6 @@ const ExploreScreen: React.FC = () => {
   const [visitHistory, setVisitHistory] = useState<Array<{
     type: 'profile' | 'channel';
     data: Profile | Channel;
-    visitedAt: number;
   }>>([]);
   
 
@@ -910,7 +891,6 @@ const ExploreScreen: React.FC = () => {
       const historyItem = {
         type,
         data,
-        visitedAt: Date.now(),
       };
       
       // Remove any existing entry for this item and add to beginning
