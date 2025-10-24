@@ -33,7 +33,7 @@
     "babel-plugin-module-resolver": "^5.0.2",
     "event-target-polyfill": "^0.0.4",
     "expo": "54.0.13",
-    "expo-atproto-auth": "^0.1.1",
+    "@atproto/oauth-client-expo": "^0.0.1",
     "expo-background-task": "~1.0.8",
     "expo-blur": "~15.0.7",
     "expo-build-properties": "~1.0.9",
@@ -104,8 +104,7 @@
         "listUnknownPackages": false,
         "exclude": [
           "immer",
-          "react-native-sticky-parallax-header",
-          "expo-atproto-auth"
+          "react-native-sticky-parallax-header"
         ]
       }
     }

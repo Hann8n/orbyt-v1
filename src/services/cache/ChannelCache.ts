@@ -137,7 +137,6 @@ class ChannelCache {
         }
       }
     } catch (error) {
-      console.error('[ChannelCache] Error reading from cache:', error);
     }
     
     return null;
@@ -179,7 +178,6 @@ class ChannelCache {
     
     // Validate URI format - must be a valid at-uri for feed generators
     if (!uri.startsWith('at://')) {
-      console.warn(`[ChannelCache] Invalid URI format for feed generator: ${uri}`);
       return null;
     }
     
@@ -215,7 +213,6 @@ class ChannelCache {
                   statusBarStyle: 'light' as const
                 };
               } catch (e) {
-                console.error('[ChannelCache] Error extracting colors:', e);
                 // Set fallback colors if extraction fails
                 channelColors = {
                   backgroundColor: Colors.black,
@@ -242,9 +239,6 @@ class ChannelCache {
             const isExperimental = !isVideoOnly;
 
             // Debug logging
-            // console.log('[ChannelCache] Feed data:', {
-            //   uri: channel.view?.uri || channel.uri,
-            //   displayName: channel.view?.displayName || channel.displayName,
             //   contentMode: channel.view?.contentMode,
             //   isVideoOnly,
             //   isExperimental
@@ -287,7 +281,6 @@ class ChannelCache {
                   this.getCacheKey(normalizedUri),
                   JSON.stringify(cacheObject)
                 ).catch(error => {
-                  console.warn('Error storing channel in cache:', error);
                 });
                 
                 this.notifyChannelUpdated(normalizedUri);
@@ -296,7 +289,6 @@ class ChannelCache {
 
             resolve(cacheObject);
           } catch (error) {
-            console.warn(`ChannelCache: Error fetching and caching channel for ${uri}:`, error);
             resolve(null);
           }
         }, 0);
@@ -349,7 +341,6 @@ class ChannelCache {
             }
             resolve();
           } catch (error) {
-            console.error('[ChannelCache] Error updating channel colors:', error);
             resolve();
           }
         }, 0);
@@ -406,7 +397,6 @@ class ChannelCache {
                   };
                   }
                 } catch (e) {
-                  console.error('[ChannelCache] Error extracting colors:', e);
                 }
 
                 const cacheObject: CachedChannel = {
@@ -438,7 +428,6 @@ class ChannelCache {
             }
             resolve();
           } catch (error) {
-            console.error('[ChannelCache] Error in cacheChannels:', error);
             resolve();
           }
         }, 0);
@@ -512,14 +501,12 @@ class ChannelCache {
                   // Fetch and cache the channel
                   await this.getChannel(uri);
                 } catch (error) {
-                  console.warn(`[ChannelCache] Error prefetching channel ${uri}:`, error);
                 }
               }));
             }
             
             resolve();
           } catch (error) {
-            console.error('[ChannelCache] Error in batch prefetch:', error);
             resolve();
           }
         }, 0);
@@ -539,7 +526,6 @@ class ChannelCache {
         await AsyncStorage.multiRemove(channelKeys);
       }
     } catch (error) {
-      console.error('[ChannelCache] Error clearing cache:', error);
     }
   }
 
@@ -564,7 +550,6 @@ class ChannelCache {
       
 
     } catch (error) {
-      console.error('[ChannelCache] Error invalidating channel:', error);
     }
   }
 

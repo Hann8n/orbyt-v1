@@ -161,14 +161,14 @@ class ChatService {
   }
 
   private async getAgent(): Promise<Agent> {
-    const agent = await this.oauthService.getCurrentAgent();
+    const { useUserStore } = await import('../stores/userStore');
+    const userStore = useUserStore.getState();
     
-    if (!agent) {
+    if (!userStore.agent) {
       throw new Error('No OAuth agent available');
     }
 
-    console.log('[ChatService] Got OAuth agent for chat requests');
-    return agent;
+    return userStore.agent;
   }
 
   // Core Conversation APIs
@@ -181,7 +181,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Getting conversation:', conversationId);
       
       const response = await agent.api.chat.bsky.convo.getConvo({
         convoId: conversationId,
@@ -199,7 +198,6 @@ class ChatService {
 
       return await this.mapConversationFromAPI(response.data.convo || response.data);
     } catch (error: any) {
-      console.error('Error getting conversation:', error.message);
       throw error;
     }
   }
@@ -212,7 +210,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Getting conversation for members:', members);
       
       const response = await agent.api.chat.bsky.convo.getConvoForMembers({
         members: members,
@@ -230,7 +227,6 @@ class ChatService {
 
       return await this.mapConversationFromAPI(response.data.convo);
     } catch (error: any) {
-      console.error('Error getting conversation for members:', error.message);
       throw error;
     }
   }
@@ -243,7 +239,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Getting conversation log with cursor:', cursor);
       
       const response = await agent.api.chat.bsky.convo.getLog({
         ...(cursor && { cursor }),
@@ -265,7 +260,6 @@ class ChatService {
         cursor: data.cursor || null 
       };
     } catch (error: any) {
-      console.error('Error getting conversation log:', error.message);
       throw error;
     }
   }
@@ -280,7 +274,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Sending message to conversation:', params.conversationId);
       
       const messageData: any = {
         text: params.text,
@@ -311,7 +304,6 @@ class ChatService {
 
       return await this.mapMessageFromAPI(response.data as any);
     } catch (error: any) {
-      console.error('Error sending message:', error.message);
       throw error;
     }
   }
@@ -324,7 +316,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Deleting message:', messageId);
       
       const response = await agent.api.chat.bsky.convo.deleteMessageForSelf({
         convoId: conversationId,
@@ -341,7 +332,6 @@ class ChatService {
         throw new Error('Failed to delete message');
       }
     } catch (error: any) {
-      console.error('Error deleting message:', error.message);
       throw error;
     }
   }
@@ -356,7 +346,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Adding reaction:', params);
       
       const response = await agent.api.chat.bsky.convo.addReaction({
         convoId: params.conversationId,
@@ -372,7 +361,6 @@ class ChatService {
         throw new Error('Failed to add reaction');
       }
     } catch (error: any) {
-      console.error('Error adding reaction:', error.message);
       throw error;
     }
   }
@@ -385,7 +373,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Removing reaction:', params);
       
       const response = await agent.api.chat.bsky.convo.removeReaction({
         convoId: params.conversationId,
@@ -401,7 +388,6 @@ class ChatService {
         throw new Error('Failed to remove reaction');
       }
     } catch (error: any) {
-      console.error('Error removing reaction:', error.message);
       throw error;
     }
   }
@@ -415,8 +401,9 @@ class ChatService {
   async beginConversation(members: string[]): Promise<Conversation> {
     try {
       const agent = await this.getAgent();
-      const session = await this.oauthService.getCurrentOAuthSession();
-      const currentUserDid = session?.did;
+      const { useUserStore } = await import('../stores/userStore');
+      const userStore = useUserStore.getState();
+      const currentUserDid = userStore.currentUser?.did;
       
       if (!currentUserDid) {
         throw new Error('No authenticated user');
@@ -425,7 +412,6 @@ class ChatService {
       // Include current user in members if not already present
       const allMembers = members.includes(currentUserDid) ? members : [currentUserDid, ...members];
       
-      console.log('[ChatService] Beginning conversation with members:', allMembers);
       
       const conversation = await this.getConversationForMembers(allMembers);
       
@@ -435,7 +421,6 @@ class ChatService {
       
       return conversation;
     } catch (error: any) {
-      console.error('Error beginning conversation:', error.message);
       throw error;
     }
   }
@@ -448,7 +433,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Accepting conversation:', conversationId);
       
       const response = await agent.api.chat.bsky.convo.acceptConvo({
         convoId: conversationId,
@@ -464,7 +448,6 @@ class ChatService {
         throw new Error('Failed to accept conversation');
       }
     } catch (error: any) {
-      console.error('Error accepting conversation:', error.message);
       throw error;
     }
   }
@@ -477,7 +460,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Leaving conversation:', conversationId);
       
       const response = await agent.api.chat.bsky.convo.leaveConvo({
         convoId: conversationId,
@@ -493,7 +475,6 @@ class ChatService {
         throw new Error('Failed to leave conversation');
       }
     } catch (error: any) {
-      console.error('Error leaving conversation:', error.message);
       throw error;
     }
   }
@@ -506,7 +487,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Muting/unmuting conversation:', params);
       
       if (params.muted) {
         const response = await agent.api.chat.bsky.convo.muteConvo({
@@ -534,7 +514,6 @@ class ChatService {
         }
       }
     } catch (error: any) {
-      console.error('Error muting/unmuting conversation:', error.message);
       throw error;
     }
   }
@@ -547,7 +526,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Updating read status for conversation:', params.conversationId);
       
       const response = await agent.api.chat.bsky.convo.updateRead({
         convoId: params.conversationId,
@@ -562,7 +540,6 @@ class ChatService {
         throw new Error('Failed to update read status');
       }
     } catch (error: any) {
-      console.error('Error updating read status:', error.message);
       throw error;
     }
   }
@@ -577,7 +554,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Fetching conversations with cursor:', cursor);
       
       const response = await agent.api.chat.bsky.convo.listConvos({
         limit: 50,
@@ -591,7 +567,6 @@ class ChatService {
       
 
       if (!response.data) {
-        console.warn('Chat service not implemented or unavailable. Returning empty conversations.');
         return { conversations: [], cursor: null };
       }
 
@@ -603,7 +578,6 @@ class ChatService {
         cursor: json.cursor || null 
       };
     } catch (error: any) {
-      console.error('Error fetching conversations:', error.message);
       throw error;
     }
   }
@@ -616,7 +590,6 @@ class ChatService {
     try {
       const agent = await this.getAgent();
       
-      console.log('[ChatService] Fetching messages for conversation:', conversationId);
       
       const response = await agent.api.chat.bsky.convo.getMessages({
         convoId: conversationId,
@@ -631,7 +604,6 @@ class ChatService {
       
 
       if (!response.data) {
-        console.warn('Chat service not implemented or unavailable. Returning empty messages.');
         return { messages: [], cursor: null };
       }
 
@@ -645,7 +617,6 @@ class ChatService {
         cursor: json.cursor || null 
       };
     } catch (error: any) {
-      console.error('Error fetching messages:', error.message);
       throw error;
     }
   }
@@ -659,13 +630,11 @@ class ChatService {
       const existingConvo = await this.getConversationForMembers([params.recipientDid]);
       
       if (existingConvo) {
-        console.log('[ChatService] Found existing conversation');
         return existingConvo;
       }
 
       // If no existing conversation, create one using getConvoForMembers
       // This endpoint can create a conversation if it doesn't exist
-      console.log('[ChatService] Creating new conversation');
       const newConvo = await this.getConversationForMembers([params.recipientDid]);
       
       if (!newConvo) {
@@ -674,7 +643,6 @@ class ChatService {
       
       return newConvo;
     } catch (error: any) {
-      console.error('Error creating conversation:', error.message);
       throw error;
     }
   }
@@ -695,7 +663,6 @@ class ChatService {
       // If we get any response (even empty), the service is available
       return !!response.data;
     } catch (error) {
-      console.warn('[ChatService] Chat service availability check failed:', error);
       return false;
     }
   }
@@ -707,8 +674,9 @@ class ChatService {
   async getConversationAvailability(userDid: string): Promise<boolean> {
     try {
       const agent = await this.getAgent();
-      const session = await this.oauthService.getCurrentOAuthSession();
-      const currentUserDid = session?.did;
+      const { useUserStore } = await import('../stores/userStore');
+      const userStore = useUserStore.getState();
+      const currentUserDid = userStore.currentUser?.did;
       
       const response = await agent.api.chat.bsky.convo.getConvoAvailability({
         members: currentUserDid ? [currentUserDid, userDid] : [userDid],
@@ -725,7 +693,6 @@ class ChatService {
       const json = response.data as any;
       return json.canChat === true;
     } catch (error: any) {
-      console.error('Error checking conversation availability:', error.message);
       return false;
     }
   }
@@ -749,7 +716,6 @@ class ChatService {
         });
       }
     } catch (error: any) {
-      console.error('Error marking conversation as read:', error.message);
       // Don't throw - this is a non-critical operation
     }
   }
@@ -757,11 +723,10 @@ class ChatService {
   // Data mapping methods
 
   private mapConversationFromAPI = async (apiConv: any): Promise<Conversation> => {
-    const oauthSession = await this.oauthService.getCurrentOAuthSession();
-    const currentUserDid = oauthSession?.did;
+    const { useUserStore } = await import('../stores/userStore');
+    const userStore = useUserStore.getState();
+    const currentUserDid = userStore.currentUser?.did;
     
-    console.log('[ChatService] Debug - Mapping conversation from API:', apiConv);
-    console.log('[ChatService] Debug - Members from API:', apiConv.members);
     
     // Properly map members - they should be an array of objects with did, handle, displayName, etc.
     const members = Array.isArray(apiConv.members)
@@ -778,7 +743,6 @@ class ChatService {
           return member;
         })
       : [];
-    console.log('[ChatService] Debug - Mapped members:', members);
     
     return {
       id: apiConv.id,
@@ -797,8 +761,9 @@ class ChatService {
   };
 
   private mapMessageFromAPI = async (apiMsg: any): Promise<Message> => {
-    const oauthSession = await this.oauthService.getCurrentOAuthSession();
-    const currentUserDid = oauthSession?.did;
+    const { useUserStore } = await import('../stores/userStore');
+    const userStore = useUserStore.getState();
+    const currentUserDid = userStore.currentUser?.did;
     
     return {
       id: apiMsg.id,

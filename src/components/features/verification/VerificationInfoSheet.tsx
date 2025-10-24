@@ -100,7 +100,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         const result = await ProfileCache.getProfile(handle);
         return result || null;
       } catch (error) {
-        console.error('Error fetching profile:', error);
         return null;
       }
     },
@@ -117,7 +116,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         const result = await ProfileCache.getVerificationDetails(handle);
         return result || null;
       } catch (error) {
-        console.error('Error fetching verification details:', error);
         return null;
       }
     },
@@ -148,7 +146,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         }
         return null;
       } catch (error) {
-        console.error('Error fetching issuer profile:', error);
         return null;
       }
     },

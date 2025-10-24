@@ -91,7 +91,6 @@ const SubscribeButton: React.FC<{
                       memberCount: channel.likeCount,
                     });
                   } catch (error) {
-                    console.error('Error during subscribe:', error);
                   } finally {
                     setIsSubscribing(false);
                   }
@@ -101,7 +100,6 @@ const SubscribeButton: React.FC<{
           );
           alertShown = true;
         } catch (error) {
-          console.error('Error showing alert, subscribing directly:', error);
           alertShown = false;
         }
         
@@ -117,7 +115,6 @@ const SubscribeButton: React.FC<{
               memberCount: channel.likeCount,
             });
           } catch (subscribeError) {
-            console.error('Error during direct subscribe:', subscribeError);
           } finally {
             setIsSubscribing(false);
           }
@@ -140,12 +137,10 @@ const SubscribeButton: React.FC<{
           });
         }
       } catch (error) {
-        console.error('Error during subscribe/unsubscribe:', error);
       } finally {
         setIsSubscribing(false);
       }
     } catch (error) {
-      console.error('Unexpected error in handleSubscribe:', error);
       setIsSubscribing(false);
     }
   }, [channel, isSubscribed, subscribeToChannel, unsubscribeFromChannel]);

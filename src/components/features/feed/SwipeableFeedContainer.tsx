@@ -250,7 +250,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       const defaults = await getAvailableDefaultChannels();
       setAvailableDefaultChannels(defaults);
     } catch (error) {
-      console.error('Error restoring default channel:', error);
     }
   }, [restoreDefaultChannel, getAvailableDefaultChannels]);
 
@@ -297,7 +296,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
           const defaults = await getAvailableDefaultChannels();
           setAvailableDefaultChannels(defaults);
         } catch (error) {
-          console.error('Error loading available default channels:', error);
         }
       } else {
         setAvailableDefaultChannels([]);

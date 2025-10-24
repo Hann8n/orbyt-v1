@@ -140,7 +140,6 @@ abstract class APIService<T extends ApiResponse> {
 
       return data;
     } catch (error) {
-      console.error(`Error fetching ${this.ENDPOINT_NAME}:`, error);
 
       if (this.cache) {
         return this.cache;
@@ -252,7 +251,6 @@ class StaticChannelsService extends APIService<ChannelsResponse> {
       const data = await instance.fetchData();
       return data.channels || [];
     } catch (error) {
-      console.error('Error fetching static channels:', error);
       return [];
     }
   }
@@ -280,7 +278,6 @@ export const useStaticChannels = () => {
       try {
         return await StaticChannelsService.getChannels();
       } catch (error) {
-        console.error('Error in useStaticChannels:', error);
         return [];
       }
     },

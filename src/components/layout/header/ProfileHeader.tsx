@@ -104,7 +104,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       // Navigate to chat screen
       navigation.push(`/chat/${conversation.id}`);
     } catch (error) {
-      console.error('Error starting conversation:', error);
+error('Error starting conversation:', error);
       // For now, just navigate to the chat tab
       navigation.push('/chat');
     }

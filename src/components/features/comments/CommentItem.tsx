@@ -235,7 +235,6 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       try {
         if (newIsLiked) {
           if (!properUri || !properCid) {
-            console.error('Missing URI or CID for like action', comment);
             // Revert on error
             setIsLiked(isLiked);
             setLikeCount(likeCount);
@@ -250,7 +249,6 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           setLikeUri(likeURI);
         } else {
           if (!likeUri) {
-            console.error('No like URI found for unlike action');
             // Revert on error
             setIsLiked(isLiked);
             setLikeCount(likeCount);
@@ -264,7 +262,6 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           }
         }
       } catch (error) {
-        console.error('Error liking comment:', error);
         // Revert optimistic update on error
         setIsLiked(isLiked);
         setLikeCount(likeCount);
@@ -280,7 +277,6 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const navigateToAuthorProfile = useCallback((rawHandle?: string | null) => {
       const cleanHandle = (rawHandle || '').trim();
       if (!cleanHandle) {
-        console.error('CommentItem: Cannot navigate: Invalid handle:', rawHandle);
         return;
       }
 
@@ -324,7 +320,6 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       if (handle && typeof handle === 'string' && handle.trim() !== '') {
         navigateToAuthorProfile(handle);
       } else {
-        console.error('CommentItem: Cannot navigate: Invalid or missing handle', comment?.author, comment?.post?.author);
       }
     }, [comment?.post?.author, comment?.author, navigateToAuthorProfile]);
 
@@ -343,13 +338,6 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             ...comment.author,
             displayName: authorName
           }
-        });
-      } else {
-        console.error('CommentItem: Cannot reply - missing required data', {
-          hasAuthor: !!comment?.author,
-          hasHandle: !!comment?.author?.handle,
-          hasUri: !!properUri,
-          hasCid: !!properCid
         });
       }
     }, [authorName, properUri, properCid, level, queryClient, onReplyPress, comment]);
@@ -496,7 +484,6 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   style={[styles.commentImage, imageStyle]}
                   accessibilityLabel={external.description || external.title || 'Comment image'}
                   onError={(e: { nativeEvent: { error: string } }) => {
-                    console.warn('Error loading comment image:', e.nativeEvent.error);
                   }}
                   onLoad={e => {
                     const { width, height } = e.nativeEvent.source;
@@ -560,7 +547,6 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                 ]}
                 accessibilityLabel={img.alt || "Comment image"}
                 onError={(e: { nativeEvent: { error: string } }) => {
-                  console.warn('Error loading comment image:', e.nativeEvent.error);
                 }}
               />
             </TouchableOpacity>

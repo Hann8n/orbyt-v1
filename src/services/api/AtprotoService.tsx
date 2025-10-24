@@ -150,57 +150,21 @@ class AtprotoService {
    * queries fire at once
    */
   static async ensureSession(): Promise<any> {
-    // Check if we have a cached session
-    const now = Date.now();
-    
-    // First try OAuth cache
-    if (this._sessionCache.oauth && 
-        (now - this._sessionCache.oauth.timestamp) < this.SESSION_CACHE_TTL) {
-      // Using cached OAuth session for ensureSession
-      return { did: this._sessionCache.oauth.session.did, type: 'oauth' };
-    }
-    
-    
-    // If there's an active session fetch in progress, return that promise
-    if (this._sessionPromise) {
-      logger.debug('Using in-progress session promise', { component: 'AtprotoService', action: 'ensureSession' });
-      return this._sessionPromise;
-    }
-
-    // Otherwise, create a new session promise
-    logger.debug('Starting new session check', { component: 'AtprotoService', action: 'ensureSession' });
-    this._sessionPromise = (async () => {
-      try {
-        // Check if there's an OAuth session first
-        const oauthService = AtProtoOAuthService.getInstance();
-        try {
-          const oauthSession = await oauthService.getCurrentOAuthSession();
-          
-          if (oauthSession) {
-            logger.debug(`Found valid OAuth session for DID: ${oauthSession.did}`, { component: 'AtprotoService' });
-            // Cache the session
-            this._sessionCache.oauth = {
-              session: oauthSession,
-              timestamp: now
-            };
-            return { did: oauthSession.did, type: 'oauth' };
-          }
-        } catch (oauthError) {
-          logger.debug('Failed to get OAuth session', { component: 'AtprotoService' });
-        }
-
-
-        logger.debug('No valid session found', { component: 'AtprotoService' });
-        throw new Error('No session available. Please log in first.');
-      } finally {
-        // Clear the session promise so subsequent calls will create a new one
-        setTimeout(() => {
-          this._sessionPromise = null;
-        }, 1000); // Increased to 1 second to reduce concurrent requests
+    // Since we now get the agent from userStore in getApiClient,
+    // this method just needs to verify that we have a valid session
+    try {
+      const { useUserStore } = await import('../../stores/userStore');
+      const userStore = useUserStore.getState();
+      
+      if (userStore.agent && userStore.currentUser?.did) {
+        return { did: userStore.currentUser.did, type: 'oauth' };
       }
-    })();
-
-    return this._sessionPromise;
+      
+      throw new Error('No valid session found');
+    } catch (error) {
+      logger.error('Session check failed', error, { component: 'AtprotoService' });
+      throw error;
+    }
   }
 
   /**
@@ -208,43 +172,16 @@ class AtprotoService {
    */
   static async getCurrentUserDid(): Promise<string | null> {
     try {
-      // Check if we have a cached session
-      const now = Date.now();
+      const { useUserStore } = await import('../../stores/userStore');
+      const userStore = useUserStore.getState();
       
-      // First try OAuth
-      if (this._sessionCache.oauth && 
-          (now - this._sessionCache.oauth.timestamp) < this.SESSION_CACHE_TTL) {
-        // Using cached OAuth session
-        return this._sessionCache.oauth.session.did;
+      if (userStore.currentUser?.did) {
+        return userStore.currentUser.did;
       }
       
-      
-      // If no valid cache, try to get a fresh session
-      logger.debug('No cached session, fetching fresh session', { component: 'AtprotoService' });
-      
-      // Try OAuth first
-      const oauthService = AtProtoOAuthService.getInstance();
-      try {
-        const oauthSession = await oauthService.getCurrentOAuthSession();
-        if (oauthSession?.did) {
-          logger.debug(`Got OAuth session for DID: ${oauthSession.did}`, { component: 'AtprotoService' });
-          // Cache the session
-          this._sessionCache.oauth = {
-            session: oauthSession,
-            timestamp: now
-          };
-          return oauthSession.did;
-        }
-      } catch (oauthError) {
-        logger.debug('Failed to get OAuth session', { component: 'AtprotoService' });
-      }
-      
-      // Then try app password
-      
-      logger.debug('No valid session found', { component: 'AtprotoService' });
+      logger.debug('No current user found', { component: 'AtprotoService' });
       return null;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error getting current user DID', error, { component: 'AtprotoService' });
       return null;
     }
@@ -252,48 +189,17 @@ class AtprotoService {
 
   /**
    * Get the API client (OAuth or app password)
+   * Gets the current Agent from userStore
    */
   static async getApiClient(): Promise<{ api: any; isOAuth: boolean }> {
     try {
-      // Check for cached sessions first
-      const now = Date.now();
+      // Import userStore to get the current agent
+      const { useUserStore } = await import('../../stores/userStore');
+      const userStore = useUserStore.getState();
       
-      // Try OAuth first
-      if (this._sessionCache.oauth && 
-          (now - this._sessionCache.oauth.timestamp) < this.SESSION_CACHE_TTL) {
-        // Using cached OAuth session for API client
-        const oauthService = AtProtoOAuthService.getInstance();
-        const oauthAgent = await oauthService.getCurrentAgent();
-        if (oauthAgent) {
-          return { api: oauthAgent.api, isOAuth: true };
-        }
+      if (userStore.agent) {
+        return { api: userStore.agent.api, isOAuth: true };
       }
-      
-      
-      // If no valid cache, try to get fresh sessions
-      logger.debug('No cached session for API client, fetching fresh session', { component: 'AtprotoService' });
-      
-      // Try OAuth first
-      const oauthService = AtProtoOAuthService.getInstance();
-      try {
-        const oauthSession = await oauthService.getCurrentOAuthSession();
-        if (oauthSession) {
-          logger.debug('Got OAuth session for API client', { component: 'AtprotoService' });
-          const oauthAgent = await oauthService.getCurrentAgent();
-          if (oauthAgent) {
-            // Cache the session
-            this._sessionCache.oauth = {
-              session: oauthSession,
-              timestamp: now
-            };
-            return { api: oauthAgent.api, isOAuth: true };
-          }
-        }
-      } catch (oauthError) {
-        logger.debug('Failed to get OAuth session for API client', { component: 'AtprotoService' });
-      }
-      
-      // Then try app password
       
       logger.debug('No valid session found for API client', { component: 'AtprotoService' });
       throw new Error('No session available');
@@ -304,19 +210,6 @@ class AtprotoService {
     }
   }
 
-  /**
-   * Make an authenticated API request using OAuth
-   */
-  static async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
-    const oauthService = AtProtoOAuthService.getInstance();
-    const oauthSession = await oauthService.getCurrentOAuthSession();
-    
-    if (oauthSession) {
-      return await oauthService.makeAuthenticatedRequest(url, options);
-    } else {
-      throw new Error('No OAuth session available');
-    }
-  }
 
   /**
    * Get feed content - optimized for video-only feeds with maximum batch loading
@@ -465,7 +358,6 @@ class AtprotoService {
       } catch (error: any) {
         retries--;
         if (retries === 0) {
-          console.error('Feed request failed after retries:', error);
           return { feed: [], cursor: null };
         }
         // Wait before retrying
@@ -522,7 +414,6 @@ class AtprotoService {
       // First try to get the current user DID
       const userDid = await this.getCurrentUserDid();
       if (!userDid) {
-        console.log('[AtprotoService] No user DID available');
         throw new Error('No session available');
       }
       
@@ -575,11 +466,11 @@ class AtprotoService {
         'x-bsky-service': 'did:web:api.bsky.chat'
       };
       
-      // For OAuth, the authentication is handled by the agent automatically
-      const oauthService = AtProtoOAuthService.getInstance();
-      const oauthSession = await oauthService.getCurrentOAuthSession();
+      // Get the current agent from userStore
+      const { useUserStore } = await import('../../stores/userStore');
+      const userStore = useUserStore.getState();
       
-      if (!oauthSession) {
+      if (!userStore.agent) {
         throw new Error('No OAuth session available');
       }
       
@@ -592,7 +483,6 @@ class AtprotoService {
         { headers }
       );
       if (response.status === 501) {
-        console.warn("Service not implemented (HTTP 501). Returning empty conversations.");
         return { conversations: [], cursor: null };
       }
       if (!response.ok) {
@@ -694,7 +584,6 @@ class AtprotoService {
       const response = await api.app.bsky.feed.like.create({ repo: userDid }, record);
       return response.uri;
     } catch (error: any) {
-      console.error('Like creation error:', error);
       throw error;
     }
   }
@@ -721,7 +610,6 @@ class AtprotoService {
       const response = await api.app.bsky.feed.repost.create({ repo: userDid }, record);
       return response.uri;
     } catch (error: any) {
-      console.error('Repost creation error:', error);
       throw error;
     }
   }
@@ -811,7 +699,6 @@ class AtprotoService {
           images: uploadedImages
         };
       } catch (error) {
-        console.error('Error uploading images for comment:', error);
         // Continue without images if there was an error
       }
     }
@@ -898,13 +785,11 @@ class AtprotoService {
         try {
           await this.setCommentFilter(postResponse.uri, commentFilter);
         } catch (error) {
-          console.warn('Failed to set comment filter:', error);
         }
       }
 
       return postResponse;
     } catch (error: any) {
-      console.error('Video upload failed:', error);
       throw new Error(`Video upload failed: ${error.message}`);
     }
   }
@@ -920,7 +805,6 @@ class AtprotoService {
       // In a real implementation, you might want to use a video metadata library
       return { width: 9, height: 16 }; // Default to 9:16 (portrait)
     } catch (error) {
-      console.warn('Could not determine video aspect ratio, using default:', error);
       return { width: 9, height: 16 };
     }
   }
@@ -950,7 +834,6 @@ class AtprotoService {
 
       return uploadResult.data.blob;
     } catch (error: any) {
-      console.error('Error uploading video:', error);
       throw error;
     }
   }
@@ -1003,7 +886,6 @@ class AtprotoService {
         record
       });
     } catch (error: any) {
-      console.error('Error setting comment filter:', error);
       throw error;
     }
   }
@@ -1073,7 +955,6 @@ class AtprotoService {
         cursor: (response.data as any).cursor || null
       };
     } catch (error: any) {
-      console.error('Error fetching comments:', error);
       return { comments: [], cursor: null };
     }
   }
@@ -1098,7 +979,6 @@ class AtprotoService {
         cursor: response.data.cursor || null 
       };
     } catch (error: any) {
-      console.error('Error fetching likes:', error);
       return { likes: [], cursor: null };
     }
   }
@@ -1118,7 +998,6 @@ class AtprotoService {
       });
       return response.data.actors || [];
     } catch (error: any) {
-      console.error('Error searching profiles:', error);
       return [];
     }
   }
@@ -1149,7 +1028,6 @@ class AtprotoService {
         cursor: nextCursor
       };
     } catch (error) {
-      console.error('Error searching profiles:', error);
       return { profiles: [], cursor: null };
     }
   }
@@ -1228,13 +1106,13 @@ class AtprotoService {
   static async follow(did: string): Promise<string> {
     const { api } = await this.getApiClient();
     
-    // For OAuth sessions, get the DID from the OAuth service
-    const oauthService = AtProtoOAuthService.getInstance();
-    const oauthSession = await oauthService.getCurrentOAuthSession();
-    if (!oauthSession) {
+    // Get the current user DID from userStore
+    const { useUserStore } = await import('../../stores/userStore');
+    const userStore = useUserStore.getState();
+    if (!userStore.currentUser?.did) {
       throw new Error('No OAuth session available');
     }
-    const userDid = oauthSession.did;
+    const userDid = userStore.currentUser.did;
     
     const record = {
       $type: 'app.bsky.graph.follow' as const,
@@ -1249,7 +1127,6 @@ class AtprotoService {
       );
       return response.uri;
     } catch (error: any) {
-      console.error('Error following user:', error);
       throw error;
     }
   }
@@ -1262,19 +1139,18 @@ class AtprotoService {
   static async unfollow(did: string): Promise<boolean> {
     const { api } = await this.getApiClient();
     
-    // For OAuth sessions, get the DID from the OAuth service
-    const oauthService = AtProtoOAuthService.getInstance();
-    const oauthSession = await oauthService.getCurrentOAuthSession();
-    if (!oauthSession) {
+    // Get the current user DID from userStore
+    const { useUserStore } = await import('../../stores/userStore');
+    const userStore = useUserStore.getState();
+    if (!userStore.currentUser?.did) {
       throw new Error('No OAuth session available');
     }
-    const userDid = oauthSession.did;
+    const userDid = userStore.currentUser.did;
     
     try {
       // Get the profile by DID to get the viewer.following
       const profileResponse = await api.app.bsky.actor.getProfile({ actor: did });
       if (!profileResponse.data.viewer?.following) {
-        console.log('Not following this user');
         return false;
       }
       
@@ -1284,7 +1160,6 @@ class AtprotoService {
       const rkey = uriParts[uriParts.length - 1];
       
       if (!rkey) {
-        console.error('Could not extract rkey from follow URI:', profileResponse.data.viewer.following);
         return false;
       }
       
@@ -1296,7 +1171,6 @@ class AtprotoService {
       
       return true;
     } catch (error: any) {
-      console.error('Error unfollowing user:', error);
       return false;
     }
   }
@@ -1314,7 +1188,6 @@ class AtprotoService {
         rkey: did,
       });
     } catch (error: any) {
-      console.error('Error unblocking user:', error);
       throw error;
     }
   }
@@ -1338,7 +1211,6 @@ class AtprotoService {
         record
       );
     } catch (error: any) {
-      console.error('Error blocking user:', error);
       throw error;
     }
   }
@@ -1360,7 +1232,6 @@ class AtprotoService {
       
       return true;
     } catch (error: any) {
-      console.error('Error muting user:', error);
       return false;
     }
   }
@@ -1382,7 +1253,6 @@ class AtprotoService {
       
       return true;
     } catch (error: any) {
-      console.error('Error unmuting user:', error);
       return false;
     }
   }
@@ -1402,7 +1272,6 @@ class AtprotoService {
       }
       return null;
     } catch (error: any) {
-      console.error('Error fetching post:', error);
       return null;
     }
   }
@@ -1420,7 +1289,6 @@ class AtprotoService {
       // Check if the given DID is in the blocks list
       return response.data.blocks.some((block: any) => block.did === did);
     } catch (error: any) {
-      console.error('Error checking block status:', error);
       return false;
     }
   }
@@ -1451,7 +1319,6 @@ class AtprotoService {
       await AsyncStorage.setItem(feedbackKey, JSON.stringify(feedbackData));
       
     } catch (error: any) {
-      console.error('Error sending video feedback:', error);
       throw error;
     }
   }
@@ -1471,7 +1338,6 @@ class AtprotoService {
       
       return null;
     } catch (error: any) {
-      console.error('Error getting video feedback:', error);
       return null;
     }
   }
@@ -1484,7 +1350,6 @@ class AtprotoService {
       const feedbackKey = `video_feedback_${postUri}`;
       await AsyncStorage.removeItem(feedbackKey);
     } catch (error: any) {
-      console.error('Error removing video feedback:', error);
       throw error;
     }
   }
@@ -1503,7 +1368,6 @@ class AtprotoService {
         cursor: response.data.cursor || null 
       };
     } catch (error: any) {
-      console.error('Error fetching notifications:', error);
       return { notifications: [], cursor: null };
     }
   }
@@ -1551,7 +1415,6 @@ class AtprotoService {
       
       return true;
     } catch (error: any) {
-      console.error('Error deleting post:', error);
       return false;
     }
   }
@@ -1612,7 +1475,6 @@ class AtprotoService {
             cid = thread.post.cid;
           }
         } catch (err) {
-          console.warn('Could not get CID for post, proceeding with URI-only report');
         }
         
         // Set the subject for a post
@@ -1644,7 +1506,6 @@ class AtprotoService {
       
       return true;
     } catch (error: any) {
-      console.error('Error reporting content:', error);
       return false;
     }
   }
@@ -1697,7 +1558,6 @@ class AtprotoService {
       
       return true;
     } catch (error: any) {
-      console.error('Error muting post comments:', error);
       return false;
     }
   }
@@ -1731,7 +1591,6 @@ class AtprotoService {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Error getting verifier profile:', error);
       return null;
     }
   }
@@ -1819,7 +1678,6 @@ class AtprotoService {
           });
           
         } catch (error) {
-          console.error('[AtprotoService] Error uploading avatar:', error);
           throw new Error('Failed to upload avatar image');
         }
       }
@@ -1827,7 +1685,6 @@ class AtprotoService {
       // Return the updated profile
       return await this.getCurrentUser();
     } catch (error: any) {
-      console.error('Error updating profile:', error);
       throw error;
     }
   }
@@ -1863,7 +1720,6 @@ class AtprotoService {
 
       return uploadResult.data.blob;
     } catch (error: any) {
-      console.error('Error uploading image:', error);
       throw error;
     }
   }
@@ -1879,7 +1735,6 @@ class AtprotoService {
       const response = await api.app.bsky.actor.getSuggestions({ limit });
       return response.data.actors || [];
     } catch (error: any) {
-      console.error('Error fetching suggested accounts:', error);
       return [];
     }
   }
@@ -1903,7 +1758,6 @@ class AtprotoService {
         cursor: response.data.cursor || null 
       };
     } catch (error: any) {
-      console.error('Error fetching followers:', error);
       return { followers: [], cursor: null };
     }
   }
@@ -1927,7 +1781,6 @@ class AtprotoService {
         cursor: response.data.cursor || null 
       };
     } catch (error: any) {
-      console.error('Error fetching following:', error);
       return { following: [], cursor: null };
     }
   }
@@ -1992,7 +1845,6 @@ class AtprotoService {
       
       return mutualConnections;
     } catch (error: any) {
-      console.error('Error fetching mutual connections:', error);
       return [];
     }
   }
@@ -2020,7 +1872,6 @@ class AtprotoService {
         replies: commentsResponse.comments
       };
     } catch (error: any) {
-      console.error('Error fetching post engagement:', error);
       return { likes: [], reposts: [], replies: [] };
     }
   }
@@ -2053,7 +1904,6 @@ class AtprotoService {
       
       return processedFeeds;
     } catch (error: any) {
-      console.error('Error searching popular feeds:', error);
       return [];
     }
   }
@@ -2085,7 +1935,6 @@ class AtprotoService {
       
       return processedFeeds;
     } catch (error: any) {
-      console.error('Error fetching suggested feeds:', error);
       return [];
     }
   }
@@ -2100,7 +1949,6 @@ class AtprotoService {
     try {
       // Validate URI format
       if (!uri || !uri.startsWith('at://')) {
-        console.error('Invalid feed generator URI:', uri);
         return null;
       }
       
@@ -2111,9 +1959,7 @@ class AtprotoService {
       
       return response.data;
     } catch (error: any) {
-      console.error('Error getting feed generator:', error);
       if (error.message?.includes('feed must be a valid at-uri')) {
-        console.error(`Invalid feed URI provided: ${uri}`);
       }
       return null;
     }
@@ -2129,7 +1975,6 @@ class AtprotoService {
     try {
       // Validate URI format
       if (!uri || !uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
-        console.warn('[AtprotoService] Invalid feed generator URI for subscriber count:', uri);
         return 0;
       }
       
@@ -2145,7 +1990,6 @@ class AtprotoService {
       
       return generatorResponse.data.view.likeCount;
     } catch (error: any) {
-      console.error('Error getting feed generator subscriber count:', error);
       return 0;
     }
   }
@@ -2162,7 +2006,6 @@ class AtprotoService {
     try {
       // Validate URI format
       if (!uri || !uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
-        console.warn('[AtprotoService] Invalid feed generator URI for posts:', uri);
         return { generator: null, posts: [], cursor: null };
       }
       
@@ -2181,7 +2024,6 @@ class AtprotoService {
         cursor: feedResponse.cursor
       };
     } catch (error: any) {
-      console.error('Error getting feed generator with posts:', error);
       return { generator: null, posts: [], cursor: null };
     }
   }
@@ -2197,7 +2039,6 @@ class AtprotoService {
       const response = await api.app.bsky.actor.getPreferences();
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching moderation preferences:', error);
       return null;
     }
   }
@@ -2214,7 +2055,6 @@ class AtprotoService {
       await api.app.bsky.actor.putPreferences(preferences);
       return true;
     } catch (error: any) {
-      console.error('Error updating moderation preferences:', error);
       return false;
     }
   }
@@ -2319,7 +2159,6 @@ class AtprotoService {
         cursor: response?.data?.cursor || null 
       };
     } catch (error: any) {
-      console.error('[AtprotoService] Error searching hashtag videos:', error);
       return { videos: [], cursor: null };
     }
   }
@@ -2390,7 +2229,6 @@ class AtprotoService {
         cursor: response?.data?.cursor || null
       };
     } catch (error) {
-      console.error('Error searching videos:', error);
       return { videos: [], cursor: null };
     }
   }
@@ -2411,7 +2249,6 @@ class AtprotoService {
       );
       
       if (validFeedUris.length === 0) {
-        console.warn('[AtprotoService] No valid feed URIs provided for mixed feed');
         return { feed: [], cursor: null };
       }
       
@@ -2425,7 +2262,6 @@ class AtprotoService {
         try {
           feedStates = JSON.parse(cursor);
         } catch (error) {
-          console.warn('Failed to parse mixed feed cursor, starting fresh');
           feedStates = {};
         }
       } else {
@@ -2449,7 +2285,6 @@ class AtprotoService {
             feedUri
           };
         } catch (error) {
-          console.warn(`Failed to fetch feed ${feedUri}:`, error);
           return {
             posts: [],
             cursor: null,
@@ -2501,7 +2336,6 @@ class AtprotoService {
         cursor: compositeCursor
       };
     } catch (error) {
-      console.error('Error fetching mixed feed:', error);
       return { feed: [], cursor: null };
     }
   }
@@ -2540,7 +2374,6 @@ class AtprotoService {
           const { api } = await this.getApiClient();
           response = await api.app.bsky.feed.getAuthorFeed(params);
         } catch (err: any) {
-          console.warn('Reposts author feed error:', err?.message || err);
           break;
         }
 
@@ -2582,7 +2415,6 @@ class AtprotoService {
 
       return { feed: feedData, cursor: nextCursor };
     } catch (error: any) {
-      console.error('Error fetching reposted videos:', error);
       return { feed: [], cursor: null };
     }
   }
@@ -2646,7 +2478,6 @@ class AtprotoService {
             }
             return null;
           } catch (error) {
-            console.warn(`Error fetching feed generator for ${uri}:`, error);
             return null;
           }
         })
@@ -2655,7 +2486,6 @@ class AtprotoService {
       // Filter out null results and return up to the limit
       return feedGenerators.filter(Boolean).slice(0, limit);
     } catch (error: any) {
-      console.error('Error fetching static channels:', error);
       return [];
     }
   }

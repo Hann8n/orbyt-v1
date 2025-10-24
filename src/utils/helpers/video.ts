@@ -130,7 +130,7 @@ async function processColorQueue(): Promise<void> {
           // The actual promise resolution happens in extractThumbnailColor
         }
       } catch (error) {
-        console.warn('[VideoUtils] Error extracting color for:', url, error);
+warn('[VideoUtils] Error extracting color for:', url, error);
       }
     });
     

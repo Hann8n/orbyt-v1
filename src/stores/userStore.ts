@@ -2,7 +2,7 @@
  * Unified User State Management
  * Combines user store and account manager functionality
  * Centralizes all user-related state using DIDs as primary identifiers
- * Integrates with expo-atproto-auth for OAuth session management
+ * Integrates with @atproto/oauth-client-expo for OAuth session management
  */
 import React, { useEffect } from 'react';
 import { create } from 'zustand';
@@ -10,12 +10,14 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Agent } from '@atproto/api';
-import { ExpoOAuthClient } from 'expo-atproto-auth';
+import { ExpoOAuthClient } from '@atproto/oauth-client-expo';
 import { AtProtoOAuthService, OAuthSession } from '../services/auth';
-import ProfileCache from '../services/cache/ProfileCache';
+import ProfileCache, { CachedProfile } from '../services/cache/ProfileCache';
 import ChannelCache from '../services/cache/ChannelCache';
 import { AtprotoService } from '../services/api/AtprotoService';
 import { isUserCancellation, getErrorMessage, shouldShowError } from '../utils/errorHandler';
+import { analyzeOAuthError } from '../utils/oauthErrorHandler';
+import { logger } from '../utils/logger';
 
 import { ModerationService } from '../services/ModerationService';
 
@@ -27,8 +29,7 @@ export interface SavedAccount {
   displayName?: string;
   avatar?: string;
   lastUsed: number;
-  isActive: boolean;
-  pdsUrl: string; // Required field for PDS support
+  originalIdentifier: string; // The identifier used during initial authentication
 }
 
 // Subscribed channel types
@@ -51,7 +52,7 @@ interface UserState {
     handle: string | null; // Display identifier - can change
     displayName: string | null;
     avatar: string | null;
-    pdsUrl: string | null; // PDS URL for the current user
+    originalIdentifier: string | null; // The identifier used during initial authentication
   } | null;
   
   // Authentication state
@@ -64,7 +65,7 @@ interface UserState {
   savedAccounts: SavedAccount[];
   activeAccountDid: string | null;
   
-  // Session state - following expo-atproto-auth patterns
+  // Session state - following @atproto/oauth-client-expo patterns
   oauthSession: OAuthSession | null;
   agent: Agent | null;
   
@@ -84,13 +85,13 @@ interface UserState {
   
   // Actions
   // Authentication
-  signIn: (identifier: string, pdsUrl?: string) => Promise<void>;
+  signIn: (identifier: string) => Promise<void>;
   signOut: (clearAllAccounts?: boolean) => Promise<void>;
-  restoreSession: (did: string, pdsUrl?: string) => Promise<void>;
+  restoreSession: (did: string) => Promise<void>;
   
   // Account management
   switchAccount: (did: string, onComplete?: () => void) => Promise<void>;
-  addAccount: (oauthSession: OAuthSession, profileData?: any, pdsUrl?: string) => Promise<void>;
+  addAccount: (oauthSession: OAuthSession, profileData?: any, originalIdentifier?: string) => Promise<void>;
   removeAccount: (did: string) => Promise<void>;
   updateAccountProfile: (did: string, profileData: any) => Promise<void>;
   
@@ -210,63 +211,61 @@ export const useUserStore = create<UserState>()(
       developerCacheTimestamp: null,
       
       // Authentication actions
-      signIn: async (identifier: string, pdsUrl?: string) => {
+      signIn: async (identifier: string) => {
         try {
           set({ isAuthenticating: true, authError: null });
           
           const oauthService = AtProtoOAuthService.getInstance();
-          const session = await oauthService.signIn(identifier, pdsUrl);
+          const session = await oauthService.signIn(identifier);
           
-          // Get the actual OAuth session and create agent
-          const oauthSession = await oauthService.getCurrentOAuthSession();
-          const agent = await oauthService.getCurrentAgent();
+          // Create agent from session
+          const agent = new Agent(session);
           
-          // Fetch profile data using the OAuth service
-          let profileData = null;
-          try {
-            console.log('[userStore] Fetching profile data for new session');
-            profileData = await oauthService.getCurrentUserProfile();
-            
-            if (profileData) {
-              await ProfileCache.cacheProfiles([profileData]);
-              console.log('[userStore] Profile data fetched and cached successfully');
-            }
-          } catch (profileError) {
-            console.warn('[userStore] Failed to fetch profile data during sign-in:', {
-              did: session.did,
-              error: profileError instanceof Error ? profileError.message : 'Unknown error'
-            });
-            // Continue without profile data - we'll try again later
-          }
+          // Get user profile
+          const profile = await agent.api.app.bsky.actor.getProfile({
+            actor: session.sub
+          });
           
-          // Save account with PDS URL
-          await get().addAccount(session, profileData, pdsUrl);
+          const userProfile = profile.data;
           
-          // Update state immediately
+          // Create account object
+          const account: SavedAccount = {
+            id: session.sub,
+            handle: userProfile.handle,
+            did: session.sub,
+            displayName: userProfile.displayName || userProfile.handle,
+            avatar: userProfile.avatar,
+            lastUsed: Date.now(),
+            originalIdentifier: identifier
+          };
+          
+          // Update saved accounts list
+          const updatedAccounts = [account, ...get().savedAccounts.filter(a => a.did !== session.sub)];
+          
+          // Persist to SecureStore
+          await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(updatedAccounts));
+          await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, session.sub);
+          
+          // Update state
           set({
             currentUser: {
-              did: session.did,
-              handle: profileData?.handle || null,
-              displayName: profileData?.displayName || null,
-              avatar: profileData?.avatar || null,
-              pdsUrl: pdsUrl || 'https://bsky.social',
+              did: session.sub,
+              handle: userProfile.handle,
+              displayName: userProfile.displayName || userProfile.handle,
+              avatar: userProfile.avatar,
+              originalIdentifier: identifier
             },
             isAuthenticated: true,
             isAuthenticating: false,
             authError: null,
-            oauthSession,
-            agent,
-            activeAccountDid: session.did,
+            agent: agent,
+            activeAccountDid: session.sub,
+            oauthSession: session,
+            savedAccounts: updatedAccounts
           });
           
-          // Load user-specific data asynchronously
-          Promise.all([
-            get().loadUserSpecificSettings(session.did),
-            get().loadSubscribedChannels(session.did),
-            get().refreshDeveloperAccess()
-          ]).catch(error => {
-            console.warn('[userStore] Failed to load some user settings:', error);
-          });
+          // Cache the profile
+          await ProfileCache.cacheProfiles([userProfile]);
           
         } catch (error) {
           // Handle user cancellation silently
@@ -319,113 +318,64 @@ export const useUserStore = create<UserState>()(
           });
           
         } catch (error) {
-          console.error('Error during sign out:', error);
+          logger.error('Error during sign out', error, { component: 'userStore' });
           set({ isAuthenticating: false });
           throw error;
         }
       },
       
-      restoreSession: async (did: string, pdsUrl?: string) => {
-        console.log('[userStore] === RESTORE SESSION START ===');
-        console.log('[userStore] DID:', did);
-        console.log('[userStore] PDS URL:', pdsUrl);
-        
+      restoreSession: async (did: string) => {
         try {
           set({ isAuthenticating: true, authError: null });
           
-          console.log('[userStore] Getting OAuth service instance...');
           const oauthService = AtProtoOAuthService.getInstance();
           
-          console.log('[userStore] Calling OAuth service restoreSession...');
-          const session = await oauthService.restoreSession(did, pdsUrl);
-          console.log('[userStore] OAuth service restoreSession completed');
+          // Use the improved session validation with automatic refresh
+          const session = await oauthService.getValidSession(did);
           
-          console.log('[userStore] Getting OAuth session and agent...');
-          const oauthSession = await oauthService.getCurrentOAuthSession();
-          const agent = await oauthService.getCurrentAgent();
-          console.log('[userStore] OAuth session and agent retrieved');
+          // Create agent from session
+          const agent = new Agent(session);
           
-          // Fetch profile data using the OAuth service
-          let profileData = null;
-          try {
-            console.log('[userStore] Fetching profile data for restored session');
-            profileData = await oauthService.getCurrentUserProfile();
-            
-            if (profileData) {
-              await ProfileCache.cacheProfiles([profileData]);
-              console.log('[userStore] Profile data fetched successfully');
-            }
-          } catch (profileError) {
-            console.warn('[userStore] Failed to fetch profile data during restore:', profileError);
-            
-            // Fallback to cached profile data
-            profileData = await ProfileCache.getProfileByDid(did);
-            
-            // If still no profile data, create a basic one from account data
-            if (!profileData) {
-              const accounts = get().savedAccounts;
-              const account = accounts.find(acc => acc.did === did);
-              if (account) {
-                profileData = {
-                  did: account.did,
-                  handle: account.handle,
-                  displayName: account.displayName,
-                  avatar: account.avatar,
-                  lastUpdated: Date.now(),
-                };
-              }
-            }
-          }
-          
-          // Update account profile if we have fresh data
-          if (profileData) {
-            await get().updateAccountProfile(did, profileData);
-          }
-          
-          // Get PDS URL from account or use default
-          const accounts = get().savedAccounts;
-          const account = accounts.find(acc => acc.did === did);
-          const accountPDS = account?.pdsUrl || 'https://bsky.social';
-          
-          // Update state
-          const currentUser = {
-            did: session.did,
-            handle: profileData?.handle || session.did,
-            displayName: profileData?.displayName || null,
-            avatar: profileData?.avatar || null,
-            pdsUrl: pdsUrl || accountPDS,
-          };
-          
-          set({
-            currentUser,
-            isAuthenticated: true,
-            isAuthenticating: false,
-            oauthSession,
-            agent,
-            activeAccountDid: did,
+          // Get user profile - use the session's sub (DID) as the actor
+          const profile = await agent.api.app.bsky.actor.getProfile({
+            actor: session.sub
           });
           
-          // Load user-specific data
-          await get().loadUserSpecificSettings(did);
-          await get().loadSubscribedChannels(did);
+          const userProfile = profile.data;
           
-          // Check developer access
-          await get().refreshDeveloperAccess();
+          // Get original identifier from account
+          const accounts = get().savedAccounts;
+          const account = accounts.find(acc => acc.did === did);
+          const originalIdentifier = account?.originalIdentifier || did;
+          
+          // Update state
+          set({
+            currentUser: {
+              did: session.sub,
+              handle: userProfile.handle,
+              displayName: userProfile.displayName || userProfile.handle,
+              avatar: userProfile.avatar,
+              originalIdentifier: originalIdentifier,
+            },
+            isAuthenticated: true,
+            isAuthenticating: false,
+            authError: null,
+            agent: agent,
+            oauthSession: session
+          });
+          
+          // Cache the profile
+          await ProfileCache.cacheProfiles([userProfile]);
           
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Session restoration failed';
           
-          console.error('[userStore] ❌ RESTORE SESSION FAILED');
-          console.error('[userStore] DID:', did);
-          console.error('[userStore] PDS URL:', pdsUrl);
-          console.error('[userStore] Error message:', errorMessage);
-          console.error('[userStore] Error stack:', error instanceof Error ? error.stack : 'No stack');
-          console.error('[userStore] Full error object:', error);
+          // Use universal OAuth error analysis
+          const errorInfo = analyzeOAuthError(error);
           
-          // Normalize to actionable error for callers (switchAccount)
-          if (errorMessage.includes('oauth_reauth_required')) {
+          if (errorInfo.requiresReauth) {
             // Session expiration is expected behavior, log as warning
-            console.warn('[userStore] Session expired, re-authentication required for DID:', did);
+            logger.warn('Session expired, re-authentication required', { component: 'userStore', did });
             set({ 
               isAuthenticating: false,
               isAuthenticated: false,
@@ -438,12 +388,7 @@ export const useUserStore = create<UserState>()(
           }
           
           // Only log as error for unexpected failures
-          console.error('[userStore] Unexpected session restoration failure:', {
-            did,
-            pdsUrl,
-            error: errorMessage,
-            stack: error instanceof Error ? error.stack : undefined
-          });
+          logger.error('Session restoration failed', error, { component: 'userStore', did });
           set({ 
             isAuthenticating: false,
             isAuthenticated: false,
@@ -459,48 +404,38 @@ export const useUserStore = create<UserState>()(
       
       // Account management actions
       switchAccount: async (did: string, onComplete?: () => void) => {
-        console.log('[userStore] === SWITCH ACCOUNT START ===');
-        console.log('[userStore] Target DID:', did);
         
         try {
           set({ isSwitchingAccount: true });
           
           const account = get().savedAccounts.find(acc => acc.did === did);
           if (!account) {
-            console.error('[userStore] Account not found for DID:', did);
+            logger.error('Account not found for DID', { component: 'userStore', did });
             throw new Error('Account not found');
           }
           
-          const accountPDS = account.pdsUrl;
-          console.log('[userStore] Found account:', account.handle, 'PDS:', accountPDS);
-          
           // Clear all caches before switching
-          console.log('[userStore] Clearing all caches...');
           await get().clearAllCaches();
           
           // Update account statuses
           const savedAccounts = get().savedAccounts;
           const accounts = savedAccounts.map(acc => ({
             ...acc,
-            isActive: acc.did === did,
             lastUsed: acc.did === did ? Date.now() : acc.lastUsed,
           }));
           
-          console.log('[userStore] Saving updated accounts...');
           await SecureStore.setItemAsync(STORAGE_KEYS.ACCOUNTS, JSON.stringify(accounts));
           await SecureStore.setItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT, did);
           
           // Try to restore session for the new account
           try {
-            console.log('[userStore] Attempting to restore session...');
-            await get().restoreSession(did, accountPDS);
-            console.log('[userStore] Session restoration successful');
+            await get().restoreSession(did);
           } catch (restoreErr) {
             const restoreMsg = restoreErr instanceof Error ? restoreErr.message : '';
-            console.error('[userStore] Session restoration failed for account switch:', {
-              did,
-              error: restoreMsg
-            });
+            logger.error('Session restoration failed for account switch', restoreErr, { component: 'userStore', did });
+            
+            // Use universal OAuth error analysis
+            const errorInfo = analyzeOAuthError(restoreErr);
             
             // Clear the user state
             set({ 
@@ -508,9 +443,16 @@ export const useUserStore = create<UserState>()(
               currentUser: null,
               oauthSession: null,
               agent: null,
+              isSwitchingAccount: false,
+              activeAccountDid: null,
             });
             
-            throw new Error('Session expired - please sign in again');
+            if (errorInfo.requiresReauth) {
+              // Throw a specific error that the UI can handle to redirect to login
+              throw new Error('oauth_reauth_required');
+            } else {
+              throw new Error('Session expired - please sign in again');
+            }
           }
           
           // Update state
@@ -526,7 +468,7 @@ export const useUserStore = create<UserState>()(
             get().loadSubscribedChannels(did),
             get().refreshDeveloperAccess()
           ]).catch(error => {
-            console.warn('[userStore] Failed to load some user settings:', error);
+            logger.warn('Failed to load some user settings', { component: 'userStore', error: error.message });
           });
           
           // Call completion callback if provided
@@ -540,15 +482,15 @@ export const useUserStore = create<UserState>()(
         }
       },
       
-      addAccount: async (oauthSession: OAuthSession, profileData?: any, pdsUrl?: string) => {
+      addAccount: async (oauthSession: OAuthSession, profileData?: any, originalIdentifier?: string) => {
         try {
           const accounts = get().savedAccounts;
           
           // Check if account already exists
           const existingAccountIndex = accounts.findIndex(acc => acc.did === oauthSession.did);
           
-          // Use provided PDS URL or default
-          const accountPDS = pdsUrl || 'https://bsky.social';
+          // Use provided original identifier or fallback to DID
+          const accountOriginalIdentifier = originalIdentifier || oauthSession.did;
           
           const account: SavedAccount = {
             id: oauthSession.did, // Use DID directly as account ID
@@ -557,8 +499,7 @@ export const useUserStore = create<UserState>()(
             displayName: profileData?.displayName || null,
             avatar: profileData?.avatar,
             lastUsed: Date.now(),
-            isActive: true,
-            pdsUrl: accountPDS,
+            originalIdentifier: accountOriginalIdentifier,
           };
           
 
@@ -578,9 +519,11 @@ export const useUserStore = create<UserState>()(
             accounts.push(account);
           }
           
-          // Set all other accounts as inactive
+          // Update lastUsed for the current account
           accounts.forEach(acc => {
-            acc.isActive = acc.did === account.did;
+            if (acc.did === account.did) {
+              acc.lastUsed = Date.now();
+            }
           });
           
           // Save accounts
@@ -591,7 +534,7 @@ export const useUserStore = create<UserState>()(
           set({ savedAccounts: accounts, activeAccountDid: account.did });
           
         } catch (error) {
-          console.error('Error adding account:', error);
+          logger.error('Error adding account', error, { component: 'userStore' });
           throw error;
         }
       },
@@ -619,7 +562,7 @@ export const useUserStore = create<UserState>()(
           }
           
         } catch (error) {
-          console.error('Error removing account:', error);
+          logger.error('Error removing account', error, { component: 'userStore' });
           throw error;
         }
       },
@@ -656,7 +599,7 @@ export const useUserStore = create<UserState>()(
           // Update state
           set({ savedAccounts: accounts });
         } catch (error) {
-          console.error('Error updating account profile:', error);
+          logger.error('Error updating account profile', error, { component: 'userStore' });
           throw error;
         }
       },
@@ -706,7 +649,7 @@ export const useUserStore = create<UserState>()(
           await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
           
         } catch (error) {
-          console.error('Error subscribing to channel:', error);
+          logger.error('Error subscribing to channel', error, { component: 'userStore' });
           throw error;
         }
       },
@@ -742,7 +685,7 @@ export const useUserStore = create<UserState>()(
           await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
           
         } catch (error) {
-          console.error('Error unsubscribing from channel:', error);
+          logger.error('Error unsubscribing from channel', error, { component: 'userStore' });
           throw error;
         }
       },
@@ -789,7 +732,7 @@ export const useUserStore = create<UserState>()(
            }
            
          } catch (error) {
-           console.error('Error restoring default channel:', error);
+           logger.error('Error restoring default channel', error, { component: 'userStore' });
            throw error;
          }
        },
@@ -808,7 +751,7 @@ export const useUserStore = create<UserState>()(
             // Return default channels that are not currently subscribed
             return DEFAULT_CHANNELS.filter(ch => !currentChannelUris.includes(ch.uri));
           } catch (error) {
-            console.error('Error getting available default channels:', error);
+            logger.error('Error getting available default channels', error, { component: 'userStore' });
             return [];
           }
         },
@@ -839,7 +782,7 @@ export const useUserStore = create<UserState>()(
             await AsyncStorage.setItem(channelOrderKey, JSON.stringify(channelOrder));
             
           } catch (error) {
-            console.error('Error reordering channels:', error);
+            logger.error('Error reordering channels', error, { component: 'userStore' });
             throw error;
           }
         },
@@ -892,7 +835,7 @@ export const useUserStore = create<UserState>()(
           await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
           
         } catch (error) {
-          console.error('Error batch subscribing to channels:', error);
+          logger.error('Error batch subscribing to channels', error, { component: 'userStore' });
           throw error;
         }
       },
@@ -934,7 +877,7 @@ export const useUserStore = create<UserState>()(
           await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
           
         } catch (error) {
-          console.error('Error batch unsubscribing from channels:', error);
+          logger.error('Error batch unsubscribing from channels', error, { component: 'userStore' });
           throw error;
         }
       },
@@ -947,7 +890,7 @@ export const useUserStore = create<UserState>()(
           await AsyncStorage.setItem(key, strategy);
           set({ feedMixingStrategy: strategy });
         } catch (error) {
-          console.error('Error setting feed mixing strategy:', error);
+          logger.error('Error setting feed mixing strategy', error, { component: 'userStore' });
           throw error;
         }
       },
@@ -959,7 +902,7 @@ export const useUserStore = create<UserState>()(
           await AsyncStorage.setItem(key, enabled.toString());
           set({ experimentalFeedsEnabled: enabled });
         } catch (error) {
-          console.error('Error setting experimental feeds enabled:', error);
+          logger.error('Error setting experimental feeds enabled', error, { component: 'userStore' });
           throw error;
         }
       },
@@ -971,7 +914,7 @@ export const useUserStore = create<UserState>()(
           await AsyncStorage.setItem(key, enabled.toString());
           set({ feedDebugOverlayEnabled: enabled });
         } catch (error) {
-          console.error('Error setting feed debug overlay enabled:', error);
+          logger.error('Error setting feed debug overlay enabled', error, { component: 'userStore' });
           throw error;
         }
       },
@@ -983,7 +926,7 @@ export const useUserStore = create<UserState>()(
           const strategy = await AsyncStorage.getItem(key);
           return (strategy as 'chronological' | 'engagement' | 'diversity' | 'weighted') || 'weighted';
         } catch (error) {
-          console.error('Error getting feed mixing strategy:', error);
+          logger.error('Error getting feed mixing strategy', error, { component: 'userStore' });
           return 'weighted';
         }
       },
@@ -995,7 +938,7 @@ export const useUserStore = create<UserState>()(
           const value = await AsyncStorage.getItem(key);
           return value === null ? true : value === 'true';
         } catch (error) {
-          console.error('Error getting experimental feeds enabled:', error);
+          logger.error('Error getting experimental feeds enabled', error, { component: 'userStore' });
           return true;
         }
       },
@@ -1007,7 +950,7 @@ export const useUserStore = create<UserState>()(
           const value = await AsyncStorage.getItem(key);
           return value === 'true';
         } catch (error) {
-          console.error('Error getting feed debug overlay enabled:', error);
+          logger.error('Error getting feed debug overlay enabled', error, { component: 'userStore' });
           return false;
         }
       },
@@ -1029,7 +972,7 @@ export const useUserStore = create<UserState>()(
           // feedService.clearFeedCache(); // This line is removed
           
         } catch (error) {
-          console.error('Error invalidating user data:', error);
+          logger.error('Error invalidating user data', error, { component: 'userStore' });
         }
       },
       
@@ -1043,7 +986,7 @@ export const useUserStore = create<UserState>()(
           ]);
           
         } catch (error) {
-          console.error('Error clearing caches:', error);
+          logger.error('Error clearing caches', error, { component: 'userStore' });
         }
       },
       
@@ -1053,7 +996,7 @@ export const useUserStore = create<UserState>()(
           const moderationSettings = await ModerationService.getModerationSettings();
           return moderationSettings;
         } catch (error) {
-          console.error('Error getting moderation options:', error);
+          logger.error('Error getting moderation options', error, { component: 'userStore' });
           return {};
         }
       },
@@ -1061,36 +1004,31 @@ export const useUserStore = create<UserState>()(
       // Session management
       checkSessionHealth: async () => {
         try {
-          console.log('[userStore] Checking session health...');
           const currentUser = get().currentUser;
           
           if (!currentUser?.did) {
-            console.log('[userStore] No current user, session is unhealthy');
             return false;
           }
           
-          // First check OAuth session
+          // Check if we have a valid agent
           let isHealthy = false;
-          const oauthService = AtProtoOAuthService.getInstance();
           
           try {
-            console.log('[userStore] Checking OAuth session health...');
-            const currentSession = await oauthService.getCurrentOAuthSession();
-            if (currentSession) {
-              isHealthy = await oauthService.hasValidSession(currentSession.did);
-              console.log('[userStore] OAuth session health:', isHealthy ? 'healthy' : 'unhealthy');
-            } else {
-              console.log('[userStore] No OAuth session found');
+            if (get().agent && get().currentUser?.did) {
+              // Try to make a simple API call to verify the session is still valid
+              await get().agent!.api.app.bsky.actor.getProfile({
+                actor: get().currentUser!.did
+              });
+              isHealthy = true;
             }
           } catch (oauthError) {
-            console.log('[userStore] OAuth session health check failed:', 
-              oauthError instanceof Error ? oauthError.message : 'Unknown error');
+            // Session is invalid
+            isHealthy = false;
           }
           
           
           // If both session types are unhealthy, sign out the user
           if (!isHealthy && get().isAuthenticated) {
-            console.log('[userStore] All sessions are unhealthy, signing out user');
             set({ 
               isAuthenticated: false,
               currentUser: null,
@@ -1103,53 +1041,43 @@ export const useUserStore = create<UserState>()(
           return isHealthy;
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-          console.error('[userStore] Session health check failed:', errorMsg);
+          logger.error('Session health check failed', error, { component: 'userStore' });
           return false;
         }
       },
 
       checkAccountSessionValidity: async (did: string) => {
         try {
-          console.log('[userStore] Checking session validity for account:', did);
           const account = get().savedAccounts.find(acc => acc.did === did);
           
           if (!account) {
-            console.error('[userStore] Account not found for DID:', did);
+            logger.error('Account not found for DID', { component: 'userStore', did });
             return false;
           }
           
-          const pdsUrl = account.pdsUrl;
-          console.log('[userStore] Account PDS URL:', pdsUrl);
-          
-          // First try OAuth session
-          let isValid = false;
           const oauthService = AtProtoOAuthService.getInstance();
           
+          // Use the improved session validation
           try {
-            console.log('[userStore] Checking OAuth session validity...');
-            isValid = await oauthService.hasValidSession(did, pdsUrl);
-            console.log('[userStore] OAuth session validity:', isValid ? 'valid' : 'invalid');
-          } catch (oauthError) {
-            console.log('[userStore] OAuth session validity check failed:', 
-              oauthError instanceof Error ? oauthError.message : 'Unknown error');
+            const session = await oauthService.getValidSession(did);
+            return !!session;
+          } catch (error) {
+            logger.debug('Session validation failed for DID', { component: 'userStore', did, error: error instanceof Error ? error.message : 'Unknown error' });
+            return false;
           }
-          
-          
-          return isValid;
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-          console.error('[userStore] Account session validity check failed:', errorMsg);
+          logger.error('Account session validity check failed', error, { component: 'userStore' });
           return false;
         }
       },
 
       clearCorruptedSessions: async () => {
         try {
-          console.log('[userStore] Clearing all corrupted sessions...');
           
           // Clear OAuth sessions
           const oauthService = AtProtoOAuthService.getInstance();
-          oauthService.clearSession();
+          await oauthService.signOut();
           
           
           // Clear secure storage items related to sessions
@@ -1157,7 +1085,7 @@ export const useUserStore = create<UserState>()(
             await SecureStore.deleteItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT);
             // Don't delete all accounts, just clear the active account
           } catch (storageError) {
-            console.warn('[userStore] Error clearing secure storage:', storageError);
+            logger.warn('Error clearing secure storage', { component: 'userStore', error: storageError });
           }
           
           // Clear state
@@ -1172,10 +1100,9 @@ export const useUserStore = create<UserState>()(
           // Clear all caches
           await get().clearAllCaches();
           
-          console.log('[userStore] Corrupted sessions cleared successfully');
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-          console.error('[userStore] Failed to clear corrupted sessions:', errorMsg);
+          logger.error('Failed to clear corrupted sessions', error, { component: 'userStore' });
           
           // Still try to reset the state even if other cleanup fails
           set({
@@ -1191,7 +1118,6 @@ export const useUserStore = create<UserState>()(
       // Initialization actions
       initializeUserState: async () => {
         try {
-          console.log('[userStore] Initializing user state...');
           
           // Load saved accounts
           await get().loadSavedAccounts();
@@ -1200,7 +1126,6 @@ export const useUserStore = create<UserState>()(
           const activeAccountDid = await SecureStore.getItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT);
           
           if (activeAccountDid) {
-            console.log('[userStore] Found active account DID:', activeAccountDid);
             set({ activeAccountDid });
             
             // Get account details
@@ -1208,32 +1133,25 @@ export const useUserStore = create<UserState>()(
             const account = accounts.find(acc => acc.did === activeAccountDid);
             
             if (!account) {
-              console.warn('[userStore] Active account not found in saved accounts');
+              logger.warn('Active account not found in saved accounts', { component: 'userStore' });
               set({ activeAccountDid: null });
               return;
             }
-            
-            const accountPDS = account.pdsUrl;
-            console.log('[userStore] Active account PDS:', accountPDS);
             
             // Try to restore session
             let sessionRestored = false;
             
             // First try OAuth session
             try {
-              console.log('[userStore] Attempting to restore OAuth session...');
-              await get().restoreSession(activeAccountDid, accountPDS);
+              await get().restoreSession(activeAccountDid);
               sessionRestored = true;
-              console.log('[userStore] Successfully restored OAuth session');
             } catch (oauthError) {
               const errorMessage = oauthError instanceof Error ? oauthError.message : 'OAuth session restoration failed';
-              console.log('[userStore] Failed to restore OAuth session:', errorMessage);
               
             }
             
             // If no session could be restored, clear the active account
             if (!sessionRestored) {
-              console.log('[userStore] No valid session could be restored, clearing active account');
               set({ 
                 isAuthenticated: false,
                 currentUser: null,
@@ -1246,13 +1164,11 @@ export const useUserStore = create<UserState>()(
               await get().refreshDeveloperAccess();
             }
           } else {
-            console.log('[userStore] No active account found');
           }
           
-          console.log('[userStore] User state initialization complete');
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-          console.error('[userStore] Error initializing user state:', errorMsg);
+          logger.error('Error initializing user state', error, { component: 'userStore' });
           
           // Clear state to be safe
           set({ 
@@ -1274,17 +1190,25 @@ export const useUserStore = create<UserState>()(
           }
           
           const accounts = JSON.parse(accountsStr);
-          // Normalize isActive based on persisted ACTIVE_ACCOUNT to avoid stale flags
-          const activeDid = await SecureStore.getItemAsync(STORAGE_KEYS.ACTIVE_ACCOUNT);
-          const normalized = Array.isArray(accounts)
-            ? accounts.map((acc: SavedAccount) => ({
-                ...acc,
-                isActive: activeDid ? acc.did === activeDid : !!acc.isActive,
-              }))
-            : [];
-          set({ savedAccounts: normalized, activeAccountDid: activeDid || null });
+          // Load accounts without isActive flag (determined by activeAccountDid)
+          const normalized = Array.isArray(accounts) ? accounts : [];
+          
+          // Migration: Convert old accounts with pdsUrl to new originalIdentifier format
+          const migratedAccounts = normalized.map((account: any) => {
+            if (account.pdsUrl && !account.originalIdentifier) {
+              // For backward compatibility, use handle as originalIdentifier (most common case)
+              return {
+                ...account,
+                originalIdentifier: account.handle || account.did,
+                pdsUrl: undefined // Remove old field
+              };
+            }
+            return account;
+          });
+          
+          set({ savedAccounts: migratedAccounts });
         } catch (error) {
-          console.error('Error loading saved accounts:', error);
+          logger.error('Error loading saved accounts', error, { component: 'userStore' });
           set({ savedAccounts: [] });
         }
       },
@@ -1310,7 +1234,7 @@ export const useUserStore = create<UserState>()(
           });
           
         } catch (error) {
-          console.error('Error loading user-specific settings:', error);
+          logger.error('Error loading user-specific settings', error, { component: 'userStore' });
         }
       },
       
@@ -1344,7 +1268,7 @@ export const useUserStore = create<UserState>()(
                 if (channelOrderStr) await AsyncStorage.setItem(orderKey, channelOrderStr);
               }
             } catch (migrationError) {
-              console.warn('[userStore] Migration from v1 to v2 failed:', migrationError);
+              logger.warn('Migration from v1 to v2 failed', { component: 'userStore', error: migrationError });
             }
           }
           
@@ -1382,7 +1306,7 @@ export const useUserStore = create<UserState>()(
           set({ subscribedChannels: sortedChannels });
           
         } catch (error) {
-          console.error('Error loading subscribed channels:', error);
+          logger.error('Error loading subscribed channels', error, { component: 'userStore' });
           set({ subscribedChannels: DEFAULT_CHANNELS });
         }
       },
@@ -1393,7 +1317,7 @@ export const useUserStore = create<UserState>()(
           const { agent, currentUser, developerListUri, developerCacheTimestamp } = get();
           
           if (!agent || !currentUser?.did) {
-            console.warn('[userStore] No agent or current user for developer access check');
+            logger.warn('No agent or current user for developer access check', { component: 'userStore' });
             set({ isDeveloper: false });
             return;
           }
@@ -1424,7 +1348,7 @@ export const useUserStore = create<UserState>()(
               allMembers.push(...members);
               cursor = response.data.cursor;
             } catch (error) {
-              console.error('[userStore] Error fetching developer list:', error);
+              logger.error('Error fetching developer list', error, { component: 'userStore' });
               // On error, use cached data if available, otherwise deny access
               const cachedMembers = get().developerMembersCache;
               const isDeveloper = cachedMembers.length > 0 ? cachedMembers.includes(currentUser.did) : false;
@@ -1447,7 +1371,7 @@ export const useUserStore = create<UserState>()(
           
           
         } catch (error) {
-          console.error('[userStore] Error refreshing developer access:', error);
+          logger.error('Error refreshing developer access', error, { component: 'userStore' });
           // On error, deny access by default
           set({ isDeveloper: false });
         }

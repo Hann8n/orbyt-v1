@@ -438,7 +438,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       }, 100);
       
     } catch (error) {
-      console.error('Error posting comment:', error);
       Alert.alert('Error', 'Failed to post comment. Please try again.');
     } finally {
       setIsPosting(false);

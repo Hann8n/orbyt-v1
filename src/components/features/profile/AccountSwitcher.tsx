@@ -14,6 +14,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../ui/Icon';
 import { SavedAccount } from '../../../stores/userStore';
+import { analyzeOAuthError } from '../../../utils/oauthErrorHandler';
 import ProfileCache, { useProfile, CachedProfile } from '../../../services/cache/ProfileCache';
 import { Colors, Avatar } from '../../ui/UI';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
@@ -88,10 +89,8 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const loadAccounts = useCallback(async () => {
     setLoading(true);
     try {
-      if (DEBUG) console.log('[AccountSwitcher] loadAccounts: start');
       // Get fresh savedAccounts from the user store to ensure we have the latest state
       const savedAccountsData = savedAccounts;
-      if (DEBUG) console.log('[AccountSwitcher] loadAccounts: savedAccounts len =', savedAccountsData.length);
       
       // Enhance accounts with cached profile data
       const accountsWithProfiles = await Promise.all(
@@ -106,7 +105,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               try {
                 cachedProfile = await ProfileCache.refreshProfileByDid(account.did);
               } catch (error) {
-                console.warn(`Failed to refresh profile for ${account.did}:`, error);
               }
             }
             
@@ -115,16 +113,13 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               cachedProfile,
             };
           } catch (error) {
-            console.warn(`Failed to load profile for ${account.handle}:`, error);
             return account;
           }
         })
       );
       
       setAccounts(accountsWithProfiles);
-      if (DEBUG) console.log('[AccountSwitcher] loadAccounts: done, accounts len =', accountsWithProfiles.length);
     } catch (error) {
-      console.error('Error loading accounts:', error);
     } finally {
       setLoading(false);
     }
@@ -133,7 +128,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   // Load accounts when modal opens or savedAccounts change
   useEffect(() => {
     if (visible) {
-      if (DEBUG) console.log('[AccountSwitcher] visible = true, reloading accounts');
       loadAccounts();
       setEditMode(false); // Reset edit mode when modal opens
     }
@@ -141,11 +135,9 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
   const handleSwitchAccount = useCallback(async (account: AccountWithProfile) => {
     if (account.did === activeAccountDid) {
-      if (DEBUG) console.log('[AccountSwitcher] press ignored: account matches activeAccountDid but flagged isActive=', account.isActive);
       return;
     }
 
-    if (DEBUG) console.log('[AccountSwitcher] handleSwitchAccount: begin', { did: account.did, handle: account.handle, activeAccountDid });
     setSwitchingAccount(account.did);
     // Proactively dismiss the sheet before switching to avoid a blank sheet during app refresh
     try {
@@ -163,20 +155,43 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         // Close the modal
         onDismiss();
       });
-      if (DEBUG) console.log('[AccountSwitcher] handleSwitchAccount: success', { did: account.did });
       
     } catch (error) {
-      console.error('Error switching account:', error);
-      if (DEBUG) console.log('[AccountSwitcher] handleSwitchAccount: error', error);
-      Alert.alert('Error', 'Failed to switch account. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to switch account';
+      
+      // Use universal OAuth error analysis
+      const errorInfo = analyzeOAuthError(error);
+      
+      if (errorInfo.requiresReauth) {
+        // Dismiss the account switcher first
+        onDismiss();
+        
+        // Small delay to ensure modal is dismissed before showing alert
+        setTimeout(() => {
+          Alert.alert(
+            'Session Expired', 
+            `Your session for @${account.handle} has expired. You need to sign in again.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Sign In', 
+                onPress: async () => {
+                  await signIn(account.originalIdentifier);
+                  await loadAccounts();
+                }
+              },
+            ]
+          );
+        }, 300);
+      } else {
+        Alert.alert('Error', 'Failed to switch account. Please try again.');
+      }
     } finally {
-      if (DEBUG) console.log('[AccountSwitcher] handleSwitchAccount: end');
       setSwitchingAccount(null);
     }
   }, [onAccountSwitch, onDismiss, switchAccount]);
 
   const handleRemoveAccount = useCallback(async (account: AccountWithProfile) => {
-    if (DEBUG) console.log('[AccountSwitcher] handleRemoveAccount prompt for', account.did);
     
     const isActiveAccount = account.did === activeAccountDid;
     const alertMessage = isActiveAccount 
@@ -196,7 +211,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           style: 'destructive',
           onPress: async () => {
             try {
-              if (DEBUG) console.log('[AccountSwitcher] removing account', account.did);
               await removeAccount(account.did);
               
               // If this was the active account, the user will be signed out
@@ -208,9 +222,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
                 setAccounts(prevAccounts => prevAccounts.filter(acc => acc.did !== account.did));
               }
               
-              if (DEBUG) console.log('[AccountSwitcher] removed account and updated UI');
             } catch (error) {
-              console.error('Error removing account:', error);
               
               // Use simple error handler
               const { shouldShowError, getErrorMessage } = await import('../../../utils/errorHandler');
@@ -229,13 +241,11 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     setIsAddingAccount(true);
     
     try {
-      if (DEBUG) console.log('[AccountSwitcher] handleBlueskyLogin: begin');
 
       await signIn('https://bsky.social');
       
       // Reload accounts to show the new one
       await loadAccounts();
-      if (DEBUG) console.log('[AccountSwitcher] handleBlueskyLogin: success, accounts reloaded');
       
 
     } catch (error) {
@@ -254,7 +264,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         );
       }
       
-      if (DEBUG) console.log('[AccountSwitcher] handleBlueskyLogin: error', getErrorMessage(error));
     } finally {
       setIsAddingAccount(false);
     }
@@ -269,7 +278,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       await new Promise(resolve => setTimeout(resolve, 200));
       await handleBlueskyLogin();
     } catch (e) {
-      console.error('[AccountSwitcher] Error in handleBlueskyAddAccount:', e);
     }
   }, [handleBlueskyLogin]);
 
@@ -283,7 +291,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       // Then use TrueSheet global method to present the custom PDS input sheet
       await TrueSheet.present('custom-pds-input');
     } catch (error) {
-      console.error('[AccountSwitcher] Error in handleCustomPDSAddAccount:', error);
     }
   }, []);
 
@@ -291,13 +298,11 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     setIsAddingAccount(true);
     
     try {
-      if (DEBUG) console.log('[AccountSwitcher] handleCustomPDSSignIn: begin', { identifier });
 
       await signIn(identifier);
       
       // Reload accounts to show the new one
       await loadAccounts();
-      if (DEBUG) console.log('[AccountSwitcher] handleCustomPDSSignIn: success, accounts reloaded');
       
     } catch (error) {
       // Re-throw the error so the CustomPDSInputSheet can handle it
@@ -412,7 +417,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             if (DEBUG) {
               const staleFlag = account.isActive !== isActive;
               if (staleFlag) {
-                console.warn('[AccountSwitcher] isActive discrepancy', { did: account.did, itemFlag: account.isActive, derived: isActive, activeAccountDid });
               }
             }
             if (!isActive && !editMode) handleSwitchAccount(account);
@@ -433,7 +437,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const customHeaderButton = (
     <TouchableOpacity
       onPress={() => {
-        if (DEBUG) console.log('[AccountSwitcher] toggle editMode ->', !editMode);
         setEditMode(!editMode);
       }}
       activeOpacity={0.7}

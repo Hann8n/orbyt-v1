@@ -100,7 +100,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
       // TODO: Implement moderation stats if needed
       setStats(null);
     } catch (error) {
-      console.error('Error loading moderation stats:', error);
     }
   };
 
@@ -130,7 +129,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
       
       setContentOptions(updatedContentOptions);
     } catch (error) {
-      console.error('Error loading moderation settings:', error);
       Alert.alert('Error', 'Failed to load moderation settings');
     } finally {
       setLoading(false);
@@ -161,7 +159,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
         setSettings(updatedSettings);
       }
     } catch (error) {
-      console.error('Error auto-saving content preference:', error);
     }
   };
 
@@ -190,7 +187,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
         setSettings(updatedSettings);
       }
     } catch (error) {
-      console.error('Error auto-saving general setting:', error);
     }
   };
 
@@ -302,7 +298,6 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
                 onPress={() => {
                   // TODO: Implement opening Bluesky moderation settings
                   // For now, this functionality is not available
-                  console.log('Opening Bluesky moderation settings not implemented');
                 }}
                 activeOpacity={0.7}
               >

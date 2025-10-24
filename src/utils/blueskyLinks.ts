@@ -70,7 +70,7 @@ export const openPostInBluesky = async (postUri: string, fallbackMessage?: strin
       'Unable to open this post. Please check your internet connection.';
     Alert.alert('Cannot Open Post', errorMessage, [{ text: 'OK' }]);
   } catch (error) {
-    console.error('Error opening post in Bluesky:', error);
+error('Error opening post in Bluesky:', error);
     const errorMessage = fallbackMessage || 'Failed to open post in Bluesky.';
     Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
   }

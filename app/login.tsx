@@ -176,9 +176,11 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           [
             { text: 'Cancel', style: 'cancel' },
             { 
-              text: 'Sign In with OAuth', 
-              onPress: () => {
-                handleLogin();
+              text: 'Sign In', 
+              onPress: async () => {
+                // Use the account's original identifier for re-authentication
+                await signIn(account.originalIdentifier);
+                await loadSavedAccounts();
               }
             },
           ]
@@ -202,7 +204,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
         stack: error instanceof Error ? error.stack : undefined,
         accountHandle: account.handle,
         accountDid: account.did,
-        accountPds: account.pdsUrl
+        originalIdentifier: account.originalIdentifier
       });
       
       const isUserCancellation = errorMessage.includes('cancelled') || 
@@ -221,9 +223,11 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
             [
               { text: 'Cancel', style: 'cancel' },
               { 
-                text: 'Clear & Sign In', 
+                text: 'Sign In', 
                 onPress: async () => {
-                  handleLogin();
+                  // Use the account's original identifier for re-authentication
+                  await signIn(account.originalIdentifier);
+                  await loadSavedAccounts();
                 }
               },
             ]
@@ -257,9 +261,10 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
               { text: 'Cancel', style: 'cancel' },
               { 
                 text: 'Sign In', 
-                onPress: () => {
-                  // Trigger a fresh OAuth flow
-                  handleLogin();
+                onPress: async () => {
+                  // Use the account's original identifier for re-authentication
+                  await signIn(account.originalIdentifier);
+                  await loadSavedAccounts();
                 }
               },
             ]

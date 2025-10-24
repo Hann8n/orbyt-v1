@@ -14,7 +14,6 @@ let AtprotoService: any = null;
 try {
   AtprotoService = require('./api/AtprotoService').default;
 } catch (error) {
-  console.warn('Failed to import AtprotoService, using fallback:', error);
   // Fallback implementation
   AtprotoService = {
     getFeed: async () => ({ feed: [], cursor: null }),
@@ -349,23 +348,18 @@ class FeedService {
       } else if (feedOption === 'profile' && userDid) {
         response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'authorVideos');
       } else if (feedOption === 'profile' && !userDid) {
-        console.warn(`[FeedService] Profile feed requested but no userDid provided for option: ${feedOption}`);
         return { feed: [], cursor: null };
       } else if (feedOption === 'likes' && !userDid) {
-        console.warn(`[FeedService] Likes feed requested but no userDid provided for option: ${feedOption}`);
         return { feed: [], cursor: null };
       } else if (feedOption === 'reposts' && !userDid) {
-        console.warn(`[FeedService] Reposts feed requested but no userDid provided for option: ${feedOption}`);
         return { feed: [], cursor: null };
       } else if (feedOption === 'following') {
         const feedLink = this.getFeedLink(feedOption);
         if (!feedLink) {
-          console.warn(`[FeedService] No feed link found for option: ${feedOption}`);
           return { feed: [], cursor: null };
         }
         response = await AtprotoService.getFeed(cursor, feedLink, {}, false, limit, 'custom');
       } else if (feedOption === 'profile' || feedOption === 'likes' || feedOption === 'reposts') {
-        console.warn(`[FeedService] ${feedOption} feed requires userDid but none provided`);
         return { feed: [], cursor: null };
       } else if (feedOption === 'yourMix') {
         // Get subscribed channels from userStore
@@ -374,7 +368,6 @@ class FeedService {
           // Try to get subscribed channels from the current state
           subscribedChannels = this.subscribedChannels || [];
         } catch (error) {
-          console.warn('[FeedService] Failed to get subscribed channels:', error);
         }
         
         const feedUris = subscribedChannels
@@ -456,7 +449,6 @@ class FeedService {
             cursor: profilesResponse.cursor,
           };
         } catch (error) {
-          console.error('Error performing search:', error);
           return { feed: [], cursor: null };
         }
       } else if (feedOption.startsWith('hashtag:')) {
@@ -477,7 +469,6 @@ class FeedService {
             cursor: response.cursor,
           };
         } catch (error) {
-          console.error('Error fetching hashtag videos:', error);
           return { feed: [], cursor: null };
         }
       } else if (feedOption === 'search') {
@@ -489,7 +480,6 @@ class FeedService {
         // Handle custom feed URIs
         const feedLink = this.getFeedLink(feedOption);
         if (!feedLink) {
-          console.warn(`[FeedService] No feed link found for option: ${feedOption}`);
           return { feed: [], cursor: null };
         }
         response = await AtprotoService.getFeed(cursor, feedLink, {}, true, limit, 'custom');
@@ -501,7 +491,6 @@ class FeedService {
           const moderatedFeed = await ModerationService.batchModeratePosts(response.feed, 'contentList');
           response.feed = moderatedFeed.filteredPosts;
         } catch (error) {
-          console.warn('[FeedService] Failed to apply moderation, using unfiltered posts:', error);
           // Continue with unfiltered posts if moderation fails
         }
       }
@@ -513,7 +502,6 @@ class FeedService {
 
       return response || { feed: [], cursor: null };
     } catch (error) {
-      console.error(`[FeedService] Error fetching feed for ${feedOption}:`, error);
       return { feed: [], cursor: null };
     }
   }

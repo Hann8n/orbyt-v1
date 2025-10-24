@@ -95,7 +95,6 @@ const NotificationsTab: React.FC = () => {
           ProfileCache.setCurrentUserHandle(currentUser.handle);
         }
       } catch (error) {
-        console.error('Error initializing profile cache:', error);
       }
     };
     
@@ -142,7 +141,6 @@ const NotificationsTab: React.FC = () => {
     if (notifications.length > 0) {
       // Extract all unique profiles from notifications and batch prefetch them
       ProfileCache.batchPrefetchFromFeed(notifications).catch(error => {
-        console.warn('Error batch prefetching notification profiles:', error);
       });
     }
   }, [notifications]);
@@ -290,7 +288,6 @@ const NotificationsTab: React.FC = () => {
             try {
               await refetch();
             } catch (error) {
-              console.error('Failed to refetch notifications:', error);
             }
           }}
           tintColor={Colors.white}

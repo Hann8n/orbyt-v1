@@ -62,7 +62,6 @@ export class ModerationService {
       // For now, return default settings to avoid API issues
       return this.createDefaultSettings();
     } catch (error) {
-      console.warn('[ModerationService] Failed to get moderation settings:', error);
       return this.createDefaultSettings();
     }
   }
@@ -74,7 +73,6 @@ export class ModerationService {
     try {
       const currentAgent = agent;
       if (!currentAgent) {
-        console.warn('[ModerationService] No agent available for saving settings');
         return;
       }
 
@@ -110,7 +108,6 @@ export class ModerationService {
       this.currentSettings = settings;
       this.currentModerationOpts = null; // Clear cache
     } catch (error) {
-      console.error('[ModerationService] Failed to save settings:', error);
       throw error;
     }
   }
@@ -122,7 +119,6 @@ export class ModerationService {
     try {
       const currentAgent = agent;
       if (!currentAgent) {
-        console.warn('[ModerationService] No agent available for syncing settings');
         return;
       }
 
@@ -130,7 +126,6 @@ export class ModerationService {
       const settings = this.convertPreferencesToSettings(response.data.preferences || []);
       this.currentSettings = settings;
     } catch (error) {
-      console.error('[ModerationService] Failed to sync settings:', error);
       throw error;
     }
   }
@@ -205,7 +200,6 @@ export class ModerationService {
       this.moderationCache.set(uri, decision);
       return decision;
     } catch (error) {
-      console.warn('[ModerationService] Error moderating post:', error);
       return { filter: false, blur: false, informs: [] };
     }
   }
@@ -265,7 +259,6 @@ export class ModerationService {
           filteredPosts.push(post);
         }
       } catch (error) {
-        console.warn('[ModerationService] Error moderating post in batch:', error);
         // Include the post even if moderation fails
         filteredPosts.push(post);
         allowedCount++;

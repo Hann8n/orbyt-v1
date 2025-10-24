@@ -1351,10 +1351,10 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'device-tv' || name === 'video-movies-vintage-tv-1') return <TvIcon size={size} color={color} />;
     if (name === 'interface-essential-satellite' || name === 'interface-essential-search-binocular') return <TelescopeIcon size={size} color={color} style={style} />;
     if (name === 'more-fill' || name === 'more-horizontal') return <MoreFillIcon size={size} color={color} />;
-    console.warn(`Icon not found (no iconify fallback): ${name}`);
+warn(`Icon not found (no iconify fallback): ${name}`);
     return null;
   } catch (error) {
-    console.error(`Error rendering icon ${name}:`, error);
+error(`Error rendering icon ${name}:`, error);
     return null;
   }
 };

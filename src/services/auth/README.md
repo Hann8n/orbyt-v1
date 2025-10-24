@@ -1,13 +1,13 @@
 # OAuth Authentication for Orbyt
 
-This is a clean, simple OAuth-only implementation for atproto using React Native and Expo with the `expo-atproto-auth` library.
+This is a clean, simple OAuth-only implementation for atproto using React Native and Expo with the official `@atproto/oauth-client-expo` package.
 
 ## Features
 
-- ✅ **OAuth Flow**: Uses expo-atproto-auth for secure OAuth authentication
+- ✅ **OAuth Flow**: Uses official @atproto/oauth-client-expo for secure OAuth authentication
 - ✅ **React Native Compatible**: Works with Expo WebBrowser for authentication
-- ✅ **Secure Storage**: Uses Expo SecureStore for session storage
-- ✅ **Automatic Token Management**: Handles token expiration and refresh
+- ✅ **Built-in Session Management**: Package handles session storage and token management
+- ✅ **Automatic Token Management**: Handles token expiration and refresh automatically
 - ✅ **Session Restoration**: Automatically restores sessions on app restart
 - ✅ **Account Management**: Integrates with AccountManager for multi-account support
 - ✅ **TypeScript Support**: Fully typed for better development experience
@@ -135,10 +135,10 @@ await AccountManager.switchAccount(account.id);
 
 ### OAuthService
 
-The `AtProtoOAuthService` class manages OAuth sessions using the `expo-atproto-auth` library:
+The `AtProtoOAuthService` class manages OAuth sessions using the official `@atproto/oauth-client-expo` package:
 
 - **Session Management**: Handles OAuth session creation, storage, and restoration
-- **Token Handling**: Automatically manages access and refresh tokens
+- **Token Handling**: Automatically manages access and refresh tokens via the package
 - **API Integration**: Provides authenticated request methods
 
 ### useOAuth Hook
@@ -167,7 +167,7 @@ The OAuth service includes comprehensive error handling:
 
 ## Security
 
-- **Secure Storage**: All sessions are stored using Expo SecureStore
-- **Token Management**: Access tokens are managed securely by the expo-atproto-auth library
+- **Secure Storage**: All sessions are stored securely by the @atproto/oauth-client-expo package
+- **Token Management**: Access tokens are managed securely by the official package
 - **Session Validation**: Sessions are validated on restoration
 - **Automatic Cleanup**: Expired sessions are automatically cleared

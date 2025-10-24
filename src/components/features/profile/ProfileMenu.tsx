@@ -135,7 +135,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         );
       }
     } catch (error) {
-      console.error('Error toggling block status:', error);
       Alert.alert('error', 'failed to update block status. please try again.');
     } finally {
       setIsSubmitting(false);
@@ -176,7 +175,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         );
       }
     } catch (error) {
-      console.error('Error toggling mute status:', error);
       Alert.alert('error', 'failed to update mute status. please try again.');
     } finally {
       setIsSubmitting(false);
@@ -239,7 +237,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         Alert.alert('error', 'failed to submit report. please try again.');
       }
     } catch (error) {
-      console.error('Error reporting account:', error);
       Alert.alert('error', 'failed to submit report. please try again.');
     } finally {
       setIsSubmitting(false);
@@ -264,7 +261,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       
       onDismiss();
     } catch (error) {
-      console.error('Error sharing profile:', error);
     }
   }, [handle, onDismiss]);
 
@@ -307,7 +303,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
               onDismiss();
               // Note: The actual logout navigation should be handled by the parent component
             } catch (error) {
-              console.error('Error during logout:', error);
               Alert.alert('error', 'failed to log out. please try again.');
             } finally {
               setIsSubmitting(false);

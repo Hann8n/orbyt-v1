@@ -261,7 +261,6 @@ const MembersListView: React.FC<MembersListViewProps> = ({
       await refetch();
       onRefresh?.();
     } catch (error) {
-      console.error('Refresh failed:', error);
     }
   }, [refetch, onRefresh]);
 

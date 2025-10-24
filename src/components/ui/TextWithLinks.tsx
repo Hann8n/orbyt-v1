@@ -43,7 +43,7 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
         await Linking.openURL(normalizedUrl);
       }
     } catch (error) {
-      console.error('Error opening URL:', error);
+error('Error opening URL:', error);
     }
   };
 
@@ -60,7 +60,7 @@ const TextWithLinksBase: React.FC<TextWithLinksProps> = ({
         );
       }
     } catch (error) {
-      console.error('Error handling email:', error);
+error('Error handling email:', error);
       Alert.alert(
         "Error",
         "Could not open email application. Please check your device settings."

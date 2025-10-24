@@ -52,7 +52,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
     setIsValidatingPds(true);
     
     try {
-      // Prepare identifier and let expo-atproto-auth handle the rest
+      // Prepare identifier and let @atproto/oauth-client-expo handle the rest
       const identifier = await PDSDiscoveryService.prepareIdentifier(trimmedUsername);
       
       await onSignIn(identifier);

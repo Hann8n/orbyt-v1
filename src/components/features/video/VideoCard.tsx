@@ -354,7 +354,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
           setOverlayState(prev => ({ ...prev, likeUri: undefined }));
         }
       } catch (error) {
-        console.error('Like action failed:', error);
+error('Like action failed:', error);
         // Revert optimistic update
         setOverlayState(prev => ({
           ...prev,
@@ -387,7 +387,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
           setOverlayState(prev => ({ ...prev, repostUri: undefined }));
         }
       } catch (error) {
-        console.error('Repost action failed:', error);
+error('Repost action failed:', error);
         // Revert optimistic update
         setOverlayState(prev => ({
           ...prev,

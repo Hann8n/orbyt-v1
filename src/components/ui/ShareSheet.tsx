@@ -74,7 +74,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
           setIsCurrentUser(currentUserDid === authorDid);
         }
       } catch (error) {
-        console.error('Error checking current user:', error);
       }
     };
     
@@ -142,7 +141,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
             notInterestedAnimation.setValue(0);
           }
         } catch (error) {
-          console.error('Error loading feedback:', error);
           setFeedbackSent(null);
           // Reset animation values on error
           interestedAnimation.setValue(0);
@@ -183,7 +181,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                   }
                   dismissSheet();
                 } catch (error) {
-                  console.error('Error muting comments:', error);
                   Alert.alert('error', 'failed to mute comments. please try again.');
                 }
               }
@@ -221,7 +218,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         );
       }
     } catch (error) {
-      console.error('Error toggling block status:', error);
       Alert.alert('error', 'failed to update block status. please try again.');
     } finally {
       setIsSubmitting(false);
@@ -292,7 +288,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         feedbackStateMap.delete(postUri);
       }
       
-      console.error('Error handling feedback:', error);
       Alert.alert('error', 'failed to save your feedback. please try again.');
     } finally {
       setIsSubmitting(false);
@@ -327,7 +322,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                   Alert.alert('error', 'failed to delete post. please try again.');
                 }
               } catch (error) {
-                console.error('Error deleting post:', error);
                 Alert.alert('error', 'failed to delete post. please try again.');
               } finally {
                 setIsSubmitting(false);
@@ -389,7 +383,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         Alert.alert('error', 'failed to submit report. please try again.');
       }
     } catch (error) {
-      console.error('Error reporting content:', error);
       Alert.alert('error', 'failed to submit report. please try again.');
     } finally {
       setIsSubmitting(false);
@@ -411,7 +404,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       // Close the sheet after successful share
       dismissSheet();
     } catch (error) {
-      console.error('Error sharing post:', error);
     }
   }, [postUri, dismissSheet]);
 

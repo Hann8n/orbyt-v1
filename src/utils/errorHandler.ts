@@ -16,7 +16,7 @@ export class ErrorHandler {
       details: error,
     };
 
-    console.error(`[${context}]`, appError.message, error);
+error(`[${context}]`, appError.message, error);
     return appError;
   }
 

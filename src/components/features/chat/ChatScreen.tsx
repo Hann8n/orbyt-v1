@@ -47,7 +47,9 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   useEffect(() => {
     const getUserSession = async () => {
       try {
-        const session = await oauthService.getCurrentOAuthSession();
+        const { useUserStore } = await import('../../../stores/userStore');
+        const userStore = useUserStore.getState();
+        const session = userStore.currentUser;
         setCurrentUser(session);
         setCurrentUserId(session?.did || '1');
         setIsUserReady(true);
@@ -56,7 +58,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       }
     };
     getUserSession();
-  }, [oauthService]);
+  }, []);
 
   // Fetch conversation details
   const {
@@ -96,7 +98,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     },
     onError: (error: any) => {
       Alert.alert('Error', 'Failed to send message. Please try again.');
-      console.error('Error sending message:', error);
     },
   });
 
@@ -112,7 +113,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
     },
     onError: (error: any) => {
-      console.error('Error adding reaction:', error);
       // Don't show alert for reactions - they're non-critical
     },
   });
@@ -129,7 +129,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
     },
     onError: (error: any) => {
-      console.error('Error removing reaction:', error);
       // Don't show alert for reactions - they're non-critical
     },
   });
@@ -198,16 +197,13 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         })
         .catch((error) => {
           // Non-critical operation, just log the error
-          console.warn('Failed to mark conversation as read:', error);
         });
     }
   }, [conversationId, isUserReady, messagesData?.messages, queryClient]);
 
   const onSend = useCallback((newMessages: ChatMessage[] = []) => {
-    console.log('[ChatScreen] onSend called with messages:', newMessages.length);
     if (newMessages.length > 0) {
       const message = newMessages[0];
-      console.log('[ChatScreen] Sending message:', message.text);
       setMessages((previousMessages) =>
         GiftedChat.append(previousMessages, newMessages)
       );
@@ -397,7 +393,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
           isDisabled && styles.sendButtonDisabled
         ]}
         onPress={() => {
-          console.log('[ChatScreen] Send button pressed, text:', props.text, 'isPending:', sendMessageMutation.isPending);
           if (props.text && props.text.trim() && !sendMessageMutation.isPending) {
             // Create the message object that GiftedChat expects
             const message = {
@@ -410,7 +405,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                 avatar: currentUser?.avatar,
               },
             };
-            console.log('[ChatScreen] Calling onSend with message:', message);
             props.onSend([message]);
             // Clear the input text
             props.onTextChanged('');

@@ -1,10 +1,10 @@
 /**
  * PDS Discovery Service - Simplified
- * Let expo-atproto-auth handle all the complexity of handle resolution
+ * Let @atproto/oauth-client-expo handle all the complexity of handle resolution
  */
 export class PDSDiscoveryService {
   /**
-   * Prepare identifier for OAuth - let expo-atproto-auth handle the rest
+   * Prepare identifier for OAuth - let @atproto/oauth-client-expo handle the rest
    * This is much simpler and lets the library do what it's designed for
    */
   static async prepareIdentifier(identifier: string): Promise<string> {

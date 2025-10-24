@@ -48,7 +48,6 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
       const url = header?.destinationUrl;
       if (typeof url === 'string' && url.trim().length > 0) {
         Linking.openURL(url).catch(err => {
-          console.error('Error opening URL:', err);
         });
       }
     }
@@ -185,7 +184,6 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
             resizeMode="cover"
             fadeDuration={Platform.OS === 'android' ? 0 : undefined}
             onError={() => {
-              console.warn('Failed to load header image:', header.imageUrl);
             }}
           />
           <View style={styles.headerOverlay}>
@@ -260,7 +258,6 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
               resizeMode="cover"
               fadeDuration={Platform.OS === 'android' ? 0 : undefined}
               onError={() => {
-                console.warn('Failed to load header image:', header.imageUrl);
               }}
             />
             <View style={styles.headerOverlay}>

@@ -10,9 +10,9 @@ const GlobalAccountSwitcher: React.FC = () => {
   const handleAccountSwitch = async (account: any) => {
     try {
       // Account switching is handled by the AccountSwitcher component
-      console.log('Account switched to:', account.handle);
+log('Account switched to:', account.handle);
     } catch (error) {
-      console.error('Error in account switch callback:', error);
+error('Error in account switch callback:', error);
     }
   };
 

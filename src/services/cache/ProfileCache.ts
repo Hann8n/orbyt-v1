@@ -872,7 +872,6 @@ class ProfileCache {
                   this.getCacheKeyByDid(did),
                   JSON.stringify(cacheObject)
                 ).catch(error => {
-                  console.warn('Error storing profile in cache:', error);
                 });
                 
                 this.notifyProfileUpdated(did);
@@ -998,7 +997,6 @@ class ProfileCache {
                   this.getCacheKey(normalizedHandle),
                   JSON.stringify(cacheObject)
                 ).catch(error => {
-                  console.warn('Error storing profile in cache:', error);
                 });
                 
                 this.notifyProfileUpdated(normalizedHandle);

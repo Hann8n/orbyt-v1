@@ -195,7 +195,6 @@ export default function EmbeddedPostCard({
         // Fetch the post data
         const postData = await AtprotoService.getPost(post.uri);
         if (!postData) {
-          console.warn('Failed to fetch post data for:', post.uri);
           return;
         }
         
@@ -236,7 +235,6 @@ export default function EmbeddedPostCard({
           }
         });
       } catch (error) {
-        console.error('Error fetching post data:', error);
       }
     } else {
       // For non-video posts, open in Bluesky app

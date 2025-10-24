@@ -27,11 +27,12 @@ export default function ConversationList({ onConversationPress }: ConversationLi
   useEffect(() => {
     const getUserSession = async () => {
       try {
-        const oauthService = AtProtoOAuthService.getInstance();
-        const session = await oauthService.getCurrentOAuthSession();
+        const { useUserStore } = await import('../../../stores/userStore');
+        const userStore = useUserStore.getState();
+        const session = userStore.currentUser;
         setCurrentUserDid(session?.did || '');
       } catch (error) {
-        console.error('Error getting user session:', error);
+error('Error getting user session:', error);
       }
     };
     getUserSession();

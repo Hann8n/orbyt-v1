@@ -1,4 +1,4 @@
-// Apply required polyfills for expo-atproto-auth
+// Apply required polyfills for @atproto/oauth-client-expo
 import 'event-target-polyfill';
 
 // DOMException is required by abortcontroller-polyfill

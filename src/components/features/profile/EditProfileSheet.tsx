@@ -290,7 +290,6 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                   setEditAvatar(result.assets[0].uri || undefined);
                 }
               } catch (error) {
-                console.error('Camera error:', error);
                 Alert.alert('Error', 'Failed to open camera. Please try again.');
               }
             },
@@ -310,7 +309,6 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                   setEditAvatar(result.assets[0].uri || undefined);
                 }
               } catch (error) {
-                console.error('Photo library error:', error);
                 Alert.alert('Error', 'Failed to open photo library. Please try again.');
               }
             },
@@ -322,7 +320,6 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
         ]
       );
     } catch (error) {
-      console.error('Avatar selection error:', error);
       Alert.alert('Error', 'Failed to open image picker. Please try again.');
     }
   }, []);
@@ -357,7 +354,6 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
 
       onDismiss();
     } catch (error) {
-      console.error('[EditProfileSheet] Error updating profile:', error);
       Alert.alert('Error', 'Failed to update profile. Please try again.');
     }
   }, [profileData, editDisplayName, editDescription, editAvatar, customColors, profileUpdateMutation, onDismiss]);

@@ -18,7 +18,7 @@ export function useThumbnailColor(thumbnailUrl: string | null) {
       setBackgroundColor(color);
     } catch (error) {
       // Keep default black background on error
-      console.warn('[useThumbnailColor] Error extracting color:', error);
+warn('[useThumbnailColor] Error extracting color:', error);
     } finally {
       setIsLoading(false);
     }

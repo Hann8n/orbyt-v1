@@ -11,3 +11,5 @@ export {
   useVisibleVideo 
 } from './useVisibility';
 export { useThumbnailColor } from './useThumbnailColor';
+export { useOAuth } from './useOAuth';
+export { useAccountManager } from './useAccountManager';
