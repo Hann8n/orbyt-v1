@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AtprotoService from '../api/AtprotoService';
 import { extractColorsFromImage, isColorDark } from '@/utils/formatting/colorUtils';
+import { Colors } from '@/components/ui/UI';
 import { 
   useQuery, 
   useMutation,
@@ -21,6 +22,7 @@ export interface CachedProfile {
   description?: string;
   isFollowing?: boolean;
   isFollowedBy?: boolean;
+  hasCustomColors?: boolean; // Flag to indicate if colors are custom or extracted
   profileColors?: {
     backgroundColor: string;
     foregroundColor: string;
@@ -504,14 +506,15 @@ class ProfileCache {
    * @param handle - User handle
    * @param backgroundColor - Background color hex
    * @param foregroundColor - Foreground/text color hex
+   * @param saveToRemote - Whether to save colors to PDS
    */
   static async updateProfileColors(
     handle: string,
     backgroundColor: string,
-    foregroundColor: string
+    foregroundColor: string,
+    saveToRemote: boolean = true
   ): Promise<void> {
     if (!handle) return;
-    
     
     return new Promise((resolve) => {
       // Move color updates to background
@@ -528,10 +531,15 @@ class ProfileCache {
               cachedProfile = (await this.getProfileFromCache(normalizedHandle)) || undefined;
             }
             
+            // Skip update if colors are the same and already custom
+            if (cachedProfile?.hasCustomColors && 
+                cachedProfile?.profileColors?.backgroundColor === backgroundColor && 
+                cachedProfile?.profileColors?.foregroundColor === foregroundColor) {
+              resolve();
+              return;
+            }
             
             if (cachedProfile) {
-              const oldColors = cachedProfile.profileColors;
-              
               // Create a new colors object to avoid direct reference mutation
               cachedProfile.profileColors = {
                 backgroundColor,
@@ -539,8 +547,19 @@ class ProfileCache {
                 statusBarStyle: isColorDark(backgroundColor) ? 'light' : 'dark'
               };
               
-              cachedProfile.lastUpdated = Date.now();
+              // Add PDS record saving
+              if (saveToRemote) {
+                try {
+                  const success = await AtprotoService.saveProfileColors(backgroundColor, foregroundColor);
+                  if (success) {
+                    cachedProfile.hasCustomColors = true;
+                  }
+                } catch (error) {
+                  // Continue even if PDS save fails
+                }
+              }
               
+              cachedProfile.lastUpdated = Date.now();
               
               // Update both memory and storage
               this.memoryCache.set(normalizedHandle, {...cachedProfile});
@@ -548,8 +567,6 @@ class ProfileCache {
               
               // Notify subscribers of a profile update
               this.notifyProfileUpdated(normalizedHandle);
-              
-            } else {
             }
             resolve();
           } catch (error) {
@@ -783,11 +800,32 @@ class ProfileCache {
               return;
             }
 
+            // Check for custom colors in PDS - use DID for direct PDS access
+            let customColors = null;
+            let hasCustomColors = false;
             let profileColors = undefined;
-            if (profile.avatar) {
+            
+            try {
+              // Use did directly to query PDS
+              customColors = await AtprotoService.getProfileColors(did);
+              if (customColors) {
+                hasCustomColors = true;
+                profileColors = {
+                  backgroundColor: customColors.backgroundColor,
+                  foregroundColor: customColors.textColor || customColors.foregroundColor,
+                  statusBarStyle: isColorDark(customColors.backgroundColor) ? 'light' : 'dark'
+                };
+              }
+            } catch (error) {
+              // Continue with avatar colors if custom colors not found
+            }
+
+            // Only extract colors from avatar if no custom colors exist
+            if (!hasCustomColors && profile.avatar) {
               try {
                 profileColors = await extractColorsFromImage(profile.avatar);
               } catch (e) {
+                // Use fallback colors if extraction fails
               }
             }
 
@@ -803,6 +841,7 @@ class ProfileCache {
               description: profile.description,
               isFollowing,
               isFollowedBy,
+              hasCustomColors,
               profileColors: profileColors ? {
                 backgroundColor: profileColors.backgroundColor,
                 foregroundColor: profileColors.foregroundColor,
@@ -836,31 +875,6 @@ class ProfileCache {
               }
             } else {
               cacheObject.verification = { isVerified: false };
-            }
-
-            // Process avatar colors in background
-            if (profile.avatar) {
-              requestAnimationFrame(() => {
-                setTimeout(async () => {
-                  try {
-                    const colors = await ImageColors.getColors(profile.avatar, {
-                      fallback: '#000000',
-                      cache: true,
-                      key: profile.avatar
-                    });
-                    if (colors && 'average' in colors) {
-                      const avgColor = colors.average;
-                      cacheObject.profileColors = {
-                        backgroundColor: avgColor,
-                        foregroundColor: this.isDarkColor(avgColor) ? '#FFFFFF' : '#000000',
-                        statusBarStyle: this.isDarkColor(avgColor) ? 'light' : 'dark'
-                      };
-                    }
-                  } catch (error) {
-                    // console.warn('Error extracting avatar colors:', error);
-                  }
-                }, 0);
-              });
             }
 
             // Update caches in background
@@ -899,8 +913,6 @@ class ProfileCache {
       requestAnimationFrame(() => {
         setTimeout(async () => {
           try {
-
-            
             const normalizedHandle = handle.toLowerCase();
             const profile = await AtprotoService.getProfile(handle);
             if (!profile) {
@@ -908,11 +920,32 @@ class ProfileCache {
               return;
             }
 
+            // Check for custom colors in PDS - use DID for direct PDS access
+            let customColors = null;
+            let hasCustomColors = false;
             let profileColors = undefined;
-            if (profile.avatar) {
+            
+            try {
+              // Use profile.did instead of handle to query PDS directly
+              customColors = await AtprotoService.getProfileColors(profile.did);
+              if (customColors) {
+                hasCustomColors = true;
+                profileColors = {
+                  backgroundColor: customColors.backgroundColor,
+                  foregroundColor: customColors.textColor || customColors.foregroundColor,
+                  statusBarStyle: isColorDark(customColors.backgroundColor) ? 'light' : 'dark'
+                };
+              }
+            } catch (error) {
+              // Continue with avatar colors if custom colors not found
+            }
+
+            // Only extract colors from avatar if no custom colors exist
+            if (!hasCustomColors && profile.avatar) {
               try {
                 profileColors = await extractColorsFromImage(profile.avatar);
               } catch (e) {
+                // Use fallback colors if extraction fails
               }
             }
 
@@ -928,6 +961,7 @@ class ProfileCache {
               description: profile.description,
               isFollowing,
               isFollowedBy,
+              hasCustomColors,
               profileColors: profileColors ? {
                 backgroundColor: profileColors.backgroundColor,
                 foregroundColor: profileColors.foregroundColor,
@@ -961,31 +995,6 @@ class ProfileCache {
               }
             } else {
               cacheObject.verification = { isVerified: false };
-            }
-
-            // Process avatar colors in background
-            if (profile.avatar) {
-              requestAnimationFrame(() => {
-                setTimeout(async () => {
-                  try {
-                    const colors = await ImageColors.getColors(profile.avatar, {
-                      fallback: '#000000',
-                      cache: true,
-                      key: profile.avatar
-                    });
-                    if (colors && 'average' in colors) {
-                      const avgColor = colors.average;
-                      cacheObject.profileColors = {
-                        backgroundColor: avgColor,
-                        foregroundColor: this.isDarkColor(avgColor) ? '#FFFFFF' : '#000000',
-                        statusBarStyle: this.isDarkColor(avgColor) ? 'light' : 'dark'
-                      };
-                    }
-                  } catch (error) {
-                    // console.warn('Error extracting avatar colors:', error);
-                  }
-                }, 0);
-              });
             }
 
             // Update caches in background
@@ -1219,6 +1228,20 @@ class ProfileCache {
               }
             });
 
+            // Prefetch colors for all profiles
+            const didsToFetch = feedItems
+              .map(item => item.post?.author?.did || item.author?.did)
+              .filter(Boolean);
+
+            if (didsToFetch.length > 0) {
+              try {
+                const ProfileColorsService = (await import('../ProfileColorsService')).default;
+                ProfileColorsService.prefetchColors(didsToFetch);
+              } catch (error) {
+                // Silent - prefetching is optional
+              }
+            }
+
             // Convert to array and filter out empty handles
             const handlesToPrefetch = Array.from(uniqueHandles).filter(handle => handle && handle.trim() !== '');
             
@@ -1318,22 +1341,21 @@ export function useProfile(handle: string | null | undefined): UseQueryResult<Ca
 export function useProfileColors(handle: string | null | undefined) {
   const { data: profile } = useProfile(handle);
 
-  
-
-  
-  // Use cached profile colors
+  // Use cached profile colors with custom colors priority
+  // Default to Colors.black and Colors.lightGray for profiles without records
   const colors: ProfileColorScheme = {
-    backgroundColor: profile?.profileColors?.backgroundColor || '#000000',
-    foregroundColor: profile?.profileColors?.foregroundColor || '#FFFFFF',
-    textColor: profile?.profileColors?.foregroundColor || '#FFFFFF',
-    primaryColor: profile?.profileColors?.backgroundColor || '#000000',
-    secondaryColor: profile?.profileColors?.foregroundColor || '#FFFFFF',
+    backgroundColor: profile?.profileColors?.backgroundColor || Colors.black,
+    foregroundColor: profile?.profileColors?.foregroundColor || Colors.lightGray,
+    textColor: profile?.profileColors?.foregroundColor || Colors.lightGray,
+    primaryColor: profile?.profileColors?.backgroundColor || Colors.black,
+    secondaryColor: profile?.profileColors?.foregroundColor || Colors.lightGray,
     statusBarStyle: profile?.profileColors?.statusBarStyle || 'light',
   };
   
   return {
     colors,
     isLoading: !profile,
+    hasCustomColors: profile?.hasCustomColors || false,
     getColorWithOpacity: (colorKey: keyof ProfileColorScheme, opacity: number): string => {
       const hex = colors[colorKey];
       if (hex.startsWith('#')) {
@@ -1425,13 +1447,33 @@ export function useProfileColorsMutation() {
     mutationFn: async ({ 
       handle, 
       backgroundColor, 
-      foregroundColor 
+      foregroundColor,
+      saveToRemote = true
     }: { 
       handle: string, 
       backgroundColor: string, 
-      foregroundColor: string 
+      foregroundColor: string,
+      saveToRemote?: boolean
     }) => {
-      await ProfileCache.updateProfileColors(handle, backgroundColor, foregroundColor);
+      // Get the profile to check if we should update colors
+      const profile = await ProfileCache.getProfile(handle);
+      
+      // Check if this is a user-initiated color change
+      const isUserInitiated = saveToRemote === true;
+      
+      // Only proceed if:
+      // 1. Colors are different from current colors, OR
+      // 2. No colors exist yet, OR
+      // 3. This is a user-initiated change (from EditProfileSheet)
+      if (!profile || 
+          !profile.profileColors || 
+          profile.profileColors.backgroundColor !== backgroundColor || 
+          profile.profileColors.foregroundColor !== foregroundColor ||
+          isUserInitiated) {
+        
+        await ProfileCache.updateProfileColors(handle, backgroundColor, foregroundColor, saveToRemote);
+      }
+      
       return { handle, backgroundColor, foregroundColor };
     },
     onSuccess: (_, { handle }) => {
@@ -1463,19 +1505,36 @@ export function useProfileUpdateMutation() {
         };
       }
     }) => {
-      
-      const updatedProfile = await AtprotoService.updateProfile(updates);
-      
-      // Handle custom colors locally since they're not part of the Bluesky API
+      // Handle custom colors separately
       if (updates.customColors) {
-        await ProfileCache.updateProfileColors(handle, updates.customColors.backgroundColor, updates.customColors.textColor);
+        await ProfileCache.updateProfileColors(
+          handle, 
+          updates.customColors.backgroundColor, 
+          updates.customColors.textColor,
+          true // Save to PDS
+        );
       }
       
-      // Immediately apply to local cache for fast UI reflection
-      try {
-        await ProfileCache.applyServerProfile(handle, updatedProfile);
-      } catch (error) {
+      // Create a copy of updates without customColors for AtprotoService
+      const profileUpdates = {
+        displayName: updates.displayName,
+        description: updates.description,
+        avatar: updates.avatar
+      };
+      
+      // Only call updateProfile if there are non-color updates
+      let updatedProfile;
+      if (updates.displayName !== undefined || updates.description !== undefined || updates.avatar !== undefined) {
+        updatedProfile = await AtprotoService.updateProfile(profileUpdates);
+        
+        // Immediately apply to local cache for fast UI reflection
+        try {
+          await ProfileCache.applyServerProfile(handle, updatedProfile);
+        } catch (error) {
+          // Continue even if this fails
+        }
       }
+      
       return { handle, updatedProfile };
     },
     onMutate: async ({ handle, updates }) => {
@@ -1491,10 +1550,11 @@ export function useProfileUpdateMutation() {
           ...(updates.description !== undefined ? { description: updates.description } : {}),
           ...(updates.avatar !== undefined ? { avatar: updates.avatar } : {}),
           ...(updates.customColors ? {
+            hasCustomColors: true, // Mark as having custom colors
             profileColors: {
               backgroundColor: updates.customColors.backgroundColor,
               foregroundColor: updates.customColors.textColor,
-              statusBarStyle: updates.customColors.textColor === '#FFFFFF' ? 'light' : 'dark'
+              statusBarStyle: isColorDark(updates.customColors.backgroundColor) ? 'light' : 'dark'
             }
           } : {}),
           lastUpdated: Date.now(),
@@ -1504,10 +1564,14 @@ export function useProfileUpdateMutation() {
 
       return { previousProfile };
     },
-    onSuccess: ({ updatedProfile }, { handle }) => {
+    onSuccess: ({ updatedProfile }, { handle, updates }) => {
+      if (!updatedProfile) return; // Skip if no profile was updated
+      
       // Merge server-updated fields into the query cache immediately
       const prev = queryClient.getQueryData<CachedProfile>(profileKeys.detail(handle));
-      const merged: CachedProfile | undefined = prev ? {
+      if (!prev) return; // Skip if no previous data
+      
+      const merged: CachedProfile = {
         ...prev,
         did: updatedProfile?.did ?? prev.did,
         handle: updatedProfile?.handle ?? prev.handle,
@@ -1516,11 +1580,16 @@ export function useProfileUpdateMutation() {
         description: updatedProfile?.description ?? prev.description,
         isFollowing: (updatedProfile?.viewer ? !!updatedProfile.viewer.following : prev.isFollowing),
         isFollowedBy: (updatedProfile?.viewer ? !!updatedProfile.viewer.followedBy : prev.isFollowedBy),
+        // Preserve custom colors flag if we updated colors
+        hasCustomColors: updates.customColors ? true : prev.hasCustomColors,
         lastUpdated: Date.now(),
-      } : undefined;
+      };
 
-      if (merged) {
-        queryClient.setQueryData(profileKeys.detail(handle), merged);
+      queryClient.setQueryData(profileKeys.detail(handle), merged);
+
+      // Also invalidate DID-based queries if we know the DID
+      if (prev.did) {
+        queryClient.invalidateQueries({ queryKey: profileKeys.detail(`did_${prev.did}`) });
       }
 
       // Still invalidate to ensure freshness against server

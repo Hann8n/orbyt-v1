@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SvgXml } from 'react-native-svg';
 import { StyleProp, ViewStyle, View, Image, Animated, Easing } from 'react-native';
+import { logger } from '../../utils/logger';
 
 // Simple colors object to avoid circular dependency
 const Colors = {
@@ -1351,10 +1352,11 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'device-tv' || name === 'video-movies-vintage-tv-1') return <TvIcon size={size} color={color} />;
     if (name === 'interface-essential-satellite' || name === 'interface-essential-search-binocular') return <TelescopeIcon size={size} color={color} style={style} />;
     if (name === 'more-fill' || name === 'more-horizontal') return <MoreFillIcon size={size} color={color} />;
-warn(`Icon not found (no iconify fallback): ${name}`);
+    
+    // Icon not found - return null silently to avoid console spam
     return null;
-  } catch (error) {
-error(`Error rendering icon ${name}:`, error);
+  } catch (err) {
+    console.error(`Error rendering icon ${name}:`, err);
     return null;
   }
 };

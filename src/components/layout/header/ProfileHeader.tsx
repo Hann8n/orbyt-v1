@@ -63,6 +63,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   // Ensure profile data is immediately available from cache to prevent flashing
   const profileData = profile || (handle ? ProfileCache.getProfileFromCacheSync(handle) : null);
+  
   // Check if the current user can message this profile
   useEffect(() => {
     const checkAvailability = async () => {
@@ -79,9 +80,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     };
     checkAvailability();
   }, [profileData?.did, isOwnProfile]);
-
-
-  // (moved up so hooks below can safely reference profileData)
 
   // Edit sheet functions
   const openEditSheet = useCallback(() => {
@@ -104,18 +102,22 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       // Navigate to chat screen
       navigation.push(`/chat/${conversation.id}`);
     } catch (error) {
-error('Error starting conversation:', error);
       // For now, just navigate to the chat tab
       navigation.push('/chat');
     }
   }, [profileData?.did, navigation]);
 
-
-
-  // Extract default colors from avatar when profile data changes
+  // Extract default colors from avatar for edit sheet only
   useEffect(() => {
     const extractDefaultColors = async () => {
-      if (profileData?.avatar) {
+      if (profileData?.profileColors) {
+        // Use current profile colors as default for edit sheet
+        setExtractedDefaultColors({
+          backgroundColor: profileData.profileColors.backgroundColor,
+          textColor: profileData.profileColors.foregroundColor,
+        });
+      } else if (profileData?.avatar) {
+        // Only extract from avatar if no profile colors exist
         try {
           const colors = await extractColorsFromImage(profileData.avatar);
           
@@ -123,7 +125,6 @@ error('Error starting conversation:', error);
             backgroundColor: colors.backgroundColor,
             textColor: colors.foregroundColor,
           });
-          
         } catch (error) {
           // Fallback to black/white if extraction fails
           setExtractedDefaultColors({
@@ -131,12 +132,11 @@ error('Error starting conversation:', error);
             textColor: '#FFFFFF',
           });
         }
-      } else {
       }
     };
 
     extractDefaultColors();
-  }, [profileData?.avatar]);
+  }, [profileData?.avatar, profileData?.profileColors]);
 
 
   // Handle follow/unfollow action

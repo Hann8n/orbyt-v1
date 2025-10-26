@@ -26,7 +26,8 @@ export interface ProfileColorOption {
   textColor: string;
   label: string;
 }
-import { hexToRGBA, extractColorsFromImage } from '../../../utils/formatting/colorUtils';
+import { hexToRGBA, extractColorsFromImage, isColorDark } from '../../../utils/formatting/colorUtils';
+import Icon from '../../ui/Icon';
 
 interface EditProfileSheetProps {
   visible: boolean;
@@ -72,20 +73,95 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
       setEditDisplayName(profileData.displayName || '');
       setEditDescription(profileData.description || '');
       setEditAvatar(undefined);
-      setSelectedColorId('default');
+      
+      // Check if default colors match a preset
+      if (defaultColors) {
+        const presetColors = [
+          { id: 'black', backgroundColor: Colors.black, textColor: Colors.lightGray },
+          { id: 'teal', backgroundColor: '#06b4b1', textColor: Colors.white },
+          { id: 'purple', backgroundColor: '#7321fb', textColor: Colors.white },
+          { id: 'blue', backgroundColor: '#0046fc', textColor: Colors.white },
+          { id: 'green', backgroundColor: '#43b412', textColor: Colors.white },
+          { id: 'red', backgroundColor: '#ba2740', textColor: Colors.white },
+          { id: 'lightBlue', backgroundColor: '#09a6ed', textColor: Colors.white },
+          { id: 'pink', backgroundColor: '#d63fe3', textColor: Colors.white },
+          { id: 'gold', backgroundColor: '#ddaa21', textColor: Colors.white },
+          { id: 'lightPink', backgroundColor: '#f9a8d3', textColor: '#1a1a2e' },
+          { id: 'darkPurple', backgroundColor: '#5913ce', textColor: '#87ceeb' },
+          { id: 'neonGreen', backgroundColor: '#01de6e', textColor: '#1a1a2e' },
+          { id: 'neonTeal', backgroundColor: '#00e4bf', textColor: '#414974' },
+          { id: 'golddark', backgroundColor: '#ddaa21', textColor: '#1a1a2e' },
+          { id: 'armyGreen', backgroundColor: '#433d3c', textColor: '#accb6d' },
+          { id: 'lightMaroon', backgroundColor: '#85356e', textColor: '#fa5fab' },
+          { id: 'mutedPink', backgroundColor: '#926979', textColor: '#f6a2bd' },
+          { id: 'darkPurple2', backgroundColor: '#4f4085', textColor: '#f85b56' },
+          { id: 'blueishGray', backgroundColor: '#464b61', textColor: '#c5f6f9' },
+          { id: 'lightPurple2', backgroundColor: '#9584da', textColor: '#2f2353' },
+          { id: 'darkMaroon', backgroundColor: '#581b34', textColor: '#d94938' },
+          { id: 'veryDarkBlue', backgroundColor: '#001b42', textColor: '#0090f6' },
+          { id: 'veryDarkPeach', backgroundColor: '#30050d', textColor: '#fd5668' },
+          { id: 'veryDarkPurple', backgroundColor: '#1d0640', textColor: '#c838fb' },
+          { id: 'veryDarkTeal', backgroundColor: '#0a2b2b', textColor: '#00e4bf' },
+          { id: 'veryDarkGreen', backgroundColor: '#061d00', textColor: '#4bc602' },
+          { id: 'veryDarkOrange', backgroundColor: '#2b1900', textColor: '#f7a232' },
+        ];
+        
+        const match = presetColors.find(preset => 
+          preset.backgroundColor === defaultColors.backgroundColor && 
+          preset.textColor === defaultColors.textColor
+        );
+        
+        if (match) {
+          setSelectedColorId(match.id);
+          setCustomColors({
+            backgroundColor: match.backgroundColor,
+            textColor: match.textColor,
+          });
+        } else {
+          setSelectedColorId('default');
+          setCustomColors(null);
+        }
+      } else {
+        setSelectedColorId('default');
+        setCustomColors(null);
+      }
+      
       setSelectedColorType('background');
-      setCustomColors(null);
     }
-  }, [visible, profileData]);
+  }, [visible, profileData, defaultColors]);
 
+  // Extract colors from avatar when it changes
+  const [extractedColors, setExtractedColors] = useState<{
+    backgroundColor: string;
+    textColor: string;
+  } | null>(null);
+  
+  useEffect(() => {
+    const extractAvatarColors = async () => {
+      if (profileData?.avatar) {
+        try {
+          const colors = await extractColorsFromImage(profileData.avatar);
+          setExtractedColors({
+            backgroundColor: colors.backgroundColor,
+            textColor: colors.foregroundColor,
+          });
+        } catch (error) {
+          // Silently fail if extraction fails
+        }
+      }
+    };
+    
+    extractAvatarColors();
+  }, [profileData?.avatar]);
+  
   // Predefined color options
   const predefinedColors: ProfileColorOption[] = useMemo(() => [
-    // Default colors (extracted from avatar) - will be first option
+    // Current colors - use extracted colors if available, otherwise use default colors
     {
       id: 'default',
-      backgroundColor: defaultColors?.backgroundColor || '#000000',
-      textColor: defaultColors?.textColor || '#FFFFFF',
-      label: 'Default',
+      backgroundColor: extractedColors?.backgroundColor || defaultColors?.backgroundColor || '#000000',
+      textColor: extractedColors?.textColor || defaultColors?.textColor || '#FFFFFF',
+      label: 'Current',
     },
     // Separator - will be rendered as a visual divider
     {
@@ -258,7 +334,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
       textColor: '#f7a232', // orange
       label: 'Very Dark Orange',
     },
-  ], [defaultColors]);
+  ], [defaultColors, extractedColors]);
 
   // Handle avatar selection
   const handleAvatarPress = useCallback(async () => {
@@ -342,21 +418,43 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
     if (!profileData?.handle) return;
 
     try {
-      const result = await profileUpdateMutation.mutateAsync({
-        handle: profileData.handle,
-        updates: {
-          displayName: editDisplayName || undefined,
-          description: editDescription || undefined,
-          avatar: editAvatar || undefined,
-          customColors: customColors || undefined,
-        }
-      });
-
+      // Create updates object
+      const updates: any = {};
+      
+      if (editDisplayName !== profileData.displayName) {
+        updates.displayName = editDisplayName || undefined;
+      }
+      
+      if (editDescription !== profileData.description) {
+        updates.description = editDescription || undefined;
+      }
+      
+      if (editAvatar) {
+        updates.avatar = editAvatar;
+      }
+      
+      // Only include custom colors if they're different from default
+      if (customColors && (
+        !defaultColors || 
+        customColors.backgroundColor !== defaultColors.backgroundColor ||
+        customColors.textColor !== defaultColors.textColor
+      )) {
+        updates.customColors = customColors;
+      }
+      
+      // Only update if there are changes
+      if (Object.keys(updates).length > 0) {
+        await profileUpdateMutation.mutateAsync({
+          handle: profileData.handle,
+          updates
+        });
+      }
+      
       onDismiss();
     } catch (error) {
       Alert.alert('Error', 'Failed to update profile. Please try again.');
     }
-  }, [profileData, editDisplayName, editDescription, editAvatar, customColors, profileUpdateMutation, onDismiss]);
+  }, [profileData, editDisplayName, editDescription, editAvatar, customColors, defaultColors, profileUpdateMutation, onDismiss]);
 
   // Handle dismiss
   const handleDismiss = useCallback(() => {
@@ -369,10 +467,10 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
       return customColors;
     }
     return {
-      backgroundColor: defaultColors?.backgroundColor || Colors.black,
-      textColor: defaultColors?.textColor || Colors.white,
+      backgroundColor: extractedColors?.backgroundColor || defaultColors?.backgroundColor || Colors.black,
+      textColor: extractedColors?.textColor || defaultColors?.textColor || Colors.white,
     };
-  }, [customColors, defaultColors]);
+  }, [customColors, defaultColors, extractedColors]);
 
   return (
     <Modal
@@ -427,8 +525,8 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
 
           {/* Content */}
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* Color Theme Section - Temporarily Hidden */}
-            {false && (
+            {/* Color Theme Section */}
+            {true && (
               <View style={styles.section}>
                 {/* Color Picker */}
                 <ScrollView
@@ -709,6 +807,29 @@ const styles = StyleSheet.create({
   },
   textSection: {
     flex: 1, // 25% of the space
+  },
+  colorLabelContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 8,
+    flexDirection: 'row',
+  },
+  colorLabel: {
+    fontSize: 10,
+    fontFamily: 'Firma-Medium',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  colorLabelIcon: {
+    marginLeft: 2,
   },
   separatorContainer: {
     alignItems: 'center',

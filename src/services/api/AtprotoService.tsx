@@ -90,6 +90,19 @@ class AtprotoService {
   private static readonly REQUEST_CACHE_TTL = 2000; // 2 second deduplication window
   
   /**
+   * Initialize supporting services
+   */
+  static async initializeServices(): Promise<void> {
+    try {
+      const { api } = await this.getApiClient();
+      const ProfileColorsService = (await import('../ProfileColorsService')).default;
+      ProfileColorsService.initialize(api);
+    } catch (error) {
+      // Silent initialization - services will work without this
+    }
+  }
+  
+  /**
    * Deduplicate API requests to prevent multiple identical calls
    */
   private static async deduplicateRequest<T>(key: string, requestFn: () => Promise<T>): Promise<T> {
@@ -2452,6 +2465,76 @@ class AtprotoService {
    * @param limit - Number of results to return
    * @returns Array of feed generator objects
    */
+  /**
+   * Get profile colors directly from PDS
+   * @param did - User DID
+   * @returns Profile colors data or null if not found
+   */
+  static async getProfileColors(did: string): Promise<any | null> {
+    const ProfileColorsService = (await import('../ProfileColorsService')).default;
+    return ProfileColorsService.getProfileColors(did);
+  }
+
+  /**
+   * Save profile colors to PDS
+   * @param backgroundColor - Background color hex
+   * @param textColor - Text color hex
+   * @returns Boolean indicating success
+   */
+  static async saveProfileColors(backgroundColor: string, textColor: string): Promise<boolean> {
+    try {
+      const userDid = await this.getCurrentUserDid();
+      if (!userDid) return false;
+      
+      const { api } = await this.getApiClient();
+      
+      // First, delete any existing records to keep only the most recent one
+      try {
+        const existingRecords = await api.com.atproto.repo.listRecords({
+          repo: userDid,
+          collection: 'com.getorbyt.profileColors',
+          limit: 10
+        });
+        
+        if (existingRecords?.data?.records?.length > 0) {
+          // Delete all existing records
+          for (const record of existingRecords.data.records) {
+            await api.com.atproto.repo.deleteRecord({
+              repo: userDid,
+              collection: 'com.getorbyt.profileColors',
+              rkey: record.rkey
+            });
+          }
+        }
+      } catch (error) {
+        // Continue even if deletion fails
+      }
+      
+      // Create a new record with current timestamp as rkey
+      const rkey = `${Date.now()}`;
+      const record = {
+        $type: 'com.getorbyt.profileColors',
+        createdAt: new Date().toISOString(),
+        backgroundColor,
+        textColor,
+        accentColor: textColor,
+        secondaryColor: textColor
+      };
+      
+      await api.com.atproto.repo.createRecord({
+        repo: userDid,
+        collection: 'com.getorbyt.profileColors',
+        rkey,
+        record
+      });
+      
+      return true;
+    } catch (error) {
+      logger.error('Error saving profile colors', error, { component: 'AtprotoService' });
+      return false;
+    }
+  }
+
   static async getStaticChannels(limit: number = 10): Promise<any[]> {
     try {
       const channelDids = await StaticChannelsService.getChannels();

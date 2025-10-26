@@ -42,8 +42,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     }
   };
 
-  // Always use white for active tabs in channels for better readability
-  const activeTabColor = '#FFFFFF';
+  // Use the passed textColor for active tabs, fallback to white for better readability
+  const activeTabColor = textColor || '#FFFFFF';
 
   // Get variant-specific styles
   const variantStyle = variant === 'comments' ? styles.commentsStyle : styles.headerStyle;

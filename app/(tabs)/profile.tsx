@@ -4,13 +4,11 @@ import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } 
 import AtprotoService from '../../src/services/api/AtprotoService';
 // Use plain FlashList via FeedRenderer; no adapter/converter
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
-import { extractColorsFromImage } from '../../src/utils/formatting/colorUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileCache, { 
   useProfile, 
   useProfileByDid,
   useProfileColors,
-  useProfileColorsMutation,
   useProfileInvalidation,
   profileKeys
 } from '../../src/services/cache/ProfileCache';
@@ -87,7 +85,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Colors keyed by handle; if navigating by DID, use fetched handle
   const colorsHandle = targetDid ? (cachedProfile?.handle || null) : targetHandle;
   const { colors: profileColors } = useProfileColors(colorsHandle);
-  const colorsMutation = useProfileColorsMutation();
 
   // Force shimmer state for testing
   const forceShimmer = false; // Force loading state
@@ -107,40 +104,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const queryOptions = useMemo(() => ({ enabled: !!profileData?.did }), [profileData?.did]);
 
   // ProfileCache is now automatically synced via useProfileCacheSync hook
+  // Colors are extracted during profile fetch in ProfileCache.ts - no need to do it here
 
-  // Extract and save colors when profile data is available
-  useEffect(() => {
-    if (profileData?.avatar && profileData?.handle) {
-      extractAndSaveColors(profileData.handle, profileData.avatar);
-    }
-  }, [profileData?.avatar, profileData?.handle]);
-
-  // Function to extract and save profile colors
-  const extractAndSaveColors = async (handle: string, avatarUrl: string) => {
-     try {
-        const colors = await extractColorsFromImage(avatarUrl);
-        colorsMutation.mutate({
-          handle: handle,
-          backgroundColor: colors.backgroundColor,
-          foregroundColor: colors.foregroundColor
-        });
-     } catch (error) {
-     }
-  };
-
-  // Effect to handle profile fetching logic
-  useEffect(() => {
-    if (targetDid || targetHandle) {
-      if (profileData && (!profileData.profileColors) && profileData.avatar) {
-        extractAndSaveColors(profileData.handle, profileData.avatar);
-      }
-    } else if (!providedHandle && !providedDid && !userHandle) {
-      const shouldFetch = !profileData && !isProfileLoading;
-      if (shouldFetch) {
-        // handled by hooks
-      }
-    }
-  }, [targetHandle, targetDid, profileData, providedHandle, providedDid, userHandle, isProfileLoading]);
+  // Profile fetching is handled by React Query hooks
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
