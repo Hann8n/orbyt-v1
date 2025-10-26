@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import VerificationBadge from '../features/verification/VerificationBadge';
 import Icon, { FollowIcon, CheckIcon } from './Icon';
-import { extractColorsFromImage, hexToRGBA } from '../../utils/formatting/colorUtils';
+import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { Colors } from './UI';
 import UI from './UI';
 

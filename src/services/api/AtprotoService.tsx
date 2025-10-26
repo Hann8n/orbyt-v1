@@ -93,13 +93,7 @@ class AtprotoService {
    * Initialize supporting services
    */
   static async initializeServices(): Promise<void> {
-    try {
-      const { api } = await this.getApiClient();
-      const ProfileColorsService = (await import('../ProfileColorsService')).default;
-      ProfileColorsService.initialize(api);
-    } catch (error) {
-      // Silent initialization - services will work without this
-    }
+    // Services initialized as needed
   }
   
   /**
@@ -2465,15 +2459,6 @@ class AtprotoService {
    * @param limit - Number of results to return
    * @returns Array of feed generator objects
    */
-  /**
-   * Get profile colors directly from PDS
-   * @param did - User DID
-   * @returns Profile colors data or null if not found
-   */
-  static async getProfileColors(did: string): Promise<any | null> {
-    const ProfileColorsService = (await import('../ProfileColorsService')).default;
-    return ProfileColorsService.getProfileColors(did);
-  }
 
   /**
    * Save profile colors to PDS
@@ -2493,21 +2478,34 @@ class AtprotoService {
         const existingRecords = await api.com.atproto.repo.listRecords({
           repo: userDid,
           collection: 'com.getorbyt.profileColors',
-          limit: 10
+          limit: 100 // Increased limit to catch all records
         });
         
         if (existingRecords?.data?.records?.length > 0) {
-          // Delete all existing records
-          for (const record of existingRecords.data.records) {
-            await api.com.atproto.repo.deleteRecord({
-              repo: userDid,
-              collection: 'com.getorbyt.profileColors',
-              rkey: record.rkey
-            });
-          }
+          // Delete all existing records in parallel for better performance
+          const deletePromises = existingRecords.data.records.map(async (record: any) => {
+            try {
+              // The rkey might be nested in the record structure
+              const rkey = record.rkey || record.uri?.split('/').pop();
+              if (!rkey) {
+                return;
+              }
+              
+              await api.com.atproto.repo.deleteRecord({
+                repo: userDid,
+                collection: 'com.getorbyt.profileColors',
+                rkey: rkey
+              });
+            } catch (deleteError) {
+              // Continue on individual delete errors
+            }
+          });
+          
+          // Wait for all deletions to complete
+          await Promise.allSettled(deletePromises);
         }
       } catch (error) {
-        // Continue even if deletion fails
+        // Continue with creation even if listing fails
       }
       
       // Create a new record with current timestamp as rkey
@@ -2531,6 +2529,55 @@ class AtprotoService {
       return true;
     } catch (error) {
       logger.error('Error saving profile colors', error, { component: 'AtprotoService' });
+      return false;
+    }
+  }
+
+  /**
+   * Clean up all existing profile color records for the current user
+   * @returns Boolean indicating success
+   */
+  static async cleanupProfileColors(): Promise<boolean> {
+    try {
+      const userDid = await this.getCurrentUserDid();
+      if (!userDid) return false;
+      
+      const { api } = await this.getApiClient();
+      
+      // Get all existing records
+      const existingRecords = await api.com.atproto.repo.listRecords({
+        repo: userDid,
+        collection: 'com.getorbyt.profileColors',
+        limit: 100
+      });
+      
+      if (existingRecords?.data?.records?.length > 0) {
+        // Delete all existing records in parallel
+        const deletePromises = existingRecords.data.records.map(async (record: any) => {
+          try {
+            // The rkey might be nested in the record structure
+            const rkey = record.rkey || record.uri?.split('/').pop();
+            if (!rkey) {
+              return;
+            }
+            
+            await api.com.atproto.repo.deleteRecord({
+              repo: userDid,
+              collection: 'com.getorbyt.profileColors',
+              rkey: rkey
+            });
+          } catch (deleteError) {
+            // Continue on individual delete errors
+          }
+        });
+        
+        // Wait for all deletions to complete
+        await Promise.allSettled(deletePromises);
+      }
+      
+      return true;
+    } catch (error) {
+      logger.error('Error cleaning up profile colors', error, { component: 'AtprotoService' });
       return false;
     }
   }

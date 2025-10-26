@@ -111,7 +111,7 @@ export default function RootLayout() {
       try {
         await initializeUserState();
         
-        // Initialize ProfileColorsService for efficient color caching
+        // Initialize services
         try {
           const AtprotoService = (await import('../src/services/api/AtprotoService')).default;
           await AtprotoService.initializeServices();

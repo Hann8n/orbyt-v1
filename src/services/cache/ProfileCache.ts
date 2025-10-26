@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AtprotoService from '../api/AtprotoService';
-import { extractColorsFromImage, isColorDark } from '@/utils/formatting/colorUtils';
+import { isColorDark, getStatusBarStyle, DEFAULT_PROFILE_COLORS } from '@/utils/formatting/colorUtils';
+import { AtpAgent } from '@atproto/api';
 import { Colors } from '@/components/ui/UI';
 import { 
   useQuery, 
@@ -10,8 +11,7 @@ import {
   UseQueryResult,
   QueryFunction
 } from '@tanstack/react-query';
-import ImageColors from 'react-native-image-colors';
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback } from 'react';
 
 
 export interface CachedProfile {
@@ -86,6 +86,61 @@ class ProfileCache {
     this.isInitialized = true;
     
 
+  }
+
+  /**
+   * Fetch profile colors directly from PDS
+   */
+  private static async fetchProfileColorsFromPDS(did: string): Promise<{ backgroundColor: string; textColor: string } | null> {
+    try {
+      // Resolve PDS endpoint via PLC directory
+      const didDoc = await fetch(`https://plc.directory/${did}`).then(r => r.json());
+      const service = didDoc.service?.find(
+        (s: any) => s.id === '#atproto_pds' || s.type === 'AtprotoPersonalDataServer'
+      );
+      
+      if (!service?.serviceEndpoint) {
+        return null;
+      }
+
+      const pdsAgent = new AtpAgent({ service: service.serviceEndpoint });
+
+      // Try listRecords first
+      try {
+        const response = await pdsAgent.com.atproto.repo.listRecords({
+          repo: did,
+          collection: 'com.getorbyt.profileColors',
+          limit: 1,
+        });
+
+        if (response.data.records && response.data.records.length > 0) {
+          const record = response.data.records[0].value as any;
+          return {
+            backgroundColor: record.backgroundColor,
+            textColor: record.textColor
+          };
+        }
+      } catch {
+        // Try getRecord with rkey 'self' as fallback
+        try {
+          const response = await pdsAgent.com.atproto.repo.getRecord({
+            repo: did,
+            collection: 'com.getorbyt.profileColors',
+            rkey: 'self',
+          });
+          const record = response.data.value as any;
+          return {
+            backgroundColor: record.backgroundColor,
+            textColor: record.textColor
+          };
+        } catch {
+          // Record doesn't exist
+        }
+      }
+    } catch {
+      // No custom colors
+    }
+    return null;
   }
 
   // React Query integration
@@ -374,13 +429,20 @@ class ProfileCache {
                   return;
                 }
 
-                // Extract profile colors
+                // Fetch colors from PDS
                 let profileColors = undefined;
-                try {
-                  if (profile.avatar) {
-                    profileColors = await extractColorsFromImage(profile.avatar);
-                  }
-                } catch (e) {
+                let hasCustomColors = false;
+                
+                const customColors = await this.fetchProfileColorsFromPDS(profile.did);
+                if (customColors) {
+                  hasCustomColors = true;
+                  profileColors = {
+                    backgroundColor: customColors.backgroundColor,
+                    foregroundColor: customColors.textColor,
+                    statusBarStyle: getStatusBarStyle(customColors.backgroundColor)
+                  };
+                } else {
+                  profileColors = DEFAULT_PROFILE_COLORS;
                 }
 
                 // Get following status from viewer relationship data
@@ -423,6 +485,7 @@ class ProfileCache {
                   description: profile.description,
                   isFollowing,
                   isFollowedBy,
+                  hasCustomColors,
                   profileColors: profileColors ? {
                     backgroundColor: profileColors.backgroundColor,
                     foregroundColor: profileColors.foregroundColor,
@@ -544,7 +607,7 @@ class ProfileCache {
               cachedProfile.profileColors = {
                 backgroundColor,
                 foregroundColor,
-                statusBarStyle: isColorDark(backgroundColor) ? 'light' : 'dark'
+                statusBarStyle: getStatusBarStyle(backgroundColor)
               };
               
               // Add PDS record saving
@@ -800,33 +863,20 @@ class ProfileCache {
               return;
             }
 
-            // Check for custom colors in PDS - use DID for direct PDS access
-            let customColors = null;
-            let hasCustomColors = false;
+            // Fetch colors from PDS
             let profileColors = undefined;
+            let hasCustomColors = false;
             
-            try {
-              // Use did directly to query PDS
-              customColors = await AtprotoService.getProfileColors(did);
-              if (customColors) {
-                hasCustomColors = true;
-                profileColors = {
-                  backgroundColor: customColors.backgroundColor,
-                  foregroundColor: customColors.textColor || customColors.foregroundColor,
-                  statusBarStyle: isColorDark(customColors.backgroundColor) ? 'light' : 'dark'
-                };
-              }
-            } catch (error) {
-              // Continue with avatar colors if custom colors not found
-            }
-
-            // Only extract colors from avatar if no custom colors exist
-            if (!hasCustomColors && profile.avatar) {
-              try {
-                profileColors = await extractColorsFromImage(profile.avatar);
-              } catch (e) {
-                // Use fallback colors if extraction fails
-              }
+            const customColors = await this.fetchProfileColorsFromPDS(did);
+            if (customColors) {
+              hasCustomColors = true;
+              profileColors = {
+                backgroundColor: customColors.backgroundColor,
+                foregroundColor: customColors.textColor,
+                statusBarStyle: isColorDark(customColors.backgroundColor) ? 'light' : 'dark'
+              };
+            } else {
+              profileColors = DEFAULT_PROFILE_COLORS;
             }
 
             // Get both sides of the follow relationship from viewer data
@@ -920,33 +970,20 @@ class ProfileCache {
               return;
             }
 
-            // Check for custom colors in PDS - use DID for direct PDS access
-            let customColors = null;
-            let hasCustomColors = false;
+            // Fetch colors from PDS
             let profileColors = undefined;
+            let hasCustomColors = false;
             
-            try {
-              // Use profile.did instead of handle to query PDS directly
-              customColors = await AtprotoService.getProfileColors(profile.did);
-              if (customColors) {
-                hasCustomColors = true;
-                profileColors = {
-                  backgroundColor: customColors.backgroundColor,
-                  foregroundColor: customColors.textColor || customColors.foregroundColor,
-                  statusBarStyle: isColorDark(customColors.backgroundColor) ? 'light' : 'dark'
-                };
-              }
-            } catch (error) {
-              // Continue with avatar colors if custom colors not found
-            }
-
-            // Only extract colors from avatar if no custom colors exist
-            if (!hasCustomColors && profile.avatar) {
-              try {
-                profileColors = await extractColorsFromImage(profile.avatar);
-              } catch (e) {
-                // Use fallback colors if extraction fails
-              }
+            const customColors = await this.fetchProfileColorsFromPDS(profile.did);
+            if (customColors) {
+              hasCustomColors = true;
+              profileColors = {
+                backgroundColor: customColors.backgroundColor,
+                foregroundColor: customColors.textColor,
+                statusBarStyle: isColorDark(customColors.backgroundColor) ? 'light' : 'dark'
+              };
+            } else {
+              profileColors = DEFAULT_PROFILE_COLORS;
             }
 
             // Get both sides of the follow relationship from viewer data
@@ -1176,19 +1213,6 @@ class ProfileCache {
     }
   }
 
-  private static isDarkColor(color: string): boolean {
-    try {
-      // Simple luminance calculation
-      const hex = color.replace('#', '');
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-      return luminance < 0.5;
-    } catch (error) {
-      return false;
-    }
-  }
 
   /**
    * Batch prefetch profiles from feed data
@@ -1228,19 +1252,7 @@ class ProfileCache {
               }
             });
 
-            // Prefetch colors for all profiles
-            const didsToFetch = feedItems
-              .map(item => item.post?.author?.did || item.author?.did)
-              .filter(Boolean);
 
-            if (didsToFetch.length > 0) {
-              try {
-                const ProfileColorsService = (await import('../ProfileColorsService')).default;
-                ProfileColorsService.prefetchColors(didsToFetch);
-              } catch (error) {
-                // Silent - prefetching is optional
-              }
-            }
 
             // Convert to array and filter out empty handles
             const handlesToPrefetch = Array.from(uniqueHandles).filter(handle => handle && handle.trim() !== '');
@@ -1554,7 +1566,7 @@ export function useProfileUpdateMutation() {
             profileColors: {
               backgroundColor: updates.customColors.backgroundColor,
               foregroundColor: updates.customColors.textColor,
-              statusBarStyle: isColorDark(updates.customColors.backgroundColor) ? 'light' : 'dark'
+              statusBarStyle: getStatusBarStyle(updates.customColors.backgroundColor)
             }
           } : {}),
           lastUpdated: Date.now(),
@@ -1613,6 +1625,18 @@ export function useProfileInvalidation() {
     await ProfileCache.invalidateProfile(handle);
     queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
   }, [queryClient]);
+}
+
+/**
+ * Clean up all existing profile color records for the current user
+ */
+export async function cleanupProfileColors(): Promise<boolean> {
+  try {
+    const AtprotoService = (await import('../api/AtprotoService')).default;
+    return await AtprotoService.cleanupProfileColors();
+  } catch (error) {
+    return false;
+  }
 }
 
 export default ProfileCache;

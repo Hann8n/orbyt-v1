@@ -60,130 +60,29 @@ const getRelativeLuminance = (hex: string): number => {
 };
 
 /**
- * Calculates contrast ratio between two colors according to WCAG
- * @returns Contrast ratio (1-21)
- */
-const getContrastRatioInternal = (color1: string, color2: string): number => {
-  const l1 = getRelativeLuminance(color1);
-  const l2 = getRelativeLuminance(color2);
-  const lighter = Math.max(l1, l2);
-  const darker = Math.min(l1, l2);
-  return (lighter + 0.05) / (darker + 0.05);
-};
-
-/**
  * Checks if two colors meet WCAG AA standard (contrast ratio of at least 4.5:1)
  */
 const meetsContrastGuidelines = (color1: string, color2: string): boolean => {
-  return getContrastRatioInternal(color1, color2) >= 4.5;
+  return getContrastRatio(color1, color2) >= 4.5;
 };
 
 /**
- * Adjusts a color to ensure it has good contrast with white for status bar text
+ * Determines the appropriate status bar style based on background color
+ * @param backgroundColor - Hex color string
+ * @returns 'light' for dark backgrounds, 'dark' for light backgrounds
  */
-const adjustColorForStatusBar = (color: string): string => {
-  const minRequiredContrast = 4.5;
-  let currentContrast = getContrastRatioInternal(color, '#FFFFFF');
-  
-  if (currentContrast >= minRequiredContrast) return color;
-
-  // Convert hex to RGB
-  const r = parseInt(color.slice(1, 3), 16);
-  const g = parseInt(color.slice(3, 5), 16);
-  const b = parseInt(color.slice(5, 7), 16);
-  
-  // Gradually darken the color until we reach sufficient contrast
-  let newR = r;
-  let newG = g;
-  let newB = b;
-  const step = 10;
-  
-  while (currentContrast < minRequiredContrast) {
-    // Reduce RGB values to darken the color
-    newR = Math.max(0, newR - step);
-    newG = Math.max(0, newG - step);
-    newB = Math.max(0, newB - step);
-    
-    const newColor = '#' + 
-      newR.toString(16).padStart(2, '0') +
-      newG.toString(16).padStart(2, '0') +
-      newB.toString(16).padStart(2, '0');
-    
-    currentContrast = getContrastRatioInternal(newColor, '#FFFFFF');
-    
-    // If we reach black or sufficient contrast, break the loop
-    if ((newR <= step && newG <= step && newB <= step) || currentContrast >= minRequiredContrast) {
-      return newColor;
-    }
-  }
-  
-  // Fallback to dark gray if needed
-  return '#303030';
-};
-
-const adjustColorForAAA = (color: string, background: string): string => {
-  // Implementation for adjusting color to meet AAA contrast requirements
-  return color;
+export const getStatusBarStyle = (backgroundColor: string): 'light' | 'dark' => {
+  return isColorDark(backgroundColor) ? 'light' : 'dark';
 };
 
 /**
- * Ensures a color is bright and vibrant for accent usage
- * If the color is too dark, it will be lightened to make it more vibrant
- * Ensures the color is light enough to be visible against a black background
+ * Default profile colors used throughout the app
  */
-const ensureBrightAccentColor = (color: string): string => {
-  // Convert hex to RGB
-  const hex = color.replace('#', '');
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  
-  // Calculate brightness (0-255)
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-  
-  // For visibility against black background, we need a higher brightness threshold
-  // WCAG AA requires contrast ratio of 4.5:1, which means brightness should be around 180+ for good visibility
-  const minBrightnessForBlackBackground = 180;
-  
-  // If the color is too dark for black background visibility, lighten it significantly
-  if (brightness < minBrightnessForBlackBackground) {
-    // Calculate how much we need to increase the brightness
-    const targetBrightness = minBrightnessForBlackBackground;
-    const brightnessDifference = targetBrightness - brightness;
-    
-    // Increase RGB values proportionally to reach target brightness
-    // Use a more aggressive approach to ensure good visibility
-    const factor = 1 + (brightnessDifference / brightness) * 0.8;
-    
-    const newR = Math.min(255, Math.round(r * factor));
-    const newG = Math.min(255, Math.round(g * factor));
-    const newB = Math.min(255, Math.round(b * factor));
-    
-    // Verify the new brightness meets our requirements
-    const newBrightness = (newR * 299 + newG * 587 + newB * 114) / 1000;
-    
-    // If still not bright enough, push to even brighter values
-    if (newBrightness < minBrightnessForBlackBackground) {
-      const finalR = Math.min(255, newR + 50);
-      const finalG = Math.min(255, newG + 50);
-      const finalB = Math.min(255, newB + 50);
-      
-      return '#' + 
-        finalR.toString(16).padStart(2, '0') +
-        finalG.toString(16).padStart(2, '0') +
-        finalB.toString(16).padStart(2, '0');
-    }
-    
-    return '#' + 
-      newR.toString(16).padStart(2, '0') +
-      newG.toString(16).padStart(2, '0') +
-      newB.toString(16).padStart(2, '0');
-  }
-  
-  return color;
+export const DEFAULT_PROFILE_COLORS = {
+  backgroundColor: Colors.black,
+  foregroundColor: Colors.lightGray,
+  statusBarStyle: 'light' as const,
 };
-
-
 
 /**
  * Enhances color saturation to make it more vibrant
@@ -333,91 +232,13 @@ function getBestColor(result: ImageColorsResult): { backgroundColor: string, for
   backgroundColor = enhanceColorSaturation(backgroundColor, 1.4);
   accentColor = enhanceColorSaturation(accentColor, 1.5);
 
-  // Ensure accent color is bright and vibrant
-  accentColor = ensureBrightAccentColor(accentColor);
-
-  // Ensure selected background works well with white status bar text
-  if (getContrastRatioInternal(backgroundColor, '#FFFFFF') < 3.5) {
-    backgroundColor = adjustColorForStatusBar(backgroundColor);
-  }
-
   return { backgroundColor, foregroundColor, accentColor };
 }
 
-function getSecondaryColor(result: ImageColorsResult): string {
-  if (result.platform === "android") {
-    // Prioritize bright, vibrant colors for secondary/accent usage
-    const rawColor = result.lightVibrant || result.vibrant || result.lightMuted || result.average || '#FFFFFF';
-    return ensureBrightAccentColor(rawColor);
-  } else if (result.platform === "ios") {
-    // For iOS, secondary and detail colors are typically brighter
-    const rawColor = result.secondary || result.detail || result.primary || '#FFFFFF';
-    return ensureBrightAccentColor(rawColor);
-  } else {
-    const rawColor = result.lightVibrant || result.vibrant || '#FFFFFF';
-    return ensureBrightAccentColor(rawColor);
-  }
-}
-
-function ensureAccessibleColors(backgroundColor: string, foregroundColor: string): { backgroundColor: string, foregroundColor: string } {
-  // Ensure the background has good contrast with white for status bar
-  if (!meetsContrastGuidelines(backgroundColor, '#FFFFFF')) {
-    backgroundColor = '#303030';
-  }
-  
-  // Ensure the foreground has good contrast with the background
-  if (!meetsContrastGuidelines(backgroundColor, foregroundColor)) {
-    foregroundColor = isColorDark(backgroundColor) ? '#FFFFFF' : '#000000';
-  }
-  
-  return { backgroundColor, foregroundColor };
-}
-
 /**
- * Test function to verify accent color brightness for black background visibility
- * This can be used for debugging and verification
+ * Extract colors from image - ONLY for use in edit screen as suggestions
+ * This should not be used for automatic profile color setting
  */
-export const enhanceColorBrightness = (hex: string, brightnessBoost: number = 1.1): string => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-
-  const newR = Math.min(255, Math.round(r * brightnessBoost));
-  const newG = Math.min(255, Math.round(g * brightnessBoost));
-  const newB = Math.min(255, Math.round(b * brightnessBoost));
-
-  return '#' + newR.toString(16).padStart(2, '0') + newG.toString(16).padStart(2, '0') + newB.toString(16).padStart(2, '0');
-};
-
-export const testAccentColorBrightness = (color: string): { 
-  original: string, 
-  originalBrightness: number, 
-  adjusted: string, 
-  adjustedBrightness: number,
-  isVisibleOnBlack: boolean 
-} => {
-  const hex = color.replace('#', '');
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  const originalBrightness = (r * 299 + g * 587 + b * 114) / 1000;
-  
-  const adjustedColor = ensureBrightAccentColor(color);
-  const adjustedHex = adjustedColor.replace('#', '');
-  const adjustedR = parseInt(adjustedHex.substring(0, 2), 16);
-  const adjustedG = parseInt(adjustedHex.substring(2, 4), 16);
-  const adjustedB = parseInt(adjustedHex.substring(4, 6), 16);
-  const adjustedBrightness = (adjustedR * 299 + adjustedG * 587 + adjustedB * 114) / 1000;
-  
-  return {
-    original: color,
-    originalBrightness: Math.round(originalBrightness),
-    adjusted: adjustedColor,
-    adjustedBrightness: Math.round(adjustedBrightness),
-    isVisibleOnBlack: adjustedBrightness >= 180
-  };
-};
-
 export async function extractColorsFromImage(imageUrl: string) {
   try {
     // Check if the image URL is a local file
@@ -436,20 +257,13 @@ export async function extractColorsFromImage(imageUrl: string) {
     });
 
     const { backgroundColor, foregroundColor, accentColor } = getBestColor(result);
-    const secondaryColor = getSecondaryColor(result);
     
-    const finalColors = ensureAccessibleColors(backgroundColor, foregroundColor);
-
-    // Ensure accent color is bright and vibrant
-    const brightAccentColor = ensureBrightAccentColor(accentColor || secondaryColor);
-
     const finalResult = {
-      backgroundColor: finalColors.backgroundColor,
-      foregroundColor: finalColors.foregroundColor,
-      textColor: finalColors.foregroundColor,
-      secondaryColor: secondaryColor,
-      accentColor: brightAccentColor, // Use bright accent color for vibrant UI elements
-      statusBarStyle: isColorDark(finalColors.backgroundColor) ? 'light' as const : 'dark' as const,
+      backgroundColor,
+      foregroundColor,
+      textColor: foregroundColor,
+      accentColor: accentColor || foregroundColor,
+      statusBarStyle: isColorDark(backgroundColor) ? 'light' as const : 'dark' as const,
     };
     
     return finalResult;
@@ -458,8 +272,7 @@ export async function extractColorsFromImage(imageUrl: string) {
       backgroundColor: Colors.darkGray,
       foregroundColor: Colors.white,
       textColor: Colors.white,
-      secondaryColor: Colors.lightGray,
-      accentColor: '#000000', // Accent to black
+      accentColor: '#FFFFFF',
       statusBarStyle: 'light' as const,
     };
   }

@@ -27,6 +27,9 @@ import { CommonErrorHandlers } from '../../src/utils/errorHandler';
 import { useProfile } from '../../src/services/cache/ProfileCache';
 import { useChannelColors } from '../../src/services/cache/ChannelCache';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
+import ProfileCache from '../../src/services/cache/ProfileCache';
+import ChannelCache from '../../src/services/cache/ChannelCache';
+import { clearVideoCache, clearThumbnailColorCache } from '../../src/utils/helpers/video';
  
 
 
@@ -160,6 +163,44 @@ const SettingsScreen: React.FC = () => {
       console.error('error saving experimental feeds setting:', error);
       Alert.alert('error', 'failed to save setting. please try again.');
     }
+  };
+
+  const handleClearCache = async () => {
+    Alert.alert(
+      'Clear app cache',
+      'This will clear all cached data including profiles, channels, and other app data. You may need to reload some content.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Clear Cache',
+          style: 'default',
+          onPress: async () => {
+            try {
+              // Clear all caches
+              await Promise.all([
+                ProfileCache.clearCache(),
+                ChannelCache.clearCache(),
+              ]);
+              
+              // Clear video and thumbnail caches
+              clearVideoCache();
+              clearThumbnailColorCache();
+              
+              // Clear React Query cache
+              queryClient.clear();
+              
+              Alert.alert('Success', 'App cache has been cleared successfully.');
+            } catch (error) {
+              console.error('Error clearing cache:', error);
+              Alert.alert('Error', 'Failed to clear cache. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
 
@@ -301,6 +342,12 @@ const SettingsScreen: React.FC = () => {
           },
           showChevron: true
         }] : []),
+        {
+          id: 'clear-cache',
+          label: 'Clear app cache',
+          onPress: handleClearCache,
+          showChevron: false
+        },
         {
           id: 'about',
           label: 'About orbyt',

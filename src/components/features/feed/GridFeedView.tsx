@@ -16,7 +16,6 @@ import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
 import { Colors, Avatar } from '../../ui/UI';
 import Icon from '../../ui/Icon';
-import { extractColorsFromImage } from '../../../utils/formatting/colorUtils';
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import ChannelCache from '../../../services/cache/ChannelCache';

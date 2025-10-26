@@ -10,7 +10,7 @@ import EditProfileSheet from '../../features/profile/EditProfileSheet';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import ChatService from '../../../services/ChatService';
 import { FollowIcon, MutualHeartIcon, ProfileEditIcon, InboxIcon} from '../../ui/Icon';
-import { hexToRGBA, extractColorsFromImage } from '../../../utils/formatting/colorUtils';
+import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 
 interface ProfileHeaderProps {
   handle: string | null;
@@ -107,36 +107,26 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     }
   }, [profileData?.did, navigation]);
 
-  // Extract default colors from avatar for edit sheet only
+  // Set default colors for edit sheet
   useEffect(() => {
-    const extractDefaultColors = async () => {
+    const setDefaultColors = () => {
       if (profileData?.profileColors) {
         // Use current profile colors as default for edit sheet
         setExtractedDefaultColors({
           backgroundColor: profileData.profileColors.backgroundColor,
           textColor: profileData.profileColors.foregroundColor,
         });
-      } else if (profileData?.avatar) {
-        // Only extract from avatar if no profile colors exist
-        try {
-          const colors = await extractColorsFromImage(profileData.avatar);
-          
-          setExtractedDefaultColors({
-            backgroundColor: colors.backgroundColor,
-            textColor: colors.foregroundColor,
-          });
-        } catch (error) {
-          // Fallback to black/white if extraction fails
-          setExtractedDefaultColors({
-            backgroundColor: '#000000',
-            textColor: '#FFFFFF',
-          });
-        }
+      } else {
+        // Use default colors - do NOT extract from avatar
+        setExtractedDefaultColors({
+          backgroundColor: '#000000',
+          textColor: '#CFD6E8',
+        });
       }
     };
 
-    extractDefaultColors();
-  }, [profileData?.avatar, profileData?.profileColors]);
+    setDefaultColors();
+  }, [profileData?.profileColors]);
 
 
   // Handle follow/unfollow action
