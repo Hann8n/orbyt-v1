@@ -2,6 +2,7 @@ import React from 'react';
 import { useGlobalAccountSwitcher } from '../../hooks/useGlobalModals';
 import AccountSwitcher from '../features/profile/AccountSwitcher';
 import { useAuth } from '../../stores/userStore';
+import { logger } from '../../utils/logger';
 
 const GlobalAccountSwitcher: React.FC = () => {
   const { visible, dismissAccountSwitcher } = useGlobalAccountSwitcher();
@@ -10,9 +11,10 @@ const GlobalAccountSwitcher: React.FC = () => {
   const handleAccountSwitch = async (account: any) => {
     try {
       // Account switching is handled by the AccountSwitcher component
-log('Account switched to:', account.handle);
-    } catch (error) {
-error('Error in account switch callback:', error);
+      const handle = account?.handle || account?.cachedProfile?.handle || account?.did || 'unknown';
+      logger.info('Account switched', { handle, did: account?.did });
+    } catch (err) {
+      logger.error('Error in account switch callback:', err, { component: 'GlobalAccountSwitcher' });
     }
   };
 
