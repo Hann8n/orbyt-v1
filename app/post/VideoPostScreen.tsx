@@ -148,15 +148,8 @@ const VideoPostScreen: React.FC = () => {
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressedVideoPath, setCompressedVideoPath] = useState<string | null>(null);
 
-  // Add at the top of VideoPostScreen component:
-  const [accountModalVisible, setAccountModalVisible] = useState(false);
-
   // User store hooks
   const { currentUser } = useCurrentUser();
-  const { savedAccounts, switchAccount } = useAccountManagement();
-
-  const otherAccounts = savedAccounts.filter(item => item.id !== currentUser?.did);
-  const hasOtherAccounts = otherAccounts.length > 0;
 
   // User profile state - using userStore
   const userHandle = currentUser?.handle || null;
@@ -173,16 +166,6 @@ const VideoPostScreen: React.FC = () => {
   // Ensure profile data is immediately available from cache to prevent flashing
   const profileData = userProfile || (currentUser?.handle ? ProfileCache.getProfileFromCacheSync(currentUser.handle) : null);
 
-  // When account switches, update profile
-  const handleSwitchAccount = async (account: SavedAccount) => {
-    try {
-      await switchAccount(account.did);
-      setAccountModalVisible(false);
-      // User handle will be updated automatically by userStore
-    } catch (error) {
-      console.error('Failed to switch account:', error);
-    }
-  };
 
   useEffect(() => {
     // Set current user handle in ProfileCache when userStore changes
@@ -555,99 +538,9 @@ const VideoPostScreen: React.FC = () => {
                   <DownloadIcon size={32} color={Colors.white} />
                 </TouchableOpacity>
               </View>
-              {/* Description Section */}
-              <View style={styles.descriptionSection}>
-                <View style={styles.sectionHeader}>
-                  <TouchableOpacity
-                    style={[styles.userInfoContainer, { flex: 1 }]}
-                    onPress={() => { if (hasOtherAccounts) setAccountModalVisible((v) => !v); }}
-                    activeOpacity={0.8}
-                  >
-                    <Avatar
-                      uri={currentUser?.avatar || profileData?.avatar || ''}
-                      type="profile"
-                      size={45}
-                      style={styles.avatar}
-                      ringColor={profileData?.profileColors?.foregroundColor || Colors.PROFILE.DEFAULT_RING}
-                    />
-                    <View style={styles.userTextContainer}>
-                      {isProfileLoading && !profileData ? (
-                        <View style={styles.loadingContainer}>
-                          <ActivityIndicator size="small" color={Colors.white} />
-                          <Text style={styles.loadingText}>loading profile...</Text>
-                        </View>
-                      ) : (
-                        <>
-                          <View style={styles.usernameContainer}>
-                            <Text style={styles.username}>
-                              {currentUser?.displayName || profileData?.displayName || profileData?.handle || 'Username'}
-                            </Text>
-                            {(currentUser?.handle || profileData?.handle) && (
-                              <VerificationBadge
-                                handle={currentUser?.handle || profileData?.handle || ''}
-                                textSize={16}
-                                textColor={Colors.white}
-                                customMargin={2}
-                              />
-                            )}
-                          </View>
-                          {(currentUser?.handle || profileData?.handle) && (
-                            <Text style={styles.userHandle}>
-                              @{currentUser?.handle || profileData?.handle}
-                            </Text>
-                          )}
-                        </>
-                      )}
-                    </View>
-                    {hasOtherAccounts && (
-                      accountModalVisible ? (
-                        <ChevronUpIcon size={24} color={Colors.white} style={{ marginLeft: 8 }} />
-                      ) : (
-                        <ChevronDownIcon size={24} color={Colors.white} style={{ marginLeft: 8 }} />
-                      )
-                    )}
-                  </TouchableOpacity>
-                </View>
-                {/* Dropdown list of accounts, shown if accountModalVisible */}
-                {accountModalVisible && hasOtherAccounts && (
-                  <View style={{
-                    backgroundColor: Colors.darkGray,
-                    borderRadius: BORDER_RADIUS.MEDIUM,
-                    marginTop: 4,
-                    marginBottom: 12,
-                    borderWidth: 1,
-                    borderColor: Colors.gray,
-                    paddingVertical: 0,
-                    shadowColor: Colors.lightGray,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 8,
-                    elevation: 3,
-                  }}>
-                    {otherAccounts
-                      .map((item, idx, filteredAccounts) => (
-                        <AuthorItem
-                          key={item.id}
-                          handle={item.handle}
-                          displayName={item.displayName || item.handle}
-                          avatar={item.avatar}
-                          size="medium"
-                          showArrow={false}
-                          onPress={() => handleSwitchAccount(item)}
-                          style={{
-                            borderBottomWidth: idx !== filteredAccounts.length - 1 ? 0.5 : 0,
-                            borderBottomColor: Colors.gray,
-                            backgroundColor: 'transparent',
-                            borderRadius: 0,
-                            borderWidth: 0,
-                          }}
-                          textColor={Colors.white}
-                          backgroundColor="transparent"
-                        />
-                      ))}
-                  </View>
-                )}
-                <TextInput
+                        {/* Description Section */}
+          <View style={styles.descriptionSection}>
+            <TextInput
               style={styles.descriptionInput}
               placeholder="add a description for your video..."
                   placeholderTextColor={Colors.lightGray}
@@ -1036,82 +929,6 @@ const VideoPostScreen: React.FC = () => {
           
           {/* Description Section */}
           <View style={styles.descriptionSection}>
-            <View style={styles.sectionHeader}>
-              <TouchableOpacity
-                style={[styles.userInfoContainer, { flex: 1 }]}
-                onPress={() => { if (hasOtherAccounts) setAccountModalVisible((v) => !v); }}
-                activeOpacity={0.8}
-              >
-                <Avatar
-                  uri={currentUser?.avatar || profileData?.avatar || ''}
-                  type="profile"
-                  size={45}
-                  style={styles.avatar}
-                  ringColor={profileData?.profileColors?.foregroundColor || Colors.PROFILE.DEFAULT_RING}
-                />
-                <View style={styles.userTextContainer}>
-                  {isProfileLoading && !profileData ? (
-                    <View style={styles.loadingContainer}>
-                          <ActivityIndicator size="small" color={Colors.white} />
-                          <Text style={styles.loadingText}>loading profile...</Text>
-                    </View>
-                  ) : (
-                    <>
-                      <View style={styles.usernameContainer}>
-                        <Text style={styles.username}>
-                          {currentUser?.displayName || profileData?.displayName || profileData?.handle || 'Username'}
-                        </Text>
-                        {(currentUser?.handle || profileData?.handle) && (
-                          <VerificationBadge
-                            handle={currentUser?.handle || profileData?.handle || ''}
-                            textSize={16}
-                            textColor={Colors.white}
-                            customMargin={2}
-                          />
-                        )}
-                      </View>
-                      {(currentUser?.handle || profileData?.handle) && (
-                        <Text style={styles.userHandle}>
-                          @{currentUser?.handle || profileData?.handle}
-                        </Text>
-                      )}
-                    </>
-                  )}
-                </View>
-                {hasOtherAccounts && (
-                  accountModalVisible ? (
-                    <ChevronUpIcon size={24} color={Colors.white} style={{ marginLeft: 8 }} />
-                  ) : (
-                    <ChevronDownIcon size={24} color={Colors.white} style={{ marginLeft: 8 }} />
-                  )
-                )}
-              </TouchableOpacity>
-            </View>
-            {/* Dropdown list of accounts, shown if accountModalVisible */}
-            {accountModalVisible && hasOtherAccounts && (
-              <View style={{ backgroundColor: Colors.darkGray, borderRadius: BORDER_RADIUS.MEDIUM, marginTop: 12, marginBottom: 12, borderWidth: 1, borderColor: Colors.gray, paddingVertical: 6, shadowColor: Colors.black, shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}>
-                {otherAccounts
-                  .map((item, idx, filteredAccounts) => (
-                    <AuthorItem
-                      key={item.id}
-                      handle={item.handle}
-                      displayName={item.displayName || item.handle}
-                      avatar={item.avatar}
-                      size="medium"
-                      showArrow={false}
-                      onPress={() => handleSwitchAccount(item)}
-                      style={{
-                        borderBottomWidth: idx !== filteredAccounts.length - 1 ? 1 : 0,
-                        borderBottomColor: Colors.darkGray,
-                        borderRadius: 0,
-                        borderWidth: 0,
-                      }}
-                      textColor={Colors.white}
-                      backgroundColor="transparent"
-                    />
-                  ))}
-              </View>
-            )}
             <TextInput
               style={styles.descriptionInput}
               placeholder="write a caption..."
@@ -1309,8 +1126,6 @@ const VideoPostScreen: React.FC = () => {
         initialIsPlaying={isPlaying}
       />
 
-      {/* Account Switcher Modal */}
-      {/* This Modal is removed as per the edit hint to remove the account switcher from the header */}
     </SafeAreaView>
   );
 };
@@ -1445,38 +1260,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.overlayWhite10,
   },
-  userInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  authorItemStyle: {
     marginBottom: 4,
-  },
-  avatar: {
-    marginRight: 12,
-  },
-  userTextContainer: {
-    flex: 1,
-  },
-  usernameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  username: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-Black',
-    marginRight: 3,
-    textShadowColor: Colors.overlayBlack50,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  userHandle: {
-    color: Colors.overlayWhite80,
-    fontSize: 14,
-    fontFamily: 'Firma-SemiBold',
-    textShadowColor: Colors.overlayBlack50,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    marginLeft: 5,
+    paddingLeft: 0,
   },
 
   loadingContainer: {
