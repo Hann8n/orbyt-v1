@@ -19,6 +19,7 @@ import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/la
 import { useCurrentUser, useAccountManagement, useUserStore, useProfileCacheSync } from '../../src/stores/userStore';
 import { Colors } from '../../src/components/ui/UI';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
+import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
  
 
 type RootParamList = {
@@ -50,6 +51,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     backgroundColor: string;
     textColor: string;
   } | null>(null);
+  useVisibilityRouteTracker('profile', 'profile');
+  const isRouteFocused = useVisibilityRouteIsActive('profile');
 
   const invalidateProfile = useProfileInvalidation();
   const queryClient = useQueryClient();
@@ -101,7 +104,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const profileData = cachedProfile || (colorsHandle ? ProfileCache.getProfileFromCacheSync(colorsHandle) : null);
   
   // Memoized query options for profile feed
-  const queryOptions = useMemo(() => ({ enabled: !!profileData?.did }), [profileData?.did]);
+  const queryOptions = useMemo(() => ({
+    enabled: Boolean(isRouteFocused && profileData?.did),
+  }), [isRouteFocused, profileData?.did]);
+
+  const profileVisibilityKey = useMemo(() => {
+    const did = profileData?.did || providedDid || providedHandle || 'profile';
+    return `profile:${did}:${activeTab}`;
+  }, [profileData?.did, providedDid, providedHandle, activeTab]);
 
   // ProfileCache is now automatically synced via useProfileCacheSync hook
   // Colors are extracted during profile fetch in ProfileCache.ts - no need to do it here
@@ -270,7 +280,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               isProfileLoading={isProfileLoading && !profileData}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
-              isVisible={true}
+              isVisible={isRouteFocused}
+              visibilityKey={profileVisibilityKey}
             />
       )}
 

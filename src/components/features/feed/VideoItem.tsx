@@ -43,6 +43,7 @@ export interface VideoItemProps {
   moderationDecision?: ModerationDecision;
   isModal?: boolean;
   index?: number;
+  allowPlayback?: boolean;
 }
 
 const VideoItem: React.FC<VideoItemProps> = ({
@@ -55,6 +56,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
   moderationDecision,
   isModal = false,
   index = 0,
+  allowPlayback = true,
 }) => {
   const videoRef = useRef<VideoCardRef>(null);
 
@@ -124,6 +126,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
         post={{ ...post, embed: videoEmbed }}
         isVisible={isVisible}
         shouldCache={true}
+        shouldDisablePlayback={!allowPlayback}
         onVideoStatus={handleVideoStatusChange}
         height={itemHeight}
         moderationDecision={moderationDecision}

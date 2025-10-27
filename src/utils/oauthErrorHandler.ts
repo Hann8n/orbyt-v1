@@ -2,6 +2,7 @@
  * Universal OAuth Error Handler
  * Provides consistent error handling for OAuth authentication failures
  */
+import { logger } from './logger';
 
 export interface OAuthErrorInfo {
   isUserCancellation: boolean;
@@ -80,10 +81,10 @@ export function handleOAuthError(
 ): void {
   const errorInfo = analyzeOAuthError(error);
   
-error(`[OAuthErrorHandler] ${context} failed:`, {
-    error: error instanceof Error ? error.message : 'Unknown error',
-    stack: error instanceof Error ? error.stack : undefined,
-    errorInfo
+  logger.error(`[OAuthErrorHandler] ${context} failed`, error, {
+    component: 'OAuthErrorHandler',
+    action: context,
+    errorInfo,
   });
   
   // Don't show alerts for user cancellations
@@ -99,7 +100,11 @@ error(`[OAuthErrorHandler] ${context} failed:`, {
   
   // For other errors, you might want to show an alert or handle differently
   // This is a generic handler - specific components should implement their own UI
-warn(`[OAuthErrorHandler] ${context} error: ${errorInfo.userFriendlyMessage}`);
+  logger.warn(`[OAuthErrorHandler] ${context} error`, {
+    component: 'OAuthErrorHandler',
+    action: context,
+    userFriendlyMessage: errorInfo.userFriendlyMessage,
+  });
 }
 
 /**

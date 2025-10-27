@@ -11,9 +11,8 @@ import {
   Platform,
   ScrollView,
   Image,
+  ViewToken,
 } from 'react-native';
-import { useVisibilityStore } from '../../../hooks/useVisibility';
-
 import { useSharedValue } from 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from '../../ui/UI';
@@ -39,6 +38,7 @@ interface SwipeableFeedContainerProps {
   applySafeArea?: boolean;
   // Optional override for indicator text size (used by Home screen)
   indicatorFontSize?: number;
+  isRouteFocused?: boolean;
 }
 
 const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
@@ -48,6 +48,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   forceError = false, // Add debug flag to force error responses
   applySafeArea = false,
   indicatorFontSize,
+  isRouteFocused = true,
 }) => {
   const flatListRef = useRef<FlatList>(null);
   const indicatorScrollViewRef = useRef<any>(null);
@@ -58,9 +59,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
 
 
 
-  // Local state for tracking which feed is visible for UI purposes
-  const [visibleFeedOption, setVisibleFeedOption] = useState<FeedOption | null>(null);
-  const [visibleFeedIndex, setVisibleFeedIndex] = useState(0);
   
   // State for available default channels
   const [availableDefaultChannels, setAvailableDefaultChannels] = useState<any[]>([]);
@@ -113,6 +111,11 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     return config;
   }, [subscribedChannels]);
 
+  const feedViewabilityConfig = useRef({
+    viewAreaCoveragePercentThreshold: 80,
+    minimumViewTime: 120,
+  }).current;
+
   // Memoized feed options in order
   const feedOptions = useMemo(() => {
     const options = Object.keys(feedConfig).sort(
@@ -144,8 +147,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       currentFeedIndexRef.current = targetIndex;
       setCurrentScrollProgress(targetIndex);
       currentScrollProgressRef.current = targetIndex;
-      setVisibleFeedOption(feedOptions[targetIndex]);
-      setVisibleFeedIndex(targetIndex);
       
       onFeedChange?.(feedOptions[targetIndex]);
       
@@ -210,20 +211,39 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     animateFeedBar(true, true);
   }, [currentFeedIndex, animateFeedBar]);
 
-  // Handle vertical scroll from individual feeds for feed bar visibility
-  const handleVerticalScroll = useCallback((scrollY: number, feedIndex: number) => {
-    // No scroll tracking - feed bar visibility handled by other means
-  }, []);
-
   // Handle feed change
   const handleFeedChange = useCallback((newIndex: number) => {
     if (newIndex >= 0 && newIndex < feedOptions.length) {
       setCurrentFeedIndex(newIndex);
       currentFeedIndexRef.current = newIndex;
+      currentScrollProgressRef.current = newIndex;
+      setCurrentScrollProgress(newIndex);
       const newFeedOption = feedOptions[newIndex];
       onFeedChange?.(newFeedOption);
+      scrollIndicatorToActive(newIndex);
     }
-  }, [feedOptions, onFeedChange]);
+  }, [feedOptions, onFeedChange, scrollIndicatorToActive]);
+
+  const handleFeedChangeRef = useRef(handleFeedChange);
+  useEffect(() => {
+    handleFeedChangeRef.current = handleFeedChange;
+  }, [handleFeedChange]);
+
+  const onViewableFeedsChanged = useRef(({ viewableItems }: { viewableItems: Array<ViewToken> }) => {
+    if (!hasAppliedInitialIndexRef.current) return;
+
+    const firstVisible = viewableItems.find(item => item.isViewable && typeof item.index === 'number');
+    if (!firstVisible || typeof firstVisible.index !== 'number') {
+      return;
+    }
+
+    const nextIndex = firstVisible.index;
+    if (nextIndex === currentFeedIndexRef.current) {
+      return;
+    }
+
+    handleFeedChangeRef.current(nextIndex);
+  }).current;
 
   // Handle position saving for each feed
   const handlePositionChange = useCallback((position: number) => {
@@ -258,35 +278,15 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     navigation.push('/explore');
   }, [navigation]);
 
-  // Simple viewability detection for feed pages
-  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
-    // Find the first viewable feed item
-    const visibleFeedItem = viewableItems.find(item => 
-      item.isViewable && 
-      item.item && 
-      typeof item.item === 'string'
-    );
-    
-    if (visibleFeedItem) {
-      const nextFeedOption = visibleFeedItem.item as FeedOption;
-      const nextIndex = visibleFeedItem.index;
-      
-      if (nextFeedOption !== visibleFeedOption) {
-        // Update local state for UI only
-        setVisibleFeedOption(nextFeedOption);
-        setVisibleFeedIndex(nextIndex);
-      }
-    }
-  }, [visibleFeedOption]);
-
-  // Initialize first feed when options are available
+  // Ensure current feed index stays in range when options change
   useEffect(() => {
-    if (feedOptions.length > 0 && !visibleFeedOption) {
-      const firstFeedOption = feedOptions[0];
-      setVisibleFeedOption(firstFeedOption);
-      setVisibleFeedIndex(0);
+    if (feedOptions.length === 0) return;
+    if (currentFeedIndex >= feedOptions.length) {
+      const lastIndex = Math.max(0, feedOptions.length - 1);
+      setCurrentFeedIndex(lastIndex);
+      currentFeedIndexRef.current = lastIndex;
     }
-  }, [feedOptions, visibleFeedOption]);
+  }, [feedOptions, currentFeedIndex]);
 
   // Load available default channels when no channels are subscribed
   useEffect(() => {
@@ -306,7 +306,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
 
   // Optimized horizontal scroll handler with improved responsiveness
   const scrollUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
+
   const handleHorizontalScroll = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     
@@ -321,23 +321,16 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       setIsHorizontalScrolling(true);
       animateFeedBar(true);
     }
-    
-    // Debounce expensive operations with shorter timeout for better responsiveness
+
+    // Debounce progress updates so indicator responds smoothly without spamming renders
     if (scrollUpdateTimeoutRef.current) {
       clearTimeout(scrollUpdateTimeoutRef.current);
     }
-    
+
     scrollUpdateTimeoutRef.current = setTimeout(() => {
-      const currentIndex = Math.round(offsetX / screenWidth);
-      if (currentIndex !== currentFeedIndexRef.current && currentIndex >= 0 && currentIndex < feedOptions.length) {
-        currentFeedIndexRef.current = currentIndex;
-        setCurrentFeedIndex(currentIndex);
-        const newFeedOption = feedOptions[currentIndex];
-        onFeedChange?.(newFeedOption);
-        scrollIndicatorToActive(currentIndex);
-      }
-    }, 25); // Reduced debounce for more responsive feel
-  }, [feedOptions, onFeedChange, animateFeedBar, horizontalScrollOffset, scrollIndicatorToActive, screenWidth]);
+      setCurrentScrollProgress(progress);
+    }, 16);
+  }, [animateFeedBar, horizontalScrollOffset, screenWidth]);
 
   // Handle scroll end to update current feed
   const handleScrollEnd = useCallback((event: any) => {
@@ -381,8 +374,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   }, [currentFeedIndex, scrollIndicatorToActive]);
 
   // Memoized query options for feed rendering
-  const memoizedQueryOptions = useMemo(() => ({
-    enabled: true, // Always enable to preload feeds
+  const baseQueryOptions = useMemo(() => ({
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnMount: false,
     refetchOnWindowFocus: false,
@@ -407,8 +399,8 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
 
   // Render individual feed with comprehensive memoization
   const renderFeed = useCallback(({ item: feedOption, index }: { item: FeedOption; index: number }) => {
-    // Use local state to determine if this feed is visible
-    const isVisible = index === visibleFeedIndex;
+    const isVisible = isRouteFocused && index === currentFeedIndex;
+    const isNeighbor = isRouteFocused && Math.abs(currentFeedIndex - index) === 1;
     
     return (
       <View style={feedPageStyle}> 
@@ -417,25 +409,27 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
           onRetryFeed={handleRetryFeed}
           onPositionChange={handlePositionChange}
           initialPosition={savedPositions[feedOption]}
-          queryOptions={memoizedQueryOptions}
+          queryOptions={baseQueryOptions}
           // Pass visibility state to control video playback and fetching - consistent with ListFeedView
           isVisible={isVisible}
 
           isRefreshing={isRefreshing}
           forceError={forceError}
+          shouldPrefetch={isNeighbor}
+          visibilityKey={`feed:${String(feedOption)}`}
         />
       </View>
     );
   }, [
-    visibleFeedIndex,
+    currentFeedIndex,
     feedPageStyle,
     handleRetryFeed,
     handlePositionChange,
     savedPositions,
-    memoizedQueryOptions,
-          handleVerticalScroll,
-      isRefreshing,
-      forceError,
+    baseQueryOptions,
+    isRouteFocused,
+    isRefreshing,
+    forceError,
   ]);
 
   // Get indicator style with gradual opacity based on scroll progress
@@ -589,6 +583,8 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScrollEnd}
         onScroll={handleHorizontalScroll}
+        onViewableItemsChanged={onViewableFeedsChanged}
+        viewabilityConfig={feedViewabilityConfig}
         scrollEventThrottle={16}
         initialScrollIndex={initialIndexForFlatList}
         getItemLayout={(_, index) => ({
@@ -611,13 +607,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
         initialNumToRender={1}
         // Add horizontal scroll indicator to prevent vertical scroll interference
         indicatorStyle="white"
-        // Standard viewability detection
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{
-          viewAreaCoveragePercentThreshold: 50,
-          minimumViewTime: 0,
-          waitForInteraction: false,
-        }}
         contentContainerStyle={{ 
           flexGrow: 1,
           backgroundColor: Colors.black,

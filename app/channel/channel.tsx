@@ -19,12 +19,15 @@ import { useChannelColors, useChannel, useChannelColorsMutation, default as Chan
 import ProfileCache from '../../src/services/cache/ProfileCache';
 import { extractColorsFromImage } from '../../src/utils/formatting/colorUtils';
 import Icon from '../../src/components/ui/Icon';
+import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 
 interface ChannelScreenProps {}
 
 const Channel: React.FC<ChannelScreenProps> = memo(() => {
   const navigation = useRouter();
   const params = useLocalSearchParams();
+  useVisibilityRouteTracker('channel');
+  const isRouteFocused = useVisibilityRouteIsActive('channel');
 
   // Get the channel URI from the route parameters (decode for safety)
   const uriParam = (params.id as string) || '';
@@ -65,10 +68,15 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   const feedOption = uri || '';
   const channelDataForFeed = channelData;
 
-  // Memoized query options - always enabled for channel posts
-  const queryOptions = useMemo(() => ({ 
-    enabled: !!feedOption && feedOption.startsWith('at://') && !!channelDataForFeed?.did
-  }), [feedOption, channelDataForFeed?.did]);
+  // Memoized query options - only enabled when route focused and data available
+  const queryOptions = useMemo(() => ({
+    enabled: Boolean(
+      isRouteFocused &&
+      feedOption &&
+      feedOption.startsWith('at://') &&
+      channelDataForFeed?.did
+    ),
+  }), [isRouteFocused, feedOption, channelDataForFeed?.did]);
 
   // Extract and save channel colors if needed
   const extractAndSaveColors = useCallback(async (channelUri: string, avatarUrl: string) => {
@@ -77,7 +85,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
       colorsMutation.mutate({
         uri: channelUri,
         backgroundColor: colors.backgroundColor,
-        foregroundColor: colors.foregroundColor
+        foregroundColor: colors.foregroundColor,
       });
     } catch (error) {
       console.error('Error extracting/saving channel colors:', error);
@@ -224,7 +232,8 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
             onPositionChange={handlePositionChange}
             initialPosition={undefined}
             queryOptions={queryOptions}
-            isVisible={true}
+            isVisible={isRouteFocused}
+            visibilityKey={uri ? `channel:${uri}` : undefined}
           />
         ) : (
           <FeedRenderer
@@ -247,7 +256,8 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
             onPositionChange={handlePositionChange}
             initialPosition={undefined}
             queryOptions={{ enabled: false }}
-            isVisible={true}
+            isVisible={isRouteFocused}
+            visibilityKey={uri ? `channel:${uri}` : undefined}
           />
         )
       )}

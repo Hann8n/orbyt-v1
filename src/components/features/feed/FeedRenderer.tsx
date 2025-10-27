@@ -84,6 +84,8 @@ interface FeedRendererProps {
   // Debug flag
   forceError?: boolean;
   ListComponent?: any; // Optional custom list component for integration with collapsible tabs
+  visibilityKey?: string;
+  shouldPrefetch?: boolean;
 }
 
 // Memoized Feed Renderer Component with Performance Optimizations
@@ -114,16 +116,31 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
   fetchNextPage: searchFetchNextPage,
   forceError = false,
   ListComponent,
+  visibilityKey,
+  shouldPrefetch = false,
 }) => {
+    const resolvedVisibilityKey = useMemo(() => {
+      if (typeof visibilityKey === 'string' && visibilityKey.length > 0) {
+        return visibilityKey;
+      }
+      return userDid ? `${feedOption}:${userDid}` : feedOption;
+    }, [feedOption, userDid, visibilityKey]);
   // Memoized feed type detection
   const isSearchFeed = useMemo(() => feedOption === 'search', [feedOption]);
-  
+
   // Memoized query options to prevent unnecessary hook recreations
-  const memoizedQueryOptions = useMemo(() => ({
-    enabled: !isSearchFeed, // Always enable when not a search feed
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    ...queryOptions,
-  }), [isSearchFeed, queryOptions]);
+  const memoizedQueryOptions = useMemo(() => {
+    const { enabled: providedEnabled, ...restOptions } = queryOptions ?? {};
+    const computedEnabled = typeof providedEnabled === 'boolean'
+      ? providedEnabled
+      : (!isSearchFeed && (isVisible || shouldPrefetch));
+
+    return {
+      enabled: computedEnabled,
+      staleTime: 10 * 60 * 1000, // 10 minutes
+      ...restOptions,
+    };
+  }, [queryOptions, isSearchFeed, isVisible, shouldPrefetch]);
   
   // Regular feed hook with memoized options
   const feedQuery = useFeed(feedOption, userDid, memoizedQueryOptions);
@@ -357,6 +374,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
         isLoading={isSearchFeed ? false : shouldShowLoader}
         isError={isSearchFeed ? false : errorState.finalIsError}
         error={isSearchFeed ? null : errorState.finalError}
+        visibilityKey={resolvedVisibilityKey}
       />
     );
   }, [
@@ -367,6 +385,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     errorState.finalError,
     shouldShowLoader,
     feed,
+    resolvedVisibilityKey,
   ]);
 
   return (
@@ -404,6 +423,7 @@ const areEqual = (prevProps: FeedRendererProps, nextProps: FeedRendererProps) =>
   if (prevProps.initialIndex !== nextProps.initialIndex) return false;
   if (prevProps.initialUri !== nextProps.initialUri) return false;
   if (prevProps.forceError !== nextProps.forceError) return false;
+  if (prevProps.shouldPrefetch !== nextProps.shouldPrefetch) return false;
   
   // Shallow comparison for query options
   if (JSON.stringify(prevProps.queryOptions) !== JSON.stringify(nextProps.queryOptions)) return false;

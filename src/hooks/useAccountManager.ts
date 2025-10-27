@@ -8,7 +8,6 @@ import { AtProtoOAuthService } from '../services/auth';
 import { analyzeOAuthError } from '../utils/oauthErrorHandler';
 import { Agent } from '@atproto/api';
 import * as SecureStore from 'expo-secure-store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface Account {
   did: string;
@@ -28,7 +27,7 @@ export interface AccountManagerState {
 
 export interface AccountManagerActions {
   addAccount: (session: any, profileData?: any, pdsUrl?: string) => Promise<void>;
-  switchAccount: (did: string) => Promise<void>;
+  switchAccount: (did: string) => Promise<{ session: any; agent: Agent }>;
   removeAccount: (did: string) => Promise<void>;
   checkAccountValidity: (did: string) => Promise<boolean>;
   clearError: () => void;

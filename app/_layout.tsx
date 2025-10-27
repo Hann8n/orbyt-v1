@@ -18,6 +18,7 @@ import ShareSheet from '../src/components/ui/ShareSheet';
 import CommentSection from '../src/components/features/comments/CommentSection';
 import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
 import LoginScreen from './login';
+import { VisibilityProvider } from '../src/core/visibility';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -186,27 +187,29 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <StatusBarController />
         <GestureHandlerRootView style={styles.gestureHandler}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="(modals)" options={{ headerShown: false }} />
-            <Stack.Screen name="login" options={{ headerShown: false }} />
-            <Stack.Screen name="insights" options={{ headerShown: false }} />
-            <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="channel/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="profile/[did]" options={{ headerShown: false }} />
-            <Stack.Screen name="chat" options={{ headerShown: false }} />
-            <Stack.Screen 
-              name="settings" 
-              options={{ 
-                headerShown: false,
-                presentation: 'modal',
-                animation: 'slide_from_bottom'
-              }} 
-            />
-          </Stack>
-          <ShareSheet />
-          <CommentSection />
-          <GlobalAccountSwitcher />
+          <VisibilityProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(modals)" options={{ headerShown: false }} />
+              <Stack.Screen name="login" options={{ headerShown: false }} />
+              <Stack.Screen name="insights" options={{ headerShown: false }} />
+              <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="channel/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="profile/[did]" options={{ headerShown: false }} />
+              <Stack.Screen name="chat" options={{ headerShown: false }} />
+              <Stack.Screen 
+                name="settings" 
+                options={{ 
+                  headerShown: false,
+                  presentation: 'modal',
+                  animation: 'slide_from_bottom'
+                }} 
+              />
+            </Stack>
+            <ShareSheet />
+            <CommentSection />
+            <GlobalAccountSwitcher />
+          </VisibilityProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
     </SafeAreaProvider>

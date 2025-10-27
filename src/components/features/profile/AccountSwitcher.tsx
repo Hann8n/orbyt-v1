@@ -29,6 +29,7 @@ import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomPDSInputSheet from '../../ui/CustomPDSInputSheet';
+import { useVisibilityOverlay } from '../../../hooks';
 
 interface AccountSwitcherProps {
   visible: boolean;
@@ -50,7 +51,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   onAddAccount,
   onLogout,
 }) => {
-  const DEBUG = __DEV__ && false;
+  useVisibilityOverlay(visible);
   const [accounts, setAccounts] = useState<AccountWithProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [switchingAccount, setSwitchingAccount] = useState<string | null>(null);
@@ -414,11 +415,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           onDeletePress={() => handleRemoveAccount(account)}
           backgroundColor={Colors.darkGray}
           onPress={() => {
-            if (DEBUG) {
-              const staleFlag = account.isActive !== isActive;
-              if (staleFlag) {
-              }
-            }
             if (!isActive && !editMode) handleSwitchAccount(account);
           }}
           style={isActive ? styles.activeAccountButton : undefined}

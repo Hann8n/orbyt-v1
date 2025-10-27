@@ -10,7 +10,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   ScaledSize,
-  TouchableOpacity,
+  ViewToken,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
@@ -20,17 +20,17 @@ import { VideoItem } from './VideoItem';
 import GridFeedView from './GridFeedView';
 import { isSmallScreen, isTablet, getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/helpers';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
-import Icon from '../../ui/Icon';
 import { Colors } from '../../ui/UI';
 import { preloadVideoData } from '../../../utils/helpers/video';
 import { 
   APP_CONSTANTS, 
-  VIEWABILITY_CONSTANTS, 
   SCROLL_CONSTANTS, 
   QUERY_CONSTANTS,
   FEED_TYPES 
 } from '../../../utils/constants';
 import type { FeedItem, ListFeedViewProps, ViewMode } from '../../../types';
+import { useFeedVisibility } from '../../../hooks';
+import { useVisibilityCoreStore } from '../../../core/visibility';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -53,22 +53,19 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   initialPosition,
   initialIndex,
   initialUri,
-  isVisible,
+  isVisible = true,
   viewMode,
   onViewModeChange,
   isModal = false,
   isRefreshing = false,
   isProfileLoading = false,
-  onVisibleChange,
   onScroll,
   forceError = false,
   ListComponent,
+  visibilityKey,
 }) => {
   // Hooks
   const insets = useSafeAreaInsets();
-  
-  // Simplified visibility state - only track the currently visible video URI
-  const [visibleVideoUri, setVisibleVideoUri] = useState<string | null>(null);
   
   // Layout state
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -78,7 +75,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const flashListRef = useRef<FlashListRef<FeedItem>>(null);
   const lastScrollOffset = useRef(0);
   const positionSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const currentVisibleVideoUri = useRef<string | null>(null);
+  const lastHeaderVisibilityRef = useRef(0);
   
   // Device detection
   const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
@@ -114,6 +111,79 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
     return getVideoCardHeight(viewportDimensions.effectiveInsets);
   }, [viewportDimensions.height, viewportDimensions.effectiveInsets, isSmallDevice]);
+
+  const scopedVisibilityKey = visibilityKey ?? feedOption;
+
+  const {
+    onViewableItemsChanged,
+    viewabilityConfig,
+    activeItemUri,
+    canPlay,
+    isFeedActive,
+  } = useFeedVisibility({
+    scopeKey: scopedVisibilityKey,
+    isActive: Boolean(isVisible),
+    resetOnActivate: false,
+    resetOnDeactivate: false,
+  });
+  const setFeedHeaderVisibility = useVisibilityCoreStore((state) => state.setFeedHeaderVisibility);
+
+  const updateHeaderVisibility = useCallback((visiblePercent: number) => {
+    if (!scopedVisibilityKey || !isHeaderFeed) {
+      return;
+    }
+
+    const clamped = Math.max(0, Math.min(1, visiblePercent));
+    const previous = lastHeaderVisibilityRef.current;
+    const previousBlocking = previous >= 0.5;
+    const nextBlocking = clamped >= 0.5;
+    const delta = Math.abs(previous - clamped);
+
+    // Ignore jitter when we are clearly on the same side of the threshold
+    if (!previousBlocking && !nextBlocking && delta < 0.05) {
+      return;
+    }
+    if (previousBlocking && nextBlocking && delta < 0.05) {
+      return;
+    }
+
+    lastHeaderVisibilityRef.current = clamped;
+    setFeedHeaderVisibility(scopedVisibilityKey, clamped);
+  }, [scopedVisibilityKey, isHeaderFeed, setFeedHeaderVisibility]);
+
+  useEffect(() => {
+    if (!scopedVisibilityKey) {
+      return;
+    }
+
+    if (!isHeaderFeed) {
+      if (lastHeaderVisibilityRef.current !== 0) {
+        lastHeaderVisibilityRef.current = 0;
+        setFeedHeaderVisibility(scopedVisibilityKey, 0);
+      }
+      return;
+    }
+
+    if (!isVisible || viewMode !== 'list') {
+      updateHeaderVisibility(0);
+      return;
+    }
+
+    if (headerHeight > 0 && lastHeaderVisibilityRef.current === 0) {
+      updateHeaderVisibility(1);
+    }
+  }, [scopedVisibilityKey, isHeaderFeed, isVisible, viewMode, headerHeight, updateHeaderVisibility, setFeedHeaderVisibility]);
+
+  useEffect(() => () => {
+    if (!scopedVisibilityKey) {
+      return;
+    }
+    lastHeaderVisibilityRef.current = 0;
+    setFeedHeaderVisibility(scopedVisibilityKey, 0);
+  }, [scopedVisibilityKey, setFeedHeaderVisibility]);
+
+  const initialVisibilityTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasPrimedVisibleItemRef = useRef(false);
 
   // Optimized feed data processing - remove duplicates
   const displayFeed = useMemo(() => {
@@ -191,8 +261,15 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
   // Scroll handling
   const onScrollNative = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isHeaderFeed && headerHeight > 0) {
+      const offsetY = Math.max(0, e.nativeEvent.contentOffset.y);
+      const clampedOffset = Math.min(headerHeight, offsetY);
+      const visibleHeight = Math.max(0, headerHeight - clampedOffset);
+      const visibilityRatio = headerHeight > 0 ? visibleHeight / headerHeight : 0;
+      updateHeaderVisibility(visibilityRatio);
+    }
     onScroll?.(e);
-  }, [onScroll]);
+  }, [onScroll, isHeaderFeed, headerHeight, updateHeaderVisibility]);
 
   // Momentum scroll end - save position and preload
   const onMomentumScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -212,33 +289,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     handleScrollEndPreload();
   }, [handleScrollEndPreload, onPositionChange]);
 
-  // Optimized visibility detection - use refs to prevent re-renders
-  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
-    // Find the most visible video item (first viewable non-end-card item)
-    const visibleVideoItem = viewableItems.find(item => 
-      item.isViewable && 
-      item.item?.post?.uri && 
-      !item.item.endCard
-    );
-    
-    if (visibleVideoItem) {
-      const nextUri = visibleVideoItem.item.post.uri;
-      const nextIndex = visibleVideoItem.index;
-      
-      // Only update if the visible video has actually changed
-      if (nextUri !== currentVisibleVideoUri.current) {
-        currentVisibleVideoUri.current = nextUri;
-        setVisibleVideoUri(nextUri);
-        onVisibleChange?.(nextIndex, nextUri);
-      }
-    } else if (currentVisibleVideoUri.current) {
-      // No visible video found, clear state
-      currentVisibleVideoUri.current = null;
-      setVisibleVideoUri(null);
-      onVisibleChange?.(-1, null);
-    }
-  }, [onVisibleChange]);
-
   // Render item function - simplified visibility logic
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<FeedItem>) => {
     if (item.endCard) {
@@ -256,8 +306,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       );
     }
 
-    // Simple visibility logic: video is visible if it's the currently visible video and the feed is visible
-    const isVideoVisible = item.post.uri === visibleVideoUri && isVisible;
+    const isVideoVisible = canPlay && isFeedActive && item.post.uri === activeItemUri;
     
     return (
       <VideoItem
@@ -268,6 +317,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         height={cardHeight}
         feedOption={feedOption as 'yourMix' | 'following' | 'discover'}
         isVisible={isVideoVisible}
+        allowPlayback={canPlay}
         moderationDecision={item.moderationDecision}
         isModal={isModal}
         index={index}
@@ -275,9 +325,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     );
   }, [
     cardHeight,
-    visibleVideoUri,
+    activeItemUri,
     feedOption,
-    isVisible,
+    canPlay,
+    isFeedActive,
     backgroundColor,
     secondaryColor,
     handleVideoStatus,
@@ -295,6 +346,51 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const keyExtractor = useCallback((item: FeedItem, index: number) => {
     return item.endCard ? 'end-card' : `${item.post.uri}_${index}_${item.post.cid}`;
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (initialVisibilityTimeout.current) {
+        clearTimeout(initialVisibilityTimeout.current);
+        initialVisibilityTimeout.current = null;
+      }
+      hasPrimedVisibleItemRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeItemUri) {
+      hasPrimedVisibleItemRef.current = true;
+    }
+  }, [activeItemUri]);
+
+  useEffect(() => {
+    if (!isVisible || !isFeedActive) return;
+    if (viewMode !== 'list') return;
+    if (listData.length === 0) return;
+    if (activeItemUri) return;
+    if (hasPrimedVisibleItemRef.current) return;
+
+    const firstPlayableIndex = listData.findIndex((item) => !item.endCard && item?.post?.uri);
+    if (firstPlayableIndex < 0) return;
+
+    const candidate = listData[firstPlayableIndex];
+    const viewToken: ViewToken = {
+      item: candidate,
+      key: candidate.endCard ? `end-card-${firstPlayableIndex}` : candidate.post.uri,
+      index: firstPlayableIndex,
+      isViewable: true,
+      section: undefined,
+    };
+
+    if (initialVisibilityTimeout.current) {
+      clearTimeout(initialVisibilityTimeout.current);
+    }
+
+    initialVisibilityTimeout.current = setTimeout(() => {
+      onViewableItemsChanged({ viewableItems: [viewToken] });
+      hasPrimedVisibleItemRef.current = true;
+    }, 0);
+  }, [isVisible, isFeedActive, viewMode, listData, activeItemUri, onViewableItemsChanged]);
 
   // Grid item press handler
   const handleGridItemPress = useCallback((index: number) => {
@@ -340,8 +436,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   useEffect(() => {
     const handleOrientationChange = ({ window }: { window: ScaledSize }) => {
       setTimeout(() => {
-        if (flashListRef.current && displayFeed.length > 0 && currentVisibleVideoUri.current) {
-          const currentIndex = displayFeed.findIndex(item => item.post.uri === currentVisibleVideoUri.current);
+        if (flashListRef.current && displayFeed.length > 0 && activeItemUri) {
+          const currentIndex = displayFeed.findIndex(item => item.post.uri === activeItemUri);
           if (currentIndex >= 0) {
             try {
               flashListRef.current.scrollToIndex({
@@ -359,7 +455,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
     const subscription = Dimensions.addEventListener('change', handleOrientationChange);
     return () => subscription?.remove();
-  }, [displayFeed.length, currentVisibleVideoUri.current, displayFeed]);
+  }, [activeItemUri, displayFeed]);
 
   // Cleanup timeouts
   useEffect(() => {
@@ -465,16 +561,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         onEndReached={onLoadMore}
         onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
         onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         
-        // Viewability configuration - optimized for video visibility
-        viewabilityConfig={{
-          viewAreaCoveragePercentThreshold: VIEWABILITY_CONSTANTS.VIEW_AREA_COVERAGE_PERCENT_THRESHOLD,
-          minimumViewTime: VIEWABILITY_CONSTANTS.MINIMUM_VIEW_TIME,
-          waitForInteraction: VIEWABILITY_CONSTANTS.WAIT_FOR_INTERACTION,
-        }}
-        
-                  // Scroll behavior
-          scrollEnabled={listData.length > 0}
+        // Scroll behavior
+        scrollEnabled={listData.length > 0}
         showsVerticalScrollIndicator={false}
         bounces={false}
         directionalLockEnabled={true}

@@ -108,11 +108,11 @@ export interface ListFeedViewProps {
 
   isRefreshing?: boolean;
   isProfileLoading?: boolean;
-  onVisibleChange?: (index: number, video: string | null) => void;
   onScrubbingChange?: (isScrubbing: boolean) => void;
   onScroll?: (event: { nativeEvent: any }) => void;
   forceError?: boolean;
   ListComponent?: any;
+  visibilityKey?: string;
 }
 
 // Screen Ref Types

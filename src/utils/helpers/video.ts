@@ -4,6 +4,7 @@
  */
 
 import { extractColorsFromImage } from '../formatting/colorUtils';
+import { logger } from '../logger';
 
 export interface VideoEmbed {
   $type: string;
@@ -130,7 +131,11 @@ async function processColorQueue(): Promise<void> {
           // The actual promise resolution happens in extractThumbnailColor
         }
       } catch (error) {
-warn('[VideoUtils] Error extracting color for:', url, error);
+        logger.error('VideoUtils failed to extract thumbnail color', error, {
+          component: 'VideoUtils',
+          action: 'extractThumbnailColor',
+          url,
+        });
       }
     });
     

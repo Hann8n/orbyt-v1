@@ -1,5 +1,6 @@
 import { ERROR_MESSAGES } from './constants';
 import type { AppError } from '../types';
+import { logger } from './logger';
 
 /**
  * Centralized error handling utility
@@ -16,7 +17,11 @@ export class ErrorHandler {
       details: error,
     };
 
-error(`[${context}]`, appError.message, error);
+    logger.error(`[ErrorHandler] ${context}`, error, {
+      component: 'ErrorHandler',
+      action: context,
+      message: appError.message,
+    });
     return appError;
   }
 

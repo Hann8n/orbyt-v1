@@ -203,13 +203,25 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
 
     // Simplified video playback control functions
     const togglePlayback = useCallback((shouldPlay?: boolean) => {
-      // Don't play if content is blurred or has error
-      if ((hasWarning && !shouldShowContent) || videoState.hasError || shouldDisablePlayback) return;
-      
-      // If shouldPlay is provided, use it, otherwise toggle current state
-      const newPausedState = shouldPlay !== undefined ? !shouldPlay : !videoState.userPaused;
-      setVideoState(prev => ({ ...prev, userPaused: newPausedState }));
-    }, [videoState.hasError, hasWarning, shouldShowContent, shouldDisablePlayback]);
+      // Block interaction when content should remain hidden or playback is disabled
+      if ((hasWarning && !shouldShowContent) || shouldDisablePlayback) {
+        return;
+      }
+
+      setVideoState(prev => {
+        // Guard against toggling when an error has occurred
+        if (prev.hasError) {
+          return prev;
+        }
+
+        const nextPaused = shouldPlay !== undefined ? !shouldPlay : !prev.userPaused;
+        if (prev.userPaused === nextPaused) {
+          return prev;
+        }
+
+        return { ...prev, userPaused: nextPaused };
+      });
+    }, [hasWarning, shouldShowContent, shouldDisablePlayback, setVideoState]);
 
     // Simplified play/pause functions that use the main toggle function
     const play = useCallback(() => togglePlayback(true), [togglePlayback]);

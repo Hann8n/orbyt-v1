@@ -9,11 +9,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { feedService } from '../../src/services/FeedService';
 import { getViewportDimensions } from '../../src/utils/helpers';
 import { Colors } from '../../src/components/ui/UI';
+import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 
 const FeedScreen: React.FC = memo(() => {
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
+  useVisibilityRouteTracker('feed-modal');
+  const isRouteFocused = useVisibilityRouteIsActive('feed-modal');
   
   // Memoized route params extraction
   const routeParams = useMemo(() => {
@@ -43,6 +46,23 @@ const FeedScreen: React.FC = memo(() => {
     (routeParams.initialIndex || 0) * viewportDimensions.height,
     [routeParams.initialIndex, viewportDimensions.height]
   );
+
+  const modalQueryOptions = useMemo(() => ({
+    staleTime: 5 * 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  }), []);
+
+  const modalVisibilityKey = useMemo(() => {
+    const keyParts = ['modal', routeParams.feedOption || 'feed'];
+    if (routeParams.userDid) {
+      keyParts.push(routeParams.userDid);
+    }
+    if (routeParams.initialUri) {
+      keyParts.push(routeParams.initialUri);
+    }
+    return keyParts.join(':');
+  }, [routeParams.feedOption, routeParams.userDid, routeParams.initialUri]);
 
   // Check if this is a hashtag feed
   const isHashtagFeed = routeParams.feedOption?.startsWith('hashtag:');
@@ -88,18 +108,16 @@ const FeedScreen: React.FC = memo(() => {
         secondaryColor={routeParams.secondaryColor}
         initialIndex={routeParams.initialIndex}
         initialUri={routeParams.initialUri}
-        isVisible={true} // Modal is always visible when open
+        isVisible={isRouteFocused} // Only play when this modal has focus
         isModal={true} // Mark as modal for optimized behavior
         isProfileLoading={false}
         searchQuery={routeParams.searchQuery}
         hasNextPage={routeParams.hasNextPage}
         isFetchingNextPage={routeParams.isFetchingNextPage}
         fetchNextPage={() => {}}
-        queryOptions={useMemo(() => ({
-          enabled: true, // Always enabled in modal
-          staleTime: 5 * 60 * 1000, // 5 minutes
-        }), [])}
+        queryOptions={modalQueryOptions}
         ListComponent={undefined}
+        visibilityKey={modalVisibilityKey}
       />
     </View>
   );

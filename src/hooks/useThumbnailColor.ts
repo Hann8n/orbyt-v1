@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { extractThumbnailColor } from '../utils/helpers/video';
+import { logger } from '../utils/logger';
 
 /**
  * Hook to extract and manage background colors from video thumbnails
@@ -18,7 +19,12 @@ export function useThumbnailColor(thumbnailUrl: string | null) {
       setBackgroundColor(color);
     } catch (error) {
       // Keep default black background on error
-warn('[useThumbnailColor] Error extracting color:', error);
+      logger.warn('useThumbnailColor failed to extract thumbnail color', {
+        component: 'useThumbnailColor',
+        action: 'extractColor',
+        error,
+        url,
+      });
     } finally {
       setIsLoading(false);
     }

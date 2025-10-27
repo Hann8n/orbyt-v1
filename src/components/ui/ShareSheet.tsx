@@ -24,6 +24,7 @@ import { Colors } from './UI';
 import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
+import { useVisibilityOverlay } from '../../hooks';
 
 // No props needed for global ShareSheet
 interface ShareSheetProps {}
@@ -36,6 +37,7 @@ const feedbackStateMap = new Map<string, string>();
 const ShareSheet: React.FC<ShareSheetProps> = () => {
   const { getCurrentData } = useGlobalShareSheet();
   const data = getCurrentData();
+  useVisibilityOverlay(Boolean(data));
   
   // Always render the TrueSheet component, but only show content when there's data
   const { postUri, postCid, authorDid, authorName, feedOption, sourceFeed } = data || {};
