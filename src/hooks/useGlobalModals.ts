@@ -185,9 +185,11 @@ export const useGlobalShareSheet = () => {
     });
   }, []);
 
-  const dismissShareSheet = useCallback(() => {
-    // Dismiss the global ShareSheet using TrueSheet's global method
-    TrueSheet.dismiss('share-sheet');
+  const dismissShareSheet = useCallback((skipDismiss = false) => {
+    // Dismiss the global ShareSheet using TrueSheet's global method (unless skipDismiss is true)
+    if (!skipDismiss) {
+      TrueSheet.dismiss('share-sheet');
+    }
     currentShareSheetData = null;
     
     // Notify all listeners

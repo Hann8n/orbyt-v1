@@ -25,6 +25,7 @@ import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
 import { useVisibilityOverlay } from '../../hooks';
+import { useVisibilityCoreStore } from '../../core/visibility/visibilityStore';
 
 // No props needed for global ShareSheet
 interface ShareSheetProps {}
@@ -35,7 +36,7 @@ const feedbackStateMap = new Map<string, string>();
 
 
 const ShareSheet: React.FC<ShareSheetProps> = () => {
-  const { getCurrentData } = useGlobalShareSheet();
+  const { getCurrentData, dismissShareSheet } = useGlobalShareSheet();
   const data = getCurrentData();
   useVisibilityOverlay(Boolean(data));
   
@@ -91,9 +92,20 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     initialData: false
   });
 
-  // Global dismiss function
+  // Handle dismiss from TrueSheet - fires when sheet is dismissed by any means
+  // This is the native callback from TrueSheet, so it fires immediately when dismissed
+  const handleDismiss = useCallback(() => {
+    // Immediately pop overlay to restore video playback - this happens synchronously
+    const popOverlay = useVisibilityCoreStore.getState().popOverlay;
+    popOverlay();
+    // Clear the data state - skip dismiss since we're already in onDismiss callback
+    dismissShareSheet(true);
+  }, [dismissShareSheet]);
+
+  // Programmatic dismiss function for buttons
   const dismissSheet = useCallback(() => {
     TrueSheet.dismiss('share-sheet');
+    // onDismiss will handle the overlay clearing
   }, []);
 
 
@@ -471,7 +483,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         name="share-sheet"
         sizes={snapPoints}
         backgroundColor={Colors.black}
-        onDismiss={dismissSheet}
+        onDismiss={handleDismiss}
         grabber={false}
       >
         <View style={styles.content}>
