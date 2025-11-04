@@ -45,6 +45,8 @@ interface EditProfileSheetProps {
   };
 }
 
+const INPUT_BACKGROUND_OPACITY = 0.06;
+
 const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   visible,
   onDismiss,
@@ -527,7 +529,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             {/* Color Theme Section */}
             {true && (
-              <View style={styles.section}>
+              <View style={[styles.section, { marginBottom: 16 }]}>
                 {/* Color Picker */}
                 <ScrollView
                   horizontal
@@ -599,7 +601,11 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                 </View>
                 <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.8}>
                   {isLiquidGlassAvailable ? (
-                    <GlassView style={styles.uploadButton}>
+                    <GlassView 
+                      style={styles.uploadButton}
+                      glassEffectStyle="clear"
+                      tintColor={hexToRGBA(currentColors.textColor, 0.15)}
+                    >
                       <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
                         Upload
                       </Text>
@@ -621,9 +627,10 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                 Display Name
               </Text>
               <TextInput
-                style={[styles.textInput, { 
+                style={[styles.textInput, {
                   color: currentColors.textColor,
-                  borderColor: hexToRGBA(currentColors.textColor, 0.3),
+                  backgroundColor: hexToRGBA(currentColors.textColor, INPUT_BACKGROUND_OPACITY),
+                  borderColor: 'transparent',
                 }]}
                 value={editDisplayName}
                 onChangeText={setEditDisplayName}
@@ -639,9 +646,10 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                 Bio
               </Text>
               <TextInput
-                style={[styles.textArea, { 
+                style={[styles.textArea, {
                   color: currentColors.textColor,
-                  borderColor: hexToRGBA(currentColors.textColor, 0.3),
+                  backgroundColor: hexToRGBA(currentColors.textColor, 0.05),
+                  borderColor: 'transparent',
                 }]}
                 value={editDescription}
                 onChangeText={setEditDescription}
@@ -672,8 +680,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerTitle: {
     fontFamily: 'Firma-Bold',
@@ -714,9 +720,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
+    paddingTop: 0,
   },
   section: {
-    marginTop: 32,
+    marginTop: 16,
   },
   sectionTitle: {
     fontFamily: 'Firma-Bold',
@@ -752,17 +759,12 @@ const styles = StyleSheet.create({
     fontSize: 48,
   },
   uploadButton: {
-    borderRadius: 22,
+    borderRadius: 20,
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 80,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   uploadButtonFallback: {
     borderWidth: 1,
@@ -841,25 +843,29 @@ const styles = StyleSheet.create({
     height: 35,
   },
   textInput: {
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Firma-Medium',
     fontSize: 16,
-    borderWidth: 1,
-    borderRadius: 12,
+    borderWidth: 0,
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginTop: 8,
+    minHeight: 48,
+    textAlignVertical: 'center',
+    backgroundColor: 'transparent',
   },
   textArea: {
-    fontFamily: 'Firma-Regular',
+    fontFamily: 'Firma-Medium',
     fontSize: 16,
-    borderWidth: 1,
-    borderRadius: 12,
+    borderWidth: 0,
+    borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     marginTop: 8,
-    minHeight: 80,
-    maxHeight: 200,
+    minHeight: 100,
+    maxHeight: 220,
     textAlignVertical: 'top',
+    backgroundColor: 'transparent',
   },
   colorPickerPlaceholder: {
     flexDirection: 'row',
