@@ -23,6 +23,7 @@ import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { useRouter } from 'expo-router';
+import { useVisibilityCoreStore } from '../../../core/visibility';
 
 // Define the feed options type
 export type FeedOption = string;
@@ -56,6 +57,20 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
   const navigation = useRouter();
+  const containerScopeIdRef = useRef(`feedContainer-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+  const visibilityKeysRef = useRef<Record<string, string>>({});
+  const resetFeedScope = useVisibilityCoreStore((state) => state.resetFeedScope);
+  const deactivateFeedScope = useVisibilityCoreStore((state) => state.deactivateFeedScope);
+  const getVisibilityKey = useCallback((option: FeedOption) => {
+    const key = visibilityKeysRef.current[option];
+    if (key) {
+      return key;
+    }
+
+    const nextKey = `${containerScopeIdRef.current}:${String(option)}`;
+    visibilityKeysRef.current[option] = nextKey;
+    return nextKey;
+  }, []);
 
 
 
@@ -401,6 +416,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   const renderFeed = useCallback(({ item: feedOption, index }: { item: FeedOption; index: number }) => {
     const isVisible = isRouteFocused && index === currentFeedIndex;
     const isNeighbor = isRouteFocused && Math.abs(currentFeedIndex - index) === 1;
+    const scopeKey = getVisibilityKey(feedOption);
     
     return (
       <View style={feedPageStyle}> 
@@ -416,7 +432,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
           isRefreshing={isRefreshing}
           forceError={forceError}
           shouldPrefetch={isNeighbor}
-          visibilityKey={`feed:${String(feedOption)}`}
+          visibilityKey={scopeKey}
         />
       </View>
     );
@@ -430,7 +446,33 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     isRouteFocused,
     isRefreshing,
     forceError,
+    getVisibilityKey,
   ]);
+
+  useEffect(() => {
+    if (isRouteFocused) {
+      return;
+    }
+
+    const keys = Object.values(visibilityKeysRef.current);
+    if (!keys.length) {
+      return;
+    }
+
+    keys.forEach((key) => {
+      resetFeedScope(key);
+      deactivateFeedScope(key);
+    });
+  }, [isRouteFocused, resetFeedScope, deactivateFeedScope]);
+
+  useEffect(() => {
+    if (!isRefreshing) {
+      return;
+    }
+
+    const keys = Object.values(visibilityKeysRef.current);
+    keys.forEach((key) => resetFeedScope(key));
+  }, [isRefreshing, resetFeedScope]);
 
   // Get indicator style with gradual opacity based on scroll progress
   const getIndicatorStyle = useCallback((feedOption: FeedOption) => {

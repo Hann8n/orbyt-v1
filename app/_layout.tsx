@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, StatusBar, Appearance, AppState } from 'react-native';
-import { Stack, Redirect } from 'expo-router';
+import { Stack, Redirect, usePathname, useSegments } from 'expo-router';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -8,7 +8,6 @@ import * as Font from 'expo-font';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 
 // Keep local imports where they are; no file moves
-import StatusBarController from '../src/components/ui/StatusBarController';
 import { Colors } from '../src/components/ui/UI';
 import { useAppStore } from '../src/stores/appStore';
 import { useAuth, useAccountManagement, useUserStore, useProfilePrecache } from '../src/stores/userStore';
@@ -18,7 +17,7 @@ import ShareSheet from '../src/components/ui/ShareSheet';
 import CommentSection from '../src/components/features/comments/CommentSection';
 import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
 import LoginScreen from './login';
-import { VisibilityProvider } from '../src/core/visibility';
+import { useVisibilityCoreStore } from '../src/core/visibility';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -60,12 +59,73 @@ if (typeof global !== 'undefined' && !global.location) {
   };
 }
 
+// Consolidated providers wrapper
+const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <QueryClientProvider client={queryClient}>
+        <GestureHandlerRootView style={styles.gestureHandler}>
+          {children}
+        </GestureHandlerRootView>
+      </QueryClientProvider>
+    </SafeAreaProvider>
+  );
+};
+
+// Global modals component
+const GlobalModals: React.FC = () => {
+  return (
+    <>
+      <ShareSheet />
+      <CommentSection />
+      <GlobalAccountSwitcher />
+    </>
+  );
+};
+
+// Visibility hook for inline logic
+const useVisibilityTracking = () => {
+  const setAppState = useVisibilityCoreStore((state) => state.setAppState);
+  const setIsForeground = useVisibilityCoreStore((state) => state.setIsForeground);
+  const setActiveRoutePath = useVisibilityCoreStore((state) => state.setActiveRoutePath);
+  const setActiveTabSegment = useVisibilityCoreStore((state) => state.setActiveTabSegment);
+  const pathname = usePathname();
+  const segments = useSegments();
+
+  useEffect(() => {
+    const initialState = AppState.currentState;
+    setAppState(initialState);
+    setIsForeground(initialState === 'active');
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      setAppState(nextState);
+      setIsForeground(nextState === 'active');
+    });
+
+    return () => subscription.remove();
+  }, [setAppState, setIsForeground]);
+
+  useEffect(() => {
+    setActiveRoutePath(pathname ?? null);
+  }, [pathname, setActiveRoutePath]);
+
+  useEffect(() => {
+    const normalizedSegments = Array.from(segments);
+    let tabSegment: string | null = null;
+    if (normalizedSegments.length >= 2 && normalizedSegments[0] === '(tabs)') {
+      tabSegment = normalizedSegments[1];
+    }
+    setActiveTabSegment(tabSegment);
+  }, [segments, setActiveTabSegment]);
+};
+
 export default function RootLayout() {
   // Use individual selectors to prevent unnecessary re-renders
   const fontsLoaded = useAppStore(state => state.fontsLoaded);
-  const appState = useAppStore(state => state.appState);
   const setFontsLoaded = useAppStore(state => state.setFontsLoaded);
-  const setAppState = useAppStore(state => state.setAppState);
+  
+  // Inline visibility tracking
+  useVisibilityTracking();
   
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const isAuthenticating = useUserStore(state => state.isAuthenticating);
@@ -99,13 +159,7 @@ export default function RootLayout() {
     loadFonts();
   }, [setFontsLoaded]);
 
-  useEffect(() => {
-    const handleAppStateChange = (nextAppState: string) => {
-      setAppState(nextAppState);
-    };
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription?.remove();
-  }, [setAppState]);
+
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -171,48 +225,36 @@ export default function RootLayout() {
 
   if (!isAuthenticated) {
     return (
-      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-        <QueryClientProvider client={queryClient}>
-          <StatusBarController />
-          <GestureHandlerRootView style={styles.gestureHandler}>
-            <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
-          </GestureHandlerRootView>
-        </QueryClientProvider>
-      </SafeAreaProvider>
+      <AppProviders>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.black} hidden={false} />
+        <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
+      </AppProviders>
     );
   }
 
   return (
-    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      <QueryClientProvider client={queryClient}>
-        <StatusBarController />
-        <GestureHandlerRootView style={styles.gestureHandler}>
-          <VisibilityProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="(modals)" options={{ headerShown: false }} />
-              <Stack.Screen name="login" options={{ headerShown: false }} />
-              <Stack.Screen name="insights" options={{ headerShown: false }} />
-              <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
-              <Stack.Screen name="channel/[id]" options={{ headerShown: false }} />
-              <Stack.Screen name="profile/[did]" options={{ headerShown: false }} />
-              <Stack.Screen name="chat" options={{ headerShown: false }} />
-              <Stack.Screen 
-                name="settings" 
-                options={{ 
-                  headerShown: false,
-                  presentation: 'modal',
-                  animation: 'slide_from_bottom'
-                }} 
-              />
-            </Stack>
-            <ShareSheet />
-            <CommentSection />
-            <GlobalAccountSwitcher />
-          </VisibilityProvider>
-        </GestureHandlerRootView>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+    <AppProviders>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.black} hidden={false} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(modals)" options={{ headerShown: false }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="insights" options={{ headerShown: false }} />
+        <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="channel/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="profile/[did]" options={{ headerShown: false }} />
+        <Stack.Screen name="chat" options={{ headerShown: false }} />
+        <Stack.Screen 
+          name="settings" 
+          options={{ 
+            headerShown: false,
+            presentation: 'modal',
+            animation: 'slide_from_bottom'
+          }} 
+        />
+      </Stack>
+      <GlobalModals />
+    </AppProviders>
   );
 }
 

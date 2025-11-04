@@ -5,8 +5,8 @@
  * Replaces: useFeedQuery.tsx, useInfiniteScroll.tsx
  */
 
-import { useCallback, useRef, useEffect } from 'react';
-import { NativeScrollEvent } from 'react-native';
+import { useCallback, useRef, useEffect, useMemo } from 'react';
+import { NativeScrollEvent, InteractionManager } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useUserStore } from '../stores/userStore';
@@ -109,15 +109,65 @@ export function useFeed(
   });
 
   // Flatten the pages for a single data array
-  const feed = query.data?.pages.flatMap(page => page.feed).filter(Boolean) || [];
+  const feedPages = query.data?.pages ?? [];
+
+  const dedupedFeed = useMemo(() => {
+    if (!feedPages.length) {
+      return [] as FeedItem[];
+    }
+
+    const seenKeys = new Set<string>();
+    const nextFeed: FeedItem[] = [];
+
+    for (const page of feedPages) {
+      const items = page?.feed ?? [];
+      for (const item of items) {
+        const uri = item?.post?.uri;
+        const cid = item?.post?.cid;
+
+        if (!uri) {
+          continue;
+        }
+
+        const key = cid ? `${uri}:${cid}` : uri;
+        if (seenKeys.has(key)) {
+          continue;
+        }
+
+        seenKeys.add(key);
+        nextFeed.push(item);
+      }
+    }
+
+    return nextFeed;
+  }, [feedPages]);
+
+  const stableFeedRef = useRef<FeedItem[]>([]);
+
+  const feed = useMemo(() => {
+    const previous = stableFeedRef.current;
+    if (previous.length === dedupedFeed.length && dedupedFeed.length > 0) {
+      // Fast path: compare first and last items only
+      const firstMatch = previous[0]?.post?.uri === dedupedFeed[0]?.post?.uri;
+      const lastMatch = previous[previous.length - 1]?.post?.uri === dedupedFeed[dedupedFeed.length - 1]?.post?.uri;
+      
+      if (firstMatch && lastMatch) {
+        return previous;
+      }
+    }
+
+    stableFeedRef.current = dedupedFeed;
+    return dedupedFeed;
+  }, [dedupedFeed]);
 
   // Preload thumbnail colors when feed data changes
   useEffect(() => {
     if (feed.length > 0) {
-      // Preload colors in background without blocking UI
-      requestAnimationFrame(() => {
+      // Defer preload until after interactions complete
+      const handle = InteractionManager.runAfterInteractions(() => {
         preloadThumbnailColors(feed.slice(0, 10)); // Preload first 10 posts
       });
+      return () => handle.cancel();
     }
   }, [feed]);
 

@@ -312,6 +312,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     onScrubbingChange,
     // Removed onScroll
     ListComponent,
+    visibilityKey: resolvedVisibilityKey,
   }), [
     feed,
     headerComponent,
@@ -339,6 +340,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     onScrubbingChange,
     // Removed onScroll
     ListComponent,
+    resolvedVisibilityKey,
   ]);
 
   // Memoized view selection to prevent unnecessary re-renders

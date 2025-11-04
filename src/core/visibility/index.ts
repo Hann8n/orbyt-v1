@@ -1,4 +1,3 @@
-export { VisibilityProvider } from './VisibilityProvider';
 export {
   useFeedVisibility,
   useVideoVisibility,

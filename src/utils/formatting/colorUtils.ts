@@ -232,6 +232,18 @@ function getBestColor(result: ImageColorsResult): { backgroundColor: string, for
   backgroundColor = enhanceColorSaturation(backgroundColor, 1.4);
   accentColor = enhanceColorSaturation(accentColor, 1.5);
 
+  // Ensure foreground color is different from background and has sufficient contrast
+  // Check if foreground and background are the same or too similar (minimum contrast ratio of 3.0)
+  const normalizedBg = backgroundColor.toLowerCase();
+  const normalizedFg = foregroundColor.toLowerCase();
+  const contrast = getContrastRatio(backgroundColor, foregroundColor);
+  
+  // If colors are the same or contrast is too low, force a contrasting color
+  if (normalizedBg === normalizedFg || contrast < 3.0) {
+    // Force a contrasting color based on background brightness
+    foregroundColor = isColorDark(backgroundColor) ? '#FFFFFF' : '#000000';
+  }
+
   return { backgroundColor, foregroundColor, accentColor };
 }
 

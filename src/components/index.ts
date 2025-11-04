@@ -2,7 +2,6 @@
 
 // UI Components
 export { default as Icon } from './ui/Icon';
-export { default as StatusBarController } from './ui/StatusBarController';
 export { default as HeaderBanner } from './ui/HeaderBanner';
 export { default as AuthorItem } from './ui/AuthorItem';
 export { UserSearchModal, useUserSearchTrigger } from './ui/usersearch';

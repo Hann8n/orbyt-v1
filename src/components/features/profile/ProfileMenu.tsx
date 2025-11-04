@@ -47,6 +47,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   onDismiss, 
   handle,
   isOwnProfile = false,
+  
   onLogout,
   onSwitchAccount,
   canMessage = null,

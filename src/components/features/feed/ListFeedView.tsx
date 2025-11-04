@@ -185,35 +185,13 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const initialVisibilityTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasPrimedVisibleItemRef = useRef(false);
 
-  // Optimized feed data processing - remove duplicates
-  const displayFeed = useMemo(() => {
-    if (isRefreshing) return [];
-    
-    const seenUris = new Set<string>();
-    const seenCids = new Set<string>();
-    
-    return feed.filter((item) => {
-      const uri = item.post.uri;
-      const cid = item.post.cid;
-      
-      if (!uri || !cid) return false;
-      
-      const uniqueId = `${uri}_${cid}`;
-      
-      if (seenUris.has(uri) || seenCids.has(cid) || seenUris.has(uniqueId)) {
-        return false;
-      }
-      
-      seenUris.add(uri);
-      seenCids.add(cid);
-      seenUris.add(uniqueId);
-      return true;
-    });
+  const visibleFeed = useMemo(() => {
+    return isRefreshing ? [] : feed;
   }, [feed, isRefreshing]);
 
   // List data with end card
   const listData = useMemo(() => {
-    const base = displayFeed;
+    const base = visibleFeed;
     const shouldAppendEndCard = !isLoading && !isError && !isFetchingNextPage && !hasNextPage && base.length > 0;
     
     if (shouldAppendEndCard) {
@@ -226,7 +204,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       ];
     }
     return base;
-  }, [displayFeed, isLoading, isError, isFetchingNextPage, hasNextPage]);
+  }, [visibleFeed, isLoading, isError, isFetchingNextPage, hasNextPage]);
 
   // Error handling
   const effectiveError = forceError ? new Error('Forced error for testing') : error;
@@ -252,13 +230,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
   }, [listData.length]);
 
-  // Preload videos on scroll end
-  const handleScrollEndPreload = useCallback(() => {
-    if (displayFeed.length > 0) {
-      preloadVideoData(displayFeed.map(item => item.post));
-    }
-  }, [displayFeed]);
-
   // Scroll handling
   const onScrollNative = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (isHeaderFeed && headerHeight > 0) {
@@ -271,7 +242,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     onScroll?.(e);
   }, [onScroll, isHeaderFeed, headerHeight, updateHeaderVisibility]);
 
-  // Momentum scroll end - save position and preload
+  // Momentum scroll end - save position only
   const onMomentumScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetY = e.nativeEvent.contentOffset.y;
     
@@ -285,9 +256,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       }
     }, APP_CONSTANTS.POSITION_SAVE_DELAY);
     lastScrollOffset.current = offsetY;
-    
-    handleScrollEndPreload();
-  }, [handleScrollEndPreload, onPositionChange]);
+  }, [onPositionChange]);
 
   // Render item function - simplified visibility logic
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<FeedItem>) => {
@@ -409,14 +378,14 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
     let targetIndex = initialIndex;
     if (initialUri) {
-      const foundIndex = displayFeed.findIndex(item => item?.post?.uri === initialUri);
+      const foundIndex = visibleFeed.findIndex(item => item?.post?.uri === initialUri);
       if (foundIndex !== -1) {
         targetIndex = foundIndex;
       }
     }
     
     if (typeof targetIndex === 'number') {
-      targetIndex = Math.max(0, Math.min(targetIndex, displayFeed.length - 1));
+      targetIndex = Math.max(0, Math.min(targetIndex, visibleFeed.length - 1));
       
       setTimeout(() => {
         try {
@@ -430,14 +399,14 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         }
       }, APP_CONSTANTS.INITIAL_SCROLL_DELAY);
     }
-  }, [initialIndex, initialUri, displayFeed.length, listData.length, displayFeed]);
+  }, [initialIndex, initialUri, visibleFeed.length, listData.length, visibleFeed]);
 
   // Orientation change handling
   useEffect(() => {
     const handleOrientationChange = ({ window }: { window: ScaledSize }) => {
       setTimeout(() => {
-        if (flashListRef.current && displayFeed.length > 0 && activeItemUri) {
-          const currentIndex = displayFeed.findIndex(item => item.post.uri === activeItemUri);
+        if (flashListRef.current && visibleFeed.length > 0 && activeItemUri) {
+          const currentIndex = visibleFeed.findIndex(item => item.post.uri === activeItemUri);
           if (currentIndex >= 0) {
             try {
               flashListRef.current.scrollToIndex({
@@ -455,7 +424,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
     const subscription = Dimensions.addEventListener('change', handleOrientationChange);
     return () => subscription?.remove();
-  }, [activeItemUri, displayFeed]);
+  }, [activeItemUri, visibleFeed]);
 
   // Cleanup timeouts
   useEffect(() => {
@@ -623,7 +592,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         // Content container styling
         contentContainerStyle={{
           backgroundColor: backgroundColor || Colors.black,
-          paddingBottom: displayFeed.length === 0 ? 0 : viewportDimensions.bottomNavBarHeight,
+          paddingBottom: visibleFeed.length === 0 ? 0 : viewportDimensions.bottomNavBarHeight,
         }}
       />
       
