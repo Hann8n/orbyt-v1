@@ -362,7 +362,7 @@ class AtprotoService {
         }
         
         return { feed: feedData, cursor: response.data.cursor };
-      } catch (error: any) {
+      } catch (error: unknown) {
         retries--;
         if (retries === 0) {
           return { feed: [], cursor: null };
@@ -440,7 +440,7 @@ class AtprotoService {
       }
       
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error getting current user', error, { component: 'AtprotoService' });
       
@@ -497,7 +497,7 @@ class AtprotoService {
       }
       const json = await response.json();
       return { conversations: json.convos || [], cursor: json.cursor || null };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching conversations', error, { component: 'AtprotoService' });
       throw error;
     }
@@ -536,7 +536,7 @@ class AtprotoService {
       }
       const json = await response.json();
       return { messages: json.logs, cursor: json.cursor || null };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching messages', error, { component: 'AtprotoService' });
       throw error;
     }
@@ -566,7 +566,7 @@ class AtprotoService {
       }
       const json = await response.json();
       return { logs: json.logs, cursor: json.cursor || null };
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -590,7 +590,7 @@ class AtprotoService {
       const { api } = await this.getApiClient();
       const response = await api.app.bsky.feed.like.create({ repo: userDid }, record);
       return response.uri;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -616,7 +616,7 @@ class AtprotoService {
       const { api } = await this.getApiClient();
       const response = await api.app.bsky.feed.repost.create({ repo: userDid }, record);
       return response.uri;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -796,8 +796,9 @@ class AtprotoService {
       }
 
       return postResponse;
-    } catch (error: any) {
-      throw new Error(`Video upload failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Video upload failed: ${errorMessage}`);
     }
   }
 
@@ -840,7 +841,7 @@ class AtprotoService {
       });
 
       return uploadResult.data.blob;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -892,7 +893,7 @@ class AtprotoService {
         rkey: rkey,
         record
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -961,7 +962,7 @@ class AtprotoService {
         comments,
         cursor: (response.data as any).cursor || null
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { comments: [], cursor: null };
     }
   }
@@ -985,7 +986,7 @@ class AtprotoService {
         likes: response.data.likes || [], 
         cursor: response.data.cursor || null 
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { likes: [], cursor: null };
     }
   }
@@ -1004,7 +1005,7 @@ class AtprotoService {
         limit: 20
       });
       return response.data.actors || [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       return [];
     }
   }
@@ -1066,7 +1067,7 @@ class AtprotoService {
           // The profile response already includes verification data
           // No need for separate API calls - verification data is included in the profile
           return profileData;
-        } catch (error: any) {
+        } catch (error: unknown) {
           return null;
         }
       });
@@ -1099,7 +1100,7 @@ class AtprotoService {
           // The profile response already includes verification data
           // No need for separate API calls - verification data is included in the profile
           return profileData;
-        } catch (error: any) {
+        } catch (error: unknown) {
           return null;
         }
       });
@@ -1133,7 +1134,7 @@ class AtprotoService {
         record
       );
       return response.uri;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -1177,7 +1178,7 @@ class AtprotoService {
       });
       
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return false;
     }
   }
@@ -1194,7 +1195,7 @@ class AtprotoService {
         repo: userDid,
         rkey: did,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -1217,7 +1218,7 @@ class AtprotoService {
         { repo: userDid },
         record
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -1238,7 +1239,7 @@ class AtprotoService {
       });
       
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return false;
     }
   }
@@ -1259,7 +1260,7 @@ class AtprotoService {
       });
       
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return false;
     }
   }
@@ -1278,7 +1279,7 @@ class AtprotoService {
         return threadViewPost.post;
       }
       return null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return null;
     }
   }
@@ -1295,7 +1296,7 @@ class AtprotoService {
       
       // Check if the given DID is in the blocks list
       return response.data.blocks.some((block: any) => block.did === did);
-    } catch (error: any) {
+    } catch (error: unknown) {
       return false;
     }
   }
@@ -1325,7 +1326,7 @@ class AtprotoService {
       // Store in AsyncStorage for persistence
       await AsyncStorage.setItem(feedbackKey, JSON.stringify(feedbackData));
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -1344,7 +1345,7 @@ class AtprotoService {
       }
       
       return null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return null;
     }
   }
@@ -1356,7 +1357,7 @@ class AtprotoService {
     try {
       const feedbackKey = `video_feedback_${postUri}`;
       await AsyncStorage.removeItem(feedbackKey);
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -1374,7 +1375,7 @@ class AtprotoService {
         notifications: response.data.notifications || [], 
         cursor: response.data.cursor || null 
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { notifications: [], cursor: null };
     }
   }
@@ -1421,7 +1422,7 @@ class AtprotoService {
       });
       
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return false;
     }
   }
@@ -1445,7 +1446,7 @@ class AtprotoService {
       
       // For posts, we need the CID in addition to URI for proper reporting
       let cid: string | undefined;
-      let subject: any = {}; // Will be set based on whether this is a post or user
+      let subject: { $type?: string; uri?: string; cid?: string; did?: string } = {};
       
       // Convert simple reason types to full namespace format if needed
       let fullReasonType = reasonType;
@@ -1512,7 +1513,7 @@ class AtprotoService {
       });
       
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return false;
     }
   }
@@ -1564,7 +1565,7 @@ class AtprotoService {
       });
       
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return false;
     }
   }
@@ -1597,7 +1598,7 @@ class AtprotoService {
         actor: did,
       });
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return null;
     }
   }
@@ -1691,7 +1692,7 @@ class AtprotoService {
 
       // Return the updated profile
       return await this.getCurrentUser();
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -1726,7 +1727,7 @@ class AtprotoService {
       });
 
       return uploadResult.data.blob;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -1741,7 +1742,7 @@ class AtprotoService {
     try {
       const response = await api.app.bsky.actor.getSuggestions({ limit });
       return response.data.actors || [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       return [];
     }
   }
@@ -1764,7 +1765,7 @@ class AtprotoService {
         followers: response.data.followers || [], 
         cursor: response.data.cursor || null 
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { followers: [], cursor: null };
     }
   }
@@ -1787,7 +1788,7 @@ class AtprotoService {
         following: response.data.follows || [], 
         cursor: response.data.cursor || null 
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { following: [], cursor: null };
     }
   }
@@ -1851,7 +1852,7 @@ class AtprotoService {
       );
       
       return mutualConnections;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return [];
     }
   }
@@ -1878,7 +1879,7 @@ class AtprotoService {
         reposts: [], // Repost data not directly available via API
         replies: commentsResponse.comments
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { likes: [], reposts: [], replies: [] };
     }
   }
@@ -1910,7 +1911,7 @@ class AtprotoService {
       });
       
       return processedFeeds;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return [];
     }
   }
@@ -1941,7 +1942,7 @@ class AtprotoService {
       });
       
       return processedFeeds;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return [];
     }
   }
@@ -1965,8 +1966,8 @@ class AtprotoService {
       const response = await api.app.bsky.feed.getFeedGenerator(params);
       
       return response.data;
-    } catch (error: any) {
-      if (error.message?.includes('feed must be a valid at-uri')) {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message?.includes('feed must be a valid at-uri')) {
       }
       return null;
     }
@@ -1996,7 +1997,7 @@ class AtprotoService {
       }
       
       return generatorResponse.data.view.likeCount;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return 0;
     }
   }
@@ -2030,7 +2031,7 @@ class AtprotoService {
         posts: feedResponse.feed,
         cursor: feedResponse.cursor
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { generator: null, posts: [], cursor: null };
     }
   }
@@ -2045,7 +2046,7 @@ class AtprotoService {
       const { api } = await this.getApiClient();
       const response = await api.app.bsky.actor.getPreferences();
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return null;
     }
   }
@@ -2061,7 +2062,7 @@ class AtprotoService {
       const { api } = await this.getApiClient();
       await api.app.bsky.actor.putPreferences(preferences);
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return false;
     }
   }
@@ -2078,7 +2079,7 @@ class AtprotoService {
         limit: 100
       });
       return response.data.blocks?.map((block: any) => block.did) || [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       return [];
     }
   }
@@ -2095,7 +2096,7 @@ class AtprotoService {
         limit: 100
       });
       return response.data.mutes?.map((mute: any) => mute.did) || [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       return [];
     }
   }
@@ -2165,7 +2166,7 @@ class AtprotoService {
         videos, 
         cursor: response?.data?.cursor || null 
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { videos: [], cursor: null };
     }
   }
@@ -2421,7 +2422,7 @@ class AtprotoService {
       }
 
       return { feed: feedData, cursor: nextCursor };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { feed: [], cursor: null };
     }
   }
@@ -2615,7 +2616,7 @@ class AtprotoService {
 
       // Filter out null results and return up to the limit
       return feedGenerators.filter(Boolean).slice(0, limit);
-    } catch (error: any) {
+    } catch (error: unknown) {
       return [];
     }
   }

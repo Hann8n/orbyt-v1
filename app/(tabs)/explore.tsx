@@ -28,6 +28,7 @@ import { Avatar, Icon } from '../../src/components/ui/UI';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import HeaderBanner from '../../src/components/ui/HeaderBanner';
 import { TabNavigation, TabOption } from '../../src/components/layout/header';
+import { logger } from '../../src/utils/logger';
 
 import { SearchIcon, FollowIcon, CheckIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
@@ -1097,7 +1098,7 @@ const ExploreScreen: React.FC = () => {
           //     : video;
           // });
         } catch (error) {
-          console.warn('Error applying moderation to spotlight videos:', error);
+          logger.warn('Error applying moderation to spotlight videos', { error });
         }
       }
       
@@ -1121,7 +1122,7 @@ const ExploreScreen: React.FC = () => {
   useEffect(() => {
     if (suggestedFeeds && suggestedFeeds.length > 0) {
       ChannelCache.batchPrefetchFromFeed(suggestedFeeds).catch(error => {
-        console.warn('Error batch prefetching suggested channels:', error);
+        logger.warn('Error batch prefetching suggested channels', { error });
       });
     }
   }, [suggestedFeeds]);

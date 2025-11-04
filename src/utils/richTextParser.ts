@@ -186,9 +186,11 @@ export function parseRichText(text: string): ParsedRichText {
 export async function resolveMentionsToDIDs(handles: string[]): Promise<Map<string, string>> {
   const resolved = new Map<string, string>();
   
-  // TODO: Implement actual DID resolution using AT Protocol
-  // For now, we'll use handles as placeholders
-  // In production, you would call the AT Protocol resolve API
+  // NOTE: This is a placeholder implementation. Full DID resolution would require:
+  // - Calling AtprotoService.resolveHandle() for each handle
+  // - Caching resolved DIDs to avoid repeated API calls
+  // - Error handling for handles that fail to resolve
+  // Current implementation uses handles as placeholders
   for (const handle of handles) {
     resolved.set(handle, handle); // Placeholder
   }

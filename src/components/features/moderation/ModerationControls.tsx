@@ -96,8 +96,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
 
   const loadStats = async () => {
     try {
-      // For now, we'll skip loading stats since the method doesn't exist
-      // TODO: Implement moderation stats if needed
+      // Stats feature is not currently implemented
       setStats(null);
     } catch (error) {
     }
@@ -296,8 +295,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
               <TouchableOpacity
                 style={styles.webSettingsTextButton}
                 onPress={() => {
-                  // TODO: Implement opening Bluesky moderation settings
-                  // For now, this functionality is not available
+                  // External moderation settings link is not currently available
                 }}
                 activeOpacity={0.7}
               >

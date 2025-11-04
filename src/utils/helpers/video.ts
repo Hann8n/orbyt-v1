@@ -27,6 +27,7 @@ const MAX_COLOR_CACHE_SIZE = 200;
 
 // Batch processing system
 const pendingColorExtractions = new Map<string, Promise<string>>();
+const colorExtractionResolvers = new Map<string, (color: string) => void>();
 const colorExtractionQueue: string[] = [];
 let isProcessingQueue = false;
 const BATCH_SIZE = 3; // Process 3 colors at a time
@@ -124,11 +125,11 @@ async function processColorQueue(): Promise<void> {
           timestamp: Date.now()
         });
         
-        // Resolve the pending promise
-        const pendingPromise = pendingColorExtractions.get(url);
-        if (pendingPromise) {
-          // This is a bit hacky but works - we need to resolve the promise
-          // The actual promise resolution happens in extractThumbnailColor
+        // Resolve the pending promise using the stored resolver
+        const resolver = colorExtractionResolvers.get(url);
+        if (resolver) {
+          resolver(colors.backgroundColor);
+          colorExtractionResolvers.delete(url); // Remove after calling to avoid race condition
         }
       } catch (error) {
         logger.error('VideoUtils failed to extract thumbnail color', error, {
@@ -171,7 +172,10 @@ export async function extractThumbnailColor(thumbnailUrl: string | null): Promis
   }
   
   // Create a new promise for this extraction
-  const extractionPromise = new Promise<string>(async (resolve) => {
+  const extractionPromise = new Promise<string>((resolve) => {
+    // Store the resolver so processColorQueue can call it when ready
+    colorExtractionResolvers.set(thumbnailUrl, resolve);
+    
     // Add to queue if not already there
     if (!colorExtractionQueue.includes(thumbnailUrl)) {
       colorExtractionQueue.push(thumbnailUrl);
@@ -182,19 +186,14 @@ export async function extractThumbnailColor(thumbnailUrl: string | null): Promis
       processColorQueue();
     }
     
-    // Wait for the color to be processed
-    const checkInterval = setInterval(() => {
-      const cached = thumbnailColorCache.get(thumbnailUrl);
-      if (cached && (Date.now() - cached.timestamp) < COLOR_CACHE_DURATION) {
-        clearInterval(checkInterval);
-        resolve(cached.backgroundColor);
-      }
-    }, 50); // Check every 50ms
-    
-    // Timeout after 5 seconds
+    // Timeout after 5 seconds as a safety net
     setTimeout(() => {
-      clearInterval(checkInterval);
-      resolve('#000000');
+      // Only resolve if the resolver still exists (i.e., not already resolved)
+      if (colorExtractionResolvers.has(thumbnailUrl)) {
+        const resolver = colorExtractionResolvers.get(thumbnailUrl)!;
+        resolver('#000000');
+        colorExtractionResolvers.delete(thumbnailUrl);
+      }
     }, 5000);
   });
   
