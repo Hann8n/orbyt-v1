@@ -74,9 +74,6 @@ export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
     if (!key) return;
     const feeds = get().feeds;
     if (feeds[key]) return;
-    if (__DEV__) {
-      console.log('[visibility] registerFeedScope', key);
-    }
     set((state) => ({
       feeds: {
         ...state.feeds,
@@ -89,9 +86,6 @@ export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
     const feeds = get().feeds;
     const current = feeds[key] ?? createDefaultFeedScope();
     if (current.isActive) return;
-    if (__DEV__) {
-      console.log('[visibility] activateFeedScope', key);
-    }
     set((state) => ({
       feeds: {
         ...state.feeds,
@@ -111,9 +105,6 @@ export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
         return;
       }
     }
-    if (__DEV__) {
-      console.log('[visibility] deactivateFeedScope', key);
-    }
     set((state) => ({
       feeds: {
         ...state.feeds,
@@ -128,9 +119,6 @@ export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
     if (!key) return;
     const previous = get().feeds[key] ?? createDefaultFeedScope();
     if (previous.activeItemUri === uri && previous.activeItemIndex === index) return;
-    if (__DEV__) {
-      console.log('[visibility] setFeedVisibleItem', key, { uri, index });
-    }
     set((state) => ({
       feeds: {
         ...state.feeds,
@@ -181,9 +169,6 @@ export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
     const previous = get().feeds[key] ?? createDefaultFeedScope();
     if (Math.abs(previous.headerVisiblePercent - clamped) < 0.02) {
       return;
-    }
-    if (__DEV__) {
-      console.log('[visibility] setFeedHeaderVisibility', key, clamped);
     }
     set((state) => ({
       feeds: {
