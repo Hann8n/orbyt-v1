@@ -32,6 +32,7 @@ export interface HeaderContent {
   title: string;
   onTitleChange?: (text: string) => void;
   subtitle?: string;
+  subtitleSecondary?: string; // e.g., Joined date or secondary line
   description?: string;
   facets?: any[];
   badge?: React.ReactNode;
@@ -495,15 +496,21 @@ const HeaderContentComponent = memo<{
           </TouchableOpacity>
         )}
         
-        {content.subtitle && (
+        {!!content.subtitle && (
           <TouchableOpacity
             style={styles.subtitleRow}
             onPress={content.onTitlePress}
             activeOpacity={content.onTitlePress ? 0.7 : 1}
           >
-            <Text style={[styles.subtitle, { color: hexToRGBA(textColor, 0.67) }]} numberOfLines={1}>
-              {content.subtitle}{content.onTitlePress ? ' ›' : ''}
-            </Text>
+            <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+              <Text
+                style={[styles.subtitle, { color: hexToRGBA(textColor, 0.67) }]}
+                numberOfLines={1}
+              >
+                {content.subtitle}
+                {content.onTitlePress ? ' ›' : ''}
+              </Text>
+            </View>
           </TouchableOpacity>
         )}
         
@@ -862,6 +869,12 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontFamily: 'Firma-Medium',
     fontSize: 18,
+  },
+  subtitleSecondary: {
+    marginTop: 0,
+    marginBottom: 15,
+    fontFamily: 'Firma-Regular',
+    fontSize: 14,
   },
   description: {
     marginTop: 12,

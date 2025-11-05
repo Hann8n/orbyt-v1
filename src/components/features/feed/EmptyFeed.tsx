@@ -6,7 +6,7 @@ import { Colors } from '../../ui/UI';
 import { useQuery } from '@tanstack/react-query';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar } from '../../ui/UI';
-import VerificationBadge from '../verification/VerificationBadge';
+import { VerificationBadge } from '../badging';
 import { useRouter } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import ProfileCache, { useFollowMutation } from '../../../services/cache/ProfileCache';

@@ -6,6 +6,7 @@ export { useAppStore, useAppInitialization } from '../stores/appStore';
 export { useThumbnailColor } from './useThumbnailColor';
 export { useOAuth } from './useOAuth';
 export { useAccountManager } from './useAccountManager';
+export { useOrbytProfile } from './useOrbytProfile';
 export {
 	useFeedVisibility,
 	useVideoVisibility,

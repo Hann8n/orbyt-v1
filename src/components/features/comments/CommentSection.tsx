@@ -30,7 +30,7 @@ import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
 import Icon, { HeartFillIcon, MoreFillIcon, CloseFillIcon } from '../../ui/Icon';
 import ProfileCache, { useProfile } from '../../../services/cache/ProfileCache';
-import VerificationBadge from '../verification/VerificationBadge';
+import { VerificationBadge } from '../badging';
 import RelativeDate from '../../ui/RelativeDate';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useFocusEffect } from '@react-navigation/native';

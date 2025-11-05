@@ -1,10 +1,14 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
+import { Text, TouchableOpacity } from 'react-native';
 import UniversalHeader, { HeaderAction, HeaderContent, CustomActionLayout } from './UniversalHeader';
 import HeaderSkeleton from './HeaderSkeleton';
 import { useProfile, useProfileColors, useFollowMutation } from '../../../services/cache/ProfileCache';
-import VerificationBadge from '../../features/verification/VerificationBadge';
-import VerificationInfoSheet from '../../features/verification/VerificationInfoSheet';
+import { useOrbytProfile } from '../../../hooks';
+import VerificationBadge from '../../features/badging/VerificationBadge';
+import BetaBadge from '../../features/badging/BetaBadge';
+import BetaInfoSheet from '../../features/badging/BetaInfoSheet';
+import VerificationInfoSheet from '../../features/badging/VerificationInfoSheet';
 import ProfileMenu from '../../features/profile/ProfileMenu';
 import EditProfileSheet from '../../features/profile/EditProfileSheet';
 import ProfileCache from '../../../services/cache/ProfileCache';
@@ -41,6 +45,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 }) => {
   const navigation = useRouter();
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
+  const [showBetaInfo, setShowBetaInfo] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [canMessage, setCanMessage] = useState<boolean | null>(null);
@@ -63,6 +68,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   // Ensure profile data is immediately available from cache to prevent flashing
   const profileData = profile || (handle ? ProfileCache.getProfileFromCacheSync(handle) : null);
+
+  // Fetch Orbyt profile record join date for this DID
+  const { joinDate } = useOrbytProfile(profileData?.did);
   
   // Check if the current user can message this profile
   useEffect(() => {
@@ -242,22 +250,46 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       };
     }
 
+    // Compose subtitle lines: handle only (joined date moved to Beta Info Sheet)
+    const subtitle: string | undefined = profileData.handle ? profileData.handle : undefined;
+    // Do not show joined date in header; it's displayed in BetaInfoSheet
+
+    // Determine beta user by join date cutoff
+    const betaCutoff = new Date('2026-01-24T00:00:00.000Z');
+    const isBeta = (() => {
+      try {
+        if (!joinDate) return false;
+        const d = new Date(joinDate);
+        return d.getTime() < betaCutoff.getTime();
+      } catch {
+        return false;
+      }
+    })();
+
     return {
       avatar: profileData.avatar || undefined,
       title: profileData.displayName || profileData.handle || 'Unknown User',
-      subtitle: profileData.handle ? profileData.handle : undefined,
+      subtitle,
+      // subtitleSecondary intentionally omitted (no joined date in header)
       description: profileData.description,
       badge: profileData.handle ? (
-        <VerificationBadge
-          handle={profileData.handle}
-          textSize={24}
-          borderColor={profileColors.textColor}
-          textColor={profileColors.textColor}
-          onPress={() => setShowVerificationInfo(true)}
-        />
+        <>
+          {isBeta && (
+            <TouchableOpacity onPress={() => setShowBetaInfo(true)} activeOpacity={0.7}>
+              <BetaBadge textSize={24} color={profileColors.textColor} opacity={0.55} />
+            </TouchableOpacity>
+          )}
+          <VerificationBadge
+            handle={profileData.handle}
+            textSize={24}
+            borderColor={profileColors.textColor}
+            textColor={profileColors.textColor}
+            onPress={() => setShowVerificationInfo(true)}
+          />
+        </>
       ) : undefined,
     };
-  }, [profileData, profileColors.textColor]);
+  }, [profileData, profileColors.textColor, joinDate]);
 
   // Create skeleton component
   const skeleton = useMemo(() => (
@@ -321,6 +353,15 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           visible={showVerificationInfo}
           handle={profileData.handle}
           onDismiss={() => setShowVerificationInfo(false)}
+        />
+      )}
+
+      {profileData?.handle && (
+        <BetaInfoSheet
+          visible={showBetaInfo}
+          handle={profileData.handle}
+          joinDate={joinDate}
+          onDismiss={() => setShowBetaInfo(false)}
         />
       )}
 

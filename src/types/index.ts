@@ -159,6 +159,7 @@ export interface TextOverlay {
 
 // Import existing types
 import type { ModerationDecision } from '../services/ModerationTypes';
+export type { OrbytProfileRecord } from './profile';
 
 // Re-export for convenience
 export type { ModerationDecision };

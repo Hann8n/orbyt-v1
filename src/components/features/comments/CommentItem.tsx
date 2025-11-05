@@ -27,7 +27,7 @@ import { formatNumber } from '../../../utils/helpers';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
 import { HeartFillIcon } from '../../ui/Icon';
-import VerificationBadge from '../verification/VerificationBadge';
+import { VerificationBadge } from '../badging';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';

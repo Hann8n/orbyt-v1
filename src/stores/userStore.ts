@@ -267,6 +267,13 @@ export const useUserStore = create<UserState>()(
           
           // Cache the profile
           await ProfileCache.cacheProfiles([userProfile]);
+
+          // Initialize orbyt profile record (join date, baseline colors/channels)
+          try {
+            await AtprotoService.initOrbytProfileIfNeeded();
+          } catch (error) {
+            logger.debug('Failed to initialize orbyt profile', error);
+          }
           
         } catch (error) {
           // Handle user cancellation silently
@@ -367,6 +374,11 @@ export const useUserStore = create<UserState>()(
           
           // Cache the profile
           await ProfileCache.cacheProfiles([userProfile]);
+
+          // Initialize orbyt profile record (join date, baseline colors/channels)
+          try {
+            await AtprotoService.initOrbytProfileIfNeeded();
+          } catch {}
           
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Session restoration failed';
@@ -648,6 +660,12 @@ export const useUserStore = create<UserState>()(
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
           const savedChannels = get().subscribedChannels.filter(ch => !ch.isDefault);
           await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
+
+          // Sync subscribed channels to orbyt profile record (best-effort)
+          try {
+            const allUris = get().subscribedChannels.map(ch => ch.uri);
+            await AtprotoService.updateOrbytProfileChannels(allUris);
+          } catch {}
           
         } catch (error) {
           logger.error('Error subscribing to channel', error, { component: 'userStore' });
@@ -684,6 +702,12 @@ export const useUserStore = create<UserState>()(
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
           const savedChannels = channels.filter(ch => !ch.isDefault);
           await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
+
+          // Sync subscribed channels to orbyt profile record (best-effort)
+          try {
+            const allUris = get().subscribedChannels.map(ch => ch.uri);
+            await AtprotoService.updateOrbytProfileChannels(allUris);
+          } catch {}
           
         } catch (error) {
           logger.error('Error unsubscribing from channel', error, { component: 'userStore' });
@@ -731,6 +755,12 @@ export const useUserStore = create<UserState>()(
              const updatedRemoved = removedDefaults.filter((removedUri: string) => removedUri !== uri);
              await AsyncStorage.setItem(removedKey, JSON.stringify(updatedRemoved));
            }
+
+           // Sync subscribed channels to orbyt profile record (best-effort)
+           try {
+             const allUris = get().subscribedChannels.map(ch => ch.uri);
+             await AtprotoService.updateOrbytProfileChannels(allUris);
+           } catch {}
            
          } catch (error) {
            logger.error('Error restoring default channel', error, { component: 'userStore' });
@@ -781,6 +811,12 @@ export const useUserStore = create<UserState>()(
             const channelOrderKey = getUserScopedKey('channel_order_v2', currentUser.did);
             const channelOrder = updatedChannels.map(ch => ({ uri: ch.uri, order: ch.order }));
             await AsyncStorage.setItem(channelOrderKey, JSON.stringify(channelOrder));
+
+            // Sync subscribed channels to orbyt profile record (best-effort)
+            try {
+              const allUris = get().subscribedChannels.map(ch => ch.uri);
+              await AtprotoService.updateOrbytProfileChannels(allUris);
+            } catch {}
             
           } catch (error) {
             logger.error('Error reordering channels', error, { component: 'userStore' });
@@ -834,6 +870,12 @@ export const useUserStore = create<UserState>()(
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
           const savedChannels = get().subscribedChannels.filter(ch => !ch.isDefault);
           await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
+
+          // Sync subscribed channels to orbyt profile record (best-effort)
+          try {
+            const allUris = get().subscribedChannels.map(ch => ch.uri);
+            await AtprotoService.updateOrbytProfileChannels(allUris);
+          } catch {}
           
         } catch (error) {
           logger.error('Error batch subscribing to channels', error, { component: 'userStore' });
@@ -876,6 +918,12 @@ export const useUserStore = create<UserState>()(
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
           const savedChannels = updatedChannels.filter(ch => !ch.isDefault);
           await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
+
+          // Sync subscribed channels to orbyt profile record (best-effort)
+          try {
+            const allUris = get().subscribedChannels.map(ch => ch.uri);
+            await AtprotoService.updateOrbytProfileChannels(allUris);
+          } catch {}
           
         } catch (error) {
           logger.error('Error batch unsubscribing from channels', error, { component: 'userStore' });
@@ -1273,9 +1321,27 @@ export const useUserStore = create<UserState>()(
             }
           }
           
-          const savedChannels: SubscribedChannel[] = savedChannelsStr ? JSON.parse(savedChannelsStr) : [];
+          let savedChannels: SubscribedChannel[] = savedChannelsStr ? JSON.parse(savedChannelsStr) : [];
           const removedDefaults: string[] = removedDefaultsStr ? JSON.parse(removedDefaultsStr) : [];
           const channelOrder: { uri: string; order: number }[] = channelOrderStr ? JSON.parse(channelOrderStr) : [];
+
+          // Record-first backfill: if no local channels, load from Orbyt profile record
+          if ((!savedChannels || savedChannels.length === 0) && did) {
+            try {
+              const record = await AtprotoService.getOrbytProfileRecordForDid(did);
+              const remoteUris: string[] = Array.isArray(record?.subscribedChannels) ? record.subscribedChannels : [];
+              if (remoteUris.length > 0) {
+                savedChannels = remoteUris.map((uri: string, idx: number) => ({
+                  uri,
+                  displayName: '',
+                  isDefault: false,
+                  order: idx + 2, // leave 0,1 for defaults
+                  subscribedAt: Date.now(),
+                }));
+                await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
+              }
+            } catch {}
+          }
           
           // Combine default channels (excluding removed ones) with saved channels
           const defaultChannels = DEFAULT_CHANNELS.filter(ch => !removedDefaults.includes(ch.uri));
@@ -1305,6 +1371,12 @@ export const useUserStore = create<UserState>()(
           }
           
           set({ subscribedChannels: sortedChannels });
+
+          // After loading, sync subscribed channels to orbyt profile record (best-effort)
+          try {
+            const allUris = sortedChannels.map(ch => ch.uri);
+            await AtprotoService.updateOrbytProfileChannels(allUris);
+          } catch {}
           
         } catch (error) {
           logger.error('Error loading subscribed channels', error, { component: 'userStore' });

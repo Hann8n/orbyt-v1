@@ -105,38 +105,37 @@ class ProfileCache {
 
       const pdsAgent = new AtpAgent({ service: service.serviceEndpoint });
 
-      // Try listRecords first
+      // Try unified orbyt profile record first
+      try {
+        const response = await pdsAgent.com.atproto.repo.getRecord({
+          repo: did,
+          collection: 'com.getorbyt.profile',
+          rkey: 'self',
+        });
+        const record = response?.data?.value as any;
+        if (record?.colors?.backgroundColor && record?.colors?.textColor) {
+          return {
+            backgroundColor: record.colors.backgroundColor,
+            textColor: record.colors.textColor,
+          };
+        }
+      } catch {}
+
+      // Fallback: list any profile record and read colors
       try {
         const response = await pdsAgent.com.atproto.repo.listRecords({
           repo: did,
-          collection: 'com.getorbyt.profileColors',
+          collection: 'com.getorbyt.profile',
           limit: 1,
         });
-
-        if (response.data.records && response.data.records.length > 0) {
-          const record = response.data.records[0].value as any;
+        const value = response?.data?.records?.[0]?.value as any;
+        if (value?.colors?.backgroundColor && value?.colors?.textColor) {
           return {
-            backgroundColor: record.backgroundColor,
-            textColor: record.textColor
+            backgroundColor: value.colors.backgroundColor,
+            textColor: value.colors.textColor,
           };
         }
-      } catch {
-        // Try getRecord with rkey 'self' as fallback
-        try {
-          const response = await pdsAgent.com.atproto.repo.getRecord({
-            repo: did,
-            collection: 'com.getorbyt.profileColors',
-            rkey: 'self',
-          });
-          const record = response.data.value as any;
-          return {
-            backgroundColor: record.backgroundColor,
-            textColor: record.textColor
-          };
-        } catch {
-          // Record doesn't exist
-        }
-      }
+      } catch {}
     } catch {
       // No custom colors
     }
@@ -610,13 +609,11 @@ class ProfileCache {
                 statusBarStyle: getStatusBarStyle(backgroundColor)
               };
               
-              // Add PDS record saving
+              // Persist to unified orbyt profile record
               if (saveToRemote) {
                 try {
-                  const success = await AtprotoService.saveProfileColors(backgroundColor, foregroundColor);
-                  if (success) {
-                    cachedProfile.hasCustomColors = true;
-                  }
+                  await AtprotoService.updateOrbytProfileColors(backgroundColor, foregroundColor);
+                  cachedProfile.hasCustomColors = true;
                 } catch (error) {
                   // Continue even if PDS save fails
                 }
@@ -1630,13 +1627,6 @@ export function useProfileInvalidation() {
 /**
  * Clean up all existing profile color records for the current user
  */
-export async function cleanupProfileColors(): Promise<boolean> {
-  try {
-    const AtprotoService = (await import('../api/AtprotoService')).default;
-    return await AtprotoService.cleanupProfileColors();
-  } catch (error) {
-    return false;
-  }
-}
+// Legacy cleanup removed: profileColors record is no longer used.
 
 export default ProfileCache;

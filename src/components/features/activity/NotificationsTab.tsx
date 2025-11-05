@@ -19,7 +19,7 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
 import ProfileCache, { profileKeys } from '../../../services/cache/ProfileCache';
 import { Avatar, Icon, Colors } from '../../../components/ui/UI';
-import VerificationBadge from '../verification/VerificationBadge';
+import { VerificationBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../../utils/helpers';
 

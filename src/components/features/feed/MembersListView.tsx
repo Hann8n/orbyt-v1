@@ -17,7 +17,7 @@ import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar, Icon } from '../../ui/UI';
-import VerificationBadge from '../verification/VerificationBadge';
+import { VerificationBadge } from '../badging';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';

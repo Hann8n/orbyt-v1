@@ -17,7 +17,7 @@ import AtprotoService from '../../services/api/AtprotoService';
 import { Avatar } from './UI';
 import AuthorItem from './AuthorItem';
 import { Colors } from './UI';
-import VerificationBadge from '../features/verification/VerificationBadge';
+import { VerificationBadge } from '../features/badging';
 
 // Animated shimmer component
 const ProfileShimmer = () => {

@@ -77,6 +77,8 @@ type AuthorFilter =
 
 class AtprotoService {
   static agent = new AtpAgent({ service: SERVICE_URL });
+  // Cache resolved PDS endpoints per DID for cross-PDS reads
+  private static _pdsEndpointCache = new Map<string, string>();
   private static _sessionPromise: Promise<any> | null = null;
   private static _sessionCache: {
     oauth: { session: any; timestamp: number } | null;
@@ -146,6 +148,47 @@ class AtprotoService {
     if (cache.size > 100) {
       const oldestKey = cache.keys().next().value;
       cache.delete(oldestKey);
+    }
+  }
+
+  /**
+   * Resolve a DID's PDS service endpoint via PLC and cache it.
+   */
+  static async resolvePdsEndpointForDid(did: string): Promise<string | null> {
+    try {
+      if (!did) return null;
+      const cached = this._pdsEndpointCache.get(did);
+      if (cached) return cached;
+
+      const url = `https://plc.directory/${encodeURIComponent(did)}`;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const doc = await res.json();
+      const services = Array.isArray(doc?.service) ? doc.service : [];
+      const pds = services.find((s: any) =>
+        (typeof s?.type === 'string' && s.type.includes('AtprotoPersonalDataServer')) ||
+        (typeof s?.id === 'string' && s.id.includes('atproto_pds'))
+      );
+      const endpoint = pds?.serviceEndpoint || null;
+      if (endpoint) {
+        this._pdsEndpointCache.set(did, endpoint);
+      }
+      return endpoint;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Create an unauthenticated agent targeting the repo's PDS for cross-PDS reads.
+   */
+  static async getAgentForRepo(did: string): Promise<AtpAgent | null> {
+    const endpoint = await this.resolvePdsEndpointForDid(did);
+    if (!endpoint) return null;
+    try {
+      return new AtpAgent({ service: endpoint });
+    } catch {
+      return null;
     }
   }
 
@@ -2460,127 +2503,181 @@ class AtprotoService {
    * @param limit - Number of results to return
    * @returns Array of feed generator objects
    */
+  
 
   /**
-   * Save profile colors to PDS
-   * @param backgroundColor - Background color hex
-   * @param textColor - Text color hex
-   * @returns Boolean indicating success
+   * Fetch the orbyt profile record for the current user
    */
-  static async saveProfileColors(backgroundColor: string, textColor: string): Promise<boolean> {
+  static async getOrbytProfileRecord(): Promise<any | null> {
+    try {
+      const userDid = await this.getCurrentUserDid();
+      if (!userDid) return null;
+      const { api } = await this.getApiClient();
+      try {
+        const rec = await api.com.atproto.repo.getRecord({
+          repo: userDid,
+          collection: 'com.getorbyt.profile',
+          rkey: 'self',
+        });
+        return rec?.data?.value || null;
+      } catch (e) {
+        // Fallback: try listRecords once
+        try {
+          const list = await api.com.atproto.repo.listRecords({
+            repo: userDid,
+            collection: 'com.getorbyt.profile',
+            limit: 1,
+          });
+          const first = list?.data?.records?.[0]?.value;
+          return first || null;
+        } catch {
+          return null;
+        }
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch the orbyt profile record for any DID by hitting that DID's PDS directly
+   */
+  static async getOrbytProfileRecordForDid(did: string): Promise<any | null> {
+    try {
+      if (!did) return null;
+      const agent = await this.getAgentForRepo(did);
+      if (!agent) return null;
+      // Prefer stable rkey 'self'
+      try {
+        const rec = await agent.api.com.atproto.repo.getRecord({
+          repo: did,
+          collection: 'com.getorbyt.profile',
+          rkey: 'self',
+        });
+        return rec?.data?.value || null;
+      } catch {
+        try {
+          const list = await agent.api.com.atproto.repo.listRecords({
+            repo: did,
+            collection: 'com.getorbyt.profile',
+            limit: 1,
+          });
+          return list?.data?.records?.[0]?.value || null;
+        } catch {
+          return null;
+        }
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Create or update the orbyt profile record with a stable rkey 'self'
+   */
+  static async upsertOrbytProfileRecord(update: {
+    joinDate?: string;
+    colors?: { backgroundColor: string; textColor: string } | null;
+    subscribedChannels?: string[];
+  }): Promise<boolean> {
     try {
       const userDid = await this.getCurrentUserDid();
       if (!userDid) return false;
-      
       const { api } = await this.getApiClient();
-      
-      // First, delete any existing records to keep only the most recent one
+
+      // Read existing
+      let existing: any | null = null;
       try {
-        const existingRecords = await api.com.atproto.repo.listRecords({
+        const rec = await api.com.atproto.repo.getRecord({
           repo: userDid,
-          collection: 'com.getorbyt.profileColors',
-          limit: 100 // Increased limit to catch all records
+          collection: 'com.getorbyt.profile',
+          rkey: 'self',
         });
-        
-        if (existingRecords?.data?.records?.length > 0) {
-          // Delete all existing records in parallel for better performance
-          const deletePromises = existingRecords.data.records.map(async (record: any) => {
-            try {
-              // The rkey might be nested in the record structure
-              const rkey = record.rkey || record.uri?.split('/').pop();
-              if (!rkey) {
-                return;
-              }
-              
-              await api.com.atproto.repo.deleteRecord({
-                repo: userDid,
-                collection: 'com.getorbyt.profileColors',
-                rkey: rkey
-              });
-            } catch (deleteError) {
-              // Continue on individual delete errors
-            }
-          });
-          
-          // Wait for all deletions to complete
-          await Promise.allSettled(deletePromises);
-        }
-      } catch (error) {
-        // Continue with creation even if listing fails
-      }
-      
-      // Create a new record with current timestamp as rkey
-      const rkey = `${Date.now()}`;
-      const record = {
-        $type: 'com.getorbyt.profileColors',
-        createdAt: new Date().toISOString(),
-        backgroundColor,
-        textColor,
-        accentColor: textColor,
-        secondaryColor: textColor
+        existing = rec?.data?.value || null;
+      } catch {}
+
+      const nowIso = new Date().toISOString();
+      const nextRecord: any = {
+        $type: 'com.getorbyt.profile',
+        joinDate: existing?.joinDate || update.joinDate || nowIso,
+        updatedAt: nowIso,
+        // Preserve prior fields unless overridden
+        colors: update.colors === undefined ? existing?.colors || null : update.colors,
+        subscribedChannels: update.subscribedChannels ?? existing?.subscribedChannels ?? [],
       };
-      
-      await api.com.atproto.repo.createRecord({
-        repo: userDid,
-        collection: 'com.getorbyt.profileColors',
-        rkey,
-        record
-      });
-      
+
+      if (existing) {
+        // putRecord
+        await api.com.atproto.repo.putRecord({
+          repo: userDid,
+          collection: 'com.getorbyt.profile',
+          rkey: 'self',
+          record: nextRecord,
+        });
+      } else {
+        // createRecord
+        await api.com.atproto.repo.createRecord({
+          repo: userDid,
+          collection: 'com.getorbyt.profile',
+          rkey: 'self',
+          record: nextRecord,
+        });
+      }
       return true;
     } catch (error) {
-      logger.error('Error saving profile colors', error, { component: 'AtprotoService' });
+      logger.error('Error upserting com.getorbyt.profile', error, { component: 'AtprotoService' });
       return false;
     }
   }
 
   /**
-   * Clean up all existing profile color records for the current user
-   * @returns Boolean indicating success
+   * Initialize "com.getorbyt.profile" on first login if missing
    */
-  static async cleanupProfileColors(): Promise<boolean> {
+  static async initOrbytProfileIfNeeded(): Promise<void> {
     try {
+      const existing = await this.getOrbytProfileRecord();
+      if (existing) return;
+
       const userDid = await this.getCurrentUserDid();
-      if (!userDid) return false;
-      
-      const { api } = await this.getApiClient();
-      
-      // Get all existing records
-      const existingRecords = await api.com.atproto.repo.listRecords({
-        repo: userDid,
-        collection: 'com.getorbyt.profileColors',
-        limit: 100
+      if (!userDid) return;
+
+      // No legacy migration; initialize without colors by default
+      let colors: { backgroundColor: string; textColor: string } | null = null;
+
+      // Pull current subscribed channels from userStore
+      let subscribedChannels: string[] = [];
+      try {
+        const { useUserStore } = await import('../../stores/userStore');
+        const channels = useUserStore.getState().subscribedChannels || [];
+        subscribedChannels = channels.map((c: any) => c.uri).filter(Boolean);
+      } catch {}
+
+      await this.upsertOrbytProfileRecord({
+        joinDate: new Date().toISOString(),
+        colors,
+        subscribedChannels,
       });
-      
-      if (existingRecords?.data?.records?.length > 0) {
-        // Delete all existing records in parallel
-        const deletePromises = existingRecords.data.records.map(async (record: any) => {
-          try {
-            // The rkey might be nested in the record structure
-            const rkey = record.rkey || record.uri?.split('/').pop();
-            if (!rkey) {
-              return;
-            }
-            
-            await api.com.atproto.repo.deleteRecord({
-              repo: userDid,
-              collection: 'com.getorbyt.profileColors',
-              rkey: rkey
-            });
-          } catch (deleteError) {
-            // Continue on individual delete errors
-          }
-        });
-        
-        // Wait for all deletions to complete
-        await Promise.allSettled(deletePromises);
-      }
-      
-      return true;
-    } catch (error) {
-      logger.error('Error cleaning up profile colors', error, { component: 'AtprotoService' });
-      return false;
+    } catch {
+      // best-effort only
     }
+  }
+
+  /**
+   * Update only colors in orbyt profile record
+   */
+  static async updateOrbytProfileColors(backgroundColor: string, textColor: string): Promise<void> {
+    await this.upsertOrbytProfileRecord({
+      colors: { backgroundColor, textColor },
+    });
+  }
+
+  /**
+   * Update subscribed channels in orbyt profile record
+   */
+  static async updateOrbytProfileChannels(channelUris: string[]): Promise<void> {
+    await this.upsertOrbytProfileRecord({
+      subscribedChannels: Array.from(new Set(channelUris || [])),
+    });
   }
 
   static async getStaticChannels(limit: number = 10): Promise<any[]> {

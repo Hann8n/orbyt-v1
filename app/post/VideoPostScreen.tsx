@@ -27,7 +27,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import VideoPreviewModal from '../../src/components/features/video/Preview/VideoPreviewModal';
 import { Avatar } from '../../src/components/ui/UI';
-import VerificationBadge from '../../src/components/features/verification/VerificationBadge';
+import { VerificationBadge } from '../../src/components/features/badging';
 import Icon, { BackArrowIcon, DownloadIcon, ChevronDownIcon, ChevronUpIcon } from '../../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';

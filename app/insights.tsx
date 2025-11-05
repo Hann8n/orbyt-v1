@@ -22,7 +22,7 @@ import AtprotoService from '../src/services/api/AtprotoService';
 import { Avatar } from '../src/components/ui/UI';
 import Icon, { BackArrowIcon } from '../src/components/ui/Icon';
 import { Card, Button, Badge, Divider, Loading } from '../src/components/ui/UI';
-import VerificationBadge from '../src/components/features/verification/VerificationBadge';
+import VerificationBadge from '../src/components/features/badging/VerificationBadge';
 import { Colors } from '../src/components/ui/UI';
 import { useUserStore } from '../src/stores/userStore';
 

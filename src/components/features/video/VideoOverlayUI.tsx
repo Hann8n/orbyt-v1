@@ -20,7 +20,7 @@ import { useProfileColors } from '../../../services/cache/ProfileCache';
 import { useChannelColors } from '../../../services/cache/ChannelCache';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
-import VerificationBadge from '../verification/VerificationBadge';
+import { VerificationBadge } from '../badging';
 import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useRouter } from 'expo-router';
 

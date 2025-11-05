@@ -13,7 +13,7 @@ import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 import { Avatar, Icon } from './UI';
 import ListHeader from './ListHeader';
-import VerificationBadge from '../features/verification/VerificationBadge';
+import { VerificationBadge } from '../features/badging';
 import { useFollowMutation } from '../../services/cache/ProfileCache';
 
 interface User {

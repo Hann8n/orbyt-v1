@@ -32,7 +32,7 @@ import { logger } from '../../src/utils/logger';
 
 import { SearchIcon, FollowIcon, CheckIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
-import VerificationBadge from '../../src/components/features/verification/VerificationBadge';
+import { VerificationBadge } from '../../src/components/features/badging';
 import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
