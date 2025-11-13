@@ -23,7 +23,7 @@ import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { useRouter } from 'expo-router';
-import { useVisibilityCoreStore } from '../../../core/visibility';
+import { useVisibilityTabIsActive } from '../../../core/visibility';
 
 // Define the feed options type
 export type FeedOption = string;
@@ -39,17 +39,15 @@ interface SwipeableFeedContainerProps {
   applySafeArea?: boolean;
   // Optional override for indicator text size (used by Home screen)
   indicatorFontSize?: number;
-  isRouteFocused?: boolean;
 }
 
 const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
-  initialFeed = 'yourMix',
+  initialFeed = 'following',
   onFeedChange,
   isRefreshing = false,
   forceError = false, // Add debug flag to force error responses
   applySafeArea = false,
   indicatorFontSize,
-  isRouteFocused = true,
 }) => {
   const flatListRef = useRef<FlatList>(null);
   const indicatorScrollViewRef = useRef<any>(null);
@@ -57,20 +55,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   const isSmallDevice = isSmallScreen() || isTablet();
   const insets = useSafeAreaInsets();
   const navigation = useRouter();
-  const containerScopeIdRef = useRef(`feedContainer-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
-  const visibilityKeysRef = useRef<Record<string, string>>({});
-  const resetFeedScope = useVisibilityCoreStore((state) => state.resetFeedScope);
-  const deactivateFeedScope = useVisibilityCoreStore((state) => state.deactivateFeedScope);
-  const getVisibilityKey = useCallback((option: FeedOption) => {
-    const key = visibilityKeysRef.current[option];
-    if (key) {
-      return key;
-    }
-
-    const nextKey = `${containerScopeIdRef.current}:${String(option)}`;
-    visibilityKeysRef.current[option] = nextKey;
-    return nextKey;
-  }, []);
+  const isTabActive = useVisibilityTabIsActive('index');
 
 
 
@@ -179,8 +164,8 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   // Compute current feed option with no-flicker fallback to the intended initial feed
   const pendingInitialIndex = feedOptions.findIndex(option => option === initialFeed);
   const currentFeedOption = hasAppliedInitialIndexRef.current
-    ? (feedOptions[currentFeedIndex] || (feedOptions[0] || 'yourMix'))
-    : (pendingInitialIndex >= 0 ? feedOptions[pendingInitialIndex] : (feedOptions[0] || 'yourMix'));
+    ? (feedOptions[currentFeedIndex] || (feedOptions[0] || 'following'))
+    : (pendingInitialIndex >= 0 ? feedOptions[pendingInitialIndex] : (feedOptions[0] || 'following'));
 
   // Ensure FlatList renders the correct initial index on the first paint when items are available
   const initialIndexForFlatList = useMemo(() => {
@@ -414,9 +399,8 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
 
   // Render individual feed with comprehensive memoization
   const renderFeed = useCallback(({ item: feedOption, index }: { item: FeedOption; index: number }) => {
-    const isVisible = isRouteFocused && index === currentFeedIndex;
-    const isNeighbor = isRouteFocused && Math.abs(currentFeedIndex - index) === 1;
-    const scopeKey = getVisibilityKey(feedOption);
+    const isVisible = isTabActive && index === currentFeedIndex;
+    const isNeighbor = isTabActive && Math.abs(currentFeedIndex - index) === 1;
     
     return (
       <View style={feedPageStyle}> 
@@ -428,11 +412,10 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
           queryOptions={baseQueryOptions}
           // Pass visibility state to control video playback and fetching - consistent with ListFeedView
           isVisible={isVisible}
-
           isRefreshing={isRefreshing}
           forceError={forceError}
           shouldPrefetch={isNeighbor}
-          visibilityKey={scopeKey}
+          visibilityKey={feedOption}
         />
       </View>
     );
@@ -443,36 +426,11 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     handlePositionChange,
     savedPositions,
     baseQueryOptions,
-    isRouteFocused,
+    isTabActive,
     isRefreshing,
     forceError,
-    getVisibilityKey,
   ]);
 
-  useEffect(() => {
-    if (isRouteFocused) {
-      return;
-    }
-
-    const keys = Object.values(visibilityKeysRef.current);
-    if (!keys.length) {
-      return;
-    }
-
-    keys.forEach((key) => {
-      resetFeedScope(key);
-      deactivateFeedScope(key);
-    });
-  }, [isRouteFocused, resetFeedScope, deactivateFeedScope]);
-
-  useEffect(() => {
-    if (!isRefreshing) {
-      return;
-    }
-
-    const keys = Object.values(visibilityKeysRef.current);
-    keys.forEach((key) => resetFeedScope(key));
-  }, [isRefreshing, resetFeedScope]);
 
   // Get indicator style with gradual opacity based on scroll progress
   const getIndicatorStyle = useCallback((feedOption: FeedOption) => {
@@ -543,10 +501,10 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
                 size={40} 
                 ringColor="transparent" 
                 style={styles.defaultChannelAvatar}
-                fallbackIcon={channel.uri === 'following' ? 'users' : channel.uri === 'yourMix' ? 'shuffle' : 'tv'}
+                fallbackIcon={channel.uri === 'following' ? 'users' : 'tv'}
                 fallbackIconSize={24}
-                fallbackIconColor={channel.uri === 'following' ? '#FFFFFF' : channel.uri === 'yourMix' ? '#FFFFFF' : Colors.lightGray}
-                profileColors={channel.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : channel.uri === 'yourMix' ? { backgroundColor: '#10B981', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
+                fallbackIconColor={channel.uri === 'following' ? '#FFFFFF' : Colors.lightGray}
+                profileColors={channel.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
               />
               <View style={styles.defaultChannelContent}>
                 <Text style={styles.defaultChannelName}>{channel.displayName}</Text>

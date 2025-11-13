@@ -9,8 +9,6 @@ export { useAccountManager } from './useAccountManager';
 export { useOrbytProfile } from './useOrbytProfile';
 export {
 	useFeedVisibility,
-	useVideoVisibility,
-	useVisibilityPreferences,
 	useVisibilityOverlay,
 	useVisibilityRouteTracker,
 	useVisibilityRouteIsActive,

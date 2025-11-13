@@ -70,11 +70,6 @@ export interface UniversalHeaderProps {
   children?: React.ReactNode;
   style?: any;
   contentStyle?: any;
-  mixIcon?: {
-    isInMix: boolean;
-    isExcluded: boolean;
-    onPress: () => void;
-  };
   applySafeArea?: boolean;
   showShadowGradient?: boolean;
 }
@@ -351,12 +346,7 @@ const HeaderContentComponent = memo<{
   isLoading?: boolean;
   skeleton?: React.ReactNode;
   customDescription?: React.ReactNode;
-  mixIcon?: {
-    isInMix: boolean;
-    isExcluded: boolean;
-    onPress: () => void;
-  };
-}>(({ content, textColor, backgroundColor, isLoading, skeleton, customDescription, mixIcon }) => {
+}>(({ content, textColor, backgroundColor, isLoading, skeleton, customDescription }) => {
   const navigation = useRouter();
 
   const navigateToAuthorProfile = useCallback((handle: string) => {
@@ -381,24 +371,6 @@ const HeaderContentComponent = memo<{
   if (isLoading && skeleton) {
     return skeleton;
   }
-
-  // Create mix icon badge
-  const mixIconBadge = mixIcon ? (
-    <TouchableOpacity
-      style={styles.mixIconContainer}
-      onPress={mixIcon.onPress}
-      activeOpacity={0.7}
-    >
-      <Icon 
-        name="shuffle" 
-        size={20} 
-        color={
-          mixIcon.isExcluded ? Colors.red : 
-          (mixIcon.isInMix && !mixIcon.isExcluded ? Colors.lightGreen : hexToRGBA(textColor, 0.6))
-        } 
-      />
-    </TouchableOpacity>
-  ) : null;
 
   return (
     <View style={styles.contentContainer}>
@@ -491,7 +463,7 @@ const HeaderContentComponent = memo<{
               title={content.title}
               titleStyle={[styles.title, { color: textColor }]}
               color={textColor}
-              badges={[mixIconBadge, content.badge as React.ReactNode]}
+              badges={[content.badge as React.ReactNode]}
             />
           </TouchableOpacity>
         )}
@@ -542,7 +514,6 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   children,
   style,
   contentStyle,
-  mixIcon,
   applySafeArea = false,
   showShadowGradient = true,
 }) => {
@@ -670,7 +641,6 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
         isLoading={isLoading}
         skeleton={skeleton}
         customDescription={customDescription}
-        mixIcon={mixIcon}
       />
 
       {/* Additional Children */}
@@ -934,9 +904,6 @@ const styles = StyleSheet.create({
   content: {
     width: '100%',
     zIndex: 1,
-  },
-  mixIconContainer: {
-    marginLeft: 8,
   },
   dividerContainer: {
     marginTop: 6,

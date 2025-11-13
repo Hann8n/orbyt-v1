@@ -80,7 +80,7 @@ export interface APIResponse {
   cursor: string | null;
 }
 
-export type FeedOption = 'yourMix' | 'profile' | 'following' | 'likes' | 'reposts' | 'search' | 'hashtag' | string;
+export type FeedOption = 'profile' | 'following' | 'likes' | 'reposts' | 'search' | 'hashtag' | string;
 
 // Configuration constants
 const FEED_CONFIG = {
@@ -302,8 +302,6 @@ class FeedService {
     }
     
     switch (feedOption) {
-      case 'yourMix':
-        return 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids';
       case 'profile':
         return null; // Handle specially with user-specific logic
       case 'likes':
@@ -350,13 +348,6 @@ class FeedService {
         return { feed: [], cursor: null };
       } else if (feedOption === 'reposts' && !userDid) {
         return { feed: [], cursor: null };
-      } else if (feedOption === 'yourMix') {
-        // Your Mix simply serves the thevids feed directly
-        const feedLink = this.getFeedLink(feedOption);
-        if (!feedLink) {
-          return { feed: [], cursor: null };
-        }
-        response = await AtprotoService.getFeed(cursor, feedLink, {}, true, limit, 'custom');
       } else if (feedOption === 'following') {
         const feedLink = this.getFeedLink(feedOption);
         if (!feedLink) {

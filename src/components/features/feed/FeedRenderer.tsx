@@ -131,6 +131,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
   // Memoized query options to prevent unnecessary hook recreations
   const memoizedQueryOptions = useMemo(() => {
     const { enabled: providedEnabled, ...restOptions } = queryOptions ?? {};
+    
     const computedEnabled = typeof providedEnabled === 'boolean'
       ? providedEnabled
       : (!isSearchFeed && (isVisible || shouldPrefetch));
@@ -140,7 +141,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
       staleTime: 10 * 60 * 1000, // 10 minutes
       ...restOptions,
     };
-  }, [queryOptions, isSearchFeed, isVisible, shouldPrefetch]);
+  }, [queryOptions, isSearchFeed, isVisible, shouldPrefetch, feedOption]);
   
   // Regular feed hook with memoized options
   const feedQuery = useFeed(feedOption, userDid, memoizedQueryOptions);
@@ -216,8 +217,8 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
 
   // Memoized loading state calculation
   const shouldShowLoader = useMemo(() => 
-    isLoading || (feed.length === 0 && feedOption === 'yourMix'),
-    [isLoading, feed.length, feedOption]
+    isLoading,
+    [isLoading]
   );
 
   // Memoized callback for retry - prevents recreation on every render

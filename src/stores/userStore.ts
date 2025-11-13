@@ -71,7 +71,6 @@ interface UserState {
   agent: Agent | null;
   
   // User-specific settings - scoped by DID
-  feedMixingStrategy: 'chronological' | 'engagement' | 'diversity' | 'weighted';
   experimentalFeedsEnabled: boolean;
   feedDebugOverlayEnabled: boolean;
   
@@ -125,10 +124,8 @@ interface UserState {
   checkDeveloperAccess: () => boolean;
   
   // Feed settings
-  setFeedMixingStrategy: (strategy: 'chronological' | 'engagement' | 'diversity' | 'weighted') => Promise<void>;
   setExperimentalFeedsEnabled: (enabled: boolean) => Promise<void>;
   setFeedDebugOverlayEnabled: (enabled: boolean) => Promise<void>;
-  getFeedMixingStrategy: () => Promise<'chronological' | 'engagement' | 'diversity' | 'weighted'>;
   getExperimentalFeedsEnabled: () => Promise<boolean>;
   getFeedDebugOverlayEnabled: () => Promise<boolean>;
   
@@ -173,7 +170,6 @@ const DEVELOPER_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 // Default channels
 const DEFAULT_CHANNELS = [
   { uri: 'following', displayName: 'Following', isDefault: true, order: 0, subscribedAt: Date.now() },
-  { uri: 'yourMix', displayName: 'Your Mix', isDefault: true, order: 1, subscribedAt: Date.now() },
 ];
 
 // Helper function to get user-scoped storage key
@@ -198,7 +194,6 @@ export const useUserStore = create<UserState>()(
       agent: null,
       
       // Feed settings
-      feedMixingStrategy: 'weighted',
       experimentalFeedsEnabled: true,
       feedDebugOverlayEnabled: false,
       
@@ -935,18 +930,6 @@ export const useUserStore = create<UserState>()(
       },
       
       // Feed settings actions
-      setFeedMixingStrategy: async (strategy: 'chronological' | 'engagement' | 'diversity' | 'weighted') => {
-        try {
-          const currentUser = get().currentUser;
-          const key = currentUser?.did ? `feed_mixing_strategy_${currentUser.did}` : 'feed_mixing_strategy';
-          await AsyncStorage.setItem(key, strategy);
-          set({ feedMixingStrategy: strategy });
-        } catch (error) {
-          logger.error('Error setting feed mixing strategy', error, { component: 'userStore' });
-          throw error;
-        }
-      },
-      
       setExperimentalFeedsEnabled: async (enabled: boolean) => {
         try {
           const currentUser = get().currentUser;
@@ -968,18 +951,6 @@ export const useUserStore = create<UserState>()(
         } catch (error) {
           logger.error('Error setting feed debug overlay enabled', error, { component: 'userStore' });
           throw error;
-        }
-      },
-      
-      getFeedMixingStrategy: async () => {
-        try {
-          const currentUser = get().currentUser;
-          const key = currentUser?.did ? `feed_mixing_strategy_${currentUser.did}` : 'feed_mixing_strategy';
-          const strategy = await AsyncStorage.getItem(key);
-          return (strategy as 'chronological' | 'engagement' | 'diversity' | 'weighted') || 'weighted';
-        } catch (error) {
-          logger.error('Error getting feed mixing strategy', error, { component: 'userStore' });
-          return 'weighted';
         }
       },
       
@@ -1269,7 +1240,6 @@ export const useUserStore = create<UserState>()(
       loadUserSpecificSettings: async (did: string) => {
         try {
           // Load user-specific feed settings
-          const feedMixingStrategy = await get().getFeedMixingStrategy();
           const experimentalFeedsEnabled = await get().getExperimentalFeedsEnabled();
           const feedDebugOverlayEnabled = await get().getFeedDebugOverlayEnabled();
           
@@ -1281,7 +1251,6 @@ export const useUserStore = create<UserState>()(
           
           // Update state with user-specific settings
           set({ 
-            feedMixingStrategy,
             experimentalFeedsEnabled,
             feedDebugOverlayEnabled,
           });
@@ -1465,7 +1434,6 @@ export const useUserStore = create<UserState>()(
         // Only persist non-sensitive data
         savedAccounts: state.savedAccounts,
         activeAccountDid: state.activeAccountDid,
-        feedMixingStrategy: state.feedMixingStrategy,
         experimentalFeedsEnabled: state.experimentalFeedsEnabled,
         feedDebugOverlayEnabled: state.feedDebugOverlayEnabled,
         subscribedChannels: state.subscribedChannels,
@@ -1587,24 +1555,18 @@ export const useUserStoreState = () => {
 
 // Hook for feed settings
 export const useFeedSettings = () => {
-  const feedMixingStrategy = useUserStore(state => state.feedMixingStrategy);
   const experimentalFeedsEnabled = useUserStore(state => state.experimentalFeedsEnabled);
   const feedDebugOverlayEnabled = useUserStore(state => state.feedDebugOverlayEnabled);
-  const setFeedMixingStrategy = useUserStore(state => state.setFeedMixingStrategy);
   const setExperimentalFeedsEnabled = useUserStore(state => state.setExperimentalFeedsEnabled);
   const setFeedDebugOverlayEnabled = useUserStore(state => state.setFeedDebugOverlayEnabled);
-  const getFeedMixingStrategy = useUserStore(state => state.getFeedMixingStrategy);
   const getExperimentalFeedsEnabled = useUserStore(state => state.getExperimentalFeedsEnabled);
   const getFeedDebugOverlayEnabled = useUserStore(state => state.getFeedDebugOverlayEnabled);
   
   return {
-    feedMixingStrategy,
     experimentalFeedsEnabled,
     feedDebugOverlayEnabled,
-    setFeedMixingStrategy,
     setExperimentalFeedsEnabled,
     setFeedDebugOverlayEnabled,
-    getFeedMixingStrategy,
     getExperimentalFeedsEnabled,
     getFeedDebugOverlayEnabled,
   };

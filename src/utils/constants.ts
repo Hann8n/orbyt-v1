@@ -41,7 +41,6 @@ export const SCROLL_CONSTANTS = {
 
 // Feed Types
 export const FEED_TYPES = {
-  YOUR_MIX: 'yourMix',
   FOLLOWING: 'following',
   DISCOVER: 'discover',
   PROFILE: 'profile',

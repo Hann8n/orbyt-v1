@@ -106,8 +106,6 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           switch (feedOption) {
             case 'following':
               return "";
-            case 'yourMix':
-              return "that's all for now";
             case 'discover':
               return "explore more content";
             default:

@@ -40,7 +40,7 @@ interface GridFeedViewProps {
   secondaryColor?: string;
   isProfileLoading?: boolean;
   isProfileFeed?: boolean;
-  feedOption: 'yourMix' | 'profile' | 'following' | 'likes' | 'reposts' | string;
+  feedOption: 'profile' | 'following' | 'likes' | 'reposts' | string;
   userDid?: string;
   onLoadMore: () => void; // Simplified callback for loading more content
   isFetchingNextPage?: boolean;

@@ -83,7 +83,7 @@ export function useFeed(
   }, [currentUser?.did, queryClient]);
 
   // Use current user's DID for user-specific feeds, fallback to passed userDid for profile feeds
-  const effectiveUserDid = (feedOption === 'yourMix' || feedOption === 'following') 
+  const effectiveUserDid = feedOption === 'following' 
     ? currentUser?.did 
     : userDid;
 

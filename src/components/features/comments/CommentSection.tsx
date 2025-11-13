@@ -338,9 +338,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
 
   const handleClose = useCallback(() => {
-    // Pop overlay to restore video playback
-    const popOverlay = useVisibilityCoreStore.getState().popOverlay;
-    popOverlay();
+    // Clear overlay to restore video playback
+    const setOverlay = useVisibilityCoreStore.getState().setOverlay;
+    setOverlay(false);
     setNewCommentText('');
     setActiveTab('comments');
     setLikesQueryEnabled(false);

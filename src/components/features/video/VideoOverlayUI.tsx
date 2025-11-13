@@ -241,8 +241,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Memoize source feed calculations to prevent unnecessary recalculations
   const shouldUseSourceFeed = useMemo(() => 
-    feedOption === 'yourMix' && sourceFeed,
-    [feedOption, sourceFeed]
+    false,
+    []
   );
   
   const sourceDisplayName = useMemo(() => {
@@ -413,7 +413,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   textColor={Colors.white}
                 />}
               </View>
-              {feedOption === 'yourMix' && sourceDisplayName ? (
+              {false && sourceDisplayName ? (
                 <TouchableOpacity 
                   style={styles.sourceIndicatorContainer}
                   activeOpacity={0.7}

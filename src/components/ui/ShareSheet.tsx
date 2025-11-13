@@ -94,9 +94,9 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
 
   // Handle dismiss from TrueSheet - fires when sheet is dismissed by any means
   const handleDismiss = useCallback(() => {
-    // Pop overlay to restore video playback
-    const popOverlay = useVisibilityCoreStore.getState().popOverlay;
-    popOverlay();
+    // Clear overlay to restore video playback
+    const setOverlay = useVisibilityCoreStore.getState().setOverlay;
+    setOverlay(false);
     // Clear the data state - skip dismiss since we're already in onDismiss callback
     dismissShareSheet(true);
   }, [dismissShareSheet]);

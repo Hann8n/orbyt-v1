@@ -7,7 +7,6 @@ interface FeedScopeState {
   activeItemUri: string | null;
   activeItemIndex: number;
   isActive: boolean;
-  resetCount: number;
   headerVisiblePercent: number;
 }
 
@@ -16,33 +15,25 @@ function createDefaultFeedScope(): FeedScopeState {
     activeItemUri: null,
     activeItemIndex: -1,
     isActive: false,
-    resetCount: 0,
     headerVisiblePercent: 0,
   };
 }
 
 interface VisibilityState {
   appState: AppStateStatus;
-  isForeground: boolean;
-  activeRoutePath: string | null;
   activeRouteKey: string | null;
   activeTabSegment: string | null;
   activeTabKey: string | null;
-  modalDepth: number;
+  hasOverlay: boolean;
   pauseOnOverlay: boolean;
   feeds: Record<FeedScopeKey, FeedScopeState>;
   setAppState: (appState: AppStateStatus) => void;
-  setIsForeground: (isForeground: boolean) => void;
-  setActiveRoutePath: (path: string | null) => void;
   setActiveRouteKey: (key: string | null) => void;
   setActiveTabSegment: (segment: string | null) => void;
   setActiveTabKey: (key: string | null) => void;
   setPauseOnOverlay: (enabled: boolean) => void;
-  pushOverlay: () => void;
-  popOverlay: () => void;
-  registerFeedScope: (key: FeedScopeKey) => void;
-  activateFeedScope: (key: FeedScopeKey) => void;
-  deactivateFeedScope: (key: FeedScopeKey) => void;
+  setOverlay: (hasOverlay: boolean) => void;
+  setFeedActive: (key: FeedScopeKey, isActive: boolean) => void;
   setFeedVisibleItem: (key: FeedScopeKey, uri: string | null, index: number) => void;
   resetFeedScope: (key: FeedScopeKey) => void;
   resetAllFeeds: () => void;
@@ -51,79 +42,41 @@ interface VisibilityState {
 
 export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
   appState: 'active',
-  isForeground: true,
-  activeRoutePath: null,
   activeRouteKey: null,
   activeTabSegment: null,
   activeTabKey: null,
-  modalDepth: 0,
+  hasOverlay: false,
   pauseOnOverlay: true,
   feeds: {},
-  setAppState: (appState) => set({
-    appState,
-  }),
-  setIsForeground: (isForeground) => set({ isForeground }),
-  setActiveRoutePath: (path) => set({ activeRoutePath: path }),
+  setAppState: (appState) => set({ appState }),
   setActiveRouteKey: (key) => set({ activeRouteKey: key }),
   setActiveTabSegment: (segment) => set({ activeTabSegment: segment }),
   setActiveTabKey: (key) => set({ activeTabKey: key }),
   setPauseOnOverlay: (enabled) => set({ pauseOnOverlay: enabled }),
-  pushOverlay: () => set((state) => ({ modalDepth: state.modalDepth + 1 })),
-  popOverlay: () => set((state) => ({ modalDepth: Math.max(0, state.modalDepth - 1) })),
-  registerFeedScope: (key) => {
+  setOverlay: (hasOverlay) => set({ hasOverlay }),
+  setFeedActive: (key, isActive) => {
     if (!key) return;
-    const feeds = get().feeds;
-    if (feeds[key]) return;
-    set((state) => ({
-      feeds: {
-        ...state.feeds,
-        [key]: createDefaultFeedScope(),
-      },
-    }));
-  },
-  activateFeedScope: (key) => {
-    if (!key) return;
-    const feeds = get().feeds;
-    const current = feeds[key] ?? createDefaultFeedScope();
-    if (current.isActive) return;
+    const current = get().feeds[key] ?? createDefaultFeedScope();
+    if (current.isActive === isActive) return;
     set((state) => ({
       feeds: {
         ...state.feeds,
         [key]: {
           ...current,
-          isActive: true,
-        },
-      },
-    }));
-  },
-  deactivateFeedScope: (key) => {
-    if (!key) return;
-    const feeds = get().feeds;
-    const current = feeds[key];
-    if (!current || !current.isActive) {
-      if (current?.activeItemUri === null && current?.activeItemIndex === -1) {
-        return;
-      }
-    }
-    set((state) => ({
-      feeds: {
-        ...state.feeds,
-        [key]: {
-          ...(state.feeds[key] ?? createDefaultFeedScope()),
-          isActive: false,
+          isActive,
         },
       },
     }));
   },
   setFeedVisibleItem: (key, uri, index) => {
     if (!key) return;
-    const previous = get().feeds[key] ?? createDefaultFeedScope();
-    if (previous.activeItemUri === uri && previous.activeItemIndex === index) return;
+    const current = get().feeds[key] ?? createDefaultFeedScope();
+    if (current.activeItemUri === uri && current.activeItemIndex === index) return;
     set((state) => ({
       feeds: {
         ...state.feeds,
         [key]: {
-          ...(state.feeds[key] ?? createDefaultFeedScope()),
+          ...current,
           activeItemUri: uri,
           activeItemIndex: index,
         },
@@ -132,16 +85,15 @@ export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
   },
   resetFeedScope: (key) => {
     if (!key) return;
-    const previous = get().feeds[key];
-    if (!previous) return;
+    const current = get().feeds[key];
+    if (!current) return;
     set((state) => ({
       feeds: {
         ...state.feeds,
         [key]: {
-          ...previous,
+          ...current,
           activeItemUri: null,
           activeItemIndex: -1,
-          resetCount: previous.resetCount + 1,
           headerVisiblePercent: 0,
         },
       },
@@ -156,7 +108,6 @@ export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
         ...value,
         activeItemUri: null,
         activeItemIndex: -1,
-        resetCount: value.resetCount + 1,
         isActive: false,
         headerVisiblePercent: 0,
       };
@@ -166,15 +117,13 @@ export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
   setFeedHeaderVisibility: (key, visiblePercent) => {
     if (!key) return;
     const clamped = Math.max(0, Math.min(1, visiblePercent));
-    const previous = get().feeds[key] ?? createDefaultFeedScope();
-    if (Math.abs(previous.headerVisiblePercent - clamped) < 0.02) {
-      return;
-    }
+    const current = get().feeds[key] ?? createDefaultFeedScope();
+    if (Math.abs(current.headerVisiblePercent - clamped) < 0.02) return;
     set((state) => ({
       feeds: {
         ...state.feeds,
         [key]: {
-          ...(state.feeds[key] ?? createDefaultFeedScope()),
+          ...current,
           headerVisiblePercent: clamped,
         },
       },

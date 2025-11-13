@@ -709,7 +709,7 @@ const ExploreScreen: React.FC = () => {
     hasNextPage: hasSearchNextPage,
     fetchNextPage: fetchSearchNextPage,
     // Removed onScroll - using FlashList's onEndReached
-  } = useFeed(searchFeedOption || 'yourMix', undefined, {
+  } = useFeed(searchFeedOption || 'following', undefined, {
     enabled: !!searchFeedOption,
     staleTime: 30 * 1000, // 30 seconds for search
     refetchOnMount: false,
