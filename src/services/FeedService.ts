@@ -9,6 +9,7 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import type { ModerationDecision } from './ModerationTypes';
 import { ModerationService } from './ModerationService';
 import { logger } from '../utils/logger';
+import { useUserStore } from '../stores/userStore';
 
 // Import AtprotoService with error handling for circular dependency issues
 let AtprotoService: any = null;
@@ -452,12 +453,36 @@ class FeedService {
       }
 
       // Apply moderation to the fetched posts
-      if (response && response.feed) {
+      if (response && response.feed && response.feed.length > 0) {
         try {
-          const moderatedFeed = await ModerationService.batchModeratePosts(response.feed, 'contentList');
-          response.feed = moderatedFeed.filteredPosts;
+          // Get agent from userStore to pass to moderation
+          const agent = useUserStore.getState().agent;
+          
+          if (!agent) {
+            logger.warn('No agent available for moderation, applying basic label-based filtering', { component: 'FeedService' });
+            // Fail-safe: filter out posts with sensitive labels when no agent
+            response.feed = ModerationService.filterSensitiveByLabels(response.feed);
+          } else {
+            const moderatedFeed = await ModerationService.batchModeratePosts(response.feed, 'contentList', agent);
+            response.feed = moderatedFeed.filteredPosts;
+            
+            logger.debug('Moderation applied to feed', {
+              component: 'FeedService',
+              total: moderatedFeed.stats.total,
+              filtered: moderatedFeed.stats.filtered,
+              blurred: moderatedFeed.stats.blurred,
+              allowed: moderatedFeed.stats.allowed
+            });
+          }
         } catch (error) {
-          // Continue with unfiltered posts if moderation fails
+          // Fail-safe: if moderation fails, apply basic label-based filtering
+          logger.error('Error applying moderation to feed, applying basic label filtering', error, { 
+            component: 'FeedService',
+            feedLength: response.feed?.length || 0
+          });
+          
+          // Basic fail-safe: filter out posts with sensitive labels
+          response.feed = ModerationService.filterSensitiveByLabels(response.feed || []);
         }
       }
 

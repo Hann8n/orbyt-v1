@@ -1045,11 +1045,12 @@ export const useUserStore = create<UserState>()(
       // Moderation integration
       getModerationOpts: async () => {
         try {
-          const moderationSettings = await ModerationService.getModerationSettings();
+          const moderationSettings = await ModerationService.getModerationSettings(get().agent);
           return moderationSettings;
         } catch (error) {
-          logger.error('Error getting moderation options', error, { component: 'userStore' });
-          return {};
+          logger.error('Error getting moderation options, returning safe defaults', error, { component: 'userStore' });
+          // Return safe defaults instead of empty object
+          return ModerationService.getCachedModerationSettings();
         }
       },
       
@@ -1272,11 +1273,11 @@ export const useUserStore = create<UserState>()(
           const experimentalFeedsEnabled = await get().getExperimentalFeedsEnabled();
           const feedDebugOverlayEnabled = await get().getFeedDebugOverlayEnabled();
           
-          // Load user-specific moderation settings
-          const moderationSettings = await ModerationService.getModerationSettings();
-          
-          // Sync moderation settings with Bluesky API
+          // Sync moderation settings with Bluesky API (this will also cache them)
           await ModerationService.syncModerationSettings(get().agent);
+          
+          // Load user-specific moderation settings (will use cached if available)
+          const moderationSettings = await ModerationService.getModerationSettings(get().agent);
           
           // Update state with user-specific settings
           set({ 
@@ -1643,10 +1644,14 @@ export const useModeration = () => {
   
   return {
     getModerationOpts,
-    moderatePost: ModerationService.moderatePost,
+    moderatePost: async (post: any, context?: 'contentList' | 'contentView' | 'avatar' | 'banner') => {
+      return ModerationService.moderatePost(post, context || 'contentList', agent);
+    },
     moderateProfile: ModerationService.moderateProfile,
     moderateNotification: ModerationService.moderateNotification,
-    getModerationSettings: ModerationService.getModerationSettings,
+    getModerationSettings: async () => {
+      return ModerationService.getModerationSettings(agent);
+    },
     saveModerationSettings: async (settings: any) => {
       if (!agent) {
         throw new Error('No agent available. Please ensure you are logged in.');

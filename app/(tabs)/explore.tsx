@@ -41,7 +41,8 @@ import { extractVideoThumbnail } from '../../src/utils/helpers/video';
 import { formatNumber } from '../../src/utils/helpers';
 import { HeaderService, useStaticChannels, useHeaders } from '../../src/services/APIService';
 import { useFeed } from '../../src/hooks/useFeed';
-// import { ModerationService } from '../../src/services/ModerationService'; // Commented out since videos are disabled
+import { ModerationService } from '../../src/services/ModerationService';
+import { useUserStore } from '../../src/stores/userStore';
 import { Colors as UIColors } from '../../src/components/ui/UI';
 
 // Custom Warning Icon Component
@@ -1086,19 +1087,20 @@ const ExploreScreen: React.FC = () => {
       // Apply moderation to spotlight videos
       if (feed.length > 0) {
         try {
-          // const moderationResult = await ModerationService.batchModeratePosts(feed); // Commented out ModerationService
-          // feed = moderationResult.filteredPosts;
+          // Get agent from userStore to pass to moderation
+          const { agent } = useUserStore.getState();
           
-          // // Attach moderation decisions to videos
-          // const moderationMap = moderationResult.moderationDecisions;
-          // feed = feed.map((video: any) => {
-          //   const uri = video?.post?.uri;
-          //   return uri && moderationMap.has(uri)
-          //     ? { ...video, moderationDecision: moderationMap.get(uri) }
-          //     : video;
-          // });
+          if (!agent) {
+            // Fail-safe: filter out posts with sensitive labels when no agent
+            feed = ModerationService.filterSensitiveByLabels(feed);
+          } else {
+            const moderationResult = await ModerationService.batchModeratePosts(feed, 'contentList', agent);
+            feed = moderationResult.filteredPosts;
+          }
         } catch (error) {
-          logger.warn('Error applying moderation to spotlight videos', { error });
+          // Fail-safe: filter out posts with sensitive labels if moderation fails
+          logger.error('Error applying moderation to spotlight videos, applying basic filtering', error, { component: 'explore' });
+          feed = ModerationService.filterSensitiveByLabels(feed);
         }
       }
       

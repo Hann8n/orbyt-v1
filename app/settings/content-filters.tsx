@@ -86,7 +86,7 @@ const ContentFiltersScreen: React.FC = () => {
     (async () => {
       try {
         setLoading(true);
-        const currentSettings = await ModerationService.getModerationSettings();
+        const currentSettings = await ModerationService.getModerationSettings(agent);
         setSettings(currentSettings);
         setAdultContentEnabled(currentSettings.adultContentEnabled);
         setContentOptions(prev => prev.map(option => ({
