@@ -6,18 +6,16 @@ import { createQueryKeys } from '../../src/services/FeedService';
 import { APP_CONSTANTS } from '../../src/utils/constants';
 import { SwipeableFeedContainer } from '../../src/components';
 import { HomeScreenRef, FeedOption } from '../../src/types';
-import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
+import { useVisibilityRouteTracker } from '../../src/hooks';
 import { Colors } from '../../src/components/ui/UI';
 
 interface HomeScreenProps {}
 
 const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
-  const [currentFeed, setCurrentFeed] = useState<FeedOption>('yourMix');
+  const [currentFeed, setCurrentFeed] = useState<FeedOption>('following');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const queryClient = useQueryClient();
   useVisibilityRouteTracker('home', 'index');
-  const isRouteFocused = useVisibilityRouteIsActive('home');
-  
 
   const triggerRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -59,7 +57,6 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
         isRefreshing={isRefreshing}
         applySafeArea={true}
         indicatorFontSize={18}
-        isRouteFocused={isRouteFocused}
       />
     </View>
   );

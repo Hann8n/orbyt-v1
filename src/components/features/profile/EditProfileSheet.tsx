@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, SharedValue } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import { Button, Host } from '@expo/ui/swift-ui';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -26,8 +27,9 @@ export interface ProfileColorOption {
   textColor: string;
   label: string;
 }
-import { hexToRGBA, extractColorsFromImage, isColorDark } from '../../../utils/formatting/colorUtils';
+import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import Icon from '../../ui/Icon';
+import { BORDER_RADIUS } from '../../../utils/constants';
 
 interface EditProfileSheetProps {
   visible: boolean;
@@ -47,6 +49,85 @@ interface EditProfileSheetProps {
 
 const INPUT_BACKGROUND_OPACITY = 0.06;
 
+// Animated Color Square Component
+interface AnimatedColorSquareProps {
+  colorOption: ProfileColorOption;
+  isSelected: boolean;
+  isInverted: boolean;
+  customColors: { backgroundColor: string; textColor: string } | null;
+  currentColors: { backgroundColor: string; textColor: string };
+  backgroundFlex: SharedValue<number>;
+  textFlex: SharedValue<number>;
+  onPress: () => void;
+}
+
+const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = ({
+  colorOption,
+  isSelected,
+  isInverted,
+  customColors,
+  currentColors,
+  backgroundFlex,
+  textFlex,
+  onPress,
+}) => {
+  const backgroundAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      flex: backgroundFlex.value,
+    };
+  });
+  
+  const textAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      flex: textFlex.value,
+    };
+  });
+  
+  // Determine colors to display
+  let displayBackgroundColor = colorOption.backgroundColor;
+  let displayTextColor = colorOption.textColor;
+  
+  if (isSelected && customColors) {
+    // Use custom colors when selected (already in correct order, no swapping needed)
+    displayBackgroundColor = customColors.backgroundColor;
+    displayTextColor = customColors.textColor;
+  }
+  
+  return (
+    <View style={styles.colorSquareContainer}>
+      <TouchableOpacity
+        style={[
+          styles.colorSquare,
+          {
+            borderColor: isSelected ? currentColors.textColor : 'transparent',
+            borderWidth: isSelected ? 3 : 0,
+          },
+        ]}
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        {/* Background color section */}
+        <Animated.View
+          style={[
+            styles.colorSection,
+            backgroundAnimatedStyle,
+            { backgroundColor: displayBackgroundColor }
+          ]}
+        />
+        
+        {/* Text color section */}
+        <Animated.View
+          style={[
+            styles.colorSection,
+            textAnimatedStyle,
+            { backgroundColor: displayTextColor }
+          ]}
+        />
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   visible,
   onDismiss,
@@ -59,119 +140,18 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   const [editAvatar, setEditAvatar] = useState<string | undefined>(undefined);
   
   // Color selection state
-  const [selectedColorId, setSelectedColorId] = useState<string>('default');
+  const [selectedColorId, setSelectedColorId] = useState<string>('black');
   const [selectedColorType, setSelectedColorType] = useState<'background' | 'text'>('background');
   const [customColors, setCustomColors] = useState<{
     backgroundColor: string;
     textColor: string;
   } | null>(null);
 
-  // Mutation
-  const profileUpdateMutation = useProfileUpdateMutation();
-
-  // Initialize form when sheet opens
-  useEffect(() => {
-    if (visible && profileData) {
-      setEditDisplayName(profileData.displayName || '');
-      setEditDescription(profileData.description || '');
-      setEditAvatar(undefined);
-      
-      // Check if default colors match a preset
-      if (defaultColors) {
-        const presetColors = [
-          { id: 'black', backgroundColor: Colors.black, textColor: Colors.lightGray },
-          { id: 'teal', backgroundColor: '#06b4b1', textColor: Colors.white },
-          { id: 'purple', backgroundColor: '#7321fb', textColor: Colors.white },
-          { id: 'blue', backgroundColor: '#0046fc', textColor: Colors.white },
-          { id: 'green', backgroundColor: '#43b412', textColor: Colors.white },
-          { id: 'red', backgroundColor: '#ba2740', textColor: Colors.white },
-          { id: 'lightBlue', backgroundColor: '#09a6ed', textColor: Colors.white },
-          { id: 'pink', backgroundColor: '#d63fe3', textColor: Colors.white },
-          { id: 'gold', backgroundColor: '#ddaa21', textColor: Colors.white },
-          { id: 'lightPink', backgroundColor: '#f9a8d3', textColor: '#1a1a2e' },
-          { id: 'darkPurple', backgroundColor: '#5913ce', textColor: '#87ceeb' },
-          { id: 'neonGreen', backgroundColor: '#01de6e', textColor: '#1a1a2e' },
-          { id: 'neonTeal', backgroundColor: '#00e4bf', textColor: '#414974' },
-          { id: 'golddark', backgroundColor: '#ddaa21', textColor: '#1a1a2e' },
-          { id: 'armyGreen', backgroundColor: '#433d3c', textColor: '#accb6d' },
-          { id: 'lightMaroon', backgroundColor: '#85356e', textColor: '#fa5fab' },
-          { id: 'mutedPink', backgroundColor: '#926979', textColor: '#f6a2bd' },
-          { id: 'darkPurple2', backgroundColor: '#4f4085', textColor: '#f85b56' },
-          { id: 'blueishGray', backgroundColor: '#464b61', textColor: '#c5f6f9' },
-          { id: 'lightPurple2', backgroundColor: '#9584da', textColor: '#2f2353' },
-          { id: 'darkMaroon', backgroundColor: '#581b34', textColor: '#d94938' },
-          { id: 'veryDarkBlue', backgroundColor: '#001b42', textColor: '#0090f6' },
-          { id: 'veryDarkPeach', backgroundColor: '#30050d', textColor: '#fd5668' },
-          { id: 'veryDarkPurple', backgroundColor: '#1d0640', textColor: '#c838fb' },
-          { id: 'veryDarkTeal', backgroundColor: '#0a2b2b', textColor: '#00e4bf' },
-          { id: 'veryDarkGreen', backgroundColor: '#061d00', textColor: '#4bc602' },
-          { id: 'veryDarkOrange', backgroundColor: '#2b1900', textColor: '#f7a232' },
-        ];
-        
-        const match = presetColors.find(preset => 
-          preset.backgroundColor === defaultColors.backgroundColor && 
-          preset.textColor === defaultColors.textColor
-        );
-        
-        if (match) {
-          setSelectedColorId(match.id);
-          setCustomColors({
-            backgroundColor: match.backgroundColor,
-            textColor: match.textColor,
-          });
-        } else {
-          setSelectedColorId('default');
-          setCustomColors(null);
-        }
-      } else {
-        setSelectedColorId('default');
-        setCustomColors(null);
-      }
-      
-      setSelectedColorType('background');
-    }
-  }, [visible, profileData, defaultColors]);
-
-  // Extract colors from avatar when it changes
-  const [extractedColors, setExtractedColors] = useState<{
-    backgroundColor: string;
-    textColor: string;
-  } | null>(null);
+  // Track inverted state per color ID
+  const [invertedStates, setInvertedStates] = useState<Record<string, boolean>>({});
   
-  useEffect(() => {
-    const extractAvatarColors = async () => {
-      if (profileData?.avatar) {
-        try {
-          const colors = await extractColorsFromImage(profileData.avatar);
-          setExtractedColors({
-            backgroundColor: colors.backgroundColor,
-            textColor: colors.foregroundColor,
-          });
-        } catch (error) {
-          // Silently fail if extraction fails
-        }
-      }
-    };
-    
-    extractAvatarColors();
-  }, [profileData?.avatar]);
-  
-  // Predefined color options
+  // Predefined color options - need to access this to create shared values
   const predefinedColors: ProfileColorOption[] = useMemo(() => [
-    // Current colors - use extracted colors if available, otherwise use default colors
-    {
-      id: 'default',
-      backgroundColor: extractedColors?.backgroundColor || defaultColors?.backgroundColor || '#000000',
-      textColor: extractedColors?.textColor || defaultColors?.textColor || '#FFFFFF',
-      label: 'Current',
-    },
-    // Separator - will be rendered as a visual divider
-    {
-      id: 'separator',
-      backgroundColor: 'transparent',
-      textColor: 'transparent',
-      label: 'separator',
-    },
     // First color option - black background with light gray text
     {
       id: 'black',
@@ -336,7 +316,208 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
       textColor: '#f7a232', // orange
       label: 'Very Dark Orange',
     },
-  ], [defaultColors, extractedColors]);
+  ], []);
+  
+  // Create shared values for each color box - create them all explicitly
+  const blackFlex = useSharedValue(3);
+  const blackTextFlex = useSharedValue(1);
+  const tealFlex = useSharedValue(3);
+  const tealTextFlex = useSharedValue(1);
+  const purpleFlex = useSharedValue(3);
+  const purpleTextFlex = useSharedValue(1);
+  const blueFlex = useSharedValue(3);
+  const blueTextFlex = useSharedValue(1);
+  const greenFlex = useSharedValue(3);
+  const greenTextFlex = useSharedValue(1);
+  const redFlex = useSharedValue(3);
+  const redTextFlex = useSharedValue(1);
+  const lightBlueFlex = useSharedValue(3);
+  const lightBlueTextFlex = useSharedValue(1);
+  const pinkFlex = useSharedValue(3);
+  const pinkTextFlex = useSharedValue(1);
+  const goldFlex = useSharedValue(3);
+  const goldTextFlex = useSharedValue(1);
+  const lightPinkFlex = useSharedValue(3);
+  const lightPinkTextFlex = useSharedValue(1);
+  const darkPurpleFlex = useSharedValue(3);
+  const darkPurpleTextFlex = useSharedValue(1);
+  const neonGreenFlex = useSharedValue(3);
+  const neonGreenTextFlex = useSharedValue(1);
+  const neonTealFlex = useSharedValue(3);
+  const neonTealTextFlex = useSharedValue(1);
+  const golddarkFlex = useSharedValue(3);
+  const golddarkTextFlex = useSharedValue(1);
+  const armyGreenFlex = useSharedValue(3);
+  const armyGreenTextFlex = useSharedValue(1);
+  const lightMaroonFlex = useSharedValue(3);
+  const lightMaroonTextFlex = useSharedValue(1);
+  const mutedPinkFlex = useSharedValue(3);
+  const mutedPinkTextFlex = useSharedValue(1);
+  const darkPurple2Flex = useSharedValue(3);
+  const darkPurple2TextFlex = useSharedValue(1);
+  const blueishGrayFlex = useSharedValue(3);
+  const blueishGrayTextFlex = useSharedValue(1);
+  const lightPurple2Flex = useSharedValue(3);
+  const lightPurple2TextFlex = useSharedValue(1);
+  const darkMaroonFlex = useSharedValue(3);
+  const darkMaroonTextFlex = useSharedValue(1);
+  const veryDarkBlueFlex = useSharedValue(3);
+  const veryDarkBlueTextFlex = useSharedValue(1);
+  const veryDarkPeachFlex = useSharedValue(3);
+  const veryDarkPeachTextFlex = useSharedValue(1);
+  const veryDarkPurpleFlex = useSharedValue(3);
+  const veryDarkPurpleTextFlex = useSharedValue(1);
+  const veryDarkTealFlex = useSharedValue(3);
+  const veryDarkTealTextFlex = useSharedValue(1);
+  const veryDarkGreenFlex = useSharedValue(3);
+  const veryDarkGreenTextFlex = useSharedValue(1);
+  const veryDarkOrangeFlex = useSharedValue(3);
+  const veryDarkOrangeTextFlex = useSharedValue(1);
+  
+  // Map color IDs to their shared values
+  const colorFlexValues = useMemo(() => ({
+    black: { background: blackFlex, text: blackTextFlex },
+    teal: { background: tealFlex, text: tealTextFlex },
+    purple: { background: purpleFlex, text: purpleTextFlex },
+    blue: { background: blueFlex, text: blueTextFlex },
+    green: { background: greenFlex, text: greenTextFlex },
+    red: { background: redFlex, text: redTextFlex },
+    lightBlue: { background: lightBlueFlex, text: lightBlueTextFlex },
+    pink: { background: pinkFlex, text: pinkTextFlex },
+    gold: { background: goldFlex, text: goldTextFlex },
+    lightPink: { background: lightPinkFlex, text: lightPinkTextFlex },
+    darkPurple: { background: darkPurpleFlex, text: darkPurpleTextFlex },
+    neonGreen: { background: neonGreenFlex, text: neonGreenTextFlex },
+    neonTeal: { background: neonTealFlex, text: neonTealTextFlex },
+    golddark: { background: golddarkFlex, text: golddarkTextFlex },
+    armyGreen: { background: armyGreenFlex, text: armyGreenTextFlex },
+    lightMaroon: { background: lightMaroonFlex, text: lightMaroonTextFlex },
+    mutedPink: { background: mutedPinkFlex, text: mutedPinkTextFlex },
+    darkPurple2: { background: darkPurple2Flex, text: darkPurple2TextFlex },
+    blueishGray: { background: blueishGrayFlex, text: blueishGrayTextFlex },
+    lightPurple2: { background: lightPurple2Flex, text: lightPurple2TextFlex },
+    darkMaroon: { background: darkMaroonFlex, text: darkMaroonTextFlex },
+    veryDarkBlue: { background: veryDarkBlueFlex, text: veryDarkBlueTextFlex },
+    veryDarkPeach: { background: veryDarkPeachFlex, text: veryDarkPeachTextFlex },
+    veryDarkPurple: { background: veryDarkPurpleFlex, text: veryDarkPurpleTextFlex },
+    veryDarkTeal: { background: veryDarkTealFlex, text: veryDarkTealTextFlex },
+    veryDarkGreen: { background: veryDarkGreenFlex, text: veryDarkGreenTextFlex },
+    veryDarkOrange: { background: veryDarkOrangeFlex, text: veryDarkOrangeTextFlex },
+  }), [blackFlex, blackTextFlex, tealFlex, tealTextFlex, purpleFlex, purpleTextFlex, blueFlex, blueTextFlex, 
+      greenFlex, greenTextFlex, redFlex, redTextFlex, lightBlueFlex, lightBlueTextFlex, pinkFlex, pinkTextFlex,
+      goldFlex, goldTextFlex, lightPinkFlex, lightPinkTextFlex, darkPurpleFlex, darkPurpleTextFlex,
+      neonGreenFlex, neonGreenTextFlex, neonTealFlex, neonTealTextFlex, golddarkFlex, golddarkTextFlex,
+      armyGreenFlex, armyGreenTextFlex, lightMaroonFlex, lightMaroonTextFlex, mutedPinkFlex, mutedPinkTextFlex,
+      darkPurple2Flex, darkPurple2TextFlex, blueishGrayFlex, blueishGrayTextFlex, lightPurple2Flex, lightPurple2TextFlex,
+      darkMaroonFlex, darkMaroonTextFlex, veryDarkBlueFlex, veryDarkBlueTextFlex, veryDarkPeachFlex, veryDarkPeachTextFlex,
+      veryDarkPurpleFlex, veryDarkPurpleTextFlex, veryDarkTealFlex, veryDarkTealTextFlex, veryDarkGreenFlex, veryDarkGreenTextFlex,
+      veryDarkOrangeFlex, veryDarkOrangeTextFlex]);
+
+  // Mutation
+  const profileUpdateMutation = useProfileUpdateMutation();
+
+  // Initialize form when sheet opens
+  useEffect(() => {
+    if (visible && profileData) {
+      setEditDisplayName(profileData.displayName || '');
+      setEditDescription(profileData.description || '');
+      setEditAvatar(undefined);
+      
+      // Check if default colors match a preset
+      if (defaultColors) {
+        const presetColors = [
+          { id: 'black', backgroundColor: Colors.black, textColor: Colors.lightGray },
+          { id: 'teal', backgroundColor: '#06b4b1', textColor: Colors.white },
+          { id: 'purple', backgroundColor: '#7321fb', textColor: Colors.white },
+          { id: 'blue', backgroundColor: '#0046fc', textColor: Colors.white },
+          { id: 'green', backgroundColor: '#43b412', textColor: Colors.white },
+          { id: 'red', backgroundColor: '#ba2740', textColor: Colors.white },
+          { id: 'lightBlue', backgroundColor: '#09a6ed', textColor: Colors.white },
+          { id: 'pink', backgroundColor: '#d63fe3', textColor: Colors.white },
+          { id: 'gold', backgroundColor: '#ddaa21', textColor: Colors.white },
+          { id: 'lightPink', backgroundColor: '#f9a8d3', textColor: '#1a1a2e' },
+          { id: 'darkPurple', backgroundColor: '#5913ce', textColor: '#87ceeb' },
+          { id: 'neonGreen', backgroundColor: '#01de6e', textColor: '#1a1a2e' },
+          { id: 'neonTeal', backgroundColor: '#00e4bf', textColor: '#414974' },
+          { id: 'golddark', backgroundColor: '#ddaa21', textColor: '#1a1a2e' },
+          { id: 'armyGreen', backgroundColor: '#433d3c', textColor: '#accb6d' },
+          { id: 'lightMaroon', backgroundColor: '#85356e', textColor: '#fa5fab' },
+          { id: 'mutedPink', backgroundColor: '#926979', textColor: '#f6a2bd' },
+          { id: 'darkPurple2', backgroundColor: '#4f4085', textColor: '#f85b56' },
+          { id: 'blueishGray', backgroundColor: '#464b61', textColor: '#c5f6f9' },
+          { id: 'lightPurple2', backgroundColor: '#9584da', textColor: '#2f2353' },
+          { id: 'darkMaroon', backgroundColor: '#581b34', textColor: '#d94938' },
+          { id: 'veryDarkBlue', backgroundColor: '#001b42', textColor: '#0090f6' },
+          { id: 'veryDarkPeach', backgroundColor: '#30050d', textColor: '#fd5668' },
+          { id: 'veryDarkPurple', backgroundColor: '#1d0640', textColor: '#c838fb' },
+          { id: 'veryDarkTeal', backgroundColor: '#0a2b2b', textColor: '#00e4bf' },
+          { id: 'veryDarkGreen', backgroundColor: '#061d00', textColor: '#4bc602' },
+          { id: 'veryDarkOrange', backgroundColor: '#2b1900', textColor: '#f7a232' },
+        ];
+        
+        // First check for normal match
+        const normalMatch = presetColors.find(preset => 
+          preset.backgroundColor === defaultColors.backgroundColor && 
+          preset.textColor === defaultColors.textColor
+        );
+        
+        // Then check for inverted match
+        const invertedMatch = presetColors.find(preset => 
+          preset.backgroundColor === defaultColors.textColor && 
+          preset.textColor === defaultColors.backgroundColor
+        );
+        
+        if (normalMatch) {
+          setSelectedColorId(normalMatch.id);
+          setInvertedStates({ [normalMatch.id]: false });
+          setCustomColors({
+            backgroundColor: normalMatch.backgroundColor,
+            textColor: normalMatch.textColor,
+          });
+          // Set flex values for this specific color
+          const flexValues = colorFlexValues[normalMatch.id];
+          if (flexValues) {
+            flexValues.background.value = 3;
+            flexValues.text.value = 1;
+          }
+        } else if (invertedMatch) {
+          setSelectedColorId(invertedMatch.id);
+          setInvertedStates({ [invertedMatch.id]: true });
+          // Store the actual reversed colors (from defaultColors) - these are what the user has saved
+          setCustomColors({
+            backgroundColor: defaultColors.backgroundColor,
+            textColor: defaultColors.textColor,
+          });
+          // Set flex values to inverted state (bottom box is larger)
+          const flexValues = colorFlexValues[invertedMatch.id];
+          if (flexValues) {
+            flexValues.background.value = 1;
+            flexValues.text.value = 3;
+          }
+        } else {
+          setSelectedColorId('black');
+          setInvertedStates({});
+          setCustomColors(null);
+          const flexValues = colorFlexValues['black'];
+          if (flexValues) {
+            flexValues.background.value = 3;
+            flexValues.text.value = 1;
+          }
+        }
+      } else {
+        setSelectedColorId('black');
+        setInvertedStates({});
+        setCustomColors(null);
+        const flexValues = colorFlexValues['black'];
+        if (flexValues) {
+          flexValues.background.value = 3;
+          flexValues.text.value = 1;
+        }
+      }
+      
+      setSelectedColorType('background');
+    }
+  }, [visible, profileData, defaultColors, colorFlexValues]);
 
   // Handle avatar selection
   const handleAvatarPress = useCallback(async () => {
@@ -404,16 +585,67 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
 
   // Handle color selection
   const handleColorSelect = useCallback((colorOption: ProfileColorOption) => {
-    setSelectedColorId(colorOption.id);
-    if (colorOption.id === 'default') {
-      setCustomColors(null);
+    const isAlreadySelected = selectedColorId === colorOption.id;
+    const currentFlexValues = colorFlexValues[colorOption.id];
+    
+    if (isAlreadySelected) {
+      // Invert colors - toggle inverted state for this specific color
+      const currentInverted = invertedStates[colorOption.id] || false;
+      const newInverted = !currentInverted;
+      
+      setInvertedStates(prev => ({ ...prev, [colorOption.id]: newInverted }));
+      
+      // Swap colors based on current customColors or colorOption
+      const currentBg = customColors?.backgroundColor || colorOption.backgroundColor;
+      const currentText = customColors?.textColor || colorOption.textColor;
+      
+      setCustomColors({
+        backgroundColor: currentText,
+        textColor: currentBg,
+      });
+      
+      // Animate dimension swap for this specific color box
+      if (currentFlexValues) {
+        currentFlexValues.background.value = withSpring(newInverted ? 1 : 3);
+        currentFlexValues.text.value = withSpring(newInverted ? 3 : 1);
+      }
     } else {
+      // Animate previous box back to normal if it was inverted
+      const previousFlexValues = colorFlexValues[selectedColorId];
+      if (previousFlexValues && invertedStates[selectedColorId]) {
+        // Update inverted state first, then animate
+        setInvertedStates(prev => ({ ...prev, [selectedColorId]: false }));
+        previousFlexValues.background.value = withSpring(3);
+        previousFlexValues.text.value = withSpring(1);
+      }
+      
+      // Select new color
+    setSelectedColorId(colorOption.id);
+      const wasInverted = invertedStates[colorOption.id] || false;
+      
+      if (wasInverted) {
+        // This color was previously inverted, restore its inverted state with animation
+        setCustomColors({
+          backgroundColor: colorOption.textColor,
+          textColor: colorOption.backgroundColor,
+        });
+        if (currentFlexValues) {
+          currentFlexValues.background.value = withSpring(1);
+          currentFlexValues.text.value = withSpring(3);
+        }
+    } else {
+        // Normal state - ensure it's animated even if already at these values
       setCustomColors({
         backgroundColor: colorOption.backgroundColor,
         textColor: colorOption.textColor,
       });
+        if (currentFlexValues) {
+          currentFlexValues.background.value = withSpring(3);
+          currentFlexValues.text.value = withSpring(1);
     }
-  }, []);
+      }
+    }
+  }, [selectedColorId, invertedStates, customColors, colorFlexValues]);
 
   // Handle save
   const handleSave = useCallback(async () => {
@@ -436,6 +668,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
       }
       
       // Only include custom colors if they're different from default
+      // customColors already contains the correct colors (swapped if inverted)
       if (customColors && (
         !defaultColors || 
         customColors.backgroundColor !== defaultColors.backgroundColor ||
@@ -456,7 +689,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
     } catch (error) {
       Alert.alert('Error', 'Failed to update profile. Please try again.');
     }
-  }, [profileData, editDisplayName, editDescription, editAvatar, customColors, defaultColors, profileUpdateMutation, onDismiss]);
+  }, [profileData, editDisplayName, editDescription, editAvatar, customColors, selectedColorId, invertedStates, defaultColors, profileUpdateMutation, onDismiss]);
 
   // Handle dismiss
   const handleDismiss = useCallback(() => {
@@ -469,10 +702,10 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
       return customColors;
     }
     return {
-      backgroundColor: extractedColors?.backgroundColor || defaultColors?.backgroundColor || Colors.black,
-      textColor: extractedColors?.textColor || defaultColors?.textColor || Colors.white,
+      backgroundColor: defaultColors?.backgroundColor || Colors.black,
+      textColor: defaultColors?.textColor || Colors.white,
     };
-  }, [customColors, defaultColors, extractedColors]);
+  }, [customColors, defaultColors]);
 
   return (
     <Modal
@@ -480,18 +713,20 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={handleDismiss}
+      transparent={false}
     >
       <GestureHandlerRootView style={styles.container}>
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: currentColors.backgroundColor }]}>
+        {/* Header and Color Picker - Black Background Section */}
+        <SafeAreaView edges={['top']} style={styles.topSafeArea}>
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={handleDismiss} style={styles.cancelButton}>
-              <Text style={[styles.cancelButtonText, { color: currentColors.textColor }]}>
+              <Text style={[styles.cancelButtonText, { color: Colors.white }]}>
                 Cancel
               </Text>
             </TouchableOpacity>
             
-            <Text style={[styles.headerTitle, { color: currentColors.textColor }]}>
+            <Text style={[styles.headerTitle, { color: Colors.white }]}>
               Edit Profile
             </Text>
             
@@ -504,13 +739,13 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                 <GlassView 
                   style={styles.saveButtonGlass}
                   glassEffectStyle="clear"
-                  tintColor={hexToRGBA(currentColors.textColor, 0.9)}
+                  tintColor={hexToRGBA(Colors.white, 0.9)}
                   isInteractive
                 >
                   {profileUpdateMutation.isPending ? (
-                    <Loading3FillIcon size={24} color={currentColors.backgroundColor} />
+                    <Loading3FillIcon size={24} color={Colors.black} />
                   ) : (
-                    <Text style={[styles.saveButtonText, { color: currentColors.backgroundColor }]}>Save</Text>
+                    <Text style={[styles.saveButtonText, { color: Colors.black }]}>Save</Text>
                   )}
                 </GlassView>
               ) : (
@@ -525,151 +760,139 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Content */}
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* Color Theme Section */}
-            {true && (
-              <View style={[styles.section, { marginBottom: 16 }]}>
-                {/* Color Picker */}
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.colorPickerContainer}
-                  style={styles.colorPickerScrollView}
-                >
-                  {predefinedColors.map((colorOption) => {
-                    const isSelected = selectedColorId === colorOption.id;
-                    
-                    // Render separator
-                    if (colorOption.id === 'separator') {
-                      return (
-                        <View key={colorOption.id} style={styles.separatorContainer}>
-                          <View style={[styles.separator, { backgroundColor: currentColors.textColor }]} />
-                        </View>
-                      );
-                    }
-                    
-                    return (
-                      <View key={colorOption.id} style={styles.colorSquareContainer}>
-                        <TouchableOpacity
-                          style={[
-                            styles.colorSquare,
-                            {
-                              borderColor: isSelected ? currentColors.textColor : 'transparent',
-                              borderWidth: isSelected ? 3 : 0,
-                            },
-                          ]}
-                          onPress={() => handleColorSelect(colorOption)}
-                          activeOpacity={0.7}
-                        >
-                          {/* Background color section (75%) */}
-                          <View
-                            style={[
-                              styles.colorSection,
-                              styles.backgroundSection,
-                              { backgroundColor: colorOption.backgroundColor }
-                            ]}
-                          />
-                          
-                          {/* Text color section (25%) */}
-                          <View
-                            style={[
-                              styles.colorSection,
-                              styles.textSection,
-                              { backgroundColor: colorOption.textColor }
-                            ]}
-                          />
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* Avatar Section */}
-            <View style={styles.section}>
-              <View style={styles.avatarContainer}>
-                <View style={[styles.avatar, { borderColor: currentColors.textColor }]}>
-                  {editAvatar ? (
-                    <Image source={{ uri: editAvatar }} style={styles.avatarImage} />
-                  ) : profileData?.avatar ? (
-                    <Image source={{ uri: profileData.avatar }} style={styles.avatarImage} />
-                  ) : (
-                    <Text style={styles.avatarText}>👤</Text>
-                  )}
-                </View>
-                <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.8}>
-                  {isLiquidGlassAvailable ? (
-                    <GlassView 
-                      style={styles.uploadButton}
-                      glassEffectStyle="clear"
-                      tintColor={hexToRGBA(currentColors.textColor, 0.15)}
-                    >
-                      <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
-                        Upload
-                      </Text>
-                    </GlassView>
-                  ) : (
-                    <View style={[styles.uploadButton, styles.uploadButtonFallback, { borderColor: currentColors.textColor }]}> 
-                      <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
-                        Upload
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Display Name Section */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
-                Display Name
-              </Text>
-              <TextInput
-                style={[styles.textInput, {
-                  color: currentColors.textColor,
-                  backgroundColor: hexToRGBA(currentColors.textColor, INPUT_BACKGROUND_OPACITY),
-                  borderColor: 'transparent',
-                }]}
-                value={editDisplayName}
-                onChangeText={setEditDisplayName}
-                placeholder="Enter display name"
-                placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
-                maxLength={64}
-              />
-            </View>
-
-            {/* Bio Section */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
-                Bio
-              </Text>
-              <TextInput
-                style={[styles.textArea, {
-                  color: currentColors.textColor,
-                  backgroundColor: hexToRGBA(currentColors.textColor, 0.05),
-                  borderColor: 'transparent',
-                }]}
-                value={editDescription}
-                onChangeText={setEditDescription}
-                placeholder="Tell us about yourself"
-                placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
-                multiline
-                maxLength={256}
-              />
-            </View>
-
-          </ScrollView>
+          {/* Color Picker */}
+          <View style={styles.colorPickerSection}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.colorPickerContainer}
+              style={styles.colorPickerScrollView}
+            >
+              {predefinedColors.map((colorOption) => {
+                const isSelected = selectedColorId === colorOption.id;
+                const isInverted = invertedStates[colorOption.id] || false;
+                const flexValues = colorFlexValues[colorOption.id];
+                
+                if (!flexValues) return null;
+                
+                return (
+                  <AnimatedColorSquare
+                    key={colorOption.id}
+                    colorOption={colorOption}
+                    isSelected={isSelected}
+                    isInverted={isInverted}
+                    customColors={isSelected ? customColors : null}
+                    currentColors={currentColors}
+                    backgroundFlex={flexValues.background}
+                    textFlex={flexValues.text}
+                    onPress={() => handleColorSelect(colorOption)}
+                  />
+                );
+              })}
+            </ScrollView>
+          </View>
         </SafeAreaView>
-      </GestureHandlerRootView>
-    </Modal>
+
+        {/* Profile Editing Fields - Sheet Content */}
+        <View style={[styles.bottomSectionContainer, { backgroundColor: currentColors.backgroundColor }]}>
+          <SafeAreaView style={[styles.safeArea, { backgroundColor: currentColors.backgroundColor }]} edges={['bottom']}>
+            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+              {/* Avatar Section */}
+              <View style={styles.section}>
+                <View style={styles.avatarContainer}>
+                  <View style={[styles.avatar, { borderColor: currentColors.textColor }]}>
+                    {editAvatar ? (
+                      <Image source={{ uri: editAvatar }} style={styles.avatarImage} />
+                    ) : profileData?.avatar ? (
+                      <Image source={{ uri: profileData.avatar }} style={styles.avatarImage} />
+                    ) : (
+                      <Text style={styles.avatarText}>👤</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.8}>
+                    {isLiquidGlassAvailable ? (
+                      <GlassView 
+                        style={styles.uploadButton}
+                        glassEffectStyle="clear"
+                        tintColor={hexToRGBA(currentColors.textColor, 0.15)}
+                      >
+                        <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
+                          Upload
+                        </Text>
+                      </GlassView>
+                    ) : (
+                      <View style={[styles.uploadButton, styles.uploadButtonFallback, { borderColor: currentColors.textColor }]}> 
+                        <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
+                          Upload
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Display Name Section */}
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
+                  Display Name
+                </Text>
+                <TextInput
+                  style={[styles.textInput, {
+                    color: currentColors.textColor,
+                    backgroundColor: hexToRGBA(currentColors.textColor, INPUT_BACKGROUND_OPACITY),
+                    borderColor: 'transparent',
+                  }]}
+                  value={editDisplayName}
+                  onChangeText={setEditDisplayName}
+                  placeholder="Enter display name"
+                  placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
+                  maxLength={64}
+                />
+              </View>
+
+              {/* Bio Section */}
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
+                  Bio
+                </Text>
+                <TextInput
+                  style={[styles.textArea, {
+                    color: currentColors.textColor,
+                    backgroundColor: hexToRGBA(currentColors.textColor, 0.05),
+                    borderColor: 'transparent',
+                  }]}
+                  value={editDescription}
+                  onChangeText={setEditDescription}
+                  placeholder="Tell us about yourself"
+                  placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
+                  multiline
+                  maxLength={256}
+                />
+              </View>
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+        </GestureHandlerRootView>
+      </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  topSafeArea: {
+    backgroundColor: Colors.black,
+  },
+  colorPickerSection: {
+    paddingBottom: 16,
+  },
+  bottomSectionContainer: {
+    flex: 1,
+    borderTopLeftRadius: BORDER_RADIUS.LARGE,
+    borderTopRightRadius: BORDER_RADIUS.LARGE,
+    overflow: 'hidden',
+  },
   container: {
     flex: 1,
+    backgroundColor: Colors.black,
   },
   safeArea: {
     flex: 1,
@@ -777,7 +1000,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   colorPickerScrollView: {
-    marginHorizontal: -20,
+    marginHorizontal: 0,
   },
   colorPickerContainer: {
     paddingHorizontal: 20,

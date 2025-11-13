@@ -120,6 +120,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     activeItemUri,
     canPlay,
     isFeedActive,
+    isVideoVisible: isVideoVisibleHelper,
   } = useFeedVisibility({
     scopeKey: scopedVisibilityKey,
     isActive: Boolean(isVisible),
@@ -275,7 +276,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       );
     }
 
-    const isVideoVisible = canPlay && isFeedActive && item.post.uri === activeItemUri;
+    const isVideoVisible = isVideoVisibleHelper(item.post.uri) && canPlay;
     
     return (
       <VideoItem
@@ -284,7 +285,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         feedItem={item}
         handleVideoStatus={handleVideoStatus}
         height={cardHeight}
-        feedOption={feedOption as 'yourMix' | 'following' | 'discover'}
+        feedOption={feedOption as 'following' | 'discover'}
         isVisible={isVideoVisible}
         allowPlayback={canPlay}
         moderationDecision={item.moderationDecision}
@@ -332,6 +333,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
   }, [activeItemUri]);
 
+  // Prime initial visible item only on first mount when feed is visible
   useEffect(() => {
     if (!isVisible || !isFeedActive) return;
     if (viewMode !== 'list') return;

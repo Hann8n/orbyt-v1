@@ -87,28 +87,19 @@ const GlobalModals: React.FC = () => {
 // Visibility hook for inline logic
 const useVisibilityTracking = () => {
   const setAppState = useVisibilityCoreStore((state) => state.setAppState);
-  const setIsForeground = useVisibilityCoreStore((state) => state.setIsForeground);
-  const setActiveRoutePath = useVisibilityCoreStore((state) => state.setActiveRoutePath);
   const setActiveTabSegment = useVisibilityCoreStore((state) => state.setActiveTabSegment);
-  const pathname = usePathname();
   const segments = useSegments();
 
   useEffect(() => {
     const initialState = AppState.currentState;
     setAppState(initialState);
-    setIsForeground(initialState === 'active');
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       setAppState(nextState);
-      setIsForeground(nextState === 'active');
     });
 
     return () => subscription.remove();
-  }, [setAppState, setIsForeground]);
-
-  useEffect(() => {
-    setActiveRoutePath(pathname ?? null);
-  }, [pathname, setActiveRoutePath]);
+  }, [setAppState]);
 
   useEffect(() => {
     const normalizedSegments = Array.from(segments);

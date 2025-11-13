@@ -46,9 +46,6 @@ export default function ChannelManagementScreen() {
       if (channel.uri === 'following') {
         // Use a generic following icon - could be a people/users icon
         avatar = undefined; // Will use fallback icon
-      } else if (channel.uri === 'yourMix') {
-        // Use a generic mix/blend icon
-        avatar = undefined; // Will use fallback icon
       }
       
       return {
@@ -95,7 +92,7 @@ export default function ChannelManagementScreen() {
   const handleUnsubscribe = useCallback(async (channel: ChannelUser) => {
     if (!channel.uri) return;
     
-    const isDefaultChannel = ['following', 'yourMix'].includes(channel.uri);
+    const isDefaultChannel = ['following'].includes(channel.uri);
     const title = isDefaultChannel ? 'Remove Default Channel' : 'Unsubscribe from Channel';
     const message = isDefaultChannel 
       ? `Remove "${channel.displayName}" from your channels? You can add it back anytime.`
@@ -156,7 +153,7 @@ export default function ChannelManagementScreen() {
   const handleDragEnd = useCallback(async ({ data }: { data: ChannelUser[] }) => {
     try {
       const reorderedChannels = data.map((channel, index) => {
-        const isDefaultChannel = ['following', 'yourMix'].includes(channel.uri || channel.did);
+        const isDefaultChannel = ['following'].includes(channel.uri || channel.did);
         
         return {
           uri: channel.uri || channel.did,
@@ -195,10 +192,10 @@ export default function ChannelManagementScreen() {
           size={40} 
           ringColor="transparent" 
           style={styles.channelAvatar}
-          fallbackIcon={item.uri === 'following' ? 'users' : item.uri === 'yourMix' ? 'shuffle' : 'tv'}
+          fallbackIcon={item.uri === 'following' ? 'users' : 'tv'}
           fallbackIconSize={24}
-          fallbackIconColor={item.uri === 'following' ? '#FFFFFF' : item.uri === 'yourMix' ? '#FFFFFF' : Colors.lightGray}
-          profileColors={item.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : item.uri === 'yourMix' ? { backgroundColor: '#10B981', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
+          fallbackIconColor={item.uri === 'following' ? '#FFFFFF' : Colors.lightGray}
+          profileColors={item.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
         />
         <View style={styles.channelContent}>
           <Text style={styles.displayName} numberOfLines={1}>
@@ -316,10 +313,10 @@ export default function ChannelManagementScreen() {
                       size={40} 
                       ringColor="transparent" 
                       style={styles.channelAvatar}
-                      fallbackIcon={channel.uri === 'following' ? 'users' : channel.uri === 'yourMix' ? 'shuffle' : 'tv'}
+                      fallbackIcon={channel.uri === 'following' ? 'users' : 'tv'}
                       fallbackIconSize={24}
-                      fallbackIconColor={channel.uri === 'following' ? '#FFFFFF' : channel.uri === 'yourMix' ? '#FFFFFF' : Colors.lightGray}
-                      profileColors={channel.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : channel.uri === 'yourMix' ? { backgroundColor: '#10B981', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
+                      fallbackIconColor={channel.uri === 'following' ? '#FFFFFF' : Colors.lightGray}
+                      profileColors={channel.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
                     />
                     <View style={styles.channelContent}>
                       <Text style={styles.displayName} numberOfLines={1}>

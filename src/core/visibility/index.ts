@@ -1,7 +1,5 @@
 export {
   useFeedVisibility,
-  useVideoVisibility,
-  useVisibilityPreferences,
   useVisibilityOverlay,
   useVisibilityRouteTracker,
   useVisibilityRouteIsActive,

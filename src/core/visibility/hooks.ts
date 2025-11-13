@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import type { ViewabilityConfig, ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { usePathname, useSegments } from 'expo-router';
 
 import { useVisibilityCoreStore, type FeedScopeKey } from './visibilityStore';
 
@@ -27,6 +26,9 @@ interface FeedVisibilityResult {
   canPlay: boolean;
   headerVisiblePercent: number;
   isHeaderBlockingPlayback: boolean;
+  // Video visibility helpers (merged from useVideoVisibility)
+  isVideoVisible: (uri: string | null | undefined) => boolean;
+  shouldVideoPlay: (uri: string | null | undefined) => boolean;
   reset: () => void;
 }
 
@@ -37,25 +39,25 @@ export function useFeedVisibility({
   resetOnDeactivate = false,
   viewabilityConfig,
 }: FeedVisibilityOptions): FeedVisibilityResult {
-  const registerFeedScope = useVisibilityCoreStore((state) => state.registerFeedScope);
-  const activateFeedScope = useVisibilityCoreStore((state) => state.activateFeedScope);
-  const deactivateFeedScope = useVisibilityCoreStore((state) => state.deactivateFeedScope);
+  const setFeedActive = useVisibilityCoreStore((state) => state.setFeedActive);
   const setFeedVisibleItem = useVisibilityCoreStore((state) => state.setFeedVisibleItem);
   const resetFeedScope = useVisibilityCoreStore((state) => state.resetFeedScope);
 
   const feedEntry = useVisibilityCoreStore(useCallback((state) => state.feeds[scopeKey], [scopeKey]));
   const appState = useVisibilityCoreStore((state) => state.appState);
-  const isForeground = useVisibilityCoreStore((state) => state.isForeground);
   const pauseOnOverlay = useVisibilityCoreStore((state) => state.pauseOnOverlay);
-  const modalDepth = useVisibilityCoreStore((state) => state.modalDepth);
+  const hasOverlay = useVisibilityCoreStore((state) => state.hasOverlay);
 
   const activeItemUri = feedEntry?.activeItemUri ?? null;
   const activeItemIndex = feedEntry?.activeItemIndex ?? -1;
   const isFeedActive = Boolean(feedEntry?.isActive);
   const headerVisiblePercent = feedEntry?.headerVisiblePercent ?? 0;
-  const overlayBlocked = pauseOnOverlay && modalDepth > 0;
+  
+  // Derive isForeground from appState
+  const isForeground = appState === 'active';
+  const overlayBlocked = pauseOnOverlay && hasOverlay;
   const headerBlocked = headerVisiblePercent >= 0.5;
-  const canPlay = isFeedActive && appState === 'active' && isForeground && !overlayBlocked && !headerBlocked;
+  const canPlay = isFeedActive && isForeground && !overlayBlocked && !headerBlocked;
 
   const lastVisibleUriRef = useRef<string | null>(null);
   const lastVisibleIndexRef = useRef<number>(-1);
@@ -66,20 +68,28 @@ export function useFeedVisibility({
     return typeof percent === 'number' ? percent : 0;
   }, []);
 
+  // Auto-register feed scope on first use and manage lifecycle
   useEffect(() => {
-    registerFeedScope(scopeKey);
+    // Ensure feed scope exists (auto-register)
+    const current = useVisibilityCoreStore.getState().feeds[scopeKey];
+    if (!current) {
+      // Feed will be created automatically when we set state
+    }
+
     return () => {
       resetFeedScope(scopeKey);
-      deactivateFeedScope(scopeKey);
+      setFeedActive(scopeKey, false);
       lastVisibleUriRef.current = null;
       lastVisibleIndexRef.current = -1;
       hasActivatedOnceRef.current = false;
     };
-  }, [scopeKey, registerFeedScope, resetFeedScope, deactivateFeedScope]);
+  }, [scopeKey, resetFeedScope, setFeedActive]);
 
+  // Handle active state changes
   useEffect(() => {
+    setFeedActive(scopeKey, isActive);
+    
     if (isActive) {
-      activateFeedScope(scopeKey);
       if (hasActivatedOnceRef.current && resetOnActivate) {
         resetFeedScope(scopeKey);
         lastVisibleUriRef.current = null;
@@ -91,9 +101,8 @@ export function useFeedVisibility({
         lastVisibleUriRef.current = null;
         lastVisibleIndexRef.current = -1;
       }
-      deactivateFeedScope(scopeKey);
     }
-  }, [isActive, scopeKey, resetOnActivate, resetOnDeactivate, activateFeedScope, deactivateFeedScope, resetFeedScope, setFeedVisibleItem]);
+  }, [isActive, scopeKey, resetOnActivate, resetOnDeactivate, setFeedActive, resetFeedScope, setFeedVisibleItem]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -154,6 +163,15 @@ export function useFeedVisibility({
 
   const memoizedConfig = useMemo(() => viewabilityConfig ?? DEFAULT_VIEWABILITY_CONFIG, [viewabilityConfig]);
 
+  // Video visibility helpers (merged from useVideoVisibility)
+  const isVideoVisible = useCallback((uri: string | null | undefined) => {
+    return Boolean(uri) && activeItemUri === uri;
+  }, [activeItemUri]);
+
+  const shouldVideoPlay = useCallback((uri: string | null | undefined) => {
+    return Boolean(uri) && isVideoVisible(uri) && canPlay;
+  }, [isVideoVisible, canPlay]);
+
   return {
     onViewableItemsChanged,
     viewabilityConfig: memoizedConfig,
@@ -163,71 +181,35 @@ export function useFeedVisibility({
     canPlay,
     headerVisiblePercent,
     isHeaderBlockingPlayback: headerBlocked,
+    isVideoVisible,
+    shouldVideoPlay,
     reset: () => resetFeedScope(scopeKey),
   };
 }
 
-export function useVideoVisibility(scopeKey: FeedScopeKey, uri: string | null | undefined) {
-  return useVisibilityCoreStore((state) => {
-    const feed = state.feeds[scopeKey];
-    const overlayBlocked = state.pauseOnOverlay && state.modalDepth > 0;
-    const isAppActive = state.appState === 'active';
-    const isForeground = state.isForeground;
-    const isCurrent = Boolean(uri) && feed?.activeItemUri === uri;
-    const isFeedActive = Boolean(feed?.isActive);
-    const shouldPlay = Boolean(uri) && isCurrent && isFeedActive && isAppActive && isForeground && !overlayBlocked;
-    return {
-      shouldPlay,
-      isCurrent,
-      isFeedActive,
-      overlayBlocked,
-      isAppActive,
-      isForeground,
-    };
-  });
-}
-
-export function useVisibilityPreferences() {
-  return useVisibilityCoreStore((state) => ({
-    pauseOnOverlay: state.pauseOnOverlay,
-    modalDepth: state.modalDepth,
-    setPauseOnOverlay: state.setPauseOnOverlay,
-  }));
-}
-
 export function useVisibilityOverlay(isBlocking: boolean) {
-  const pushOverlay = useVisibilityCoreStore((state) => state.pushOverlay);
-  const popOverlay = useVisibilityCoreStore((state) => state.popOverlay);
+  const setOverlay = useVisibilityCoreStore((state) => state.setOverlay);
   const isBlockingRef = useRef(false);
 
   useEffect(() => {
-    if (isBlocking && !isBlockingRef.current) {
-      pushOverlay();
-      isBlockingRef.current = true;
+    if (isBlocking !== isBlockingRef.current) {
+      setOverlay(isBlocking);
+      isBlockingRef.current = isBlocking;
     }
-
-    if (!isBlocking && isBlockingRef.current) {
-      popOverlay();
-      isBlockingRef.current = false;
-    }
-  }, [isBlocking, popOverlay, pushOverlay]);
+  }, [isBlocking, setOverlay]);
 
   useEffect(() => () => {
     if (isBlockingRef.current) {
-      popOverlay();
+      setOverlay(false);
       isBlockingRef.current = false;
     }
-  }, [popOverlay]);
+  }, [setOverlay]);
 }
 
 export function useVisibilityRouteTracker(routeKey: string, tabKey?: string) {
   const setActiveRouteKey = useVisibilityCoreStore((state) => state.setActiveRouteKey);
   const setActiveTabKey = useVisibilityCoreStore((state) => state.setActiveTabKey);
-  const setActiveRoutePath = useVisibilityCoreStore((state) => state.setActiveRoutePath);
-  const setActiveTabSegment = useVisibilityCoreStore((state) => state.setActiveTabSegment);
   const isFocused = useIsFocused();
-  const pathname = usePathname();
-  const segments = useSegments();
 
   useLayoutEffect(() => {
     if (!routeKey) {
@@ -258,25 +240,6 @@ export function useVisibilityRouteTracker(routeKey: string, tabKey?: string) {
       store.setActiveTabKey(null);
     }
   }, [isFocused, routeKey, tabKey, setActiveRouteKey, setActiveTabKey]);
-
-  useEffect(() => {
-    if (typeof pathname === 'string') {
-      setActiveRoutePath(pathname);
-    }
-  }, [pathname, setActiveRoutePath]);
-
-  useEffect(() => {
-    if (!segments) {
-      return;
-    }
-
-    const tabsIndex = segments.indexOf('(tabs)');
-    const nextSegment = tabsIndex >= 0 && segments.length > tabsIndex + 1
-      ? segments[tabsIndex + 1]
-      : segments[segments.length - 1];
-
-    setActiveTabSegment(typeof nextSegment === 'string' ? nextSegment : null);
-  }, [segments, setActiveTabSegment]);
 }
 
 export function useVisibilityRouteIsActive(routeKey: string | null | undefined) {

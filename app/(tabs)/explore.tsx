@@ -238,14 +238,8 @@ const SpotlightLoading = () => (
 
 // Header spacer component
 const HeaderSpacer = ({ isHeaderVisible, isSearching, computedHeaderHeight }: { isHeaderVisible: boolean; isSearching?: boolean; computedHeaderHeight: number }) => {
-  const insets = useSafeAreaInsets();
-  
-  // When searching, use search bar spacing + tabs spacing
-  if (isSearching) {
-    return <View style={{ height: insets.top + 10 + 55 + 5 + 40 + 5 }} />; // safe area + top margin + search height + reduced margin + tabs height + reduced margin
-  }
-  
-  // Use the same computed header height as the rest of the component
+  // Always use the computed header height for consistency
+  // computedHeaderHeight already handles both searching and non-searching cases
   return <View style={{ height: computedHeaderHeight }} />;
 };
 
@@ -715,7 +709,7 @@ const ExploreScreen: React.FC = () => {
     hasNextPage: hasSearchNextPage,
     fetchNextPage: fetchSearchNextPage,
     // Removed onScroll - using FlashList's onEndReached
-  } = useFeed(searchFeedOption || 'yourMix', undefined, {
+  } = useFeed(searchFeedOption || 'following', undefined, {
     enabled: !!searchFeedOption,
     staleTime: 30 * 1000, // 30 seconds for search
     refetchOnMount: false,
@@ -1137,14 +1131,15 @@ const ExploreScreen: React.FC = () => {
   const showSearchHistory = isSearchFocused && debouncedQuery.length === 0;
   const showSearchResults = isSearchFocused && debouncedQuery.length > 0;
   const computedHeaderHeight = useMemo(() => {
-    // When searching or header not visible, reserve space for the search bar area so content starts below it
-    if (isSearching || !isHeaderVisible) {
+    // When searching, reserve space for the search bar area so content starts below it
+    if (isSearching) {
       return insets.top + 10 + 55 + 10 + 50 + 10; // safe area + top margin + search height + bottom margin + tabs height + bottom margin
     }
-    // Allow per-header custom ratio via HeaderService metadata; fallback to 30%
+    // Calculate header height: use actual header ratio if available, otherwise use default 30% even during loading
+    // This ensures consistent spacing during initial load to prevent spinner jump
     const ratio = Math.max(0.2, Math.min(0.5, headers?.[0]?.heightRatio ?? 0.30));
     return Math.round(Dimensions.get('window').height * ratio);
-  }, [isSearching, isHeaderVisible, insets.top, headers]);
+  }, [isSearching, insets.top, headers]);
 
   // Gradient should be visible when searching or when no banner is visible
   const showTopGradient = useMemo(
@@ -1384,8 +1379,13 @@ const ExploreScreen: React.FC = () => {
             return <HeaderSpacer isHeaderVisible={isHeaderVisible} isSearching={isSearching} computedHeaderHeight={computedHeaderHeight} />;
           }
           if (item.type === 'loading') {
+            // Calculate available height: screen height - header - bottom nav
+            const screenHeight = Dimensions.get('window').height;
+            const bottomNavHeight = getBottomNavBarHeight(insets);
+            const availableHeight = screenHeight - computedHeaderHeight - bottomNavHeight;
+            
             return (
-              <View style={styles.loadingContainer}>
+              <View style={[styles.loadingContainer, { minHeight: Math.max(availableHeight, 200) }]}>
                 <Loading3FillIcon size={48} color={Colors.white} />
               </View>
             );
@@ -1930,6 +1930,8 @@ const styles = StyleSheet.create({
   spotlightVideoThumbnailContainer: {
     position: 'relative',
     marginBottom: 4,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    overflow: 'hidden' as const,
   },
   spotlightVideoThumbnail: {
     width: 95,
@@ -2086,11 +2088,8 @@ const styles = StyleSheet.create({
   },
 
   loadingContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100, // Space below header
-    paddingBottom: 100, // Space above bottom nav bar
   },
 
 });

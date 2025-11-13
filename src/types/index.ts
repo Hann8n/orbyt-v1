@@ -8,7 +8,7 @@ export interface NavigationState {
 }
 
 // Feed Types
-export type FeedOption = 'yourMix' | 'following' | 'discover' | 'profile' | 'likes' | 'reposts' | string;
+export type FeedOption = 'following' | 'discover' | 'profile' | 'likes' | 'reposts' | string;
 
 export interface FeedItem {
   post: {

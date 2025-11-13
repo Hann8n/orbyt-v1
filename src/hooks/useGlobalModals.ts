@@ -25,7 +25,7 @@ interface ShareSheetData {
   postCid?: string;
   authorDid: string;
   authorName?: string;
-  feedOption?: 'yourMix' | 'following' | 'discover';
+  feedOption?: 'following' | 'discover';
   sourceFeed?: string;
 }
 
