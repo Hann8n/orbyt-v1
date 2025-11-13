@@ -29,6 +29,7 @@ export interface ProfileColorOption {
 }
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import Icon from '../../ui/Icon';
+import { BORDER_RADIUS } from '../../../utils/constants';
 
 interface EditProfileSheetProps {
   visible: boolean;
@@ -712,18 +713,20 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={handleDismiss}
+      transparent={false}
     >
       <GestureHandlerRootView style={styles.container}>
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: currentColors.backgroundColor }]}>
+        {/* Header and Color Picker - Black Background Section */}
+        <SafeAreaView edges={['top']} style={styles.topSafeArea}>
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={handleDismiss} style={styles.cancelButton}>
-              <Text style={[styles.cancelButtonText, { color: currentColors.textColor }]}>
+              <Text style={[styles.cancelButtonText, { color: Colors.white }]}>
                 Cancel
               </Text>
             </TouchableOpacity>
             
-            <Text style={[styles.headerTitle, { color: currentColors.textColor }]}>
+            <Text style={[styles.headerTitle, { color: Colors.white }]}>
               Edit Profile
             </Text>
             
@@ -736,13 +739,13 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                 <GlassView 
                   style={styles.saveButtonGlass}
                   glassEffectStyle="clear"
-                  tintColor={hexToRGBA(currentColors.textColor, 0.9)}
+                  tintColor={hexToRGBA(Colors.white, 0.9)}
                   isInteractive
                 >
                   {profileUpdateMutation.isPending ? (
-                    <Loading3FillIcon size={24} color={currentColors.backgroundColor} />
+                    <Loading3FillIcon size={24} color={Colors.black} />
                   ) : (
-                    <Text style={[styles.saveButtonText, { color: currentColors.backgroundColor }]}>Save</Text>
+                    <Text style={[styles.saveButtonText, { color: Colors.black }]}>Save</Text>
                   )}
                 </GlassView>
               ) : (
@@ -757,126 +760,139 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Content */}
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* Color Theme Section */}
-            {true && (
-              <View style={[styles.section, { marginBottom: 16 }]}>
-                {/* Color Picker */}
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.colorPickerContainer}
-                  style={styles.colorPickerScrollView}
-                >
-                  {predefinedColors.map((colorOption) => {
-                    const isSelected = selectedColorId === colorOption.id;
-                    const isInverted = invertedStates[colorOption.id] || false;
-                    const flexValues = colorFlexValues[colorOption.id];
-                    
-                    if (!flexValues) return null;
-                    
-                    return (
-                      <AnimatedColorSquare
-                        key={colorOption.id}
-                        colorOption={colorOption}
-                        isSelected={isSelected}
-                        isInverted={isInverted}
-                        customColors={isSelected ? customColors : null}
-                        currentColors={currentColors}
-                        backgroundFlex={flexValues.background}
-                        textFlex={flexValues.text}
-                          onPress={() => handleColorSelect(colorOption)}
-                      />
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* Avatar Section */}
-            <View style={styles.section}>
-              <View style={styles.avatarContainer}>
-                <View style={[styles.avatar, { borderColor: currentColors.textColor }]}>
-                  {editAvatar ? (
-                    <Image source={{ uri: editAvatar }} style={styles.avatarImage} />
-                  ) : profileData?.avatar ? (
-                    <Image source={{ uri: profileData.avatar }} style={styles.avatarImage} />
-                  ) : (
-                    <Text style={styles.avatarText}>👤</Text>
-                  )}
-                </View>
-                <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.8}>
-                  {isLiquidGlassAvailable ? (
-                    <GlassView 
-                      style={styles.uploadButton}
-                      glassEffectStyle="clear"
-                      tintColor={hexToRGBA(currentColors.textColor, 0.15)}
-                    >
-                      <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
-                        Upload
-                      </Text>
-                    </GlassView>
-                  ) : (
-                    <View style={[styles.uploadButton, styles.uploadButtonFallback, { borderColor: currentColors.textColor }]}> 
-                      <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
-                        Upload
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Display Name Section */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
-                Display Name
-              </Text>
-              <TextInput
-                style={[styles.textInput, {
-                  color: currentColors.textColor,
-                  backgroundColor: hexToRGBA(currentColors.textColor, INPUT_BACKGROUND_OPACITY),
-                  borderColor: 'transparent',
-                }]}
-                value={editDisplayName}
-                onChangeText={setEditDisplayName}
-                placeholder="Enter display name"
-                placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
-                maxLength={64}
-              />
-            </View>
-
-            {/* Bio Section */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
-                Bio
-              </Text>
-              <TextInput
-                style={[styles.textArea, {
-                  color: currentColors.textColor,
-                  backgroundColor: hexToRGBA(currentColors.textColor, 0.05),
-                  borderColor: 'transparent',
-                }]}
-                value={editDescription}
-                onChangeText={setEditDescription}
-                placeholder="Tell us about yourself"
-                placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
-                multiline
-                maxLength={256}
-              />
-            </View>
-
-          </ScrollView>
+          {/* Color Picker */}
+          <View style={styles.colorPickerSection}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.colorPickerContainer}
+              style={styles.colorPickerScrollView}
+            >
+              {predefinedColors.map((colorOption) => {
+                const isSelected = selectedColorId === colorOption.id;
+                const isInverted = invertedStates[colorOption.id] || false;
+                const flexValues = colorFlexValues[colorOption.id];
+                
+                if (!flexValues) return null;
+                
+                return (
+                  <AnimatedColorSquare
+                    key={colorOption.id}
+                    colorOption={colorOption}
+                    isSelected={isSelected}
+                    isInverted={isInverted}
+                    customColors={isSelected ? customColors : null}
+                    currentColors={currentColors}
+                    backgroundFlex={flexValues.background}
+                    textFlex={flexValues.text}
+                    onPress={() => handleColorSelect(colorOption)}
+                  />
+                );
+              })}
+            </ScrollView>
+          </View>
         </SafeAreaView>
-      </GestureHandlerRootView>
-    </Modal>
+
+        {/* Profile Editing Fields - Sheet Content */}
+        <View style={[styles.bottomSectionContainer, { backgroundColor: currentColors.backgroundColor }]}>
+          <SafeAreaView style={[styles.safeArea, { backgroundColor: currentColors.backgroundColor }]} edges={['bottom']}>
+            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+              {/* Avatar Section */}
+              <View style={styles.section}>
+                <View style={styles.avatarContainer}>
+                  <View style={[styles.avatar, { borderColor: currentColors.textColor }]}>
+                    {editAvatar ? (
+                      <Image source={{ uri: editAvatar }} style={styles.avatarImage} />
+                    ) : profileData?.avatar ? (
+                      <Image source={{ uri: profileData.avatar }} style={styles.avatarImage} />
+                    ) : (
+                      <Text style={styles.avatarText}>👤</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.8}>
+                    {isLiquidGlassAvailable ? (
+                      <GlassView 
+                        style={styles.uploadButton}
+                        glassEffectStyle="clear"
+                        tintColor={hexToRGBA(currentColors.textColor, 0.15)}
+                      >
+                        <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
+                          Upload
+                        </Text>
+                      </GlassView>
+                    ) : (
+                      <View style={[styles.uploadButton, styles.uploadButtonFallback, { borderColor: currentColors.textColor }]}> 
+                        <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
+                          Upload
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Display Name Section */}
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
+                  Display Name
+                </Text>
+                <TextInput
+                  style={[styles.textInput, {
+                    color: currentColors.textColor,
+                    backgroundColor: hexToRGBA(currentColors.textColor, INPUT_BACKGROUND_OPACITY),
+                    borderColor: 'transparent',
+                  }]}
+                  value={editDisplayName}
+                  onChangeText={setEditDisplayName}
+                  placeholder="Enter display name"
+                  placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
+                  maxLength={64}
+                />
+              </View>
+
+              {/* Bio Section */}
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
+                  Bio
+                </Text>
+                <TextInput
+                  style={[styles.textArea, {
+                    color: currentColors.textColor,
+                    backgroundColor: hexToRGBA(currentColors.textColor, 0.05),
+                    borderColor: 'transparent',
+                  }]}
+                  value={editDescription}
+                  onChangeText={setEditDescription}
+                  placeholder="Tell us about yourself"
+                  placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
+                  multiline
+                  maxLength={256}
+                />
+              </View>
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+        </GestureHandlerRootView>
+      </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  topSafeArea: {
+    backgroundColor: Colors.black,
+  },
+  colorPickerSection: {
+    paddingBottom: 16,
+  },
+  bottomSectionContainer: {
+    flex: 1,
+    borderTopLeftRadius: BORDER_RADIUS.LARGE,
+    borderTopRightRadius: BORDER_RADIUS.LARGE,
+    overflow: 'hidden',
+  },
   container: {
     flex: 1,
+    backgroundColor: Colors.black,
   },
   safeArea: {
     flex: 1,
@@ -984,7 +1000,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   colorPickerScrollView: {
-    marginHorizontal: -20,
+    marginHorizontal: 0,
   },
   colorPickerContainer: {
     paddingHorizontal: 20,
