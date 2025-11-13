@@ -145,7 +145,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
     backgroundColor: string;
     textColor: string;
   } | null>(null);
-  
+
   // Track inverted state per color ID
   const [invertedStates, setInvertedStates] = useState<Record<string, boolean>>({});
   
@@ -619,7 +619,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
       }
       
       // Select new color
-      setSelectedColorId(colorOption.id);
+    setSelectedColorId(colorOption.id);
       const wasInverted = invertedStates[colorOption.id] || false;
       
       if (wasInverted) {
@@ -632,16 +632,16 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
           currentFlexValues.background.value = withSpring(1);
           currentFlexValues.text.value = withSpring(3);
         }
-      } else {
+    } else {
         // Normal state - ensure it's animated even if already at these values
-        setCustomColors({
-          backgroundColor: colorOption.backgroundColor,
-          textColor: colorOption.textColor,
-        });
+      setCustomColors({
+        backgroundColor: colorOption.backgroundColor,
+        textColor: colorOption.textColor,
+      });
         if (currentFlexValues) {
           currentFlexValues.background.value = withSpring(3);
           currentFlexValues.text.value = withSpring(1);
-        }
+    }
       }
     }
   }, [selectedColorId, invertedStates, customColors, colorFlexValues]);
@@ -786,7 +786,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                         currentColors={currentColors}
                         backgroundFlex={flexValues.background}
                         textFlex={flexValues.text}
-                        onPress={() => handleColorSelect(colorOption)}
+                          onPress={() => handleColorSelect(colorOption)}
                       />
                     );
                   })}
