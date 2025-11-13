@@ -2326,10 +2326,11 @@ class AtprotoService {
     try {
       // Filter out invalid URIs first
       const validFeedUris = feedUris.filter(uri => 
-        uri && (uri.startsWith('at://') || uri.startsWith('did:'))
+        uri && typeof uri === 'string' && (uri.startsWith('at://') || uri.startsWith('did:'))
       );
       
       if (validFeedUris.length === 0) {
+        logger.warn('No valid feed URIs provided to getMixedFeed', { component: 'AtprotoService' });
         return { feed: [], cursor: null };
       }
       
@@ -2343,6 +2344,7 @@ class AtprotoService {
         try {
           feedStates = JSON.parse(cursor);
         } catch (error) {
+          logger.warn('Failed to parse cursor for mixed feed', { component: 'AtprotoService', error });
           feedStates = {};
         }
       } else {
@@ -2352,33 +2354,51 @@ class AtprotoService {
         });
       }
 
-      // Fetch from feeds in parallel
+      // Fetch from feeds in parallel with better error handling
       const feedPromises = limitedFeedUris.map(async (feedUri) => {
         try {
           const feedCursor = feedStates[feedUri] || null;
-          const feedLimit = Math.floor(limit / limitedFeedUris.length) + 10; // Distribute limit across feeds
+          // Distribute limit across feeds, ensuring each gets at least 10 posts
+          const feedLimit = Math.max(10, Math.floor(limit / limitedFeedUris.length) + 10);
           
           const response = await this.getFeed(feedCursor, feedUri, {}, filterVideosOnly, feedLimit, 'custom');
           
           return {
-            posts: response.feed || [],
-            cursor: response.cursor,
-            feedUri
+            posts: response?.feed || [],
+            cursor: response?.cursor || null,
+            feedUri,
+            success: true
           };
         } catch (error) {
+          // Log individual feed failures but don't fail the entire request
+          logger.warn('Failed to fetch from feed in mixed feed', { 
+            component: 'AtprotoService', 
+            feedUri, 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+          });
           return {
             posts: [],
             cursor: null,
-            feedUri
+            feedUri,
+            success: false
           };
         }
       });
 
       const feedResults = await Promise.all(feedPromises);
       
-      // Update feed states with new cursors
+      // Log success rate for debugging
+      const successfulFeeds = feedResults.filter(r => r.success).length;
+      if (successfulFeeds === 0) {
+        logger.error('All feeds failed in getMixedFeed', { component: 'AtprotoService', feedUris: limitedFeedUris });
+        return { feed: [], cursor: null };
+      }
+      
+      // Update feed states with new cursors (only for successful feeds)
       feedResults.forEach(result => {
-        feedStates[result.feedUri] = result.cursor;
+        if (result.success && result.cursor !== null) {
+          feedStates[result.feedUri] = result.cursor;
+        }
       });
       
       // Flatten and merge all feeds, preserving source feed information
@@ -2402,10 +2422,10 @@ class AtprotoService {
       // Apply limit
       const limitedPosts = allPosts.slice(0, limit);
       
-      // Create cursor from active feeds
+      // Create cursor from active feeds (only include feeds that have more data)
       const activeFeedStates: { [feedUri: string]: string | null } = {};
       feedResults.forEach(result => {
-        if (result.cursor !== null) {
+        if (result.success && result.cursor !== null) {
           activeFeedStates[result.feedUri] = result.cursor;
         }
       });
@@ -2417,6 +2437,7 @@ class AtprotoService {
         cursor: compositeCursor
       };
     } catch (error) {
+      logger.error('Error in getMixedFeed', { component: 'AtprotoService', error });
       return { feed: [], cursor: null };
     }
   }
