@@ -383,11 +383,14 @@ export const useUserStore = create<UserState>()(
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Session restoration failed';
           
+          // Check if this is a session expiration error from getValidSession
+          const isSessionExpired = (error as any)?.isSessionExpired || false;
+          
           // Use universal OAuth error analysis
           const errorInfo = analyzeOAuthError(error);
           
-          if (errorInfo.requiresReauth) {
-            // Session expiration is expected behavior, log as warning
+          if (errorInfo.requiresReauth || isSessionExpired) {
+            // Session expiration is expected behavior, log as warning (not error)
             logger.warn('Session expired, re-authentication required', { component: 'userStore', did });
             set({ 
               isAuthenticating: false,

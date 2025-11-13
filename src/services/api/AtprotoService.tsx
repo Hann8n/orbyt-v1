@@ -240,23 +240,33 @@ class AtprotoService {
   /**
    * Get the API client (OAuth or app password)
    * Gets the current Agent from userStore
+   * Returns null if no session is available (instead of throwing)
    */
-  static async getApiClient(): Promise<{ api: any; isOAuth: boolean }> {
+  static async getApiClient(): Promise<{ api: any; isOAuth: boolean } | null> {
     try {
       // Import userStore to get the current agent
       const { useUserStore } = await import('../../stores/userStore');
       const userStore = useUserStore.getState();
       
+      // Check if session restoration is in progress
+      if (userStore.isAuthenticating || userStore.isSwitchingAccount) {
+        // Session restoration in progress - return null gracefully
+        logger.debug('Session restoration in progress, API client not available yet', { component: 'AtprotoService' });
+        return null;
+      }
+      
       if (userStore.agent) {
         return { api: userStore.agent.api, isOAuth: true };
       }
       
+      // No session available - return null instead of throwing
       logger.debug('No valid session found for API client', { component: 'AtprotoService' });
-      throw new Error('No session available');
+      return null;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      // Only log unexpected errors at ERROR level
       logger.error('Error getting API client', error, { component: 'AtprotoService' });
-      throw new Error(`Failed to get API client: ${errorMsg}`);
+      return null;
     }
   }
 
@@ -284,7 +294,15 @@ class AtprotoService {
     
     while (retries > 0) {
       try {
-        const { api, isOAuth } = await this.getApiClient();
+        const apiClient = await this.getApiClient();
+        
+        // Handle case where no session is available
+        if (!apiClient) {
+          logger.debug('No API client available for feed request', { component: 'AtprotoService' });
+          return { feed: [], cursor: null };
+        }
+        
+        const { api, isOAuth } = apiClient;
 
         let response: any;
         
@@ -464,15 +482,18 @@ class AtprotoService {
       // First try to get the current user DID
       const userDid = await this.getCurrentUserDid();
       if (!userDid) {
+        logger.debug('No user DID available', { component: 'AtprotoService' });
         throw new Error('No session available');
       }
       
       // Then get the API client
-      const { api, isOAuth } = await this.getApiClient();
-      if (!api) {
-        logger.warn('No API client available', { component: 'AtprotoService' });
+      const apiClient = await this.getApiClient();
+      if (!apiClient || !apiClient.api) {
+        logger.debug('No API client available', { component: 'AtprotoService' });
         throw new Error('No API client available');
       }
+      
+      const { api, isOAuth } = apiClient;
       
       // Getting profile for DID using session
       const response = await api.app.bsky.actor.getProfile({ actor: userDid });
@@ -509,7 +530,15 @@ class AtprotoService {
    */
   static async getConversations(cursor: string | null = null): Promise<ConversationsResponse> {
     try {
-      const { api } = await this.getApiClient();
+      const apiClient = await this.getApiClient();
+      
+      // Handle case where no session is available or restoration is in progress
+      if (!apiClient) {
+        logger.debug('No API client available for conversations request', { component: 'AtprotoService' });
+        return { conversations: [], cursor: null };
+      }
+      
+      const { api } = apiClient;
       const headers: any = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -521,7 +550,8 @@ class AtprotoService {
       const userStore = useUserStore.getState();
       
       if (!userStore.agent) {
-        throw new Error('No OAuth session available');
+        logger.debug('No OAuth session available for conversations', { component: 'AtprotoService' });
+        return { conversations: [], cursor: null };
       }
       
       const params = new URLSearchParams({ limit: '50' });
