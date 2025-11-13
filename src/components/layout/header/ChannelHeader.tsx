@@ -6,10 +6,9 @@ import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
 import HeaderSkeleton from './HeaderSkeleton';
 import { useChannelColors } from '../../../services/cache/ChannelCache';
-import Icon, { PlusIcon, CheckIcon } from '../../ui/Icon';
-import { hexToRGBA } from '../../../utils/formatting/colorUtils';
+import Icon, { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon } from '../../ui/Icon';
+import { hexToRGBA, darkenColor } from '../../../utils/formatting/colorUtils';
 import { Colors } from '../../ui/UI';
-import { formatNumber } from '../../../utils/helpers';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
  
 
@@ -41,6 +40,9 @@ interface ChannelHeaderProps {
   children?: React.ReactNode;
   applySafeArea?: boolean;
   headerStyle?: any;
+  viewMode?: 'list' | 'grid' | 'horizontal';
+  onViewModeChange?: (mode: 'list' | 'grid' | 'horizontal') => void;
+  showViewToggle?: boolean;
 }
 
 
@@ -51,7 +53,10 @@ const SubscribeButton: React.FC<{
   textColor: string;
   backgroundColor: string;
   accentColor: string;
-}> = ({ channel, textColor, backgroundColor, accentColor }) => {
+  viewMode?: 'list' | 'grid' | 'horizontal';
+  onViewModeChange?: (mode: 'list' | 'grid' | 'horizontal') => void;
+  showViewToggle?: boolean;
+}> = ({ channel, textColor, backgroundColor, accentColor, viewMode = 'list', onViewModeChange, showViewToggle = false }) => {
   const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } = useSubscribedChannels();
   const [isSubscribing, setIsSubscribing] = useState(false);
 
@@ -148,64 +153,83 @@ const SubscribeButton: React.FC<{
   if (channel.isOwner) return null; // Don't show subscribe button for owners
 
   const useGlass = isLiquidGlassAvailable();
-  const glassTint = isSubscribed ? hexToRGBA('#FFFFFF', 1) : hexToRGBA('#FFFFFF', 0.08);
+  const glassTint = isSubscribed ? hexToRGBA(textColor, 1) : hexToRGBA('#FFFFFF', 0.08);
 
   return (
     <View style={styles.subscribeContainer}>
       <TouchableOpacity
-        style={[
-          styles.subscribeButton,
-          useGlass
-            ? { backgroundColor: 'transparent', borderColor: 'transparent' }
-            : {
-                backgroundColor: isSubscribed ? '#FFFFFF' : 'rgba(255, 255, 255, 0.2)',
-                borderColor: isSubscribed ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)',
-              },
-        ]}
         onPress={handleSubscribe}
         disabled={isSubscribing}
-        activeOpacity={0.7}
+        activeOpacity={0.8}
+        style={{ flex: 1, height: 40 }}
       >
-        {useGlass && (
-          <GlassView
-            style={styles.glassBackgroundFull}
-            glassEffectStyle="clear"
-            tintColor={glassTint}
-            isInteractive
-          />
-        )}
-        {isSubscribing ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
-        ) : (
-          <>
-            <Text style={[styles.subscribeButtonText, { color: isSubscribed ? backgroundColor : '#FFFFFF' }]}>
-              {isSubscribed ? 'Subscribed' : 'Subscribe'}
-            </Text>
-            {isSubscribed ? (
-              <CheckIcon 
-                size={16} 
-                color={backgroundColor} 
-                strokeWidth={2.0}
-              />
-            ) : (
-              <PlusIcon 
-                size={12} 
-                color="#FFFFFF" 
-                strokeWidth={2.0}
-              />
-            )}
-          </>
-        )}
+        <View
+          style={[
+            styles.subscribeButton,
+            { flex: 1 },
+            useGlass
+              ? { backgroundColor: 'transparent', borderColor: 'transparent' }
+              : {
+                  backgroundColor: isSubscribed ? textColor : 'rgba(255, 255, 255, 0.2)',
+                  borderColor: isSubscribed ? textColor : 'rgba(255, 255, 255, 0.4)',
+                },
+          ]}
+        >
+          {useGlass && (
+            <GlassView
+              style={styles.glassBackgroundFull}
+              glassEffectStyle="clear"
+              tintColor={glassTint}
+              isInteractive
+            />
+          )}
+          {isSubscribing ? (
+            <ActivityIndicator size="small" color={isSubscribed ? backgroundColor : '#FFFFFF'} />
+          ) : (
+            <>
+              <Text style={[styles.subscribeButtonText, { color: isSubscribed ? backgroundColor : '#FFFFFF' }]}>
+                {isSubscribed ? 'Subscribed' : 'Subscribe'}
+              </Text>
+              {isSubscribed ? (
+                <CheckIcon 
+                  size={16} 
+                  color={backgroundColor} 
+                  strokeWidth={2.0}
+                />
+              ) : (
+                <PlusIcon 
+                  size={12} 
+                  color="#FFFFFF" 
+                  strokeWidth={2.0}
+                />
+              )}
+            </>
+          )}
+        </View>
       </TouchableOpacity>
       
-      {channel.likeCount && channel.likeCount > 0 && (
-        <View style={styles.likeCountContainer}>
-          <Text style={[styles.likeCountNumber, { color: '#FFFFFF' }]}>
-            {formatNumber(channel.likeCount)}
-          </Text>
-          <Text style={[styles.likeCountLabel, { color: 'rgba(255, 255, 255, 0.67)' }]}>
-            likes
-          </Text>
+      {showViewToggle && onViewModeChange && (
+        <View style={styles.viewToggleContainer}>
+          <TouchableOpacity
+            onPress={() => onViewModeChange('grid')}
+            style={styles.viewToggleButton}
+            activeOpacity={0.7}
+          >
+            <GridViewIcon 
+              color={viewMode === 'grid' ? textColor : hexToRGBA(textColor, 0.6)} 
+              size={20}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => onViewModeChange('list')}
+            style={styles.viewToggleButton}
+            activeOpacity={0.7}
+          >
+            <ListViewIcon 
+              color={viewMode === 'list' ? textColor : hexToRGBA(textColor, 0.6)} 
+              size={20}
+            />
+          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -221,6 +245,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   children,
   applySafeArea = false,
   headerStyle,
+  viewMode = 'list',
+  onViewModeChange,
+  showViewToggle = false,
 }) => {
   const navigation = useRouter();
 
@@ -233,9 +260,23 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     return '#FFFFFF';
   }, []);
 
-  // Ensure background color is properly contrasted
+  // Ensure background color is properly contrasted and always darker
   const safeBackgroundColor = useMemo(() => {
-    return channelColors.backgroundColor || '#000000';
+    const bgColor = channelColors.backgroundColor || '#000000';
+    // Calculate brightness
+    const brightness = (() => {
+      const color = bgColor.replace('#', '');
+      const r = parseInt(color.substring(0, 2), 16);
+      const g = parseInt(color.substring(2, 4), 16);
+      const b = parseInt(color.substring(4, 6), 16);
+      return (r * 299 + g * 587 + b * 114) / 1000;
+    })();
+    
+    // If brightness is above 80, darken it further
+    if (brightness > 80) {
+      return darkenColor(bgColor, 0.3);
+    }
+    return bgColor;
   }, [channelColors.backgroundColor]);
 
   // Handle edit action
@@ -328,11 +369,14 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           textColor={safeTextColor}
           backgroundColor={safeBackgroundColor}
           accentColor={channelColors.accentColor || '#000000'}
+          viewMode={viewMode}
+          onViewModeChange={onViewModeChange}
+          showViewToggle={showViewToggle}
         />
       )}
       {children}
     </>
-  ), [channel, safeTextColor, safeBackgroundColor, children, channelColors.accentColor]);
+  ), [channel, safeTextColor, safeBackgroundColor, children, channelColors.accentColor, showViewToggle, onViewModeChange, viewMode]);
 
   return (
     <UniversalHeader
@@ -371,16 +415,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 8,
-    borderRadius: BORDER_RADIUS.FULL,
+    borderRadius: 20,
     borderWidth: 0,
     borderColor: 'transparent',
-    flex: 1,
-    height: 40,
     gap: 6,
   },
   glassBackgroundFull: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.FULL,
+    borderRadius: 20,
   },
   subscribeButtonText: {
     fontFamily: 'Firma-Bold',
@@ -404,6 +446,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
     fontSize: 14,
     marginTop: 2,
+  },
+  viewToggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 8,
+  },
+  viewToggleButton: {
+    padding: 6,
+    borderRadius: BORDER_RADIUS.FULL,
   },
   experimentalIcon: {
     marginLeft: 6,

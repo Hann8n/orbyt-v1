@@ -197,6 +197,9 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
         showBackButton={true}
         onBackPress={handleBackPress}
         applySafeArea={true}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        showViewToggle={true}
       />
     </View>
   );
