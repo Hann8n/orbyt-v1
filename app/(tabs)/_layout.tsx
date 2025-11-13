@@ -264,7 +264,7 @@ export default function TabsLayout() {
         />
       </Tabs>
       <LinearGradient
-        colors={['transparent', 'rgba(0, 0, 0, 0.4)', Colors.black]}
+        colors={['transparent', 'rgba(0, 0, 0, 0.2)', 'rgba(0, 0, 0, 0.5)']}
         locations={[0, 0.6, 1]}
         style={[
           styles.gradient,
