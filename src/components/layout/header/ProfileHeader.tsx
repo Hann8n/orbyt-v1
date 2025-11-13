@@ -1,6 +1,6 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { Text, TouchableOpacity } from 'react-native';
+import { Text, TouchableOpacity, StatusBar } from 'react-native';
 import UniversalHeader, { HeaderAction, HeaderContent, CustomActionLayout } from './UniversalHeader';
 import HeaderSkeleton from './HeaderSkeleton';
 import { useProfile, useProfileColors, useFollowMutation } from '../../../services/cache/ProfileCache';
@@ -14,7 +14,7 @@ import EditProfileSheet from '../../features/profile/EditProfileSheet';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import ChatService from '../../../services/ChatService';
 import { FollowIcon, MutualHeartIcon, ProfileEditIcon, InboxIcon} from '../../ui/Icon';
-import { hexToRGBA } from '../../../utils/formatting/colorUtils';
+import { hexToRGBA, getStatusBarStyle } from '../../../utils/formatting/colorUtils';
 
 interface ProfileHeaderProps {
   handle: string | null;
@@ -309,6 +309,12 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     };
   }, [profileColors.backgroundColor, profileColors.textColor]);
 
+  // Determine status bar style based on background color brightness
+  const statusBarStyle = useMemo(() => {
+    const style = getStatusBarStyle(dynamicColors.backgroundColor);
+    return style === 'light' ? 'light-content' : 'dark-content';
+  }, [dynamicColors.backgroundColor]);
+
   // Notify parent of color changes
   useEffect(() => {
     onColorsChange?.(dynamicColors);
@@ -323,6 +329,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   return (
     <>
+      <StatusBar barStyle={statusBarStyle} backgroundColor={dynamicColors.backgroundColor} translucent={true} />
       <EditProfileSheet
         visible={showEditSheet}
         onDismiss={closeEditSheet}
