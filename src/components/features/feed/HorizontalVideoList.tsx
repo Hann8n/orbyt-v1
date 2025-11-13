@@ -8,7 +8,6 @@ import {
   Image,
   Text,
   Dimensions,
-  ActivityIndicator,
 } from 'react-native';
 import type { FeedItem } from '../../../types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { VideoInfo } from '../../services/VideoProcessingService';
 import Icon from './Icon';
 import { Colors } from './UI';

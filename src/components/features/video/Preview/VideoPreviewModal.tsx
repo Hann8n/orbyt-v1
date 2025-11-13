@@ -7,13 +7,12 @@ import {
   StyleSheet,
   Dimensions,
   Text,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../../ui/UI';
-import { BackArrowIcon } from '../../../ui/Icon';
+import { BackArrowIcon, Loading3FillIcon } from '../../../ui/Icon';
 import VideoCard from '../VideoCard';
 import type { VideoCardRef } from '../VideoCard';
 import * as Device from 'expo-device';
@@ -183,7 +182,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
           {/* Simple loading indicator */}
           {!isVideoReady && !videoError && videoUri && (
             <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color={Colors.white} />
+              <Loading3FillIcon size={48} color={Colors.white} />
             </View>
           )}
           

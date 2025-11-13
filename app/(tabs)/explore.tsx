@@ -8,7 +8,6 @@ import {
   FlatList,
   Image,
   TouchableOpacity,
-  ActivityIndicator,
   StatusBar,
   Platform,
   Keyboard,
@@ -30,7 +29,7 @@ import HeaderBanner from '../../src/components/ui/HeaderBanner';
 import { TabNavigation, TabOption } from '../../src/components/layout/header';
 import { logger } from '../../src/utils/logger';
 
-import { SearchIcon, FollowIcon, CheckIcon } from '../../src/components/ui/Icon';
+import { SearchIcon, FollowIcon, CheckIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import { VerificationBadge } from '../../src/components/features/badging';
 import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
@@ -206,34 +205,34 @@ const unifiedSearchKeys = {
   infiniteSearch: (query: string) => [...unifiedSearchKeys.infinite(), query] as const,
 };
 
-// Simple loading components with ActivityIndicator
+// Simple loading components with Loading3FillIcon
 const ProfileLoading = () => (
   <View style={[styles.profileItem, styles.loadingContainer]}>
-    <ActivityIndicator size="small" color={Colors.white} />
+    <Loading3FillIcon size={24} color={Colors.white} />
   </View>
 );
 
 const ChannelLoading = () => (
   <View style={[styles.channelItem, styles.loadingContainer]}>
-    <ActivityIndicator size="small" color={Colors.white} />
+    <Loading3FillIcon size={24} color={Colors.white} />
   </View>
 );
 
 const SectionHeaderLoading = () => (
   <View style={[styles.sectionHeader, styles.loadingContainer]}>
-    <ActivityIndicator size="small" color={Colors.white} />
+    <Loading3FillIcon size={24} color={Colors.white} />
   </View>
 );
 
 const PopularChannelsLoading = () => (
   <View style={styles.loadingContainer}>
-    <ActivityIndicator size="small" color={Colors.white} />
+    <Loading3FillIcon size={24} color={Colors.white} />
   </View>
 );
 
 const SpotlightLoading = () => (
   <View style={[styles.spotlightContainer, styles.loadingContainer]}>
-    <ActivityIndicator size="small" color={Colors.white} />
+    <Loading3FillIcon size={24} color={Colors.white} />
   </View>
 );
 
@@ -303,7 +302,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.white} />
+        <Loading3FillIcon size={48} color={Colors.white} />
       </View>
     );
   }
@@ -396,7 +395,7 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPr
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.white} />
+        <Loading3FillIcon size={48} color={Colors.white} />
       </View>
     );
   }
@@ -1387,7 +1386,7 @@ const ExploreScreen: React.FC = () => {
           if (item.type === 'loading') {
             return (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.white} />
+                <Loading3FillIcon size={48} color={Colors.white} />
               </View>
             );
           }

@@ -6,7 +6,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,7 +15,7 @@ import { Colors } from '../../ui/UI';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { useRouter } from 'expo-router';
 import { Avatar } from '../../ui/UI';
-import Icon from '../../ui/Icon';
+import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
@@ -217,7 +216,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         </View>
 
         {isLoading ? (
-          <ActivityIndicator size="small" color={Colors.lightGray} style={styles.loadingIndicator} />
+          <Loading3FillIcon size={24} color={Colors.lightGray} style={styles.loadingIndicator} />
         ) : verification ? (
           isTrustedVerifier ? renderTrustedVerifierContent() : renderVerifiedAccountContent()
         ) : (

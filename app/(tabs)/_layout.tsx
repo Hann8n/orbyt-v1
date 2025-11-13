@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Tabs, router } from 'expo-router';
-import { View, TouchableOpacity, ActivityIndicator, Platform, Alert } from 'react-native';
+import { View, TouchableOpacity, Platform, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { Colors } from '../../src/components/ui/UI';
+import { Loading3FillIcon } from '../../src/components/ui/Icon';
 import Icon, { HomeIcon, ExploreIcon, NotificationIcon, ProfileIcon } from '../../src/components/ui/Icon';
 import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
@@ -156,7 +158,7 @@ export default function TabsLayout() {
               justifyContent: 'center',
               borderRadius: captureOuter / 2,
             }}>
-              <ActivityIndicator size="small" color={Colors.white} />
+              <Loading3FillIcon size={24} color={Colors.white} />
             </View>
           )}
         </TouchableOpacity>
@@ -196,66 +198,95 @@ export default function TabsLayout() {
     );
   };
 
+  const bottomNavBarHeight = getBottomNavBarHeight(insets);
+
   return (
-    <Tabs
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarHideOnKeyboard: true,
-        tabBarShowLabel: false,
-        tabBarStyle: {
-          backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent',
-          height: getBottomNavBarHeight(insets),
-          paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 4) : 4,
-          paddingTop: isSmallDevice ? 2 : 6,
-          shadowOpacity: 0,
-          borderTopWidth: 0,
-          elevation: 0,
-          position: 'absolute',
-        },
-        tabBarActiveTintColor: '#fff',
-        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
-        tabBarIcon: ({ color }) => {
-          switch (route.name) {
-            case 'index':
-              return <HomeIcon size={tabIconSize} color={color as string} />;
-            case 'explore':
-              return <ExploreIcon size={tabIconSize} color={color as string} style={{ transform: [{ scaleX: -1 }] }} />;
-            case 'activity':
-              return (
-                <View style={{ position: 'relative' }}>
-                  <NotificationIcon size={tabIconSizeSm} color={color as string} />
-                  <NotificationIndicator 
-                    hasUnread={hasUnread} 
-                    size="small" 
-                    position="top-right" 
-                  />
-                </View>
-              );
-            case 'profile':
-              return <ProfileIcon size={tabIconSize} color={color as string} />;
-            default:
-              return <Icon name="home" size={tabIconSizeSm} color={color as string} />;
+    <View style={styles.container}>
+      <Tabs
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarHideOnKeyboard: true,
+          tabBarShowLabel: false,
+          tabBarStyle: {
+            backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent',
+            height: bottomNavBarHeight,
+            paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 4) : 4,
+            paddingTop: isSmallDevice ? 2 : 6,
+            shadowOpacity: 0,
+            borderTopWidth: 0,
+            elevation: 0,
+            position: 'absolute',
+            zIndex: 10,
+          },
+          tabBarActiveTintColor: '#fff',
+          tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
+          tabBarIcon: ({ color }) => {
+            switch (route.name) {
+              case 'index':
+                return <HomeIcon size={tabIconSize} color={color as string} />;
+              case 'explore':
+                return <ExploreIcon size={tabIconSize} color={color as string} style={{ transform: [{ scaleX: -1 }] }} />;
+              case 'activity':
+                return (
+                  <View style={{ position: 'relative' }}>
+                    <NotificationIcon size={tabIconSizeSm} color={color as string} />
+                    <NotificationIndicator 
+                      hasUnread={hasUnread} 
+                      size="small" 
+                      position="top-right" 
+                    />
+                  </View>
+                );
+              case 'profile':
+                return <ProfileIcon size={tabIconSize} color={color as string} />;
+              default:
+                return <Icon name="home" size={tabIconSizeSm} color={color as string} />;
+            }
+          },
+        })}
+      >
+        <Tabs.Screen name="index" options={{ title: 'Home' }} />
+        <Tabs.Screen name="explore" options={{ title: 'Explore' }} />
+        <Tabs.Screen
+          name="create"
+          options={{
+            title: 'Create',
+            tabBarButton: (props) => <CaptureTabButton {...props} />,
+          }}
+        />
+        <Tabs.Screen name="activity" options={{ title: 'Activity' }} />
+        <Tabs.Screen 
+          name="profile" 
+          options={{ 
+            title: 'Profile',
+            tabBarButton: (props) => <ProfileTabButton {...props} />,
+          }} 
+        />
+      </Tabs>
+      <LinearGradient
+        colors={['transparent', 'rgba(0, 0, 0, 0.4)', Colors.black]}
+        locations={[0, 0.6, 1]}
+        style={[
+          styles.gradient,
+          {
+            bottom: 0,
+            height: bottomNavBarHeight + 15,
           }
-        },
-      })}
-    >
-      <Tabs.Screen name="index" options={{ title: 'Home' }} />
-      <Tabs.Screen name="explore" options={{ title: 'Explore' }} />
-      <Tabs.Screen
-        name="create"
-        options={{
-          title: 'Create',
-          tabBarButton: (props) => <CaptureTabButton {...props} />,
-        }}
+        ]}
+        pointerEvents="none"
       />
-      <Tabs.Screen name="activity" options={{ title: 'Activity' }} />
-      <Tabs.Screen 
-        name="profile" 
-        options={{ 
-          title: 'Profile',
-          tabBarButton: (props) => <ProfileTabButton {...props} />,
-        }} 
-      />
-    </Tabs>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  gradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 1,
+  },
+});

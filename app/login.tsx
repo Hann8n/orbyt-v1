@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   Text,
   StyleSheet,
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -16,7 +15,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { BackArrowIcon, PlusIcon, AtLineIcon } from '../src/components/ui/Icon';
+import Icon, { BackArrowIcon, PlusIcon, AtLineIcon, Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import { 
   AnimatedStarsBackground, 
@@ -344,9 +343,9 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
             <View style={styles.glassOverlay}>
               {isLoading ? (
                 <View style={styles.buttonContent}>
-                  <ActivityIndicator 
+                  <Loading3FillIcon 
+                    size={24} 
                     color={Colors.black} 
-                    size="small" 
                     style={{ marginRight: 8 }} 
                   />
                   <Text style={styles.blueskyButtonText}>

@@ -19,7 +19,6 @@ import {
   TouchableWithoutFeedback,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Platform,
   Animated,
 } from 'react-native';
@@ -28,6 +27,7 @@ import { BlurView } from 'expo-blur';
 import { Image } from 'react-native';
 import Video from 'react-native-video';
 import { Colors } from '../../ui/UI';
+import { Loading3FillIcon } from '../../ui/Icon';
 import { extractVideoUrl } from '../../../utils/helpers/video';
 import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
@@ -493,7 +493,7 @@ error('Repost action failed:', error);
                 useTextureView={false}
                 renderLoader={() => (
                   <View style={styles.loadingOverlay}>
-                    <ActivityIndicator size="large" color="white" />
+                    <Loading3FillIcon size={48} color="white" />
                   </View>
                 )}
               />
@@ -502,7 +502,7 @@ error('Repost action failed:', error);
             {/* Loading indicator only shown when needed */}
             {!shouldLoadVideo && !isBlurred && !videoUrl && (
               <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color="white" />
+                <Loading3FillIcon size={48} color="white" />
                 <Text style={styles.loadingText}>No video URL found</Text>
               </View>
             )}

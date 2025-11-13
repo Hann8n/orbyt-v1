@@ -1,12 +1,12 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Alert } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
 import HeaderSkeleton from './HeaderSkeleton';
 import { useChannelColors } from '../../../services/cache/ChannelCache';
-import Icon, { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon } from '../../ui/Icon';
+import Icon, { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon, Loading3FillIcon } from '../../ui/Icon';
 import { hexToRGBA, darkenColor } from '../../../utils/formatting/colorUtils';
 import { Colors } from '../../ui/UI';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
@@ -184,7 +184,7 @@ const SubscribeButton: React.FC<{
             />
           )}
           {isSubscribing ? (
-            <ActivityIndicator size="small" color={isSubscribed ? backgroundColor : '#FFFFFF'} />
+            <Loading3FillIcon size={24} color={isSubscribed ? backgroundColor : '#FFFFFF'} />
           ) : (
             <>
               <Text style={[styles.subscribeButtonText, { color: isSubscribed ? backgroundColor : '#FFFFFF' }]}>

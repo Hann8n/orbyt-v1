@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   Dimensions,
 } from 'react-native';
@@ -17,6 +16,7 @@ import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar, Icon } from '../../ui/UI';
+import { Loading3FillIcon } from '../../ui/Icon';
 import { VerificationBadge } from '../badging';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
@@ -325,7 +325,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
   // Render loading item
   const renderLoadingItem = useCallback(() => (
     <View style={styles.loadingItem}>
-      <ActivityIndicator size="small" color={textColor} />
+      <Loading3FillIcon size={24} color={textColor} />
       <Text style={[styles.loadingText, { color: textColor }]}>
         Loading more members...
       </Text>

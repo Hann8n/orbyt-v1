@@ -8,7 +8,6 @@ import {
   Image,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +18,7 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
 import ProfileCache, { profileKeys } from '../../../services/cache/ProfileCache';
 import { Avatar, Icon, Colors } from '../../../components/ui/UI';
+import { Loading3FillIcon } from '../../../components/ui/Icon';
 import { VerificationBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
 import { getBottomNavBarHeight } from '../../../utils/helpers';
@@ -38,7 +38,7 @@ const EmptyNotifications = () => (
 
 const NotificationLoading = () => (
   <View style={styles.loadingContainer}>
-    <ActivityIndicator size="large" color={Colors.white} />
+    <Loading3FillIcon size={48} color={Colors.white} />
   </View>
 );
 
@@ -315,7 +315,7 @@ const NotificationsTab: React.FC = () => {
       ) : null}
       ListFooterComponent={isFetchingNextPage ? (
         <View style={styles.loadingMoreContainer}>
-          <ActivityIndicator size="small" color={Colors.white} />
+          <Loading3FillIcon size={24} color={Colors.white} />
         </View>
       ) : null}
     />

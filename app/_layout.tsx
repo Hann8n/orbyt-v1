@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, StatusBar, Appearance, AppState } from 'react-native';
+import { View, StyleSheet, StatusBar, Appearance, AppState } from 'react-native';
 import { Stack, Redirect, usePathname, useSegments } from 'expo-router';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-rean
 
 // Keep local imports where they are; no file moves
 import { Colors } from '../src/components/ui/UI';
+import { Loading3FillIcon } from '../src/components/ui/Icon';
 import { useAppStore } from '../src/stores/appStore';
 import { useAuth, useAccountManagement, useUserStore, useProfilePrecache } from '../src/stores/userStore';
 import { QUERY_CONSTANTS } from '../src/utils/constants';
@@ -218,7 +219,7 @@ export default function RootLayout() {
     return (
       <View style={styles.loadingContainer}>
         <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
-        <ActivityIndicator size="large" color={Colors.white} />
+        <Loading3FillIcon size={48} color={Colors.white} />
       </View>
     );
   }

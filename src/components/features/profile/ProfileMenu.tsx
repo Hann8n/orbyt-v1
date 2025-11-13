@@ -11,7 +11,6 @@ import {
   Share,
   Platform,
   Alert,
-  ActivityIndicator,
   Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';

@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -12,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Colors } from './UI';
 import { Avatar, Icon } from './UI';
+import { Loading3FillIcon } from './Icon';
 import ListHeader from './ListHeader';
 import { VerificationBadge } from '../features/badging';
 import { useFollowMutation } from '../../services/cache/ProfileCache';
@@ -169,7 +169,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
 
   const renderLoading = useCallback(() => (
     <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color={Colors.lightGray} />
+      <Loading3FillIcon size={48} color={Colors.lightGray} />
       <Text style={styles.loadingText}>Loading {title.toLowerCase()}...</Text>
     </View>
   ), [title]);

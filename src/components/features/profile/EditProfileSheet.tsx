@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  ActivityIndicator,
   ScrollView,
   Modal,
   Dimensions,
@@ -18,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Button, Host } from '@expo/ui/swift-ui';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Colors } from '../../ui/UI';
+import { Loading3FillIcon } from '../../ui/Icon';
 import { useProfileUpdateMutation } from '../../../services/cache/ProfileCache';
 
 export interface ProfileColorOption {
@@ -508,7 +508,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                   isInteractive
                 >
                   {profileUpdateMutation.isPending ? (
-                    <ActivityIndicator size="small" color={currentColors.backgroundColor} />
+                    <Loading3FillIcon size={24} color={currentColors.backgroundColor} />
                   ) : (
                     <Text style={[styles.saveButtonText, { color: currentColors.backgroundColor }]}>Save</Text>
                   )}
@@ -516,7 +516,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               ) : (
                 <View style={styles.saveButton}>
                   {profileUpdateMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.black} />
+                    <Loading3FillIcon size={24} color={Colors.black} />
                   ) : (
                     <Text style={styles.saveButtonText}>Save</Text>
                   )}

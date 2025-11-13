@@ -5,10 +5,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   TextInput,
 } from 'react-native';
-import Icon from './Icon';
+import Icon, { Loading3FillIcon } from './Icon';
 import { Colors } from './UI';
 import VerticalListSheet from './VerticalListSheet';
 import { PDSDiscoveryService } from '../../services/PDSDiscoveryService';
@@ -145,7 +144,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
         >
           {isAddingAccount || isValidatingPds ? (
             <View style={styles.buttonContent}>
-              <ActivityIndicator color={Colors.white} size="small" style={{ marginRight: 8 }} />
+              <Loading3FillIcon size={24} color={Colors.white} style={{ marginRight: 8 }} />
               <Text style={styles.loginButtonText}>
                 {isValidatingPds ? 'Connecting...' : 'Signing in...'}
               </Text>
