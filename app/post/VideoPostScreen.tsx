@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
   Platform,
   Dimensions,
   ScrollView,
@@ -28,7 +27,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import VideoPreviewModal from '../../src/components/features/video/Preview/VideoPreviewModal';
 import { Avatar } from '../../src/components/ui/UI';
 import { VerificationBadge } from '../../src/components/features/badging';
-import Icon, { BackArrowIcon, DownloadIcon, ChevronDownIcon, ChevronUpIcon } from '../../src/components/ui/Icon';
+import Icon, { BackArrowIcon, DownloadIcon, ChevronDownIcon, ChevronUpIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 
@@ -678,7 +677,7 @@ const VideoPostScreen: React.FC = () => {
                     <View style={styles.buttonContent}>
                       {isPosting ? (
                         <View style={styles.loadingContainer}>
-                          <ActivityIndicator size="small" color={Colors.black} />
+                          <Loading3FillIcon size={24} color={Colors.black} />
                           <Text style={styles.postButtonText}>
                             {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
                              uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
@@ -700,7 +699,7 @@ const VideoPostScreen: React.FC = () => {
                     <View style={styles.buttonContent}>
                       {isPosting ? (
                         <View style={styles.loadingContainer}>
-                          <ActivityIndicator size="small" color={Colors.black} />
+                          <Loading3FillIcon size={24} color={Colors.black} />
                           <Text style={styles.postButtonText}>
                             {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
                              uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
@@ -722,7 +721,7 @@ const VideoPostScreen: React.FC = () => {
               <TouchableOpacity onPress={handleEditVideo} activeOpacity={0.8} style={[styles.videoContainer, { width: '100%', aspectRatio: ASPECT_RATIO, maxHeight: '90%' }]}> 
                 {videoLoading && (
                   <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: Colors.darkGray }]}> 
-                    <ActivityIndicator size="large" color={Colors.white} />
+                    <Loading3FillIcon size={48} color={Colors.white} />
                   </View>
                 )}
                 <View style={{ width: '100%', aspectRatio: ASPECT_RATIO, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
@@ -846,7 +845,7 @@ const VideoPostScreen: React.FC = () => {
               {/* Show loading indicator while video is loading */}
               {videoLoading && (
                 <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: Colors.darkGray }]}> 
-                  <ActivityIndicator size="large" color={Colors.white} />
+                  <Loading3FillIcon size={48} color={Colors.white} />
                 </View>
               )}
               <View style={{ width: containerWidth, height: containerHeight, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
@@ -1077,7 +1076,7 @@ const VideoPostScreen: React.FC = () => {
               <View style={styles.buttonContent}>
                 {isPosting ? (
                   <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color={Colors.black} />
+                    <Loading3FillIcon size={24} color={Colors.black} />
                     <Text style={styles.postButtonText}>
                       {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
                        uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
@@ -1099,7 +1098,7 @@ const VideoPostScreen: React.FC = () => {
               <View style={styles.buttonContent}>
                 {isPosting ? (
                   <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color={Colors.black} />
+                    <Loading3FillIcon size={24} color={Colors.black} />
                     <Text style={styles.postButtonText}>
                       {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
                        uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Tabs, router } from 'expo-router';
-import { View, TouchableOpacity, ActivityIndicator, Platform, Alert, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Platform, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { Colors } from '../../src/components/ui/UI';
+import { Loading3FillIcon } from '../../src/components/ui/Icon';
 import Icon, { HomeIcon, ExploreIcon, NotificationIcon, ProfileIcon } from '../../src/components/ui/Icon';
 import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
@@ -157,7 +158,7 @@ export default function TabsLayout() {
               justifyContent: 'center',
               borderRadius: captureOuter / 2,
             }}>
-              <ActivityIndicator size="small" color={Colors.white} />
+              <Loading3FillIcon size={24} color={Colors.white} />
             </View>
           )}
         </TouchableOpacity>

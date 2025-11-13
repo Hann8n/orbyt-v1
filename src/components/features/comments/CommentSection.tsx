@@ -23,12 +23,11 @@ import Animated, {
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../../../services/api/AtprotoService';
-import { ActivityIndicator } from 'react-native';
 import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { createQueryKeys } from '../../../services/FeedService';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
-import Icon, { HeartFillIcon, MoreFillIcon, CloseFillIcon } from '../../ui/Icon';
+import Icon, { HeartFillIcon, MoreFillIcon, CloseFillIcon, Loading3FillIcon } from '../../ui/Icon';
 import ProfileCache, { useProfile } from '../../../services/cache/ProfileCache';
 import { VerificationBadge } from '../badging';
 import RelativeDate from '../../ui/RelativeDate';
@@ -620,7 +619,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             renderItem={() => null}
             ListEmptyComponent={() => (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={Colors.lightGray} />
+                <Loading3FillIcon size={24} color={Colors.lightGray} />
               </View>
             )}
             keyExtractor={() => 'empty'}
@@ -669,7 +668,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             renderItem={() => null}
             ListEmptyComponent={() => (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={Colors.lightGray} />
+                <Loading3FillIcon size={24} color={Colors.lightGray} />
               </View>
             )}
             keyExtractor={() => 'empty'}

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
-import { View, Text, FlatList, ActivityIndicator, Alert, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, Alert, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { BackArrowIcon } from '../../src/components/ui/Icon';
+import Icon, { BackArrowIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { Colors, Avatar } from '../../src/components/ui/UI';
 import { ModerationService } from '../../src/services/ModerationService';
@@ -123,7 +123,7 @@ const HiddenPostsScreen: React.FC = () => {
           activeOpacity={0.7}
         >
           {isUnhiding ? (
-            <ActivityIndicator size="small" color={Colors.white} />
+            <Loading3FillIcon size={24} color={Colors.white} />
           ) : (
             <>
               <Icon name="eye" size={16} color={Colors.white} />
@@ -147,7 +147,7 @@ const HiddenPostsScreen: React.FC = () => {
           style={{ marginHorizontal: -5 }}
         />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.white} />
+          <Loading3FillIcon size={48} color={Colors.white} />
           <Text style={styles.loadingText}>Loading hidden posts...</Text>
         </View>
       </View>

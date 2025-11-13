@@ -8,7 +8,6 @@ import {
   Pressable,
   Dimensions,
   Image,
-  ActivityIndicator,
   Alert,
   Platform,
   StatusBar,
@@ -28,7 +27,7 @@ import Animated, {
   interpolate,
   Extrapolate
 } from 'react-native-reanimated';
-import Icon, { BackArrowIcon } from '../../src/components/ui/Icon';
+import Icon, { BackArrowIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
 import BottomToolBar from '../../src/components/ui/BottomToolBar';
 import { isSmallScreen } from '../../src/utils/helpers';
 import VideoProcessingService, { VideoSegment as ProcessingVideoSegment } from '../../src/services/VideoProcessingService';
@@ -484,7 +483,7 @@ const CreateScreen: React.FC = () => {
             >
               <Animated.View style={[styles.recordButton, animatedRecordingStyle]}>
                 {isProcessing ? (
-                  <ActivityIndicator color="white" size="small" />
+                  <Loading3FillIcon size={24} color="white" />
                 ) : (
                   <Image 
                     source={require('../../src/assets/CaptureButton_Normal.png')} 

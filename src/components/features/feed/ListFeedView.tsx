@@ -6,7 +6,6 @@ import {
   Dimensions,
   StyleSheet,
   Platform,
-  ActivityIndicator,
   NativeSyntheticEvent,
   NativeScrollEvent,
   ScaledSize,
@@ -21,6 +20,7 @@ import GridFeedView from './GridFeedView';
 import { isSmallScreen, isTablet, getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/helpers';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import { Colors } from '../../ui/UI';
+import { Loading3FillIcon } from '../../ui/Icon';
 import { preloadVideoData } from '../../../utils/helpers/video';
 import { 
   APP_CONSTANTS, 
@@ -547,7 +547,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         ListEmptyComponent={
           isLoading ? (
             <View style={[styles.centeredLoadingContainer, { backgroundColor: backgroundColor || Colors.black }]}>
-              <ActivityIndicator size="large" color={secondaryColor || Colors.white} />
+              <Loading3FillIcon size={48} color={secondaryColor || Colors.white} />
             </View>
           ) : effectiveIsError ? (
             <EmptyFeed 

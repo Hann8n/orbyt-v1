@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, Alert, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, Alert, StyleSheet, TouchableOpacity } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { Colors } from '../../ui/UI';
+import { Loading3FillIcon } from '../../ui/Icon';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import ChatService from '../../../services/ChatService';
 
@@ -181,7 +182,7 @@ export default function ChatActionsSheet({
                 {action.title}
               </Text>
               {isActionLoading && (
-                <ActivityIndicator size="small" color={Colors.darkGray} style={styles.loadingIndicator} />
+                <Loading3FillIcon size={24} color={Colors.darkGray} style={styles.loadingIndicator} />
               )}
             </View>
           </TouchableOpacity>

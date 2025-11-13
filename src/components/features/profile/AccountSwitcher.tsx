@@ -6,13 +6,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ActivityIndicator,
   Platform,
   TextInput,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from '../../ui/Icon';
+import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import { SavedAccount } from '../../../stores/userStore';
 import { analyzeOAuthError } from '../../../utils/oauthErrorHandler';
 import ProfileCache, { useProfile, CachedProfile } from '../../../services/cache/ProfileCache';
@@ -348,7 +347,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             >
               <View style={styles.buttonContent}>
                 {isAuthenticating ? (
-                  <ActivityIndicator color={Colors.white} size="small" style={{ marginRight: 8 }} />
+                  <Loading3FillIcon size={24} color={Colors.white} style={{ marginRight: 8 }} />
                 ) : (
                   <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
                 )}
@@ -390,7 +389,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     if (isSwitching) {
       return (
         <View style={[styles.accountButton, styles.loadingContainer]}>
-          <ActivityIndicator color={Colors.white} size="small" />
+          <Loading3FillIcon size={24} color={Colors.white} />
           <Text style={styles.loadingText}>
             Switching to <Text 
               style={styles.loadingAccountName}
@@ -456,7 +455,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.lightGray} />
+            <Loading3FillIcon size={48} color={Colors.lightGray} />
           </View>
         ) : (
           <FlashList

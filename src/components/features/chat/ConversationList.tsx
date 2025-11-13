@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -12,7 +12,7 @@ import { Conversation } from '../../../services/ChatService';
 import ChatService from '../../../services/ChatService';
 import AuthorItem from '../../ui/AuthorItem';
 import RelativeDate from '../../ui/RelativeDate';
-import Icon from '../../ui/Icon';
+import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import { AtProtoOAuthService } from '../../../services/auth/OAuthService';
 
 interface ConversationListProps {
@@ -172,7 +172,7 @@ error('Error getting user session:', error);
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.blue} />
+          <Loading3FillIcon size={48} color={Colors.white} />
           <Text style={styles.loadingText}>Loading conversations...</Text>
         </View>
       </View>

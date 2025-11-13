@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Alert, Text, ActivityIndicator, TouchableOpacity, TextInput, Image } from 'react-native';
+import { View, StyleSheet, Alert, Text, TouchableOpacity, TextInput, Image } from 'react-native';
 import { GiftedChat, IMessage, Send, InputToolbar, Composer } from 'react-native-gifted-chat';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -8,7 +8,7 @@ import { Animated as RNAnimated } from 'react-native';
 
 import { Colors } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import Icon, { BackArrowIcon } from '../../ui/Icon';
+import Icon, { BackArrowIcon, Loading3FillIcon } from '../../ui/Icon';
 import { Message, Conversation, ReactionView } from '../../../services/ChatService';
 
 // Extend IMessage to include reactions
@@ -415,7 +415,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         {sendMessageMutation.isPending ? (
-          <ActivityIndicator size="small" color={Colors.black} />
+          <Loading3FillIcon size={24} color={Colors.black} />
         ) : (
           <Icon 
             name="send-plane-fill" 
@@ -679,7 +679,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   if (isLoading || isLoadingConversation || isLoadingOtherUser || !isUserReady) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.blue} />
+        <Loading3FillIcon size={48} color={Colors.white} />
         <Text style={styles.loadingText}>Loading conversation...</Text>
       </View>
     );
@@ -882,7 +882,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Firma-Medium',
     color: Colors.lightGray,
-    marginTop: 16,
+    marginTop: 20,
+    textAlign: 'center',
   },
   errorContainer: {
     flex: 1,

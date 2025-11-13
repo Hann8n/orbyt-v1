@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
-  ActivityIndicator,
   TouchableWithoutFeedback,
 
   ScrollView,
@@ -19,7 +18,7 @@ import {
 import { Modal as RNModal } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Icon from './Icon';
+import Icon, { Loading3FillIcon } from './Icon';
 import { hexToRGBA, isColorDark, getContrastRatio } from '../../utils/formatting/colorUtils';
 import Typography, { TypographyText } from '../../utils/helpers/typography';
 import { BORDER_RADIUS } from '../../utils/constants';
@@ -259,8 +258,8 @@ export const Button: React.FC<ButtonProps> = ({
       activeOpacity={0.7}
     >
       {loading ? (
-        <ActivityIndicator 
-          size="small" 
+        <Loading3FillIcon 
+          size={24} 
           color={variant === 'outline' ? Colors.lightGray : Colors.white} 
         />
       ) : (
@@ -576,9 +575,10 @@ export const Loading: React.FC<LoadingProps> = ({
   text,
   style,
 }) => {
+  const iconSize = size === 'small' ? 24 : 48;
   return (
     <View style={[styles.loadingContainer, style]}>
-      <ActivityIndicator size={size} color={color} />
+      <Loading3FillIcon size={iconSize} color={color} />
       {text && (
         <Text style={styles.loadingText}>{text}</Text>
       )}

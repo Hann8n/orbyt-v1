@@ -2,12 +2,12 @@ declare let window: any;
 
 import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text, Image, TextInput, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Image, TextInput, Platform } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { BackArrowIcon, MoreFillIcon } from '../../ui/Icon';
+import Icon, { BackArrowIcon, MoreFillIcon, Loading3FillIcon } from '../../ui/Icon';
 import { useRouter } from 'expo-router';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import { Avatar } from '../../ui/UI';
@@ -148,8 +148,8 @@ const ActionButton = memo<{
   }, [size, action.label]);
 
   const content = action.loading ? (
-    <ActivityIndicator 
-      size="small" 
+    <Loading3FillIcon 
+      size={24} 
       color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
     />
   ) : action.label ? (
