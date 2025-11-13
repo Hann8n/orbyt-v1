@@ -8,6 +8,7 @@ import ListHeader from '../../src/components/ui/ListHeader';
 import { Colors, Avatar } from '../../src/components/ui/UI';
 import { ModerationService } from '../../src/services/ModerationService';
 import AtprotoService from '../../src/services/api/AtprotoService';
+import { useUserStoreState } from '../../src/stores/userStore';
 
 interface HiddenPost {
   id: string;
@@ -24,6 +25,7 @@ interface HiddenPost {
 
 const HiddenPostsScreen: React.FC = () => {
   const navigation = useRouter();
+  const { agent } = useUserStoreState();
   const [hiddenPosts, setHiddenPosts] = useState<HiddenPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [unhidingPosts, setUnhidingPosts] = useState<Set<string>>(new Set());
@@ -36,7 +38,7 @@ const HiddenPostsScreen: React.FC = () => {
   const loadHiddenPosts = async () => {
     try {
       setLoading(true);
-      const settings = await ModerationService.getModerationSettings();
+      const settings = await ModerationService.getModerationSettings(agent);
       const hiddenPostUris = settings.hiddenPosts || [];
       
       // Convert URIs to HiddenPost objects with mock data
@@ -66,12 +68,12 @@ const HiddenPostsScreen: React.FC = () => {
       setUnhidingPosts(prev => new Set(prev).add(postId));
       
       // Get current settings and remove the post
-      const settings = await ModerationService.getModerationSettings();
+      const settings = await ModerationService.getModerationSettings(agent);
       const postToUnhide = hiddenPosts.find(p => p.id === postId);
       if (postToUnhide) {
         const updatedPosts = settings.hiddenPosts.filter((uri: string) => uri !== postToUnhide.uri);
         const updatedSettings = { ...settings, hiddenPosts: updatedPosts };
-        await ModerationService.saveModerationSettings(updatedSettings);
+        await ModerationService.saveModerationSettings(updatedSettings, agent);
         setHiddenPosts(prev => prev.filter(post => post.id !== postId));
       }
     } catch (error) {

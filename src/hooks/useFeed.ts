@@ -74,9 +74,6 @@ export function useFeed(
   // Use direct selector to prevent re-renders when other user data changes
   const currentUser = useUserStore(state => state.currentUser);
 
-  // Get subscribed channels for your mix feed - use direct selector
-  const subscribedChannels = useUserStore(state => state.subscribedChannels);
-
   // Invalidate feed queries when user changes
   useEffect(() => {
     if (currentUser?.did) {
@@ -84,11 +81,6 @@ export function useFeed(
       queryClient.invalidateQueries({ queryKey: ['feed'] });
     }
   }, [currentUser?.did, queryClient]);
-
-  // Update feed service with subscribed channels
-  useEffect(() => {
-    feedService.setSubscribedChannels(subscribedChannels);
-  }, [subscribedChannels]);
 
   // Use current user's DID for user-specific feeds, fallback to passed userDid for profile feeds
   const effectiveUserDid = (feedOption === 'yourMix' || feedOption === 'following') 

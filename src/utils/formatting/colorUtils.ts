@@ -32,6 +32,36 @@ export const isColorDark = (hex: string): boolean => {
 };
 
 /**
+ * Darkens a color by a specified amount (0-1)
+ * @param hex Hex color string
+ * @param amount Amount to darken (0 = no change, 1 = black)
+ * @returns Darkened hex color string
+ */
+export const darkenColor = (hex: string, amount: number = 0.4): string => {
+  const color = hex.replace('#', '');
+  let r = parseInt(color.substring(0, 2), 16);
+  let g = parseInt(color.substring(2, 4), 16);
+  let b = parseInt(color.substring(4, 6), 16);
+  
+  // Darken by reducing RGB values
+  r = Math.max(0, Math.floor(r * (1 - amount)));
+  g = Math.max(0, Math.floor(g * (1 - amount)));
+  b = Math.max(0, Math.floor(b * (1 - amount)));
+  
+  // Ensure minimum darkness - if still too bright, darken more
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  if (brightness > 100) {
+    // If brightness is still above 100, darken further
+    const additionalDarken = (brightness - 100) / brightness;
+    r = Math.max(0, Math.floor(r * (1 - additionalDarken)));
+    g = Math.max(0, Math.floor(g * (1 - additionalDarken)));
+    b = Math.max(0, Math.floor(b * (1 - additionalDarken)));
+  }
+  
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+};
+
+/**
  * Calculates contrast ratio between two colors according to WCAG
  * @returns Contrast ratio (1-21)
  */

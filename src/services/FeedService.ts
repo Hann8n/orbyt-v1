@@ -8,6 +8,8 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import type { ModerationDecision } from './ModerationTypes';
 import { ModerationService } from './ModerationService';
+import { logger } from '../utils/logger';
+import { useUserStore } from '../stores/userStore';
 
 // Import AtprotoService with error handling for circular dependency issues
 let AtprotoService: any = null;
@@ -293,11 +295,6 @@ const createQueryKeys = {
 
 // Core feed fetching logic
 class FeedService {
-  private subscribedChannels: any[] = [];
-
-  setSubscribedChannels(channels: any[]) {
-    this.subscribedChannels = channels;
-  }
 
   private getFeedLink(feedOption: FeedOption): string | null {
     if (feedOption.startsWith('at://')) {
@@ -306,7 +303,7 @@ class FeedService {
     
     switch (feedOption) {
       case 'yourMix':
-        return null; // Handle specially with mixed feed logic
+        return 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids';
       case 'profile':
         return null; // Handle specially with user-specific logic
       case 'likes':
@@ -353,6 +350,13 @@ class FeedService {
         return { feed: [], cursor: null };
       } else if (feedOption === 'reposts' && !userDid) {
         return { feed: [], cursor: null };
+      } else if (feedOption === 'yourMix') {
+        // Your Mix simply serves the thevids feed directly
+        const feedLink = this.getFeedLink(feedOption);
+        if (!feedLink) {
+          return { feed: [], cursor: null };
+        }
+        response = await AtprotoService.getFeed(cursor, feedLink, {}, true, limit, 'custom');
       } else if (feedOption === 'following') {
         const feedLink = this.getFeedLink(feedOption);
         if (!feedLink) {
@@ -361,43 +365,6 @@ class FeedService {
         response = await AtprotoService.getFeed(cursor, feedLink, {}, false, limit, 'custom');
       } else if (feedOption === 'profile' || feedOption === 'likes' || feedOption === 'reposts') {
         return { feed: [], cursor: null };
-      } else if (feedOption === 'yourMix') {
-        // Get subscribed channels from userStore
-        let subscribedChannels: any[] = [];
-        try {
-          // Try to get subscribed channels from the current state
-          subscribedChannels = this.subscribedChannels || [];
-        } catch (error) {
-        }
-        
-        const feedUris = subscribedChannels
-          .filter((channel: any) => channel.uri !== 'following')
-          .map((channel: any) => {
-            if (channel.uri === 'yourMix') {
-              return 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids';
-            }
-            return channel.uri;
-          })
-          .filter(uri => uri && uri.startsWith('at://'));
-        
-        if (feedUris.length > 0) {
-          response = await AtprotoService.getMixedFeed(feedUris, cursor, limit, true, FEED_CONFIG.maxFeedsPerFetch);
-        } else {
-          
-          const fallbackFeeds = [
-            'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids',
-            'at://did:plc:tenurhgjptubkk5zf5qhi3og/app.bsky.feed.generator/discover-video'
-          ];
-          
-          response = await AtprotoService.getMixedFeed(fallbackFeeds, cursor, limit, true, 2);
-          
-          if (response.feed) {
-            response.feed = response.feed.map(item => ({
-              ...item,
-              sourceFeed: 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids'
-            }));
-          }
-        }
       } else if (feedOption.startsWith('search:')) {
         const searchQuery = feedOption.substring(7);
         if (!searchQuery || searchQuery.trim() === '') {
@@ -486,12 +453,36 @@ class FeedService {
       }
 
       // Apply moderation to the fetched posts
-      if (response && response.feed) {
+      if (response && response.feed && response.feed.length > 0) {
         try {
-          const moderatedFeed = await ModerationService.batchModeratePosts(response.feed, 'contentList');
-          response.feed = moderatedFeed.filteredPosts;
+          // Get agent from userStore to pass to moderation
+          const agent = useUserStore.getState().agent;
+          
+          if (!agent) {
+            logger.warn('No agent available for moderation, applying basic label-based filtering', { component: 'FeedService' });
+            // Fail-safe: filter out posts with sensitive labels when no agent
+            response.feed = ModerationService.filterSensitiveByLabels(response.feed);
+          } else {
+            const moderatedFeed = await ModerationService.batchModeratePosts(response.feed, 'contentList', agent);
+            response.feed = moderatedFeed.filteredPosts;
+            
+            logger.debug('Moderation applied to feed', {
+              component: 'FeedService',
+              total: moderatedFeed.stats.total,
+              filtered: moderatedFeed.stats.filtered,
+              blurred: moderatedFeed.stats.blurred,
+              allowed: moderatedFeed.stats.allowed
+            });
+          }
         } catch (error) {
-          // Continue with unfiltered posts if moderation fails
+          // Fail-safe: if moderation fails, apply basic label-based filtering
+          logger.error('Error applying moderation to feed, applying basic label filtering', error, { 
+            component: 'FeedService',
+            feedLength: response.feed?.length || 0
+          });
+          
+          // Basic fail-safe: filter out posts with sensitive labels
+          response.feed = ModerationService.filterSensitiveByLabels(response.feed || []);
         }
       }
 
@@ -523,6 +514,7 @@ class FeedService {
       ...queryOptions
     });
   }
+
 
   // State management methods
   setCurrentFeed = feedStateManager.setCurrentFeed.bind(feedStateManager);

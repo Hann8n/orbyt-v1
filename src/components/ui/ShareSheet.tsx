@@ -93,9 +93,8 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   });
 
   // Handle dismiss from TrueSheet - fires when sheet is dismissed by any means
-  // This is the native callback from TrueSheet, so it fires immediately when dismissed
   const handleDismiss = useCallback(() => {
-    // Immediately pop overlay to restore video playback - this happens synchronously
+    // Pop overlay to restore video playback
     const popOverlay = useVisibilityCoreStore.getState().popOverlay;
     popOverlay();
     // Clear the data state - skip dismiss since we're already in onDismiss callback
@@ -105,7 +104,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   // Programmatic dismiss function for buttons
   const dismissSheet = useCallback(() => {
     TrueSheet.dismiss('share-sheet');
-    // onDismiss will handle the overlay clearing
+    // onDismiss (handleDismiss) will handle the overlay clearing
   }, []);
 
 
@@ -500,7 +499,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       name="share-sheet"
       sizes={snapPoints}
       backgroundColor={Colors.black}
-      onDismiss={dismissSheet}
+      onDismiss={handleDismiss}
       grabber={false}
       FooterComponent={
         <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 

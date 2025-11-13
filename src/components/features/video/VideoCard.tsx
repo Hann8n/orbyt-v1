@@ -286,6 +286,27 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       getDuration
     }));
 
+    // Track previous shouldDisablePlayback to detect when overlay blocking is removed
+    const prevShouldDisablePlaybackRef = useRef(shouldDisablePlayback);
+    
+    // Auto-resume when playback is re-enabled (e.g., overlay is removed)
+    // This ensures videos resume automatically when overlay blocking is removed
+    useEffect(() => {
+      const wasBlocked = prevShouldDisablePlaybackRef.current;
+      const isNowUnblocked = !shouldDisablePlayback && wasBlocked;
+      
+      // When overlay blocking is removed and video should be visible, ensure it can resume
+      if (isNowUnblocked && isVisible && !videoState.hasError) {
+        // Clear userPaused to allow video to resume
+        // This handles the case where overlay blocked playback and is now removed
+        if (videoState.userPaused) {
+          setVideoState(prev => ({ ...prev, userPaused: false }));
+        }
+      }
+      
+      prevShouldDisablePlaybackRef.current = shouldDisablePlayback;
+    }, [shouldDisablePlayback, isVisible, videoState.hasError, videoState.userPaused, setVideoState]);
+
     // Simplified focus effect - pause on blur, resume on focus if needed
     useFocusEffect(
       useCallback(() => {

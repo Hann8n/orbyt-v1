@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AtprotoService from '../api/AtprotoService';
-import { extractColorsFromImage, isColorDark } from '../../utils/formatting/colorUtils';
+import { extractColorsFromImage, isColorDark, darkenColor } from '../../utils/formatting/colorUtils';
 import ImageColors from 'react-native-image-colors';
 import { 
   useQuery, 
@@ -206,8 +206,10 @@ class ChannelCache {
               try {
                 // Use the improved extractColorsFromImage function for better color extraction
                 const extractedColors = await extractColorsFromImage(avatarUrl);
+                // Darken the background color to ensure it's always darker
+                const darkenedBackground = darkenColor(extractedColors.backgroundColor, 0.5);
                 channelColors = {
-                  backgroundColor: extractedColors.backgroundColor,
+                  backgroundColor: darkenedBackground,
                   foregroundColor: '#FFFFFF', // Always use white text for channels
                   accentColor: extractedColors.accentColor || '#000000', // Accent to black
                   statusBarStyle: 'light' as const

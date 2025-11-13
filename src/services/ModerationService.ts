@@ -1,14 +1,9 @@
 import { ModerationSettings, ModerationDecision, ModerationOpts as BlueskyModerationOpts } from './ModerationTypes';
-import { 
-  ModerationPrefs, 
-  InterpretedLabelValueDefinition,
-  ModerationUI,
-  ModerationCause
-} from '@atproto/api';
+import { logger } from '../utils/logger';
 
 /**
- * Simplified Moderation Service that works with the actual post structure
- * This version doesn't rely on the Bluesky Moderation API to avoid the 'did' errors
+ * Moderation Service for Bluesky content filtering
+ * Uses user preferences from API to filter and blur content appropriately
  */
 export class ModerationService {
   private static currentSettings: ModerationSettings | null = null;
@@ -19,7 +14,7 @@ export class ModerationService {
    * Get cached moderation settings (synchronous version for immediate UI access)
    */
   static getCachedModerationSettings(): ModerationSettings {
-    return this.currentSettings ?? this.createDefaultSettings();
+    return this.currentSettings ?? this.createSafeDefaultSettings();
   }
 
   /**
@@ -33,7 +28,6 @@ export class ModerationService {
    * Moderate a profile (simplified implementation)
    */
   static async moderateProfile(profile: any, context: 'profileList' | 'profileView' | 'avatar' | 'banner' = 'profileList'): Promise<ModerationDecision> {
-    // For now, return default decision for profiles
     return { filter: false, blur: false, informs: [] };
   }
 
@@ -41,28 +35,49 @@ export class ModerationService {
    * Moderate a notification (simplified implementation)
    */
   static async moderateNotification(notification: any): Promise<ModerationDecision> {
-    // For now, return default decision for notifications
     return { filter: false, blur: false, informs: [] };
   }
 
   /**
-   * Get moderation settings from user store
+   * Get moderation settings from API or cache
+   * Fails safe: returns strict defaults if API fails
    */
   static async getModerationSettings(agent?: any): Promise<ModerationSettings> {
+    // Return cached settings if available
     if (this.currentSettings) {
       return this.currentSettings;
     }
 
+    // If no agent, return safe defaults (fail-safe)
+    if (!agent) {
+      logger.warn('No agent provided for moderation settings, using safe defaults', { component: 'ModerationService' });
+      return this.createSafeDefaultSettings();
+    }
+
     try {
-      // In future, use provided agent to fetch real preferences
-      if (!agent) {
-        return this.createDefaultSettings();
+      // Fetch preferences from API
+      const response = await agent.api.app.bsky.actor.getPreferences();
+      const preferences = response.data?.preferences || [];
+      
+      if (!Array.isArray(preferences)) {
+        logger.warn('Invalid preferences format from API', { component: 'ModerationService' });
+        return this.createSafeDefaultSettings();
       }
 
-      // For now, return default settings to avoid API issues
-      return this.createDefaultSettings();
+      const settings = this.convertPreferencesToSettings(preferences);
+      this.currentSettings = settings;
+      
+      logger.debug('Moderation settings loaded from API', { 
+        component: 'ModerationService',
+        adultContentEnabled: settings.adultContentEnabled,
+        labelCount: Object.keys(settings.labels).length
+      });
+      
+      return settings;
     } catch (error) {
-      return this.createDefaultSettings();
+      // Fail-safe: return strict defaults if API call fails
+      logger.error('Failed to fetch moderation settings from API, using safe defaults', error, { component: 'ModerationService' });
+      return this.createSafeDefaultSettings();
     }
   }
 
@@ -71,43 +86,35 @@ export class ModerationService {
    */
   static async saveModerationSettings(settings: ModerationSettings, agent?: any): Promise<void> {
     try {
-      const currentAgent = agent;
-      if (!currentAgent) {
-        return;
+      if (!agent) {
+        throw new Error('No agent provided. Cannot save moderation settings.');
       }
 
-      // Convert our settings to Bluesky format
-      const preferences = [
-        {
-          $type: 'app.bsky.actor.defs#adultContentPref',
-          enabled: settings.adultContentEnabled
-        },
-        {
-          $type: 'app.bsky.actor.defs#contentLabelPref',
-          label: 'nsfw',
-          visibility: settings.labels.nsfw || 'hide'
-        },
-        {
-          $type: 'app.bsky.actor.defs#contentLabelPref',
-          label: 'suggestive',
-          visibility: settings.labels.suggestive || 'warn'
-        },
-        {
-          $type: 'app.bsky.actor.defs#contentLabelPref',
-          label: 'nudity',
-          visibility: settings.labels.nudity || 'warn'
-        },
-        {
-          $type: 'app.bsky.actor.defs#contentLabelPref',
-          label: 'gore',
-          visibility: settings.labels.gore || 'warn'
-        }
-      ];
+      // Fetch existing preferences first to preserve all preference types
+      let existingPreferences: any[] = [];
+      try {
+        const response = await agent.api.app.bsky.actor.getPreferences();
+        existingPreferences = response.data?.preferences || [];
+      } catch (error) {
+        logger.warn('Could not fetch existing preferences before saving', { error, component: 'ModerationService' });
+      }
 
-      await currentAgent.api.app.bsky.actor.putPreferences({ preferences });
+      // Convert settings to preferences format, merging with existing preferences
+      const preferences = this.convertSettingsToPreferences(settings, existingPreferences);
+
+      // Save all preferences to the API
+      await agent.api.app.bsky.actor.putPreferences({ preferences });
+      
+      // Update cached settings after successful save
       this.currentSettings = settings;
-      this.currentModerationOpts = null; // Clear cache
+      this.currentModerationOpts = null;
+      
+      // Clear moderation decisions cache so posts are re-evaluated with new settings
+      this.clearModerationCache();
+      
+      logger.debug('Moderation settings saved successfully', { component: 'ModerationService' });
     } catch (error) {
+      logger.error('Failed to save moderation settings', error, { component: 'ModerationService' });
       throw error;
     }
   }
@@ -117,97 +124,146 @@ export class ModerationService {
    */
   static async syncModerationSettings(agent?: any): Promise<void> {
     try {
-      const currentAgent = agent;
-      if (!currentAgent) {
+      if (!agent) {
+        logger.warn('No agent provided for sync, skipping', { component: 'ModerationService' });
         return;
       }
 
-      const response = await currentAgent.api.app.bsky.actor.getPreferences();
-      const settings = this.convertPreferencesToSettings(response.data.preferences || []);
+      const response = await agent.api.app.bsky.actor.getPreferences();
+      const preferences = response.data?.preferences || [];
+      const settings = this.convertPreferencesToSettings(preferences);
       this.currentSettings = settings;
+      
+      // Clear cache when settings are synced
+      this.clearModerationCache();
+      
+      logger.debug('Moderation settings synced from API', { component: 'ModerationService' });
     } catch (error) {
+      logger.error('Failed to sync moderation settings', error, { component: 'ModerationService' });
       throw error;
     }
   }
 
   /**
-   * Simple moderation check based on content keywords
-   * This is a basic implementation that doesn't rely on the Bluesky API
+   * Moderate a single post based on labels and user preferences
+   * Fail-safe: defaults to hiding sensitive content if moderation fails
    */
-  static async moderatePost(post: any, context: 'contentList' | 'contentView' | 'avatar' | 'banner' = 'contentList'): Promise<ModerationDecision> {
+  static async moderatePost(
+    post: any, 
+    context: 'contentList' | 'contentView' | 'avatar' | 'banner' = 'contentList', 
+    agent?: any
+  ): Promise<ModerationDecision> {
     if (!post || !post.post) {
       return { filter: false, blur: false, informs: [] };
     }
 
     const uri = post.post.uri;
+    if (!uri) {
+      return { filter: false, blur: false, informs: [] };
+    }
+
+    // Check cache first
     if (this.moderationCache.has(uri)) {
       return this.moderationCache.get(uri)!;
     }
 
+    // Fail-safe decision: if moderation fails, hide sensitive content
+    const failSafeDecision: ModerationDecision = {
+      filter: true,
+      blur: false,
+      informs: [],
+      reason: 'Content Warning'
+    };
+
     try {
-      const settings = await this.getModerationSettings();
+      // Get settings - will return safe defaults if API fails
+      const settings = await this.getModerationSettings(agent);
+      
+      // Get labels from post
+      const labels = post.post.labels || post.labels || [];
+      const text = post.post.text?.toLowerCase() || '';
+
       const decision: ModerationDecision = {
         filter: false,
         blur: false,
-        informs: []
+        informs: [],
+        reason: undefined
       };
 
-      // Simple keyword-based moderation
-      const text = post.post.text?.toLowerCase() || '';
-      const labels = post.post.labels || [];
+      const reasons: string[] = [];
 
-      // Check for NSFW content
-      if (this.containsNSFWContent(text, labels)) {
-        if (settings.labels.nsfw === 'hide') {
-          decision.filter = true;
-        } else if (settings.labels.nsfw === 'warn') {
-          decision.blur = true;
+      // Check each content type and apply user preferences
+      const contentChecks = [
+        { 
+          detected: this.detectContentType('nsfw', text, labels),
+          preference: settings.labels.nsfw,
+          reason: 'NSFW Content'
+        },
+        {
+          detected: this.detectContentType('suggestive', text, labels),
+          preference: settings.labels.suggestive,
+          reason: 'Suggestive Content'
+        },
+        {
+          detected: this.detectContentType('nudity', text, labels),
+          preference: settings.labels.nudity,
+          reason: 'Nudity'
+        },
+        {
+          detected: this.detectContentType('gore', text, labels),
+          preference: settings.labels.gore,
+          reason: 'Graphic Media'
         }
-        decision.informs.push('nsfw');
+      ];
+
+      for (const check of contentChecks) {
+        if (check.detected) {
+          if (check.preference === 'hide') {
+            decision.filter = true;
+            if (!reasons.includes(check.reason)) {
+              reasons.push(check.reason);
+            }
+          } else if (check.preference === 'warn') {
+            decision.blur = true;
+            if (!reasons.includes(check.reason)) {
+              reasons.push(check.reason);
+            }
+          }
+          // Track content type for informs
+          decision.informs.push(check.detected);
+        }
       }
 
-      // Check for suggestive content
-      if (this.containsSuggestiveContent(text, labels)) {
-        if (settings.labels.suggestive === 'hide') {
-          decision.filter = true;
-        } else if (settings.labels.suggestive === 'warn') {
-          decision.blur = true;
-        }
-        decision.informs.push('suggestive');
-      }
-
-      // Check for nudity
-      if (this.containsNudityContent(text, labels)) {
-        if (settings.labels.nudity === 'hide') {
-          decision.filter = true;
-        } else if (settings.labels.nudity === 'warn') {
-          decision.blur = true;
-        }
-        decision.informs.push('nudity');
-      }
-
-      // Check for gore
-      if (this.containsGoreContent(text, labels)) {
-        if (settings.labels.gore === 'hide') {
-          decision.filter = true;
-        } else if (settings.labels.gore === 'warn') {
-          decision.blur = true;
-        }
-        decision.informs.push('gore');
+      // Set reason field for UI display
+      if (reasons.length > 0) {
+        decision.reason = reasons.join(', ');
       }
 
       // Cache the decision
       this.moderationCache.set(uri, decision);
       return decision;
     } catch (error) {
-      return { filter: false, blur: false, informs: [] };
+      // Fail-safe: if moderation fails, hide content by default
+      logger.error('Error moderating post, using fail-safe decision', error, { 
+        component: 'ModerationService',
+        uri: uri.substring(0, 50)
+      });
+      
+      // Cache fail-safe decision to avoid repeated errors
+      this.moderationCache.set(uri, failSafeDecision);
+      return failSafeDecision;
     }
   }
 
   /**
-   * Batch moderate multiple posts
+   * Batch moderate multiple posts efficiently
+   * Fail-safe: filters out posts if moderation fails
    */
-  static async batchModeratePosts(posts: any[], context: 'contentList' | 'contentView' | 'avatar' | 'banner' = 'contentList'): Promise<{
+  static async batchModeratePosts(
+    posts: any[], 
+    context: 'contentList' | 'contentView' | 'avatar' | 'banner' = 'contentList', 
+    agent?: any
+  ): Promise<{
     filteredPosts: any[];
     moderationDecisions: Map<string, ModerationDecision>;
     stats: {
@@ -225,22 +281,31 @@ export class ModerationService {
       };
     }
 
+    // Pre-fetch settings once for all posts (more efficient)
+    let settings: ModerationSettings;
+    try {
+      settings = await this.getModerationSettings(agent);
+    } catch (error) {
+      logger.error('Failed to load moderation settings for batch moderation, using safe defaults', error, { component: 'ModerationService' });
+      settings = this.createSafeDefaultSettings();
+    }
+
     const moderationDecisions = new Map<string, ModerationDecision>();
     const filteredPosts: any[] = [];
     let filteredCount = 0;
     let blurredCount = 0;
     let allowedCount = 0;
 
-    // Process posts sequentially to avoid overwhelming the system
+    // Process posts - can be parallelized if needed, but sequential is safer for now
     for (const post of posts) {
       try {
-        const decision = await this.moderatePost(post, context);
+        const decision = await this.moderatePost(post, context, agent);
         const postUri = post?.post?.uri;
         
         if (postUri) {
           moderationDecisions.set(postUri, decision);
           
-          // Attach the moderation decision to the post for UI components to use
+          // Attach the moderation decision to the post
           if (post.post) {
             post.post.moderationDecision = decision;
           }
@@ -249,8 +314,10 @@ export class ModerationService {
           }
         }
         
+        // Apply filtering based on decision
         if (decision.filter) {
           filteredCount++;
+          // Don't include filtered posts in feed
         } else if (decision.blur) {
           blurredCount++;
           filteredPosts.push(post);
@@ -259,9 +326,14 @@ export class ModerationService {
           filteredPosts.push(post);
         }
       } catch (error) {
-        // Include the post even if moderation fails
-        filteredPosts.push(post);
-        allowedCount++;
+        // Fail-safe: if moderation fails for a post, filter it out (don't show)
+        logger.warn('Error moderating post in batch, filtering out', { 
+          error, 
+          component: 'ModerationService',
+          uri: post?.post?.uri?.substring(0, 50)
+        });
+        filteredCount++;
+        // Don't include the post in filteredPosts (fail-safe)
       }
     }
 
@@ -277,44 +349,80 @@ export class ModerationService {
     };
   }
 
-  // Helper methods for content detection
-  private static containsNSFWContent(text: string, labels: any[]): boolean {
-    const nsfwKeywords = ['nsfw', 'porn', 'sex', 'adult', 'explicit'];
-    const hasNSFWLabel = labels.some(label => 
-      label.val === 'nsfw' || label.val === 'porn' || label.val === 'sexual'
-    );
-    const hasNSFWKeyword = nsfwKeywords.some(keyword => text.includes(keyword));
-    return hasNSFWLabel || hasNSFWKeyword;
+  /**
+   * Basic fail-safe filtering: filter out posts with sensitive labels
+   * Used when moderation service is unavailable
+   */
+  static filterSensitiveByLabels(posts: any[]): any[] {
+    if (!posts || posts.length === 0) {
+      return [];
+    }
+
+    const sensitiveLabels = ['nsfw', 'porn', 'sexual', 'suggestive', 'nudity', 'gore', 'graphic-media'];
+    
+    return posts.filter((post: any) => {
+      const labels = post?.post?.labels || post?.labels || [];
+      const hasSensitiveLabel = labels.some((label: any) => {
+        const val = label?.val || label?.value || label;
+        if (typeof val !== 'string') return false;
+        const lowerVal = val.toLowerCase();
+        return sensitiveLabels.some(sensitive => lowerVal.includes(sensitive));
+      });
+      return !hasSensitiveLabel;
+    });
   }
 
-  private static containsSuggestiveContent(text: string, labels: any[]): boolean {
-    const suggestiveKeywords = ['suggestive', 'provocative', 'sexy', 'hot'];
-    const hasSuggestiveLabel = labels.some(label => 
-      label.val === 'suggestive' || label.val === 'sexual'
-    );
-    const hasSuggestiveKeyword = suggestiveKeywords.some(keyword => text.includes(keyword));
-    return hasSuggestiveLabel || hasSuggestiveKeyword;
+  /**
+   * Unified content detection method
+   * Detects content type based on labels and text
+   */
+  private static detectContentType(type: 'nsfw' | 'suggestive' | 'nudity' | 'gore', text: string, labels: any[]): string | null {
+    if (!labels || !Array.isArray(labels)) {
+      labels = [];
+    }
+
+    const typeConfig = {
+      nsfw: {
+        labelValues: ['nsfw', 'porn', 'sexual'],
+        keywords: ['nsfw', 'porn', 'sex', 'adult', 'explicit']
+      },
+      suggestive: {
+        labelValues: ['suggestive', 'sexual'],
+        keywords: ['suggestive', 'provocative', 'sexy', 'hot']
+      },
+      nudity: {
+        labelValues: ['nudity', 'artistic-nudity'],
+        keywords: ['nude', 'nudity', 'naked', 'artistic']
+      },
+      gore: {
+        labelValues: ['gore', 'graphic-media'],
+        keywords: ['gore', 'blood', 'violence', 'graphic']
+      }
+    };
+
+    const config = typeConfig[type];
+    
+    // Check labels
+    const hasLabel = labels.some(label => {
+      const labelVal = label?.val || label?.value || label;
+      if (typeof labelVal !== 'string') return false;
+      
+      const lowerVal = labelVal.toLowerCase();
+      return config.labelValues.some(val => 
+        lowerVal === val || lowerVal.includes(val)
+      );
+    });
+
+    // Check keywords in text
+    const hasKeyword = config.keywords.some(keyword => text.includes(keyword));
+
+    return (hasLabel || hasKeyword) ? type : null;
   }
 
-  private static containsNudityContent(text: string, labels: any[]): boolean {
-    const nudityKeywords = ['nude', 'nudity', 'naked', 'artistic'];
-    const hasNudityLabel = labels.some(label => 
-      label.val === 'nudity' || label.val === 'artistic-nudity'
-    );
-    const hasNudityKeyword = nudityKeywords.some(keyword => text.includes(keyword));
-    return hasNudityLabel || hasNudityKeyword;
-  }
-
-  private static containsGoreContent(text: string, labels: any[]): boolean {
-    const goreKeywords = ['gore', 'blood', 'violence', 'graphic'];
-    const hasGoreLabel = labels.some(label => 
-      label.val === 'gore' || label.val === 'graphic-media'
-    );
-    const hasGoreKeyword = goreKeywords.some(keyword => text.includes(keyword));
-    return hasGoreLabel || hasGoreKeyword;
-  }
-
-  private static createDefaultSettings(): ModerationSettings {
+  /**
+   * Create safe default settings (fail-safe: hide sensitive content by default)
+   */
+  private static createSafeDefaultSettings(): ModerationSettings {
     return {
       hideSensitiveContent: true,
       hideAdultContent: true,
@@ -326,28 +434,131 @@ export class ModerationService {
       showContentWarnings: true,
       autoExpandContentWarnings: false,
       adultContentEnabled: false,
+      // Fail-safe: hide sensitive content by default
       labels: {
         nsfw: 'hide',
-        suggestive: 'warn',
-        nudity: 'warn',
-        gore: 'warn',
+        suggestive: 'hide',
+        nudity: 'hide',
+        gore: 'hide',
       },
       labelers: [],
       hiddenPosts: [],
     };
   }
 
-  private static convertPreferencesToSettings(preferences: any): ModerationSettings {
-    const settings = this.createDefaultSettings();
+  /**
+   * Convert API preferences to ModerationSettings
+   */
+  private static convertPreferencesToSettings(preferences: any[]): ModerationSettings {
+    const settings = this.createSafeDefaultSettings();
+    
+    if (!preferences || !Array.isArray(preferences)) {
+      return settings;
+    }
     
     for (const pref of preferences) {
-      if (pref.$type === 'app.bsky.actor.defs#adultContentPref') {
-        settings.adultContentEnabled = pref.enabled;
-      } else if (pref.$type === 'app.bsky.actor.defs#contentLabelPref') {
-        settings.labels[pref.label] = pref.visibility;
+      if (!pref || !pref.$type) {
+        continue;
+      }
+      
+      switch (pref.$type) {
+        case 'app.bsky.actor.defs#adultContentPref':
+          if (typeof pref.enabled === 'boolean') {
+            settings.adultContentEnabled = pref.enabled;
+          }
+          break;
+          
+        case 'app.bsky.actor.defs#contentLabelPref':
+          if (pref.label && typeof pref.visibility === 'string') {
+            const validVisibility = ['hide', 'warn', 'ignore'].includes(pref.visibility) 
+              ? pref.visibility as 'hide' | 'warn' | 'ignore'
+              : 'hide'; // Fail-safe: default to hide
+            settings.labels[pref.label] = validVisibility;
+          }
+          break;
+          
+        case 'app.bsky.actor.defs#hiddenPostsPref':
+          if (pref.items && Array.isArray(pref.items)) {
+            settings.hiddenPosts = pref.items
+              .map((item: any) => item.uri || '')
+              .filter(Boolean);
+          }
+          break;
+          
+        case 'app.bsky.actor.defs#labelersPref':
+          if (pref.labelers && Array.isArray(pref.labelers)) {
+            settings.labelers = pref.labelers
+              .map((labeler: any) => ({
+                did: labeler.did || '',
+                labels: labeler.labels || {}
+              }))
+              .filter((l: any) => l.did);
+          }
+          break;
+          
+        // Other preference types are preserved but not parsed
+        default:
+          break;
       }
     }
     
     return settings;
   }
-} 
+
+  /**
+   * Convert ModerationSettings to Bluesky preferences format
+   * Merges with existing preferences to preserve all preference types
+   */
+  private static convertSettingsToPreferences(
+    settings: ModerationSettings,
+    existingPreferences: any[]
+  ): any[] {
+    const managedLabels = new Set(['nsfw', 'suggestive', 'nudity', 'gore']);
+    const preservedPreferences: any[] = [];
+    
+    // Preserve non-managed preferences
+    for (const pref of existingPreferences || []) {
+      if (!pref || !pref.$type) {
+        continue;
+      }
+      
+      if (pref.$type === 'app.bsky.actor.defs#adultContentPref') {
+        // We'll replace this one
+        continue;
+      } else if (pref.$type === 'app.bsky.actor.defs#contentLabelPref') {
+        // Only preserve content label prefs we don't manage
+        if (pref.label && !managedLabels.has(pref.label)) {
+          preservedPreferences.push(pref);
+        }
+      } else {
+        // Preserve all other preference types
+        preservedPreferences.push(pref);
+      }
+    }
+    
+    // Build preferences array
+    const preferences: any[] = [];
+    
+    // Add adult content preference
+    preferences.push({
+      $type: 'app.bsky.actor.defs#adultContentPref',
+      enabled: settings.adultContentEnabled || false
+    });
+    
+    // Add content label preferences for labels we manage
+    const labelKeys = ['nsfw', 'suggestive', 'nudity', 'gore'];
+    for (const labelKey of labelKeys) {
+      const visibility = settings.labels[labelKey] || 'hide';
+      preferences.push({
+        $type: 'app.bsky.actor.defs#contentLabelPref',
+        label: labelKey,
+        visibility: visibility
+      });
+    }
+    
+    // Add all preserved preferences
+    preferences.push(...preservedPreferences);
+    
+    return preferences;
+  }
+}

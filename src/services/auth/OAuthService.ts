@@ -180,6 +180,30 @@ export class AtProtoOAuthService {
 
       return session;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Check if this is an expected session expiration error
+      const isSessionExpired = errorMessage.includes('deleted by another process') ||
+                               errorMessage.includes('TokenRefreshError') ||
+                               errorMessage.includes('Session expired') ||
+                               errorMessage.includes('No session found');
+      
+      if (isSessionExpired) {
+        // Use DEBUG level for expected session expiration
+        logger.debug('Session expired or deleted', { 
+          component: 'OAuthService', 
+          did, 
+          pdsUrl, 
+          forceRefresh,
+          error: errorMessage 
+        });
+        // Throw a specific error that can be handled gracefully
+        const expiredError = new Error('Session expired');
+        (expiredError as any).isSessionExpired = true;
+        throw expiredError;
+      }
+      
+      // Log unexpected errors at ERROR level
       logger.error('Failed to get valid session', error, { component: 'OAuthService', did, pdsUrl, forceRefresh });
       throw error;
     }

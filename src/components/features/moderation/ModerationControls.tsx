@@ -18,7 +18,7 @@ import { ModerationService } from '../../../services/ModerationService';
 import { ModerationSettings, LabelPreference } from '../../../services/ModerationTypes';
 import { useProfile } from '../../../services/cache/ProfileCache';
 import { useChannelColors } from '../../../services/cache/ChannelCache';
-import { useCurrentUser, useAuth } from '../../../stores/userStore';
+import { useCurrentUser, useAuth, useUserStoreState } from '../../../stores/userStore';
 
 interface ModerationControlsProps {
   visible: boolean;
@@ -37,6 +37,7 @@ interface ContentTypeOption {
 const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClose, onLogout }) => {
   const router = useRouter();
   const { signOut } = useAuth();
+  const { agent } = useUserStoreState();
   const logoutFunction = onLogout || signOut;
   const [settings, setSettings] = useState<ModerationSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,7 +106,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const currentSettings = await ModerationService.getModerationSettings();
+      const currentSettings = await ModerationService.getModerationSettings(agent);
       setSettings(currentSettings);
       
       // Update general settings
@@ -154,7 +155,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
           }
         };
         
-        await ModerationService.saveModerationSettings(updatedSettings);
+        await ModerationService.saveModerationSettings(updatedSettings, agent);
         setSettings(updatedSettings);
       }
     } catch (error) {
@@ -182,7 +183,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
           [key]: value
         };
         
-        await ModerationService.saveModerationSettings(updatedSettings);
+        await ModerationService.saveModerationSettings(updatedSettings, agent);
         setSettings(updatedSettings);
       }
     } catch (error) {
