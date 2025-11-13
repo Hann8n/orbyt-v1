@@ -42,6 +42,7 @@ import CommentItem, { Comment, Like } from './CommentItem';
 import { useUserStore } from '../../../stores/userStore';
 import { useGlobalCommentSection, useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { useVisibilityOverlay } from '../../../hooks';
+import { useVisibilityCoreStore } from '../../../core/visibility/visibilityStore';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
 import AuthorItem from '../../ui/AuthorItem';
@@ -338,6 +339,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
 
   const handleClose = useCallback(() => {
+    // Pop overlay to restore video playback
+    const popOverlay = useVisibilityCoreStore.getState().popOverlay;
+    popOverlay();
     setNewCommentText('');
     setActiveTab('comments');
     setLikesQueryEnabled(false);
