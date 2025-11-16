@@ -295,7 +295,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
   // Show loading state when loading
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { flex: 1 }]}>
         <Loading3FillIcon size={48} color={Colors.white} />
       </View>
     );
@@ -388,7 +388,7 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPr
   // Show loading state when loading
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { flex: 1 }]}>
         <Loading3FillIcon size={48} color={Colors.white} />
       </View>
     );

@@ -2075,6 +2075,14 @@
   dependencies:
     tslib "2.8.1"
 
+"@shopify/react-native-skia@^2.3.12":
+  version "2.3.12"
+  resolved "https://registry.yarnpkg.com/@shopify/react-native-skia/-/react-native-skia-2.3.12.tgz#7729365b4799550617f2916e9228cc7afaa58a37"
+  integrity sha512-igThClyyIw6R2FR2Q/D1LqFnH7u148PQf1Dw15qRkAMW/3dk0U6MrsGCj5i6znUYxEQeFjXqUqL+lt0g/rSYdA==
+  dependencies:
+    canvaskit-wasm "0.40.0"
+    react-reconciler "0.31.0"
+
 "@sinclair/typebox@^0.27.8":
   version "0.27.8"
   resolved "https://registry.npmjs.org/@sinclair/typebox/-/typebox-0.27.8.tgz"
@@ -2343,6 +2351,11 @@
   integrity sha512-nSaZZwWQKOgN/nPYUAIRF0/uoa7KpK91A+gjLmZZDgfN1enqxaiihmn+75ayNadW0c6cxAEpEFEHTONR5u9tMw==
   dependencies:
     "@vibrant/types" "^4.0.0"
+
+"@webgpu/types@0.1.21":
+  version "0.1.21"
+  resolved "https://registry.yarnpkg.com/@webgpu/types/-/types-0.1.21.tgz#b181202daec30d66ccd67264de23814cfd176d3a"
+  integrity sha512-pUrWq3V5PiSGFLeLxoGqReTZmiiXwY3jRkIG5sLLKjyqNxrwm/04b4nw7LSmGWJcKk59XOM/YRTUwOzo4MMlow==
 
 "@xmldom/xmldom@^0.8.8":
   version "0.8.11"
@@ -2897,6 +2910,13 @@ caniuse-lite@^1.0.30001746:
   version "1.0.30001749"
   resolved "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001749.tgz"
   integrity sha512-0rw2fJOmLfnzCRbkm8EyHL8SvI2Apu5UbnQuTsJ0ClgrH8hcwFooJ1s5R0EP8o8aVrFu8++ae29Kt9/gZAZp/Q==
+
+canvaskit-wasm@0.40.0:
+  version "0.40.0"
+  resolved "https://registry.yarnpkg.com/canvaskit-wasm/-/canvaskit-wasm-0.40.0.tgz#61a77657259fddfc0025ad1c3f57ac8d4d5850ff"
+  integrity sha512-Od2o+ZmoEw9PBdN/yCGvzfu0WVqlufBPEWNG452wY7E9aT8RBE+ChpZF526doOlg7zumO4iCS+RAeht4P0Gbpw==
+  dependencies:
+    "@webgpu/types" "0.1.21"
 
 chalk-template@0.4.0:
   version "0.4.0"
@@ -3564,6 +3584,18 @@ expo-font@~14.0.8, expo-font@~14.0.9:
   integrity sha512-xCoQbR/36qqB6tew/LQ6GWICpaBmHLhg/Loix5Rku/0ZtNaXMJv08M9o1AcrdiGTn/Xf/BnLu6DgS45cWQEHZg==
   dependencies:
     fontfaceobserver "^2.1.0"
+
+expo-gl-cpp@^11.4.0:
+  version "11.4.0"
+  resolved "https://registry.yarnpkg.com/expo-gl-cpp/-/expo-gl-cpp-11.4.0.tgz#62b4b5c61ef065e94aa790a872aad2eee2ae11ea"
+  integrity sha512-vt9QYKX/4TxMaNnbv9ww5KILwyCmg91gqwA/6xuo4MqWxGkZoxy+b8lqsQthuPdn+FHgF0BNcvFW9nbN+JeSRg==
+
+expo-gl@~16.0.7:
+  version "16.0.7"
+  resolved "https://registry.yarnpkg.com/expo-gl/-/expo-gl-16.0.7.tgz#bfe4dc95b12f229fc8100aa78786c159988cefc5"
+  integrity sha512-x4EIMgeXEzv8FZuS2FmoT+qBgdsvHphwleTwPwj+nWat84Al4N9QqLZawTz0AcFZBQLXawrpIXJ0dc+TJsYqSQ==
+  dependencies:
+    invariant "^2.2.4"
 
 expo-glass-effect@~0.1.6:
   version "0.1.6"
@@ -5915,6 +5947,13 @@ react-native@0.81.5:
     ws "^6.2.3"
     yargs "^17.6.2"
 
+react-reconciler@0.31.0:
+  version "0.31.0"
+  resolved "https://registry.yarnpkg.com/react-reconciler/-/react-reconciler-0.31.0.tgz#6b7390fe8fab59210daf523d7400943973de1458"
+  integrity sha512-7Ob7Z+URmesIsIVRjnLoDGwBEG/tVitidU0nMsqX/eeJaLY89RISO/10ERe0MqmzuKUUB1rmY+h1itMbUHg9BQ==
+  dependencies:
+    scheduler "^0.25.0"
+
 react-refresh@^0.14.0, react-refresh@^0.14.2:
   version "0.14.2"
   resolved "https://registry.npmjs.org/react-refresh/-/react-refresh-0.14.2.tgz"
@@ -6117,6 +6156,11 @@ scheduler@0.26.0, scheduler@^0.26.0:
   version "0.26.0"
   resolved "https://registry.yarnpkg.com/scheduler/-/scheduler-0.26.0.tgz#4ce8a8c2a2095f13ea11bf9a445be50c555d6337"
   integrity sha512-NlHwttCI/l5gCPR3D1nNXtWABUmBwvZpEQiD4IXSbIDq8BzLIK/7Ir5gTFSGZDUu37K5cMNp0hFtzO38sC7gWA==
+
+scheduler@^0.25.0:
+  version "0.25.0"
+  resolved "https://registry.yarnpkg.com/scheduler/-/scheduler-0.25.0.tgz#336cd9768e8cceebf52d3c80e3dcf5de23e7e015"
+  integrity sha512-xFVuu11jh+xcO7JOAGJNOXld8/TcEHK/4CituBUeUb5hqxJLj9YuemAEuvm9gQ/+pgXYfbQuqAkiYu+u7YEsNA==
 
 semver@7.7.2:
   version "7.7.2"

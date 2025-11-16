@@ -36,7 +36,6 @@ const AboutScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
 
   const appVersion = Constants.expoConfig?.version || '1.0.0';
-  const buildNumber = Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode || '1';
 
   // Fetch Orbyt profile data
   const { data: orbytProfile } = useProfile('getorbyt.com');
@@ -97,7 +96,7 @@ const AboutScreen: React.FC = () => {
           </View>
           <Text style={styles.appName}>orbyt</Text>
           <Text style={styles.appTagline}>a new video app for bluesky</Text>
-          <Text style={styles.buildInfo}>v{appVersion} • build {buildNumber}</Text>
+          <Text style={styles.buildInfo}>v{appVersion}</Text>
         </View>
 
         {/* Orbyt Profile Card */}

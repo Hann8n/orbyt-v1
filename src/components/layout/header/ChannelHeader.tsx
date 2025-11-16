@@ -1,13 +1,13 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, TouchableOpacity, Text, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Alert, StatusBar } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
 import HeaderSkeleton from './HeaderSkeleton';
 import { useChannelColors } from '../../../services/cache/ChannelCache';
 import Icon, { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon, Loading3FillIcon } from '../../ui/Icon';
-import { hexToRGBA, darkenColor } from '../../../utils/formatting/colorUtils';
+import { hexToRGBA, darkenColor, getStatusBarStyle } from '../../../utils/formatting/colorUtils';
 import { Colors } from '../../ui/UI';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
  
@@ -360,6 +360,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     />
   ), [safeTextColor, safeBackgroundColor]);
 
+  // Determine status bar style based on background color brightness
+  const statusBarStyle = useMemo(() => {
+    const style = getStatusBarStyle(safeBackgroundColor);
+    return style === 'light' ? 'light-content' : 'dark-content';
+  }, [safeBackgroundColor]);
+
   // Create children with subscribe button and other content
   const headerChildren = useMemo(() => (
     <>
@@ -379,7 +385,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   ), [channel, safeTextColor, safeBackgroundColor, children, channelColors.accentColor, showViewToggle, onViewModeChange, viewMode]);
 
   return (
-    <UniversalHeader
+    <>
+      <StatusBar barStyle={statusBarStyle} backgroundColor={safeBackgroundColor} translucent={true} />
+      <UniversalHeader
       content={headerContent}
       actions={[]} // Hide default actions, use custom layout
       customActions={customActions}
@@ -396,6 +404,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     >
       {headerChildren}
     </UniversalHeader>
+    </>
   );
 };
 
