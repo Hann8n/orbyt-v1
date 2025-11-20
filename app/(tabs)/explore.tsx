@@ -39,7 +39,7 @@ import { feedService } from '../../src/services/FeedService';
 import { getBottomNavBarHeight } from '../../src/utils/helpers';
 import { extractVideoThumbnail } from '../../src/utils/helpers/video';
 import { formatNumber } from '../../src/utils/helpers';
-import { HeaderService, useStaticChannels, useHeaders } from '../../src/services/APIService';
+import { HeaderService, useHeaders } from '../../src/services/APIService';
 import { useFeed } from '../../src/hooks/useFeed';
 import { ModerationService } from '../../src/services/ModerationService';
 import { useUserStore } from '../../src/stores/userStore';
@@ -751,7 +751,6 @@ const VisitHistoryList = ({
 const ExploreScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
-  const [allSuggestions, setAllSuggestions] = useState<any[]>([]);
   const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
   const [cacheUpdateTrigger, setCacheUpdateTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState<'profiles' | 'channels'>('profiles');
@@ -1170,51 +1169,6 @@ const ExploreScreen: React.FC = () => {
 
   const isLoadingResults = isSearchLoading || isSearchError;
 
-  // Fetch suggested accounts when there is no search query
-  const {
-    data: suggestedAccounts,
-    isLoading: isLoadingSuggestions,
-    error: suggestionsError,
-    refetch: refetchSuggestions,
-  } = useQuery({
-    queryKey: ['suggestedAccounts', 5],
-    queryFn: async () => {
-      return await AtprotoService.getSuggestedAccounts(5);
-    },
-    enabled: debouncedQuery.length === 0,
-    staleTime: 60 * 1000, // 1 minute
-    retry: (failureCount, error) => {
-      // Don't retry on rate limiting errors
-      if (error?.message?.includes('Rate Limit Exceeded')) {
-        return false;
-      }
-      return failureCount < 2; // Reduced retry count
-    },
-  });
-
-  // Fetch suggested feeds when there is no search query
-  const {
-    data: channelDids,
-    isLoading: isLoadingChannelDids,
-    error: channelDidsError,
-    refetch: refetchChannelDids,
-  } = useStaticChannels();
-
-  const {
-    data: suggestedFeeds,
-    isLoading: isLoadingSuggestedFeeds,
-    error: suggestedFeedsError,
-    refetch: refetchSuggestedFeeds,
-  } = useQuery({
-    queryKey: ['staticChannels', channelDids],
-    queryFn: async () => {
-      // Get static channels from the web API
-      return await AtprotoService.getStaticChannels(20);
-    },
-    enabled: debouncedQuery.length === 0 && !!channelDids,
-    staleTime: 60 * 1000, // 1 minute
-  });
-
   // Fetch orbyt channel details using ChannelCache
   const orbytChannelUris = getAllChannels().map(ch => ch.uri);
   const {
@@ -1288,24 +1242,6 @@ const ExploreScreen: React.FC = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Limit suggested feeds to 5 for display
-  const limitedSuggestedFeeds = useMemo(() => (suggestedFeeds ? suggestedFeeds.slice(0, 5) : []), [suggestedFeeds]);
-
-  // Update all suggestions when new data comes in
-  useEffect(() => {
-    if (suggestedAccounts && suggestedAccounts.length > 0) {
-      setAllSuggestions(suggestedAccounts);
-    }
-  }, [suggestedAccounts]);
-
-  // Batch prefetch suggested channels when they load
-  useEffect(() => {
-    if (suggestedFeeds && suggestedFeeds.length > 0) {
-      ChannelCache.batchPrefetchFromFeed(suggestedFeeds).catch(error => {
-        logger.warn('Error batch prefetching suggested channels', { error });
-      });
-    }
-  }, [suggestedFeeds]);
 
   // Collapsible header setup (custom for Explore)
   const isHeaderVisible = useMemo(
@@ -1355,10 +1291,10 @@ const ExploreScreen: React.FC = () => {
 
   const suggestionsList: any[] = (() => {
     // Show loading while loading
-    if (isLoadingSuggestions || isLoadingChannelDids || isLoadingSuggestedFeeds || isLoadingSpotlightFeed || isLoadingOrbytChannels) {
+    if (isLoadingSpotlightFeed || isLoadingOrbytChannels) {
       return loadingSuggestedItems as unknown as any[];
     }
-    if (suggestionsError || channelDidsError || suggestedFeedsError || spotlightFeedError || orbytChannelsError) {
+    if (spotlightFeedError || orbytChannelsError) {
       return [];
     }
     const data: ListItem[] = [];
@@ -1381,14 +1317,6 @@ const ExploreScreen: React.FC = () => {
     if (orbytChannelsData && orbytChannelsData.length > 0) {
       data.push({ type: 'section-header' as const, title: 'channels', key: 'orbyt-channels-header' });
       data.push({ type: 'orbyt-channels-section' as const, channels: orbytChannelsData, key: 'orbyt-channels' });
-    }
-    if (limitedSuggestedFeeds && limitedSuggestedFeeds.length > 0) {
-      data.push({ type: 'section-header' as const, title: 'suggested feeds', key: 'feeds-header' });
-      data.push({ type: 'popular-channels-section' as const, channels: limitedSuggestedFeeds, key: 'popular-channels' });
-    }
-    if (allSuggestions && allSuggestions.length > 0) {
-      data.push({ type: 'section-header' as const, title: 'suggested accounts', key: 'accounts-header' });
-      data.push(...allSuggestions.map(item => ({ type: 'profile' as const, data: item, relevance: 0 })));
     }
     return data;
   })();
@@ -1872,14 +1800,12 @@ const ExploreScreen: React.FC = () => {
               </View>
             );
           }
-          if (!isSearchingLocal && !(isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingSpotlightFeed || isLoadingOrbytChannels)) {
-            if (suggestionsError || suggestedFeedsError || spotlightFeedError || orbytChannelsError) {
+          if (!isSearchingLocal && !(isLoadingSpotlightFeed || isLoadingOrbytChannels)) {
+            if (spotlightFeedError || orbytChannelsError) {
               return (
                 <EmptyFeed 
                   type="no-connection" 
                   onRetry={() => {
-                    refetchSuggestions();
-                    refetchSuggestedFeeds();
                     refetchSpotlightFeed();
                     refetchOrbytChannels();
                   }}
@@ -2008,7 +1934,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderWidth: 0,
     borderColor: 'transparent',
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   channelsGridContainer: {
     flexDirection: 'row',
@@ -2024,13 +1950,13 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
     aspectRatio: 1,
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.LARGE,
     overflow: 'hidden',
   },
   gridChannelImage: {
     width: '100%',
     height: '100%',
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   gridChannelNameContainer: {
     paddingTop: 8,
@@ -2044,7 +1970,7 @@ const styles = StyleSheet.create({
   },
   horizontalChannelButton: {
     marginBottom: 10,
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.LARGE,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -2054,7 +1980,7 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.LARGE,
     overflow: 'hidden',
     alignItems: 'flex-end', // Align content to right
     justifyContent: 'flex-start', // Align to top
@@ -2062,7 +1988,7 @@ const styles = StyleSheet.create({
   horizontalChannelImage: {
     width: '100%',
     height: '100%',
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.LARGE,
   },
   horizontalChannelLabelContainer: {
     position: 'absolute',

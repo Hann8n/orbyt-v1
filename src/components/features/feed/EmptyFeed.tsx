@@ -359,8 +359,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   ufoGif: {
-    width: 120,
-    height: 120,
+    width: 80,
+    height: 80,
     resizeMode: 'contain',
   },
   retryButton: {
