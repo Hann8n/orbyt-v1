@@ -439,7 +439,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       applySafeArea={applySafeArea}
       style={{ opacity: 1 }}
       contentStyle={[headerStyle]}
-      minHeight={isOrbyt ? 400 : undefined}
+      minHeight={isOrbyt ? 450 : undefined}
       contentPosition={isOrbyt ? 'bottom' : 'top'}
     >
       {headerChildren}
