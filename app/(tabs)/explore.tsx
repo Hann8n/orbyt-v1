@@ -1785,7 +1785,7 @@ const ExploreScreen: React.FC = () => {
                 {/* Render other channels in 2-column grid */}
                 {otherChannels.map((channel, index) => (
                   <View
-                    key={`orbyt-channel-${channel.uri || channel.cid || index}-${index}`}
+                    key={`orbyt-channel-${channel.uri || channel.cid || index}`}
                     style={{ width: itemWidth, marginRight: index % 2 === 0 ? gap : 0 }}
                   >
                     <GridChannelItem
