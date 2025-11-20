@@ -34,7 +34,6 @@ import { TextOverlay } from '../../src/types';
 import { Colors } from '../../src/components/ui/UI';
 import { VideoInfoDisplay } from '../../src/components/ui';
 import AuthorItem from '../../src/components/ui/AuthorItem';
-import * as Device from 'expo-device';
 import { isTablet } from '../../src/utils/helpers';
 import { useCurrentUser, useAccountManagement } from '../../src/stores/userStore';
 import { useProfile, useProfileColors } from '../../src/services/cache/ProfileCache';
@@ -42,6 +41,7 @@ import ProfileCache from '../../src/services/cache/ProfileCache';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import VideoProcessingService from '../../src/services/VideoProcessingService';
 import { SavedAccount } from '../../src/stores/userStore';
+import { getPostableChannels, shouldShowChannelSlash, OrbytChannel } from '../../src/utils/orbytChannels';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16; // 9:16 aspect ratio for video cards
@@ -104,6 +104,10 @@ const VideoPostScreen: React.FC = () => {
   
   // Comment filtering state
   const [commentFilter, setCommentFilter] = useState('all');
+
+  // Channel selection state
+  const [selectedChannel, setSelectedChannel] = useState<OrbytChannel | null>(null);
+  const [channelSelectionCollapsed, setChannelSelectionCollapsed] = useState(true);
 
   const [contentWarningsCollapsed, setContentWarningsCollapsed] = useState(true);
   const [commentSettingsCollapsed, setCommentSettingsCollapsed] = useState(true);
@@ -253,23 +257,6 @@ const VideoPostScreen: React.FC = () => {
     }
   };
 
-  // Add a helper to get the Orbyt platform label
-  const getOrbytPlatformLabel = async (): Promise<string> => {
-    if (Platform.OS === 'ios') {
-      const deviceType = await Device.getDeviceTypeAsync();
-      if (deviceType === Device.DeviceType.TABLET) {
-        return 'orbyt for iPad';
-      } else {
-        return 'orbyt for iPhone';
-      }
-    } else if (Platform.OS === 'android') {
-      return 'orbyt for Android';
-    } else if (Platform.OS === 'web') {
-      return 'orbyt for Web';
-    }
-    return 'orbyt';
-  };
-
   const handlePost = async () => {
     if (isPosting) return;
     
@@ -314,9 +301,6 @@ const VideoPostScreen: React.FC = () => {
         });
       }, 300);
       
-      // Add Orbyt metadata with platform
-      const platformLabel = await getOrbytPlatformLabel();
-      const orbytMetadata = { orbyt: true, platform: platformLabel };
       // Use compressed video if available, otherwise use original
       const videoPathToUpload = compressedVideoPath || video.path;
       
@@ -326,7 +310,7 @@ const VideoPostScreen: React.FC = () => {
         videoPathToUpload,
         allContentWarnings.length > 0 ? allContentWarnings : undefined,
         commentFilter as 'all' | 'followers' | 'mentioned' | 'none',
-        orbytMetadata
+        selectedChannel?.slug // Pass channel slug for tagging
       );
       
       // Complete the progress
@@ -645,6 +629,68 @@ const VideoPostScreen: React.FC = () => {
                           commentFilter === filter.id && styles.checkboxSelected
                         ]}>
                           {commentFilter === filter.id && (
+                            <Icon name="checkmark" size={16} color={Colors.black} />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+              </View>
+              {/* Channel Selection */}
+              <View style={styles.section}>
+                <TouchableOpacity 
+                  style={styles.sectionHeader}
+                  onPress={() => setChannelSelectionCollapsed(!channelSelectionCollapsed)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.sectionTitle}>channel</Text>
+                  {channelSelectionCollapsed ? (
+                    <ChevronDownIcon size={24} color={Colors.white} />
+                  ) : (
+                    <ChevronUpIcon size={24} color={Colors.white} />
+                  )}
+                </TouchableOpacity>
+                {!channelSelectionCollapsed && (
+                  <>
+                    <Text style={styles.sectionSubtitle}>
+                      post to a specific channel (optional).
+                    </Text>
+                    {/* None option */}
+                    <TouchableOpacity 
+                      style={styles.optionRow}
+                      onPress={() => setSelectedChannel(null)}
+                    >
+                      <Text style={styles.optionText}>none</Text>
+                      <View style={[
+                        styles.commentCheckbox,
+                        selectedChannel === null && styles.checkboxSelected
+                      ]}>
+                        {selectedChannel === null && (
+                          <Icon name="checkmark" size={16} color={Colors.black} />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                    {/* Channel options */}
+                    {getPostableChannels().map(channel => (
+                      <TouchableOpacity 
+                        key={channel.slug} 
+                        style={styles.optionRow}
+                        onPress={() => setSelectedChannel(channel)}
+                      >
+                        <View style={styles.channelInfo}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            {shouldShowChannelSlash(channel.uri) && (
+                              <Text style={[styles.optionText, styles.orbytSlash, { color: channel.channelColor || '#FFD700' }]}>/</Text>
+                            )}
+                            <Text style={styles.optionText}>{channel.displayName.toLowerCase()}</Text>
+                          </View>
+                        </View>
+                        <View style={[
+                          styles.commentCheckbox,
+                          selectedChannel?.slug === channel.slug && styles.checkboxSelected
+                        ]}>
+                          {selectedChannel?.slug === channel.slug && (
                             <Icon name="checkmark" size={16} color={Colors.black} />
                           )}
                         </View>
@@ -1045,6 +1091,68 @@ const VideoPostScreen: React.FC = () => {
               </>
             )}
           </View>
+          {/* Channel Selection */}
+          <View style={styles.section}>
+            <TouchableOpacity 
+              style={styles.sectionHeader}
+              onPress={() => setChannelSelectionCollapsed(!channelSelectionCollapsed)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.sectionTitle}>channel</Text>
+              {channelSelectionCollapsed ? (
+                <ChevronDownIcon size={24} color={Colors.white} />
+              ) : (
+                <ChevronUpIcon size={24} color={Colors.white} />
+              )}
+            </TouchableOpacity>
+            {!channelSelectionCollapsed && (
+              <>
+                <Text style={styles.sectionSubtitle}>
+                  post to a specific channel (optional).
+                </Text>
+                {/* None option */}
+                <TouchableOpacity 
+                  style={styles.optionRow}
+                  onPress={() => setSelectedChannel(null)}
+                >
+                  <Text style={styles.optionText}>none</Text>
+                  <View style={[
+                    styles.commentCheckbox,
+                    selectedChannel === null && styles.checkboxSelected
+                  ]}>
+                    {selectedChannel === null && (
+                      <Icon name="checkmark" size={16} color={Colors.black} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+                {/* Channel options */}
+                {getPostableChannels().map(channel => (
+                  <TouchableOpacity 
+                    key={channel.slug} 
+                    style={styles.optionRow}
+                    onPress={() => setSelectedChannel(channel)}
+                  >
+                    <View style={styles.channelInfo}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {shouldShowChannelSlash(channel.uri) && (
+                          <Text style={[styles.optionText, styles.orbytSlash, { color: channel.channelColor || '#FFD700' }]}>/</Text>
+                        )}
+                        <Text style={styles.optionText}>{channel.displayName.toLowerCase()}</Text>
+                      </View>
+                    </View>
+                    <View style={[
+                      styles.commentCheckbox,
+                      selectedChannel?.slug === channel.slug && styles.checkboxSelected
+                    ]}>
+                      {selectedChannel?.slug === channel.slug && (
+                        <Icon name="checkmark" size={16} color={Colors.black} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+          </View>
           
           {/* Video Information Display */}
           {videoInfo && (
@@ -1323,6 +1431,20 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
+  },
+  orbytSlash: {
+    fontFamily: 'Firma-Black',
+    marginRight: 0,
+  },
+  channelInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  channelDescription: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
+    marginTop: 2,
   },
   checkbox: {
     width: 22,

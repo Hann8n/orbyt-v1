@@ -12,6 +12,7 @@ import {
 } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { Colors } from '../../components/ui/UI';
+import { isOrbytChannel } from '../../utils/orbytChannels';
 
 export interface CachedChannel {
   uri: string;
@@ -30,6 +31,7 @@ export interface CachedChannel {
   subscriberCount?: number;
   indexedAt: string;
   isExperimental?: boolean; // Added for experimental feed indicator
+  isOrbytChannel?: boolean; // True if this is an Orbyt-managed channel (getorbyt.com feed)
   channelColors?: {
     backgroundColor: string;
     foregroundColor: string;
@@ -246,8 +248,9 @@ class ChannelCache {
             //   isExperimental
             // });
 
+            const channelUri = channel.view?.uri || channel.uri;
             const cacheObject: CachedChannel = {
-              uri: channel.view?.uri || channel.uri,
+              uri: channelUri,
               cid: channel.view?.cid || channel.cid,
               did: channel.view?.did || channel.did,
               creator: channel.view?.creator || channel.creator,
@@ -258,6 +261,7 @@ class ChannelCache {
               subscriberCount,
               indexedAt: channel.view?.indexedAt || channel.indexedAt,
               isExperimental, // Add experimental flag
+              isOrbytChannel: isOrbytChannel(channelUri), // Check if this is an Orbyt channel
               channelColors: channelColors ? {
                 backgroundColor: channelColors.backgroundColor,
                 foregroundColor: channelColors.foregroundColor,

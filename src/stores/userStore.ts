@@ -21,6 +21,7 @@ import { analyzeOAuthError } from '../utils/oauthErrorHandler';
 import { logger } from '../utils/logger';
 
 import { ModerationService } from '../services/ModerationService';
+import { isOrbytChannel } from '../utils/orbytChannels';
 
 // Account types
 export interface SavedAccount {
@@ -41,6 +42,7 @@ export interface SubscribedChannel {
   avatar?: string;
   memberCount?: number;
   isDefault?: boolean;
+  isOrbytChannel?: boolean; // True if this is an Orbyt-managed channel (getorbyt.com feed)
   order: number;
   subscribedAt: number;
 }
@@ -640,6 +642,7 @@ export const useUserStore = create<UserState>()(
             updatedChannels[existingIndex] = {
               ...updatedChannels[existingIndex],
               ...channelData,
+              isOrbytChannel: isOrbytChannel(channelData.uri),
               subscribedAt: Date.now(),
             };
             set({ subscribedChannels: updatedChannels });
@@ -648,6 +651,7 @@ export const useUserStore = create<UserState>()(
             const newChannel: SubscribedChannel = {
               ...channelData,
               isDefault: false,
+              isOrbytChannel: isOrbytChannel(channelData.uri),
               order: channels.length,
               subscribedAt: Date.now(),
             };
@@ -848,6 +852,7 @@ export const useUserStore = create<UserState>()(
               newChannels.push({
                 ...currentChannels[existingIndex],
                 ...channelData,
+                isOrbytChannel: isOrbytChannel(channelData.uri),
                 subscribedAt: Date.now(),
               });
             } else {
@@ -855,6 +860,7 @@ export const useUserStore = create<UserState>()(
               newChannels.push({
                 ...channelData,
                 isDefault: false,
+                isOrbytChannel: isOrbytChannel(channelData.uri),
                 order: currentChannels.length + newChannels.length,
                 subscribedAt: Date.now(),
               });

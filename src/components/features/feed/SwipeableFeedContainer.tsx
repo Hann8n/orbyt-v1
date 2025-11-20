@@ -19,6 +19,7 @@ import { Colors } from '../../ui/UI';
 import { Icon, Avatar } from '../../ui/UI';
 import FeedRenderer from './FeedRenderer';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
+import { isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash } from '../../../utils/orbytChannels';
 import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BORDER_RADIUS } from '../../../utils/constants';
@@ -496,7 +497,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
               activeOpacity={0.7}
             >
               <Avatar 
-                uri={channel.avatar} 
+                uri={channel.uri === 'following' ? undefined : getChannelAvatarUri(channel.uri, channel.avatar)} 
                 type="channel" 
                 size={40} 
                 ringColor="transparent" 
@@ -507,7 +508,21 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
                 profileColors={channel.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
               />
               <View style={styles.defaultChannelContent}>
-                <Text style={styles.defaultChannelName}>{channel.displayName}</Text>
+                {channel.isOrbytChannel ? (() => {
+                  const orbytChannel = getChannelByUri(channel.uri);
+                  const channelColor = orbytChannel?.channelColor || '#FFD700';
+                  const showSlash = shouldShowChannelSlash(channel.uri);
+                  return (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      {showSlash && (
+                        <Text style={[styles.defaultChannelName, styles.orbytSlash, { color: channelColor }]}>/</Text>
+                      )}
+                      <Text style={styles.defaultChannelName}>{channel.displayName}</Text>
+                    </View>
+                  );
+                })() : (
+                  <Text style={styles.defaultChannelName}>{channel.displayName}</Text>
+                )}
               </View>
               <View style={styles.defaultChannelActionButtons}>
                 <TouchableOpacity
@@ -734,6 +749,10 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     fontFamily: 'Firma-SemiBold',
     flexShrink: 1,
+  },
+  orbytSlash: {
+    fontFamily: 'Firma-Black',
+    marginRight: 0,
   },
   defaultChannelActionButtons: {
     flexDirection: 'row',
