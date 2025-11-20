@@ -18,7 +18,7 @@ import { FlashList } from '@shopify/flash-list';
 
 import AtprotoService from '../../src/services/api/AtprotoService';
 
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import ProfileCache, { profileKeys, useFollowMutation } from '../../src/services/cache/ProfileCache';
 import ChannelCache, { useChannelColors } from '../../src/services/cache/ChannelCache';
 import type { CachedChannel } from '../../src/services/cache/ChannelCache';
@@ -625,16 +625,22 @@ const SearchFeedRenderer = React.memo(({ feedOption, searchResults, onFollow, fo
 });
 
 // Visit History Component
-const VisitHistoryList = ({ 
+const VisitHistoryList = React.memo(({ 
   visitHistory, 
   onHistoryItemPress, 
   onClearHistory,
-  currentColors 
+  currentColors,
+  onFollow,
+  followedUsers,
+  cacheUpdateTrigger
 }: {
   visitHistory: Array<{ type: 'profile' | 'channel'; data: Profile | Channel }>;
   onHistoryItemPress: (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => void;
   onClearHistory: () => void;
   currentColors: { backgroundColor: string; textColor: string };
+  onFollow: (profile: Profile) => void;
+  followedUsers: Set<string>;
+  cacheUpdateTrigger: number;
 }) => {
   if (visitHistory.length === 0) {
     return (
@@ -653,7 +659,6 @@ const VisitHistoryList = ({
     );
   }
 
-
   return (
     <View style={styles.searchHistoryContainer}>
       <View style={styles.searchHistoryHeader}>
@@ -666,7 +671,7 @@ const VisitHistoryList = ({
           </Text>
         </TouchableOpacity>
       </View>
-      <FlatList
+      <FlashList
         data={visitHistory}
         keyExtractor={(item, index) => {
           if (item.type === 'profile') {
@@ -710,43 +715,50 @@ const VisitHistoryList = ({
                     </View>
                   </View>
                 </TouchableOpacity>
+                {!(ProfileCache.getProfileFromCacheSync(profileData.handle || '')?.isFollowing ?? profileData.isFollowing) && (
+                  <TouchableOpacity
+                    style={styles.followButton}
+                    onPress={() => onFollow(profileData)}
+                    activeOpacity={0.8}
+                  >
+                    <FollowIcon size={16} color={Colors.black} />
+                  </TouchableOpacity>
+                )}
               </View>
             );
           } else if (!isProfile && channelData) {
             return (
-              <View style={styles.channelItem}>
-                <TouchableOpacity
-                  style={{flex: 1, flexDirection: 'row', alignItems: 'center'}}
-                  onPress={() => onHistoryItemPress(item)}
-                  activeOpacity={0.7}
-                >
-                  <Avatar
-                    uri={channelData.avatar}
-                    type="channel"
-                    size={40}
-                    ringColor="transparent"
-                    style={styles.channelImage}
-                  />
-                  <View style={styles.channelContent}>
-                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                      <ChannelNameDisplay channel={channelData} />
-                      {channelData.isExperimental && (
-                        <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
-                      )}
-                    </View>
+              <TouchableOpacity
+                style={styles.channelItem}
+                onPress={() => onHistoryItemPress(item)}
+                activeOpacity={0.7}
+              >
+                <Avatar
+                  uri={getChannelAvatarUri(channelData.uri, channelData.avatar)}
+                  type="channel"
+                  size={40}
+                  ringColor="transparent"
+                  style={styles.channelImage}
+                />
+                <View style={styles.channelContent}>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <ChannelNameDisplay channel={channelData} />
+                    {channelData.isExperimental && (
+                      <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
+                    )}
                   </View>
-                </TouchableOpacity>
-              </View>
+                </View>
+              </TouchableOpacity>
             );
           }
           return null;
         }}
+        contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        style={styles.historyList}
       />
     </View>
   );
-};
+});
 
 const ExploreScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -760,6 +772,18 @@ const ExploreScreen: React.FC = () => {
     data: Profile | Channel;
   }>>([]);
   
+  // Track if we navigated from recently visited to restore on return
+  const navigatedFromHistoryRef = useRef<boolean>(false);
+
+  // Restore search focus only when returning from history item navigation
+  useFocusEffect(
+    useCallback(() => {
+      if (navigatedFromHistoryRef.current && visitHistory.length > 0 && !searchQuery.trim()) {
+        setIsSearchFocused(true);
+        navigatedFromHistoryRef.current = false;
+      }
+    }, [visitHistory.length, searchQuery])
+  );
 
   // Define tab options for search results
   const tabOptions: TabOption[] = useMemo(() => [
@@ -1012,6 +1036,7 @@ const ExploreScreen: React.FC = () => {
     setSearchQuery('');
     setDebouncedQuery('');
     setIsSearchFocused(false);
+    navigatedFromHistoryRef.current = false; // Reset flag when manually clearing
     Keyboard.dismiss();
   };
 
@@ -1070,6 +1095,9 @@ const ExploreScreen: React.FC = () => {
 
   // Handle visit history item selection
   const handleHistoryItemPress = useCallback((item: { type: 'profile' | 'channel'; data: Profile | Channel }) => {
+    // Mark that we're navigating from history so we can restore on return
+    navigatedFromHistoryRef.current = true;
+    
     if (item.type === 'profile') {
       const profile = item.data as Profile;
       if (profile.handle) {
@@ -1083,7 +1111,6 @@ const ExploreScreen: React.FC = () => {
             const target = handle.trim();
             if (target) { 
               navigation.push(`/profile/${target}`); 
-              setIsSearchFocused(false);
             }
           });
         }
@@ -1092,10 +1119,9 @@ const ExploreScreen: React.FC = () => {
       const channel = item.data as Channel;
       if (channel.uri) {
         navigation.push(`/channel/${encodeURIComponent(channel.uri)}`);
-        setIsSearchFocused(false);
       }
     }
-  }, [queryClient, navigation]);
+  }, [queryClient, navigation, isSearchFocused]);
 
   // Load visit history on mount
   useEffect(() => {
@@ -1361,6 +1387,10 @@ const ExploreScreen: React.FC = () => {
           onChangeText={setSearchQuery}
           onFocus={() => setIsSearchFocused(true)}
           onBlur={() => {
+            // Don't hide if we're navigating from history (will restore on return)
+            if (navigatedFromHistoryRef.current) {
+              return;
+            }
             // Keep search focused if there's a query to prevent results from disappearing
             if (!searchQuery.trim()) {
               setIsSearchFocused(false);
@@ -1398,6 +1428,9 @@ const ExploreScreen: React.FC = () => {
                 onHistoryItemPress={handleHistoryItemPress}
                 onClearHistory={clearVisitHistory}
                 currentColors={{ backgroundColor: Colors.black, textColor: Colors.white }}
+                onFollow={handleFollow}
+                followedUsers={followedUsers}
+                cacheUpdateTrigger={cacheUpdateTrigger}
               />
             </View>
           ) : showSearchResults ? (
@@ -1897,7 +1930,7 @@ const styles = StyleSheet.create({
   profileImage: {
     width: 40,
     height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: BORDER_RADIUS.FULL,
     marginRight: 12,
     borderWidth: 0,
     borderColor: 'transparent',
@@ -1934,7 +1967,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderWidth: 0,
     borderColor: 'transparent',
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   channelsGridContainer: {
     flexDirection: 'row',
