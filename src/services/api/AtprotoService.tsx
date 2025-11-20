@@ -1,6 +1,7 @@
 import { AtpAgent } from '@atproto/api';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { ModerationDecision, ModerationSettings, LabelPreference, ModerationOpts, LabelDefinition } from '../ModerationTypes';
 import { AtProtoOAuthService } from '../auth/OAuthService';
 import { StaticChannelsService } from '../APIService';
@@ -801,7 +802,7 @@ class AtprotoService {
     videoPath: string,
     contentWarnings?: string[],
     commentFilter?: 'all' | 'followers' | 'mentioned' | 'none',
-    metadata?: Record<string, any>
+    feedSlug?: string
   ): Promise<any> {
     await this.ensureSession();
     
@@ -827,6 +828,25 @@ class AtprotoService {
       const { parseRichTextWithResolvedMentions } = await import('../../utils/richTextParser');
       const parsedText = await parseRichTextWithResolvedMentions(text);
 
+      // Determine platform tag
+      let platformTag: string;
+      if (Platform.OS === 'ios') {
+        platformTag = 'orbyt-ios';
+      } else if (Platform.OS === 'android') {
+        platformTag = 'orbyt-android';
+      } else if (Platform.OS === 'web') {
+        platformTag = 'orbyt-web';
+      } else {
+        // Fallback for unknown platforms
+        platformTag = 'orbyt-ios';
+      }
+
+      // Build tags array
+      const tags: string[] = [platformTag];
+      if (feedSlug) {
+        tags.push(`orbyt-channel-${feedSlug}`);
+      }
+
       // Create the post with video embed
       const postRecord: any = {
         $type: 'app.bsky.feed.post',
@@ -836,7 +856,8 @@ class AtprotoService {
           $type: 'app.bsky.embed.video',
           video: data.blob,
           aspectRatio
-        }
+        },
+        tags: tags
       };
 
       // Add facets if they exist
@@ -850,11 +871,6 @@ class AtprotoService {
           $type: 'com.atproto.label.defs#selfLabel',
           val: warning
         }));
-      }
-
-      // Add metadata if provided
-      if (metadata) {
-        postRecord.metadata = metadata;
       }
 
       // Create the post

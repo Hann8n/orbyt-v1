@@ -21,6 +21,7 @@ import AtprotoService from '../../src/services/api/AtprotoService';
 import { useRouter } from 'expo-router';
 import ProfileCache, { profileKeys, useFollowMutation } from '../../src/services/cache/ProfileCache';
 import ChannelCache, { useChannelColors } from '../../src/services/cache/ChannelCache';
+import type { CachedChannel } from '../../src/services/cache/ChannelCache';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import Svg, { Path, Rect, G } from 'react-native-svg';
 import { Avatar, Icon } from '../../src/components/ui/UI';
@@ -43,6 +44,7 @@ import { useFeed } from '../../src/hooks/useFeed';
 import { ModerationService } from '../../src/services/ModerationService';
 import { useUserStore } from '../../src/stores/userStore';
 import { Colors as UIColors } from '../../src/components/ui/UI';
+import { getAllChannels, isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash, extractFeedSlug } from '../../src/utils/orbytChannels';
 
 // Custom Warning Icon Component
 const WarningIcon = ({ size = 20, color = Colors.white }: { size?: number; color?: string }) => (
@@ -118,6 +120,12 @@ interface PopularChannelsSection {
   key: string;
 }
 
+interface OrbytChannelsSection {
+  type: 'orbyt-channels-section';
+  channels: Channel[];
+  key: string;
+}
+
 interface HeaderSpacer {
   type: 'header-spacer';
   key: string;
@@ -128,7 +136,7 @@ interface LoadingItem {
   key: string;
 }
 
-type ListItem = SearchResult | SectionHeader | SpotlightVideosSection | PeopleChannelsSection | PopularChannelsSection | HeaderSpacer | LoadingItem;
+type ListItem = SearchResult | SectionHeader | SpotlightVideosSection | PeopleChannelsSection | PopularChannelsSection | OrbytChannelsSection | HeaderSpacer | LoadingItem;
 
 
 
@@ -244,8 +252,36 @@ const HeaderSpacer = ({ isHeaderVisible, isSearching, computedHeaderHeight }: { 
 };
 
 
+// Channel Name Component with Orbyt formatting
+const ChannelNameDisplay: React.FC<{ channel: Channel; style?: any }> = ({ channel, style }) => {
+  const isOrbyt = isOrbytChannel(channel.uri);
+  const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
+  const channelColor = orbytChannel?.channelColor || '#FFD700';
+
+  if (isOrbyt) {
+    const showSlash = shouldShowChannelSlash(channel.uri);
+    return (
+      <View style={[{ flexDirection: 'row', alignItems: 'center' }, style]}>
+        {showSlash && (
+          <Text style={[styles.channelName, styles.orbytSlash, { color: channelColor }]}>/</Text>
+        )}
+        <Text style={styles.channelName} numberOfLines={1}>
+          {channel.displayName || 'Unknown channel'}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <Text style={styles.channelName} numberOfLines={1}>
+      {channel.displayName || 'Unknown channel'}
+    </Text>
+  );
+};
+
 // Popular Channel Item Component using normal list style
 const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: () => void }) => {
+  const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
   return (
     <TouchableOpacity
       style={styles.channelItem}
@@ -253,7 +289,7 @@ const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: (
       activeOpacity={0.7}
     >
       <Avatar
-        uri={channel.avatar}
+        uri={avatarUri}
         type="channel"
         size={40}
         ringColor="transparent"
@@ -261,13 +297,132 @@ const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: (
       />
       <View style={styles.channelContent}>
         <View style={{flexDirection: 'row', alignItems: 'center'}}>
-          <Text style={styles.channelName} numberOfLines={1}>
-            {channel.displayName || 'Unknown channel'}
-          </Text>
+          <ChannelNameDisplay channel={channel} />
           {channel.isExperimental && (
             <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
           )}
         </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// Grid Channel Item Component with large square thumbnail
+const GridChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel: Channel; onPress: () => void; itemWidth: number; itemHeight?: number }) => {
+  const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
+  const isOrbyt = isOrbytChannel(channel.uri);
+  const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
+  const channelColor = orbytChannel?.channelColor || '#FFD700';
+  const thumbnailHeight = itemHeight || itemWidth; // Use itemHeight if provided, otherwise use itemWidth for square
+
+  return (
+    <TouchableOpacity
+      style={[styles.gridChannelItem, { width: itemWidth }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={[
+        styles.gridChannelThumbnail, 
+        { height: thumbnailHeight },
+        itemHeight ? { aspectRatio: undefined } : {} // Remove aspectRatio when height is explicitly set
+      ]}>
+        <Avatar
+          uri={avatarUri}
+          type="channel"
+          size={thumbnailHeight}
+          ringColor="transparent"
+          style={styles.gridChannelImage}
+        />
+      </View>
+      <View style={styles.gridChannelNameContainer}>
+        {isOrbyt ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {shouldShowChannelSlash(channel.uri) && (
+              <Text style={[styles.gridChannelName, styles.orbytSlash, { color: channelColor }]}>/</Text>
+            )}
+            <Text style={styles.gridChannelName} numberOfLines={1}>
+              {channel.displayName || 'Unknown channel'}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.gridChannelName} numberOfLines={1}>
+            {channel.displayName || 'Unknown channel'}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// Horizontal Channel Button Component for popular now and latest (full width, GIF on right, label bottom left)
+const HorizontalChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel: Channel; onPress: () => void; itemWidth: number; itemHeight: number }) => {
+  const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
+  const isOrbyt = isOrbytChannel(channel.uri);
+  const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
+  const channelColor = orbytChannel?.channelColor || '#FFD700';
+  // Calculate max width for label: full width - left padding - right padding
+  const labelMaxWidth = itemWidth - 16 - 16; // width - left padding - right padding
+  
+  // Check if this is the popular now channel for special cropping
+  const slug = extractFeedSlug(channel.uri || '');
+  const isPopularNow = slug === 'popular-now';
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.horizontalChannelButton,
+        { 
+          width: itemWidth, 
+          height: itemHeight,
+          backgroundColor: channelColor,
+        }
+      ]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      {/* GIF fills entire button */}
+      <View style={styles.horizontalChannelThumbnail}>
+        {isPopularNow ? (
+          <Image
+            source={{ uri: avatarUri }}
+            style={[
+              styles.horizontalChannelImage,
+              {
+                width: itemWidth * 0.7, // Smaller width
+                height: itemHeight * 2.5, // Make image much taller to crop more from bottom
+                alignSelf: 'flex-end', // Align to right
+                marginRight: -50, // Push further right
+              }
+            ]}
+            resizeMode="cover"
+          />
+        ) : (
+          <Avatar
+            uri={avatarUri}
+            type="channel"
+            size={Math.max(itemWidth, itemHeight)}
+            ringColor="transparent"
+            style={styles.horizontalChannelImage}
+          />
+        )}
+      </View>
+      
+      {/* Label at bottom left - overlaying GIF */}
+      <View style={[styles.horizontalChannelLabelContainer, { maxWidth: labelMaxWidth }]}>
+        {isOrbyt ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {shouldShowChannelSlash(channel.uri) && (
+              <Text style={[styles.horizontalChannelLabel, styles.orbytSlash]}>/</Text>
+            )}
+            <Text style={styles.horizontalChannelLabel} numberOfLines={1}>
+              {channel.displayName || 'Unknown channel'}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.horizontalChannelLabel} numberOfLines={1}>
+            {channel.displayName || 'Unknown channel'}
+          </Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -413,7 +568,7 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPr
           }}
         >
           <Avatar
-            uri={channel.avatar}
+            uri={getChannelAvatarUri(channel.uri, channel.avatar)}
             type="channel"
             size={40}
             ringColor="transparent"
@@ -421,9 +576,7 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPr
           />
           <View style={styles.channelContent}>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Text style={styles.channelName} numberOfLines={1}>
-                {channel.displayName || 'Unknown channel'}
-              </Text>
+              <ChannelNameDisplay channel={channel} />
               {channel.isExperimental && (
                 <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
               )}
@@ -576,9 +729,7 @@ const VisitHistoryList = ({
                   />
                   <View style={styles.channelContent}>
                     <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                      <Text style={styles.channelName} numberOfLines={1}>
-                        {channelData.displayName || 'Unknown channel'}
-                      </Text>
+                      <ChannelNameDisplay channel={channelData} />
                       {channelData.isExperimental && (
                         <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
                       )}
@@ -1064,6 +1215,40 @@ const ExploreScreen: React.FC = () => {
     staleTime: 60 * 1000, // 1 minute
   });
 
+  // Fetch orbyt channel details using ChannelCache
+  const orbytChannelUris = getAllChannels().map(ch => ch.uri);
+  const {
+    data: orbytChannelsData,
+    isLoading: isLoadingOrbytChannels,
+    error: orbytChannelsError,
+    refetch: refetchOrbytChannels,
+  } = useQuery({
+    queryKey: ['orbytChannels', orbytChannelUris],
+    queryFn: async () => {
+      // Use ChannelCache which handles caching, error handling, and avatar extraction
+      const channelPromises = orbytChannelUris.map(uri => ChannelCache.getChannel(uri));
+      const cachedChannels = await Promise.all(channelPromises);
+      
+      // Convert CachedChannel to Channel format
+      return cachedChannels
+        .filter((ch): ch is CachedChannel => ch !== null)
+        .map((cachedChannel): Channel => ({
+          uri: cachedChannel.uri,
+          cid: cachedChannel.cid,
+          did: cachedChannel.did,
+          creator: cachedChannel.creator,
+          displayName: cachedChannel.displayName,
+          description: cachedChannel.description,
+          avatar: cachedChannel.avatar,
+          likeCount: cachedChannel.likeCount || 0,
+          indexedAt: cachedChannel.indexedAt,
+          isExperimental: cachedChannel.isExperimental || false,
+        }));
+    },
+    enabled: debouncedQuery.length === 0 && orbytChannelUris.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
   // Fetch custom spotlight feed
   const {
     data: spotlightFeed,
@@ -1170,10 +1355,10 @@ const ExploreScreen: React.FC = () => {
 
   const suggestionsList: any[] = (() => {
     // Show loading while loading
-    if (isLoadingSuggestions || isLoadingChannelDids || isLoadingSuggestedFeeds || isLoadingSpotlightFeed) {
+    if (isLoadingSuggestions || isLoadingChannelDids || isLoadingSuggestedFeeds || isLoadingSpotlightFeed || isLoadingOrbytChannels) {
       return loadingSuggestedItems as unknown as any[];
     }
-    if (suggestionsError || channelDidsError || suggestedFeedsError || spotlightFeedError) {
+    if (suggestionsError || channelDidsError || suggestedFeedsError || spotlightFeedError || orbytChannelsError) {
       return [];
     }
     const data: ListItem[] = [];
@@ -1192,8 +1377,13 @@ const ExploreScreen: React.FC = () => {
       data.push({ type: 'section-header' as const, title: 'spotlight', key: 'spotlight-header' });
       data.push({ type: 'spotlight-videos' as const, videos: spotlightFeed, key: 'spotlight-videos' });
     }
+    // Add Orbyt Channels section
+    if (orbytChannelsData && orbytChannelsData.length > 0) {
+      data.push({ type: 'section-header' as const, title: 'channels', key: 'orbyt-channels-header' });
+      data.push({ type: 'orbyt-channels-section' as const, channels: orbytChannelsData, key: 'orbyt-channels' });
+    }
     if (limitedSuggestedFeeds && limitedSuggestedFeeds.length > 0) {
-      data.push({ type: 'section-header' as const, title: 'popular channels', key: 'feeds-header' });
+      data.push({ type: 'section-header' as const, title: 'suggested feeds', key: 'feeds-header' });
       data.push({ type: 'popular-channels-section' as const, channels: limitedSuggestedFeeds, key: 'popular-channels' });
     }
     if (allSuggestions && allSuggestions.length > 0) {
@@ -1560,6 +1750,97 @@ const ExploreScreen: React.FC = () => {
               </View>
             );
           }
+          if (item.type === 'orbyt-channels-section') {
+            if (!('channels' in item) || !Array.isArray(item.channels)) {
+              return <PopularChannelsLoading />;
+            }
+            
+            const screenWidth = Dimensions.get('window').width;
+            const padding = 20 * 2; // Left and right padding
+            const gap = 10; // Gap between items
+            
+            // Separate popular now and latest from other channels
+            const popularNowChannel = item.channels.find(ch => {
+              const slug = extractFeedSlug(ch.uri || '');
+              return slug === 'popular-now';
+            });
+            const latestChannel = item.channels.find(ch => {
+              const slug = extractFeedSlug(ch.uri || '');
+              return slug === 'latest';
+            });
+            const otherChannels = item.channels.filter(ch => {
+              const slug = extractFeedSlug(ch.uri || '');
+              return slug !== 'popular-now' && slug !== 'latest';
+            });
+            
+            // Regular grid item width for other channels
+            const itemWidth = (screenWidth - padding - gap) / 2;
+            // Height matches regular grid items (square, so same as itemWidth)
+            const gridItemHeight = itemWidth;
+            // Reduced height for popular now and latest buttons
+            const buttonHeight = Math.round(gridItemHeight * 0.7); // 70% of grid item height
+            
+            // Full width for popular now and latest
+            const fullWidth = screenWidth - padding;
+            
+            return (
+              <View style={styles.channelsGridContainer}>
+                {/* Render popular now and latest full-width and stacked */}
+                {popularNowChannel && (
+                  <View
+                    key={`orbyt-channel-popular-now`}
+                    style={{ width: fullWidth, marginBottom: gap }}
+                  >
+                    <HorizontalChannelItem
+                      channel={popularNowChannel}
+                      itemWidth={fullWidth}
+                      itemHeight={buttonHeight}
+                      onPress={() => {
+                        if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
+                          navigation.push(`/channel/${encodeURIComponent(popularNowChannel.uri.trim())}`);
+                        }
+                      }}
+                    />
+                  </View>
+                )}
+                {latestChannel && (
+                  <View
+                    key={`orbyt-channel-latest`}
+                    style={{ width: fullWidth, marginBottom: gap }}
+                  >
+                    <HorizontalChannelItem
+                      channel={latestChannel}
+                      itemWidth={fullWidth}
+                      itemHeight={buttonHeight}
+                      onPress={() => {
+                        if (latestChannel.uri && latestChannel.uri.trim()) {
+                          navigation.push(`/channel/${encodeURIComponent(latestChannel.uri.trim())}`);
+                        }
+                      }}
+                    />
+                  </View>
+                )}
+                
+                {/* Render other channels in 2-column grid */}
+                {otherChannels.map((channel, index) => (
+                  <View
+                    key={`orbyt-channel-${channel.uri || channel.cid || index}-${index}`}
+                    style={{ width: itemWidth, marginRight: index % 2 === 0 ? gap : 0 }}
+                  >
+                    <GridChannelItem
+                      channel={channel}
+                      itemWidth={itemWidth}
+                      onPress={() => {
+                        if (channel.uri && channel.uri.trim()) {
+                          navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
+                        }
+                      }}
+                    />
+                  </View>
+                ))}
+              </View>
+            );
+          }
           return null;
         }}
         contentContainerStyle={[
@@ -1591,8 +1872,8 @@ const ExploreScreen: React.FC = () => {
               </View>
             );
           }
-          if (!isSearchingLocal && !(isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingSpotlightFeed)) {
-            if (suggestionsError || suggestedFeedsError || spotlightFeedError) {
+          if (!isSearchingLocal && !(isLoadingSuggestions || isLoadingSuggestedFeeds || isLoadingSpotlightFeed || isLoadingOrbytChannels)) {
+            if (suggestionsError || suggestedFeedsError || spotlightFeedError || orbytChannelsError) {
               return (
                 <EmptyFeed 
                   type="no-connection" 
@@ -1600,6 +1881,7 @@ const ExploreScreen: React.FC = () => {
                     refetchSuggestions();
                     refetchSuggestedFeeds();
                     refetchSpotlightFeed();
+                    refetchOrbytChannels();
                   }}
                 />
               );
@@ -1728,9 +2010,78 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
+  channelsGridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    justifyContent: 'space-between',
+  },
+  gridChannelItem: {
+    marginBottom: 10,
+  },
+  gridChannelThumbnail: {
+    position: 'relative',
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    overflow: 'hidden',
+  },
+  gridChannelImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: BORDER_RADIUS.MEDIUM,
+  },
+  gridChannelNameContainer: {
+    paddingTop: 8,
+    paddingLeft: 4,
+    alignItems: 'flex-start',
+  },
+  gridChannelName: {
+    color: Colors.white,
+    fontSize: 18,
+    fontFamily: 'Firma-SemiBold',
+  },
+  horizontalChannelButton: {
+    marginBottom: 10,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  horizontalChannelThumbnail: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    overflow: 'hidden',
+    alignItems: 'flex-end', // Align content to right
+    justifyContent: 'flex-start', // Align to top
+  },
+  horizontalChannelImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: BORDER_RADIUS.MEDIUM,
+  },
+  horizontalChannelLabelContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    paddingRight: 8,
+  },
+  horizontalChannelLabel: {
+    color: Colors.white,
+    fontSize: 24,
+    fontFamily: 'Firma-SemiBold',
+  },
   channelContent: {
     flex: 1,
     justifyContent: 'center',
+  },
+  orbytSlash: {
+    fontFamily: 'Firma-Black',
+    marginRight: 0,
   },
   channelName: {
     color: Colors.white,
@@ -2095,5 +2446,7 @@ const styles = StyleSheet.create({
 });
 
 export default ExploreScreen;
+
+
 
 

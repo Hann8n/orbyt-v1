@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Dimensions,
   Text,
-  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +14,6 @@ import { Colors } from '../../../ui/UI';
 import { BackArrowIcon, Loading3FillIcon } from '../../../ui/Icon';
 import VideoCard from '../VideoCard';
 import type { VideoCardRef } from '../VideoCard';
-import * as Device from 'expo-device';
 // import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 
 
@@ -40,30 +38,12 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
 }) => {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
-  const [platformLabel, setPlatformLabel] = useState<string>('orbyt');
   const videoCardRef = useRef<VideoCardRef>(null);
   const insets = useSafeAreaInsets();
 
   // Simple video URI formatting
   const videoUri = videoPath && videoPath.trim() ? 
     (videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`) : '';
-
-  // Get platform-specific label
-  const getOrbytPlatformLabel = async (): Promise<string> => {
-    if (Platform.OS === 'ios') {
-      const deviceType = await Device.getDeviceTypeAsync();
-      if (deviceType === Device.DeviceType.TABLET) {
-        return 'orbyt for iPad';
-      } else {
-        return 'orbyt for iPhone';
-      }
-    } else if (Platform.OS === 'android') {
-      return 'orbyt for Android';
-    } else if (Platform.OS === 'web') {
-      return 'orbyt for Web';
-    }
-    return 'orbyt';
-  };
 
   // Create simple preview post for VideoCard
   const previewPost = {
@@ -79,10 +59,6 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
     record: {
       text: description,
       createdAt: new Date().toISOString(),
-      metadata: {
-        orbyt: true,
-        platform: platformLabel,
-      },
     },
     viewer: {},
     likeCount: 0,
@@ -120,16 +96,11 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
     onClose();
   }, [onClose]);
 
-  // Reset state and fetch platform label when modal becomes visible
+  // Reset state when modal becomes visible
   useEffect(() => {
     if (visible) {
       setVideoError(null);
       setIsVideoReady(false);
-      
-      // Fetch platform-specific label
-      getOrbytPlatformLabel().then(setPlatformLabel).catch(() => {
-        setPlatformLabel('orbyt');
-      });
     }
   }, [visible]);
 

@@ -2,7 +2,7 @@ declare let window: any;
 
 import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, TouchableOpacity, Text, Image, TextInput, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Image, TextInput, Platform, ImageBackground } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,6 +30,7 @@ export interface HeaderAction {
 export interface HeaderContent {
   avatar?: string;
   title: string;
+  customTitle?: React.ReactNode;
   onTitleChange?: (text: string) => void;
   subtitle?: string;
   subtitleSecondary?: string; // e.g., Joined date or secondary line
@@ -40,6 +41,7 @@ export interface HeaderContent {
   onTitlePress?: () => void;
   isEditMode?: boolean;
   avatarStyle?: 'circle' | 'rounded-square';
+  hideAvatar?: boolean;
 }
 
 export interface CustomActionLayout {
@@ -65,6 +67,7 @@ export interface UniversalHeaderProps {
   onBackPress?: () => void;
   backgroundColor?: string;
   textColor?: string;
+  backgroundImage?: string;
   isLoading?: boolean;
   skeleton?: React.ReactNode;
   children?: React.ReactNode;
@@ -72,6 +75,8 @@ export interface UniversalHeaderProps {
   contentStyle?: any;
   applySafeArea?: boolean;
   showShadowGradient?: boolean;
+  minHeight?: number;
+  contentPosition?: 'top' | 'center' | 'bottom' | 'space-between';
 }
 
 // Memoized action button component for performance
@@ -378,22 +383,25 @@ const HeaderContentComponent = memo<{
         <TouchableOpacity
           style={[
             styles.avatar, 
-            content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare
+            content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare,
+            content.hideAvatar && styles.hiddenAvatar
           ]}
           onPress={content.onAvatarPress}
           activeOpacity={content.onAvatarPress ? 0.7 : 1}
         >
-          <Avatar
-            uri={content.avatar}
-            type={content.avatarStyle === 'rounded-square' ? 'channel' : 'profile'}
-            size={100}
-            profileColors={{ backgroundColor, textColor, foregroundColor: textColor }}
-            style={[
-              styles.avatarImage,
-              content.avatarStyle === 'rounded-square' && styles.avatarImageRoundedSquare,
-              { borderWidth: 3 }
-            ]}
-          />
+          {!content.hideAvatar && (
+            <Avatar
+              uri={content.avatar}
+              type={content.avatarStyle === 'rounded-square' ? 'channel' : 'profile'}
+              size={100}
+              profileColors={{ backgroundColor, textColor, foregroundColor: textColor }}
+              style={[
+                styles.avatarImage,
+                content.avatarStyle === 'rounded-square' && styles.avatarImageRoundedSquare,
+                { borderWidth: 3 }
+              ]}
+            />
+          )}
         </TouchableOpacity>
         {content.onAvatarPress && (
           <View style={styles.uploadSection}>
@@ -459,12 +467,23 @@ const HeaderContentComponent = memo<{
             onPress={content.onTitlePress}
             activeOpacity={content.onTitlePress ? 0.7 : 1}
           >
-            <InlineTitleWithBadges 
-              title={content.title}
-              titleStyle={[styles.title, { color: textColor }]}
-              color={textColor}
-              badges={[content.badge as React.ReactNode]}
-            />
+            {content.customTitle ? (
+              <View style={styles.titleRow}>
+                {content.customTitle}
+                {content.badge && (
+                  <View style={{ marginLeft: 6 }}>
+                    {content.badge}
+                  </View>
+                )}
+              </View>
+            ) : (
+              <InlineTitleWithBadges 
+                title={content.title}
+                titleStyle={[styles.title, { color: textColor }]}
+                color={textColor}
+                badges={[content.badge as React.ReactNode]}
+              />
+            )}
           </TouchableOpacity>
         )}
         
@@ -509,6 +528,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   onBackPress,
   backgroundColor = '#000',
   textColor = '#fff',
+  backgroundImage,
   isLoading = false,
   skeleton,
   children,
@@ -516,6 +536,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   contentStyle,
   applySafeArea = false,
   showShadowGradient = true,
+  minHeight,
+  contentPosition = 'top',
 }) => {
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
@@ -532,11 +554,57 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   const headerStyle = useMemo(() => [
     styles.header,
     { 
-      backgroundColor,
+      backgroundColor: backgroundImage ? 'transparent' : backgroundColor,
       ...(applySafeArea && { paddingTop: insets.top }),
+      ...(minHeight && { minHeight }),
     },
     style,
-  ], [backgroundColor, style, applySafeArea, insets.top]);
+  ], [backgroundColor, backgroundImage, style, applySafeArea, insets.top, minHeight]);
+
+  // Memoize image source to prevent flickering - same approach as Avatar component
+  const imageSource = useMemo(() => {
+    return backgroundImage ? { uri: backgroundImage } : null;
+  }, [backgroundImage]);
+
+  // Calculate background container style to extend beyond padding
+  const backgroundContainerStyle = useMemo(() => [
+    styles.backgroundImageContainer,
+    {
+      top: applySafeArea ? -insets.top : 0,
+    }
+  ], [applySafeArea, insets.top]);
+
+  const backgroundOverlayStyle = useMemo(() => [
+    styles.backgroundOverlay,
+    {
+      top: applySafeArea ? -insets.top : 0,
+    }
+  ], [applySafeArea, insets.top]);
+
+  // Memoize background image component separately to prevent recreation on viewMode changes
+  const backgroundImageComponent = useMemo(() => {
+    if (!backgroundImage || !imageSource) return null;
+    
+    return (
+      <>
+        <View style={backgroundContainerStyle} pointerEvents="none">
+          <ImageBackground
+            source={imageSource}
+            style={styles.backgroundImage}
+            imageStyle={styles.backgroundImageStyle}
+            resizeMode="cover"
+            fadeDuration={0}
+          />
+        </View>
+        {/* Dark overlay for text readability */}
+        <LinearGradient
+          colors={['rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 0.7)']}
+          style={backgroundOverlayStyle}
+          pointerEvents="none"
+        />
+      </>
+    );
+  }, [backgroundImage, imageSource, backgroundContainerStyle, backgroundOverlayStyle]);
 
   // Extract custom description from children
   const customDescription = useMemo(() => {
@@ -587,64 +655,72 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   }, [children]);
 
 
-  return (
-    <Animated.View style={headerStyle} pointerEvents="box-none" collapsable={false}>
-      {/* Content container */}
-      <Animated.View style={[styles.content, contentStyle]} pointerEvents="box-none" collapsable={false}>
-        {/* Navigation and Action Buttons */}
-        {(showBackButton || actions.length > 0 || customActions.length > 0) && (
-          <View style={styles.topRow}>
-            <View style={styles.leftSection}>
-              {showBackButton && (
-                <TouchableOpacity
-                  style={styles.backButton}
-                  onPress={handleBackPress}
-                  activeOpacity={0.7}
-                >
-                  <BackArrowIcon size={30} color={textColor} />
-                </TouchableOpacity>
-              )}
-            </View>
-            
-            <View style={styles.rightSection}>
-              {actions.length > 0 && (
-                <View style={styles.actionsContainer}>
-                  {actions.map((action) => (
-                    <ActionButton
-                      key={action.id}
-                      action={action}
-                      textColor={textColor}
-                      backgroundColor={backgroundColor}
-                    />
-                  ))}
-                </View>
-              )}
+  const contentContainerStyle = useMemo(() => [
+    styles.content,
+    contentPosition === 'center' && styles.contentCenter,
+    contentPosition === 'bottom' && styles.contentBottom,
+    contentPosition === 'space-between' && styles.contentSpaceBetween,
+    contentStyle,
+  ], [contentPosition, contentStyle]);
 
-              {/* Custom Action Layouts */}
-              {customActions.map((layout, index) => (
-                <CustomActionLayout
-                  key={`custom-action-${index}`}
-                  layout={layout}
-                  textColor={textColor}
-                  backgroundColor={backgroundColor}
-                />
-              ))}
-            </View>
+  const headerContent = (
+    <>
+      {/* Navigation and Action Buttons - Always at top, independent of content position */}
+      {(showBackButton || actions.length > 0 || customActions.length > 0) && (
+        <View style={styles.topRow}>
+          <View style={styles.leftSection}>
+            {showBackButton && (
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBackPress}
+                activeOpacity={0.7}
+              >
+                <BackArrowIcon size={30} color={textColor} />
+              </TouchableOpacity>
+            )}
           </View>
-        )}
+          
+          <View style={styles.rightSection}>
+            {actions.length > 0 && (
+              <View style={styles.actionsContainer}>
+                {actions.map((action) => (
+                  <ActionButton
+                    key={action.id}
+                    action={action}
+                    textColor={textColor}
+                    backgroundColor={backgroundColor}
+                  />
+                ))}
+              </View>
+            )}
 
-      {/* Header Content */}
-      <HeaderContentComponent
-        content={content}
-        textColor={textColor}
-        backgroundColor={backgroundColor}
-        isLoading={isLoading}
-        skeleton={skeleton}
-        customDescription={customDescription}
-      />
+            {/* Custom Action Layouts */}
+            {customActions.map((layout, index) => (
+              <CustomActionLayout
+                key={`custom-action-${index}`}
+                layout={layout}
+                textColor={textColor}
+                backgroundColor={backgroundColor}
+              />
+            ))}
+          </View>
+        </View>
+      )}
 
-      {/* Additional Children */}
-      {additionalChildren}
+      {/* Content container - Positioned based on contentPosition prop */}
+      <Animated.View style={contentContainerStyle} pointerEvents="box-none" collapsable={false}>
+        {/* Header Content */}
+        <HeaderContentComponent
+          content={content}
+          textColor={textColor}
+          backgroundColor={backgroundColor}
+          isLoading={isLoading}
+          skeleton={skeleton}
+          customDescription={customDescription}
+        />
+
+        {/* Additional Children */}
+        {additionalChildren}
       </Animated.View>
       
       {/* Black shadow gradient at bottom - under all UI */}
@@ -655,6 +731,13 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
           pointerEvents="none"
         />
       )}
+    </>
+  );
+
+  return (
+    <Animated.View style={headerStyle} pointerEvents="box-none" collapsable={false}>
+      {backgroundImageComponent}
+      {headerContent}
     </Animated.View>
   );
 };
@@ -667,6 +750,8 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: 'transparent',
     minHeight: 120,
+    overflow: 'visible',
+    flexDirection: 'column',
   },
   topRow: {
     flexDirection: 'row',
@@ -782,6 +867,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
     gap: 20,
+  },
+  hiddenAvatar: {
+    opacity: 0,
+    pointerEvents: 'none',
   },
   avatar: {
     width: 112,
@@ -904,6 +993,16 @@ const styles = StyleSheet.create({
   content: {
     width: '100%',
     zIndex: 1,
+    flex: 1,
+  },
+  contentCenter: {
+    justifyContent: 'center',
+  },
+  contentBottom: {
+    justifyContent: 'flex-end',
+  },
+  contentSpaceBetween: {
+    justifyContent: 'space-between',
   },
   dividerContainer: {
     marginTop: 6,
@@ -933,6 +1032,29 @@ const styles = StyleSheet.create({
     right: 0,
     height: '75%',
     zIndex: 0,
+  },
+  backgroundImageContainer: {
+    position: 'absolute',
+    top: 0,
+    left: -20,
+    right: -20,
+    bottom: 0,
+    zIndex: 0,
+  },
+  backgroundImage: {
+    width: '100%',
+    height: '100%',
+  },
+  backgroundImageStyle: {
+    resizeMode: 'cover',
+  },
+  backgroundOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: -20,
+    right: -20,
+    bottom: 0,
+    zIndex: 1,
   },
 });
 

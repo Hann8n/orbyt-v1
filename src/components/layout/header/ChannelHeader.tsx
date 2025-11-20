@@ -1,15 +1,16 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, TouchableOpacity, Text, Alert, StatusBar } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Alert, StatusBar, Image } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
 import HeaderSkeleton from './HeaderSkeleton';
 import { useChannelColors } from '../../../services/cache/ChannelCache';
 import Icon, { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon, Loading3FillIcon } from '../../ui/Icon';
-import { hexToRGBA, darkenColor, getStatusBarStyle } from '../../../utils/formatting/colorUtils';
+import { hexToRGBA, darkenColor, getStatusBarStyle, isColorDark } from '../../../utils/formatting/colorUtils';
 import { Colors } from '../../ui/UI';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
+import { isOrbytChannel, getChannelByUri, shouldShowChannelSlash } from '../../../utils/orbytChannels';
  
 
 
@@ -53,10 +54,11 @@ const SubscribeButton: React.FC<{
   textColor: string;
   backgroundColor: string;
   accentColor: string;
+  channelColor?: string;
   viewMode?: 'list' | 'grid' | 'horizontal';
   onViewModeChange?: (mode: 'list' | 'grid' | 'horizontal') => void;
   showViewToggle?: boolean;
-}> = ({ channel, textColor, backgroundColor, accentColor, viewMode = 'list', onViewModeChange, showViewToggle = false }) => {
+}> = ({ channel, textColor, backgroundColor, accentColor, channelColor, viewMode = 'list', onViewModeChange, showViewToggle = false }) => {
   const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } = useSubscribedChannels();
   const [isSubscribing, setIsSubscribing] = useState(false);
 
@@ -153,7 +155,16 @@ const SubscribeButton: React.FC<{
   if (channel.isOwner) return null; // Don't show subscribe button for owners
 
   const useGlass = isLiquidGlassAvailable();
-  const glassTint = isSubscribed ? hexToRGBA(textColor, 1) : hexToRGBA('#FFFFFF', 0.08);
+  // Use channelColor for channels, fallback to textColor
+  const subscribeColor = channelColor || textColor;
+  const glassTint = isSubscribed ? hexToRGBA(subscribeColor, 1) : hexToRGBA('#FFFFFF', 0.08);
+  
+  // Calculate appropriate text color for subscribed state based on background brightness
+  const subscribedTextColor = useMemo(() => {
+    if (!isSubscribed) return '#FFFFFF';
+    // Use white text for dark backgrounds, black for light backgrounds
+    return isColorDark(subscribeColor) ? '#FFFFFF' : '#000000';
+  }, [isSubscribed, subscribeColor]);
 
   return (
     <View style={styles.subscribeContainer}>
@@ -170,8 +181,8 @@ const SubscribeButton: React.FC<{
             useGlass
               ? { backgroundColor: 'transparent', borderColor: 'transparent' }
               : {
-                  backgroundColor: isSubscribed ? textColor : 'rgba(255, 255, 255, 0.2)',
-                  borderColor: isSubscribed ? textColor : 'rgba(255, 255, 255, 0.4)',
+                  backgroundColor: isSubscribed ? subscribeColor : 'rgba(255, 255, 255, 0.2)',
+                  borderColor: isSubscribed ? subscribeColor : 'rgba(255, 255, 255, 0.4)',
                 },
           ]}
         >
@@ -184,16 +195,16 @@ const SubscribeButton: React.FC<{
             />
           )}
           {isSubscribing ? (
-            <Loading3FillIcon size={24} color={isSubscribed ? backgroundColor : '#FFFFFF'} />
+            <Loading3FillIcon size={24} color={isSubscribed ? subscribedTextColor : '#FFFFFF'} />
           ) : (
             <>
-              <Text style={[styles.subscribeButtonText, { color: isSubscribed ? backgroundColor : '#FFFFFF' }]}>
+              <Text style={[styles.subscribeButtonText, { color: isSubscribed ? subscribedTextColor : '#FFFFFF' }]}>
                 {isSubscribed ? 'Subscribed' : 'Subscribe'}
               </Text>
               {isSubscribed ? (
                 <CheckIcon 
                   size={16} 
-                  color={backgroundColor} 
+                  color={subscribedTextColor} 
                   strokeWidth={2.0}
                 />
               ) : (
@@ -316,6 +327,11 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     return actions;
   }, [channel, handleEdit, handleDelete]);
 
+  // Check if this is an Orbyt channel
+  const isOrbyt = useMemo(() => {
+    return channel?.uri ? isOrbytChannel(channel.uri) : false;
+  }, [channel?.uri]);
+
   // Create header content
   const headerContent = useMemo((): HeaderContent => {
     if (!channel) {
@@ -336,18 +352,33 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       <Icon name="bug" size={18} color={Colors.lightGreen} style={styles.experimentalIcon} />
     ) : undefined;
 
+    // Get Orbyt channel info for custom title
+    const orbytChannel = isOrbyt && channel.uri ? getChannelByUri(channel.uri) : undefined;
+    const channelColor = orbytChannel?.channelColor || '#FFD700';
 
+    const customTitle = isOrbyt ? (
+      <View style={styles.orbytChannelTitle}>
+        {shouldShowChannelSlash(channel.uri || '') && (
+          <Text style={[styles.title, styles.orbytSlash, { color: channelColor }]}>/</Text>
+        )}
+        <Text style={[styles.title, { color: safeTextColor }]}>
+          {channel.name}
+        </Text>
+      </View>
+    ) : undefined;
 
     return {
       avatar: channel.avatar,
       title: channel.name,
-      subtitle: channel.creator?.handle ? channel.creator.handle : undefined,
+      customTitle: customTitle,
+      subtitle: isOrbyt ? undefined : (channel.creator?.handle ? channel.creator.handle : undefined),
       description: channel.description,
       badge: experimentalBadge,
       avatarStyle: 'rounded-square' as const,
       onTitlePress: handleCreatorPress,
+      hideAvatar: isOrbyt,
     };
-  }, [channel, navigation]);
+  }, [channel, navigation, safeTextColor, isOrbyt]);
 
   // Create skeleton component
   const skeleton = useMemo(() => (
@@ -375,6 +406,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           textColor={safeTextColor}
           backgroundColor={safeBackgroundColor}
           accentColor={channelColors.accentColor || '#000000'}
+          channelColor={isOrbyt && channel.uri ? getChannelByUri(channel.uri)?.channelColor : undefined}
           viewMode={viewMode}
           onViewModeChange={onViewModeChange}
           showViewToggle={showViewToggle}
@@ -382,7 +414,24 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       )}
       {children}
     </>
-  ), [channel, safeTextColor, safeBackgroundColor, children, channelColors.accentColor, showViewToggle, onViewModeChange, viewMode]);
+  ), [channel, safeTextColor, safeBackgroundColor, children, channelColors.accentColor, showViewToggle, onViewModeChange, viewMode, isOrbyt]);
+
+  // For Orbyt channels, use channelGIF as primary avatar/background, fallback to avatar
+  // Memoize to prevent flickering when feed changes
+  const backgroundImage = useMemo(() => {
+    if (!isOrbyt || !channel?.uri) return undefined;
+    
+    // Get Orbyt channel config to check for channelGIF
+    const orbytChannel = getChannelByUri(channel.uri);
+    if (orbytChannel?.channelGIF) {
+      // Convert require() result to URI using Image.resolveAssetSource
+      const resolvedAsset = Image.resolveAssetSource(orbytChannel.channelGIF);
+      return resolvedAsset?.uri;
+    }
+    
+    // Fallback to regular avatar if no channelGIF
+    return channel.avatar;
+  }, [isOrbyt, channel?.uri, channel?.avatar]);
 
   return (
     <>
@@ -395,12 +444,15 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       onBackPress={onBackPress}
       backgroundColor={safeBackgroundColor}
       textColor={safeTextColor}
+      backgroundImage={backgroundImage}
       isLoading={!channel}
       skeleton={skeleton}
       // Removed showGradient and gradientType as they don't exist on UniversalHeaderProps
       applySafeArea={applySafeArea}
       style={{ opacity: 1 }}
       contentStyle={[headerStyle]}
+      minHeight={isOrbyt ? 400 : undefined}
+      contentPosition={isOrbyt ? 'bottom' : 'top'}
     >
       {headerChildren}
     </UniversalHeader>
@@ -470,6 +522,21 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     alignSelf: 'center',
     marginTop: 2,
+  },
+  orbytChannelTitle: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+  },
+  title: {
+    fontFamily: 'Firma-Black',
+    fontWeight: 'bold',
+    fontSize: 28,
+    flexShrink: 1,
+  },
+  orbytSlash: {
+    fontFamily: 'Firma-Black',
+    marginRight: 0,
   },
 });
 

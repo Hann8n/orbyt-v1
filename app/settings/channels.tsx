@@ -11,6 +11,7 @@ import { Avatar, Icon } from '../../src/components/ui/UI';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
 import ListHeader from '../../src/components/ui/ListHeader';
+import { isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash } from '../../src/utils/orbytChannels';
 
 interface ChannelUser {
   did: string;
@@ -19,6 +20,8 @@ interface ChannelUser {
   avatar?: string;
   description?: string;
   isChannel?: boolean;
+  isOrbytChannel?: boolean;
+  channelColor?: string;
   uri?: string;
 }
 
@@ -46,7 +49,14 @@ export default function ChannelManagementScreen() {
       if (channel.uri === 'following') {
         // Use a generic following icon - could be a people/users icon
         avatar = undefined; // Will use fallback icon
+      } else {
+        // Use channelGIF for Orbyt channels if available
+        avatar = getChannelAvatarUri(channel.uri, channel.avatar);
       }
+      
+      // Check if this is an Orbyt channel
+      const isOrbyt = channel.isOrbytChannel ?? isOrbytChannel(channel.uri);
+      const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
       
       return {
         did: channel.uri,
@@ -55,6 +65,8 @@ export default function ChannelManagementScreen() {
         avatar: avatar,
         description: channel.description,
         isChannel: true,
+        isOrbytChannel: isOrbyt,
+        channelColor: orbytChannel?.channelColor,
         uri: channel.uri,
       };
     });
@@ -65,15 +77,23 @@ export default function ChannelManagementScreen() {
     const loadAvailableDefaults = async () => {
       try {
         const defaults = await getAvailableDefaultChannels();
-        const transformedDefaults = defaults.map((channel) => ({
-          did: channel.uri,
-          handle: channel.uri.split('/').pop() || '',
-          displayName: channel.displayName,
-          avatar: undefined,
-          description: channel.description,
-          isChannel: true,
-          uri: channel.uri,
-        }));
+        const transformedDefaults = defaults.map((channel) => {
+          const isOrbyt = channel.isOrbytChannel ?? isOrbytChannel(channel.uri);
+          const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
+          // Use channelGIF for Orbyt channels if available
+          const avatar = getChannelAvatarUri(channel.uri, channel.avatar);
+          return {
+            did: channel.uri,
+            handle: channel.uri.split('/').pop() || '',
+            displayName: channel.displayName,
+            avatar: avatar,
+            description: channel.description,
+            isChannel: true,
+            isOrbytChannel: isOrbyt,
+            channelColor: orbytChannel?.channelColor,
+            uri: channel.uri,
+          };
+        });
         setAvailableDefaults(transformedDefaults);
       } catch (error) {
         console.error('Error loading available defaults:', error);
@@ -127,15 +147,21 @@ export default function ChannelManagementScreen() {
       await restoreDefaultChannel(channel.uri);
       // Refresh available defaults
       const defaults = await getAvailableDefaultChannels();
-      const transformedDefaults = defaults.map((ch) => ({
-        did: ch.uri,
-        handle: ch.uri.split('/').pop() || '',
-        displayName: ch.displayName,
-        avatar: undefined,
-        description: ch.description,
-        isChannel: true,
-        uri: ch.uri,
-      }));
+      const transformedDefaults = defaults.map((ch) => {
+        const isOrbyt = ch.isOrbytChannel ?? isOrbytChannel(ch.uri);
+        const orbytChannel = isOrbyt ? getChannelByUri(ch.uri) : undefined;
+        return {
+          did: ch.uri,
+          handle: ch.uri.split('/').pop() || '',
+          displayName: ch.displayName,
+          avatar: undefined,
+          description: ch.description,
+          isChannel: true,
+          isOrbytChannel: isOrbyt,
+          channelColor: orbytChannel?.channelColor,
+          uri: ch.uri,
+        };
+      });
       setAvailableDefaults(transformedDefaults);
     } catch (error) {
       console.error('Error restoring default channel:', error);
@@ -198,9 +224,20 @@ export default function ChannelManagementScreen() {
           profileColors={item.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
         />
         <View style={styles.channelContent}>
-          <Text style={styles.displayName} numberOfLines={1}>
-            {item.displayName || item.handle || 'Unknown channel'}
-          </Text>
+          {item.isOrbytChannel ? (
+            <View style={styles.orbytChannelName}>
+              {item.uri && shouldShowChannelSlash(item.uri) && (
+                <Text style={[styles.orbytSlash, { color: item.channelColor || '#FFD700' }]}>/</Text>
+              )}
+              <Text style={styles.displayName} numberOfLines={1}>
+                {item.displayName || item.handle || 'Unknown channel'}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.displayName} numberOfLines={1}>
+              {item.displayName || item.handle || 'Unknown channel'}
+            </Text>
+          )}
           {item.description && (
             <Text style={styles.description} numberOfLines={2}>
               {item.description}
@@ -319,9 +356,20 @@ export default function ChannelManagementScreen() {
                       profileColors={channel.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
                     />
                     <View style={styles.channelContent}>
-                      <Text style={styles.displayName} numberOfLines={1}>
-                        {channel.displayName}
-                      </Text>
+                      {channel.isOrbytChannel ? (
+                        <View style={styles.orbytChannelName}>
+                          {channel.uri && shouldShowChannelSlash(channel.uri) && (
+                            <Text style={[styles.orbytSlash, { color: channel.channelColor || '#FFD700' }]}>/</Text>
+                          )}
+                          <Text style={styles.displayName} numberOfLines={1}>
+                            {channel.displayName}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.displayName} numberOfLines={1}>
+                          {channel.displayName}
+                        </Text>
+                      )}
                     </View>
                     <View style={styles.actionButtons}>
                       <TouchableOpacity
@@ -397,6 +445,17 @@ const styles = StyleSheet.create({
   channelContent: {
     flex: 1,
     justifyContent: 'center',
+  },
+  orbytChannelName: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  orbytSlash: {
+    fontSize: 16,
+    marginBottom: 2,
+    fontFamily: 'Firma-Black',
+    marginRight: 0,
   },
   displayName: {
     color: Colors.white,
