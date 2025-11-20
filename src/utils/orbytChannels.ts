@@ -22,6 +22,7 @@ const HorrorChannelGIF = require('../assets/channelGIFs/horror.gif');
 const WeirdChannelGIF = require('../assets/channelGIFs/weird.gif');
 const PopularNowChannelGIF = require('../assets/channelGIFs/popular-now.gif');
 const LatestChannelGIF = require('../assets/channelGIFs/latest.gif');
+const EditsChannelGIF = require('../assets/channelGIFs/edits.gif');
 
 /**
  * Orbyt channel definitions
@@ -73,6 +74,13 @@ export const ORBYT_CHANNELS: OrbytChannel[] = [
     displayName: 'weird',
     channelColor: '#525f57', // Weird channel color
     channelGIF: WeirdChannelGIF,
+  },
+  {
+    uri: 'at://did:plc:2xrqztnmzlckb3xfuuukupso/app.bsky.feed.generator/edits',
+    slug: 'edits',
+    displayName: 'edits',
+    channelColor: '#8d53b9', // Purple color for edits channel
+    channelGIF: EditsChannelGIF,
   },
   // Add more channels here as needed
 ];

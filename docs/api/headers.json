@@ -40,12 +40,12 @@
   "headers": [
     {
       "id": "header-3.2",
-      "imageUrl": "banners/header_3.2.jpeg",
-      "destinationUrl": "https://getorbyt.com",
+      "imageUrl": "banners/andromeda-23596_512.gif",
+      "destinationUrl": null,
       "title": "Orbyt",
       "subtitle": "a new video app for bluesky",
-      "titleColor": "#000",
-      "subtitleColor": "#000",
+      "titleColor": "fff",
+      "subtitleColor": "#fff",
       "titleFontFamily": "Firma-Black",
       "titleFontSize": 32,
       "subtitleFontFamily": "Firma-SemiBold",
