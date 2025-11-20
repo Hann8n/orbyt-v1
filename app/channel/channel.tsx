@@ -18,7 +18,7 @@ import { Colors } from '../../src/components/ui/UI';
 import { useChannelColors, useChannel, useChannelColorsMutation, default as ChannelCache } from '../../src/services/cache/ChannelCache';
 import ProfileCache from '../../src/services/cache/ProfileCache';
 import { extractColorsFromImage } from '../../src/utils/formatting/colorUtils';
-import Icon from '../../src/components/ui/Icon';
+import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 
 interface ChannelScreenProps {}
@@ -204,6 +204,8 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
     </View>
   );
 
+  const isLoading = isLoadingChannel && !channelDataForFeed;
+
   return (
     <View style={[
       styles.container, 
@@ -263,6 +265,11 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
             visibilityKey={uri ? `channel:${uri}` : undefined}
           />
         )
+      )}
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <Loading3FillIcon size={48} color={Colors.white} />
+        </View>
       )}
     </View>
   );
@@ -326,6 +333,17 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: 'transparent',
     borderColor: Colors.mediumGray,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.black,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
   },
 });
 

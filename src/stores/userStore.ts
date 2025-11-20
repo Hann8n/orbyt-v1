@@ -22,6 +22,9 @@ import { logger } from '../utils/logger';
 
 import { ModerationService } from '../services/ModerationService';
 import { isOrbytChannel } from '../utils/orbytChannels';
+import { queryClient } from '../utils/queryClient';
+import { feedService } from '../services/FeedService';
+import { clearVideoCache, clearThumbnailColorCache } from '../utils/helpers/video';
 
 // Account types
 export interface SavedAccount {
@@ -1007,10 +1010,24 @@ export const useUserStore = create<UserState>()(
       
       clearAllCaches: async () => {
         try {
+          // Clear React Query cache
+          queryClient.clear();
+          
+          // Clear FeedService cache
+          feedService.clearFeedCache();
+          feedService.clearCurrentFeed();
+          
+          // Clear video caches
+          clearVideoCache();
+          clearThumbnailColorCache();
+          
+          // Clear AtprotoService cache
+          AtprotoService.clearAllCaches();
+          
+          // Clear existing caches
           await Promise.all([
             ProfileCache.clearCache(),
             ChannelCache.clearCache(),
-
             ModerationService.clearModerationCache(),
           ]);
           
@@ -1190,8 +1207,8 @@ export const useUserStore = create<UserState>()(
                 activeAccountDid: null,
               });
             } else {
-              // Check developer access
-              await get().refreshDeveloperAccess();
+              // Defer developer access check - not critical for startup
+              get().refreshDeveloperAccess().catch(() => {});
             }
           } else {
           }

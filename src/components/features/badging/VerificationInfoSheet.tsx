@@ -20,9 +20,11 @@ import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import VerificationBadge from './VerificationBadge';
-import AuthorItem from '../../ui/AuthorItem';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
+
+// Lazy import to break circular dependency
+const AuthorItem = React.lazy(() => import('../../ui/AuthorItem'));
  
 
 interface VerificationInfoSheetProps {
@@ -285,29 +287,31 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             {isIssuerLoading ? (
               <VerifiedByShimmer />
             ) : (
-              <AuthorItem
-                handle={issuerProfile?.handle || actualIssuerHandle || verifierDid || ''}
-                displayName={issuerProfile?.displayName || 
-                  actualIssuerHandle || 
-                  (isOfficialVerification ? 'bluesky' : 
-                    (verifierDid ? `verifier (${verifierDid.slice(0, 8)}...)` : 'verifier'))}
-                avatar={issuerProfile?.avatar}
-                size="large"
-                showArrow={true}
-                onPress={() => {
-                  const target = (issuerProfile?.handle || actualIssuerHandle || verifierDid || '').trim();
-                  if (!target) return;
-                  
-                  // Navigate to the verifier's profile, not the current profile
-                  navigation.push(`/profile/${target}`);
-                  
-                  // Dismiss the sheet after navigation starts
-                  setTimeout(() => {
-                    onDismiss();
-                  }, 100);
-                }}
-                style={styles.verifierItem}
-              />
+              <React.Suspense fallback={<VerifiedByShimmer />}>
+                <AuthorItem
+                  handle={issuerProfile?.handle || actualIssuerHandle || verifierDid || ''}
+                  displayName={issuerProfile?.displayName || 
+                    actualIssuerHandle || 
+                    (isOfficialVerification ? 'bluesky' : 
+                      (verifierDid ? `verifier (${verifierDid.slice(0, 8)}...)` : 'verifier'))}
+                  avatar={issuerProfile?.avatar}
+                  size="large"
+                  showArrow={true}
+                  onPress={() => {
+                    const target = (issuerProfile?.handle || actualIssuerHandle || verifierDid || '').trim();
+                    if (!target) return;
+                    
+                    // Navigate to the verifier's profile, not the current profile
+                    navigation.push(`/profile/${target}`);
+                    
+                    // Dismiss the sheet after navigation starts
+                    setTimeout(() => {
+                      onDismiss();
+                    }, 100);
+                  }}
+                  style={styles.verifierItem}
+                />
+              </React.Suspense>
             )}
           </>
         )}

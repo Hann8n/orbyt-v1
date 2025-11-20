@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import AtprotoService from '../api/AtprotoService';
 import { isColorDark, getStatusBarStyle, DEFAULT_PROFILE_COLORS } from '@/utils/formatting/colorUtils';
 import { AtpAgent } from '@atproto/api';
-import { Colors } from '@/components/ui/UI';
 import { 
   useQuery, 
   useMutation,
@@ -1351,13 +1350,13 @@ export function useProfileColors(handle: string | null | undefined) {
   const { data: profile } = useProfile(handle);
 
   // Use cached profile colors with custom colors priority
-  // Default to Colors.black and Colors.lightGray for profiles without records
+  // Default to black and lightGray for profiles without records
   const colors: ProfileColorScheme = {
-    backgroundColor: profile?.profileColors?.backgroundColor || Colors.black,
-    foregroundColor: profile?.profileColors?.foregroundColor || Colors.lightGray,
-    textColor: profile?.profileColors?.foregroundColor || Colors.lightGray,
-    primaryColor: profile?.profileColors?.backgroundColor || Colors.black,
-    secondaryColor: profile?.profileColors?.foregroundColor || Colors.lightGray,
+    backgroundColor: profile?.profileColors?.backgroundColor || '#000000',
+    foregroundColor: profile?.profileColors?.foregroundColor || '#CFD6E8',
+    textColor: profile?.profileColors?.foregroundColor || '#CFD6E8',
+    primaryColor: profile?.profileColors?.backgroundColor || '#000000',
+    secondaryColor: profile?.profileColors?.foregroundColor || '#CFD6E8',
     statusBarStyle: profile?.profileColors?.statusBarStyle || 'light',
   };
   

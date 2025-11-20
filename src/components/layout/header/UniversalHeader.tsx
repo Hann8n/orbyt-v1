@@ -373,8 +373,9 @@ const HeaderContentComponent = memo<{
     });
   }, [navigation]);
 
-  if (isLoading && skeleton) {
-    return skeleton;
+  // Don't render empty content
+  if (!content.title && !content.avatar && !content.customTitle) {
+    return null;
   }
 
   return (

@@ -13,7 +13,7 @@ import ProfileCache, {
   profileKeys
 } from '../../src/services/cache/ProfileCache';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Icon from '../../src/components/ui/Icon';
+import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
 import { useQueryClient } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
 import { useCurrentUser, useAccountManagement, useUserStore, useProfileCacheSync } from '../../src/stores/userStore';
@@ -225,6 +225,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     router,
   ]);
 
+  const isLoading = isProfileLoading && !cachedProfile;
+
   return (
     <View style={[
       styles.container,
@@ -284,7 +286,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               visibilityKey={profileVisibilityKey}
             />
       )}
-
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <Loading3FillIcon size={48} color={Colors.white} />
+        </View>
+      )}
     </View>
   );
 });
@@ -342,6 +348,17 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.black,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
   },
   secondaryButton: {
     backgroundColor: 'transparent',
