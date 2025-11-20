@@ -2,7 +2,6 @@ import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { Text, TouchableOpacity, StatusBar } from 'react-native';
 import UniversalHeader, { HeaderAction, HeaderContent, CustomActionLayout } from './UniversalHeader';
-import HeaderSkeleton from './HeaderSkeleton';
 import { useProfile, useProfileColors, useFollowMutation } from '../../../services/cache/ProfileCache';
 import { useOrbytProfile } from '../../../hooks';
 import VerificationBadge from '../../features/badging/VerificationBadge';
@@ -291,15 +290,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     };
   }, [profileData, profileColors.textColor, joinDate]);
 
-  // Create skeleton component
-  const skeleton = useMemo(() => (
-    <HeaderSkeleton
-      textColor={profileColors.textColor}
-      backgroundColor={profileColors.backgroundColor}
-      showAvatar={true}
-      showDescription={true}
-    />
-  ), [profileColors.textColor, profileColors.backgroundColor]);
 
   // Get colors for description and tab navigation
   const dynamicColors = useMemo(() => {
@@ -345,8 +335,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         onBackPress={onBackPress}
         backgroundColor={dynamicColors.backgroundColor}
         textColor={dynamicColors.textColor}
-        isLoading={forceLoading || (isProfileLoading && !profileData)}
-        skeleton={skeleton}
+        isLoading={false}
         applySafeArea={applySafeArea}
         style={{ opacity: 1 }}
         contentStyle={[headerStyle]}

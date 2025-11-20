@@ -4,7 +4,6 @@ import { View, StyleSheet, TouchableOpacity, Text, Alert, StatusBar, Image } fro
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
-import HeaderSkeleton from './HeaderSkeleton';
 import { useChannelColors } from '../../../services/cache/ChannelCache';
 import Icon, { PlusIcon, CheckIcon, ListViewIcon, GridViewIcon, Loading3FillIcon } from '../../ui/Icon';
 import { hexToRGBA, darkenColor, getStatusBarStyle, isColorDark } from '../../../utils/formatting/colorUtils';
@@ -380,16 +379,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     };
   }, [channel, navigation, safeTextColor, isOrbyt]);
 
-  // Create skeleton component
-  const skeleton = useMemo(() => (
-    <HeaderSkeleton
-      textColor={safeTextColor}
-      backgroundColor={safeBackgroundColor}
-      showAvatar={true}
-      showDescription={true}
-      avatarStyle="rounded-square"
-    />
-  ), [safeTextColor, safeBackgroundColor]);
 
   // Determine status bar style based on background color brightness
   const statusBarStyle = useMemo(() => {
@@ -445,8 +434,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       backgroundColor={safeBackgroundColor}
       textColor={safeTextColor}
       backgroundImage={backgroundImage}
-      isLoading={!channel}
-      skeleton={skeleton}
+      isLoading={false}
       // Removed showGradient and gradientType as they don't exist on UniversalHeaderProps
       applySafeArea={applySafeArea}
       style={{ opacity: 1 }}

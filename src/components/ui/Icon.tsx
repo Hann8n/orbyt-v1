@@ -18,7 +18,6 @@ const Colors = {
   yellow: '#FFD700',
 };
 import AtprotoService from '../../services/api/AtprotoService';
-import { useUserStore } from '../../stores/userStore';
 import { useProfile } from '../../services/cache/ProfileCache';
 
 // SVG content as strings - updated to match the actual icon files
@@ -258,9 +257,33 @@ export const NotificationIcon: React.FC<{ size: number; color: string; style?: S
 
 // Custom Profile Icon component that uses current user's avatar
 export const ProfileIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
-  // Get current user from userStore instead of AsyncStorage
-  const { currentUser } = useUserStore();
-  const currentUserHandle = currentUser?.handle || null;
+  // Use lazy import to break circular dependency with userStore
+  const [currentUserHandle, setCurrentUserHandle] = React.useState<string | null>(null);
+  
+  React.useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    
+    // Dynamically import userStore only when component mounts
+    import('../../stores/userStore').then(({ useUserStore }) => {
+      // Access store state directly without using hook
+      const store = useUserStore.getState();
+      setCurrentUserHandle(store.currentUser?.handle || null);
+      
+      // Subscribe to changes
+      unsubscribe = useUserStore.subscribe(
+        (state) => state.currentUser,
+        (currentUser) => {
+          setCurrentUserHandle(currentUser?.handle || null);
+        }
+      );
+    });
+    
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
 
   // Use ProfileCache to get cached profile data
   const { data: profileData } = useProfile(currentUserHandle);

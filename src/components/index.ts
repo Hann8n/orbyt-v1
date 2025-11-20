@@ -26,7 +26,5 @@ export { default as UniversalHeader } from './layout/header/UniversalHeader';
 export { default as TabNavigation } from './layout/header/TabNavigation';
 export { default as ChannelHeader } from './layout/header/ChannelHeader';
 export { default as ProfileHeader } from './layout/header/ProfileHeader';
-export { default as HeaderSkeleton } from './layout/header/HeaderSkeleton';
-
 // Re-export UI constants
 export { Colors } from './ui/UI';
