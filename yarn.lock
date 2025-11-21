@@ -3512,7 +3512,6 @@ expo-dev-client@~6.0.18:
   integrity sha512-8QKWvhsoZpMkecAMlmWoRHnaTNiPS3aO7E42spZOMjyiaNRJMHZsnB8W2b63dt3Yg3oLyskLAoI8IOmnqVX8vA==
   dependencies:
     expo-dev-launcher "6.0.18"
-    expo-dev-menu "7.0.17"
     expo-dev-menu-interface "2.0.0"
     expo-manifests "~1.0.9"
     expo-updates-interface "~2.0.0"
@@ -3530,10 +3529,10 @@ expo-dev-menu-interface@2.0.0:
   resolved "https://registry.npmjs.org/expo-dev-menu-interface/-/expo-dev-menu-interface-2.0.0.tgz"
   integrity sha512-BvAMPt6x+vyXpThsyjjOYyjwfjREV4OOpQkZ0tNl+nGpsPfcY9mc6DRACoWnH9KpLzyIt3BOgh3cuy/h/OxQjw==
 
-expo-dev-menu@7.0.14, expo-dev-menu@7.0.17:
-  version "7.0.14"
-  resolved "https://registry.npmjs.org/expo-dev-menu/-/expo-dev-menu-7.0.14.tgz"
-  integrity sha512-nWyzSztFWfnhDOiKJ6DuZLjIbq+tG9e5y4TDmW6wYlSKKPBXbdOn2UdxaknhSqZrw6NwWMcjyhS+QG4MoDGD8w==
+expo-dev-menu@7.0.17:
+  version "7.0.17"
+  resolved "https://registry.yarnpkg.com/expo-dev-menu/-/expo-dev-menu-7.0.17.tgz#4b04f860cd154386308bb31c5c9f29aeaa7a60a9"
+  integrity sha512-NIu7TdaZf+A8+DROa6BB6lDfxjXxwaD+Q8QbNSVa0E0x6yl3P0ZJ80QbD2cCQeBzlx3Ufd3hNhczQWk4+A29HQ==
   dependencies:
     expo-dev-menu-interface "2.0.0"
 
