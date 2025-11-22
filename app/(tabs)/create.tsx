@@ -18,6 +18,7 @@ import { Camera, useCameraDevice, useCameraPermission, VideoFile } from 'react-n
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system';
 import Animated, { 
   useSharedValue, 
   withSpring, 
@@ -44,13 +45,12 @@ const MIN_SEGMENT_DURATION = 0.5; // Minimum duration for a segment in seconds
 interface VideoSegment {
   startTime: number;
   duration: number;
-  video: VideoFile;
+  video: VideoFile | ImagePicker.ImagePickerAsset;
   sourceType?: 'camera' | 'gallery';
 }
 
 const CreateScreen: React.FC = () => {
   const { hasPermission, requestPermission } = useCameraPermission();
-  // Gallery permissions are handled by ImagePicker automatically
   const [hasMicPermission, setHasMicPermission] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(false);
@@ -205,22 +205,46 @@ const CreateScreen: React.FC = () => {
   const pickFromGallery = async () => {
     try {
       setIsProcessing(true);
+      
+      // Request media library permissions before opening picker (required for videos on iOS SDK 54+)
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        setIsProcessing(false);
+        Alert.alert(
+          'Permission required',
+          'Permission to access the media library is required to select videos.'
+        );
+        return;
+      }
+      
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: 'videos',
         allowsMultipleSelection: false,
         videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
+        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
+        videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720,
       });
       
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        const videoFile: VideoFile = {
-          path: asset.uri,
-          duration: asset.duration ? (asset.duration > 1000 ? asset.duration / 1000 : asset.duration) : 0,
-          width: asset.width || 0,
-          height: asset.height || 0,
-        };
         
-        const segmentDuration = asset.duration ? asset.duration / 1000 : 0;
+        // Ensure video is downloaded from iCloud using MediaLibrary
+        let videoUri = asset.uri;
+        if (asset.assetId && Platform.OS === 'ios') {
+          try {
+            const mediaAsset = await MediaLibrary.getAssetInfoAsync(asset.assetId, {
+              shouldDownloadFromNetwork: true,
+            });
+            if (mediaAsset.localUri) {
+              videoUri = mediaAsset.localUri;
+            }
+          } catch (mediaError) {
+            console.warn('Failed to download video from iCloud:', mediaError);
+            // Continue with original URI - it might work
+          }
+        }
+        
+        const segmentDuration = asset.duration ? (asset.duration > 1000 ? asset.duration / 1000 : asset.duration) : 0;
         if (segmentDuration > 0) {
           const newTotalDuration = totalDuration + segmentDuration;
           if (newTotalDuration > MAX_DURATION) {
@@ -232,10 +256,13 @@ const CreateScreen: React.FC = () => {
             return;
           }
           
+          // Update asset URI if we got a new one from MediaLibrary
+          const updatedAsset = videoUri !== asset.uri ? { ...asset, uri: videoUri } : asset;
+          
           const gallerySegment: VideoSegment = {
             startTime: Date.now(),
             duration: segmentDuration,
-            video: videoFile,
+            video: updatedAsset, // Use full ImagePickerAsset with downloaded URI
             sourceType: 'gallery',
           };
           
@@ -251,12 +278,9 @@ const CreateScreen: React.FC = () => {
         
         // Show video info alert for gallery videos
         try {
-          const videoInfo = await VideoProcessingService.getVideoInfo(asset.uri, {
-            duration: asset.duration || undefined,
-            width: asset.width || undefined,
-            height: asset.height || undefined,
-          });
-          const sizeInfo = await VideoProcessingService.checkVideoSize(asset.uri);
+          const finalAsset = videoUri !== asset.uri ? { ...asset, uri: videoUri } : asset;
+          const videoInfo = await VideoProcessingService.getVideoInfo(videoUri, finalAsset);
+          const sizeInfo = await VideoProcessingService.checkVideoSize(videoUri, asset.assetId);
           
           Alert.alert(
             'Video Selected',
@@ -314,9 +338,12 @@ const CreateScreen: React.FC = () => {
     try {
       if (segments.length === 1) {
         const segment = segments[0];
+        const videoPath = 'uri' in segment.video ? segment.video.uri : segment.video.path;
+        
         if (segment.sourceType === 'gallery') {
           try {
-            const optimizedVideo = await VideoProcessingService.optimizeVideoForPosting(segment.video.path);
+            const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
+            const optimizedVideo = await VideoProcessingService.optimizeVideoForPosting(videoPath, assetId);
             const videoWithUri = { 
               ...optimizedVideo, 
               path: optimizedVideo.path.startsWith('file://') ? optimizedVideo.path : `file://${optimizedVideo.path}` 
@@ -327,24 +354,18 @@ const CreateScreen: React.FC = () => {
             });
             return;
           } catch (error) {
-            const fallbackVideo = {
-              ...segment.video,
-              path: segment.video.path.startsWith('file://') ? segment.video.path : `file://${segment.video.path}`,
-            };
+            const fallbackPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
             navigation.push({
               pathname: '/post/[id]',
-              params: { id: 'new', videoPath: fallbackVideo.path }
+              params: { id: 'new', videoPath: fallbackPath }
             });
             return;
           }
         }
-        const videoWithUri = { 
-          ...segment.video, 
-          path: segment.video.path.startsWith('file://') ? segment.video.path : `file://${segment.video.path}` 
-        };
+        const finalPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
         navigation.push({
           pathname: '/post/[id]',
-          params: { id: 'new', videoPath: videoWithUri.path }
+          params: { id: 'new', videoPath: finalPath }
         });
         return;
       }
@@ -363,6 +384,7 @@ const CreateScreen: React.FC = () => {
       } catch (mergeError) {
         if (segments.length > 0) {
           const fallbackVideo = segments[0].video;
+          const fallbackPath = 'uri' in fallbackVideo ? fallbackVideo.uri : fallbackVideo.path;
           Alert.alert(
             'Merge Failed',
             'Failed to merge video segments. Using the first segment instead.',
@@ -370,7 +392,7 @@ const CreateScreen: React.FC = () => {
           );
           navigation.push({
             pathname: '/post/[id]',
-            params: { id: 'new', videoPath: fallbackVideo.path }
+            params: { id: 'new', videoPath: fallbackPath.startsWith('file://') ? fallbackPath : `file://${fallbackPath}` }
           });
         } else {
           throw mergeError;
@@ -519,8 +541,6 @@ const CreateScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-// Media library permissions are handled automatically by ImagePicker
 
 const styles = StyleSheet.create({
   container: {
@@ -681,11 +701,19 @@ async function mergeSegments(segments: VideoSegment[]): Promise<VideoFile> {
   } catch (error) {
     // Fallback: return the first segment if merging fails
     const totalDurationMs = segments.reduce((sum, seg) => sum + seg.duration * 1000, 0);
+    const firstVideo = segments[0].video;
+    const videoPath = 'uri' in firstVideo ? firstVideo.uri : firstVideo.path;
+    const videoDuration = 'uri' in firstVideo 
+      ? (firstVideo.duration ? (firstVideo.duration > 1000 ? firstVideo.duration / 1000 : firstVideo.duration) : totalDurationMs / 1000)
+      : totalDurationMs / 1000;
+    const videoWidth = 'uri' in firstVideo ? (firstVideo.width || 0) : (firstVideo.width || 0);
+    const videoHeight = 'uri' in firstVideo ? (firstVideo.height || 0) : (firstVideo.height || 0);
+    
     return {
-      path: segments[0].video.path,
-      duration: totalDurationMs / 1000,
-      width: segments[0].video.width,
-      height: segments[0].video.height,
+      path: videoPath,
+      duration: videoDuration,
+      width: videoWidth,
+      height: videoHeight,
     };
   }
 }

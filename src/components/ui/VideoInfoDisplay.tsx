@@ -25,7 +25,6 @@ const VideoInfoDisplay: React.FC<VideoInfoDisplayProps> = ({
     <View style={[styles.videoSizeContainer, style]}>
       {/* Original Video Info */}
       <View style={styles.videoInfoSection}>
-        <Text style={styles.videoInfoTitle}>video details</Text>
         <View style={styles.videoInfoGrid}>
           <View style={styles.videoInfoItem}>
             <Text style={styles.videoInfoLabel}>resolution</Text>
@@ -62,10 +61,8 @@ const VideoInfoDisplay: React.FC<VideoInfoDisplayProps> = ({
 
 const styles = StyleSheet.create({
   videoSizeContainer: {
-    padding: 15,
-    paddingBottom: 5, // reduce bottom padding
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    padding: 0,
+    paddingBottom: 0,
   },
   videoSizeRow: {
     flexDirection: 'row',
@@ -85,33 +82,30 @@ const styles = StyleSheet.create({
     marginLeft: 28,
   },
   videoInfoSection: {
-    marginBottom: 4, // reduce space beneath video info
-  },
-  videoInfoTitle: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
-    marginBottom: 10,
+    marginBottom: 0,
   },
   videoInfoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    paddingHorizontal: 12,
   },
   videoInfoItem: {
     width: '48%',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   videoInfoLabel: {
     color: Colors.lightGray,
-    fontSize: 12,
-    fontFamily: 'Firma-Medium',
-    marginBottom: 2,
+    fontSize: 13,
+    fontFamily: 'Firma-Regular',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   videoInfoValue: {
     color: Colors.white,
-    fontSize: 14,
-    fontFamily: 'Firma-Medium',
+    fontSize: 16,
+    fontFamily: 'Firma-SemiBold',
   },
   compressionStatusSection: {
     marginBottom: 15,

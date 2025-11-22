@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Animated } from 'react-native';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
@@ -15,19 +16,20 @@ import {
   FlatList,
   StatusBar,
   Image,
+  Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Video, { VideoRef } from 'react-native-video';
-import { Ionicons } from '@expo/vector-icons';
+import { File, Directory, Paths } from 'expo-file-system';
+import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import VideoPreviewModal from '../../src/components/features/video/Preview/VideoPreviewModal';
 import { Avatar } from '../../src/components/ui/UI';
 import { VerificationBadge } from '../../src/components/features/badging';
-import Icon, { BackArrowIcon, DownloadIcon, ChevronDownIcon, ChevronUpIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
+import Icon, { BackArrowIcon, ChevronDownIcon, Loading3FillIcon, InformationLineIcon } from '../../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 
@@ -41,7 +43,10 @@ import ProfileCache from '../../src/services/cache/ProfileCache';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import VideoProcessingService from '../../src/services/VideoProcessingService';
 import { SavedAccount } from '../../src/stores/userStore';
-import { getPostableChannels, shouldShowChannelSlash, OrbytChannel } from '../../src/utils/orbytChannels';
+import { getPostableChannels, shouldShowChannelSlash, OrbytChannel, extractFeedSlug } from '../../src/utils/orbytChannels';
+import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
+import { useRichTextSearchTrigger, RichTextSearchModal } from '../../src/components/ui/usersearch';
+import { parseRichText } from '../../src/utils/richTextParser';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16; // 9:16 aspect ratio for video cards
@@ -66,12 +71,12 @@ const COMMENT_FILTERS = [
 const VideoPostScreen: React.FC = () => {
   const params = useLocalSearchParams();
   
-  // Handle video parameter - it can come as videoPath or video object
+  // Handle video parameter - it can come as videoPath or video object (ImagePickerAsset or legacy format)
   const videoPath = params.videoPath as string;
   const videoObjectString = params.video as string;
   
   // Parse video object if it's a string, otherwise use videoPath
-  let videoObject = null;
+  let videoObject: any = null;
   try {
     videoObject = videoObjectString ? JSON.parse(videoObjectString) : null;
   } catch (e) {
@@ -79,12 +84,16 @@ const VideoPostScreen: React.FC = () => {
   }
   
   // Create video object with proper structure
+  // Handle ImagePickerAsset (has 'uri' property) or legacy format (has 'path' property)
   const video = videoObject || {
     path: videoPath || '',
     width: 360,
     height: 640,
     duration: 0
   };
+  
+  // Normalize video path - ImagePickerAsset uses 'uri', legacy uses 'path'
+  let normalizedVideoPath = (video.uri || video.path || videoPath || '').toString();
   
   const textOverlays = (params.textOverlays as any) || [];
   const navigation = useRouter();
@@ -101,24 +110,38 @@ const VideoPostScreen: React.FC = () => {
   const [selectedContentWarnings, setSelectedContentWarnings] = useState<string[]>([]);
   const [otherWarning, setOtherWarning] = useState('');
   const [showContentWarningInput, setShowContentWarningInput] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   
   // Comment filtering state
   const [commentFilter, setCommentFilter] = useState('all');
 
   // Channel selection state
   const [selectedChannel, setSelectedChannel] = useState<OrbytChannel | null>(null);
-  const [channelSelectionCollapsed, setChannelSelectionCollapsed] = useState(true);
-
-  const [contentWarningsCollapsed, setContentWarningsCollapsed] = useState(true);
-  const [commentSettingsCollapsed, setCommentSettingsCollapsed] = useState(true);
+  
+  // Sheet visibility state
+  const [showContentWarningsSheet, setShowContentWarningsSheet] = useState(false);
+  const [showCommentSettingsSheet, setShowCommentSettingsSheet] = useState(false);
+  const [showChannelSelectionSheet, setShowChannelSelectionSheet] = useState(false);
+  const [showVideoInfoSheet, setShowVideoInfoSheet] = useState(false);
   
   // Preview modal state
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  
+  // Full-screen description input modal state
+  const [showDescriptionInputModal, setShowDescriptionInputModal] = useState(false);
+  const descriptionModalOpacity = useRef(new Animated.Value(0)).current;
   const [videoLoading, setVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState<string | null>(null);
-  // Store video dimensions for aspect ratio
-  const [videoDimensions, setVideoDimensions] = useState({ width: video.width || 360, height: video.height || 640 });
+  // Store video dimensions for aspect ratio - handle both ImagePickerAsset and legacy format
+  const [videoDimensions, setVideoDimensions] = useState({ 
+    width: video.width || 360, 
+    height: video.height || 640 
+  });
   const [videoVolume, setVideoVolume] = useState(1);
+  
+  // Rich text search state (for @ mentions and # hashtags)
+  const [descriptionSelection, setDescriptionSelection] = useState({ start: 0, end: 0 });
+  const [descriptionInputHeight, setDescriptionInputHeight] = useState(24);
 
   // Video size and compression state
   const [videoSizeInfo, setVideoSizeInfo] = useState<{
@@ -153,6 +176,19 @@ const VideoPostScreen: React.FC = () => {
 
   // User store hooks
   const { currentUser } = useCurrentUser();
+  
+  // Rich text search hook for description input
+  const {
+    inputProps: richTextInputProps,
+    richTextSearchModalProps,
+  } = useRichTextSearchTrigger({
+    value: description,
+    selection: descriptionSelection,
+    onChangeText: setDescription,
+    onSelectionChange: (e) => {
+      setDescriptionSelection(e.nativeEvent.selection);
+    },
+  });
 
   // User profile state - using userStore
   const userHandle = currentUser?.handle || null;
@@ -180,17 +216,15 @@ const VideoPostScreen: React.FC = () => {
   // Check video size on component mount
   useEffect(() => {
     const checkVideoSize = async () => {
-      if (video?.path) {
+      if (normalizedVideoPath) {
         try {
-          const sizeInfo = await VideoProcessingService.checkVideoSize(video.path);
+          const assetId = video.assetId;
+          const sizeInfo = await VideoProcessingService.checkVideoSize(normalizedVideoPath, assetId);
           setVideoSizeInfo(sizeInfo);
           
-          // Get comprehensive video information using video metadata from route params
-          const compressionInfo = await VideoProcessingService.getCompressionInfo(video.path, {
-            duration: video.duration,
-            width: video.width,
-            height: video.height,
-          });
+          // Get comprehensive video information - pass ImagePickerAsset if available
+          const asset = video.uri ? video as ImagePicker.ImagePickerAsset : undefined;
+          const compressionInfo = await VideoProcessingService.getCompressionInfo(normalizedVideoPath, asset);
           setVideoInfo(compressionInfo);
         } catch (error) {
           console.error('Error checking video size:', error);
@@ -199,20 +233,20 @@ const VideoPostScreen: React.FC = () => {
     };
 
     checkVideoSize();
-  }, [video?.path]);
+  }, [normalizedVideoPath]);
 
   // Compress video if needed
   const compressVideo = async () => {
-    if (!video?.path || isCompressing) return;
+    if (!normalizedVideoPath || isCompressing) return;
     
     setIsCompressing(true);
     try {
       // Compress the video
-      const compressedVideo = await VideoProcessingService.compressVideoWithSizeLimit(video.path);
+      const compressedVideo = await VideoProcessingService.compressVideoWithSizeLimit(normalizedVideoPath);
       setCompressedVideoPath(compressedVideo.path);
       
       // Get compression statistics
-      const stats = await VideoProcessingService.getCompressionStats(video.path, compressedVideo.path);
+      const stats = await VideoProcessingService.getCompressionStats(normalizedVideoPath, compressedVideo.path);
       setCompressionStats(stats);
       
       // Update video size info
@@ -257,18 +291,69 @@ const VideoPostScreen: React.FC = () => {
     }
   };
 
+  // Helper functions to get selected labels for display
+  const getSelectedChannelLabel = () => {
+    if (!selectedChannel) return 'Pick a channel';
+    return selectedChannel.displayName.toLowerCase();
+  };
+
+  const getSelectedCommentFilterLabel = () => {
+    const filter = COMMENT_FILTERS.find(f => f.id === commentFilter);
+    if (commentFilter === 'all') return 'Choose who can comment';
+    return filter?.label.toLowerCase() || 'Choose who can comment';
+  };
+
+  const getSelectedContentWarningsLabel = () => {
+    if (selectedContentWarnings.length === 0 && !otherWarning.trim()) {
+      return 'Apply any warnings';
+    }
+    const warningLabels = selectedContentWarnings.map(id => {
+      const warning = CONTENT_WARNINGS.find(w => w.id === id);
+      return warning?.label.toLowerCase() || id;
+    });
+    if (otherWarning.trim()) {
+      warningLabels.push('other');
+    }
+    return warningLabels.length > 0 ? warningLabels.join(', ') : 'Apply any warnings';
+  };
+
   const handlePost = async () => {
     if (isPosting) return;
     
-    if (!video?.path) {
+    if (!normalizedVideoPath) {
       Alert.alert('error', 'no video selected');
       return;
     }
 
-    // Validate video file exists
+    // Validate video file exists - try MediaLibrary if we have assetId (iCloud videos)
     try {
-      const fileInfo = await FileSystem.getInfoAsync(video.path.replace('file://', ''));
-      if (!fileInfo.exists) {
+      const assetId = video.assetId;
+      let fileExists = false;
+      
+      if (assetId && Platform.OS === 'ios') {
+        try {
+          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
+            shouldDownloadFromNetwork: true,
+          });
+          if (assetInfo.localUri) {
+            const file = new File(assetInfo.localUri);
+            fileExists = file.exists;
+            if (fileExists) {
+              // Update normalized path to use the downloaded local URI
+              normalizedVideoPath = assetInfo.localUri;
+            }
+          }
+        } catch (mediaError) {
+          // Fall through to FileSystem check
+        }
+      }
+      
+      if (!fileExists) {
+        const file = new File(normalizedVideoPath);
+        fileExists = file.exists;
+      }
+      
+      if (!fileExists) {
         Alert.alert('error', 'video file not found. please try again.');
         return;
       }
@@ -302,15 +387,20 @@ const VideoPostScreen: React.FC = () => {
       }, 300);
       
       // Use compressed video if available, otherwise use original
-      const videoPathToUpload = compressedVideoPath || video.path;
+      const videoPathToUpload = compressedVideoPath || normalizedVideoPath;
       
+      // Extract slug from channel URI to ensure it matches what the backend expects
+      const channelSlug = selectedChannel 
+        ? (extractFeedSlug(selectedChannel.uri) || selectedChannel.slug)
+        : undefined;
+
       // Create the video post using AtprotoService
       const result = await AtprotoService.createVideoPost(
         description,
         videoPathToUpload,
         allContentWarnings.length > 0 ? allContentWarnings : undefined,
         commentFilter as 'all' | 'followers' | 'mentioned' | 'none',
-        selectedChannel?.slug // Pass channel slug for tagging
+        channelSlug // Pass channel slug for tagging (extracted from URI)
       );
       
       // Complete the progress
@@ -358,22 +448,6 @@ const VideoPostScreen: React.FC = () => {
     );
   };
 
-  const handleDownloadToCameraRoll = async () => {
-    try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('permission required', 'please grant camera roll permissions to download the video');
-        return;
-      }
-      const asset = await MediaLibrary.createAssetAsync(video.path);
-      if (asset) {
-        Alert.alert('success', 'video successfully downloaded to camera roll.');
-      }
-    } catch (error) {
-      console.error('Download error:', error);
-      Alert.alert('error', 'failed to download video. please try again.');
-    }
-  };
 
   // Fade audio utility
   const fadeVolume = (from: number, to: number, duration: number = 300) => {
@@ -438,7 +512,7 @@ const VideoPostScreen: React.FC = () => {
   };
 
   // Ensure file:// prefix for local files and validate path
-  const videoUri = video.path && video.path.trim() ? (video.path.startsWith('file://') ? video.path : `file://${video.path}`) : '';
+  const videoUri = normalizedVideoPath && normalizedVideoPath.trim() ? (normalizedVideoPath.startsWith('file://') ? normalizedVideoPath : `file://${normalizedVideoPath}`) : '';
   
   // Debug logging and file validation
   useEffect(() => {
@@ -454,16 +528,14 @@ const VideoPostScreen: React.FC = () => {
     const validateVideoFile = async () => {
       if (videoUri && videoUri.startsWith('file://')) {
         try {
-          const filePath = videoUri.replace('file://', '');
-          const fileInfo = await FileSystem.getInfoAsync(filePath);
+          const file = new File(videoUri);
           console.log('Video file validation:', {
-            path: filePath,
-            exists: fileInfo.exists,
-            size: fileInfo.exists ? (fileInfo as any).size : 0,
-            isDirectory: fileInfo.isDirectory
+            path: videoUri,
+            exists: file.exists,
+            size: file.exists ? file.size : 0,
           });
           
-          if (!fileInfo.exists) {
+          if (!file.exists) {
             setVideoError('Video file not found');
           }
         } catch (error) {
@@ -475,6 +547,40 @@ const VideoPostScreen: React.FC = () => {
     
     validateVideoFile();
   }, [videoPath, videoObjectString, videoObject, video, videoUri]);
+
+  // Handle keyboard visibility for input spacing
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
+  // Animate description modal fade
+  useEffect(() => {
+    if (showDescriptionInputModal) {
+      Animated.timing(descriptionModalOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(descriptionModalOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showDescriptionInputModal]);
 
   // Calculate container size based on 9:16 aspect ratio
   const containerWidth = VIDEO_WIDTH;
@@ -517,194 +623,143 @@ const VideoPostScreen: React.FC = () => {
                 <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
                   <BackArrowIcon size={32} color={Colors.white} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={handleDownloadToCameraRoll} style={styles.headerButton}>
-                  <DownloadIcon size={32} color={Colors.white} />
-                </TouchableOpacity>
+                {videoInfo && (
+                  <TouchableOpacity 
+                    onPress={() => setShowVideoInfoSheet(true)} 
+                    style={styles.headerButton}
+                    activeOpacity={0.7}
+                  >
+                    <InformationLineIcon size={32} color={Colors.white} />
+                  </TouchableOpacity>
+                )}
               </View>
                         {/* Description Section */}
           <View style={styles.descriptionSection}>
-            <TextInput
-              style={styles.descriptionInput}
-              placeholder="add a description for your video..."
-                  placeholderTextColor={Colors.lightGray}
-                  multiline
-                  maxLength={300}
-                  value={description}
-                  onChangeText={setDescription}
-                />
-                <Text style={styles.charCount}>
-                  {description.length}/300
+            <Text style={styles.sectionHeaderTitle}>Description</Text>
+            <TouchableOpacity 
+              onPress={() => setShowDescriptionInputModal(true)}
+              activeOpacity={0.7}
+              style={styles.descriptionInputTouchable}
+            >
+              {description ? (
+                <Text style={styles.descriptionInputPreview} numberOfLines={0}>
+                  {(() => {
+                    // Simple regex to find mentions and hashtags
+                    const mentionRegex = /@[\w.-]+/g;
+                    const hashtagRegex = /#[\w]+/g;
+                    const parts: Array<{ text: string; isBold: boolean }> = [];
+                    let lastIndex = 0;
+                    const matches: Array<{ start: number; end: number }> = [];
+                    
+                    // Find all mentions
+                    let match;
+                    while ((match = mentionRegex.exec(description)) !== null) {
+                      matches.push({ start: match.index, end: match.index + match[0].length });
+                    }
+                    
+                    // Find all hashtags
+                    while ((match = hashtagRegex.exec(description)) !== null) {
+                      matches.push({ start: match.index, end: match.index + match[0].length });
+                    }
+                    
+                    // Sort matches by position
+                    matches.sort((a, b) => a.start - b.start);
+                    
+                    if (matches.length > 0) {
+                      for (const m of matches) {
+                        // Add text before match
+                        if (m.start > lastIndex) {
+                          const beforeText = description.slice(lastIndex, m.start);
+                          if (beforeText) {
+                            parts.push({ text: beforeText, isBold: false });
+                          }
+                        }
+                        
+                        // Add match text (bold for both mentions and hashtags)
+                        const matchText = description.slice(m.start, m.end);
+                        parts.push({ text: matchText, isBold: true });
+                        
+                        lastIndex = m.end;
+                      }
+                      
+                      // Add remaining text
+                      if (lastIndex < description.length) {
+                        parts.push({ text: description.slice(lastIndex), isBold: false });
+                      }
+                    } else {
+                      parts.push({ text: description, isBold: false });
+                    }
+                    
+                    return parts.map((part, index) => (
+                      <Text key={index} style={part.isBold ? styles.descriptionInputPreviewBold : styles.descriptionInputPreview}>
+                        {part.text}
+                      </Text>
+                    ));
+                  })()}
                 </Text>
-              </View>
-              {/* Content Warnings */}
+              ) : (
+                <Text style={[styles.descriptionInputPreview, styles.descriptionInputPlaceholder]}>
+                  Add text & tags (optional)
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+              {/* Channel Selection */}
               <View style={styles.section}>
+                <Text style={styles.sectionHeaderTitle}>Channel</Text>
                 <TouchableOpacity 
-                  style={styles.sectionHeader}
-                  onPress={() => setContentWarningsCollapsed(!contentWarningsCollapsed)}
+                  style={styles.sectionSelector}
+                  onPress={() => setShowChannelSelectionSheet(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.sectionTitle}>content warnings</Text>
-                  {contentWarningsCollapsed ? (
-                    <ChevronDownIcon size={24} color={Colors.white} />
-                  ) : (
-                    <ChevronUpIcon size={24} color={Colors.white} />
-                  )}
-                </TouchableOpacity>
-                {!contentWarningsCollapsed && (
-                  <>
-                    <Text style={styles.sectionSubtitle}>
-                      add appropriate warnings if your video contains sensitive content.
-                    </Text>
-                    {CONTENT_WARNINGS.map(warning => (
-                      <TouchableOpacity 
-                        key={warning.id} 
-                        style={styles.optionRow}
-                        onPress={() => toggleContentWarning(warning.id)}
-                      >
-                        <Text style={styles.optionText}>{warning.label.toLowerCase()}</Text>
-                        <View style={[
-                          styles.checkbox,
-                          selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
-                        ]}>
-                          {selectedContentWarnings.includes(warning.id) && (
-                            <Icon name="checkmark" size={16} color={Colors.black} />
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                    <TouchableOpacity 
-                      style={styles.optionRow}
-                      onPress={() => setShowContentWarningInput(!showContentWarningInput)}
-                    >
-                      <Text style={styles.optionText}>other warning</Text>
-                      <View style={[
-                        styles.checkbox,
-                        showContentWarningInput && styles.checkboxSelected
-                      ]}>
-                        {showContentWarningInput && (
-                          <Icon name="checkmark" size={16} color={Colors.black} />
+                  <View style={styles.sectionSelectorContent}>
+                    {!selectedChannel ? (
+                      <Text style={styles.sectionSelectorText}>Pick a channel</Text>
+                    ) : (
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {shouldShowChannelSlash(selectedChannel.uri) && (
+                          <Text style={[
+                            styles.sectionSelectorText, 
+                            styles.orbytSlash, 
+                            { 
+                              color: selectedChannel.channelColor || '#FFD700',
+                              fontFamily: 'Firma-SemiBold'
+                            }
+                          ]}>/</Text>
                         )}
+                        <Text style={[styles.sectionSelectorText, { fontFamily: 'Firma-Bold' }]}>
+                          {selectedChannel.displayName.toLowerCase()}
+                        </Text>
                       </View>
-                    </TouchableOpacity>
-                    {showContentWarningInput && (
-                      <TextInput
-                        style={styles.otherWarningInput}
-                        placeholder="specify content warning"
-                        placeholderTextColor={Colors.lightGray}
-                        value={otherWarning}
-                        onChangeText={setOtherWarning}
-                      />
                     )}
-                  </>
-                )}
+                  </View>
+                  <ChevronDownIcon size={20} color={Colors.lightGray} />
+                </TouchableOpacity>
               </View>
               {/* Comment Filtering */}
               <View style={styles.section}>
+                <Text style={styles.sectionHeaderTitle}>Comments</Text>
                 <TouchableOpacity 
-                  style={styles.sectionHeader}
-                  onPress={() => setCommentSettingsCollapsed(!commentSettingsCollapsed)}
+                  style={styles.sectionSelector}
+                  onPress={() => setShowCommentSettingsSheet(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.sectionTitle}>comment settings</Text>
-                  {commentSettingsCollapsed ? (
-                    <ChevronDownIcon size={24} color={Colors.white} />
-                  ) : (
-                    <ChevronUpIcon size={24} color={Colors.white} />
-                  )}
+                  <Text style={styles.sectionSelectorText}>{getSelectedCommentFilterLabel()}</Text>
+                  <ChevronDownIcon size={20} color={Colors.lightGray} />
                 </TouchableOpacity>
-                {!commentSettingsCollapsed && (
-                  <>
-                    <Text style={styles.sectionSubtitle}>
-                      control who can comment on your video.
-                    </Text>
-                    {COMMENT_FILTERS.map(filter => (
-                      <TouchableOpacity 
-                        key={filter.id} 
-                        style={styles.optionRow}
-                        onPress={() => setCommentFilter(filter.id)}
-                      >
-                        <Text style={styles.optionText}>{filter.label.toLowerCase()}</Text>
-                        <View style={[
-                          styles.commentCheckbox,
-                          commentFilter === filter.id && styles.checkboxSelected
-                        ]}>
-                          {commentFilter === filter.id && (
-                            <Icon name="checkmark" size={16} color={Colors.black} />
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </>
-                )}
               </View>
-              {/* Channel Selection */}
+              {/* Content Warnings */}
               <View style={styles.section}>
+                <Text style={styles.sectionHeaderTitle}>Warnings</Text>
                 <TouchableOpacity 
-                  style={styles.sectionHeader}
-                  onPress={() => setChannelSelectionCollapsed(!channelSelectionCollapsed)}
+                  style={styles.sectionSelector}
+                  onPress={() => setShowContentWarningsSheet(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.sectionTitle}>channel</Text>
-                  {channelSelectionCollapsed ? (
-                    <ChevronDownIcon size={24} color={Colors.white} />
-                  ) : (
-                    <ChevronUpIcon size={24} color={Colors.white} />
-                  )}
+                  <Text style={styles.sectionSelectorText}>{getSelectedContentWarningsLabel()}</Text>
+                  <ChevronDownIcon size={20} color={Colors.lightGray} />
                 </TouchableOpacity>
-                {!channelSelectionCollapsed && (
-                  <>
-                    <Text style={styles.sectionSubtitle}>
-                      post to a specific channel (optional).
-                    </Text>
-                    {/* None option */}
-                    <TouchableOpacity 
-                      style={styles.optionRow}
-                      onPress={() => setSelectedChannel(null)}
-                    >
-                      <Text style={styles.optionText}>none</Text>
-                      <View style={[
-                        styles.commentCheckbox,
-                        selectedChannel === null && styles.checkboxSelected
-                      ]}>
-                        {selectedChannel === null && (
-                          <Icon name="checkmark" size={16} color={Colors.black} />
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                    {/* Channel options */}
-                    {getPostableChannels().map(channel => (
-                      <TouchableOpacity 
-                        key={channel.slug} 
-                        style={styles.optionRow}
-                        onPress={() => setSelectedChannel(channel)}
-                      >
-                        <View style={styles.channelInfo}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            {shouldShowChannelSlash(channel.uri) && (
-                              <Text style={[styles.optionText, styles.orbytSlash, { color: channel.channelColor || '#FFD700' }]}>/</Text>
-                            )}
-                            <Text style={styles.optionText}>{channel.displayName.toLowerCase()}</Text>
-                          </View>
-                        </View>
-                        <View style={[
-                          styles.commentCheckbox,
-                          selectedChannel?.slug === channel.slug && styles.checkboxSelected
-                        ]}>
-                          {selectedChannel?.slug === channel.slug && (
-                            <Icon name="checkmark" size={16} color={Colors.black} />
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </>
-                )}
               </View>
-              {/* Video Info */}
-              {videoInfo && (
-                <VideoInfoDisplay
-                  videoInfo={videoInfo.originalInfo}
-                />
-              )}
               {/* Post Button */}
               <View style={[styles.landscapePostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
                 {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
@@ -850,12 +905,280 @@ const VideoPostScreen: React.FC = () => {
         <VideoPreviewModal
           visible={showPreviewModal}
           onClose={handleClosePreviewModal}
-          videoPath={video.path || ''}
+          videoPath={normalizedVideoPath || ''}
           description={description}
           userProfile={profileData}
           initialTime={currentTime}
           initialIsPlaying={isPlaying}
         />
+
+        {/* Full-Screen Description Input Modal */}
+        <Modal
+          visible={showDescriptionInputModal}
+          transparent={true}
+          animationType="none"
+          onRequestClose={() => setShowDescriptionInputModal(false)}
+        >
+          <View style={styles.descriptionModalContainer}>
+            <Animated.View style={[styles.descriptionModalOverlay, { opacity: descriptionModalOpacity }]}>
+              <View style={[styles.descriptionModalContentWrapper, { paddingTop: insets.top }]}>
+                <View style={styles.descriptionModalHeader}>
+                  <View style={styles.descriptionModalHeaderSpacer} />
+                  <Text style={styles.descriptionModalTitle}>Description</Text>
+                  <TouchableOpacity 
+                    onPress={() => setShowDescriptionInputModal(false)}
+                    style={styles.descriptionModalDoneButton}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.descriptionModalDoneText}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                <KeyboardAvoidingView 
+                  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                  style={styles.descriptionModalContent}
+                >
+                <View style={styles.descriptionInputWrapper}>
+                  <TextInput
+                    {...richTextInputProps}
+                    style={[styles.descriptionModalInput, { height: descriptionInputHeight, color: description.length > 0 ? 'transparent' : Colors.white }]}
+                    placeholder="Add text & tags (optional)"
+                    placeholderTextColor={Colors.lightGray}
+                    multiline
+                    maxLength={300}
+                    autoFocus={true}
+                    textAlignVertical="top"
+                    onContentSizeChange={(e) => {
+                      const newHeight = Math.min(Math.max(24, e.nativeEvent.contentSize.height + 8), 400);
+                      setDescriptionInputHeight(newHeight);
+                    }}
+                  />
+                  {description.length > 0 && (
+                    <View style={[styles.descriptionPreview, { height: descriptionInputHeight }]}>
+                      {(() => {
+                        // Simple regex to find mentions and hashtags
+                        const mentionRegex = /@[\w.-]+/g;
+                        const hashtagRegex = /#[\w]+/g;
+                        const parts: Array<{ text: string; isBold: boolean }> = [];
+                        let lastIndex = 0;
+                        const matches: Array<{ start: number; end: number }> = [];
+                        
+                        // Find all mentions
+                        let match;
+                        while ((match = mentionRegex.exec(description)) !== null) {
+                          matches.push({ start: match.index, end: match.index + match[0].length });
+                        }
+                        
+                        // Find all hashtags
+                        while ((match = hashtagRegex.exec(description)) !== null) {
+                          matches.push({ start: match.index, end: match.index + match[0].length });
+                        }
+                        
+                        // Sort matches by position
+                        matches.sort((a, b) => a.start - b.start);
+                        
+                        if (matches.length > 0) {
+                          for (const m of matches) {
+                            // Add text before match
+                            if (m.start > lastIndex) {
+                              const beforeText = description.slice(lastIndex, m.start);
+                              if (beforeText) {
+                                parts.push({ text: beforeText, isBold: false });
+                              }
+                            }
+                            
+                            // Add match text (bold for both mentions and hashtags)
+                            const matchText = description.slice(m.start, m.end);
+                            parts.push({ text: matchText, isBold: true });
+                            
+                            lastIndex = m.end;
+                          }
+                          
+                          // Add remaining text
+                          if (lastIndex < description.length) {
+                            parts.push({ text: description.slice(lastIndex), isBold: false });
+                          }
+                        } else {
+                          parts.push({ text: description, isBold: false });
+                        }
+                        
+                        return (
+                          <Text style={styles.descriptionPreviewText} numberOfLines={0}>
+                            {parts.map((part, index) => (
+                              <Text key={index} style={part.isBold ? styles.descriptionPreviewBold : styles.descriptionPreviewNormal}>
+                                {part.text}
+                              </Text>
+                            ))}
+                          </Text>
+                        );
+                      })()}
+                    </View>
+                  )}
+                </View>
+                  {richTextSearchModalProps.visible && (
+                    <RichTextSearchModal
+                      {...richTextSearchModalProps}
+                    />
+                  )}
+                </KeyboardAvoidingView>
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
+
+        {/* Content Warnings Sheet */}
+        <VerticalListSheet
+          visible={showContentWarningsSheet}
+          onDismiss={() => setShowContentWarningsSheet(false)}
+          title="Content"
+          snapPoints={['auto']}
+          showCancelButton={true}
+          cancelButtonText="Close"
+        >
+          <View style={styles.sheetContent}>
+            <Text style={styles.sheetSectionHeader}>Content</Text>
+            {CONTENT_WARNINGS.map(warning => (
+              <TouchableOpacity
+                key={warning.id}
+                style={styles.sheetOptionRow}
+                onPress={() => toggleContentWarning(warning.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.sheetOptionText}>{warning.label.toLowerCase()}</Text>
+                <View style={[
+                  styles.checkbox,
+                  selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
+                ]}>
+                  {selectedContentWarnings.includes(warning.id) && (
+                    <Icon name="checkmark" size={16} color={Colors.black} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={styles.sheetOptionRow}
+              onPress={() => setShowContentWarningInput(!showContentWarningInput)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.sheetOptionText}>other warning</Text>
+              <View style={[
+                styles.checkbox,
+                showContentWarningInput && styles.checkboxSelected
+              ]}>
+                {showContentWarningInput && (
+                  <Icon name="checkmark" size={16} color={Colors.black} />
+                )}
+              </View>
+            </TouchableOpacity>
+            {showContentWarningInput && (
+              <View style={[styles.sheetInputContainer, isKeyboardVisible && styles.sheetInputContainerKeyboard]}>
+                <TextInput
+                  style={styles.otherWarningInput}
+                  placeholder="specify content warning"
+                  placeholderTextColor={Colors.lightGray}
+                  value={otherWarning}
+                  onChangeText={setOtherWarning}
+                  autoFocus={true}
+                  returnKeyType="done"
+                />
+              </View>
+            )}
+          </View>
+        </VerticalListSheet>
+
+        {/* Comment Settings Sheet */}
+        <VerticalListSheet
+          visible={showCommentSettingsSheet}
+          onDismiss={() => setShowCommentSettingsSheet(false)}
+          title="Comments"
+          snapPoints={['auto']}
+          showCancelButton={true}
+          cancelButtonText="Close"
+        >
+          <View style={styles.sheetContent}>
+            <Text style={styles.sheetSectionHeader}>Comments</Text>
+            {COMMENT_FILTERS.map(filter => (
+              <VerticalListButton
+                key={filter.id}
+                label={filter.label.toLowerCase()}
+                onPress={() => {
+                  setCommentFilter(filter.id);
+                  setShowCommentSettingsSheet(false);
+                }}
+                disabled={commentFilter === filter.id}
+              />
+            ))}
+          </View>
+        </VerticalListSheet>
+
+        {/* Channel Selection Sheet */}
+        <VerticalListSheet
+          visible={showChannelSelectionSheet}
+          onDismiss={() => setShowChannelSelectionSheet(false)}
+          title="Channel (optional)"
+          snapPoints={['auto']}
+          showCancelButton={true}
+          cancelButtonText="Close"
+        >
+          <View style={styles.sheetContent}>
+            <VerticalListButton
+              label="none"
+              onPress={() => {
+                setSelectedChannel(null);
+                setShowChannelSelectionSheet(false);
+              }}
+              disabled={selectedChannel === null}
+            />
+            {getPostableChannels().map(channel => (
+              <TouchableOpacity
+                key={channel.slug}
+                style={[
+                  styles.channelListButton,
+                  selectedChannel?.slug === channel.slug && { opacity: 0.5 }
+                ]}
+                onPress={() => {
+                  setSelectedChannel(channel);
+                  setShowChannelSelectionSheet(false);
+                }}
+                activeOpacity={0.7}
+                disabled={selectedChannel?.slug === channel.slug}
+              >
+                <View style={styles.listButtonContent}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {shouldShowChannelSlash(channel.uri) && (
+                      <Text style={[
+                        styles.channelListButtonText, 
+                        styles.orbytSlash, 
+                        { 
+                          color: channel.channelColor || '#FFD700',
+                          fontFamily: 'Firma-SemiBold'
+                        }
+                      ]}>/</Text>
+                    )}
+                    <Text style={[styles.channelListButtonText, { fontFamily: 'Firma-Bold' }]}>
+                      {channel.displayName.toLowerCase()}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </VerticalListSheet>
+
+        {/* Video Info Sheet */}
+        {videoInfo && (
+          <VerticalListSheet
+            visible={showVideoInfoSheet}
+            onDismiss={() => setShowVideoInfoSheet(false)}
+            title="Video Details"
+            snapPoints={['auto']}
+            showCancelButton={true}
+            cancelButtonText="Close"
+          >
+            <VideoInfoDisplay
+              videoInfo={videoInfo.originalInfo}
+            />
+          </VerticalListSheet>
+        )}
       </SafeAreaView>
     );
   }
@@ -875,15 +1198,27 @@ const VideoPostScreen: React.FC = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollViewContentContainer}>
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={[
+            styles.scrollViewContentContainer,
+            { paddingBottom: 60 + Math.max(insets.bottom, 20) + 20 }
+          ]}
+        >
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
               <BackArrowIcon size={32} color={Colors.white} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleDownloadToCameraRoll} style={styles.headerButton}>
-              <DownloadIcon size={32} color={Colors.white} />
-            </TouchableOpacity>
+            {videoInfo && (
+              <TouchableOpacity 
+                onPress={() => setShowVideoInfoSheet(true)} 
+                style={styles.headerButton}
+                activeOpacity={0.7}
+              >
+                <InformationLineIcon size={32} color={Colors.white} />
+              </TouchableOpacity>
+            )}
           </View>
           {/* Video Preview Section */}
           <View style={styles.previewSection}>
@@ -974,194 +1309,135 @@ const VideoPostScreen: React.FC = () => {
           
           {/* Description Section */}
           <View style={styles.descriptionSection}>
-            <TextInput
-              style={styles.descriptionInput}
-              placeholder="write a caption..."
-              placeholderTextColor={Colors.gray}
-              multiline
-              maxLength={300}
-              value={description}
-              onChangeText={setDescription}
-            />
-            
-                 <Text style={styles.charCount}>
-                   {description.length}/300
-                 </Text>
-          </View>
-          
-          {/* Content Warning Section */}
-          <View style={styles.section}>
+            <Text style={styles.sectionHeaderTitle}>Description</Text>
             <TouchableOpacity 
-              style={styles.sectionHeader}
-              onPress={() => setContentWarningsCollapsed(!contentWarningsCollapsed)}
+              onPress={() => setShowDescriptionInputModal(true)}
               activeOpacity={0.7}
+              style={styles.descriptionInputTouchable}
             >
-                  <Text style={styles.sectionTitle}>content warnings</Text>
-              {contentWarningsCollapsed ? (
-                <ChevronDownIcon size={24} color={Colors.white} />
+              {description ? (
+                <Text style={styles.descriptionInputPreview} numberOfLines={0}>
+                  {(() => {
+                    // Simple regex to find mentions and hashtags
+                    const mentionRegex = /@[\w.-]+/g;
+                    const hashtagRegex = /#[\w]+/g;
+                    const parts: Array<{ text: string; isBold: boolean }> = [];
+                    let lastIndex = 0;
+                    const matches: Array<{ start: number; end: number }> = [];
+                    
+                    // Find all mentions
+                    let match;
+                    while ((match = mentionRegex.exec(description)) !== null) {
+                      matches.push({ start: match.index, end: match.index + match[0].length });
+                    }
+                    
+                    // Find all hashtags
+                    while ((match = hashtagRegex.exec(description)) !== null) {
+                      matches.push({ start: match.index, end: match.index + match[0].length });
+                    }
+                    
+                    // Sort matches by position
+                    matches.sort((a, b) => a.start - b.start);
+                    
+                    if (matches.length > 0) {
+                      for (const m of matches) {
+                        // Add text before match
+                        if (m.start > lastIndex) {
+                          const beforeText = description.slice(lastIndex, m.start);
+                          if (beforeText) {
+                            parts.push({ text: beforeText, isBold: false });
+                          }
+                        }
+                        
+                        // Add match text (bold for both mentions and hashtags)
+                        const matchText = description.slice(m.start, m.end);
+                        parts.push({ text: matchText, isBold: true });
+                        
+                        lastIndex = m.end;
+                      }
+                      
+                      // Add remaining text
+                      if (lastIndex < description.length) {
+                        parts.push({ text: description.slice(lastIndex), isBold: false });
+                      }
+                    } else {
+                      parts.push({ text: description, isBold: false });
+                    }
+                    
+                    return parts.map((part, index) => (
+                      <Text key={index} style={part.isBold ? styles.descriptionInputPreviewBold : styles.descriptionInputPreview}>
+                        {part.text}
+                      </Text>
+                    ));
+                  })()}
+                </Text>
               ) : (
-                <ChevronUpIcon size={24} color={Colors.white} />
+                <Text style={[styles.descriptionInputPreview, styles.descriptionInputPlaceholder]}>
+                  Add text & tags (optional)
+                </Text>
               )}
             </TouchableOpacity>
-            {!contentWarningsCollapsed && (
-              <>
-                    <Text style={styles.sectionSubtitle}>
-                      add appropriate warnings if your video contains sensitive content.
-                </Text>
-                {CONTENT_WARNINGS.map(warning => (
-                  <TouchableOpacity 
-                    key={warning.id} 
-                    style={styles.optionRow}
-                    onPress={() => toggleContentWarning(warning.id)}
-                  >
-                         <Text style={styles.optionText}>{warning.label.toLowerCase()}</Text>
-                    <View style={[
-                      styles.checkbox,
-                      selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
-                    ]}>
-                      {selectedContentWarnings.includes(warning.id) && (
-                        <Icon name="checkmark" size={16} color={Colors.black} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-                <TouchableOpacity 
-                  style={styles.optionRow}
-                  onPress={() => setShowContentWarningInput(!showContentWarningInput)}
-                >
-                       <Text style={styles.optionText}>other warning</Text>
-                  <View style={[
-                    styles.checkbox,
-                    showContentWarningInput && styles.checkboxSelected
-                  ]}>
-                    {showContentWarningInput && (
-                      <Icon name="checkmark" size={16} color={Colors.black} />
+          </View>
+          
+          {/* Channel Selection */}
+          <View style={styles.section}>
+            <Text style={styles.sectionHeaderTitle}>Channel</Text>
+            <TouchableOpacity 
+              style={styles.sectionSelector}
+              onPress={() => setShowChannelSelectionSheet(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.sectionSelectorContent}>
+                {!selectedChannel ? (
+                  <Text style={styles.sectionSelectorText}>Pick a channel</Text>
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {shouldShowChannelSlash(selectedChannel.uri) && (
+                      <Text style={[
+                        styles.sectionSelectorText, 
+                        styles.orbytSlash, 
+                        { 
+                          color: selectedChannel.channelColor || '#FFD700',
+                          fontFamily: 'Firma-SemiBold'
+                        }
+                      ]}>/</Text>
                     )}
+                    <Text style={[styles.sectionSelectorText, { fontFamily: 'Firma-Bold' }]}>
+                      {selectedChannel.displayName.toLowerCase()}
+                    </Text>
                   </View>
-                </TouchableOpacity>
-                {showContentWarningInput && (
-                  <TextInput
-                    style={styles.otherWarningInput}
-                    placeholder="Specify content warning"
-                    placeholderTextColor={Colors.gray}
-                    value={otherWarning}
-                    onChangeText={setOtherWarning}
-                  />
                 )}
-              </>
-            )}
+              </View>
+              <ChevronDownIcon size={20} color={Colors.lightGray} />
+            </TouchableOpacity>
           </View>
           
           {/* Comment Filtering Section */}
           <View style={styles.section}>
+            <Text style={styles.sectionHeaderTitle}>Comments</Text>
             <TouchableOpacity 
-              style={styles.sectionHeader}
-              onPress={() => setCommentSettingsCollapsed(!commentSettingsCollapsed)}
+              style={styles.sectionSelector}
+              onPress={() => setShowCommentSettingsSheet(true)}
               activeOpacity={0.7}
             >
-                 <Text style={styles.sectionTitle}>comment settings</Text>
-              {commentSettingsCollapsed ? (
-                <ChevronDownIcon size={24} color={Colors.white} />
-              ) : (
-                <ChevronUpIcon size={24} color={Colors.white} />
-              )}
+              <Text style={styles.sectionSelectorText}>{getSelectedCommentFilterLabel()}</Text>
+              <ChevronDownIcon size={20} color={Colors.lightGray} />
             </TouchableOpacity>
-            {!commentSettingsCollapsed && (
-              <>
-                    <Text style={styles.sectionSubtitle}>
-                      control who can comment on your video.
-                </Text>
-                                {COMMENT_FILTERS.map(filter => (
-                  <TouchableOpacity 
-                    key={filter.id} 
-                    style={styles.optionRow}
-                    onPress={() => setCommentFilter(filter.id)}
-                  >
-                       <Text style={styles.optionText}>{filter.label.toLowerCase()}</Text>
-                    <View style={[
-                      styles.commentCheckbox,
-                      commentFilter === filter.id && styles.checkboxSelected
-                    ]}>
-                      {commentFilter === filter.id && (
-                        <Icon name="checkmark" size={16} color={Colors.black} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </>
-            )}
-          </View>
-          {/* Channel Selection */}
-          <View style={styles.section}>
-            <TouchableOpacity 
-              style={styles.sectionHeader}
-              onPress={() => setChannelSelectionCollapsed(!channelSelectionCollapsed)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.sectionTitle}>channel</Text>
-              {channelSelectionCollapsed ? (
-                <ChevronDownIcon size={24} color={Colors.white} />
-              ) : (
-                <ChevronUpIcon size={24} color={Colors.white} />
-              )}
-            </TouchableOpacity>
-            {!channelSelectionCollapsed && (
-              <>
-                <Text style={styles.sectionSubtitle}>
-                  post to a specific channel (optional).
-                </Text>
-                {/* None option */}
-                <TouchableOpacity 
-                  style={styles.optionRow}
-                  onPress={() => setSelectedChannel(null)}
-                >
-                  <Text style={styles.optionText}>none</Text>
-                  <View style={[
-                    styles.commentCheckbox,
-                    selectedChannel === null && styles.checkboxSelected
-                  ]}>
-                    {selectedChannel === null && (
-                      <Icon name="checkmark" size={16} color={Colors.black} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-                {/* Channel options */}
-                {getPostableChannels().map(channel => (
-                  <TouchableOpacity 
-                    key={channel.slug} 
-                    style={styles.optionRow}
-                    onPress={() => setSelectedChannel(channel)}
-                  >
-                    <View style={styles.channelInfo}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        {shouldShowChannelSlash(channel.uri) && (
-                          <Text style={[styles.optionText, styles.orbytSlash, { color: channel.channelColor || '#FFD700' }]}>/</Text>
-                        )}
-                        <Text style={styles.optionText}>{channel.displayName.toLowerCase()}</Text>
-                      </View>
-                    </View>
-                    <View style={[
-                      styles.commentCheckbox,
-                      selectedChannel?.slug === channel.slug && styles.checkboxSelected
-                    ]}>
-                      {selectedChannel?.slug === channel.slug && (
-                        <Icon name="checkmark" size={16} color={Colors.black} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </>
-            )}
           </View>
           
-          {/* Video Information Display */}
-          {videoInfo && (
-            <View style={[styles.videoInfoContainer, { paddingBottom: 80 + Math.max(insets.bottom, 20) }]}>
-              <VideoInfoDisplay
-                videoInfo={videoInfo.originalInfo}
-              />
-            </View>
-          )}
+          {/* Content Warning Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionHeaderTitle}>Warnings</Text>
+            <TouchableOpacity 
+              style={styles.sectionSelector}
+              onPress={() => setShowContentWarningsSheet(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.sectionSelectorText}>{getSelectedContentWarningsLabel()}</Text>
+              <ChevronDownIcon size={20} color={Colors.lightGray} />
+            </TouchableOpacity>
+          </View>
+          
           
         </ScrollView>
         
@@ -1226,12 +1502,286 @@ const VideoPostScreen: React.FC = () => {
       <VideoPreviewModal
         visible={showPreviewModal}
         onClose={handleClosePreviewModal}
-        videoPath={video.path || ''}
+        videoPath={normalizedVideoPath || ''}
         description={description}
         userProfile={profileData}
         initialTime={currentTime}
         initialIsPlaying={isPlaying}
       />
+
+      {/* Full-Screen Description Input Modal */}
+      <Modal
+        visible={showDescriptionInputModal}
+        transparent={true}
+        animationType="none"
+        onRequestClose={() => setShowDescriptionInputModal(false)}
+      >
+        <View style={styles.descriptionModalContainer}>
+          <Animated.View style={[styles.descriptionModalOverlay, { opacity: descriptionModalOpacity }]}>
+            <View style={[styles.descriptionModalContentWrapper, { paddingTop: insets.top }]}>
+              <View style={styles.descriptionModalHeader}>
+                <View style={styles.descriptionModalHeaderSpacer} />
+                <Text style={styles.descriptionModalTitle}>Description</Text>
+                <TouchableOpacity 
+                  onPress={() => setShowDescriptionInputModal(false)}
+                  style={[
+                    styles.descriptionModalDoneButton,
+                    description.length > 300 && styles.descriptionModalDoneButtonDisabled
+                  ]}
+                  activeOpacity={0.7}
+                  disabled={description.length > 300}
+                >
+                  <Text style={[
+                    styles.descriptionModalDoneText,
+                    description.length > 300 && styles.descriptionModalDoneTextDisabled
+                  ]}>
+                    {description.length > 300 ? `+${description.length - 300}` : 'Done'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.descriptionModalContent}
+              >
+                <View style={styles.descriptionInputWrapper}>
+                  <TextInput
+                    {...richTextInputProps}
+                    style={[styles.descriptionModalInput, { height: descriptionInputHeight, color: description.length > 0 ? 'transparent' : Colors.white }]}
+                    placeholder="Add text & tags (optional)"
+                    placeholderTextColor={Colors.lightGray}
+                    multiline
+                    maxLength={300}
+                    autoFocus={true}
+                    textAlignVertical="top"
+                    onContentSizeChange={(e) => {
+                      const newHeight = Math.min(Math.max(24, e.nativeEvent.contentSize.height + 8), 400);
+                      setDescriptionInputHeight(newHeight);
+                    }}
+                  />
+                  {description.length > 0 && (
+                    <View style={[styles.descriptionPreview, { height: descriptionInputHeight }]}>
+                      {(() => {
+                        // Simple regex to find mentions and hashtags
+                        const mentionRegex = /@[\w.-]+/g;
+                        const hashtagRegex = /#[\w]+/g;
+                        const parts: Array<{ text: string; isBold: boolean }> = [];
+                        let lastIndex = 0;
+                        const matches: Array<{ start: number; end: number }> = [];
+                        
+                        // Find all mentions
+                        let match;
+                        while ((match = mentionRegex.exec(description)) !== null) {
+                          matches.push({ start: match.index, end: match.index + match[0].length });
+                        }
+                        
+                        // Find all hashtags
+                        while ((match = hashtagRegex.exec(description)) !== null) {
+                          matches.push({ start: match.index, end: match.index + match[0].length });
+                        }
+                        
+                        // Sort matches by position
+                        matches.sort((a, b) => a.start - b.start);
+                        
+                        if (matches.length > 0) {
+                          for (const m of matches) {
+                            // Add text before match
+                            if (m.start > lastIndex) {
+                              const beforeText = description.slice(lastIndex, m.start);
+                              if (beforeText) {
+                                parts.push({ text: beforeText, isBold: false });
+                              }
+                            }
+                            
+                            // Add match text (bold for both mentions and hashtags)
+                            const matchText = description.slice(m.start, m.end);
+                            parts.push({ text: matchText, isBold: true });
+                            
+                            lastIndex = m.end;
+                          }
+                          
+                          // Add remaining text
+                          if (lastIndex < description.length) {
+                            parts.push({ text: description.slice(lastIndex), isBold: false });
+                          }
+                        } else {
+                          parts.push({ text: description, isBold: false });
+                        }
+                        
+                        return (
+                          <Text style={styles.descriptionPreviewText} numberOfLines={0}>
+                            {parts.map((part, index) => (
+                              <Text key={index} style={part.isBold ? styles.descriptionPreviewBold : styles.descriptionPreviewNormal}>
+                                {part.text}
+                              </Text>
+                            ))}
+                          </Text>
+                        );
+                      })()}
+                    </View>
+                  )}
+                </View>
+                {richTextSearchModalProps.visible && (
+                  <View style={styles.searchResultsContainer}>
+                    <RichTextSearchModal
+                      {...richTextSearchModalProps}
+                    />
+                  </View>
+                )}
+              </KeyboardAvoidingView>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Content Warnings Sheet */}
+      <VerticalListSheet
+        visible={showContentWarningsSheet}
+        onDismiss={() => setShowContentWarningsSheet(false)}
+        title="Content"
+        snapPoints={['auto']}
+        showCancelButton={true}
+        cancelButtonText="Close"
+      >
+        <View style={styles.sheetContent}>
+          {CONTENT_WARNINGS.map(warning => (
+            <TouchableOpacity
+              key={warning.id}
+              style={styles.sheetOptionRow}
+              onPress={() => toggleContentWarning(warning.id)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.sheetOptionText}>{warning.label.toLowerCase()}</Text>
+              <View style={[
+                styles.checkbox,
+                selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
+              ]}>
+                {selectedContentWarnings.includes(warning.id) && (
+                  <Icon name="checkmark" size={16} color={Colors.black} />
+                )}
+              </View>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={styles.sheetOptionRow}
+            onPress={() => setShowContentWarningInput(!showContentWarningInput)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.sheetOptionText}>other warning</Text>
+            <View style={[
+              styles.checkbox,
+              showContentWarningInput && styles.checkboxSelected
+            ]}>
+              {showContentWarningInput && (
+                <Icon name="checkmark" size={16} color={Colors.black} />
+              )}
+            </View>
+          </TouchableOpacity>
+          {showContentWarningInput && (
+            <View style={[styles.sheetInputContainer, isKeyboardVisible && styles.sheetInputContainerKeyboard]}>
+              <TextInput
+                style={styles.otherWarningInput}
+                placeholder="specify content warning"
+                placeholderTextColor={Colors.lightGray}
+                value={otherWarning}
+                onChangeText={setOtherWarning}
+                autoFocus={true}
+                returnKeyType="done"
+              />
+            </View>
+          )}
+        </View>
+      </VerticalListSheet>
+
+      {/* Comment Settings Sheet */}
+      <VerticalListSheet
+        visible={showCommentSettingsSheet}
+        onDismiss={() => setShowCommentSettingsSheet(false)}
+        title="Comments"
+        snapPoints={['auto']}
+        showCancelButton={true}
+        cancelButtonText="Close"
+      >
+        <View style={styles.sheetContent}>
+          {COMMENT_FILTERS.map(filter => (
+            <VerticalListButton
+              key={filter.id}
+              label={filter.label.toLowerCase()}
+              onPress={() => {
+                setCommentFilter(filter.id);
+                setShowCommentSettingsSheet(false);
+              }}
+              disabled={commentFilter === filter.id}
+            />
+          ))}
+        </View>
+      </VerticalListSheet>
+
+      {/* Channel Selection Sheet */}
+      <VerticalListSheet
+        visible={showChannelSelectionSheet}
+        onDismiss={() => setShowChannelSelectionSheet(false)}
+        title="Channel (optional)"
+        snapPoints={['auto']}
+        showCancelButton={true}
+        cancelButtonText="Close"
+      >
+        <View style={styles.sheetContent}>
+          <VerticalListButton
+            label="none"
+            onPress={() => {
+              setSelectedChannel(null);
+              setShowChannelSelectionSheet(false);
+            }}
+            disabled={selectedChannel === null}
+          />
+          {getPostableChannels().map(channel => (
+            <TouchableOpacity
+              key={channel.slug}
+              style={styles.channelListButton}
+              onPress={() => {
+                setSelectedChannel(channel);
+                setShowChannelSelectionSheet(false);
+              }}
+              activeOpacity={0.7}
+              disabled={selectedChannel?.slug === channel.slug}
+            >
+              <View style={styles.listButtonContent}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {shouldShowChannelSlash(channel.uri) && (
+                    <Text style={[
+                      styles.channelListButtonText, 
+                      styles.orbytSlash, 
+                      { 
+                        color: channel.channelColor || '#FFD700',
+                        fontFamily: 'Firma-SemiBold'
+                      }
+                    ]}>/</Text>
+                  )}
+                  <Text style={[styles.channelListButtonText, { fontFamily: 'Firma-Bold' }]}>
+                    {channel.displayName.toLowerCase()}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </VerticalListSheet>
+
+      {/* Video Info Sheet */}
+      {videoInfo && (
+        <VerticalListSheet
+          visible={showVideoInfoSheet}
+          onDismiss={() => setShowVideoInfoSheet(false)}
+          title="Video Details"
+          snapPoints={['auto']}
+          showCancelButton={true}
+          cancelButtonText="Close"
+        >
+          <VideoInfoDisplay
+            videoInfo={videoInfo.originalInfo}
+          />
+        </VerticalListSheet>
+      )}
 
     </SafeAreaView>
   );
@@ -1364,8 +1914,6 @@ const styles = StyleSheet.create({
   },
   descriptionSection: {
     padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.overlayWhite10,
   },
   authorItemStyle: {
     marginBottom: 4,
@@ -1391,29 +1939,33 @@ const styles = StyleSheet.create({
     maxHeight: 150,
     textAlignVertical: 'top',
     paddingBottom: 20,
-  },
-  charCount: {
-    color: Colors.lightGray,
-    fontSize: 12,
-    fontFamily: 'Firma-Regular',
-    textAlign: 'right',
-    marginTop: 5,
+    marginTop: -8,
   },
   section: {
     padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.overlayWhite10,
   },
-  sectionTitle: {
+  sectionHeaderTitle: {
     color: Colors.white,
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
+    marginBottom: 12,
   },
-  sectionHeader: {
+  sectionSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.LARGE,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  sectionSelectorContent: {
+    flex: 1,
+  },
+  sectionSelectorText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontFamily: 'Firma-SemiBold',
   },
   sectionSubtitle: {
     color: Colors.lightGray,
@@ -1430,10 +1982,10 @@ const styles = StyleSheet.create({
   optionText: {
     color: Colors.white,
     fontSize: 16,
-    fontFamily: 'Firma-Medium',
+    fontFamily: 'Firma-Bold',
   },
   orbytSlash: {
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Firma-SemiBold',
     marginRight: 0,
   },
   channelInfo: {
@@ -1487,13 +2039,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkGray,
   },
   otherWarningInput: {
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.SMALL,
-    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.lightGray,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
     color: Colors.white,
     marginTop: 5,
     marginBottom: 10,
     fontFamily: 'Firma-Regular',
+    fontSize: 18,
   },
   floatingPostButton: {
     position: 'absolute',
@@ -1562,9 +2116,6 @@ const styles = StyleSheet.create({
 
   scrollViewContentContainer: {
     flexGrow: 1,
-  },
-  videoInfoContainer: {
-    // Dynamic paddingBottom applied inline
   },
   radioContainer: {
     position: 'relative',
@@ -1645,6 +2196,169 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 5,
+  },
+  sheetContent: {
+    paddingHorizontal: 0,
+  },
+  channelListButton: {
+    borderRadius: BORDER_RADIUS.LARGE,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: Colors.darkGray,
+    overflow: 'hidden',
+    borderWidth: 0,
+    borderColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    opacity: 1,
+  },
+  channelListButtonText: {
+    color: Colors.white,
+    fontFamily: 'Firma-SemiBold',
+    fontSize: 18,
+  },
+  listButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flex: 1,
+  },
+  sheetSectionHeader: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
+    marginBottom: 12,
+    marginHorizontal: 12,
+    marginTop: 4,
+  },
+  sheetOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.LARGE,
+  },
+  sheetOptionText: {
+    color: Colors.white,
+    fontSize: 18,
+    fontFamily: 'Firma-SemiBold',
+    flex: 1,
+  },
+  sheetInputContainer: {
+    marginHorizontal: 12,
+    marginBottom: 12,
+  },
+  sheetInputContainerKeyboard: {
+    paddingBottom: 20,
+  },
+  descriptionInputTouchable: {
+    minHeight: 80,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+  },
+  descriptionInputPreview: {
+    color: Colors.white,
+    fontFamily: 'Firma-Regular',
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  descriptionInputPreviewBold: {
+    color: Colors.white,
+    fontFamily: 'Firma-Bold',
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: 'bold',
+  },
+  descriptionInputPlaceholder: {
+    color: Colors.lightGray,
+  },
+  descriptionModalContainer: {
+    flex: 1,
+  },
+  descriptionModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+  },
+  descriptionModalContentWrapper: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+  },
+  descriptionModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+  },
+  descriptionModalHeaderSpacer: {
+    width: 60,
+  },
+  descriptionModalTitle: {
+    color: Colors.white,
+    fontSize: 18,
+    fontFamily: 'Firma-SemiBold',
+  },
+  descriptionModalDoneButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  descriptionModalDoneText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontFamily: 'Firma-SemiBold',
+  },
+  descriptionModalDoneTextDisabled: {
+    color: Colors.red,
+  },
+  descriptionModalDoneButtonDisabled: {
+    opacity: 0.5,
+  },
+  descriptionModalContent: {
+    flex: 1,
+    padding: 15,
+    paddingTop: 8,
+  },
+  descriptionModalInput: {
+    color: Colors.white,
+    fontFamily: 'Firma-Regular',
+    fontSize: 16,
+    textAlignVertical: 'top',
+  },
+  descriptionInputWrapper: {
+    width: '100%',
+    position: 'relative',
+  },
+  descriptionPreview: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    pointerEvents: 'none',
+  },
+  descriptionPreviewText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontFamily: 'Firma-Regular',
+    textAlignVertical: 'top',
+  },
+  descriptionPreviewNormal: {
+    color: Colors.white,
+    fontFamily: 'Firma-Regular',
+  },
+  descriptionPreviewBold: {
+    color: Colors.white,
+    fontFamily: 'Firma-Bold',
+    fontWeight: 'bold',
+  },
+  searchResultsContainer: {
+    flex: 1,
   },
 
 });

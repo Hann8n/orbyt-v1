@@ -12,7 +12,8 @@ import {
 } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { Colors } from '../../components/ui/UI';
-import { isOrbytChannel } from '../../utils/orbytChannels';
+import { isOrbytChannel, getChannelByUri, getChannelBySlug, extractFeedSlug, hashtagToChannelSlug } from '../../utils/orbytChannels';
+import { Image } from 'react-native';
 
 export interface CachedChannel {
   uri: string;
@@ -145,31 +146,87 @@ class ChannelCache {
   }
 
   /**
-   * Fetch and cache a channel
+   * Fetch and cache a channel/feed
+   * Accepts local channel URIs (at://local.orbyt.channel/{slug}), hashtag feeds (e.g., "hashtag:orbyt-channel-art"), and feed generator URIs
    */
-  static async getChannel(uri: string): Promise<CachedChannel | null> {
-    if (!uri) return null;
+  static async getChannel(uriOrFeed: string): Promise<CachedChannel | null> {
+    if (!uriOrFeed) return null;
     
-    // Skip if this is not a feed generator URI (e.g., DIDs, user handles, etc.)
-    if (!uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
+    // Handle local channel URIs (at://local.orbyt.channel/{slug})
+    if (uriOrFeed.startsWith('at://local.orbyt.channel/')) {
+      const slug = extractFeedSlug(uriOrFeed);
+      if (!slug) return null;
       
+      // Look up Orbyt channel by slug
+      const orbytChannel = getChannelBySlug(slug);
+      if (!orbytChannel) return null;
+      
+      // Use the local URI for cache key (consistent with routing)
+      const localUri = orbytChannel.uri; // This will be the local URI now
+      
+      // Check memory cache first (using local URI as key)
+      const memoryCached = this.getChannelFromCacheSync(localUri);
+      if (memoryCached) {
+        return memoryCached;
+      }
+
+      // Check persistent cache
+      const cached = await this.getChannelFromCache(localUri);
+      if (cached) {
+        return cached;
+      }
+
+      // Create cache from Orbyt channel config
+      return await this.createOrbytChannelCache(localUri, orbytChannel);
+    }
+    
+    // Handle hashtag feeds (legacy support for normalized Orbyt channels)
+    if (uriOrFeed.startsWith('hashtag:')) {
+      const slug = hashtagToChannelSlug(uriOrFeed);
+      if (!slug) return null;
+      
+      // Look up Orbyt channel by slug
+      const orbytChannel = getChannelBySlug(slug);
+      if (!orbytChannel) return null;
+      
+      // Use the URI from orbytChannels for cache key
+      const originalUri = orbytChannel.uri;
+      
+      // Check memory cache first (using original URI as key)
+      const memoryCached = this.getChannelFromCacheSync(originalUri);
+      if (memoryCached) {
+        return memoryCached;
+      }
+
+      // Check persistent cache
+      const cached = await this.getChannelFromCache(originalUri);
+      if (cached) {
+        return cached;
+      }
+
+      // Create cache from Orbyt channel config
+      return await this.createOrbytChannelCache(originalUri, orbytChannel);
+    }
+    
+    // Handle feed generator URIs (both Orbyt and external)
+    if (!uriOrFeed.startsWith('at://')) {
       return null;
     }
 
     // Check memory cache first
-    const memoryCached = this.getChannelFromCacheSync(uri);
+    const memoryCached = this.getChannelFromCacheSync(uriOrFeed);
     if (memoryCached) {
       return memoryCached;
     }
 
     // Check persistent cache
-    const cached = await this.getChannelFromCache(uri);
+    const cached = await this.getChannelFromCache(uriOrFeed);
     if (cached) {
       return cached;
     }
 
-    // Fetch from API
-    return this.fetchAndCacheChannel(uri);
+    // Fetch from API or Orbyt channel config
+    return this.fetchAndCacheChannel(uriOrFeed);
   }
 
   /**
@@ -177,6 +234,12 @@ class ChannelCache {
    */
   private static async fetchAndCacheChannel(uri: string): Promise<CachedChannel | null> {
     if (!uri) return null;
+    
+    // Check if this is an Orbyt channel - if so, get data from orbytChannels.ts
+    const orbytChannel = getChannelByUri(uri);
+    if (orbytChannel) {
+      return await this.createOrbytChannelCache(uri, orbytChannel);
+    }
     
     // Validate URI format - must be a valid at-uri for feed generators
     if (!uri.startsWith('at://')) {
@@ -571,6 +634,100 @@ class ChannelCache {
     // Fetch fresh data
     return await this.fetchAndCacheChannel(uri);
   }
+
+  /**
+   * Create a cached channel object from Orbyt channel definition
+   * This allows us to use hashtag feeds instead of feed generators
+   */
+  private static async createOrbytChannelCache(
+    uri: string,
+    orbytChannel: any
+  ): Promise<CachedChannel> {
+    const normalizedUri = uri.toLowerCase();
+    
+    // Extract avatar from channelGIF
+    let avatarUrl: string | undefined = undefined;
+    if (orbytChannel.channelGIF) {
+      try {
+        const resolvedAsset = Image.resolveAssetSource(orbytChannel.channelGIF);
+        avatarUrl = resolvedAsset?.uri;
+      } catch (e) {
+        // Fallback if image resolution fails
+      }
+    }
+
+    // Extract colors from avatar if available
+    let channelColors = undefined;
+    if (avatarUrl) {
+      try {
+        const extractedColors = await extractColorsFromImage(avatarUrl);
+        const darkenedBackground = darkenColor(extractedColors.backgroundColor, 0.5);
+        channelColors = {
+          backgroundColor: darkenedBackground,
+          foregroundColor: '#FFFFFF',
+          accentColor: extractedColors.accentColor || '#000000',
+          statusBarStyle: 'light' as const
+        };
+      } catch (e) {
+        // Fallback colors
+        channelColors = {
+          backgroundColor: Colors.black,
+          foregroundColor: '#FFFFFF',
+          accentColor: '#000000',
+          statusBarStyle: 'light' as const
+        };
+      }
+    } else {
+      // Default colors if no avatar
+      channelColors = {
+        backgroundColor: Colors.black,
+        foregroundColor: '#FFFFFF',
+        accentColor: '#000000',
+        statusBarStyle: 'light' as const
+      };
+    }
+
+    // Create cache object - use URI for compatibility, but we'll use hashtag for feeds
+    const cacheObject: CachedChannel = {
+      uri: orbytChannel.uri,
+      cid: '', // Not needed for Orbyt channels
+      did: 'did:plc:2xrqztnmzlckb3xfuuukupso', // Default Orbyt DID
+      creator: {
+        did: 'did:plc:2xrqztnmzlckb3xfuuukupso',
+        handle: 'getorbyt.com',
+        displayName: 'Orbyt',
+        avatar: undefined
+      },
+      displayName: orbytChannel.displayName,
+      description: orbytChannel.description || '', // Use description from orbytChannels
+      avatar: avatarUrl,
+      likeCount: 0, // Not applicable for hashtag channels
+      subscriberCount: 0, // Not applicable for hashtag channels
+      indexedAt: new Date().toISOString(),
+      isExperimental: false, // Orbyt channels are always video-only (hashtag feeds)
+      isOrbytChannel: true,
+      channelColors,
+      lastUpdated: Date.now()
+    };
+
+    // Cache in memory and storage
+    this.memoryCache.set(normalizedUri, cacheObject);
+    
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        AsyncStorage.setItem(
+          this.getCacheKey(normalizedUri),
+          JSON.stringify(cacheObject)
+        ).catch(error => {
+          // Silent fail
+        });
+        
+        this.notifyChannelUpdated(normalizedUri);
+      }, 0);
+    });
+
+    return cacheObject;
+  }
 }
 
 /**
@@ -589,11 +746,11 @@ export function useChannel(uri: string | null | undefined): UseQueryResult<Cache
 /**
  * Hook to fetch just the channel colors
  */
-export function useChannelColors(uri: string | null | undefined) {
-  const { data: channel } = useChannel(uri);
+export function useChannelColors(uriOrFeed: string | null | undefined) {
+  const { data: channel } = useChannel(uriOrFeed);
   
-  // Return default colors if URI is not a valid feed generator URI
-  if (!uri || !uri.startsWith('at://') || !uri.includes('/app.bsky.feed.generator/')) {
+  // Return default colors if URI/feed is not valid (accepts local channel URIs, hashtag feeds, and feed generator URIs)
+  if (!uriOrFeed || (!uriOrFeed.startsWith('hashtag:') && (!uriOrFeed.startsWith('at://') || (!uriOrFeed.includes('/app.bsky.feed.generator/') && !uriOrFeed.startsWith('at://local.orbyt.channel/'))))) {
     return {
       colors: {
         backgroundColor: Colors.black,

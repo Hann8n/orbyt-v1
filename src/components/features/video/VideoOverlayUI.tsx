@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence } from 'react-native-reanimated';
 import { useMappingHelper } from '@shopify/flash-list';
 import { BORDER_RADIUS } from '../../../utils/constants';
@@ -23,6 +23,7 @@ import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import { VerificationBadge } from '../badging';
 import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useRouter } from 'expo-router';
+import { getChannelBySlug } from '../../../utils/orbytChannels';
 
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -103,13 +104,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   
   // Overlay state
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
-  const [hasLongText, setHasLongText] = useState(false);
-
-  // Get profile colors for overlay
-  const { colors: profileColors } = useProfileColors(post.author?.handle);
-  
-  // Get channel colors for source feed
-  const { colors: channelColors } = useChannelColors(sourceFeed);
+  const [hasLongText, setHasLongText] = useState(true);
 
   // Memoize expensive calculations to prevent rerenders
   const author = useMemo(() => post.author || {}, [post.author]);
@@ -124,6 +119,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const toggleCollapsed = useCallback(() => {
     setIsOverlayCollapsed(prev => !prev);
   }, []);
+
+  // Reset text state when post changes
+  useEffect(() => {
+    setHasLongText(true);
+    setIsOverlayCollapsed(true);
+  }, [post?.uri, record?.text]);
 
   // Handle text layout to detect if text is longer than 2 lines
   const handleTextLayout = useCallback((event: any) => {
@@ -239,18 +240,43 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     <ChatFillIcon size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} color={Colors.INTERACTIVE.COMMENT} />
   ), [isTabletDevice, actionIconSize]);
 
-  // Memoize source feed calculations to prevent unnecessary recalculations
-  const shouldUseSourceFeed = useMemo(() => 
-    false,
-    []
-  );
+  // Get profile colors for overlay
+  const { colors: profileColors } = useProfileColors(post.author?.handle);
   
-  const sourceDisplayName = useMemo(() => {
-    if (!shouldUseSourceFeed || sourceFeed === 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids') {
+  // Get channel colors for source feed
+  const { colors: channelColors } = useChannelColors(sourceFeed);
+
+  // Extract channel slug from post tags - simple match, no lookups
+  // Tags can be in post.record.tags or post.tags (check both)
+  const channelSlug = useMemo(() => {
+    const tags = record?.tags || post?.tags || [];
+    if (!Array.isArray(tags) || tags.length === 0) {
       return null;
     }
-    return getFeedDisplayName(sourceFeed) || '';
-  }, [shouldUseSourceFeed, sourceFeed]);
+    // Find tag that starts with 'orbyt-channel-'
+    const channelTag = tags.find((tag: string) => 
+      typeof tag === 'string' && tag.startsWith('orbyt-channel-')
+    );
+    if (!channelTag) {
+      return null;
+    }
+    // Extract slug from tag (remove 'orbyt-channel-' prefix) - use replace for robustness
+    return channelTag.replace(/^orbyt-channel-/, '') || null;
+  }, [record?.tags, post?.tags]);
+
+  // Get channel URI for navigation (only lookup needed for routing)
+  const channelUri = useMemo(() => {
+    if (!channelSlug) return null;
+    const channel = getChannelBySlug(channelSlug);
+    return channel?.uri || null;
+  }, [channelSlug]);
+
+  // Navigate to channel
+  const navigateToChannel = useCallback(() => {
+    if (channelUri) {
+      navigation.push(`/channel/${encodeURIComponent(channelUri)}`);
+    }
+  }, [channelUri, navigation]);
 
   // Memoize dynamic styles to prevent style object recreation
   const overlayContentStyle = useMemo(() => [
@@ -413,25 +439,34 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   textColor={Colors.white}
                 />}
               </View>
-              {false && sourceDisplayName ? (
+              {channelSlug ? (
                 <TouchableOpacity 
                   style={styles.sourceIndicatorContainer}
+                  onPress={navigateToChannel}
                   activeOpacity={0.7}
-                  onPress={onSourcePress}
                 >
-                  <View style={{ marginRight: 4 }}>
-                    <TvIcon 
-                      size={isTabletDevice ? Math.max(smallIconSize, 14) : smallIconSize}
-                      color={channelColors.primaryColor || Colors.blue}
-                    />
-                  </View>
                   <Text style={[
                     isTabletDevice
                       ? styles.sourceTextTablet
                       : styles.sourceText,
-                    { color: Colors.white }
+                    styles.sourceSlash,
+                    { 
+                      color: Colors.white,
+                      opacity: 0.70
+                    }
                   ]}>
-                    {sourceDisplayName}
+                    /
+                  </Text>
+                  <Text style={[
+                    isTabletDevice
+                      ? styles.sourceTextTablet
+                      : styles.sourceText,
+                    { 
+                      color: Colors.white,
+                      opacity: 0.70
+                    }
+                  ]}>
+                    {channelSlug}
                   </Text>
                 </TouchableOpacity>
               ) : null}
@@ -703,14 +738,17 @@ const styles = StyleSheet.create({
   },
   sourceText: {
     fontSize: 13,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Firma-Bold',
   },
   sourceTextSmallScreen: {
     fontSize: 12,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Firma-Bold',
   },
   sourceTextTablet: {
     fontSize: 15,
+    fontFamily: 'Firma-Bold',
+  },
+  sourceSlash: {
     fontFamily: 'Firma-SemiBold',
   },
   actionsContainer: {
@@ -779,3 +817,4 @@ const styles = StyleSheet.create({
 });
 
 export default React.memo(VideoOverlayUI);
+

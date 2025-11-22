@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useCallback } from 'react';
+import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import {
   View,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -56,6 +57,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   // Bottom sheet ref and snap points
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const shouldUseGlass = useMemo(() => {
     return enableGlass && Platform.OS === 'ios' && isLiquidGlassAvailable();
@@ -69,6 +71,23 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       bottomSheetRef.current?.dismiss();
     }
   }, [visible]);
+
+  // Handle keyboard visibility
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   // Backdrop component - TrueSheet handles backdrop automatically
   const renderBackdrop = useCallback(() => null, []);
@@ -84,7 +103,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       keyboardMode="pan"
       scrollRef={scrollRef}
       FooterComponent={
-        showCancelButton ? (
+        showCancelButton && !isKeyboardVisible ? (
           <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 
             <TouchableOpacity 
               style={styles.cancelButton} 

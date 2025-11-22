@@ -10,6 +10,7 @@ import { feedService } from '../../src/services/FeedService';
 import { getViewportDimensions } from '../../src/utils/helpers';
 import { Colors } from '../../src/components/ui/UI';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
+import { hashtagToChannelSlug } from '../../src/utils/orbytChannels';
 
 const FeedScreen: React.FC = memo(() => {
   const navigation = useRouter();
@@ -67,6 +68,8 @@ const FeedScreen: React.FC = memo(() => {
   // Check if this is a hashtag feed
   const isHashtagFeed = routeParams.feedOption?.startsWith('hashtag:');
   const hashtag = isHashtagFeed ? routeParams.feedOption.substring(8) : null;
+  // Check if this is an orbyt channel hashtag (don't show header for orbyt channels)
+  const isOrbytChannelHashtag = hashtag ? hashtagToChannelSlug(routeParams.feedOption || '') !== null : false;
 
   // Memoized close handler
   const handleClose = useCallback(() => {
@@ -94,8 +97,8 @@ const FeedScreen: React.FC = memo(() => {
         <BackArrowIcon size={30} color={Colors.white} />
       </TouchableOpacity>
       
-      {/* Show hashtag header if this is a hashtag feed */}
-      {isHashtagFeed && hashtag && (
+      {/* Show hashtag header if this is a hashtag feed (but not for orbyt channels) */}
+      {isHashtagFeed && hashtag && !isOrbytChannelHashtag && (
         <Text style={[styles.hashtagHeader, { top: insets.top + 15 }]}>
           #{hashtag}
         </Text>

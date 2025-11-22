@@ -270,12 +270,10 @@ export const ProfileIcon: React.FC<{ size: number; color: string }> = ({ size, c
       setCurrentUserHandle(store.currentUser?.handle || null);
       
       // Subscribe to changes
-      unsubscribe = useUserStore.subscribe(
-        (state) => state.currentUser,
-        (currentUser) => {
-          setCurrentUserHandle(currentUser?.handle || null);
-        }
-      );
+      unsubscribe = useUserStore.subscribe((state) => {
+        const currentUser = state.currentUser;
+        setCurrentUserHandle(currentUser?.handle || null);
+      });
     });
     
     return () => {
@@ -804,6 +802,21 @@ export const ChevronDownIcon: React.FC<{ size: number; color: string; style?: St
   );
 };
 
+// Custom Down Small Fill Icon component
+const DOWN_SMALL_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>down_small_fill</title><g id="down_small_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0h24ZM12.594 23.258l-.012.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.105.074.014.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.016-.018Zm.264-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.008.201.092c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022Zm-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.092.01-.009.004-.011.017-.43-.003-.012-.01-.01-.184-.092Z'/><path fill='#09244BFF' d='M12.707 14.536a1 1 0 0 1-1.414 0l-2.829-2.829A1 1 0 0 1 9.172 10h5.656a1 1 0 0 1 .708 1.707l-2.829 2.829Z'/></g></svg>`;
+
+export const DownSmallFillIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = DOWN_SMALL_FILL_ICON_SVG.replace(/#09244BFF/g, color);
+  return (
+    <SvgXml 
+      xml={svgXml} 
+      width={size} 
+      height={size} 
+      style={style}
+    />
+  );
+};
+
 // Custom Close Fill Icon component
 const CLOSE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="m12 14.122l5.303 5.303a1.5 1.5 0 0 0 2.122-2.122L14.12 12l5.304-5.303a1.5 1.5 0 1 0-2.122-2.121L12 9.879L6.697 4.576a1.5 1.5 0 1 0-2.122 2.12L9.88 12l-5.304 5.304a1.5 1.5 0 1 0 2.122 2.12z"/></g></svg>`;
 
@@ -1185,6 +1198,17 @@ export const MenuFillIcon: React.FC<{ size: number; color: string; style?: Style
   );
 };
 
+export const InformationLineIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  return (
+    <SvgXml 
+      xml={`<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>information_line</title><g id="information_line" fill='none'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='${color}' d='M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16m-.01 6c.558 0 1.01.452 1.01 1.01v5.124A1 1 0 0 1 12.5 18h-.49A1.01 1.01 0 0 1 11 16.99V12a1 1 0 1 1 0-2zM12 7a1 1 0 1 1 0 2 1 1 0 0 1 0-2'/></g></svg>`}
+      width={size} 
+      height={size} 
+      style={style} 
+    />
+  );
+};
+
 interface IconProps {
   name: string;
   size?: number;
@@ -1232,6 +1256,9 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'sensitive-content' || name === 'contact') {
       return <SensitiveContentIcon size={size} color={color} style={style} />;
     }
+    if (name === 'information-line' || name === 'info') {
+      return <InformationLineIcon size={size} color={color} style={style} />;
+    }
     if (name === 'block') {
       return <BlockIcon size={size} color={color} />;
     }
@@ -1258,6 +1285,9 @@ const Icon: React.FC<IconProps> = ({
     }
     if (name === 'chevron-down') {
       return <ChevronDownIcon size={size} color={color} style={style} />;
+    }
+    if (name === 'down-small-fill' || name === 'down_small_fill') {
+      return <DownSmallFillIcon size={size} color={color} style={style} />;
     }
     if (name === 'message-delete') {
       return <CloseFillIcon size={size} color={color} style={style} />;

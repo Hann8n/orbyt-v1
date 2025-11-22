@@ -1,13 +1,15 @@
 import { Platform } from 'react-native';
 import { VideoFile } from 'react-native-vision-camera';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library';
+import { File, Directory, Paths } from 'expo-file-system';
 import Compressor from 'react-native-compressor';
 import { logger } from '../utils/logger';
 
 export interface VideoSegment {
   startTime: number;
   duration: number;
-  video: VideoFile;
+  video: VideoFile | ImagePicker.ImagePickerAsset;
   sourceType?: 'camera' | 'gallery';
 }
 
@@ -68,34 +70,68 @@ class VideoProcessingService {
   /**
    * Gets comprehensive video information
    */
-  static async getVideoInfo(videoPath: string, assetInfo?: {
-    duration?: number;
-    width?: number;
-    height?: number;
-  }): Promise<VideoInfo> {
+  static async getVideoInfo(
+    videoPath: string, 
+    asset?: ImagePicker.ImagePickerAsset
+  ): Promise<VideoInfo> {
     try {
-      const fileInfo = await FileSystem.getInfoAsync(videoPath);
-      if (!fileInfo.exists) {
+      // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
+      let localUri = videoPath;
+      let fileSize = asset?.fileSize || 0;
+      
+      if (asset?.assetId && Platform.OS === 'ios') {
+        try {
+          const assetInfo = await MediaLibrary.getAssetInfoAsync(asset.assetId, {
+            shouldDownloadFromNetwork: true,
+          });
+          if (assetInfo.localUri) {
+            localUri = assetInfo.localUri;
+            // Use fileSize from MediaLibrary if available
+            if (!fileSize && assetInfo.localUri) {
+              const file = new File(assetInfo.localUri);
+              fileSize = file.size || 0;
+            }
+          }
+        } catch (mediaError) {
+          logger.warn('Failed to get asset from MediaLibrary, using provided path', { component: 'VideoProcessingService' });
+        }
+      }
+      
+      // Verify file exists
+      const file = new File(localUri);
+      if (!file.exists) {
         throw new Error('Video file does not exist');
       }
 
-      const size = fileInfo.size || 0;
+      // Use fileSize from MediaLibrary/FileSystem if not from ImagePickerAsset
+      const size = fileSize || file.size || 0;
       
-      // Try to get video metadata using multiple sources
-      let duration = 10; // Default fallback
-      let width = 1080; // Default fallback
-      let height = 1920; // Default fallback
-      let frameRate = 30; // Default fallback
-      let codec = 'h264'; // Default fallback
+      // Extract metadata from ImagePickerAsset if available
+      let duration = asset?.duration ? (asset.duration > 1000 ? asset.duration / 1000 : asset.duration) : 10;
+      let width = asset?.width || 1080;
+      let height = asset?.height || 1920;
+      let frameRate = 30;
+      let codec = 'h264';
 
-      // First, try to use asset info if provided (from ImagePicker)
-      if (assetInfo) {
-        if (assetInfo.duration) {
-          // Convert from milliseconds to seconds if needed
-          duration = assetInfo.duration > 1000 ? assetInfo.duration / 1000 : assetInfo.duration;
+      // Extract codec from mimeType if available
+      if (asset?.mimeType) {
+        if (asset.mimeType.includes('h264') || asset.mimeType.includes('avc')) {
+          codec = 'h264';
+        } else if (asset.mimeType.includes('h265') || asset.mimeType.includes('hevc')) {
+          codec = 'hevc';
+        } else if (asset.mimeType.includes('vp9')) {
+          codec = 'vp9';
+        } else if (asset.mimeType.includes('vp8')) {
+          codec = 'vp8';
         }
-        if (assetInfo.width) width = assetInfo.width;
-        if (assetInfo.height) height = assetInfo.height;
+      }
+      
+      // Extract frame rate from EXIF if available
+      if (asset?.exif) {
+        const exifFrameRate = asset.exif['VideoFrameRate'] || asset.exif['FrameRate'];
+        if (exifFrameRate) {
+          frameRate = typeof exifFrameRate === 'number' ? exifFrameRate : parseFloat(String(exifFrameRate)) || 30;
+        }
       }
 
       // Note: VideoManager only supports merge functionality, not getVideoInfo
@@ -111,7 +147,7 @@ class VideoProcessingService {
       const bitrate = size > 0 && duration > 0 ? (size * 8) / duration : 1000000; // bits per second
       
       const videoInfo = {
-        path: videoPath,
+        path: localUri,
         size,
         sizeFormatted: this.formatFileSize(size),
         duration,
@@ -252,11 +288,10 @@ class VideoProcessingService {
   /**
    * Gets detailed compression information for a video
    */
-  static async getCompressionInfo(videoPath: string, assetInfo?: {
-    duration?: number;
-    width?: number;
-    height?: number;
-  }): Promise<{
+  static async getCompressionInfo(
+    videoPath: string, 
+    asset?: ImagePicker.ImagePickerAsset
+  ): Promise<{
     originalInfo: VideoInfo;
     compressionOptions: Array<{
       level: string;
@@ -267,7 +302,7 @@ class VideoProcessingService {
     }>;
     recommendedLevel: string;
   }> {
-    const originalInfo = await this.getVideoInfo(videoPath, assetInfo);
+    const originalInfo = await this.getVideoInfo(videoPath, asset);
     
     const compressionOptions = COMPRESSION_LEVELS.map(level => {
       const estimatedSize = this.estimateFileSize(originalInfo.duration, originalInfo.width, originalInfo.height, level.bitrate);
@@ -311,15 +346,30 @@ class VideoProcessingService {
   }
 
   /**
-   * Gets video file size in bytes
+   * Gets video file size in bytes using MediaLibrary or FileSystem
    */
-  private static async getFileSize(filePath: string): Promise<number> {
+  private static async getFileSize(filePath: string, assetId?: string | null): Promise<number> {
     try {
-      const fileInfo = await FileSystem.getInfoAsync(filePath);
-      if (!fileInfo.exists) {
+      // Try MediaLibrary first if we have assetId (for iCloud videos)
+      if (assetId && Platform.OS === 'ios') {
+        try {
+          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
+            shouldDownloadFromNetwork: true,
+          });
+          if (assetInfo.localUri) {
+            const file = new File(assetInfo.localUri);
+            return file.size || 0;
+          }
+        } catch (mediaError) {
+          // Fall through to FileSystem
+        }
+      }
+      
+      const file = new File(filePath);
+      if (!file.exists) {
         return 0;
       }
-      return fileInfo.size || 0;
+      return file.size || 0;
     } catch (error) {
       logger.warn('Could not get file size', { component: 'VideoProcessingService' });
       return 0;
@@ -331,21 +381,37 @@ class VideoProcessingService {
    */
   static async compressVideoWithSizeLimit(
     videoPath: string,
-    maxSizeBytes: number = MAX_FILE_SIZE
+    maxSizeBytes: number = MAX_FILE_SIZE,
+    assetId?: string | null
   ): Promise<ProcessedVideo> {
     try {
+      // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
+      let localVideoPath = videoPath;
+      if (assetId && Platform.OS === 'ios') {
+        try {
+          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
+            shouldDownloadFromNetwork: true,
+          });
+          if (assetInfo.localUri) {
+            localVideoPath = assetInfo.localUri;
+          }
+        } catch (mediaError) {
+          logger.warn('Failed to get asset from MediaLibrary, using provided path', { component: 'VideoProcessingService' });
+        }
+      }
+      
       // Get original video info
-      const fileInfo = await FileSystem.getInfoAsync(videoPath);
-      if (!fileInfo.exists) {
+      const file = new File(localVideoPath);
+      if (!file.exists) {
         throw new Error('Video file does not exist');
       }
 
-      const originalSize = fileInfo.size || 0;
+      const originalSize = file.size || 0;
 
       // If original is already under limit, return as-is
       if (originalSize <= maxSizeBytes) {
         return {
-          path: videoPath,
+          path: localVideoPath,
           duration: 10, // Default duration
           width: 1080,
           height: 1920,
@@ -353,36 +419,33 @@ class VideoProcessingService {
       }
 
       // Create temp directory for processing
-      const tempDir = `${FileSystem.cacheDirectory}video_compress_${Date.now()}/`;
-      await FileSystem.makeDirectoryAsync(tempDir, { intermediates: true });
+      const tempDir = new Directory(Paths.cache, `video_compress_${Date.now()}`);
+      tempDir.create({ intermediates: true });
 
       // Try compression levels progressively
       for (const level of COMPRESSION_LEVELS) {
         
-        const outputPath = `${tempDir}compressed_${level.name}.mp4`;
+        const outputFile = new File(tempDir, `compressed_${level.name}.mp4`);
         
         try {
           // Compress with current level
-          const compressedPath = await Compressor.Video.compress(videoPath, {
+          const compressedPath = await Compressor.Video.compress(localVideoPath, {
             bitrate: level.bitrate,
           });
 
           // Copy to our output path
-          await FileSystem.copyAsync({
-            from: compressedPath,
-            to: outputPath,
-          });
+          new File(compressedPath).copy(outputFile);
 
           // Check file size
-          const compressedSize = await this.getFileSize(outputPath);
+          const compressedSize = await this.getFileSize(outputFile.uri);
 
           if (compressedSize <= maxSizeBytes) {
             
             // Clean up temp directory
-            await this.cleanupTempFiles(tempDir);
+            this.cleanupTempFiles(tempDir);
             
             // Ensure file:// prefix for local file
-            const finalPath = outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
+            const finalPath = outputFile.uri.startsWith('file://') ? outputFile.uri : `file://${outputFile.uri}`;
             return {
               path: finalPath,
               duration: 10, // Default duration
@@ -397,24 +460,21 @@ class VideoProcessingService {
       }
 
       // If all compression levels still exceed size limit, use the most compressed version
-      const minimalPath = `${tempDir}compressed_minimal.mp4`;
+      const minimalFile = new File(tempDir, 'compressed_minimal.mp4');
       
       try {
-        const compressedPath = await Compressor.Video.compress(videoPath, {
+        const compressedPath = await Compressor.Video.compress(localVideoPath, {
           bitrate: COMPRESSION_LEVELS[3].bitrate,
         });
 
-        await FileSystem.copyAsync({
-          from: compressedPath,
-          to: minimalPath,
-        });
+        new File(compressedPath).copy(minimalFile);
 
-        const finalSize = await this.getFileSize(minimalPath);
+        const finalSize = await this.getFileSize(minimalFile.uri);
 
         // Clean up temp directory
-        await this.cleanupTempFiles(tempDir);
+        this.cleanupTempFiles(tempDir);
         
-        const finalPath = minimalPath.startsWith('file://') ? minimalPath : `file://${minimalPath}`;
+        const finalPath = minimalFile.uri.startsWith('file://') ? minimalFile.uri : `file://${minimalFile.uri}`;
         return {
           path: finalPath,
           duration: 10,
@@ -433,6 +493,47 @@ class VideoProcessingService {
   }
 
   /**
+   * Helper to extract video path from VideoFile or ImagePickerAsset
+   */
+  private static getVideoPath(video: VideoFile | ImagePicker.ImagePickerAsset): string {
+    if ('uri' in video) {
+      return video.uri;
+    }
+    return video.path;
+  }
+
+  /**
+   * Helper to extract video duration from VideoFile or ImagePickerAsset
+   */
+  private static getVideoDuration(video: VideoFile | ImagePicker.ImagePickerAsset): number {
+    if ('uri' in video) {
+      // ImagePickerAsset duration is in milliseconds
+      return video.duration ? (video.duration > 1000 ? video.duration / 1000 : video.duration) : 0;
+    }
+    return video.duration || 0;
+  }
+
+  /**
+   * Helper to extract video width from VideoFile or ImagePickerAsset
+   */
+  private static getVideoWidth(video: VideoFile | ImagePicker.ImagePickerAsset): number {
+    if ('uri' in video) {
+      return video.width || 0;
+    }
+    return video.width || 0;
+  }
+
+  /**
+   * Helper to extract video height from VideoFile or ImagePickerAsset
+   */
+  private static getVideoHeight(video: VideoFile | ImagePicker.ImagePickerAsset): number {
+    if ('uri' in video) {
+      return video.height || 0;
+    }
+    return video.height || 0;
+  }
+
+  /**
    * Merges multiple video segments into a single video file
    */
   static async mergeSegments(segments: VideoSegment[]): Promise<ProcessedVideo> {
@@ -444,17 +545,17 @@ class VideoProcessingService {
       // For single segment, just return the video as-is
       const segment = segments[0];
       return {
-        path: segment.video.path,
-        duration: segment.video.duration,
-        width: segment.video.width,
-        height: segment.video.height,
+        path: this.getVideoPath(segment.video),
+        duration: this.getVideoDuration(segment.video),
+        width: this.getVideoWidth(segment.video),
+        height: this.getVideoHeight(segment.video),
       };
     }
 
     try {
       // Create temporary directory for processing
-      const tempDir = `${FileSystem.cacheDirectory}video_merge_${Date.now()}/`;
-      await FileSystem.makeDirectoryAsync(tempDir, { intermediates: true });
+      const tempDir = new Directory(Paths.cache, `video_merge_${Date.now()}`);
+      tempDir.create({ intermediates: true });
 
       // Prepare video files for merging
       const videoPaths: string[] = [];
@@ -462,36 +563,48 @@ class VideoProcessingService {
 
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
-        const videoPath = segment.video.path;
+        let videoPath = this.getVideoPath(segment.video);
+        const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
+        
+        // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
+        if (assetId && Platform.OS === 'ios') {
+          try {
+            const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
+              shouldDownloadFromNetwork: true,
+            });
+            if (assetInfo.localUri) {
+              videoPath = assetInfo.localUri;
+            }
+          } catch (mediaError) {
+            logger.warn('Failed to get asset from MediaLibrary, using provided path', { component: 'VideoProcessingService' });
+          }
+        }
         
         // Ensure the video file exists
-        const fileInfo = await FileSystem.getInfoAsync(videoPath);
-        if (!fileInfo.exists) {
+        const sourceFile = new File(videoPath);
+        if (!sourceFile.exists) {
           throw new Error(`Video file not found: ${videoPath}`);
         }
 
         // Copy video to temp directory with unique name
-        const tempVideoPath = `${tempDir}segment_${i}.mp4`;
-        await FileSystem.copyAsync({
-          from: videoPath,
-          to: tempVideoPath,
-        });
+        const tempVideoFile = new File(tempDir, `segment_${i}.mp4`);
+        sourceFile.copy(tempVideoFile);
 
-        videoPaths.push(tempVideoPath);
+        videoPaths.push(tempVideoFile.uri);
         totalDuration += segment.duration;
       }
 
       // Generate output path
-      const outputPath = `${tempDir}merged_video_${Date.now()}.mp4`;
+      const outputFile = new File(tempDir, `merged_video_${Date.now()}.mp4`);
 
       // Attempt to merge videos using available methods
-      const mergedVideoPath = await this.mergeVideosWithCompressor(videoPaths, outputPath);
+      const mergedVideoPath = await this.mergeVideosWithCompressor(videoPaths, outputFile.uri);
 
       // Get video metadata
       const videoInfo = await this.getVideoInfo(mergedVideoPath);
 
       // Clean up temporary files
-      await this.cleanupTempFiles(tempDir);
+      this.cleanupTempFiles(tempDir);
 
       // Ensure file:// prefix for local file
       const mergedPath = mergedVideoPath.startsWith('file://') ? mergedVideoPath : `file://${mergedVideoPath}`;
@@ -590,13 +703,10 @@ class VideoProcessingService {
       const baseVideo = processedVideos[0];
       
       // Copy the base video to the output path
-      await FileSystem.copyAsync({
-        from: baseVideo,
-        to: outputPath,
-      });
+      new File(baseVideo).copy(new File(outputPath));
 
       // Create a metadata file to track the concatenation details
-      const metadataPath = outputPath.replace('.mp4', '_metadata.json');
+      const metadataFile = new File(outputPath.replace('.mp4', '_metadata.json'));
       const metadata = {
         type: 'concatenated_video',
         segments: processedVideos.length,
@@ -606,7 +716,7 @@ class VideoProcessingService {
         note: 'This is a simplified concatenation. For true video merging, consider using FFmpeg or similar library.',
       };
       
-      await FileSystem.writeAsStringAsync(metadataPath, JSON.stringify(metadata, null, 2));
+      metadataFile.write(JSON.stringify(metadata, null, 2));
 
       return outputPath;
 
@@ -619,9 +729,9 @@ class VideoProcessingService {
   /**
    * Cleans up temporary files
    */
-  private static async cleanupTempFiles(tempDir: string): Promise<void> {
+  private static cleanupTempFiles(tempDir: Directory): void {
     try {
-      await FileSystem.deleteAsync(tempDir, { idempotent: true });
+      tempDir.delete();
     } catch (error) {
       logger.warn('Failed to cleanup temp files', { component: 'VideoProcessingService' });
     }
@@ -630,10 +740,10 @@ class VideoProcessingService {
   /**
    * Optimizes a single video for posting with size limit enforcement
    */
-  static async optimizeVideoForPosting(videoPath: string): Promise<ProcessedVideo> {
+  static async optimizeVideoForPosting(videoPath: string, assetId?: string | null): Promise<ProcessedVideo> {
     try {
       // Use the new variable compression method
-      return await this.compressVideoWithSizeLimit(videoPath, MAX_FILE_SIZE);
+      return await this.compressVideoWithSizeLimit(videoPath, MAX_FILE_SIZE, assetId);
 
     } catch (error) {
       logger.error('Error optimizing video', error, { component: 'VideoProcessingService' });
@@ -648,12 +758,27 @@ class VideoProcessingService {
   }
 
   /**
-   * Validates video file
+   * Validates video file using MediaLibrary or FileSystem
    */
-  static async validateVideoFile(videoPath: string): Promise<boolean> {
+  static async validateVideoFile(videoPath: string, assetId?: string | null): Promise<boolean> {
     try {
-      const fileInfo = await FileSystem.getInfoAsync(videoPath);
-      return fileInfo.exists;
+      // Try MediaLibrary first if we have assetId (for iCloud videos)
+      if (assetId && Platform.OS === 'ios') {
+        try {
+          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
+            shouldDownloadFromNetwork: true,
+          });
+          if (assetInfo.localUri) {
+            const file = new File(assetInfo.localUri);
+            return file.exists;
+          }
+        } catch (mediaError) {
+          // Fall through to FileSystem
+        }
+      }
+      
+      const file = new File(videoPath);
+      return file.exists;
     } catch (error) {
       logger.error('Error validating video file', error, { component: 'VideoProcessingService' });
       return false;
@@ -663,26 +788,49 @@ class VideoProcessingService {
   /**
    * Checks if video file size is acceptable for upload
    * @param videoPath - Path to the video file
+   * @param assetId - Optional asset ID for MediaLibrary lookup (iCloud videos)
    * @returns Object with validation result and size information
    */
-  static async checkVideoSize(videoPath: string): Promise<{
+  static async checkVideoSize(videoPath: string, assetId?: string | null): Promise<{
     isValid: boolean;
     sizeMB: number;
     maxSizeMB: number;
     needsCompression: boolean;
   }> {
     try {
-      const fileInfo = await FileSystem.getInfoAsync(videoPath);
-      if (!fileInfo.exists) {
-        return {
-          isValid: false,
-          sizeMB: 0,
-          maxSizeMB: MAX_FILE_SIZE / 1024 / 1024,
-          needsCompression: false,
-        };
+      let sizeBytes = 0;
+      let localPath = videoPath;
+      
+      // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
+      if (assetId && Platform.OS === 'ios') {
+        try {
+          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
+            shouldDownloadFromNetwork: true,
+          });
+          if (assetInfo.localUri) {
+            localPath = assetInfo.localUri;
+            const file = new File(localPath);
+            if (file.exists) {
+              sizeBytes = file.size || 0;
+            }
+          }
+        } catch (mediaError) {
+          // Fall through to FileSystem
+        }
       }
-
-      const sizeBytes = fileInfo.size || 0;
+      
+      if (sizeBytes === 0) {
+        const file = new File(localPath);
+        if (!file.exists) {
+          return {
+            isValid: false,
+            sizeMB: 0,
+            maxSizeMB: MAX_FILE_SIZE / 1024 / 1024,
+            needsCompression: false,
+          };
+        }
+        sizeBytes = file.size || 0;
+      }
       const sizeMB = sizeBytes / 1024 / 1024;
       const maxSizeMB = MAX_FILE_SIZE / 1024 / 1024;
       const isValid = sizeBytes <= MAX_FILE_SIZE;
@@ -733,11 +881,11 @@ class VideoProcessingService {
     sizeReduction: string;
   }> {
     try {
-      const originalInfo = await FileSystem.getInfoAsync(originalPath);
-      const compressedInfo = await FileSystem.getInfoAsync(compressedPath);
+      const originalFile = new File(originalPath);
+      const compressedFile = new File(compressedPath);
       
-      const originalBytes = originalInfo.exists ? (originalInfo.size || 0) : 0;
-      const compressedBytes = compressedInfo.exists ? (compressedInfo.size || 0) : 0;
+      const originalBytes = originalFile.exists ? (originalFile.size || 0) : 0;
+      const compressedBytes = compressedFile.exists ? (compressedFile.size || 0) : 0;
       
       const compressionRatio = originalBytes > 0 ? (compressedBytes / originalBytes) * 100 : 0;
       const sizeReduction = originalBytes > 0 ? originalBytes - compressedBytes : 0;

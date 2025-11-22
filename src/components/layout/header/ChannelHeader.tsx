@@ -57,7 +57,8 @@ const SubscribeButton: React.FC<{
   viewMode?: 'list' | 'grid' | 'horizontal';
   onViewModeChange?: (mode: 'list' | 'grid' | 'horizontal') => void;
   showViewToggle?: boolean;
-}> = ({ channel, textColor, backgroundColor, accentColor, channelColor, viewMode = 'list', onViewModeChange, showViewToggle = false }) => {
+  containerStyle?: any;
+}> = ({ channel, textColor, backgroundColor, accentColor, channelColor, viewMode = 'list', onViewModeChange, showViewToggle = false, containerStyle }) => {
   const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } = useSubscribedChannels();
   const [isSubscribing, setIsSubscribing] = useState(false);
 
@@ -166,7 +167,7 @@ const SubscribeButton: React.FC<{
   }, [isSubscribed, subscribeColor]);
 
   return (
-    <View style={styles.subscribeContainer}>
+    <View style={[styles.subscribeContainer, containerStyle]}>
       <TouchableOpacity
         onPress={handleSubscribe}
         disabled={isSubscribing}
@@ -386,6 +387,13 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     return style === 'light' ? 'light-content' : 'dark-content';
   }, [safeBackgroundColor]);
 
+  // Check if this is a category channel (hashtag feed) - postable Orbyt channels have tabs
+  const hasTabs = useMemo(() => {
+    if (!isOrbyt || !channel?.uri) return false;
+    const orbytChannel = getChannelByUri(channel.uri);
+    return orbytChannel?.isPostable !== false; // Default to true, only false for non-postable channels
+  }, [isOrbyt, channel?.uri]);
+
   // Create children with subscribe button and other content
   const headerChildren = useMemo(() => (
     <>
@@ -399,11 +407,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           viewMode={viewMode}
           onViewModeChange={onViewModeChange}
           showViewToggle={showViewToggle}
+          containerStyle={hasTabs ? styles.subscribeContainerWithTabs : undefined}
         />
       )}
       {children}
     </>
-  ), [channel, safeTextColor, safeBackgroundColor, children, channelColors.accentColor, showViewToggle, onViewModeChange, viewMode, isOrbyt]);
+  ), [channel, safeTextColor, safeBackgroundColor, children, channelColors.accentColor, showViewToggle, onViewModeChange, viewMode, isOrbyt, hasTabs]);
 
   // For Orbyt channels, use channelGIF as primary avatar/background, fallback to avatar
   // Memoize to prevent flickering when feed changes
@@ -441,6 +450,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       contentStyle={[headerStyle]}
       minHeight={isOrbyt ? 450 : undefined}
       contentPosition={isOrbyt ? 'bottom' : 'top'}
+      hasTabs={hasTabs}
     >
       {headerChildren}
     </UniversalHeader>
@@ -457,6 +467,9 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 20,
     width: '100%',
+  },
+  subscribeContainerWithTabs: {
+    marginBottom: 0, // Reduced spacing when tabs are present
   },
   subscribeButton: {
     flexDirection: 'row',
@@ -523,7 +536,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   orbytSlash: {
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Firma-SemiBold',
     marginRight: 0,
   },
 });

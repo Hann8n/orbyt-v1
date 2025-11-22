@@ -454,14 +454,14 @@ const styles = StyleSheet.create({
   orbytSlash: {
     fontSize: 16,
     marginBottom: 2,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Firma-SemiBold',
     marginRight: 0,
   },
   displayName: {
     color: Colors.white,
     fontSize: 16,
     marginBottom: 2,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Firma-Bold',
     flexShrink: 1,
   },
   description: {

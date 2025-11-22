@@ -3,7 +3,7 @@
  * Optimized for immediate playback when visible
  */
 
-import { extractColorsFromImage } from '../formatting/colorUtils';
+import { extractColorsFromImage, darkenColor, isColorDark } from '../formatting/colorUtils';
 import { logger } from '../logger';
 
 export interface VideoEmbed {
@@ -114,6 +114,24 @@ async function processColorQueue(): Promise<void> {
       try {
         const colors = await extractColorsFromImage(url);
         
+        // Ensure background color is always dark for videos
+        let backgroundColor = colors.backgroundColor;
+        // If color is white, set to black immediately
+        if (backgroundColor.toUpperCase() === '#FFFFFF' || backgroundColor.toUpperCase() === 'FFFFFF') {
+          backgroundColor = '#000000';
+        } else {
+          // Keep darkening until the color is dark (brightness < 128)
+          let iterations = 0;
+          while (!isColorDark(backgroundColor) && iterations < 10) {
+            backgroundColor = darkenColor(backgroundColor, 0.4);
+            iterations++;
+          }
+          // Fallback to black if still not dark after max iterations
+          if (!isColorDark(backgroundColor)) {
+            backgroundColor = '#000000';
+          }
+        }
+        
         // Cache the result
         if (thumbnailColorCache.size >= MAX_COLOR_CACHE_SIZE) {
           const oldestKey = thumbnailColorCache.keys().next().value;
@@ -121,14 +139,14 @@ async function processColorQueue(): Promise<void> {
         }
         
         thumbnailColorCache.set(url, {
-          backgroundColor: colors.backgroundColor,
+          backgroundColor,
           timestamp: Date.now()
         });
         
         // Resolve the pending promise using the stored resolver
         const resolver = colorExtractionResolvers.get(url);
         if (resolver) {
-          resolver(colors.backgroundColor);
+          resolver(backgroundColor);
           colorExtractionResolvers.delete(url); // Remove after calling to avoid race condition
         }
       } catch (error) {
