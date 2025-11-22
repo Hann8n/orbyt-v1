@@ -2195,9 +2195,10 @@ class AtprotoService {
    * @param hashtag - Hashtag to search for (without #)
    * @param cursor - Pagination cursor
    * @param limit - Number of results per page
+   * @param sort - Sort order: 'top' for popular posts, 'latest' for most recent (default: 'latest')
    * @returns Array of video post results and next cursor
    */
-  static async searchHashtagVideosPaginated(hashtag: string, cursor: string | null = null, limit: number = 20): Promise<{ videos: any[], cursor: string | null }> {
+  static async searchHashtagVideosPaginated(hashtag: string, cursor: string | null = null, limit: number = 20, sort: 'top' | 'latest' = 'latest'): Promise<{ videos: any[], cursor: string | null }> {
     await this.ensureSession();
     try {
       let params: any = { limit };
@@ -2206,11 +2207,20 @@ class AtprotoService {
       // Search for posts with hashtag (include # in search query)
       const searchQuery = `#${hashtag}`;
       const { api } = await this.getApiClient();
-      const response = await api.app.bsky.feed.searchPosts({
+      
+      // Build search params - only include sort if it's 'top'
+      const searchParams: any = {
         q: searchQuery,
         limit,
-        cursor: cursor || undefined
-      });
+      };
+      if (cursor) {
+        searchParams.cursor = cursor;
+      }
+      if (sort === 'top') {
+        searchParams.sort = 'top';
+      }
+      
+      const response = await api.app.bsky.feed.searchPosts(searchParams);
       
       let posts = response?.data?.posts || response?.data?.feed || [];
       
@@ -2257,6 +2267,62 @@ class AtprotoService {
       };
     } catch (error: unknown) {
       return { videos: [], cursor: null };
+    }
+  }
+
+  /**
+   * Search for hashtag suggestions
+   * @param query - Search query (partial hashtag without #)
+   * @param limit - Number of suggestions to return
+   * @returns Array of unique hashtag suggestions
+   */
+  static async searchHashtagSuggestions(query: string = '', limit: number = 10): Promise<string[]> {
+    await this.ensureSession();
+    try {
+      const { api } = await this.getApiClient();
+      
+      // Build search query
+      // If query is empty, search for popular hashtags by searching common terms
+      // If query exists, search for posts with that hashtag pattern
+      let searchQuery: string;
+      if (query) {
+        searchQuery = `#${query}`;
+      } else {
+        // For empty query, search for popular terms that often have hashtags
+        searchQuery = 'video OR art OR music OR photography';
+      }
+      
+      const response = await api.app.bsky.feed.searchPosts({
+        q: searchQuery,
+        limit: 50, // Get more posts to extract more hashtags
+      });
+      
+      const posts = response?.data?.posts || [];
+      const hashtagSet = new Set<string>();
+      
+      // Extract hashtags from post text
+      for (const item of posts) {
+        const post = item.post || item;
+        const text = post.record?.text || '';
+        
+        // Extract hashtags from text
+        const hashtagRegex = /#([\w]+)/g;
+        let match;
+        while ((match = hashtagRegex.exec(text)) !== null) {
+          const tag = match[1].toLowerCase();
+          // Filter by query if provided
+          if (!query || tag.startsWith(query.toLowerCase())) {
+            hashtagSet.add(tag);
+            if (hashtagSet.size >= limit) break;
+          }
+        }
+        if (hashtagSet.size >= limit) break;
+      }
+      
+      return Array.from(hashtagSet).slice(0, limit);
+    } catch (error: unknown) {
+      logger.error('Error searching hashtag suggestions', error);
+      return [];
     }
   }
 

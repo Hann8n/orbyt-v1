@@ -1,8 +1,8 @@
 {
   "name": "orbyt",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "index.ts",
-  "license": "MIT",
+  "license": "GPL-3.0",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -18,7 +18,7 @@
   "dependencies": {
     "@atproto/api": "^0.16.3",
     "@atproto/oauth-client": "^0.5.3",
-    "@atproto/oauth-client-expo": "^0.0.1",
+    "@atproto/oauth-client-expo": "0.0.2",
     "@babel/runtime": "^7.28.2",
     "@expo/metro-runtime": "~6.1.2",
     "@expo/ui": "~0.2.0-beta.6",

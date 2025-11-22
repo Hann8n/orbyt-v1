@@ -305,7 +305,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     >
               <View style={[styles.contentContainer, shouldOffsetTop && { paddingTop: topThirdOffset }]}>
           <View style={styles.iconContainer}>
-            {isProfileFeed && type === 'no-videos' ? (
+            {(isProfileFeed || (feedOption && feedOption.startsWith('hashtag:'))) && type === 'no-videos' ? (
               <Image source={UFOGif} style={styles.ufoGif} />
             ) : (
               <Icon 

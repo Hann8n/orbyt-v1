@@ -1,7 +1,9 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { ListViewIcon, GridViewIcon } from '../../ui/Icon';
+import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
+import { Colors } from '../../ui/UI';
+import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 
 export interface TabOption {
   id: string;
@@ -21,6 +23,7 @@ interface TabNavigationProps {
   onViewModeChange?: (mode: 'list' | 'grid' | 'horizontal') => void;
   showViewToggle?: boolean;
   variant?: 'header' | 'comments'; // New prop to distinguish between header and comments styles
+  dropdown?: boolean; // New prop to show as dropdown instead of tabs
 }
 
 const TabNavigation: React.FC<TabNavigationProps> = ({
@@ -35,7 +38,10 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   onViewModeChange,
   showViewToggle = false,
   variant = 'header', // Default to header variant
+  dropdown = false, // Default to tabs
 }) => {
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+
   const handleViewModeChange = (mode: 'list' | 'grid') => {
     if (onViewModeChange) {
       onViewModeChange(mode);
@@ -48,6 +54,89 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   // Get variant-specific styles
   const variantStyle = variant === 'comments' ? styles.commentsStyle : styles.headerStyle;
 
+  // Get current active tab label
+  const activeTabLabel = tabs.find(tab => tab.id === activeTab)?.label || tabs[0]?.label || '';
+
+  // Dropdown mode
+  if (dropdown) {
+    return (
+      <>
+        <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
+          <TouchableOpacity
+            style={styles.dropdownButton}
+            onPress={() => setDropdownVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.dropdownText, { color: activeTabColor, fontFamily: 'Firma-SemiBold', fontSize: variant === 'header' ? 18 : 16 }]}>
+              {activeTabLabel}
+            </Text>
+          <DownSmallFillIcon size={20} color={Colors.gray} />
+          </TouchableOpacity>
+
+          {/* View toggle area */}
+          <View style={styles.viewToggleArea}>
+            {showViewToggle && onViewModeChange && (
+              <View style={styles.viewToggleContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.viewToggleButton,
+                    viewMode === 'grid' && styles.activeViewToggleButton
+                  ]}
+                  onPress={() => handleViewModeChange('grid')}
+                  activeOpacity={0.7}
+                >
+                  <GridViewIcon 
+                    color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.6)} 
+                    size={20}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.viewToggleButton,
+                    viewMode === 'list' && styles.activeViewToggleButton
+                  ]}
+                  onPress={() => handleViewModeChange('list')}
+                  activeOpacity={0.7}
+                >
+                  <ListViewIcon 
+                    color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.6)} 
+                    size={20}
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <VerticalListSheet
+          visible={dropdownVisible}
+          onDismiss={() => setDropdownVisible(false)}
+          title="Sort by"
+          showCancelButton={true}
+          cancelButtonText="Cancel"
+          enableGlass={false}
+        >
+          <View style={styles.optionsContainer}>
+            {tabs.map((tab) => (
+              <VerticalListButton
+                key={tab.id}
+                label={tab.label}
+                onPress={() => {
+                  if (activeTab !== tab.id) {
+                    onTabPress(tab.id);
+                  }
+                  setDropdownVisible(false);
+                }}
+                disabled={tab.disabled || activeTab === tab.id}
+              />
+            ))}
+          </View>
+        </VerticalListSheet>
+      </>
+    );
+  }
+
+  // Regular tabs mode
   return (
     <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
       <View style={styles.tabsRow}>
@@ -202,6 +291,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginTop: 0,
     minHeight: 40,
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 0,
+    paddingVertical: 8,
+    minHeight: 36,
+  },
+  dropdownText: {
+    fontSize: 18,
+  },
+  optionsContainer: {
+    paddingHorizontal: 0,
   },
 });
 

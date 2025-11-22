@@ -747,11 +747,11 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     marginBottom: 2,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Firma-Bold',
     flexShrink: 1,
   },
   orbytSlash: {
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Firma-SemiBold',
     marginRight: 0,
   },
   defaultChannelActionButtons: {

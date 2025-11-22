@@ -1998,8 +1998,8 @@ const styles = StyleSheet.create({
   },
   gridChannelName: {
     color: Colors.white,
-    fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontSize: 16,
+    fontFamily: 'Firma-Bold',
   },
   horizontalChannelButton: {
     marginBottom: 10,
@@ -2031,21 +2031,21 @@ const styles = StyleSheet.create({
   },
   horizontalChannelLabel: {
     color: Colors.white,
-    fontSize: 24,
-    fontFamily: 'Firma-SemiBold',
+    fontSize: 22,
+    fontFamily: 'Firma-Bold',
   },
   channelContent: {
     flex: 1,
     justifyContent: 'center',
   },
   orbytSlash: {
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Firma-SemiBold',
     marginRight: 0,
   },
   channelName: {
     color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontSize: 14,
+    fontFamily: 'Firma-Bold',
     flexShrink: 1,
   },
   channelCreator: {
@@ -2118,7 +2118,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: Colors.white,
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: 'Firma-Bold',
   },
 

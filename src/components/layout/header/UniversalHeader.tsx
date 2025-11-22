@@ -77,6 +77,7 @@ export interface UniversalHeaderProps {
   showShadowGradient?: boolean;
   minHeight?: number;
   contentPosition?: 'top' | 'center' | 'bottom' | 'space-between';
+  hasTabs?: boolean; // Indicates if tab navigation is present (for hashtag feeds)
 }
 
 // Memoized action button component for performance
@@ -539,6 +540,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   showShadowGradient = true,
   minHeight,
   contentPosition = 'top',
+  hasTabs = false,
 }) => {
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
@@ -568,19 +570,22 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   }, [backgroundImage]);
 
   // Calculate background container style to extend beyond padding
+  // If tabs are present (hashtag feed), stop the background before them (approximately 70px for tab area)
   const backgroundContainerStyle = useMemo(() => [
     styles.backgroundImageContainer,
     {
       top: applySafeArea ? -insets.top : 0,
+      ...(hasTabs && { bottom: 70 }), // Stop before tab navigation
     }
-  ], [applySafeArea, insets.top]);
+  ], [applySafeArea, insets.top, hasTabs]);
 
   const backgroundOverlayStyle = useMemo(() => [
     styles.backgroundOverlay,
     {
       top: applySafeArea ? -insets.top : 0,
+      ...(hasTabs && { bottom: 70 }), // Stop before tab navigation
     }
-  ], [applySafeArea, insets.top]);
+  ], [applySafeArea, insets.top, hasTabs]);
 
   // Memoize background image component separately to prevent recreation on viewMode changes
   const backgroundImageComponent = useMemo(() => {
@@ -597,9 +602,10 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
             fadeDuration={0}
           />
         </View>
-        {/* Dark overlay for text readability */}
+        {/* Dark overlay for text readability - fully black at bottom, lighter in center, fades to 10% at top */}
         <LinearGradient
-          colors={['rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 0.7)']}
+          colors={['rgba(0, 0, 0, 0.1)', 'rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 1.0)']}
+          locations={[0, 0.5, 1]}
           style={backgroundOverlayStyle}
           pointerEvents="none"
         />
@@ -654,7 +660,6 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     
     return children;
   }, [children]);
-
 
   const contentContainerStyle = useMemo(() => [
     styles.content,
@@ -727,7 +732,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       {/* Black shadow gradient at bottom - under all UI */}
       {showShadowGradient && (
         <LinearGradient
-          colors={['transparent', 'rgba(0, 0, 0, 0.95)']}
+          colors={['transparent', 'rgba(0, 0, 0, 0.6)']}
           style={styles.shadowGradient}
           pointerEvents="none"
         />

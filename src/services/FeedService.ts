@@ -296,6 +296,40 @@ const createQueryKeys = {
 // Core feed fetching logic
 class FeedService {
 
+  /**
+   * Normalize feed option for API calls - convert local Orbyt channel URIs to hashtag format
+   * Skips channels that should remain as feed generators (e.g., "latest" aggregates multiple hashtags)
+   * This normalization is only used when making API calls, not for caching or routing
+   */
+  private normalizeFeedOptionForAPI(feedOption: FeedOption): FeedOption {
+    // Import here to avoid circular dependency issues
+    const { isOrbytChannel, channelToHashtag, getChannelByUri } = require('../utils/orbytChannels');
+    
+    // If it's already a hashtag or not an Orbyt channel URI, return as-is
+    if (feedOption.startsWith('hashtag:') || !feedOption.startsWith('at://')) {
+      return feedOption;
+    }
+    
+    // Convert local Orbyt channel URIs (at://local.orbyt.channel/{slug}) to hashtag format
+    // Skip channels that aren't postable (like "latest" and "popular-now") - they should use feed generators
+    if (isOrbytChannel(feedOption)) {
+      const channel = getChannelByUri(feedOption);
+      // Keep feed generators for non-postable channels (they aggregate multiple hashtags or have special logic)
+      if (channel?.isPostable === false) {
+        return feedOption; // Don't normalize - keep as feed generator
+      }
+      
+      // Convert local URIs to hashtag format for API calls
+      // This only affects local.orbyt.channel URIs, not feed generator URIs
+      if (feedOption.startsWith('at://local.orbyt.channel/')) {
+        const hashtagOption = channelToHashtag(feedOption);
+        return hashtagOption || feedOption;
+      }
+    }
+    
+    return feedOption;
+  }
+
   private getFeedLink(feedOption: FeedOption): string | null {
     if (feedOption.startsWith('at://')) {
       return feedOption;
@@ -318,7 +352,7 @@ class FeedService {
   }
 
   async fetchFeed(feedOption: FeedOption, userDid?: string, cursor?: string): Promise<APIResponse> {
-    // Create cache key for this specific feed request
+    // Use original feedOption for caching (keeps URI format for consistency)
     const cacheKey = `${feedOption}_${userDid || 'anonymous'}_${cursor || 'initial'}`;
     
     // Check cache first for performance (for both initial loads and pagination)
@@ -335,29 +369,32 @@ class FeedService {
       const limit = FEED_CONFIG.defaultLimit;
       let response;
       
-      // Handle different feed types
-      if (feedOption === 'likes' && userDid) {
+      // Normalize feed option only for API calls (converts local URIs to hashtags)
+      const feedOptionForAPI = this.normalizeFeedOptionForAPI(feedOption);
+      
+      // Handle different feed types (using normalized feed option for API calls)
+      if (feedOptionForAPI === 'likes' && userDid) {
         response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'likes');
-      } else if (feedOption === 'reposts' && userDid) {
+      } else if (feedOptionForAPI === 'reposts' && userDid) {
         response = await (AtprotoService as any).getRepostedVideos(userDid, cursor, limit);
-      } else if (feedOption === 'profile' && userDid) {
+      } else if (feedOptionForAPI === 'profile' && userDid) {
         response = await AtprotoService.getFeed(cursor, userDid, {}, true, limit, 'authorVideos');
-      } else if (feedOption === 'profile' && !userDid) {
+      } else if (feedOptionForAPI === 'profile' && !userDid) {
         return { feed: [], cursor: null };
-      } else if (feedOption === 'likes' && !userDid) {
+      } else if (feedOptionForAPI === 'likes' && !userDid) {
         return { feed: [], cursor: null };
-      } else if (feedOption === 'reposts' && !userDid) {
+      } else if (feedOptionForAPI === 'reposts' && !userDid) {
         return { feed: [], cursor: null };
-      } else if (feedOption === 'following') {
-        const feedLink = this.getFeedLink(feedOption);
+      } else if (feedOptionForAPI === 'following') {
+        const feedLink = this.getFeedLink(feedOptionForAPI);
         if (!feedLink) {
           return { feed: [], cursor: null };
         }
         response = await AtprotoService.getFeed(cursor, feedLink, {}, false, limit, 'custom');
-      } else if (feedOption === 'profile' || feedOption === 'likes' || feedOption === 'reposts') {
+      } else if (feedOptionForAPI === 'profile' || feedOptionForAPI === 'likes' || feedOptionForAPI === 'reposts') {
         return { feed: [], cursor: null };
-      } else if (feedOption.startsWith('search:')) {
-        const searchQuery = feedOption.substring(7);
+      } else if (feedOptionForAPI.startsWith('search:')) {
+        const searchQuery = feedOptionForAPI.substring(7);
         if (!searchQuery || searchQuery.trim() === '') {
           return { feed: [], cursor: null };
         }
@@ -409,17 +446,34 @@ class FeedService {
         } catch (error) {
           return { feed: [], cursor: null };
         }
-      } else if (feedOption.startsWith('hashtag:')) {
-        const hashtag = feedOption.substring(8); // Remove 'hashtag:' prefix
-        if (!hashtag || hashtag.trim() === '') {
+      } else if (feedOptionForAPI.startsWith('hashtag:')) {
+        // Hashtag feeds (normalized local Orbyt channels use this format: hashtag:orbyt-channel-{slug})
+        // May include sort parameter: hashtag:orbyt-channel-{slug}:top or hashtag:orbyt-channel-{slug}:latest
+        const hashtagWithSort = feedOptionForAPI.substring(8); // Remove 'hashtag:' prefix
+        if (!hashtagWithSort || hashtagWithSort.trim() === '') {
+          return { feed: [], cursor: null };
+        }
+
+        // Parse sort parameter (default to 'latest' if not specified)
+        let hashtag = hashtagWithSort.trim();
+        let sort: 'top' | 'latest' = 'latest';
+        
+        const sortMatch = hashtag.match(/^(.+):(top|latest)$/);
+        if (sortMatch) {
+          hashtag = sortMatch[1];
+          sort = sortMatch[2] as 'top' | 'latest';
+        }
+
+        if (!hashtag) {
           return { feed: [], cursor: null };
         }
 
         try {
           const response = await AtprotoService.searchHashtagVideosPaginated(
-            hashtag.trim(),
+            hashtag,
             cursor as string | null,
-            FEED_CONFIG.maxPostsPerFetch
+            FEED_CONFIG.maxPostsPerFetch,
+            sort
           );
 
           return {
@@ -429,14 +483,15 @@ class FeedService {
         } catch (error) {
           return { feed: [], cursor: null };
         }
-      } else if (feedOption === 'search') {
+      } else if (feedOptionForAPI === 'search') {
         return {
           feed: feedStateManager.getCurrentFeed(),
           cursor: null,
         };
       } else {
-        // Handle custom feed URIs
-        const feedLink = this.getFeedLink(feedOption);
+        // Handle custom feed URIs (external feed generators and non-postable Orbyt channels)
+        // Use original feedOption for feed generator URIs, not the normalized one
+        const feedLink = feedOption.startsWith('at://') ? feedOption : this.getFeedLink(feedOptionForAPI);
         if (!feedLink) {
           return { feed: [], cursor: null };
         }

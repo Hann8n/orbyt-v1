@@ -37,15 +37,15 @@ export interface SavedAccount {
   originalIdentifier: string; // The identifier used during initial authentication
 }
 
-// Subscribed channel types
+// Subscribed channel/feed types
 export interface SubscribedChannel {
-  uri: string;
+  uri: string; // Can be either a hashtag feed (e.g., "hashtag:orbyt-channel-art") or feed generator URI (e.g., "at://did:plc:.../app.bsky.feed.generator/...")
   displayName: string;
   description?: string;
   avatar?: string;
   memberCount?: number;
   isDefault?: boolean;
-  isOrbytChannel?: boolean; // True if this is an Orbyt-managed channel (getorbyt.com feed)
+  isOrbytChannel?: boolean; // True if this is an Orbyt-managed hashtag feed
   order: number;
   subscribedAt: number;
 }
@@ -620,7 +620,7 @@ export const useUserStore = create<UserState>()(
         }
       },
       
-      // Channel subscription management
+      // Channel/feed subscription management
       subscribeToChannel: async (channelData: {
         uri: string;
         displayName: string;
@@ -640,7 +640,7 @@ export const useUserStore = create<UserState>()(
           const existingIndex = channels.findIndex(ch => ch.uri === channelData.uri);
           
           if (existingIndex >= 0) {
-            // Update existing channel
+            // Update existing channel/feed
             const updatedChannels = [...channels];
             updatedChannels[existingIndex] = {
               ...updatedChannels[existingIndex],
@@ -650,7 +650,7 @@ export const useUserStore = create<UserState>()(
             };
             set({ subscribedChannels: updatedChannels });
           } else {
-            // Add new channel
+            // Add new channel/feed
             const newChannel: SubscribedChannel = {
               ...channelData,
               isDefault: false,
@@ -851,7 +851,7 @@ export const useUserStore = create<UserState>()(
             const existingIndex = currentChannels.findIndex(ch => ch.uri === channelData.uri);
             
             if (existingIndex >= 0) {
-              // Update existing channel
+              // Update existing channel/feed
               newChannels.push({
                 ...currentChannels[existingIndex],
                 ...channelData,
@@ -859,7 +859,7 @@ export const useUserStore = create<UserState>()(
                 subscribedAt: Date.now(),
               });
             } else {
-              // Add new channel
+              // Add new channel/feed
               newChannels.push({
                 ...channelData,
                 isDefault: false,
@@ -1331,6 +1331,7 @@ export const useUserStore = create<UserState>()(
                   uri,
                   displayName: '',
                   isDefault: false,
+                  isOrbytChannel: isOrbytChannel(uri),
                   order: idx + 2, // leave 0,1 for defaults
                   subscribedAt: Date.now(),
                 }));

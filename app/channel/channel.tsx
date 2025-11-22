@@ -12,6 +12,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import ChannelHeader from '../../src/components/layout/header/ChannelHeader';
+import TabNavigation, { TabOption } from '../../src/components/layout/header/TabNavigation';
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 import { Colors } from '../../src/components/ui/UI';
 
@@ -20,6 +21,7 @@ import ProfileCache from '../../src/services/cache/ProfileCache';
 import { extractColorsFromImage } from '../../src/utils/formatting/colorUtils';
 import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
+import { isOrbytChannel, getChannelByUri, channelToHashtag } from '../../src/utils/orbytChannels';
 
 interface ChannelScreenProps {}
 
@@ -34,6 +36,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   const uri = uriParam ? decodeURIComponent(uriParam) : '';
   
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<0 | 1>(0); // 0 = top, 1 = latest
 
   // Use channel cache system
   const {
@@ -64,19 +67,49 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   // View mode state
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'horizontal'>('list');
 
-  // Use feed query for channel posts
-  const feedOption = uri || '';
+  // Check if this is a category channel (hashtag feed) - postable Orbyt channels
+  const isCategoryChannel = useMemo(() => {
+    if (!uri || !isOrbytChannel(uri)) return false;
+    const channel = getChannelByUri(uri);
+    return channel?.isPostable !== false; // Default to true, only false for non-postable channels
+  }, [uri]);
+
+  // Construct feed options for tabs (only for category channels)
+  const feedOptions = useMemo(() => {
+    if (!isCategoryChannel || !uri) {
+      return { top: uri || '', latest: uri || '' };
+    }
+    
+    const hashtagOption = channelToHashtag(uri);
+    if (!hashtagOption) {
+      return { top: uri, latest: uri };
+    }
+    
+    return {
+      top: `${hashtagOption}:top`,
+      latest: `${hashtagOption}:latest`,
+    };
+  }, [isCategoryChannel, uri]);
+
+  // Get current feed option based on active tab
+  const feedOption = useMemo(() => {
+    if (!isCategoryChannel) {
+      return uri || '';
+    }
+    return activeTab === 0 ? feedOptions.top : feedOptions.latest;
+  }, [isCategoryChannel, uri, activeTab, feedOptions]);
+
   const channelDataForFeed = channelData;
 
-  // Memoized query options - only enabled when route focused and data available
+  // Memoized query options - enabled when route focused and feedOption is available
+  // For category channels, only enable the active tab
   const queryOptions = useMemo(() => ({
     enabled: Boolean(
       isRouteFocused &&
       feedOption &&
-      feedOption.startsWith('at://') &&
-      channelDataForFeed?.did
+      (feedOption.startsWith('hashtag:') || feedOption.startsWith('at://'))
     ),
-  }), [isRouteFocused, feedOption, channelDataForFeed?.did]);
+  }), [isRouteFocused, feedOption]);
 
   // Extract and save channel colors if needed
   const extractAndSaveColors = useCallback(async (channelUri: string, avatarUrl: string) => {
@@ -129,11 +162,20 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
 
     const likeCount = channelData.likeCount || 0;
 
+    // For Orbyt channels, ensure description comes from orbytChannels if not in cache
+    let description = channelData.description || '';
+    if (isOrbytChannel(uri)) {
+      const orbytChannel = getChannelByUri(uri);
+      if (orbytChannel?.description) {
+        description = orbytChannel.description;
+      }
+    }
+
     return {
       id: uri,
       uri: uri,
       name: channelData.displayName || 'Untitled Channel',
-      description: channelData.description || '',
+      description: description,
       avatar: channelData.avatar || '',
       likeCount,
       isOwner: false,
@@ -190,6 +232,31 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
     </View>
   );
 
+  // Tab options for category channels
+  const tabOptions: TabOption[] = useMemo(() => [
+    { id: 'top', label: 'Trending' },
+    { id: 'latest', label: 'New' },
+  ], []);
+
+  // Tab navigation component for category channels (passed as children to ChannelHeader)
+  const tabNavigation = useMemo(() => {
+    if (!isCategoryChannel) return null;
+
+    return (
+      <TabNavigation
+        tabs={tabOptions}
+        activeTab={activeTab === 0 ? 'top' : 'latest'}
+        onTabPress={(tabId) => setActiveTab(tabId === 'top' ? 0 : 1)}
+        textColor={channelColors.textColor || Colors.white}
+        backgroundColor="transparent"
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        showViewToggle={true} // TabNavigation handles view toggle for category channels
+        dropdown={true} // Use dropdown mode
+      />
+    );
+  }, [isCategoryChannel, tabOptions, activeTab, channelColors.textColor, viewMode, setViewMode]);
+
   const headerComponent = (
     <View style={styles.headerContainer} pointerEvents="box-none">
       <ChannelHeader
@@ -199,8 +266,10 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
         applySafeArea={true}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        showViewToggle={true}
-      />
+        showViewToggle={!isCategoryChannel} // Hide view toggle in ChannelHeader when tabs are shown
+      >
+        {tabNavigation}
+      </ChannelHeader>
     </View>
   );
 
@@ -216,9 +285,9 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
       {showErrorScreen ? (
         renderErrorScreen()
       ) : (
-        channelDataForFeed && feedOption.startsWith('at://') ? (
+        channelDataForFeed && feedOption ? (
           <FeedRenderer
-            feedOption={feedOption.startsWith('at://') ? feedOption : ''}
+            feedOption={feedOption}
             userDid={channelDataForFeed?.did}
             headerComponent={headerComponent}
             refreshControl={
@@ -238,7 +307,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
             initialPosition={undefined}
             queryOptions={queryOptions}
             isVisible={isRouteFocused}
-            visibilityKey={uri ? `channel:${uri}` : undefined}
+            visibilityKey={uri ? `channel:${uri}:${isCategoryChannel ? (activeTab === 0 ? 'top' : 'latest') : ''}` : undefined}
           />
         ) : (
           <FeedRenderer
