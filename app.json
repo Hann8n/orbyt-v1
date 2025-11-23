@@ -75,13 +75,7 @@
       "expo-secure-store",
       "expo-web-browser",
       "react-native-video",
-      "expo-router",
-      [
-        "ffmpeg-kit-react-native",
-        {
-          "package": "min"
-        }
-      ]
+      "expo-router"
     ],
     "extra": {
       "eas": {

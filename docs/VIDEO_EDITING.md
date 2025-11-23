@@ -2,25 +2,303 @@
 
 ## Overview
 
-The app now includes comprehensive video editing capabilities powered by FFmpeg, allowing users to capture, trim, reorder, and stitch multiple video clips before posting.
+The app includes comprehensive video editing capabilities powered by **truly native iOS and Android implementations**, allowing users to capture, trim, reorder, and stitch multiple video clips before posting.
 
 ## Architecture
 
 ### Service Layer
 
-#### VideoEditingService (`src/services/VideoEditingService.ts`)
-Core video editing operations using FFmpeg:
-- **Video Concatenation**: True multi-segment video merging
-- **Video Trimming**: Cut videos to specific time ranges
-- **Video Compression**: Quality-controlled compression
+#### NativeVideoEditingService (`src/services/NativeVideoEditingService.ts`)
+Core video editing operations using native platform APIs:
+- **Video Concatenation**: True multi-segment video merging using AVFoundation (iOS) and MediaCodec/MediaMuxer (Android)
+- **Video Trimming**: Cut videos to specific time ranges natively
+- **Video Compression**: Quality-controlled compression using platform APIs
 - **Metadata Extraction**: Get video duration, resolution, bitrate, etc.
-- **Thumbnail Generation**: Extract frames from videos
 
 #### VideoProcessingService (`src/services/VideoProcessingService.ts`)
-Enhanced to use VideoEditingService for true video concatenation:
-- Primary merge uses FFmpeg-based concatenation
+Enhanced to use NativeVideoEditingService for true native video concatenation:
+- Primary merge uses native module-based concatenation
 - Fallback method for compatibility
 - Compression and optimization maintained
+
+### Native Module Layer
+
+#### Native Video Processor Module (`modules/native-video-processor`)
+Custom Expo native module with platform-specific implementations:
+
+**iOS Implementation (Swift):**
+- Uses `AVFoundation` framework
+- `AVMutableComposition` for video concatenation
+- `AVAssetExportSession` for export and compression
+- Handles video rotation and metadata correctly
+
+**Android Implementation (Kotlin):**
+- Uses `MediaCodec` and `MediaMuxer` for video processing
+- Native video concatenation with proper timestamp handling
+- Supports audio and video track merging
+- Efficient memory usage with ByteBuffer
+
+### UI Layer
+
+#### VideoEditorScreen (`app/video-editor.tsx`)
+Full-featured video editing interface:
+- **Segment List**: Visual list of all video clips with thumbnails
+- **Drag-to-Reorder**: Long press and drag to reorder clips
+- **Delete Clips**: Remove unwanted segments
+- **Preview**: Generate and preview the final merged video
+- **Trim UI**: Placeholder for future trim functionality
+
+#### CreateScreen (`app/(tabs)/create.tsx`)
+Updated to route to video editor:
+- Captures video segments (camera or gallery)
+- Routes to editor screen with all segments
+- Segments include unique IDs for tracking
+
+## User Flow
+
+```
+Camera/Capture Screen (create.tsx)
+    ↓
+    - Record multiple segments (press & hold)
+    - Add from gallery
+    - Tap "Done" button
+    ↓
+Video Editor Screen (video-editor.tsx)
+    ↓
+    - Reorder clips (drag & drop)
+    - Delete unwanted clips
+    - Preview merged video
+    - Tap "Done" button
+    ↓
+Post Screen (VideoPostScreen.tsx)
+    ↓
+    - Receives single merged video file
+    - Add description, tags, etc.
+    - Publish to Bluesky
+```
+
+## Key Features
+
+### 1. Video Clip Trimming
+- **Status**: Service ready, UI placeholder
+- **Implementation**: `NativeVideoEditingService.trimVideo()` - Native AVFoundation/MediaCodec
+- **Usage**: Cut videos to specific start/end times
+- **Future**: Add trim slider UI in editor
+
+### 2. Video Stitching/Concatenation
+- **Status**: Fully implemented ✅
+- **Implementation**: Native module `mergeVideos()`
+- **iOS**: AVMutableComposition for seamless merging
+- **Android**: MediaMuxer for efficient concatenation
+- **Method**: Native platform APIs (fast, preserves quality)
+
+### 3. Clip Reordering
+- **Status**: Fully implemented ✅
+- **Implementation**: react-native-draggable-flatlist
+- **Usage**: Long press and drag clips to reorder
+- **Visual**: Active segment highlighted during drag
+
+### 4. Clip Management
+- **Status**: Fully implemented ✅
+- **Features**:
+  - Delete individual clips
+  - View segment duration
+  - See source type (camera vs gallery)
+  - Visual thumbnail preview
+
+### 5. Video Preview
+- **Status**: Fully implemented ✅
+- **Usage**: Preview merged video before finalizing
+- **Implementation**: Generates merged video in background using native processing
+
+## Technical Details
+
+### Native Module Implementation
+
+**Module Location**: `modules/native-video-processor`
+
+**iOS (Swift) - AVFoundation:**
+```swift
+// Uses AVMutableComposition for video merging
+let composition = AVMutableComposition()
+let videoTrack = composition.addMutableTrack(withMediaType: .video)
+let audioTrack = composition.addMutableTrack(withMediaType: .audio)
+
+// Insert video segments sequentially
+try videoTrack.insertTimeRange(timeRange, of: assetVideoTrack, at: currentTime)
+
+// Export with AVAssetExportSession
+let exportSession = AVAssetExportSession(asset: composition, 
+                                          presetName: AVAssetExportPresetHighestQuality)
+```
+
+**Android (Kotlin) - MediaCodec/MediaMuxer:**
+```kotlin
+// Uses MediaMuxer for video merging
+val muxer = MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+
+// Add video and audio tracks
+val videoTrackIndex = muxer.addTrack(videoFormat)
+val audioTrackIndex = muxer.addTrack(audioFormat)
+
+// Write video data from multiple sources
+muxer.writeSampleData(videoTrackIndex, buffer, bufferInfo)
+```
+
+**Key Advantages:**
+- ✅ **No FFmpeg dependency** - Reduces app size by ~60MB
+- ✅ **Truly native** - Uses platform-optimized APIs
+- ✅ **Better performance** - Hardware-accelerated where available
+- ✅ **Smaller bundle size** - No large binary dependencies
+- ✅ **Better iOS integration** - Proper handling of rotations and metadata
+- ✅ **Better Android integration** - Efficient MediaCodec usage
+
+### Video Segment Structure
+
+```typescript
+interface VideoSegment {
+  id: string;                          // Unique identifier
+  startTime: number;                   // Capture timestamp
+  duration: number;                    // Duration in seconds
+  video: VideoFile | ImagePickerAsset; // Video data
+  sourceType?: 'camera' | 'gallery';   // Source
+  trimStart?: number;                  // Optional trim start
+  trimEnd?: number;                    // Optional trim end
+}
+```
+
+### File Management
+
+**Temporary Processing**: All operations use temporary cache directories
+**Cleanup**: Automatic cleanup after processing
+**Path Handling**: Ensures proper file:// prefix for local files
+**iCloud Support**: Downloads videos from iCloud when needed (iOS)
+
+## Performance Considerations
+
+### Processing Time
+- **Concatenation**: Fast with native copy operations
+- **Trimming**: Fast with native time-range export
+- **Compression**: Platform-optimized encoding
+
+### Memory Usage
+- Processing occurs in background threads
+- Temporary files cleaned up automatically
+- Native memory management by platform
+
+### User Feedback
+- Loading indicators during processing
+- Preview generation shows activity
+- Disable buttons during operations
+
+## Error Handling
+
+### Native Module Failures
+- Primary method: Native module-based concatenation
+- Fallback method: Returns first segment
+- User-friendly error messages
+
+### File Issues
+- Validates file existence before processing
+- Downloads from iCloud if needed (iOS)
+- Handles missing metadata gracefully
+
+## Future Enhancements
+
+### Planned Features
+1. **Trim Slider UI**: Visual timeline for precise trimming
+2. **Video Filters**: Color adjustments, brightness, etc.
+3. **Audio Controls**: Volume, mute, background music
+4. **Text Overlays**: Add text to specific segments
+5. **Transitions**: Fade, dissolve between clips
+6. **Speed Control**: Slow motion, time lapse
+7. **Thumbnail Generation**: Native frame extraction
+
+### Potential Improvements
+- Progress bars for long operations
+- Undo/redo functionality
+- Segment thumbnails from specific frames
+- Multi-select for batch operations
+- Export edited videos without posting
+
+## Testing
+
+### Test Scenarios
+1. Single segment (camera) → editor → post
+2. Multiple segments (camera) → editor → post
+3. Mixed camera + gallery segments → editor → post
+4. Reorder segments → preview → post
+5. Delete segments → reorder → post
+6. Very long videos (test compression)
+7. Different aspect ratios
+8. Different video formats
+
+### Edge Cases
+- Empty segment list
+- Very large video files
+- Network issues during iCloud download
+- Native module failures
+- Insufficient storage space
+
+## Dependencies
+
+### Required Packages
+- `react-native-draggable-flatlist`: Drag-to-reorder UI
+- `react-native-gesture-handler`: Touch gestures
+- `react-native-video`: Video preview
+- `react-native-vision-camera`: Camera capture
+- `react-native-compressor`: Additional compression support
+- `expo-file-system`: File operations
+- `expo-image-picker`: Gallery selection
+- `expo-media-library`: iCloud video access
+
+### Native Modules
+- **Custom Native Video Processor** (iOS & Android) - Built with Expo Modules API
+- Vision Camera (iOS & Android)
+
+### Removed Dependencies
+- ❌ `ffmpeg-kit-react-native` - Removed completely
+- ❌ FFmpeg binary (~60MB) - No longer needed
+
+### Build Configuration
+- Requires custom dev client (not Expo Go)
+- Native module auto-linked via Expo
+- EAS Build compatible
+
+## Troubleshooting
+
+### Common Issues
+
+**Native Module Not Found**
+- Run `npx expo prebuild --clean`
+- Rebuild native app with `npx expo run:ios` or `npx expo run:android`
+- Check that module is in `modules/native-video-processor`
+
+**Videos Won't Merge**
+- Check file paths are valid
+- Ensure files exist locally
+- Check available storage space
+- Check native module is properly linked
+
+**Preview Not Showing**
+- Wait for generation to complete
+- Check file permissions
+- Verify video format compatibility
+
+**Drag Not Working**
+- Ensure GestureHandlerRootView wraps component
+- Check react-native-gesture-handler is installed
+- Verify touch isn't intercepted by other components
+
+## Resources
+
+- [Expo Modules API](https://docs.expo.dev/modules/overview/)
+- [AVFoundation Programming Guide](https://developer.apple.com/av-foundation/)
+- [Android MediaCodec](https://developer.android.com/reference/android/media/MediaCodec)
+- [Android MediaMuxer](https://developer.android.com/reference/android/media/MediaMuxer)
+- [React Native Draggable FlatList](https://github.com/computerjazz/react-native-draggable-flatlist)
+- [Expo File System](https://docs.expo.dev/versions/latest/sdk/filesystem/)
+
 
 ### UI Layer
 

@@ -22,7 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Icon, { BackArrowIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import { BORDER_RADIUS, VIDEO_EDITOR_MESSAGES, ANIMATION_CONSTANTS, ICON_SIZES } from '../src/utils/constants';
-import VideoEditingService, { VideoSegment } from '../src/services/VideoEditingService';
+import { VideoSegment } from '../src/services/NativeVideoEditingService';
 import VideoProcessingService from '../src/services/VideoProcessingService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

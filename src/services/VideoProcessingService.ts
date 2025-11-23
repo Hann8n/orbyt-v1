@@ -5,7 +5,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { File, Directory, Paths } from 'expo-file-system';
 import Compressor from 'react-native-compressor';
 import { logger } from '../utils/logger';
-import VideoEditingService from './VideoEditingService';
+import NativeVideoEditingService from './NativeVideoEditingService';
 
 export interface VideoSegment {
   startTime: number;
@@ -536,7 +536,7 @@ class VideoProcessingService {
 
   /**
    * Merges multiple video segments into a single video file
-   * Uses VideoEditingService (FFmpeg) for true video concatenation
+   * Uses NativeVideoEditingService for true native video concatenation
    */
   static async mergeSegments(segments: VideoSegment[]): Promise<ProcessedVideo> {
     if (segments.length === 0) {
@@ -555,7 +555,7 @@ class VideoProcessingService {
     }
 
     try {
-      // Convert VideoProcessingService segments to VideoEditingService format
+      // Convert VideoProcessingService segments to NativeVideoEditingService format
       const editingSegments = segments.map((segment, index) => ({
         id: `segment_${index}`,
         startTime: segment.startTime,
@@ -564,8 +564,8 @@ class VideoProcessingService {
         sourceType: segment.sourceType,
       }));
 
-      // Use VideoEditingService for true FFmpeg-based concatenation
-      const mergedVideo = await VideoEditingService.mergeSegments(editingSegments);
+      // Use NativeVideoEditingService for true native-based concatenation
+      const mergedVideo = await NativeVideoEditingService.mergeSegments(editingSegments);
 
       // Ensure file:// prefix for local file
       const mergedPath = mergedVideo.path.startsWith('file://') 
@@ -580,9 +580,9 @@ class VideoProcessingService {
       };
 
     } catch (error) {
-      logger.error('Error merging video segments with FFmpeg', error, { component: 'VideoProcessingService' });
+      logger.error('Error merging video segments with native module', error, { component: 'VideoProcessingService' });
       
-      // Fallback to old method if FFmpeg fails
+      // Fallback to old method if native fails
       logger.info('Attempting fallback merge method', { component: 'VideoProcessingService' });
       return await this.fallbackMergeSegments(segments);
     }
