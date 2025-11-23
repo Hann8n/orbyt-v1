@@ -259,7 +259,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     lastScrollOffset.current = offsetY;
   }, [onPositionChange]);
 
-  // Render item function - simplified visibility logic
+  // Render item function - simplified visibility logic with preloading for adjacent videos
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<FeedItem>) => {
     if (item.endCard) {
       return (
@@ -278,6 +278,11 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
     const isVideoVisible = isVideoVisibleHelper(item.post.uri) && canPlay;
     
+    // Determine if this is an adjacent video that should be preloaded
+    const isAdjacentVideo = activeItemIndex >= 0 && 
+                           Math.abs(index - activeItemIndex) === 1;
+    const shouldPreload = isAdjacentVideo && canPlay;
+    
     return (
       <VideoItem
         key={`${item.post.uri}_${index}`}
@@ -291,11 +296,13 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         moderationDecision={item.moderationDecision}
         isModal={isModal}
         index={index}
+        shouldPreload={shouldPreload}
       />
     );
   }, [
     cardHeight,
     activeItemUri,
+    activeItemIndex,
     feedOption,
     canPlay,
     isFeedActive,
@@ -303,6 +310,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     secondaryColor,
     handleVideoStatus,
     isModal,
+    isVideoVisibleHelper,
   ]);
 
   // Item type for FlashList recycling optimization
@@ -512,8 +520,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         
         // FlashList performance optimizations
         removeClippedSubviews={true}
+        drawDistance={cardHeight * 2} // Optimize draw distance for better performance
+        estimatedItemSize={cardHeight + 6} // Better item size estimation
         overrideItemLayout={(layout, item, index) => {
-          // Account for 8px total margin (4px top + 4px bottom) added to VideoCard
+          // Account for 6px total margin (3px top + 3px bottom) added to VideoCard
           layout.span = cardHeight + 6;
         }}
         

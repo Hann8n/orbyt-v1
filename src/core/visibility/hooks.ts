@@ -5,8 +5,8 @@ import { useIsFocused } from '@react-navigation/native';
 import { useVisibilityCoreStore, type FeedScopeKey } from './visibilityStore';
 
 const DEFAULT_VIEWABILITY_CONFIG: ViewabilityConfig = {
-  itemVisiblePercentThreshold: 65,
-  minimumViewTime: 120,
+  itemVisiblePercentThreshold: 50, // Reduced from 65 for faster response
+  minimumViewTime: 50, // Reduced from 120ms for faster response
 };
 
 interface FeedVisibilityOptions {
