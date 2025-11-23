@@ -297,6 +297,33 @@ const createQueryKeys = {
 class FeedService {
 
   /**
+   * Helper function to merge, deduplicate, and sort posts chronologically
+   */
+  private mergeAndDeduplicatePosts(posts: FeedItem[], limit: number): FeedItem[] {
+    // Remove duplicates
+    const seen = new Set<string>();
+    const uniquePosts = posts.filter(post => {
+      if (seen.has(post.post.uri)) {
+        return false;
+      }
+      seen.add(post.post.uri);
+      return true;
+    });
+    
+    // Sort chronologically
+    uniquePosts.sort((a, b) => {
+      const aIndexedAt = (a.post as any)?.indexedAt;
+      const bIndexedAt = (b.post as any)?.indexedAt;
+      const aTime = aIndexedAt ? new Date(aIndexedAt).getTime() : 0;
+      const bTime = bIndexedAt ? new Date(bIndexedAt).getTime() : 0;
+      return bTime - aTime;
+    });
+    
+    // Apply limit
+    return uniquePosts.slice(0, limit);
+  }
+
+  /**
    * Normalize feed option for API calls - convert local Orbyt channel URIs to hashtag format
    * Skips channels that should remain as feed generators (e.g., "latest" aggregates multiple hashtags)
    * This normalization is only used when making API calls, not for caching or routing
@@ -492,34 +519,15 @@ class FeedService {
           const hashtagResults = await Promise.all(hashtagPromises);
           
           // Merge all feeds
-          let allPosts = hashtagResults.flatMap(result => 
+          const allPosts = hashtagResults.flatMap(result => 
             result.feed.map(post => ({
               ...post,
               sourceFeed: result.hashtagUri
             }))
           );
           
-          // Remove duplicates
-          const seen = new Set<string>();
-          allPosts = allPosts.filter(post => {
-            if (seen.has(post.post.uri)) {
-              return false;
-            }
-            seen.add(post.post.uri);
-            return true;
-          });
-          
-          // Sort chronologically
-          allPosts.sort((a, b) => {
-            const aIndexedAt = (a.post as any)?.indexedAt;
-            const bIndexedAt = (b.post as any)?.indexedAt;
-            const aTime = aIndexedAt ? new Date(aIndexedAt).getTime() : 0;
-            const bTime = bIndexedAt ? new Date(bIndexedAt).getTime() : 0;
-            return bTime - aTime;
-          });
-          
-          // Apply limit
-          const limitedPosts = allPosts.slice(0, limit);
+          // Merge, deduplicate, and sort posts
+          const limitedPosts = this.mergeAndDeduplicatePosts(allPosts, limit);
           
           // Update cursor state
           hashtagResults.forEach(result => {
@@ -599,34 +607,15 @@ class FeedService {
           ]);
           
           // Merge all feeds
-          let allPosts = [...regularResults, ...hashtagResults].flatMap(result => 
+          const allPosts = [...regularResults, ...hashtagResults].flatMap(result => 
             result.feed.map(post => ({
               ...post,
               sourceFeed: result.sourceUri
             }))
           );
           
-          // Remove duplicates
-          const seen = new Set<string>();
-          allPosts = allPosts.filter(post => {
-            if (seen.has(post.post.uri)) {
-              return false;
-            }
-            seen.add(post.post.uri);
-            return true;
-          });
-          
-          // Sort chronologically
-          allPosts.sort((a, b) => {
-            const aIndexedAt = (a.post as any)?.indexedAt;
-            const bIndexedAt = (b.post as any)?.indexedAt;
-            const aTime = aIndexedAt ? new Date(aIndexedAt).getTime() : 0;
-            const bTime = bIndexedAt ? new Date(bIndexedAt).getTime() : 0;
-            return bTime - aTime;
-          });
-          
-          // Apply limit
-          const limitedPosts = allPosts.slice(0, limit);
+          // Merge, deduplicate, and sort posts
+          const limitedPosts = this.mergeAndDeduplicatePosts(allPosts, limit);
           
           // Update cursor state
           [...regularResults, ...hashtagResults].forEach(result => {
