@@ -7,7 +7,6 @@ import {
   Alert,
   Platform,
   Dimensions,
-  Image,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,7 +19,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Video from 'react-native-video';
 import { VideoFile } from 'react-native-vision-camera';
 import * as ImagePicker from 'expo-image-picker';
-import Icon, { BackArrowIcon, Loading3FillIcon } from '../src/components/ui/Icon';
+import Icon, { BackArrowIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import VideoEditingService, { VideoSegment } from '../src/services/VideoEditingService';

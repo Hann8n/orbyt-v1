@@ -81,7 +81,8 @@ class VideoEditingService {
         throw new Error('Video file does not exist');
       }
 
-      // Use FFprobe to get video information
+      // Note: FFmpegKit.execute can be used for both FFmpeg and FFprobe commands
+      // The -v error flag suppresses unnecessary output
       const command = `-v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate,bit_rate,codec_name -show_entries format=duration,size -of json "${videoPath}"`;
       
       const session = await FFmpegKit.execute(command);
@@ -298,7 +299,19 @@ class VideoEditingService {
 
         // Copy to temp directory with sequential naming
         const tempFile = new File(tempDir, `segment_${i}.mp4`);
-        new File(processedPath).copy(tempFile);
+        try {
+          await new Promise<void>((resolve, reject) => {
+            try {
+              new File(processedPath).copy(tempFile);
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          });
+        } catch (copyError) {
+          logger.error('Failed to copy segment file', copyError, { component: 'VideoEditingService' });
+          throw new Error(`Failed to copy segment ${i}`);
+        }
         processedVideoPaths.push(tempFile.uri);
       }
 
@@ -308,15 +321,18 @@ class VideoEditingService {
       // Get metadata of the merged video
       const metadata = await this.getVideoMetadata(mergedPath);
 
-      // Clean up temp files
-      this.cleanupTempFiles(tempDir);
-
-      return {
+      // Return result (cleanup in finally block)
+      const result: ProcessedVideo = {
         path: mergedPath,
         duration: metadata.duration,
         width: metadata.width,
         height: metadata.height,
       };
+
+      // Clean up temp files after successful merge
+      this.cleanupTempFiles(tempDir);
+
+      return result;
     } catch (error) {
       logger.error('Error merging segments', error, { component: 'VideoEditingService' });
       throw error;

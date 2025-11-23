@@ -99,7 +99,22 @@ Post Screen (VideoPostScreen.tsx)
 ### FFmpeg Integration
 
 **Package**: `ffmpeg-kit-react-native`
-**Configuration**: app.json (min package ~10MB)
+
+**Configuration**: app.json
+```json
+{
+  "package": "min"  // ~10MB per platform
+}
+```
+
+**Package Options:**
+- **min**: Basic FFmpeg functionality (~10MB) - Current choice
+  - Includes: video concatenation, trimming, compression, format conversion
+  - Sufficient for all current video editing needs
+  - Smaller app bundle size
+- **min-gpl**: Min + GPL codecs
+- **full**: Complete FFmpeg (~60MB)
+- **full-gpl**: Full + GPL codecs
 
 **Key Commands**:
 ```bash
