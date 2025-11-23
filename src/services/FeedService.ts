@@ -397,6 +397,9 @@ class FeedService {
         // Get subscribed channels from user store
         const { subscribedChannels } = await import('../stores/userStore').then(m => m.useUserStore.getState());
         
+        // Import orbyt channel utilities once at the start
+        const { isOrbytChannel, channelToHashtag } = await import('../utils/orbytChannels');
+        
         // Filter out default channels (following and your-mix itself)
         const userChannels = subscribedChannels.filter(
           ch => !ch.isDefault && ch.uri !== 'following' && ch.uri !== 'your-mix'
@@ -415,12 +418,10 @@ class FeedService {
           if (ch.uri.startsWith('at://') && !ch.uri.startsWith('at://local.orbyt.channel/')) {
             // Regular feed generator URIs (not local Orbyt channels)
             // Check if it's not a local channel that should be converted to hashtag
-            const { isOrbytChannel } = await import('../utils/orbytChannels');
             if (!isOrbytChannel(ch.uri)) {
               regularFeedUris.push(ch.uri);
             } else {
               // Convert local Orbyt channel to hashtag format
-              const { channelToHashtag } = await import('../utils/orbytChannels');
               const hashtagFormat = channelToHashtag(ch.uri);
               if (hashtagFormat) {
                 hashtagChannels.push(hashtagFormat);
@@ -428,7 +429,6 @@ class FeedService {
             }
           } else if (ch.uri.startsWith('at://local.orbyt.channel/')) {
             // Local Orbyt channels - convert to hashtag format
-            const { channelToHashtag } = await import('../utils/orbytChannels');
             const hashtagFormat = channelToHashtag(ch.uri);
             if (hashtagFormat) {
               hashtagChannels.push(hashtagFormat);
@@ -511,8 +511,10 @@ class FeedService {
           
           // Sort chronologically
           allPosts.sort((a, b) => {
-            const aTime = new Date((a.post as any).indexedAt || 0).getTime();
-            const bTime = new Date((b.post as any).indexedAt || 0).getTime();
+            const aIndexedAt = (a.post as any)?.indexedAt;
+            const bIndexedAt = (b.post as any)?.indexedAt;
+            const aTime = aIndexedAt ? new Date(aIndexedAt).getTime() : 0;
+            const bTime = bIndexedAt ? new Date(bIndexedAt).getTime() : 0;
             return bTime - aTime;
           });
           
