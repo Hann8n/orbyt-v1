@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -29,7 +29,7 @@ const WarningIcon = ({ size = 24, color = Colors.white }: { size?: number; color
   </Svg>
 );
 
-// Shared video item component (factored out from GridFeedView)
+// Memoized shared video item component (factored out from GridFeedView)
 export const VideoGridItem: React.FC<{
   item: FeedItem;
   index: number;
@@ -37,17 +37,19 @@ export const VideoGridItem: React.FC<{
   style?: any;
   itemStyle?: any;
   thumbnailStyle?: any;
-}> = ({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
+}> = React.memo(({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
   const videoUrl = extractVideoUrl(item.post.embed);
   const thumbnailUrl = extractVideoThumbnail(item.post.embed);
   // Posts are already filtered at API level, so we don't need to skip non-video posts
   const shouldBlur = !!item.moderationDecision?.blur;
   
+  const handlePress = useCallback(() => onPress(index), [onPress, index]);
+  
   return (
     <TouchableOpacity
       style={[styles.gridItem, style, itemStyle]}
       activeOpacity={0.7}
-      onPress={() => onPress(index)}
+      onPress={handlePress}
     >
       <Image
         source={{ uri: thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== '' ? thumbnailUrl : undefined }}
@@ -60,7 +62,7 @@ export const VideoGridItem: React.FC<{
       )}
     </TouchableOpacity>
   );
-};
+});
 
 interface HorizontalVideoListProps {
   feed: FeedItem[];
@@ -105,11 +107,6 @@ const HorizontalVideoList: React.FC<HorizontalVideoListProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
 
-  // Infinite scroll removed - handled by parent
-  const onScroll = () => {};
-
-
-
   const renderItem = useCallback(
     ({ item, index }: { item: FeedItem; index: number }) => (
       <VideoGridItem
@@ -124,19 +121,28 @@ const HorizontalVideoList: React.FC<HorizontalVideoListProps> = ({
     [onVideoItemPress]
   );
 
+  const keyExtractor = useCallback(
+    (item: FeedItem, index: number) => `horizontal-${item.post.uri}-${index}`,
+    []
+  );
+
+  const contentContainerStyle = useMemo(
+    () => styles.horizontalListContent,
+    []
+  );
+
   return (
     <View style={[styles.container, { backgroundColor, height: ITEM_HEIGHT + 16 }]}> {/* 16 for padding */}
       <FlatList
         key={`horizontal-${feedOption}-${userDid || 'default'}`}
         data={feed}
         renderItem={renderItem}
-        keyExtractor={(item, index) => `horizontal-${item.post.uri}-${index}`}
+        keyExtractor={keyExtractor}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.horizontalListContent}
+        contentContainerStyle={contentContainerStyle}
         ListHeaderComponent={headerComponent ? <View>{headerComponent}</View> : null}
         refreshControl={refreshControl as any}
-        onScroll={onScroll}
         scrollEventThrottle={16}
         removeClippedSubviews={true}
         maxToRenderPerBatch={5}
@@ -192,4 +198,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HorizontalVideoList;
+export default React.memo(HorizontalVideoList);
