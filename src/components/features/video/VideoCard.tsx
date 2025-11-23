@@ -65,7 +65,8 @@ export interface VideoCardProps {
   feedOption?: string;
   sourceFeed?: string;
   isModal?: boolean;
-
+  // Preloading prop for adjacent videos
+  shouldPreload?: boolean;
 }
 
 // Helper for video assets extraction - simplified
@@ -96,7 +97,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     feedOption,
     sourceFeed,
     isModal = false,
-
+    shouldPreload = false,
   }, ref) => {
     
     // Enhanced video state management with automatic recycling
@@ -199,7 +200,14 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                            isVisible && // Use visibility instead of external shouldPlay prop
                            !!videoUrl;
 
-    const shouldLoadVideo = !(hasWarning && !shouldShowContent) && !!videoUrl && videoUrl.trim() !== '';
+    // Load video if:
+    // 1. Content is not hidden due to moderation warning OR user chose to view it
+    // 2. Video URL exists and is not empty
+    // 3. Either video is visible OR should be preloaded for adjacent position
+    const isContentHidden = hasWarning && !shouldShowContent;
+    const hasValidUrl = !!videoUrl && videoUrl.trim() !== '';
+    const shouldLoad = isVisible || shouldPreload;
+    const shouldLoadVideo = !isContentHidden && hasValidUrl && shouldLoad;
 
     // Simplified video playback control functions
     const togglePlayback = useCallback((shouldPlay?: boolean) => {
@@ -480,12 +488,13 @@ error('Repost action failed:', error);
                 onError={handleError}
                 onReadyForDisplay={handleReadyForDisplay}
                 onBuffer={handleBuffering}
-                progressUpdateInterval={500} // Reduce update frequency for better performance
+                progressUpdateInterval={1000} // Increased interval (reduced frequency) for better performance
                 bufferConfig={{
-                  minBufferMs: 15000, // Increase buffer size for smoother playback
-                  maxBufferMs: 50000,
-                  bufferForPlaybackMs: 2500,
-                  bufferForPlaybackAfterRebufferMs: 5000
+                  minBufferMs: 2500, // Reduced for faster initial playback
+                  maxBufferMs: 10000, // Reduced to save memory
+                  bufferForPlaybackMs: 1000, // Start playback faster
+                  bufferForPlaybackAfterRebufferMs: 2000, // Resume faster after buffering
+                  cacheSizeMB: 200, // Limit cache size
                 }}
                 ignoreSilentSwitch="ignore"
                 allowsExternalPlayback={false}
@@ -647,4 +656,18 @@ const styles = StyleSheet.create({
 
 });
 
-export default VideoCard;
+// Optimized memo comparison to prevent unnecessary re-renders
+const arePropsEqual = (prevProps: VideoCardProps, nextProps: VideoCardProps) => {
+  // Only re-render if these critical props change
+  return (
+    prevProps.post.uri === nextProps.post.uri &&
+    prevProps.isVisible === nextProps.isVisible &&
+    prevProps.shouldDisablePlayback === nextProps.shouldDisablePlayback &&
+    prevProps.shouldPreload === nextProps.shouldPreload &&
+    prevProps.height === nextProps.height &&
+    prevProps.isModal === nextProps.isModal &&
+    prevProps.moderationDecision === nextProps.moderationDecision
+  );
+};
+
+export default memo(VideoCard, arePropsEqual);

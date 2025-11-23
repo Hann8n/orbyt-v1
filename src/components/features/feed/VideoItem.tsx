@@ -44,6 +44,7 @@ export interface VideoItemProps {
   isModal?: boolean;
   index?: number;
   allowPlayback?: boolean;
+  shouldPreload?: boolean; // For preloading adjacent videos
 }
 
 const VideoItem: React.FC<VideoItemProps> = ({
@@ -57,6 +58,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
   isModal = false,
   index = 0,
   allowPlayback = true,
+  shouldPreload = false,
 }) => {
   const videoRef = useRef<VideoCardRef>(null);
 
@@ -94,30 +96,42 @@ const VideoItem: React.FC<VideoItemProps> = ({
   // Enhanced cleanup on unmount for better memory management
   useEffect(() => {
     return () => {
-      if (videoRef.current) {
-        // Ensure video is paused
+      // Capture ref immediately to avoid recycling issues with FlashList
+      const currentVideoRef = videoRef.current;
+      if (currentVideoRef) {
+        // Synchronous cleanup to ensure we operate on the correct video instance
         try {
-          videoRef.current.pause?.();
+          currentVideoRef.pause?.();
         } catch (e) {
           // Silently handle pause errors
         }
         
-        // Reset position to beginning
         try {
-          videoRef.current.seek?.(0);
+          currentVideoRef.seek?.(0);
         } catch (e) {
           // Silently handle seek errors
         }
         
-        // Unload video resources
         try {
-          videoRef.current.unload?.();
+          currentVideoRef.unload?.();
         } catch (e) {
           // Silently handle unload errors
         }
       }
     };
   }, []);
+
+  // Cleanup when video becomes invisible and not preloading
+  useEffect(() => {
+    if (!isVisible && !shouldPreload && videoRef.current) {
+      // Pause and reset when video goes off-screen
+      try {
+        videoRef.current.pause?.();
+      } catch (e) {
+        // Silently handle pause errors
+      }
+    }
+  }, [isVisible, shouldPreload]);
 
   return (
     <View style={containerStyle}>
@@ -134,6 +148,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
         feedOption={feedOption as any}
         sourceFeed={feedItem?.sourceFeed}
         isModal={isModal}
+        shouldPreload={shouldPreload}
       />
     </View>
   );
