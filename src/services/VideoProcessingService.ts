@@ -5,6 +5,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { File, Directory, Paths } from 'expo-file-system';
 import Compressor from 'react-native-compressor';
 import { logger } from '../utils/logger';
+import VideoEditingService from './VideoEditingService';
 
 export interface VideoSegment {
   startTime: number;
@@ -535,6 +536,7 @@ class VideoProcessingService {
 
   /**
    * Merges multiple video segments into a single video file
+   * Uses VideoEditingService (FFmpeg) for true video concatenation
    */
   static async mergeSegments(segments: VideoSegment[]): Promise<ProcessedVideo> {
     if (segments.length === 0) {
@@ -553,8 +555,47 @@ class VideoProcessingService {
     }
 
     try {
+      // Convert VideoProcessingService segments to VideoEditingService format
+      const editingSegments = segments.map((segment, index) => ({
+        id: `segment_${index}`,
+        startTime: segment.startTime,
+        duration: segment.duration,
+        video: segment.video,
+        sourceType: segment.sourceType,
+      }));
+
+      // Use VideoEditingService for true FFmpeg-based concatenation
+      const mergedVideo = await VideoEditingService.mergeSegments(editingSegments);
+
+      // Ensure file:// prefix for local file
+      const mergedPath = mergedVideo.path.startsWith('file://') 
+        ? mergedVideo.path 
+        : `file://${mergedVideo.path}`;
+
+      return {
+        path: mergedPath,
+        duration: mergedVideo.duration,
+        width: mergedVideo.width,
+        height: mergedVideo.height,
+      };
+
+    } catch (error) {
+      logger.error('Error merging video segments with FFmpeg', error, { component: 'VideoProcessingService' });
+      
+      // Fallback to old method if FFmpeg fails
+      logger.info('Attempting fallback merge method', { component: 'VideoProcessingService' });
+      return await this.fallbackMergeSegments(segments);
+    }
+  }
+
+  /**
+   * Fallback merge method using the old approach (returns first segment)
+   * Used if FFmpeg-based merging fails
+   */
+  private static async fallbackMergeSegments(segments: VideoSegment[]): Promise<ProcessedVideo> {
+    try {
       // Create temporary directory for processing
-      const tempDir = new Directory(Paths.cache, `video_merge_${Date.now()}`);
+      const tempDir = new Directory(Paths.cache, `video_merge_fallback_${Date.now()}`);
       tempDir.create({ intermediates: true });
 
       // Prepare video files for merging
@@ -616,7 +657,7 @@ class VideoProcessingService {
       };
 
     } catch (error) {
-      logger.error('Error merging video segments', error, { component: 'VideoProcessingService' });
+      logger.error('Error in fallback merge', error, { component: 'VideoProcessingService' });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to merge video segments: ${errorMessage}`);
     }

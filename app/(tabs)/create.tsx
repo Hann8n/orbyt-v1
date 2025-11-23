@@ -336,70 +336,21 @@ const CreateScreen: React.FC = () => {
     if (segments.length === 0) return;
     setIsProcessing(true);
     try {
-      if (segments.length === 1) {
-        const segment = segments[0];
-        const videoPath = 'uri' in segment.video ? segment.video.uri : segment.video.path;
-        
-        if (segment.sourceType === 'gallery') {
-          try {
-            const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
-            const optimizedVideo = await VideoProcessingService.optimizeVideoForPosting(videoPath, assetId);
-            const videoWithUri = { 
-              ...optimizedVideo, 
-              path: optimizedVideo.path.startsWith('file://') ? optimizedVideo.path : `file://${optimizedVideo.path}` 
-            };
-            navigation.push({
-              pathname: '/post/[id]',
-              params: { id: 'new', videoPath: videoWithUri.path }
-            });
-            return;
-          } catch (error) {
-            const fallbackPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
-            navigation.push({
-              pathname: '/post/[id]',
-              params: { id: 'new', videoPath: fallbackPath }
-            });
-            return;
-          }
-        }
-        const finalPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
-        navigation.push({
-          pathname: '/post/[id]',
-          params: { id: 'new', videoPath: finalPath }
-        });
-        return;
-      }
-      
-      // Merge all recorded segments into a single file
-      try {
-        const mergedVideo = await mergeSegments(segments);
-        const videoWithUri = { 
-          ...mergedVideo, 
-          path: mergedVideo.path.startsWith('file://') ? mergedVideo.path : `file://${mergedVideo.path}` 
-        };
-        navigation.push({
-          pathname: '/post/[id]',
-          params: { id: 'new', videoPath: videoWithUri.path }
-        });
-      } catch (mergeError) {
-        if (segments.length > 0) {
-          const fallbackVideo = segments[0].video;
-          const fallbackPath = 'uri' in fallbackVideo ? fallbackVideo.uri : fallbackVideo.path;
-          Alert.alert(
-            'Merge Failed',
-            'Failed to merge video segments. Using the first segment instead.',
-            [{ text: 'OK' }]
-          );
-          navigation.push({
-            pathname: '/post/[id]',
-            params: { id: 'new', videoPath: fallbackPath.startsWith('file://') ? fallbackPath : `file://${fallbackPath}` }
-          });
-        } else {
-          throw mergeError;
-        }
-      }
+      // Convert segments to include IDs for the editor
+      const segmentsWithIds = segments.map((segment, index) => ({
+        ...segment,
+        id: `segment_${Date.now()}_${index}`,
+      }));
+
+      // Navigate to video editor with segments
+      navigation.push({
+        pathname: '/video-editor',
+        params: {
+          segments: JSON.stringify(segmentsWithIds),
+        },
+      });
     } catch (error) {
-      Alert.alert('Error', 'Failed to process videos. Please try again.');
+      Alert.alert('Error', 'Failed to prepare videos. Please try again.');
     } finally {
       setIsProcessing(false);
     }
