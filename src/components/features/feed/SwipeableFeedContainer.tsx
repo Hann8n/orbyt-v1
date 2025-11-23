@@ -497,15 +497,15 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
               activeOpacity={0.7}
             >
               <Avatar 
-                uri={channel.uri === 'following' ? undefined : getChannelAvatarUri(channel.uri, channel.avatar)} 
+                uri={channel.uri === 'following' || channel.uri === 'your-mix' ? undefined : getChannelAvatarUri(channel.uri, channel.avatar)} 
                 type="channel" 
                 size={40} 
                 ringColor="transparent" 
                 style={styles.defaultChannelAvatar}
-                fallbackIcon={channel.uri === 'following' ? 'users' : 'tv'}
+                fallbackIcon={channel.uri === 'following' ? 'users' : (channel.uri === 'your-mix' ? 'sparkles' : 'tv')}
                 fallbackIconSize={24}
-                fallbackIconColor={channel.uri === 'following' ? '#FFFFFF' : Colors.lightGray}
-                profileColors={channel.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
+                fallbackIconColor={channel.uri === 'following' || channel.uri === 'your-mix' ? '#FFFFFF' : Colors.lightGray}
+                profileColors={channel.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : (channel.uri === 'your-mix' ? { backgroundColor: '#9333ea', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined)}
               />
               <View style={styles.defaultChannelContent}>
                 {channel.isOrbytChannel ? (() => {
