@@ -175,6 +175,7 @@ const DEVELOPER_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 // Default channels
 const DEFAULT_CHANNELS = [
   { uri: 'following', displayName: 'Following', isDefault: true, order: 0, subscribedAt: Date.now() },
+  { uri: 'your-mix', displayName: 'Your Mix', isDefault: true, order: 1, subscribedAt: Date.now() },
 ];
 
 // Helper function to get user-scoped storage key
