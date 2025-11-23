@@ -76,11 +76,15 @@ const VideoEditorScreen: React.FC = () => {
   };
 
   const handleTrimSegment = (segmentId: string) => {
-    // TODO: Implement trim UI - for now show placeholder
+    // Find the segment
+    const segment = segments.find(seg => seg.id === segmentId);
+    if (!segment) return;
+
+    // For now, show an informative message about trim functionality
     Alert.alert(
-      'Trim Video',
-      'Trim functionality coming soon! For now, you can reorder and delete clips.',
-      [{ text: 'OK' }]
+      'Trim Clip',
+      'Trim functionality is coming in a future update! You can currently:\n\n• Reorder clips by long pressing and dragging\n• Delete unwanted clips\n• Preview the final video\n\nFor now, consider re-recording shorter clips or editing the video after posting.',
+      [{ text: 'Got it' }]
     );
   };
 
@@ -262,9 +266,12 @@ const VideoEditorScreen: React.FC = () => {
         {/* Segments List */}
         {segments.length > 0 ? (
           <View style={styles.listContainer}>
-            <Text style={styles.instructionText}>
-              Long press and drag to reorder clips
-            </Text>
+            <View style={styles.instructionContainer}>
+              <Icon name="information" size={20} color={Colors.lightGray} />
+              <Text style={styles.instructionText}>
+                Long press and drag to reorder clips
+              </Text>
+            </View>
             <DraggableFlatList
               data={segments}
               renderItem={renderSegmentItem}
@@ -310,7 +317,7 @@ const VideoEditorScreen: React.FC = () => {
             ) : (
               <>
                 <Icon name="checkmark" size={20} color={Colors.white} />
-                <Text style={styles.actionButtonText}>Done</Text>
+                <Text style={styles.actionButtonText}>Continue to Post</Text>
               </>
             )}
           </TouchableOpacity>
@@ -383,13 +390,22 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 16,
   },
+  instructionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    marginBottom: 16,
+    backgroundColor: Colors.darkGray,
+    marginHorizontal: 16,
+    borderRadius: BORDER_RADIUS.SMALL,
+    gap: 8,
+  },
   instructionText: {
     color: Colors.lightGray,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Firma-Regular',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 16,
   },
   flatList: {
     paddingHorizontal: 16,
@@ -399,14 +415,18 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.MEDIUM,
     marginBottom: 12,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   segmentItemActive: {
-    opacity: 0.8,
+    opacity: 0.9,
     elevation: 8,
     shadowColor: Colors.purple,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 8,
+    borderColor: Colors.purple,
+    transform: [{ scale: 1.02 }],
   },
   segmentContent: {
     flexDirection: 'row',
@@ -507,10 +527,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   previewButton: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.mediumGray,
   },
   doneButton: {
     backgroundColor: Colors.purple,
+    shadowColor: Colors.purple,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
   },
   actionButtonText: {
     color: Colors.white,
