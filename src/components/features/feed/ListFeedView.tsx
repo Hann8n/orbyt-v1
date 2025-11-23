@@ -523,7 +523,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         drawDistance={cardHeight * 2} // Optimize draw distance for better performance
         estimatedItemSize={cardHeight + 6} // Better item size estimation
         overrideItemLayout={(layout, item, index) => {
-          // Account for 6px total margin (3px top + 3px bottom) added to VideoCard
+          // Account for 6px total margin (3px top + 3px bottom from VideoItem marginVertical: 3)
           layout.span = cardHeight + 6;
         }}
         

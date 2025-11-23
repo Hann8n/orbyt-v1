@@ -97,8 +97,8 @@ const VideoItem: React.FC<VideoItemProps> = ({
   useEffect(() => {
     return () => {
       if (videoRef.current) {
-        // Aggressive cleanup to free resources using requestAnimationFrame
-        requestAnimationFrame(() => {
+        // Immediate cleanup to free resources - using setTimeout 0 for next tick
+        setTimeout(() => {
           try {
             videoRef.current?.pause?.();
           } catch (e) {
@@ -116,7 +116,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
           } catch (e) {
             // Silently handle unload errors
           }
-        });
+        }, 0);
       }
     };
   }, []);

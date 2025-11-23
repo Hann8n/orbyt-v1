@@ -200,9 +200,14 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                            isVisible && // Use visibility instead of external shouldPlay prop
                            !!videoUrl;
 
-    // Load video if visible OR if preloading adjacent video
-    const shouldLoadVideo = (!(hasWarning && !shouldShowContent) && !!videoUrl && videoUrl.trim() !== '') && 
-                           (isVisible || shouldPreload);
+    // Load video if:
+    // 1. Content is not hidden due to moderation warning OR user chose to view it
+    // 2. Video URL exists and is not empty
+    // 3. Either video is visible OR should be preloaded for adjacent position
+    const isContentHidden = hasWarning && !shouldShowContent;
+    const hasValidUrl = !!videoUrl && videoUrl.trim() !== '';
+    const shouldLoad = isVisible || shouldPreload;
+    const shouldLoadVideo = !isContentHidden && hasValidUrl && shouldLoad;
 
     // Simplified video playback control functions
     const togglePlayback = useCallback((shouldPlay?: boolean) => {
@@ -483,7 +488,7 @@ error('Repost action failed:', error);
                 onError={handleError}
                 onReadyForDisplay={handleReadyForDisplay}
                 onBuffer={handleBuffering}
-                progressUpdateInterval={1000} // Reduce update frequency for better performance
+                progressUpdateInterval={1000} // Increased interval (reduced frequency) for better performance
                 bufferConfig={{
                   minBufferMs: 2500, // Reduced for faster initial playback
                   maxBufferMs: 10000, // Reduced to save memory
