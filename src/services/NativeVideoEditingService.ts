@@ -224,7 +224,7 @@ class NativeVideoEditingService {
 
       // Return result (cleanup in finally block)
       const result: ProcessedVideo = {
-        path: metadata.path,
+        path: mergedPath, // Use mergedPath directly for consistency
         duration: metadata.duration,
         width: metadata.width,
         height: metadata.height,
@@ -242,6 +242,8 @@ class NativeVideoEditingService {
 
   /**
    * Compresses a video to reduce file size using native module
+   * Note: For advanced compression with bitrate control, use react-native-compressor
+   * This method optimizes the container format and can do basic quality adjustment
    */
   static async compressVideo(
     videoPath: string,
@@ -290,13 +292,30 @@ class NativeVideoEditingService {
   }
 
   /**
-   * Validates if native video processor is available
+   * Validates if native video processor is available and functional
    */
   static async validateNativeProcessor(): Promise<boolean> {
     try {
-      // Try to get metadata of a dummy path to check if module is loaded
-      // This will fail but we just want to check if the native module exists
-      return !!NativeVideoProcessor;
+      // Check if the module exists
+      if (!NativeVideoProcessor) {
+        return false;
+      }
+      
+      // Try a simple metadata call to verify module is functional
+      // This will fail but confirms the native bridge is working
+      const testPath = '/tmp/test_validation.mp4';
+      try {
+        await this.getVideoMetadata(testPath);
+      } catch (e) {
+        // Expected to fail for non-existent file, but confirms module works
+        const error = e as Error;
+        // If we get a file not found or metadata error, module is working
+        return error.message.includes('does not exist') || 
+               error.message.includes('metadata') ||
+               error.message.includes('Error getting video metadata');
+      }
+      
+      return true;
     } catch (error) {
       logger.error('Native video processor validation failed', error, { component: 'NativeVideoEditingService' });
       return false;
