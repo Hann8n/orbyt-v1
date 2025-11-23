@@ -297,6 +297,33 @@ const createQueryKeys = {
 class FeedService {
 
   /**
+   * Helper function to merge, deduplicate, and sort posts chronologically
+   */
+  private mergeAndDeduplicatePosts(posts: FeedItem[], limit: number): FeedItem[] {
+    // Remove duplicates
+    const seen = new Set<string>();
+    const uniquePosts = posts.filter(post => {
+      if (seen.has(post.post.uri)) {
+        return false;
+      }
+      seen.add(post.post.uri);
+      return true;
+    });
+    
+    // Sort chronologically
+    uniquePosts.sort((a, b) => {
+      const aIndexedAt = (a.post as any)?.indexedAt;
+      const bIndexedAt = (b.post as any)?.indexedAt;
+      const aTime = aIndexedAt ? new Date(aIndexedAt).getTime() : 0;
+      const bTime = bIndexedAt ? new Date(bIndexedAt).getTime() : 0;
+      return bTime - aTime;
+    });
+    
+    // Apply limit
+    return uniquePosts.slice(0, limit);
+  }
+
+  /**
    * Normalize feed option for API calls - convert local Orbyt channel URIs to hashtag format
    * Skips channels that should remain as feed generators (e.g., "latest" aggregates multiple hashtags)
    * This normalization is only used when making API calls, not for caching or routing
@@ -342,6 +369,8 @@ class FeedService {
         return null; // Handle specially with user-specific logic
       case 'reposts':
         return null; // Handle specially with user-specific logic
+      case 'your-mix':
+        return null; // Handle specially with mixed feed logic
       case 'discover':
         return 'at://did:plc:tenurhgjptubkk5zf5qhi3og/app.bsky.feed.generator/discover-video';
       case 'following':
@@ -391,6 +420,241 @@ class FeedService {
           return { feed: [], cursor: null };
         }
         response = await AtprotoService.getFeed(cursor, feedLink, {}, false, limit, 'custom');
+      } else if (feedOptionForAPI === 'your-mix') {
+        // Get subscribed channels from user store
+        const { subscribedChannels } = await import('../stores/userStore').then(m => m.useUserStore.getState());
+        
+        // Import orbyt channel utilities once at the start
+        const { isOrbytChannel, channelToHashtag, getChannelByUri } = await import('../utils/orbytChannels');
+        
+        // Filter out default channels (following and your-mix itself)
+        const userChannels = subscribedChannels.filter(
+          ch => !ch.isDefault && ch.uri !== 'following' && ch.uri !== 'your-mix'
+        );
+        
+        // If no channels subscribed, return empty feed
+        if (userChannels.length === 0) {
+          return { feed: [], cursor: null };
+        }
+        
+        // Separate channels by type: regular feed URIs vs hashtag/local channels
+        const regularFeedUris: string[] = [];
+        const hashtagChannels: string[] = [];
+        
+        userChannels.forEach(ch => {
+          if (ch.uri.startsWith('at://') && !ch.uri.startsWith('at://local.orbyt.channel/')) {
+            // Regular feed generator URIs (not local Orbyt channels)
+            // Check if it's an Orbyt channel (like popular-now, latest)
+            if (!isOrbytChannel(ch.uri)) {
+              regularFeedUris.push(ch.uri);
+            } else {
+              // Check if this Orbyt channel is postable
+              const channel = getChannelByUri(ch.uri);
+              if (channel?.isPostable === false) {
+                // Non-postable channels like "popular-now" and "latest" remain as feed generators
+                regularFeedUris.push(ch.uri);
+              } else {
+                // Postable Orbyt channels can be converted to hashtag format
+                const hashtagFormat = channelToHashtag(ch.uri);
+                if (hashtagFormat) {
+                  hashtagChannels.push(hashtagFormat);
+                }
+              }
+            }
+          } else if (ch.uri.startsWith('at://local.orbyt.channel/')) {
+            // Local Orbyt channels - check if postable before converting
+            const channel = getChannelByUri(ch.uri);
+            if (channel?.isPostable === false) {
+              // Non-postable local channels remain as-is (shouldn't happen but handle gracefully)
+              regularFeedUris.push(ch.uri);
+            } else {
+              // Convert postable local Orbyt channels to hashtag format
+              const hashtagFormat = channelToHashtag(ch.uri);
+              if (hashtagFormat) {
+                hashtagChannels.push(hashtagFormat);
+              }
+            }
+          } else if (ch.uri.startsWith('hashtag:')) {
+            // Already in hashtag format
+            hashtagChannels.push(ch.uri);
+          }
+        });
+        
+        // Fetch and merge feeds based on what we have
+        if (regularFeedUris.length > 0 && hashtagChannels.length === 0) {
+          // Only regular feed URIs - use getMixedFeed
+          response = await AtprotoService.getMixedFeed(
+            regularFeedUris,
+            cursor,
+            limit,
+            true, // filter videos only
+            FEED_CONFIG.maxFeedsPerFetch
+          );
+        } else if (hashtagChannels.length > 0 && regularFeedUris.length === 0) {
+          // Only hashtag channels - fetch from multiple hashtags and merge
+          // For simplicity, we'll fetch from each hashtag sequentially and merge
+          // Parse cursor if it exists (for pagination)
+          let cursorState: { [key: string]: string | null } = {};
+          if (cursor) {
+            try {
+              cursorState = JSON.parse(cursor);
+            } catch {
+              cursorState = {};
+            }
+          }
+          
+          // Fetch from each hashtag channel
+          const hashtagPromises = hashtagChannels.slice(0, FEED_CONFIG.maxFeedsPerFetch).map(async (hashtagUri) => {
+            try {
+              const hashtagWithSort = hashtagUri.substring(8); // Remove 'hashtag:' prefix
+              const parts = hashtagWithSort.split(':');
+              const hashtag = parts[0];
+              const sort = parts[1] === 'top' ? 'top' : 'latest';
+              
+              const hashtagCursor = cursorState[hashtagUri] || null;
+              const hashtagResponse = await AtprotoService.searchHashtagVideosPaginated(
+                hashtag,
+                hashtagCursor,
+                Math.ceil(limit / Math.min(hashtagChannels.length, FEED_CONFIG.maxFeedsPerFetch)),
+                sort as 'top' | 'latest'
+              );
+              
+              return {
+                feed: hashtagResponse.videos || [],
+                cursor: hashtagResponse.cursor,
+                hashtagUri,
+              };
+            } catch (error) {
+              logger.warn('Failed to fetch hashtag feed for your-mix', { hashtagUri, error });
+              return { feed: [], cursor: null, hashtagUri };
+            }
+          });
+          
+          const hashtagResults = await Promise.all(hashtagPromises);
+          
+          // Merge all feeds
+          const allPosts = hashtagResults.flatMap(result => 
+            result.feed.map(post => ({
+              ...post,
+              sourceFeed: result.hashtagUri
+            }))
+          );
+          
+          // Merge, deduplicate, and sort posts
+          const limitedPosts = this.mergeAndDeduplicatePosts(allPosts, limit);
+          
+          // Update cursor state (including null for exhausted feeds)
+          hashtagResults.forEach(result => {
+            cursorState[result.hashtagUri] = result.cursor;
+          });
+          
+          const compositeCursor = Object.keys(cursorState).length > 0 ? JSON.stringify(cursorState) : null;
+          
+          response = {
+            feed: limitedPosts,
+            cursor: compositeCursor,
+          };
+        } else if (regularFeedUris.length > 0 && hashtagChannels.length > 0) {
+          // Mixed: both regular feeds and hashtag channels
+          // Fetch from both types and merge them
+          let cursorState: { [key: string]: string | null } = {};
+          if (cursor) {
+            try {
+              cursorState = JSON.parse(cursor);
+            } catch {
+              cursorState = {};
+            }
+          }
+          
+          // Calculate optimal distribution of fetch slots
+          const totalFeeds = regularFeedUris.length + hashtagChannels.length;
+          const maxFeeds = FEED_CONFIG.maxFeedsPerFetch;
+          const regularFeedLimit = Math.min(
+            regularFeedUris.length,
+            Math.ceil((regularFeedUris.length / totalFeeds) * maxFeeds)
+          );
+          const hashtagFeedLimit = Math.min(
+            hashtagChannels.length,
+            maxFeeds - regularFeedLimit
+          );
+          
+          // Fetch from regular feeds
+          const regularFeedPromises = regularFeedUris.slice(0, regularFeedLimit).map(async (feedUri) => {
+            try {
+              const feedCursor = cursorState[feedUri] || null;
+              const feedLimit = Math.ceil(limit / totalFeeds);
+              
+              const response = await AtprotoService.getFeed(feedCursor, feedUri, {}, true, feedLimit, 'custom');
+              
+              return {
+                feed: response?.feed || [],
+                cursor: response?.cursor || null,
+                sourceUri: feedUri,
+              };
+            } catch (error) {
+              logger.warn('Failed to fetch regular feed for your-mix', { feedUri, error });
+              return { feed: [], cursor: null, sourceUri: feedUri };
+            }
+          });
+          
+          // Fetch from hashtag channels
+          const hashtagPromises = hashtagChannels.slice(0, hashtagFeedLimit).map(async (hashtagUri) => {
+            try {
+              const hashtagWithSort = hashtagUri.substring(8); // Remove 'hashtag:' prefix
+              const parts = hashtagWithSort.split(':');
+              const hashtag = parts[0];
+              const sort = parts[1] === 'top' ? 'top' : 'latest';
+              
+              const hashtagCursor = cursorState[hashtagUri] || null;
+              const hashtagLimit = Math.ceil(limit / totalFeeds);
+              const hashtagResponse = await AtprotoService.searchHashtagVideosPaginated(
+                hashtag,
+                hashtagCursor,
+                hashtagLimit,
+                sort as 'top' | 'latest'
+              );
+              
+              return {
+                feed: hashtagResponse.videos || [],
+                cursor: hashtagResponse.cursor,
+                sourceUri: hashtagUri,
+              };
+            } catch (error) {
+              logger.warn('Failed to fetch hashtag feed for your-mix', { hashtagUri, error });
+              return { feed: [], cursor: null, sourceUri: hashtagUri };
+            }
+          });
+          
+          const [regularResults, hashtagResults] = await Promise.all([
+            Promise.all(regularFeedPromises),
+            Promise.all(hashtagPromises)
+          ]);
+          
+          // Merge all feeds
+          const allPosts = [...regularResults, ...hashtagResults].flatMap(result => 
+            result.feed.map(post => ({
+              ...post,
+              sourceFeed: result.sourceUri
+            }))
+          );
+          
+          // Merge, deduplicate, and sort posts
+          const limitedPosts = this.mergeAndDeduplicatePosts(allPosts, limit);
+          
+          // Update cursor state (including null for exhausted feeds)
+          [...regularResults, ...hashtagResults].forEach(result => {
+            cursorState[result.sourceUri] = result.cursor;
+          });
+          
+          const compositeCursor = Object.keys(cursorState).length > 0 ? JSON.stringify(cursorState) : null;
+          
+          response = {
+            feed: limitedPosts,
+            cursor: compositeCursor,
+          };
+        } else {
+          return { feed: [], cursor: null };
+        }
       } else if (feedOptionForAPI === 'profile' || feedOptionForAPI === 'likes' || feedOptionForAPI === 'reposts') {
         return { feed: [], cursor: null };
       } else if (feedOptionForAPI.startsWith('search:')) {

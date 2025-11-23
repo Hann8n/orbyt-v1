@@ -60,11 +60,17 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
 
   // Fetch suggested users when this is a following feed with no videos or as end card
   const isFollowingFeed = feedOption === 'following';
+  const isYourMixFeed = feedOption === 'your-mix';
   // Show suggestions for following feed (both empty state and end card)
   const shouldShowSuggestions = isFollowingFeed;
 
   // Simple unified empty message for no-videos state
-  const getNoVideosMessage = (): string => 'nothing here yet...';
+  const getNoVideosMessage = (): string => {
+    if (isYourMixFeed) {
+      return 'subscribe to channels to see videos here';
+    }
+    return 'nothing here yet...';
+  };
 
   const { data: suggestedAccounts, isLoading: isLoadingSuggestions } = useQuery({
     queryKey: ['suggestedAccounts', 5],
@@ -106,6 +112,8 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           switch (feedOption) {
             case 'following':
               return "";
+            case 'your-mix':
+              return "that's all from your channels";
             case 'discover':
               return "explore more content";
             default:
