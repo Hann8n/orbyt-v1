@@ -96,27 +96,27 @@ const VideoItem: React.FC<VideoItemProps> = ({
   // Enhanced cleanup on unmount for better memory management
   useEffect(() => {
     return () => {
-      if (videoRef.current) {
-        // Immediate cleanup to free resources - using setTimeout 0 for next tick
-        setTimeout(() => {
-          try {
-            videoRef.current?.pause?.();
-          } catch (e) {
-            // Silently handle pause errors
-          }
-          
-          try {
-            videoRef.current?.seek?.(0);
-          } catch (e) {
-            // Silently handle seek errors
-          }
-          
-          try {
-            videoRef.current?.unload?.();
-          } catch (e) {
-            // Silently handle unload errors
-          }
-        }, 0);
+      // Capture ref immediately to avoid recycling issues with FlashList
+      const currentVideoRef = videoRef.current;
+      if (currentVideoRef) {
+        // Synchronous cleanup to ensure we operate on the correct video instance
+        try {
+          currentVideoRef.pause?.();
+        } catch (e) {
+          // Silently handle pause errors
+        }
+        
+        try {
+          currentVideoRef.seek?.(0);
+        } catch (e) {
+          // Silently handle seek errors
+        }
+        
+        try {
+          currentVideoRef.unload?.();
+        } catch (e) {
+          // Silently handle unload errors
+        }
       }
     };
   }, []);

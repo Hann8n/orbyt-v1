@@ -665,7 +665,8 @@ const arePropsEqual = (prevProps: VideoCardProps, nextProps: VideoCardProps) => 
     prevProps.shouldDisablePlayback === nextProps.shouldDisablePlayback &&
     prevProps.shouldPreload === nextProps.shouldPreload &&
     prevProps.height === nextProps.height &&
-    prevProps.isModal === nextProps.isModal
+    prevProps.isModal === nextProps.isModal &&
+    prevProps.moderationDecision === nextProps.moderationDecision
   );
 };
 
