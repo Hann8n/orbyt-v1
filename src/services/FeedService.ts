@@ -554,11 +554,23 @@ class FeedService {
             }
           }
           
+          // Calculate optimal distribution of fetch slots
+          const totalFeeds = regularFeedUris.length + hashtagChannels.length;
+          const maxFeeds = FEED_CONFIG.maxFeedsPerFetch;
+          const regularFeedLimit = Math.min(
+            regularFeedUris.length,
+            Math.ceil((regularFeedUris.length / totalFeeds) * maxFeeds)
+          );
+          const hashtagFeedLimit = Math.min(
+            hashtagChannels.length,
+            maxFeeds - regularFeedLimit
+          );
+          
           // Fetch from regular feeds
-          const regularFeedPromises = regularFeedUris.slice(0, Math.floor(FEED_CONFIG.maxFeedsPerFetch / 2)).map(async (feedUri) => {
+          const regularFeedPromises = regularFeedUris.slice(0, regularFeedLimit).map(async (feedUri) => {
             try {
               const feedCursor = cursorState[feedUri] || null;
-              const feedLimit = Math.ceil(limit / (regularFeedUris.length + hashtagChannels.length));
+              const feedLimit = Math.ceil(limit / totalFeeds);
               
               const response = await AtprotoService.getFeed(feedCursor, feedUri, {}, true, feedLimit, 'custom');
               
@@ -574,7 +586,7 @@ class FeedService {
           });
           
           // Fetch from hashtag channels
-          const hashtagPromises = hashtagChannels.slice(0, Math.floor(FEED_CONFIG.maxFeedsPerFetch / 2)).map(async (hashtagUri) => {
+          const hashtagPromises = hashtagChannels.slice(0, hashtagFeedLimit).map(async (hashtagUri) => {
             try {
               const hashtagWithSort = hashtagUri.substring(8); // Remove 'hashtag:' prefix
               const parts = hashtagWithSort.split(':');
@@ -582,7 +594,7 @@ class FeedService {
               const sort = parts[1] === 'top' ? 'top' : 'latest';
               
               const hashtagCursor = cursorState[hashtagUri] || null;
-              const hashtagLimit = Math.ceil(limit / (regularFeedUris.length + hashtagChannels.length));
+              const hashtagLimit = Math.ceil(limit / totalFeeds);
               const hashtagResponse = await AtprotoService.searchHashtagVideosPaginated(
                 hashtag,
                 hashtagCursor,
