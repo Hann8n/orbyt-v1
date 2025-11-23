@@ -21,7 +21,7 @@ import { VideoFile } from 'react-native-vision-camera';
 import * as ImagePicker from 'expo-image-picker';
 import Icon, { BackArrowIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
-import { BORDER_RADIUS } from '../src/utils/constants';
+import { BORDER_RADIUS, VIDEO_EDITOR_MESSAGES, ANIMATION_CONSTANTS, ICON_SIZES } from '../src/utils/constants';
 import VideoEditingService, { VideoSegment } from '../src/services/VideoEditingService';
 import VideoProcessingService from '../src/services/VideoProcessingService';
 
@@ -76,11 +76,15 @@ const VideoEditorScreen: React.FC = () => {
   };
 
   const handleTrimSegment = (segmentId: string) => {
-    // TODO: Implement trim UI - for now show placeholder
+    // Find the segment
+    const segment = segments.find(seg => seg.id === segmentId);
+    if (!segment) return;
+
+    // For now, show an informative message about trim functionality
     Alert.alert(
-      'Trim Video',
-      'Trim functionality coming soon! For now, you can reorder and delete clips.',
-      [{ text: 'OK' }]
+      'Trim Clip',
+      VIDEO_EDITOR_MESSAGES.TRIM_NOT_AVAILABLE,
+      [{ text: 'Got it' }]
     );
   };
 
@@ -200,14 +204,14 @@ const VideoEditorScreen: React.FC = () => {
                 onPress={() => handleTrimSegment(item.id)}
                 disabled={isProcessing}
               >
-                <Icon name="cut" size={20} color={Colors.white} />
+                <Icon name="cut" size={ICON_SIZES.MEDIUM} color={Colors.white} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => handleDeleteSegment(item.id)}
                 disabled={isProcessing}
               >
-                <Icon name="trash" size={20} color={Colors.red} />
+                <Icon name="trash" size={ICON_SIZES.MEDIUM} color={Colors.red} />
               </TouchableOpacity>
             </View>
           </View>
@@ -262,9 +266,12 @@ const VideoEditorScreen: React.FC = () => {
         {/* Segments List */}
         {segments.length > 0 ? (
           <View style={styles.listContainer}>
-            <Text style={styles.instructionText}>
-              Long press and drag to reorder clips
-            </Text>
+            <View style={styles.instructionContainer}>
+              <Icon name="information" size={ICON_SIZES.MEDIUM} color={Colors.lightGray} />
+              <Text style={styles.instructionText}>
+                Long press and drag to reorder clips
+              </Text>
+            </View>
             <DraggableFlatList
               data={segments}
               renderItem={renderSegmentItem}
@@ -294,7 +301,7 @@ const VideoEditorScreen: React.FC = () => {
               <ActivityIndicator color={Colors.white} />
             ) : (
               <>
-                <Icon name="play" size={20} color={Colors.white} />
+                <Icon name="play" size={ICON_SIZES.MEDIUM} color={Colors.white} />
                 <Text style={styles.actionButtonText}>Preview</Text>
               </>
             )}
@@ -309,8 +316,8 @@ const VideoEditorScreen: React.FC = () => {
               <ActivityIndicator color={Colors.white} />
             ) : (
               <>
-                <Icon name="checkmark" size={20} color={Colors.white} />
-                <Text style={styles.actionButtonText}>Done</Text>
+                <Icon name="checkmark" size={ICON_SIZES.MEDIUM} color={Colors.white} />
+                <Text style={styles.actionButtonText}>Continue to Post</Text>
               </>
             )}
           </TouchableOpacity>
@@ -383,13 +390,22 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 16,
   },
+  instructionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    marginBottom: 16,
+    backgroundColor: Colors.darkGray,
+    marginHorizontal: 16,
+    borderRadius: BORDER_RADIUS.SMALL,
+    gap: 8,
+  },
   instructionText: {
     color: Colors.lightGray,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Firma-Regular',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 16,
   },
   flatList: {
     paddingHorizontal: 16,
@@ -399,14 +415,18 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.MEDIUM,
     marginBottom: 12,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   segmentItemActive: {
-    opacity: 0.8,
+    opacity: 0.9,
     elevation: 8,
     shadowColor: Colors.purple,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 8,
+    borderColor: Colors.purple,
+    transform: [{ scale: ANIMATION_CONSTANTS.DRAG_SCALE_FACTOR }],
   },
   segmentContent: {
     flexDirection: 'row',
@@ -507,10 +527,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   previewButton: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.mediumGray,
   },
   doneButton: {
     backgroundColor: Colors.purple,
+    shadowColor: Colors.purple,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
   },
   actionButtonText: {
     color: Colors.white,
