@@ -425,7 +425,7 @@ class FeedService {
         const { subscribedChannels } = await import('../stores/userStore').then(m => m.useUserStore.getState());
         
         // Import orbyt channel utilities once at the start
-        const { isOrbytChannel, channelToHashtag } = await import('../utils/orbytChannels');
+        const { isOrbytChannel, channelToHashtag, getChannelByUri } = await import('../utils/orbytChannels');
         
         // Filter out default channels (following and your-mix itself)
         const userChannels = subscribedChannels.filter(
@@ -444,21 +444,35 @@ class FeedService {
         userChannels.forEach(ch => {
           if (ch.uri.startsWith('at://') && !ch.uri.startsWith('at://local.orbyt.channel/')) {
             // Regular feed generator URIs (not local Orbyt channels)
-            // Check if it's not a local channel that should be converted to hashtag
+            // Check if it's an Orbyt channel (like popular-now, latest)
             if (!isOrbytChannel(ch.uri)) {
               regularFeedUris.push(ch.uri);
             } else {
-              // Convert local Orbyt channel to hashtag format
+              // Check if this Orbyt channel is postable
+              const channel = getChannelByUri(ch.uri);
+              if (channel?.isPostable === false) {
+                // Non-postable channels like "popular-now" and "latest" remain as feed generators
+                regularFeedUris.push(ch.uri);
+              } else {
+                // Postable Orbyt channels can be converted to hashtag format
+                const hashtagFormat = channelToHashtag(ch.uri);
+                if (hashtagFormat) {
+                  hashtagChannels.push(hashtagFormat);
+                }
+              }
+            }
+          } else if (ch.uri.startsWith('at://local.orbyt.channel/')) {
+            // Local Orbyt channels - check if postable before converting
+            const channel = getChannelByUri(ch.uri);
+            if (channel?.isPostable === false) {
+              // Non-postable local channels remain as-is (shouldn't happen but handle gracefully)
+              regularFeedUris.push(ch.uri);
+            } else {
+              // Convert postable local Orbyt channels to hashtag format
               const hashtagFormat = channelToHashtag(ch.uri);
               if (hashtagFormat) {
                 hashtagChannels.push(hashtagFormat);
               }
-            }
-          } else if (ch.uri.startsWith('at://local.orbyt.channel/')) {
-            // Local Orbyt channels - convert to hashtag format
-            const hashtagFormat = channelToHashtag(ch.uri);
-            if (hashtagFormat) {
-              hashtagChannels.push(hashtagFormat);
             }
           } else if (ch.uri.startsWith('hashtag:')) {
             // Already in hashtag format
@@ -529,11 +543,9 @@ class FeedService {
           // Merge, deduplicate, and sort posts
           const limitedPosts = this.mergeAndDeduplicatePosts(allPosts, limit);
           
-          // Update cursor state
+          // Update cursor state (including null for exhausted feeds)
           hashtagResults.forEach(result => {
-            if (result.cursor) {
-              cursorState[result.hashtagUri] = result.cursor;
-            }
+            cursorState[result.hashtagUri] = result.cursor;
           });
           
           const compositeCursor = Object.keys(cursorState).length > 0 ? JSON.stringify(cursorState) : null;
@@ -629,11 +641,9 @@ class FeedService {
           // Merge, deduplicate, and sort posts
           const limitedPosts = this.mergeAndDeduplicatePosts(allPosts, limit);
           
-          // Update cursor state
+          // Update cursor state (including null for exhausted feeds)
           [...regularResults, ...hashtagResults].forEach(result => {
-            if (result.cursor) {
-              cursorState[result.sourceUri] = result.cursor;
-            }
+            cursorState[result.sourceUri] = result.cursor;
           });
           
           const compositeCursor = Object.keys(cursorState).length > 0 ? JSON.stringify(cursorState) : null;
