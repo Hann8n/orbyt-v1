@@ -4,9 +4,6 @@ import { View, TouchableOpacity, Platform, Alert, StyleSheet } from 'react-nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as ImagePicker from 'expo-image-picker';
-import * as MediaLibrary from 'expo-media-library';
-import { File, Directory, Paths } from 'expo-file-system';
 
 import { Colors } from '../../src/components/ui/UI';
 import { Loading3FillIcon } from '../../src/components/ui/Icon';
@@ -32,111 +29,10 @@ export default function TabsLayout() {
 
     const handleCapturePress = async () => {
       try {
-        handleGalleryPick();
-      } catch {}
-    };
-
-    const handleGalleryPick = async () => {
-      try {
-        setIsPreparing(true);
-        
-        // Request media library permissions before opening picker (required for videos on iOS SDK 54+)
-        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permissionResult.granted) {
-          setIsPreparing(false);
-          Alert.alert(
-            'Permission required',
-            'Permission to access the media library is required to select videos.'
-          );
-          return;
-        }
-        
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: 'videos',
-          allowsMultipleSelection: false,
-          videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
-          preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
-          videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720,
-        });
-        if (result.canceled || !result.assets || result.assets.length === 0) {
-          setIsPreparing(false);
-          return;
-        }
-        const asset = result.assets[0];
-        if (!asset.uri) {
-          setIsPreparing(false);
-          Alert.alert('Error', 'No video selected.');
-          return;
-        }
-        
-        // Get local URI from MediaLibrary (downloads from iCloud if needed)
-        let videoPath = asset.uri;
-        if (asset.assetId && Platform.OS === 'ios') {
-          try {
-            const mediaAsset = await MediaLibrary.getAssetInfoAsync(asset.assetId, {
-              shouldDownloadFromNetwork: true,
-            });
-            if (mediaAsset.localUri) {
-              videoPath = mediaAsset.localUri;
-            }
-          } catch (mediaError) {
-            console.warn('Failed to get asset from MediaLibrary:', mediaError);
-          }
-        }
-        
-        // Verify file exists
-        const sourceFile = new File(videoPath);
-        if (!sourceFile.exists) {
-          setIsPreparing(false);
-          Alert.alert('Error', 'Selected video file does not exist or is not accessible. Please ensure the video is downloaded from iCloud.');
-          return;
-        }
-        
-        // Copy to cache directory
-        const destFile = new File(Paths.cache, `gallery_${Date.now()}.mp4`);
-        
-        try {
-          sourceFile.copy(destFile);
-          
-          // Verify the copied file exists
-          if (!destFile.exists) {
-            throw new Error('Failed to copy video file');
-          }
-          
-          // Create a video object with the copied path but preserve all ImagePickerAsset metadata
-          const videoAsset: ImagePicker.ImagePickerAsset = {
-            ...asset,
-            uri: destFile.uri.startsWith('file://') ? destFile.uri : `file://${destFile.uri}`,
-          };
-          
-          console.log('Gallery video processed:', {
-            originalPath: videoPath,
-            copiedPath: destFile.uri,
-            assetId: asset.assetId,
-            fileSize: asset.fileSize,
-            mimeType: asset.mimeType,
-            fileExists: destFile.exists,
-            copiedFileSize: destFile.size
-          });
-          
-          setIsPreparing(false);
-          router.push({ 
-            pathname: '/post/[id]', 
-            params: { 
-              id: 'new',
-              videoPath: videoAsset.uri,
-              video: JSON.stringify(videoAsset)
-            } 
-          });
-        } catch (copyError) {
-          console.error('Failed to copy video file:', copyError);
-          setIsPreparing(false);
-          Alert.alert('Error', 'Failed to process video file. Please try again.');
-          return;
-        }
+        // Navigate to camera capture screen
+        router.push('/create');
       } catch (e) {
-        setIsPreparing(false);
-        Alert.alert('Error', 'Failed to access gallery. Please try again.');
+        Alert.alert('Error', 'Failed to open camera. Please try again.');
       }
     };
 

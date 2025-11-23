@@ -468,12 +468,12 @@ const CreateScreen: React.FC = () => {
             
             {segments.length > 0 && (
               <TouchableOpacity 
-                style={styles.sideButton} 
+                style={styles.continueButton} 
                 onPress={finishRecording} 
                 disabled={isProcessing}
                 activeOpacity={0.7}
               >
-                <Text style={styles.doneButtonText}>Done</Text>
+                <Icon name="arrow-forward" size={20} color={Colors.white} />
               </TouchableOpacity>
             )}
           </View>
@@ -621,10 +621,18 @@ const styles = StyleSheet.create({
     height: 44,
     resizeMode: 'contain',
   },
-  doneButtonText: {
-    color: Colors.white,
-    fontSize: 14,
-    fontFamily: 'Firma-Medium',
+  continueButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Colors.purple,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.purple,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 4,
   },
 });
 
