@@ -463,7 +463,7 @@ class FeedService {
           }
           
           // Fetch from each hashtag channel
-          const hashtagPromises = hashtagChannels.slice(0, FEED_CONFIG.maxFeedsPerFetch).map(async (hashtagUri, index) => {
+          const hashtagPromises = hashtagChannels.slice(0, FEED_CONFIG.maxFeedsPerFetch).map(async (hashtagUri) => {
             try {
               const hashtagWithSort = hashtagUri.substring(8); // Remove 'hashtag:' prefix
               const parts = hashtagWithSort.split(':');
@@ -536,14 +536,111 @@ class FeedService {
           };
         } else if (regularFeedUris.length > 0 && hashtagChannels.length > 0) {
           // Mixed: both regular feeds and hashtag channels
-          // For now, prioritize regular feeds (this could be enhanced later)
-          response = await AtprotoService.getMixedFeed(
-            regularFeedUris,
-            cursor,
-            limit,
-            true, // filter videos only
-            FEED_CONFIG.maxFeedsPerFetch
+          // Fetch from both types and merge them
+          let cursorState: { [key: string]: string | null } = {};
+          if (cursor) {
+            try {
+              cursorState = JSON.parse(cursor);
+            } catch {
+              cursorState = {};
+            }
+          }
+          
+          // Fetch from regular feeds
+          const regularFeedPromises = regularFeedUris.slice(0, Math.floor(FEED_CONFIG.maxFeedsPerFetch / 2)).map(async (feedUri) => {
+            try {
+              const feedCursor = cursorState[feedUri] || null;
+              const feedLimit = Math.ceil(limit / (regularFeedUris.length + hashtagChannels.length));
+              
+              const response = await AtprotoService.getFeed(feedCursor, feedUri, {}, true, feedLimit, 'custom');
+              
+              return {
+                feed: response?.feed || [],
+                cursor: response?.cursor || null,
+                sourceUri: feedUri,
+              };
+            } catch (error) {
+              logger.warn('Failed to fetch regular feed for your-mix', { feedUri, error });
+              return { feed: [], cursor: null, sourceUri: feedUri };
+            }
+          });
+          
+          // Fetch from hashtag channels
+          const hashtagPromises = hashtagChannels.slice(0, Math.floor(FEED_CONFIG.maxFeedsPerFetch / 2)).map(async (hashtagUri) => {
+            try {
+              const hashtagWithSort = hashtagUri.substring(8); // Remove 'hashtag:' prefix
+              const parts = hashtagWithSort.split(':');
+              const hashtag = parts[0];
+              const sort = parts[1] === 'top' ? 'top' : 'latest';
+              
+              const hashtagCursor = cursorState[hashtagUri] || null;
+              const hashtagLimit = Math.ceil(limit / (regularFeedUris.length + hashtagChannels.length));
+              const hashtagResponse = await AtprotoService.searchHashtagVideosPaginated(
+                hashtag,
+                hashtagCursor,
+                hashtagLimit,
+                sort as 'top' | 'latest'
+              );
+              
+              return {
+                feed: hashtagResponse.videos || [],
+                cursor: hashtagResponse.cursor,
+                sourceUri: hashtagUri,
+              };
+            } catch (error) {
+              logger.warn('Failed to fetch hashtag feed for your-mix', { hashtagUri, error });
+              return { feed: [], cursor: null, sourceUri: hashtagUri };
+            }
+          });
+          
+          const [regularResults, hashtagResults] = await Promise.all([
+            Promise.all(regularFeedPromises),
+            Promise.all(hashtagPromises)
+          ]);
+          
+          // Merge all feeds
+          let allPosts = [...regularResults, ...hashtagResults].flatMap(result => 
+            result.feed.map(post => ({
+              ...post,
+              sourceFeed: result.sourceUri
+            }))
           );
+          
+          // Remove duplicates
+          const seen = new Set<string>();
+          allPosts = allPosts.filter(post => {
+            if (seen.has(post.post.uri)) {
+              return false;
+            }
+            seen.add(post.post.uri);
+            return true;
+          });
+          
+          // Sort chronologically
+          allPosts.sort((a, b) => {
+            const aIndexedAt = (a.post as any)?.indexedAt;
+            const bIndexedAt = (b.post as any)?.indexedAt;
+            const aTime = aIndexedAt ? new Date(aIndexedAt).getTime() : 0;
+            const bTime = bIndexedAt ? new Date(bIndexedAt).getTime() : 0;
+            return bTime - aTime;
+          });
+          
+          // Apply limit
+          const limitedPosts = allPosts.slice(0, limit);
+          
+          // Update cursor state
+          [...regularResults, ...hashtagResults].forEach(result => {
+            if (result.cursor) {
+              cursorState[result.sourceUri] = result.cursor;
+            }
+          });
+          
+          const compositeCursor = Object.keys(cursorState).length > 0 ? JSON.stringify(cursorState) : null;
+          
+          response = {
+            feed: limitedPosts,
+            cursor: compositeCursor,
+          };
         } else {
           return { feed: [], cursor: null };
         }
