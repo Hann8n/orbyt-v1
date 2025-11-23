@@ -21,7 +21,7 @@ import { VideoFile } from 'react-native-vision-camera';
 import * as ImagePicker from 'expo-image-picker';
 import Icon, { BackArrowIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
-import { BORDER_RADIUS } from '../src/utils/constants';
+import { BORDER_RADIUS, VIDEO_EDITOR_MESSAGES, ANIMATION_CONSTANTS, ICON_SIZES } from '../src/utils/constants';
 import VideoEditingService, { VideoSegment } from '../src/services/VideoEditingService';
 import VideoProcessingService from '../src/services/VideoProcessingService';
 
@@ -83,7 +83,7 @@ const VideoEditorScreen: React.FC = () => {
     // For now, show an informative message about trim functionality
     Alert.alert(
       'Trim Clip',
-      'Trim functionality is coming in a future update! You can currently:\n\n• Reorder clips by long pressing and dragging\n• Delete unwanted clips\n• Preview the final video\n\nFor now, consider re-recording shorter clips or editing the video after posting.',
+      VIDEO_EDITOR_MESSAGES.TRIM_NOT_AVAILABLE,
       [{ text: 'Got it' }]
     );
   };
@@ -204,14 +204,14 @@ const VideoEditorScreen: React.FC = () => {
                 onPress={() => handleTrimSegment(item.id)}
                 disabled={isProcessing}
               >
-                <Icon name="cut" size={20} color={Colors.white} />
+                <Icon name="cut" size={ICON_SIZES.MEDIUM} color={Colors.white} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => handleDeleteSegment(item.id)}
                 disabled={isProcessing}
               >
-                <Icon name="trash" size={20} color={Colors.red} />
+                <Icon name="trash" size={ICON_SIZES.MEDIUM} color={Colors.red} />
               </TouchableOpacity>
             </View>
           </View>
@@ -267,7 +267,7 @@ const VideoEditorScreen: React.FC = () => {
         {segments.length > 0 ? (
           <View style={styles.listContainer}>
             <View style={styles.instructionContainer}>
-              <Icon name="information" size={20} color={Colors.lightGray} />
+              <Icon name="information" size={ICON_SIZES.MEDIUM} color={Colors.lightGray} />
               <Text style={styles.instructionText}>
                 Long press and drag to reorder clips
               </Text>
@@ -301,7 +301,7 @@ const VideoEditorScreen: React.FC = () => {
               <ActivityIndicator color={Colors.white} />
             ) : (
               <>
-                <Icon name="play" size={20} color={Colors.white} />
+                <Icon name="play" size={ICON_SIZES.MEDIUM} color={Colors.white} />
                 <Text style={styles.actionButtonText}>Preview</Text>
               </>
             )}
@@ -316,7 +316,7 @@ const VideoEditorScreen: React.FC = () => {
               <ActivityIndicator color={Colors.white} />
             ) : (
               <>
-                <Icon name="checkmark" size={20} color={Colors.white} />
+                <Icon name="checkmark" size={ICON_SIZES.MEDIUM} color={Colors.white} />
                 <Text style={styles.actionButtonText}>Continue to Post</Text>
               </>
             )}
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 8,
     borderColor: Colors.purple,
-    transform: [{ scale: 1.02 }],
+    transform: [{ scale: ANIMATION_CONSTANTS.DRAG_SCALE_FACTOR }],
   },
   segmentContent: {
     flexDirection: 'row',

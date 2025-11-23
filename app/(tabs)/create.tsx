@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { BORDER_RADIUS } from '../../src/utils/constants';
+import { BORDER_RADIUS, ICON_SIZES } from '../../src/utils/constants';
 import {
   View,
   Text,
@@ -473,7 +473,7 @@ const CreateScreen: React.FC = () => {
                 disabled={isProcessing}
                 activeOpacity={0.7}
               >
-                <Icon name="arrow-forward" size={20} color={Colors.white} />
+                <Icon name="arrow-forward" size={ICON_SIZES.MEDIUM} color={Colors.white} />
               </TouchableOpacity>
             )}
           </View>

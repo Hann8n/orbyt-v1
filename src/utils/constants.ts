@@ -83,4 +83,18 @@ export const ANIMATION_CONSTANTS = {
     EASE_OUT: 'ease-out',
     EASE_IN: 'ease-in',
   },
+  DRAG_SCALE_FACTOR: 1.02,
+} as const;
+
+// Icon Size Constants
+export const ICON_SIZES = {
+  SMALL: 16,
+  MEDIUM: 20,
+  LARGE: 24,
+  XLARGE: 32,
+} as const;
+
+// Video Editor Messages
+export const VIDEO_EDITOR_MESSAGES = {
+  TRIM_NOT_AVAILABLE: 'Trim functionality is coming in a future update! You can currently:\n\n• Reorder clips by long pressing and dragging\n• Delete unwanted clips\n• Preview the final video\n\nFor now, consider re-recording shorter clips or editing the video after posting.',
 } as const;
