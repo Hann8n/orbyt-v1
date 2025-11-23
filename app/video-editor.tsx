@@ -20,11 +20,11 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Video from 'react-native-video';
 import { VideoFile } from 'react-native-vision-camera';
 import * as ImagePicker from 'expo-image-picker';
-import Icon, { BackArrowIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
-import { Colors } from '../../src/components/ui/UI';
-import { BORDER_RADIUS } from '../../src/utils/constants';
-import VideoEditingService, { VideoSegment } from '../../src/services/VideoEditingService';
-import VideoProcessingService from '../../src/services/VideoProcessingService';
+import Icon, { BackArrowIcon, Loading3FillIcon } from '../src/components/ui/Icon';
+import { Colors } from '../src/components/ui/UI';
+import { BORDER_RADIUS } from '../src/utils/constants';
+import VideoEditingService, { VideoSegment } from '../src/services/VideoEditingService';
+import VideoProcessingService from '../src/services/VideoProcessingService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const THUMBNAIL_SIZE = 80;
