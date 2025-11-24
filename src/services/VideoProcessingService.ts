@@ -63,6 +63,12 @@ const COMPRESSION_LEVELS = [
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
 
+// Video merge settings for complex filter approach
+// These values provide a good balance between quality and compatibility
+const MERGE_TARGET_FPS = 30; // Standard frame rate for mobile video
+const MERGE_TARGET_AUDIO_SAMPLE_RATE = 44100; // CD-quality audio (44.1kHz)
+const MERGE_TARGET_AUDIO_CHANNELS = 'stereo'; // Stereo audio output
+
 export interface VideoInfo {
   path: string;
   size: number;
@@ -783,7 +789,8 @@ class VideoProcessingService {
 
   /**
    * Merges multiple video segments into a single video file
-   * Uses FFmpeg complex filter for clean merging without glitches
+   * Uses FFmpeg complex filter for clean merging without audio/video sync glitches
+   * from mixing different clip formats (camera vs uploaded, variable vs fixed frame rates)
    */
   static async mergeSegments(segments: VideoSegment[]): Promise<ProcessedVideo> {
     if (segments.length === 0) {
@@ -966,13 +973,14 @@ class VideoProcessingService {
         // Build filter chain for this input
         // Scale to fit target box with aspect ratio maintained, pad with black bars
         // setsar=1 ensures square pixel aspect ratio (SAR)
-        const videoFilter = `[${i}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v${i}]`;
+        // fps filter normalizes frame rate for consistent playback
+        const videoFilter = `[${i}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${MERGE_TARGET_FPS}[v${i}]`;
         filterGraph += videoFilter + ';';
         videoLabels.push(`[v${i}]`);
 
-        // Force audio resampling to common format: 44.1kHz stereo
-        // This prevents audio glitches from sample rate mismatches
-        const audioFilter = `[${i}:a]aformat=sample_rates=44100:channel_layouts=stereo[a${i}]`;
+        // Force audio resampling to common format to prevent audio glitches
+        // This standardizes sample rate and channel layout across all inputs
+        const audioFilter = `[${i}:a]aformat=sample_rates=${MERGE_TARGET_AUDIO_SAMPLE_RATE}:channel_layouts=${MERGE_TARGET_AUDIO_CHANNELS}[a${i}]`;
         filterGraph += audioFilter + ';';
         audioLabels.push(`[a${i}]`);
       }

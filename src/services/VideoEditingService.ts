@@ -12,6 +12,11 @@ try {
   logger.warn('FFmpegKit not available - native module not linked', { component: 'VideoEditingService' });
 }
 
+// Audio volume constants
+const MIN_VOLUME = 0.0;
+const MAX_VOLUME = 2.0; // Allow boosting up to 200% for quiet audio
+const DEFAULT_VOLUME = 1.0;
+
 export interface TextOverlayOptions {
   x: string; // e.g., '(w-text_w)/2' for center, '10' for absolute position
   y: string; // e.g., '(h-text_h)/2' for center, '10' for absolute position
@@ -21,8 +26,8 @@ export interface TextOverlayOptions {
 }
 
 export interface BackgroundMusicOptions {
-  videoVolume: number; // Volume of original video audio (0.0 to 1.0)
-  musicVolume: number; // Volume of background music (0.0 to 1.0)
+  videoVolume: number; // Volume of original video audio (0.0 to 2.0)
+  musicVolume: number; // Volume of background music (0.0 to 2.0)
 }
 
 /**
@@ -152,6 +157,18 @@ class VideoEditingService {
         throw new Error('FFmpegKit is not available');
       }
 
+      // Validate and clamp volume values to valid range
+      const videoVolume = Math.max(MIN_VOLUME, Math.min(MAX_VOLUME, options.videoVolume));
+      const musicVolume = Math.max(MIN_VOLUME, Math.min(MAX_VOLUME, options.musicVolume));
+
+      if (videoVolume !== options.videoVolume || musicVolume !== options.musicVolume) {
+        logger.warn('Volume values were clamped to valid range', {
+          component: 'VideoEditingService',
+          original: options,
+          clamped: { videoVolume, musicVolume },
+        });
+      }
+
       // Normalize paths
       const normalizedInput = this.normalizePath(videoPath);
       const normalizedMusic = this.normalizePath(musicPath);
@@ -161,7 +178,7 @@ class VideoEditingService {
       // [0:a] is video audio, [1:a] is music
       // Apply volume to each input separately, then mix them together
       // duration=first: end when video ends (don't extend beyond video duration)
-      const filter = `[0:a]volume=${options.videoVolume}[a0];[1:a]volume=${options.musicVolume}[a1];[a0][a1]amix=inputs=2:duration=first[outa]`;
+      const filter = `[0:a]volume=${videoVolume}[a0];[1:a]volume=${musicVolume}[a1];[a0][a1]amix=inputs=2:duration=first[outa]`;
 
       // Build FFmpeg command
       // -i: first input (video)
@@ -176,7 +193,8 @@ class VideoEditingService {
 
       logger.info('Adding background music to video', {
         component: 'VideoEditingService',
-        options,
+        videoVolume,
+        musicVolume,
       });
 
       const session = await FFmpegKit.execute(cmd);
@@ -224,8 +242,16 @@ class VideoEditingService {
       const normalizedInput = this.normalizePath(videoPath);
       const normalizedOutput = this.normalizePath(outputPath);
 
-      // Clamp volume to reasonable range
-      const clampedVolume = Math.max(0, Math.min(2, volume));
+      // Clamp volume to valid range
+      const clampedVolume = Math.max(MIN_VOLUME, Math.min(MAX_VOLUME, volume));
+
+      if (clampedVolume !== volume) {
+        logger.warn('Volume value was clamped to valid range', {
+          component: 'VideoEditingService',
+          original: volume,
+          clamped: clampedVolume,
+        });
+      }
 
       // Build FFmpeg command with volume filter
       const cmd = `-i "${normalizedInput}" -af "volume=${clampedVolume}" -c:v copy -c:a aac "${normalizedOutput}"`;
