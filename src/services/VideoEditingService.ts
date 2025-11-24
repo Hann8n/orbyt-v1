@@ -38,13 +38,32 @@ class VideoEditingService {
   /**
    * Normalizes a file path for FFmpeg usage
    * - Removes file:// prefix
-   * - Adds leading slash for iOS if needed
+   * - Ensures absolute path for iOS
+   * - Preserves full directory structure
    */
   private static normalizePath(path: string): string {
-    let normalized = path.replace('file://', '');
-    if (Platform.OS === 'ios' && !normalized.startsWith('/')) {
-      normalized = '/' + normalized;
+    if (!path) {
+      throw new Error('Path cannot be empty');
     }
+    
+    // Remove file:// prefix if present
+    let normalized = path.replace(/^file:\/\//, '');
+    
+    // Ensure we have an absolute path for iOS
+    // Only add leading slash if path doesn't already have one AND doesn't start with a valid absolute path
+    if (Platform.OS === 'ios') {
+      // If path doesn't start with /, it might be a relative path
+      // But if it starts with /private or /var, it's already absolute
+      if (normalized && !normalized.startsWith('/')) {
+        normalized = '/' + normalized;
+      }
+    }
+    
+    // Validate that we have a proper path (not just a filename)
+    if (normalized && !normalized.includes('/') && normalized.endsWith('.mp4')) {
+      throw new Error(`Invalid path: ${normalized} - missing directory`);
+    }
+    
     return normalized;
   }
 
@@ -82,6 +101,15 @@ class VideoEditingService {
       // Normalize paths
       const normalizedInput = this.normalizePath(videoPath);
       const normalizedOutput = this.normalizePath(outputPath);
+      
+      // Log paths for debugging
+      logger.info('FFmpeg paths', {
+        component: 'VideoEditingService',
+        inputPath: videoPath,
+        normalizedInput,
+        outputPath,
+        normalizedOutput,
+      });
 
       // Escape text for FFmpeg
       const safeText = this.escapeText(text);
@@ -105,12 +133,18 @@ class VideoEditingService {
       // -c:a copy: copy audio without re-encoding
       // -c:v libx264: encode video with H.264
       // -preset medium: balance between speed and quality
-      const cmd = `-i "${normalizedInput}" -vf "${drawTextFilter}" -c:v libx264 -preset medium -c:a copy "${normalizedOutput}"`;
+      // Escape paths properly for FFmpeg (escape quotes and backslashes)
+      const escapedInput = normalizedInput.replace(/"/g, '\\"').replace(/\\/g, '\\\\');
+      const escapedOutput = normalizedOutput.replace(/"/g, '\\"').replace(/\\/g, '\\\\');
+      const cmd = `-i "${escapedInput}" -vf "${drawTextFilter}" -c:v libx264 -preset medium -c:a copy "${escapedOutput}"`;
 
       logger.info('Adding text overlay to video', {
         component: 'VideoEditingService',
         text: text,
         options,
+        cmd: cmd.substring(0, 200), // Log first 200 chars of command
+        normalizedInput,
+        normalizedOutput,
       });
 
       const session = await FFmpegKit.execute(cmd);
@@ -280,6 +314,73 @@ class VideoEditingService {
       }
     } catch (error) {
       logger.error('Error adjusting volume', error, { component: 'VideoEditingService' });
+      throw error;
+    }
+  }
+
+  /**
+   * Trims a video to a specific time range
+   * 
+   * @param videoPath - Path to input video file
+   * @param outputPath - Path where the output video will be saved
+   * @param startTime - Start time in seconds
+   * @param endTime - End time in seconds
+   * @returns Promise resolving to the output path
+   */
+  static async trimVideo(
+    videoPath: string,
+    outputPath: string,
+    startTime: number,
+    endTime: number
+  ): Promise<string> {
+    try {
+      if (!FFmpegKit || !ReturnCode) {
+        throw new Error('FFmpegKit is not available');
+      }
+
+      if (startTime < 0 || endTime <= startTime) {
+        throw new Error('Invalid trim times: startTime must be >= 0 and endTime must be > startTime');
+      }
+
+      // Normalize paths
+      const normalizedInput = this.normalizePath(videoPath);
+      const normalizedOutput = this.normalizePath(outputPath);
+
+      const duration = endTime - startTime;
+
+      // Build FFmpeg command with trim filter
+      // -ss: seek to start time
+      // -t: duration to output
+      // -c copy: copy streams without re-encoding (fast but may not be frame-accurate)
+      // For frame-accurate trimming, use -c:v libx264 -c:a aac instead
+      const cmd = `-i "${normalizedInput}" -ss ${startTime} -t ${duration} -c:v libx264 -preset medium -c:a aac "${normalizedOutput}"`;
+
+      logger.info('Trimming video', {
+        component: 'VideoEditingService',
+        startTime,
+        endTime,
+        duration,
+      });
+
+      const session = await FFmpegKit.execute(cmd);
+      const returnCode = await session.getReturnCode();
+
+      if (ReturnCode.isSuccess(returnCode)) {
+        logger.info('Video trimmed successfully', { component: 'VideoEditingService' });
+        return outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
+      } else {
+        const failStackTrace = await session.getFailStackTrace();
+        const output = await session.getOutput();
+        logger.error('Video trimming failed', {
+          component: 'VideoEditingService',
+          returnCode,
+          failStackTrace,
+          output,
+        });
+        throw new Error(`Video trimming failed: ${failStackTrace || output || 'Unknown error'}`);
+      }
+    } catch (error) {
+      logger.error('Error trimming video', error, { component: 'VideoEditingService' });
       throw error;
     }
   }

@@ -962,7 +962,8 @@ class VideoProcessingService {
         }
 
         // Normalize path for FFmpeg
-        let normalizedPath = videoPath.replace('file://', '');
+        // Remove fragment identifier (#...) that iOS gallery URIs may contain
+        let normalizedPath = videoPath.replace('file://', '').split('#')[0];
         if (Platform.OS === 'ios' && !normalizedPath.startsWith('/')) {
           normalizedPath = '/' + normalizedPath;
         }
@@ -987,8 +988,14 @@ class VideoProcessingService {
 
       // Add concat filter to merge all normalized streams
       // n=number of segments, v=1 video stream, a=1 audio stream
-      const concatInputs = videoLabels.join('') + audioLabels.join('');
-      filterGraph += `${concatInputs}concat=n=${segments.length}:v=1:a=1[outv][outa]`;
+      // IMPORTANT: concat filter expects inputs interleaved: [v0][a0][v1][a1]...
+      // NOT grouped: [v0][v1][a0][a1]
+      // Each filter chain must be separated by semicolons
+      // Remove trailing semicolon from filterGraph, then add semicolon before concat inputs
+      filterGraph = filterGraph.replace(/;$/, '');
+      const concatInputs = videoLabels.map((vLabel, idx) => vLabel + audioLabels[idx]).join('');
+      // Add semicolon to separate previous filter chains from concat filter chain
+      filterGraph += `;${concatInputs}concat=n=${segments.length}:v=1:a=1[outv][outa]`;
 
       // Build final FFmpeg command
       // -preset ultrafast for quick processing (can use 'medium' for better quality/size)
@@ -1001,6 +1008,9 @@ class VideoProcessingService {
         component: 'VideoProcessingService',
         segmentCount: segments.length,
         targetResolution: `${targetWidth}x${targetHeight}`,
+        filterGraph: filterGraph.substring(0, 500), // Log first 500 chars of filter graph
+        videoLabels: videoLabels.join(','),
+        audioLabels: audioLabels.join(','),
       });
 
       const session = await FFmpegKit.execute(cmd);

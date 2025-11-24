@@ -34,7 +34,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({ mode, onToolPress, flashA
       return [
         { id: 'text', icon: 'text' },
         { id: 'trim', icon: 'scissors' },
-        { id: 'filter', icon: 'palette' },
+        { id: 'filter', icon: 'color-picker-fill' },
         { id: 'audio', icon: 'music' },
       ];
     }
