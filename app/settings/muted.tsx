@@ -1,78 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useRouter } from 'expo-router';
 import ListScreen from '../../src/components/ui/ListScreen';
-import AtprotoService from '../../src/services/api/AtprotoService';
-
-interface MutedUser {
-  did: string;
-  handle: string;
-  displayName?: string;
-  avatar?: string;
-}
+import { useModerationList } from '../../src/hooks';
 
 const MutedUsersScreen: React.FC = () => {
   const navigation = useRouter();
-  const [mutedUsers, setMutedUsers] = useState<MutedUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [unmutingUsers, setUnmutingUsers] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    loadMutedUsers();
-  }, []);
-
-  const loadMutedUsers = async () => {
-    try {
-      setLoading(true);
-      const mutedDids = await AtprotoService.getMutedUsersFromAPI();
-      
-      // Convert string[] to MutedUser objects
-      const userPromises = mutedDids.map(async (did: string) => {
-        try {
-          // Try to get profile info for each muted user
-          const profile = await AtprotoService.getProfile(did);
-          return {
-            did,
-            handle: profile?.handle || did,
-            displayName: profile?.displayName,
-            avatar: profile?.avatar,
-          };
-        } catch (error) {
-          // If we can't get profile info, use basic info
-          return {
-            did,
-            handle: did,
-            displayName: 'Unknown User',
-            avatar: undefined,
-          };
-        }
-      });
-      
-      const users = await Promise.all(userPromises);
-      setMutedUsers(users);
-    } catch (error) {
-      console.error('Error loading muted users:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUnmuteUser = async (user: MutedUser) => {
-    try {
-      setUnmutingUsers(prev => new Set(prev).add(user.did));
-      // Note: unmuteUser is not implemented yet in AtprotoService
-      // await AtprotoService.unmuteUser(user.did);
-      console.log('Unmute functionality not implemented yet');
-      setMutedUsers(prev => prev.filter(mutedUser => mutedUser.did !== user.did));
-    } catch (error) {
-      console.error('Error unmuting user:', error);
-    } finally {
-      setUnmutingUsers(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(user.did);
-        return newSet;
-      });
-    }
-  };
+  const { users: mutedUsers, loading, handleAction } = useModerationList({ type: 'muted' });
 
   return (
     <ListScreen
@@ -86,7 +19,7 @@ const MutedUsersScreen: React.FC = () => {
       showFollowButton={true}
       followButtonIcon="minus-fill"
       followButtonAction="unmute"
-      onActionPress={handleUnmuteUser}
+      onActionPress={handleAction}
     />
   );
 };
