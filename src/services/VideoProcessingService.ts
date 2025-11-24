@@ -6,6 +6,9 @@ import { File, Directory, Paths } from 'expo-file-system';
 import Compressor from 'react-native-compressor';
 import { logger } from '../utils/logger';
 
+// Expo Camera video result type
+type ExpoCameraVideo = { uri: string };
+
 // Lazy import FFmpegKit to avoid errors when native module isn't linked yet
 let FFmpegKit: any = null;
 let ReturnCode: any = null;
@@ -32,7 +35,7 @@ export interface VideoProperties {
 export interface VideoSegment {
   startTime: number;
   duration: number;
-  video: VideoFile | ImagePicker.ImagePickerAsset;
+  video: VideoFile | ImagePicker.ImagePickerAsset | ExpoCameraVideo;
   sourceType?: 'camera' | 'gallery';
 }
 
@@ -522,43 +525,66 @@ class VideoProcessingService {
   }
 
   /**
-   * Helper to extract video path from VideoFile or ImagePickerAsset
+   * Helper to extract video path from VideoFile, ImagePickerAsset, or ExpoCameraVideo
    */
-  private static getVideoPath(video: VideoFile | ImagePicker.ImagePickerAsset): string {
+  private static getVideoPath(video: VideoFile | ImagePicker.ImagePickerAsset | ExpoCameraVideo): string {
     if ('uri' in video) {
       return video.uri;
     }
-    return video.path;
+    // VideoFile has 'path' property
+    if ('path' in video) {
+      return video.path;
+    }
+    // Fallback (shouldn't happen)
+    return '';
   }
 
   /**
-   * Helper to extract video duration from VideoFile or ImagePickerAsset
+   * Helper to extract video duration from VideoFile, ImagePickerAsset, or ExpoCameraVideo
    */
-  private static getVideoDuration(video: VideoFile | ImagePicker.ImagePickerAsset): number {
+  private static getVideoDuration(video: VideoFile | ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
     if ('uri' in video) {
-      // ImagePickerAsset duration is in milliseconds
-      return video.duration ? (video.duration > 1000 ? video.duration / 1000 : video.duration) : 0;
+      // Check if it's ImagePickerAsset (has duration property)
+      if ('duration' in video && video.duration) {
+        // ImagePickerAsset duration is in milliseconds
+        return video.duration > 1000 ? video.duration / 1000 : video.duration;
+      }
+      // ExpoCameraVideo doesn't have duration, return 0 (will be calculated from video file)
+      return 0;
     }
+    // VideoFile has duration property
     return video.duration || 0;
   }
 
   /**
-   * Helper to extract video width from VideoFile or ImagePickerAsset
+   * Helper to extract video width from VideoFile, ImagePickerAsset, or ExpoCameraVideo
    */
-  private static getVideoWidth(video: VideoFile | ImagePicker.ImagePickerAsset): number {
+  private static getVideoWidth(video: VideoFile | ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
     if ('uri' in video) {
-      return video.width || 0;
+      // Check if it's ImagePickerAsset (has width property)
+      if ('width' in video) {
+        return video.width || 0;
+      }
+      // ExpoCameraVideo doesn't have width, return 0 (will be calculated from video file)
+      return 0;
     }
+    // VideoFile has width property
     return video.width || 0;
   }
 
   /**
-   * Helper to extract video height from VideoFile or ImagePickerAsset
+   * Helper to extract video height from VideoFile, ImagePickerAsset, or ExpoCameraVideo
    */
-  private static getVideoHeight(video: VideoFile | ImagePicker.ImagePickerAsset): number {
+  private static getVideoHeight(video: VideoFile | ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
     if ('uri' in video) {
-      return video.height || 0;
+      // Check if it's ImagePickerAsset (has height property)
+      if ('height' in video) {
+        return video.height || 0;
+      }
+      // ExpoCameraVideo doesn't have height, return 0 (will be calculated from video file)
+      return 0;
     }
+    // VideoFile has height property
     return video.height || 0;
   }
 

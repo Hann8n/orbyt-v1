@@ -46,6 +46,14 @@
       "expo-font",
       "react-native-vision-camera",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "This app needs access to your photo library to select profile pictures and share photos.",

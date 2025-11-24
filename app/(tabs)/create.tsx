@@ -14,14 +14,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
-  Camera, 
-  useCameraDevice, 
-  useCameraPermission, 
-  useCameraFormat,
-  useMicrophonePermission,
-  useLocationPermission,
-  VideoFile
-} from 'react-native-vision-camera';
+  CameraView, 
+  CameraType,
+  useCameraPermissions,
+  useMicrophonePermissions,
+  CameraRecordingOptions
+} from 'expo-camera';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
@@ -35,7 +33,6 @@ import Animated, {
   interpolate,
   Extrapolate
 } from 'react-native-reanimated';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Icon, { CloseFillIcon, Loading3FillIcon, ArrowRightFillIcon } from '../../src/components/ui/Icon';
 import BottomToolBar from '../../src/components/ui/BottomToolBar';
 import { isSmallScreen, getBottomNavBarHeight } from '../../src/utils/helpers';
@@ -54,97 +51,59 @@ const MIN_SEGMENT_DURATION = 0.5; // Minimum duration for a segment in seconds
 interface VideoSegment {
   startTime: number;
   duration: number;
-  video: VideoFile | ImagePicker.ImagePickerAsset;
+  video: { uri: string } | ImagePicker.ImagePickerAsset;
   sourceType?: 'camera' | 'gallery';
 }
 
 const CreateScreen: React.FC = () => {
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission();
-  const { hasPermission: hasLocationPermission, requestPermission: requestLocationPermission } = useLocationPermission();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
   const [isRecording, setIsRecording] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(false);
   const [recordingProgress, setRecordingProgress] = useState(0);
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
-  const [recordedVideo, setRecordedVideo] = useState<VideoFile | null>(null);
+  const [recordedVideo, setRecordedVideo] = useState<{ uri: string } | null>(null);
   const [segments, setSegments] = useState<VideoSegment[]>([]);
   const [totalDuration, setTotalDuration] = useState(0);
-  const [zoom, setZoom] = useState(1); // Will be updated when device loads
+  const [zoom, setZoom] = useState(0); // Expo Camera uses 0-1 range
 
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const segmentStartTime = useRef<number>(0);
-  const cameraRef = useRef<Camera>(null);
+  const cameraRef = useRef<CameraView>(null);
+  const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
 
   const recButtonScale = useSharedValue(1);
   const progressWidth = useSharedValue(0);
   const recordingPulse = useSharedValue(0);
   const dragDistance = useSharedValue(0);
   const isZooming = useSharedValue(false);
-
-  const device = useCameraDevice(isFrontCamera ? 'front' : 'back');
-  
-  // Optimize camera format for 9:16 aspect ratio
-  const format = useCameraFormat(device, [
-    { videoResolution: { width: 1080, height: 1920 } }, // 9:16 aspect ratio
-    { videoResolution: { width: 720, height: 1280 } }, // Fallback 9:16
-    { fps: 30 }, // Prefer 30fps for better quality/performance balance
-    { videoHdr: false }, // Disable HDR for now (can enable if device supports)
-  ]);
-  
-  // Frame processor setup (requires frame processor plugins for actual processing)
-  // Example: Install @react-native-vision-camera/frame-processors or vision-camera-v3
-  // Then uncomment and customize:
-  /*
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-    // Process frames here
-    // Example: Apply filters, detect faces, scan QR codes, etc.
-    // Requires native frame processor plugins
-  }, []);
-  */
   
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   
-  // Get zoom range from device (clamp maxZoom to reasonable value)
-  const minZoom = device?.minZoom ?? 1;
-  const neutralZoom = device?.neutralZoom ?? 1;
-  const deviceMaxZoom = device?.maxZoom ?? 1;
-  const maxZoom = Math.min(deviceMaxZoom, 16); // Clamp to realistic max like docs suggest
+  // Expo Camera zoom is 0-1 range, where 0 is no zoom and 1 is max zoom
+  const minZoom = 0;
+  const neutralZoom = 0;
+  const maxZoom = 1;
 
   // Request camera permissions on mount
   useEffect(() => {
     const checkPermissions = async () => {
-      if (!hasPermission) await requestPermission();
-      if (!hasMicPermission) await requestMicPermission();
-      // Request location permission for GPS tags (optional, non-blocking)
-      if (!hasLocationPermission) {
-        requestLocationPermission().catch(() => {
-          // Silent fail - location is optional
-        });
-      }
+      if (!cameraPermission?.granted) await requestCameraPermission();
+      if (!microphonePermission?.granted) await requestMicrophonePermission();
     };
     checkPermissions();
-  }, [hasPermission, requestPermission, hasMicPermission, requestMicPermission, hasLocationPermission, requestLocationPermission]);
-  
-  // Initialize zoom to neutralZoom when device loads
-  useEffect(() => {
-    if (device) {
-      setZoom(neutralZoom);
-    }
-  }, [device, neutralZoom]);
+  }, [cameraPermission, requestCameraPermission, microphonePermission, requestMicrophonePermission]);
   
   // Reset zoom when switching cameras
   useEffect(() => {
-    if (device) {
-      setZoom(neutralZoom);
-      dragDistance.value = 0;
-      isZooming.value = false;
-    }
-  }, [isFrontCamera, device, neutralZoom, dragDistance, isZooming]);
+    setZoom(neutralZoom);
+    dragDistance.value = 0;
+    isZooming.value = false;
+  }, [isFrontCamera, neutralZoom, dragDistance, isZooming]);
 
   // Disable flash when switching to front camera
   useEffect(() => {
@@ -190,9 +149,32 @@ const CreateScreen: React.FC = () => {
         setIsProcessing(true);
         stopRecordingPulse();
         
-        await cameraRef.current.stopRecording();
         if (recordingTimer.current) clearInterval(recordingTimer.current);
         recButtonScale.value = withSpring(1);
+        
+        // Stop recording - expo-camera's stopRecording() stops the recording
+        // Then await the promise from recordAsync() to get the video result
+        cameraRef.current.stopRecording();
+        
+        if (recordingPromiseRef.current) {
+          const video = await recordingPromiseRef.current;
+          if (video) {
+            const segmentDuration = (Date.now() - segmentStartTime.current) / 1000;
+            if (segmentDuration >= MIN_SEGMENT_DURATION) {
+              setSegments(prev => [
+                ...prev,
+                {
+                  startTime: segmentStartTime.current,
+                  duration: segmentDuration,
+                  video,
+                  sourceType: 'camera',
+                },
+              ]);
+              setTotalDuration(prev => prev + segmentDuration);
+            }
+            setRecordedVideo(video);
+          }
+        }
         
         // Reset zoom to neutralZoom when recording stops
         setZoom(neutralZoom);
@@ -206,19 +188,24 @@ const CreateScreen: React.FC = () => {
           setSegments([]);
           setTotalDuration(0);
         }
+        
+        setIsProcessing(false);
+        setIsRecording(false);
+        recordingPromiseRef.current = null;
       } catch (e) {
         setIsProcessing(false);
         setIsRecording(false);
+        recordingPromiseRef.current = null;
       }
     }
-  }, [isRecording, recButtonScale, progressWidth, totalDuration, stopRecordingPulse, device, dragDistance, isZooming, neutralZoom]);
+  }, [isRecording, recButtonScale, progressWidth, totalDuration, stopRecordingPulse, dragDistance, isZooming, neutralZoom]);
 
   const startRecording = useCallback(async () => {
     if (cameraRef.current && !isRecording && totalDuration < MAX_DURATION) {
       // Ensure microphone permission only when needed
-      if (!hasMicPermission) {
-        const granted = await requestMicPermission();
-        if (!granted) {
+      if (!microphonePermission?.granted) {
+        const result = await requestMicrophonePermission();
+        if (!result.granted) {
           Alert.alert('Microphone Permission', 'Please enable microphone access to record video with sound.');
           return;
         }
@@ -233,32 +220,13 @@ const CreateScreen: React.FC = () => {
       
       segmentStartTime.current = Date.now();
       try {
-        cameraRef.current.startRecording({
-          fileType: 'mp4',
-          onRecordingFinished: (video) => {
-            const segmentDuration = (Date.now() - segmentStartTime.current) / 1000;
-            if (segmentDuration >= MIN_SEGMENT_DURATION) {
-              setSegments(prev => [
-                ...prev,
-                {
-                  startTime: segmentStartTime.current,
-                  duration: segmentDuration,
-                  video,
-                },
-              ]);
-              setTotalDuration(prev => prev + segmentDuration);
-            }
-            setRecordedVideo(video);
-            setIsProcessing(false);
-            setIsRecording(false);
-          },
-          onRecordingError: (error) => {
-            setIsRecording(false);
-            setIsProcessing(false);
-            stopRecordingPulse();
-            Alert.alert('Recording failed', 'Please try again');
-          },
-        });
+        const recordingOptions: CameraRecordingOptions = {
+          maxDuration: MAX_DURATION - totalDuration,
+          mute: !microphonePermission?.granted,
+          videoQuality: '1080p',
+        };
+        
+        recordingPromiseRef.current = cameraRef.current.recordAsync(recordingOptions);
         
         // Update progress bar at ~60fps
         recordingTimer.current = setInterval(() => {
@@ -276,21 +244,26 @@ const CreateScreen: React.FC = () => {
       } catch (e) {
         setIsRecording(false);
         stopRecordingPulse();
+        recordingPromiseRef.current = null;
       }
     }
-  }, [isRecording, flash, recButtonScale, progressWidth, totalDuration, stopRecording, hasMicPermission, requestMicPermission, startRecordingPulse, stopRecordingPulse, neutralZoom]);
+  }, [isRecording, recButtonScale, progressWidth, totalDuration, stopRecording, microphonePermission, requestMicrophonePermission, startRecordingPulse, stopRecordingPulse, neutralZoom]);
   
-  // Recording gesture - simple press and hold
-  const recordingGesture = Gesture.LongPress()
-    .minDuration(0) // Activate immediately, no delay
-    .onStart(() => {
-      runOnJS(setZoom)(neutralZoom);
-      runOnJS(startRecording)();
-    })
-    .onEnd(() => {
-      runOnJS(setZoom)(neutralZoom);
-      runOnJS(stopRecording)();
-    });
+  // Handle press start - begin recording
+  const handlePressIn = useCallback(() => {
+    if (!isRecording && totalDuration < MAX_DURATION) {
+      setZoom(neutralZoom);
+      startRecording();
+    }
+  }, [isRecording, totalDuration, neutralZoom, startRecording]);
+
+  // Handle press end - stop recording
+  const handlePressOut = useCallback(() => {
+    if (isRecording) {
+      setZoom(neutralZoom);
+      stopRecording();
+    }
+  }, [isRecording, neutralZoom, stopRecording]);
 
   const pickFromGallery = async () => {
     try {
@@ -396,7 +369,7 @@ const CreateScreen: React.FC = () => {
   const flipCamera = () => setIsFrontCamera(prev => !prev);
   const toggleFlash = () => {
     // Only allow flash on back camera
-    if (!isFrontCamera && device?.hasFlash) {
+    if (!isFrontCamera) {
       setFlash(prev => (prev === 'off' ? 'on' : 'off'));
     }
   };
@@ -467,25 +440,18 @@ const CreateScreen: React.FC = () => {
 
   // Render content based on the state of permissions and device availability
   const renderContent = () => {
-    if (!hasPermission) {
+    if (!cameraPermission) {
+      // Camera permissions are still loading
+      return <View style={styles.warningContainer} />;
+    }
+
+    if (!cameraPermission.granted) {
       return (
         <View style={styles.warningContainer}>
           <Icon name="videocam" size={64} color={Colors.lightGray} style={styles.errorIcon} />
           <Text style={styles.warningText}>Please enable camera permissions</Text>
-          <TouchableOpacity style={styles.button} activeOpacity={0.7} onPress={requestPermission}>
-            <Text style={styles.buttonText}>Open Settings</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (!device) {
-      return (
-        <View style={styles.warningContainer}>
-          <Icon name="videocam" size={64} color={Colors.lightGray} style={styles.errorIcon} />
-          <Text style={styles.warningText}>No Camera Found</Text>
-          <TouchableOpacity style={styles.button} activeOpacity={0.7} onPress={() => Linking.openSettings()}>
-            <Text style={styles.buttonText}>Open Settings</Text>
+          <TouchableOpacity style={styles.button} activeOpacity={0.7} onPress={requestCameraPermission}>
+            <Text style={styles.buttonText}>Grant Permission</Text>
           </TouchableOpacity>
         </View>
       );
@@ -499,7 +465,7 @@ const CreateScreen: React.FC = () => {
           <View style={styles.combinedProgressBarContainer}>
             <View style={styles.progressSegmentsContainer}>
               {segments.map((segment, index) => (
-                <React.Fragment key={`segment-${segment.startTime}`}>
+                <React.Fragment key={`segment-${index}-${segment.startTime}`}>
                   {index > 0 && <View style={styles.segmentSeparator} />}
                   <View
                     style={{
@@ -529,34 +495,33 @@ const CreateScreen: React.FC = () => {
         {/* Camera View */}
         <View style={styles.cameraContainer}>
           <StatusBar barStyle="light-content" />
-          <Camera
+          <CameraView
             ref={cameraRef}
             style={styles.camera}
-            device={device}
-            format={format}
-            isActive={true}
-            enableZoomGesture
+            facing={isFrontCamera ? 'front' : 'back'}
+            mode="video"
+            enableTorch={flash === 'on' && !isFrontCamera}
             zoom={zoom}
-            audio={hasMicPermission}
-            video
-            videoStabilizationMode="cinematic"
-            enableLocation={hasLocationPermission}
-            torch={flash === 'on' && !isFrontCamera && device?.hasFlash ? 'on' : 'off'}
+            mute={!microphonePermission?.granted}
+            videoQuality="1080p"
+            ratio="16:9"
           />
           
           {/* Controls */}
           <View style={[styles.centerButtonContainer, { bottom: bottomNavBarHeight + (isSmallScreen() ? 20 : 30) }]}>
-            <GestureDetector gesture={recordingGesture}>
-              <Animated.View style={styles.recordButtonContainer}>
-                <Animated.View style={[styles.recordButton, animatedRecordingStyle]}>
-                  {isLoadingFromGallery ? (
-                    <Loading3FillIcon size={32} color="white" />
-                  ) : (
-                    <View style={styles.captureButtonInner} />
-                  )}
-                </Animated.View>
+            <Pressable
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
+              style={styles.recordButtonContainer}
+            >
+              <Animated.View style={[styles.recordButton, animatedRecordingStyle]}>
+                {isLoadingFromGallery ? (
+                  <Loading3FillIcon size={32} color="white" />
+                ) : (
+                  <View style={styles.captureButtonInner} />
+                )}
               </Animated.View>
-            </GestureDetector>
+            </Pressable>
           </View>
         </View>
       </>
@@ -742,7 +707,7 @@ const styles = StyleSheet.create({
 
 export default CreateScreen;
 
-async function mergeSegments(segments: VideoSegment[]): Promise<VideoFile> {
+async function mergeSegments(segments: VideoSegment[]): Promise<{ uri: string; duration?: number; width?: number; height?: number }> {
   try {
     // Convert to ProcessingVideoSegment format
     const processingSegments: ProcessingVideoSegment[] = segments.map(segment => ({
@@ -756,7 +721,7 @@ async function mergeSegments(segments: VideoSegment[]): Promise<VideoFile> {
     const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
     
     return {
-      path: mergedVideo.path,
+      uri: mergedVideo.path.startsWith('file://') ? mergedVideo.path : `file://${mergedVideo.path}`,
       duration: mergedVideo.duration,
       width: mergedVideo.width,
       height: mergedVideo.height,
@@ -765,15 +730,15 @@ async function mergeSegments(segments: VideoSegment[]): Promise<VideoFile> {
     // Fallback: return the first segment if merging fails
     const totalDurationMs = segments.reduce((sum, seg) => sum + seg.duration * 1000, 0);
     const firstVideo = segments[0].video;
-    const videoPath = 'uri' in firstVideo ? firstVideo.uri : firstVideo.path;
+    const videoUri = 'uri' in firstVideo ? firstVideo.uri : (firstVideo as ImagePicker.ImagePickerAsset).uri;
     const videoDuration = 'uri' in firstVideo 
-      ? (firstVideo.duration ? (firstVideo.duration > 1000 ? firstVideo.duration / 1000 : firstVideo.duration) : totalDurationMs / 1000)
-      : totalDurationMs / 1000;
-    const videoWidth = 'uri' in firstVideo ? (firstVideo.width || 0) : (firstVideo.width || 0);
-    const videoHeight = 'uri' in firstVideo ? (firstVideo.height || 0) : (firstVideo.height || 0);
+      ? totalDurationMs / 1000
+      : ((firstVideo as ImagePicker.ImagePickerAsset).duration ? ((firstVideo as ImagePicker.ImagePickerAsset).duration! > 1000 ? (firstVideo as ImagePicker.ImagePickerAsset).duration! / 1000 : (firstVideo as ImagePicker.ImagePickerAsset).duration!) : totalDurationMs / 1000);
+    const videoWidth = 'uri' in firstVideo ? 0 : ((firstVideo as ImagePicker.ImagePickerAsset).width || 0);
+    const videoHeight = 'uri' in firstVideo ? 0 : ((firstVideo as ImagePicker.ImagePickerAsset).height || 0);
     
     return {
-      path: videoPath,
+      uri: videoUri,
       duration: videoDuration,
       width: videoWidth,
       height: videoHeight,
