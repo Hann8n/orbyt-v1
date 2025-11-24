@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Linking } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import ListHeader from '../../src/components/ui/ListHeader';
 import Icon from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import UI from '../../src/components/ui/UI';
-import feedService, { createQueryKeys } from '../../src/services/FeedService';
 import { ModerationService } from '../../src/services/ModerationService';
 import { ModerationSettings, LabelPreference } from '../../src/services/ModerationTypes';
 import { useModeration, useUserStoreState } from '../../src/stores/userStore';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles, settingsActiveStyles } from './SettingsStyles';
+import { useFeedCacheInvalidation } from '../../src/utils/feedCacheUtils';
 
 interface ContentTypeOption {
   id: string;
@@ -22,7 +21,7 @@ interface ContentTypeOption {
 
 const ContentFiltersScreen: React.FC = () => {
   const navigation = useRouter();
-  const queryClient = useQueryClient();
+  const { invalidateFeeds } = useFeedCacheInvalidation();
   const { saveModerationSettings } = useModeration();
   const { agent, isAuthenticated } = useUserStoreState();
   const [settings, setSettings] = useState<ModerationSettings | null>(null);
@@ -126,10 +125,7 @@ const ContentFiltersScreen: React.FC = () => {
         await saveModerationSettings(updatedSettings);
         setSettings(updatedSettings);
         // Reset moderation/feeds so all content re-evaluates with new rules
-        ModerationService.clearModerationCache();
-        feedService.clearCurrentFeed();
-        feedService.clearFeedCache();
-        queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
+        invalidateFeeds();
 
       }
     } catch (e) {
@@ -163,10 +159,7 @@ const ContentFiltersScreen: React.FC = () => {
         await saveModerationSettings(updatedSettings);
         setSettings(updatedSettings);
         // Reset moderation/feeds so all content re-evaluates with new rules
-        ModerationService.clearModerationCache();
-        feedService.clearCurrentFeed();
-        feedService.clearFeedCache();
-        queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
+        invalidateFeeds();
 
       }
     } catch (e) {

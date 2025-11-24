@@ -37,7 +37,7 @@ import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { formatNumber } from '../../../utils/helpers';
 import { useUserSearchTrigger, UserSearchModal } from '../../ui/usersearch';
 import { useKeyboardState } from 'react-native-keyboard-controller';
-import CommentItem, { Comment, Like } from './CommentItem';
+import CommentItem, { Comment } from './CommentItem';
 import { useUserStore } from '../../../stores/userStore';
 import { useGlobalCommentSection, useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 import { useVisibilityOverlay } from '../../../hooks';
@@ -46,25 +46,11 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
 import AuthorItem from '../../ui/AuthorItem';
 import { useRouter } from 'expo-router';
+import type { Post, UserProfile, Like } from '../../../types';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-interface Post {
-  uri: string;
-  cid?: string;
-  likeCount?: number;
-  indexedAt?: string;
-  comments?: Comment[];
-  likes?: Like[];
-}
-
-interface UserProfile {
-  did: string;
-  avatar?: string;
-  displayName?: string;
 }
 
 

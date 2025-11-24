@@ -163,3 +163,68 @@ export type { OrbytProfileRecord } from './profile';
 
 // Re-export for convenience
 export type { ModerationDecision };
+
+// Comment Types
+export interface Post {
+  uri: string;
+  cid?: string;
+  likeCount?: number;
+  indexedAt?: string;
+  comments?: Comment[];
+  likes?: Like[];
+}
+
+export interface UserProfile {
+  did: string;
+  avatar?: string;
+  displayName?: string;
+}
+
+export interface CommentRecord {
+  text: string;
+  facets?: Array<{
+    index: { byteStart: number; byteEnd: number };
+    features: Array<{
+      $type: string;
+      uri?: string;
+      tag?: string;
+    }>;
+  }>;
+  embed?: {
+    $type: string;
+    images?: {
+      image: any;
+      alt: string;
+    }[];
+  };
+}
+
+export interface Comment {
+  uri: string;
+  cid?: string;
+  author?: {
+    did?: string;
+    displayName?: string;
+    handle?: string;
+    avatar?: string;
+  };
+  record?: CommentRecord;
+  likeCount?: number;
+  replyCount?: number;
+  isLiked?: boolean;
+  indexedAt?: string;
+  replies?: Comment[];
+}
+
+export interface Like {
+  uri: string;
+  indexedAt: string;
+  actor?: {
+    did: string;
+    handle: string;
+    displayName?: string;
+    avatar?: string;
+  };
+  createdAt?: string;
+}
+

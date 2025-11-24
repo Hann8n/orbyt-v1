@@ -32,44 +32,11 @@ import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { Post, UserProfile, CommentRecord, Like } from '../../../types';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-interface Post {
-  uri: string;
-  cid?: string;
-  likeCount?: number;
-  indexedAt?: string;
-  comments?: Comment[];
-  likes?: Like[];
-}
-
-interface UserProfile {
-  did: string;
-  avatar?: string;
-  displayName?: string;
-}
-
-interface CommentRecord {
-  text: string;
-  facets?: Array<{
-    index: { byteStart: number; byteEnd: number };
-    features: Array<{
-      $type: string;
-      uri?: string;
-      tag?: string;
-    }>;
-  }>;
-  embed?: {
-    $type: string;
-    images?: {
-      image: any;
-      alt: string;
-    }[];
-  };
 }
 
 export interface Comment {
@@ -100,17 +67,6 @@ export interface Comment {
       aspectRatio?: { width: number; height: number };
     }[];
   };
-}
-
-interface Like {
-  actor: {
-    did: string;
-    handle: string;
-    displayName?: string;
-    avatar?: string;
-  };
-  createdAt: string;
-  uri: string;
 }
 
 type RootStackParamList = {
