@@ -783,7 +783,7 @@ class VideoProcessingService {
 
   /**
    * Merges multiple video segments into a single video file
-   * Uses react-native-compressor for video processing
+   * Uses FFmpeg complex filter for clean merging without glitches
    */
   static async mergeSegments(segments: VideoSegment[]): Promise<ProcessedVideo> {
     if (segments.length === 0) {
@@ -806,48 +806,17 @@ class VideoProcessingService {
       const tempDir = new Directory(Paths.cache, `video_merge_${Date.now()}`);
       tempDir.create({ intermediates: true });
 
-      // Prepare video files for merging
-      const videoPaths: string[] = [];
+      // Calculate total duration
       let totalDuration = 0;
-
-      for (let i = 0; i < segments.length; i++) {
-        const segment = segments[i];
-        let videoPath = this.getVideoPath(segment.video);
-        const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
-        
-        // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
-        if (assetId && Platform.OS === 'ios') {
-          try {
-            const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
-              shouldDownloadFromNetwork: true,
-            });
-            if (assetInfo.localUri) {
-              videoPath = assetInfo.localUri;
-            }
-          } catch (mediaError) {
-            logger.warn('Failed to get asset from MediaLibrary, using provided path', { component: 'VideoProcessingService' });
-          }
-        }
-        
-        // Ensure the video file exists
-        const sourceFile = new File(videoPath);
-        if (!sourceFile.exists) {
-          throw new Error(`Video file not found: ${videoPath}`);
-        }
-
-        // Copy video to temp directory with unique name
-        const tempVideoFile = new File(tempDir, `segment_${i}.mp4`);
-        sourceFile.copy(tempVideoFile);
-
-        videoPaths.push(tempVideoFile.uri);
+      for (const segment of segments) {
         totalDuration += segment.duration;
       }
 
       // Generate output path
       const outputFile = new File(tempDir, `merged_video_${Date.now()}.mp4`);
 
-      // Attempt to merge videos using FFmpeg (pass segments for asset info)
-      const mergedVideoPath = await this.mergeVideosWithCompressor(videoPaths, outputFile.uri, segments);
+      // Use complex filter approach for merging (prevents glitches from mixing different clip types)
+      const mergedVideoPath = await this.mergeSegmentsComplex(segments, outputFile.uri);
 
       // Verify merged file exists
       const mergedFile = new File(mergedVideoPath.replace('file://', ''));
@@ -855,7 +824,7 @@ class VideoProcessingService {
         throw new Error('Merged video file was not created');
       }
 
-      // Analyze merged video to get actual dimensions (since normalization may have changed them)
+      // Analyze merged video to get actual dimensions
       let mergedWidth = this.getVideoWidth(segments[0].video);
       let mergedHeight = this.getVideoHeight(segments[0].video);
       
@@ -876,25 +845,11 @@ class VideoProcessingService {
         }
       }
 
-      // Clean up temporary segment files (but keep the merged video)
-      // The mergeVideosWithCompressor method already cleans up the concat file
-      // We only need to clean up the copied segment files
-      try {
-        for (let i = 0; i < segments.length; i++) {
-          const segmentFile = new File(tempDir, `segment_${i}.mp4`);
-          if (segmentFile.exists) {
-            segmentFile.delete();
-          }
-        }
-      } catch (cleanupError) {
-        logger.warn('Failed to cleanup temp segment files', { component: 'VideoProcessingService' });
-      }
-
       // Ensure file:// prefix for local file
       const mergedPath = mergedVideoPath.startsWith('file://') ? mergedVideoPath : `file://${mergedVideoPath}`;
       return {
         path: mergedPath,
-        duration: totalDuration, // Use the calculated total duration from all segments
+        duration: totalDuration,
         width: mergedWidth,
         height: mergedHeight,
       };
@@ -903,6 +858,174 @@ class VideoProcessingService {
       logger.error('Error merging video segments', error, { component: 'VideoProcessingService' });
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to merge video segments: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Merges multiple video segments using FFmpeg complex filter approach
+   * This method uses a single-pass filter graph to scale, normalize, and concatenate
+   * videos in one operation, avoiding glitches from mixing different clip types
+   * 
+   * @param segments - Array of video segments to merge
+   * @param outputPath - Path where the merged video will be saved
+   * @returns Promise resolving to the output path
+   */
+  private static async mergeSegmentsComplex(
+    segments: VideoSegment[],
+    outputPath: string
+  ): Promise<string> {
+    try {
+      if (segments.length === 0) {
+        throw new Error('No segments to merge');
+      }
+
+      if (segments.length === 1) {
+        // Single segment - return path as-is
+        const videoPath = this.getVideoPath(segments[0].video);
+        return videoPath;
+      }
+
+      if (!FFmpegKit || !ReturnCode) {
+        throw new Error('FFmpegKit is not available');
+      }
+
+      // Analyze all videos to determine target format
+      logger.info('Analyzing videos for complex filter merge', {
+        component: 'VideoProcessingService',
+        segmentCount: segments.length,
+      });
+
+      // Determine target resolution from all segments
+      let targetWidth = 0;
+      let targetHeight = 0;
+
+      for (const segment of segments) {
+        const width = this.getVideoWidth(segment.video);
+        const height = this.getVideoHeight(segment.video);
+        const totalPixels = width * height;
+        const currentTotalPixels = targetWidth * targetHeight;
+        if (totalPixels > currentTotalPixels) {
+          targetWidth = width;
+          targetHeight = height;
+        }
+      }
+
+      // Fallback to standard 9:16 aspect ratio if no valid resolution found
+      if (targetWidth === 0 || targetHeight === 0) {
+        targetWidth = 1080;
+        targetHeight = 1920;
+      }
+
+      logger.info('Target format for complex filter merge', {
+        component: 'VideoProcessingService',
+        resolution: `${targetWidth}x${targetHeight}`,
+      });
+
+      // Normalize paths
+      let normalizedOutput = outputPath.replace('file://', '');
+      if (Platform.OS === 'ios' && !normalizedOutput.startsWith('/')) {
+        normalizedOutput = '/' + normalizedOutput;
+      }
+
+      // Build FFmpeg complex filter command
+      let inputCmd = '';
+      let filterGraph = '';
+      const videoLabels: string[] = [];
+      const audioLabels: string[] = [];
+
+      for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        let videoPath = this.getVideoPath(segment.video);
+
+        // Handle iCloud videos on iOS
+        const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
+        if (assetId && Platform.OS === 'ios') {
+          try {
+            const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
+              shouldDownloadFromNetwork: true,
+            });
+            if (assetInfo.localUri) {
+              videoPath = assetInfo.localUri;
+            }
+          } catch (mediaError) {
+            logger.warn('Failed to get asset from MediaLibrary, using provided path', { 
+              component: 'VideoProcessingService' 
+            });
+          }
+        }
+
+        // Normalize path for FFmpeg
+        let normalizedPath = videoPath.replace('file://', '');
+        if (Platform.OS === 'ios' && !normalizedPath.startsWith('/')) {
+          normalizedPath = '/' + normalizedPath;
+        }
+
+        // Add input to command
+        inputCmd += `-i "${normalizedPath}" `;
+
+        // Build filter chain for this input
+        // Scale to fit target box with aspect ratio maintained, pad with black bars
+        // setsar=1 ensures square pixel aspect ratio (SAR)
+        const videoFilter = `[${i}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v${i}]`;
+        filterGraph += videoFilter + ';';
+        videoLabels.push(`[v${i}]`);
+
+        // Force audio resampling to common format: 44.1kHz stereo
+        // This prevents audio glitches from sample rate mismatches
+        const audioFilter = `[${i}:a]aformat=sample_rates=44100:channel_layouts=stereo[a${i}]`;
+        filterGraph += audioFilter + ';';
+        audioLabels.push(`[a${i}]`);
+      }
+
+      // Add concat filter to merge all normalized streams
+      // n=number of segments, v=1 video stream, a=1 audio stream
+      const concatInputs = videoLabels.join('') + audioLabels.join('');
+      filterGraph += `${concatInputs}concat=n=${segments.length}:v=1:a=1[outv][outa]`;
+
+      // Build final FFmpeg command
+      // -preset ultrafast for quick processing (can use 'medium' for better quality/size)
+      // -c:v libx264: H.264 video codec
+      // -c:a aac: AAC audio codec
+      // -movflags +faststart: optimize for streaming/progressive download
+      const cmd = `${inputCmd}-filter_complex "${filterGraph}" -map "[outv]" -map "[outa]" -c:v libx264 -preset ultrafast -crf 23 -c:a aac -b:a 128k -movflags +faststart "${normalizedOutput}"`;
+
+      logger.info('Executing complex filter merge', {
+        component: 'VideoProcessingService',
+        segmentCount: segments.length,
+        targetResolution: `${targetWidth}x${targetHeight}`,
+      });
+
+      const session = await FFmpegKit.execute(cmd);
+      const returnCode = await session.getReturnCode();
+
+      if (ReturnCode.isSuccess(returnCode)) {
+        // Verify output file exists
+        const outputFile = new File(normalizedOutput);
+        if (!outputFile.exists) {
+          throw new Error('Complex filter merge completed but output file not found');
+        }
+
+        logger.info('Complex filter merge completed successfully', { 
+          component: 'VideoProcessingService' 
+        });
+
+        return normalizedOutput.startsWith('file://') ? normalizedOutput : `file://${normalizedOutput}`;
+      } else {
+        const failStackTrace = await session.getFailStackTrace();
+        const output = await session.getOutput();
+        logger.error('Complex filter merge failed', {
+          component: 'VideoProcessingService',
+          returnCode,
+          failStackTrace,
+          output,
+        });
+        throw new Error(`Complex filter merge failed: ${failStackTrace || output || 'Unknown error'}`);
+      }
+    } catch (error) {
+      logger.error('Error in complex filter merge', error, { 
+        component: 'VideoProcessingService' 
+      });
+      throw error;
     }
   }
 
