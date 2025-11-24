@@ -22,6 +22,7 @@ import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import VerificationBadge from './VerificationBadge';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
+import { sheetStyles } from '../../../utils/sheetStyles';
 
 // Lazy import to break circular dependency
 const AuthorItem = React.lazy(() => import('../../ui/AuthorItem'));
@@ -182,13 +183,13 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
       onDismiss={onDismiss}
       grabber={false}
       FooterComponent={
-        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}>
+        <View style={[sheetStyles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}>
           <TouchableOpacity 
-            style={styles.cancelButton} 
+            style={sheetStyles.cancelButton} 
             onPress={onDismiss}
             activeOpacity={0.7}
           >
-            <Text style={styles.cancelButtonText}>Close</Text>
+            <Text style={sheetStyles.cancelButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
       }
@@ -445,29 +446,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Regular',
     marginBottom: 20,
     textAlign: 'center',
-  },
-  cancelContainer: {
-    alignItems: 'center',
-    paddingTop: 20,
-  },
-  cancelButton: {
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    minHeight: 44,
-    borderWidth: 0,
-    borderColor: 'transparent'
-  },
-  cancelButtonText: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
   },
 });
 

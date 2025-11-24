@@ -26,6 +26,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
 import { useVisibilityOverlay } from '../../hooks';
 import { useVisibilityCoreStore } from '../../core/visibility/visibilityStore';
+import { sheetStyles } from '../../utils/sheetStyles';
 
 // No props needed for global ShareSheet
 interface ShareSheetProps {}
@@ -502,14 +503,14 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       onDismiss={handleDismiss}
       grabber={false}
       FooterComponent={
-        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 
+        <View style={[sheetStyles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 
           <TouchableOpacity 
-            style={styles.cancelButton} 
+            style={sheetStyles.cancelButton} 
             onPress={dismissSheet} 
             activeOpacity={0.7}
             disabled={isSubmitting}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={sheetStyles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
       }
@@ -658,29 +659,6 @@ const styles = StyleSheet.create({
   clearViewOptionActive: {
     backgroundColor: Colors.white,
     borderColor: Colors.white,
-  },
-  cancelContainer: {
-    alignItems: 'center',
-    paddingTop: 20,
-  },
-  cancelButton: {
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    minHeight: 44,
-    borderWidth: 0,
-    borderColor: 'transparent'
-  },
-  cancelButtonText: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
   },
   optionText: {
     color: Colors.lightGray,

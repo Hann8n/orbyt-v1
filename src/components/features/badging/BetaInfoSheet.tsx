@@ -7,6 +7,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import Icon from '../../ui/Icon';
 import BetaBadge from './BetaBadge';
+import { sheetStyles } from '../../../utils/sheetStyles';
 
 interface BetaInfoSheetProps {
   visible: boolean;
@@ -43,9 +44,9 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
       onDismiss={onDismiss}
       grabber={false}
       FooterComponent={
-        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 
-          <TouchableOpacity style={styles.cancelButton} onPress={onDismiss} activeOpacity={0.7}>
-            <Text style={styles.cancelButtonText}>Close</Text>
+        <View style={[sheetStyles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 
+          <TouchableOpacity style={sheetStyles.cancelButton} onPress={onDismiss} activeOpacity={0.7}>
+            <Text style={sheetStyles.cancelButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
       }
@@ -144,29 +145,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Firma-Regular',
     textAlign: 'center',
-  },
-  cancelContainer: {
-    alignItems: 'center',
-    paddingTop: 20,
-  },
-  cancelButton: {
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    minHeight: 44,
-    borderWidth: 0,
-    borderColor: 'transparent',
-  },
-  cancelButtonText: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
   },
 });
 
