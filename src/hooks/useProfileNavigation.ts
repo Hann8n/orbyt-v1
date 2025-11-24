@@ -19,6 +19,8 @@ export const useProfileNavigation = () => {
       }).finally(() => {
         const target = handle.trim();
         if (target) {
+          // Navigate to root navigation to ensure proper stack behavior
+          // This ensures the profile opens from the root stack, not nested within settings
           let rootNav: any = router as any;
           while (rootNav?.getParent?.()) {
             rootNav = rootNav.getParent();

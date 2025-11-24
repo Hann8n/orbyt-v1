@@ -218,13 +218,13 @@ export interface Comment {
 
 export interface Like {
   uri: string;
-  indexedAt: string;
-  actor?: {
+  actor: {
     did: string;
     handle: string;
     displayName?: string;
     avatar?: string;
   };
-  createdAt?: string;
+  createdAt: string;
+  indexedAt?: string;
 }
 

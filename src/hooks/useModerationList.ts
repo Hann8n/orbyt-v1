@@ -70,6 +70,7 @@ export const useModerationList = ({ type }: UseModerationListOptions) => {
       if (type === 'blocked') {
         await AtprotoService.unblockUser(user.did);
       } else {
+        // TODO: Implement unmuteUser in AtprotoService
         // Note: unmuteUser is not implemented yet in AtprotoService
         console.log('Unmute functionality not implemented yet');
       }

@@ -4,8 +4,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import ModerationService from '../services/ModerationService';
-import { feedService } from '../services/FeedService';
-import { createQueryKeys } from './queryClient';
+import feedService, { createQueryKeys } from '../services/FeedService';
 
 /**
  * Hook for invalidating feed and moderation caches
