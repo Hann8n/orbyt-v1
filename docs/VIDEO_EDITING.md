@@ -189,7 +189,7 @@ interface VideoSegment {
   id: string;                          // Unique identifier
   startTime: number;                   // Capture timestamp
   duration: number;                    // Duration in seconds
-  video: VideoFile | ImagePickerAsset; // Video data
+  video: ImagePickerAsset | ExpoCameraVideo; // Video data
   sourceType?: 'camera' | 'gallery';   // Source
   trimStart?: number;                  // Optional trim start
   trimEnd?: number;                    // Optional trim end
@@ -278,7 +278,7 @@ interface VideoSegment {
 - `react-native-draggable-flatlist`: Drag-to-reorder UI
 - `react-native-gesture-handler`: Touch gestures
 - `react-native-video`: Video preview
-- `react-native-vision-camera`: Camera capture
+- `expo-camera`: Camera capture
 - `expo-file-system`: File operations
 - `expo-image-picker`: Gallery selection
 - `expo-media-library`: iCloud video access

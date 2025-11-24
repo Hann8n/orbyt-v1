@@ -5506,11 +5506,6 @@ react-native-video@^6.16.1:
   resolved "https://registry.npmjs.org/react-native-video/-/react-native-video-6.17.0.tgz"
   integrity sha512-sslmQo5paSNLmSJ93t3lkC7kl4yFGIc+LWoBdu44hkL4EKG7OIZNd5iaX+/SedAdqecifJrOZHAozxHzVh3TsQ==
 
-react-native-vision-camera@^4.7.0:
-  version "4.7.3"
-  resolved "https://registry.yarnpkg.com/react-native-vision-camera/-/react-native-vision-camera-4.7.3.tgz#ed03cedabcaec54774f5aa40e69afa30069924d4"
-  integrity sha512-g1/neOyjSqn1kaAa2FxI/qp5KzNvPcF0bnQw6NntfbxH6tm0+8WFZszlgb5OV+iYlB6lFUztCbDtyz5IpL47OA==
-
 react-native-worklets@0.5.1:
   version "0.5.1"
   resolved "https://registry.npmjs.org/react-native-worklets/-/react-native-worklets-0.5.1.tgz"

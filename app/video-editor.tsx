@@ -435,9 +435,9 @@ const VideoEditorScreen: React.FC = () => {
         let clipDuration = clip.duration;
         
         // Create proper video object format expected by VideoProcessingService
-        // VideoProcessingService.getVideoPath() checks for 'uri' first, then 'path'
+        // VideoProcessingService.getVideoPath() checks for 'uri' property
         // For gallery videos (ImagePickerAsset format), use 'uri'
-        // For camera videos (VideoFile format), use 'path'
+        // For camera videos (ExpoCameraVideo format), use 'uri'
         const videoObject: any = {
           duration: clipDuration,
         };
@@ -449,8 +449,8 @@ const VideoEditorScreen: React.FC = () => {
             videoObject.assetId = clip.assetId;
           }
         } else {
-          // VideoFile format - has 'path' property (no file:// prefix)
-          videoObject.path = videoPath;
+          // ExpoCameraVideo format - has 'uri' property
+          videoObject.uri = originalPath; // Keep file:// prefix for uri
         }
         
         console.log(`[VideoEditor] Preparing clip ${index + 1}/${clips.length}:`, {

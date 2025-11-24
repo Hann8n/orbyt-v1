@@ -1,5 +1,4 @@
 import { Platform } from 'react-native';
-import { VideoFile } from 'react-native-vision-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import { File, Directory, Paths } from 'expo-file-system';
@@ -35,7 +34,7 @@ export interface VideoProperties {
 export interface VideoSegment {
   startTime: number;
   duration: number;
-  video: VideoFile | ImagePicker.ImagePickerAsset | ExpoCameraVideo;
+  video: ImagePicker.ImagePickerAsset | ExpoCameraVideo;
   sourceType?: 'camera' | 'gallery';
 }
 
@@ -525,24 +524,20 @@ class VideoProcessingService {
   }
 
   /**
-   * Helper to extract video path from VideoFile, ImagePickerAsset, or ExpoCameraVideo
+   * Helper to extract video path from ImagePickerAsset or ExpoCameraVideo
    */
-  private static getVideoPath(video: VideoFile | ImagePicker.ImagePickerAsset | ExpoCameraVideo): string {
+  private static getVideoPath(video: ImagePicker.ImagePickerAsset | ExpoCameraVideo): string {
     if ('uri' in video) {
       return video.uri;
-    }
-    // VideoFile has 'path' property
-    if ('path' in video) {
-      return video.path;
     }
     // Fallback (shouldn't happen)
     return '';
   }
 
   /**
-   * Helper to extract video duration from VideoFile, ImagePickerAsset, or ExpoCameraVideo
+   * Helper to extract video duration from ImagePickerAsset or ExpoCameraVideo
    */
-  private static getVideoDuration(video: VideoFile | ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
+  private static getVideoDuration(video: ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
     if ('uri' in video) {
       // Check if it's ImagePickerAsset (has duration property)
       if ('duration' in video && video.duration) {
@@ -552,14 +547,13 @@ class VideoProcessingService {
       // ExpoCameraVideo doesn't have duration, return 0 (will be calculated from video file)
       return 0;
     }
-    // VideoFile has duration property
-    return video.duration || 0;
+    return 0;
   }
 
   /**
-   * Helper to extract video width from VideoFile, ImagePickerAsset, or ExpoCameraVideo
+   * Helper to extract video width from ImagePickerAsset or ExpoCameraVideo
    */
-  private static getVideoWidth(video: VideoFile | ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
+  private static getVideoWidth(video: ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
     if ('uri' in video) {
       // Check if it's ImagePickerAsset (has width property)
       if ('width' in video) {
@@ -568,14 +562,13 @@ class VideoProcessingService {
       // ExpoCameraVideo doesn't have width, return 0 (will be calculated from video file)
       return 0;
     }
-    // VideoFile has width property
-    return video.width || 0;
+    return 0;
   }
 
   /**
-   * Helper to extract video height from VideoFile, ImagePickerAsset, or ExpoCameraVideo
+   * Helper to extract video height from ImagePickerAsset or ExpoCameraVideo
    */
-  private static getVideoHeight(video: VideoFile | ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
+  private static getVideoHeight(video: ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
     if ('uri' in video) {
       // Check if it's ImagePickerAsset (has height property)
       if ('height' in video) {
@@ -584,8 +577,7 @@ class VideoProcessingService {
       // ExpoCameraVideo doesn't have height, return 0 (will be calculated from video file)
       return 0;
     }
-    // VideoFile has height property
-    return video.height || 0;
+    return 0;
   }
 
   /**
