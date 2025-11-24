@@ -129,6 +129,12 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   });
   const setFeedHeaderVisibility = useVisibilityCoreStore((state) => state.setFeedHeaderVisibility);
 
+  // Compute activeItemIndex from activeItemUri
+  const activeItemIndex = useMemo(() => {
+    if (!activeItemUri) return -1;
+    return feed.findIndex(item => item.post?.uri === activeItemUri);
+  }, [activeItemUri, feed]);
+
   const updateHeaderVisibility = useCallback((visiblePercent: number) => {
     if (!scopedVisibilityKey || !isHeaderFeed) {
       return;
@@ -193,9 +199,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   // List data with end card
   const listData = useMemo(() => {
     const base = visibleFeed;
-    const shouldAppendEndCard = !isLoading && !isError && !isFetchingNextPage && !hasNextPage && base.length > 0;
-    
-    if (shouldAppendEndCard) {
+    // Always append end card when there are items in the feed
+    if (base.length > 0) {
       return [
         ...base,
         {
@@ -205,7 +210,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       ];
     }
     return base;
-  }, [visibleFeed, isLoading, isError, isFetchingNextPage, hasNextPage]);
+  }, [visibleFeed]);
 
   // Error handling
   const effectiveError = forceError ? new Error('Forced error for testing') : error;
@@ -521,7 +526,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         // FlashList performance optimizations
         removeClippedSubviews={true}
         drawDistance={cardHeight * 2} // Optimize draw distance for better performance
-        estimatedItemSize={cardHeight + 6} // Better item size estimation
         overrideItemLayout={(layout, item, index) => {
           // Account for 6px total margin (3px top + 3px bottom from VideoItem marginVertical: 3)
           layout.span = cardHeight + 6;

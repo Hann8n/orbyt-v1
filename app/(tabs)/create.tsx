@@ -7,14 +7,21 @@ import {
   TouchableOpacity,
   Pressable,
   Dimensions,
-  Image,
   Alert,
   Platform,
   StatusBar,
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Camera, useCameraDevice, useCameraPermission, VideoFile } from 'react-native-vision-camera';
+import { 
+  Camera, 
+  useCameraDevice, 
+  useCameraPermission, 
+  useCameraFormat,
+  useMicrophonePermission,
+  useLocationPermission,
+  VideoFile
+} from 'react-native-vision-camera';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
@@ -28,11 +35,13 @@ import Animated, {
   interpolate,
   Extrapolate
 } from 'react-native-reanimated';
-import Icon, { BackArrowIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Icon, { CloseFillIcon, Loading3FillIcon, ArrowRightFillIcon } from '../../src/components/ui/Icon';
 import BottomToolBar from '../../src/components/ui/BottomToolBar';
-import { isSmallScreen } from '../../src/utils/helpers';
+import { isSmallScreen, getBottomNavBarHeight } from '../../src/utils/helpers';
 import VideoProcessingService, { VideoSegment as ProcessingVideoSegment } from '../../src/services/VideoProcessingService';
 import { Colors } from '../../src/components/ui/UI';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16;
@@ -51,15 +60,18 @@ interface VideoSegment {
 
 const CreateScreen: React.FC = () => {
   const { hasPermission, requestPermission } = useCameraPermission();
-  const [hasMicPermission, setHasMicPermission] = useState(false);
+  const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission();
+  const { hasPermission: hasLocationPermission, requestPermission: requestLocationPermission } = useLocationPermission();
   const [isRecording, setIsRecording] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(false);
   const [recordingProgress, setRecordingProgress] = useState(0);
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
   const [recordedVideo, setRecordedVideo] = useState<VideoFile | null>(null);
   const [segments, setSegments] = useState<VideoSegment[]>([]);
   const [totalDuration, setTotalDuration] = useState(0);
+  const [zoom, setZoom] = useState(1); // Will be updated when device loads
 
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const segmentStartTime = useRef<number>(0);
@@ -68,17 +80,78 @@ const CreateScreen: React.FC = () => {
   const recButtonScale = useSharedValue(1);
   const progressWidth = useSharedValue(0);
   const recordingPulse = useSharedValue(0);
+  const dragDistance = useSharedValue(0);
+  const isZooming = useSharedValue(false);
 
   const device = useCameraDevice(isFrontCamera ? 'front' : 'back');
+  
+  // Optimize camera format for 9:16 aspect ratio
+  const format = useCameraFormat(device, [
+    { videoResolution: { width: 1080, height: 1920 } }, // 9:16 aspect ratio
+    { videoResolution: { width: 720, height: 1280 } }, // Fallback 9:16
+    { fps: 30 }, // Prefer 30fps for better quality/performance balance
+    { videoHdr: false }, // Disable HDR for now (can enable if device supports)
+  ]);
+  
+  // Frame processor setup (requires frame processor plugins for actual processing)
+  // Example: Install @react-native-vision-camera/frame-processors or vision-camera-v3
+  // Then uncomment and customize:
+  /*
+  const frameProcessor = useFrameProcessor((frame) => {
+    'worklet';
+    // Process frames here
+    // Example: Apply filters, detect faces, scan QR codes, etc.
+    // Requires native frame processor plugins
+  }, []);
+  */
+  
   const navigation = useRouter();
+  const insets = useSafeAreaInsets();
+  const bottomNavBarHeight = getBottomNavBarHeight(insets);
+  
+  // Get zoom range from device (clamp maxZoom to reasonable value)
+  const minZoom = device?.minZoom ?? 1;
+  const neutralZoom = device?.neutralZoom ?? 1;
+  const deviceMaxZoom = device?.maxZoom ?? 1;
+  const maxZoom = Math.min(deviceMaxZoom, 16); // Clamp to realistic max like docs suggest
 
   // Request camera permissions on mount
   useEffect(() => {
     const checkPermissions = async () => {
       if (!hasPermission) await requestPermission();
+      if (!hasMicPermission) await requestMicPermission();
+      // Request location permission for GPS tags (optional, non-blocking)
+      if (!hasLocationPermission) {
+        requestLocationPermission().catch(() => {
+          // Silent fail - location is optional
+        });
+      }
     };
     checkPermissions();
-  }, [hasPermission, requestPermission]);
+  }, [hasPermission, requestPermission, hasMicPermission, requestMicPermission, hasLocationPermission, requestLocationPermission]);
+  
+  // Initialize zoom to neutralZoom when device loads
+  useEffect(() => {
+    if (device) {
+      setZoom(neutralZoom);
+    }
+  }, [device, neutralZoom]);
+  
+  // Reset zoom when switching cameras
+  useEffect(() => {
+    if (device) {
+      setZoom(neutralZoom);
+      dragDistance.value = 0;
+      isZooming.value = false;
+    }
+  }, [isFrontCamera, device, neutralZoom, dragDistance, isZooming]);
+
+  // Disable flash when switching to front camera
+  useEffect(() => {
+    if (isFrontCamera && flash === 'on') {
+      setFlash('off');
+    }
+  }, [isFrontCamera]);
 
   // Animated styles
   const animatedRecordingStyle = useAnimatedStyle(() => ({
@@ -121,6 +194,11 @@ const CreateScreen: React.FC = () => {
         if (recordingTimer.current) clearInterval(recordingTimer.current);
         recButtonScale.value = withSpring(1);
         
+        // Reset zoom to neutralZoom when recording stops
+        setZoom(neutralZoom);
+        dragDistance.value = 0;
+        isZooming.value = false;
+        
         // Reset if maximum duration has been reached
         if (totalDuration >= MAX_DURATION) {
           progressWidth.value = withTiming(0);
@@ -133,15 +211,13 @@ const CreateScreen: React.FC = () => {
         setIsRecording(false);
       }
     }
-  }, [isRecording, recButtonScale, progressWidth, totalDuration, stopRecordingPulse]);
+  }, [isRecording, recButtonScale, progressWidth, totalDuration, stopRecordingPulse, device, dragDistance, isZooming, neutralZoom]);
 
   const startRecording = useCallback(async () => {
     if (cameraRef.current && !isRecording && totalDuration < MAX_DURATION) {
       // Ensure microphone permission only when needed
       if (!hasMicPermission) {
-        const micPermission = await Camera.requestMicrophonePermission();
-        const granted = micPermission === 'granted';
-        setHasMicPermission(granted);
+        const granted = await requestMicPermission();
         if (!granted) {
           Alert.alert('Microphone Permission', 'Please enable microphone access to record video with sound.');
           return;
@@ -152,11 +228,13 @@ const CreateScreen: React.FC = () => {
       recButtonScale.value = withSpring(1.2);
       startRecordingPulse();
       
+      // Start at neutralZoom
+      setZoom(neutralZoom);
+      
       segmentStartTime.current = Date.now();
       try {
         cameraRef.current.startRecording({
           fileType: 'mp4',
-          flash: flash,
           onRecordingFinished: (video) => {
             const segmentDuration = (Date.now() - segmentStartTime.current) / 1000;
             if (segmentDuration >= MIN_SEGMENT_DURATION) {
@@ -200,15 +278,29 @@ const CreateScreen: React.FC = () => {
         stopRecordingPulse();
       }
     }
-  }, [isRecording, flash, recButtonScale, progressWidth, totalDuration, stopRecording, hasMicPermission, startRecordingPulse, stopRecordingPulse]);
+  }, [isRecording, flash, recButtonScale, progressWidth, totalDuration, stopRecording, hasMicPermission, requestMicPermission, startRecordingPulse, stopRecordingPulse, neutralZoom]);
+  
+  // Recording gesture - simple press and hold
+  const recordingGesture = Gesture.LongPress()
+    .minDuration(0) // Activate immediately, no delay
+    .onStart(() => {
+      runOnJS(setZoom)(neutralZoom);
+      runOnJS(startRecording)();
+    })
+    .onEnd(() => {
+      runOnJS(setZoom)(neutralZoom);
+      runOnJS(stopRecording)();
+    });
 
   const pickFromGallery = async () => {
     try {
+      setIsLoadingFromGallery(true);
       setIsProcessing(true);
       
       // Request media library permissions before opening picker (required for videos on iOS SDK 54+)
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
+        setIsLoadingFromGallery(false);
         setIsProcessing(false);
         Alert.alert(
           'Permission required',
@@ -252,6 +344,7 @@ const CreateScreen: React.FC = () => {
               'Video too long',
               `Adding this video would exceed the ${MAX_DURATION} second limit. Please select a shorter video.`
             );
+            setIsLoadingFromGallery(false);
             setIsProcessing(false);
             return;
           }
@@ -274,6 +367,7 @@ const CreateScreen: React.FC = () => {
           setRecordingProgress(progress);
         } else {
           Alert.alert('Invalid video', 'Could not determine video duration.');
+          setIsLoadingFromGallery(false);
         }
         
         // Show video info alert for gallery videos
@@ -294,12 +388,18 @@ const CreateScreen: React.FC = () => {
     } catch (e) {
       Alert.alert('Error', 'Failed to access gallery. Please try again.');
     } finally {
+      setIsLoadingFromGallery(false);
       setIsProcessing(false);
     }
   };
 
   const flipCamera = () => setIsFrontCamera(prev => !prev);
-  const toggleFlash = () => setFlash(prev => (prev === 'off' ? 'on' : 'off'));
+  const toggleFlash = () => {
+    // Only allow flash on back camera
+    if (!isFrontCamera && device?.hasFlash) {
+      setFlash(prev => (prev === 'off' ? 'on' : 'off'));
+    }
+  };
 
   const handleToolAction = useCallback((action: string) => {
     switch (action) {
@@ -312,10 +412,13 @@ const CreateScreen: React.FC = () => {
       case 'flash':
         toggleFlash();
         break;
+      case 'delete':
+        deleteLastSegment();
+        break;
       default:
         break;
     }
-  }, [pickFromGallery, flipCamera, toggleFlash]);
+  }, [pickFromGallery, flipCamera, toggleFlash, deleteLastSegment]);
 
   const handleBackPress = () => navigation.back();
 
@@ -336,27 +439,74 @@ const CreateScreen: React.FC = () => {
     if (segments.length === 0) return;
     setIsProcessing(true);
     try {
-      // Convert segments to include IDs for the editor
-      const segmentsWithIds = segments.map((segment, index) => ({
-        ...segment,
-        id: `segment_${Date.now()}_${index}`,
-      }));
-
-      // Navigate to video editor with segments
-      navigation.push({
-        pathname: '/video-editor',
-        params: {
-          segments: JSON.stringify(segmentsWithIds),
-        },
-      });
+      if (segments.length === 1) {
+        const segment = segments[0];
+        const videoPath = 'uri' in segment.video ? segment.video.uri : segment.video.path;
+        
+        if (segment.sourceType === 'gallery') {
+          try {
+            const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
+            const optimizedVideo = await VideoProcessingService.optimizeVideoForPosting(videoPath, assetId);
+            const videoWithUri = { 
+              ...optimizedVideo, 
+              path: optimizedVideo.path.startsWith('file://') ? optimizedVideo.path : `file://${optimizedVideo.path}`
+            };
+            navigation.push({
+              pathname: '/post/[id]',
+              params: { id: 'new', videoPath: videoWithUri.path }
+            });
+            return;
+          } catch (error) {
+            const fallbackPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
+            navigation.push({
+              pathname: '/post/[id]',
+              params: { id: 'new', videoPath: fallbackPath }
+            });
+            return;
+          }
+        }
+        const finalPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
+        navigation.push({
+          pathname: '/post/[id]',
+          params: { id: 'new', videoPath: finalPath }
+        });
+        return;
+      }
+      
+      // Merge all recorded segments into a single file
+      try {
+        const mergedVideo = await mergeSegments(segments);
+        const videoWithUri = { 
+          ...mergedVideo, 
+          path: mergedVideo.path.startsWith('file://') ? mergedVideo.path : `file://${mergedVideo.path}`
+        };
+        navigation.push({
+          pathname: '/post/[id]',
+          params: { id: 'new', videoPath: videoWithUri.path }
+        });
+      } catch (mergeError) {
+        if (segments.length > 0) {
+          const fallbackVideo = segments[0].video;
+          const fallbackPath = 'uri' in fallbackVideo ? fallbackVideo.uri : fallbackVideo.path;
+          Alert.alert(
+            'Merge Failed',
+            'Failed to merge video segments. Using the first segment instead.',
+            [{ text: 'OK' }]
+          );
+          navigation.push({
+            pathname: '/post/[id]',
+            params: { id: 'new', videoPath: fallbackPath.startsWith('file://') ? fallbackPath : `file://${fallbackPath}` }
+          });
+        } else {
+          throw mergeError;
+        }
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to prepare videos. Please try again.');
+      Alert.alert('Error', 'Failed to process videos. Please try again.');
     } finally {
       setIsProcessing(false);
     }
   }, [segments, navigation]);
-
-  const isActive = device && hasPermission;
 
   // Render content based on the state of permissions and device availability
   const renderContent = () => {
@@ -426,56 +576,30 @@ const CreateScreen: React.FC = () => {
             ref={cameraRef}
             style={styles.camera}
             device={device}
-            isActive={isActive || false}
+            format={format}
+            isActive={true}
             enableZoomGesture
+            zoom={zoom}
             audio={hasMicPermission}
             video
+            videoStabilizationMode="cinematic"
+            enableLocation={hasLocationPermission}
+            torch={flash === 'on' && !isFrontCamera && device?.hasFlash ? 'on' : 'off'}
           />
-
+          
           {/* Controls */}
-          <View style={styles.centerButtonContainer}>
-            {segments.length > 0 && (
-              <TouchableOpacity 
-                style={styles.sideButton} 
-                onPress={deleteLastSegment} 
-                disabled={isProcessing}
-                activeOpacity={0.7}
-              >
-                <Image 
-                  source={require('../../src/assets/ButtonCameraDelete_Normal.png')} 
-                  style={styles.sideButtonImage} 
-                />
-              </TouchableOpacity>
-            )}
-            
-            <Pressable 
-              onPressIn={startRecording} 
-              onPressOut={stopRecording} 
-              disabled={isProcessing}
-              style={styles.recordButtonContainer}
-            >
-              <Animated.View style={[styles.recordButton, animatedRecordingStyle]}>
-                {isProcessing ? (
-                  <Loading3FillIcon size={24} color="white" />
-                ) : (
-                  <Image 
-                    source={require('../../src/assets/CaptureButton_Normal.png')} 
-                    style={styles.captureButtonImage} 
-                  />
-                )}
+          <View style={[styles.centerButtonContainer, { bottom: bottomNavBarHeight + (isSmallScreen() ? 20 : 30) }]}>
+            <GestureDetector gesture={recordingGesture}>
+              <Animated.View style={styles.recordButtonContainer}>
+                <Animated.View style={[styles.recordButton, animatedRecordingStyle]}>
+                  {isLoadingFromGallery ? (
+                    <Loading3FillIcon size={32} color="white" />
+                  ) : (
+                    <View style={styles.captureButtonInner} />
+                  )}
+                </Animated.View>
               </Animated.View>
-            </Pressable>
-            
-            {segments.length > 0 && (
-              <TouchableOpacity 
-                style={styles.continueButton} 
-                onPress={finishRecording} 
-                disabled={isProcessing}
-                activeOpacity={0.7}
-              >
-                <Icon name="arrow-forward" size={ICON_SIZES.MEDIUM} color={Colors.white} />
-              </TouchableOpacity>
-            )}
+            </GestureDetector>
           </View>
         </View>
       </>
@@ -484,11 +608,26 @@ const CreateScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-        <BackArrowIcon size={32} color="white" style={{ marginLeft: 1 }} />
+      <TouchableOpacity style={[styles.backButton, { top: insets.top + 10 }]} onPress={handleBackPress}>
+        <CloseFillIcon size={26} color="white" />
       </TouchableOpacity>
+      {segments.length > 0 && (
+        <TouchableOpacity 
+          style={[styles.doneButton, { top: insets.top + 10 }]} 
+          onPress={finishRecording} 
+          disabled={isProcessing}
+          activeOpacity={0.7}
+        >
+          <ArrowRightFillIcon size={30} color="white" />
+        </TouchableOpacity>
+      )}
       {renderContent()}
-      <BottomToolBar mode="create" onToolPress={handleToolAction} flashActive={flash === 'on'} />
+      <BottomToolBar 
+        mode="create" 
+        onToolPress={handleToolAction} 
+        flashActive={flash === 'on'} 
+        hasSegments={segments.length > 0}
+      />
     </SafeAreaView>
   );
 };
@@ -557,7 +696,7 @@ const styles = StyleSheet.create({
   combinedProgressBarContainer: {
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
     position: 'relative',
     overflow: 'hidden',
     minHeight: isSmallScreen() ? 4 : 2,
@@ -566,27 +705,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     height: '100%',
     width: '100%',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
     minHeight: isSmallScreen() ? 4 : 2,
   },
   segmentSeparator: {
     width: 0,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
     height: '100%',
   },
   backButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
-    left: 20,
+    left: 10,
     zIndex: 10,
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneButton: {
+    position: 'absolute',
+    right: 10,
+    zIndex: 10,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   centerButtonContainer: {
     position: 'absolute',
-    bottom: isSmallScreen() ? 30 : 50,
     left: 0,
     right: 0,
     flexDirection: 'row',
@@ -600,39 +746,40 @@ const styles = StyleSheet.create({
   recordButton: {
     width: 80,
     height: 80,
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: Colors.white,
     backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  captureButtonImage: {
-    width: 72,
-    height: 72,
-    resizeMode: 'contain',
+  captureButtonInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
-  sideButton: {
-    width: 60,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
+  captureButtonRecording: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: Colors.red,
   },
-  sideButtonImage: {
-    width: 44,
-    height: 44,
-    resizeMode: 'contain',
+  zoomIndicator: {
+    position: 'absolute',
+    top: -50,
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: Colors.overlayBlack60,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderWidth: 1,
+    borderColor: Colors.overlayWhite10,
   },
-  continueButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: Colors.purple,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.purple,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 4,
+  zoomIndicatorText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontFamily: 'Firma-SemiBold',
   },
 });
 

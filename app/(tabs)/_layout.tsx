@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tabs, router } from 'expo-router';
+import { Tabs, router, useSegments } from 'expo-router';
 import { View, TouchableOpacity, Platform, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
@@ -18,6 +18,8 @@ export default function TabsLayout() {
   const { width } = useWindowDimensions();
   const isSmallDevice = isSmallScreen() || isTablet();
   const { hasUnread } = useUnreadCount();
+  const segments = useSegments();
+  const isCreateScreen = segments.includes('create');
 
   const tabIconSize = Math.round(Math.max(26, Math.min(36, width * 0.085)));
   const tabIconSizeSm = Math.max(24, Math.min(34, tabIconSize - 2));
@@ -133,7 +135,9 @@ export default function TabsLayout() {
           headerShown: false,
           tabBarHideOnKeyboard: true,
           tabBarShowLabel: false,
-          tabBarStyle: {
+          tabBarStyle: isCreateScreen ? {
+            display: 'none',
+          } : {
             backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent',
             height: bottomNavBarHeight,
             paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom - 8, 4) : 4,
@@ -189,18 +193,20 @@ export default function TabsLayout() {
           }} 
         />
       </Tabs>
-      <LinearGradient
-        colors={['transparent', 'rgba(0, 0, 0, 0.2)', 'rgba(0, 0, 0, 0.5)']}
-        locations={[0, 0.6, 1]}
-        style={[
-          styles.gradient,
-          {
-            bottom: 0,
-            height: bottomNavBarHeight + 15,
-          }
-        ]}
-        pointerEvents="none"
-      />
+      {!isCreateScreen && (
+        <LinearGradient
+          colors={['transparent', 'rgba(0, 0, 0, 0.2)', 'rgba(0, 0, 0, 0.5)']}
+          locations={[0, 0.6, 1]}
+          style={[
+            styles.gradient,
+            {
+              bottom: 0,
+              height: bottomNavBarHeight + 15,
+            }
+          ]}
+          pointerEvents="none"
+        />
+      )}
     </View>
   );
 }

@@ -111,6 +111,7 @@ interface UserState {
   unsubscribeFromChannel: (uri: string) => Promise<void>;
   isSubscribedToChannel: (uri: string) => boolean;
   restoreDefaultChannel: (uri: string) => Promise<void>;
+  setDefaultChannel: (uri: string) => Promise<void>;
   getAvailableDefaultChannels: () => Promise<SubscribedChannel[]>;
   reorderChannels: (reorderedChannels: SubscribedChannel[]) => Promise<void>;
   
@@ -163,8 +164,9 @@ interface UserState {
 const STORAGE_KEYS = {
   ACCOUNTS: 'saved_accounts',
   ACTIVE_ACCOUNT: 'active_account_did',
-  SUBSCRIBED_CHANNELS: 'subscribed_channels_v2', // Updated to v2 for AsyncStorage
-  REMOVED_DEFAULTS: 'removed_default_channels_v2', // Updated to v2 for AsyncStorage
+  SUBSCRIBED_CHANNELS: 'subscribed_channels',
+  REMOVED_DEFAULTS: 'removed_default_channels',
+  DEFAULT_CHANNEL_URI: 'default_channel_uri',
   DEVELOPER_MEMBERS: 'developer_members_cache',
 } as const;
 
@@ -173,9 +175,9 @@ const DEVELOPER_LIST_URI = 'at://did:plc:2xrqztnmzlckb3xfuuukupso/app.bsky.graph
 const DEVELOPER_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 // Default channels
-const DEFAULT_CHANNELS = [
-  { uri: 'following', displayName: 'Following', isDefault: true, order: 0, subscribedAt: Date.now() },
-  { uri: 'your-mix', displayName: 'Your Mix', isDefault: true, order: 1, subscribedAt: Date.now() },
+export const DEFAULT_CHANNELS = [
+  { uri: 'following', displayName: 'following', order: 0, subscribedAt: Date.now() },
+  { uri: 'your-mix', displayName: 'your mix', order: 1, subscribedAt: Date.now() },
 ];
 
 // Helper function to get user-scoped storage key
@@ -654,7 +656,6 @@ export const useUserStore = create<UserState>()(
             // Add new channel/feed
             const newChannel: SubscribedChannel = {
               ...channelData,
-              isDefault: false,
               isOrbytChannel: isOrbytChannel(channelData.uri),
               order: channels.length,
               subscribedAt: Date.now(),
@@ -664,7 +665,7 @@ export const useUserStore = create<UserState>()(
           
           // Save to storage using AsyncStorage
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
-          const savedChannels = get().subscribedChannels.filter(ch => !ch.isDefault);
+          const savedChannels = get().subscribedChannels.filter(ch => !DEFAULT_CHANNELS.some(dc => dc.uri === ch.uri));
           await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
 
           // Sync subscribed channels to orbyt profile record (best-effort)
@@ -686,6 +687,10 @@ export const useUserStore = create<UserState>()(
             throw new Error('No active user');
           }
           
+          const channels = get().subscribedChannels;
+          const channelToRemove = channels.find(ch => ch.uri === uri);
+          const wasDefault = channelToRemove?.isDefault;
+          
           // Check if this is a default channel
           const isDefaultChannel = DEFAULT_CHANNELS.some(ch => ch.uri === uri);
           
@@ -701,17 +706,38 @@ export const useUserStore = create<UserState>()(
             }
           }
           
-          const channels = get().subscribedChannels.filter(ch => ch.uri !== uri);
-          set({ subscribedChannels: channels });
+          let updatedChannels = channels.filter(ch => ch.uri !== uri);
+          
+          // If we removed the default channel, set the first remaining channel as default
+          if (wasDefault && updatedChannels.length > 0) {
+            updatedChannels = updatedChannels.map((ch) => ({
+              ...ch,
+              isDefault: ch.uri === updatedChannels[0].uri,
+            }));
+            // Save the new default URI
+            const defaultKey = getUserScopedKey(STORAGE_KEYS.DEFAULT_CHANNEL_URI, currentUser.did);
+            await AsyncStorage.setItem(defaultKey, updatedChannels[0].uri);
+          } else if (wasDefault) {
+            // No channels left, clear default
+            const defaultKey = getUserScopedKey(STORAGE_KEYS.DEFAULT_CHANNEL_URI, currentUser.did);
+            await AsyncStorage.removeItem(defaultKey);
+          }
+          
+          set({ subscribedChannels: updatedChannels });
           
           // Save to storage using AsyncStorage
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
-          const savedChannels = channels.filter(ch => !ch.isDefault);
+          const savedChannels = updatedChannels.filter(ch => !DEFAULT_CHANNELS.some(dc => dc.uri === ch.uri));
           await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
+          
+          // Save channel order separately for all channels
+          const channelOrderKey = getUserScopedKey('channel_order', currentUser.did);
+          const channelOrder = updatedChannels.map(ch => ({ uri: ch.uri, order: ch.order }));
+          await AsyncStorage.setItem(channelOrderKey, JSON.stringify(channelOrder));
 
           // Sync subscribed channels to orbyt profile record (best-effort)
           try {
-            const allUris = get().subscribedChannels.map(ch => ch.uri);
+            const allUris = updatedChannels.map(ch => ch.uri);
             await AtprotoService.updateOrbytProfileChannels(allUris);
           } catch {}
           
@@ -734,22 +760,14 @@ export const useUserStore = create<UserState>()(
            
            const defaultChannel = DEFAULT_CHANNELS.find(ch => ch.uri === uri);
            if (!defaultChannel) {
-             throw new Error('Default channel not found');
+             throw new Error('Built-in channel not found');
            }
            
            const channels = get().subscribedChannels;
            const existingIndex = channels.findIndex(ch => ch.uri === uri);
            
-           if (existingIndex >= 0) {
-             // Update existing channel to be default
-             const updatedChannels = [...channels];
-             updatedChannels[existingIndex] = {
-               ...updatedChannels[existingIndex],
-               isDefault: true,
-             };
-             set({ subscribedChannels: updatedChannels });
-           } else {
-             // Add default channel
+           if (existingIndex < 0) {
+             // Add built-in channel
              set({ subscribedChannels: [...channels, defaultChannel] });
            }
            
@@ -769,7 +787,50 @@ export const useUserStore = create<UserState>()(
            } catch {}
            
          } catch (error) {
-           logger.error('Error restoring default channel', error, { component: 'userStore' });
+           logger.error('Error restoring built-in channel', error, { component: 'userStore' });
+           throw error;
+         }
+       },
+       
+       setDefaultChannel: async (uri: string) => {
+         try {
+           const currentUser = get().currentUser;
+           if (!currentUser?.did) {
+             throw new Error('No active user');
+           }
+           
+           const channels = get().subscribedChannels;
+           const channelIndex = channels.findIndex(ch => ch.uri === uri);
+           
+           if (channelIndex < 0) {
+             throw new Error('Channel not found');
+           }
+           
+           // Set isDefault: true on selected channel, false on others
+           const updatedChannels = channels.map((ch) => ({
+             ...ch,
+             isDefault: ch.uri === uri,
+           }));
+           
+           set({ subscribedChannels: updatedChannels });
+           
+           // Save default channel URI
+           const defaultKey = getUserScopedKey(STORAGE_KEYS.DEFAULT_CHANNEL_URI, currentUser.did);
+           await AsyncStorage.setItem(defaultKey, uri);
+           
+           // Save channel order separately for all channels
+           const channelOrderKey = getUserScopedKey('channel_order', currentUser.did);
+           const channelOrder = updatedChannels.map(ch => ({ uri: ch.uri, order: ch.order }));
+           await AsyncStorage.setItem(channelOrderKey, JSON.stringify(channelOrder));
+
+           // Sync subscribed channels to orbyt profile record (best-effort)
+           try {
+             const allUris = updatedChannels.map(ch => ch.uri);
+             await AtprotoService.updateOrbytProfileChannels(allUris);
+           } catch {}
+           
+         } catch (error) {
+           logger.error('Error setting default channel', error, { component: 'userStore' });
            throw error;
          }
        },
@@ -814,7 +875,7 @@ export const useUserStore = create<UserState>()(
             await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
             
             // Save channel order separately for all channels (including defaults)
-            const channelOrderKey = getUserScopedKey('channel_order_v2', currentUser.did);
+            const channelOrderKey = getUserScopedKey('channel_order', currentUser.did);
             const channelOrder = updatedChannels.map(ch => ({ uri: ch.uri, order: ch.order }));
             await AsyncStorage.setItem(channelOrderKey, JSON.stringify(channelOrder));
 
@@ -863,7 +924,6 @@ export const useUserStore = create<UserState>()(
               // Add new channel/feed
               newChannels.push({
                 ...channelData,
-                isDefault: false,
                 isOrbytChannel: isOrbytChannel(channelData.uri),
                 order: currentChannels.length + newChannels.length,
                 subscribedAt: Date.now(),
@@ -876,7 +936,7 @@ export const useUserStore = create<UserState>()(
           
           // Single storage operation for all changes
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
-          const savedChannels = get().subscribedChannels.filter(ch => !ch.isDefault);
+          const savedChannels = get().subscribedChannels.filter(ch => !DEFAULT_CHANNELS.some(dc => dc.uri === ch.uri));
           await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
 
           // Sync subscribed channels to orbyt profile record (best-effort)
@@ -1289,34 +1349,13 @@ export const useUserStore = create<UserState>()(
           // Load user-specific channel subscriptions
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did);
           const removedKey = getUserScopedKey(STORAGE_KEYS.REMOVED_DEFAULTS, did);
-          const orderKey = getUserScopedKey('channel_order_v2', did);
+          const orderKey = getUserScopedKey('channel_order', did);
+          const defaultKey = getUserScopedKey(STORAGE_KEYS.DEFAULT_CHANNEL_URI, did);
           
-          // Try AsyncStorage first (v2), fallback to SecureStore (v1) for migration
-          let savedChannelsStr = await AsyncStorage.getItem(key);
-          let removedDefaultsStr = await AsyncStorage.getItem(removedKey);
-          let channelOrderStr = await AsyncStorage.getItem(orderKey);
-          
-          // Migration from v1 to v2: if not found in AsyncStorage, try SecureStore
-          if (!savedChannelsStr) {
-            try {
-              const v1Key = getUserScopedKey('subscribed_channels_v1', did);
-              const v1RemovedKey = getUserScopedKey('removed_default_channels_v1', did);
-              const v1OrderKey = getUserScopedKey('channel_order_v1', did);
-              
-              savedChannelsStr = await SecureStore.getItemAsync(v1Key);
-              removedDefaultsStr = await SecureStore.getItemAsync(v1RemovedKey);
-              channelOrderStr = await SecureStore.getItemAsync(v1OrderKey);
-              
-              // If found in v1, migrate to v2
-              if (savedChannelsStr || removedDefaultsStr || channelOrderStr) {
-                if (savedChannelsStr) await AsyncStorage.setItem(key, savedChannelsStr);
-                if (removedDefaultsStr) await AsyncStorage.setItem(removedKey, removedDefaultsStr);
-                if (channelOrderStr) await AsyncStorage.setItem(orderKey, channelOrderStr);
-              }
-            } catch (migrationError) {
-              logger.warn('Migration from v1 to v2 failed', { component: 'userStore', error: migrationError });
-            }
-          }
+          const savedChannelsStr = await AsyncStorage.getItem(key);
+          const removedDefaultsStr = await AsyncStorage.getItem(removedKey);
+          const channelOrderStr = await AsyncStorage.getItem(orderKey);
+          const defaultChannelUri = await AsyncStorage.getItem(defaultKey);
           
           let savedChannels: SubscribedChannel[] = savedChannelsStr ? JSON.parse(savedChannelsStr) : [];
           const removedDefaults: string[] = removedDefaultsStr ? JSON.parse(removedDefaultsStr) : [];
@@ -1331,7 +1370,6 @@ export const useUserStore = create<UserState>()(
                 savedChannels = remoteUris.map((uri: string, idx: number) => ({
                   uri,
                   displayName: '',
-                  isDefault: false,
                   isOrbytChannel: isOrbytChannel(uri),
                   order: idx + 2, // leave 0,1 for defaults
                   subscribedAt: Date.now(),
@@ -1366,6 +1404,22 @@ export const useUserStore = create<UserState>()(
           } else {
             // No saved order, just sort by existing order field
             sortedChannels = allChannels.sort((a, b) => a.order - b.order);
+          }
+          
+          // Apply default channel from storage
+          if (defaultChannelUri) {
+            sortedChannels = sortedChannels.map(ch => ({
+              ...ch,
+              isDefault: ch.uri === defaultChannelUri,
+            }));
+          } else if (sortedChannels.length > 0) {
+            // No saved default, set first channel as default
+            sortedChannels = sortedChannels.map((ch, index) => ({
+              ...ch,
+              isDefault: index === 0,
+            }));
+            // Save the default
+            await AsyncStorage.setItem(defaultKey, sortedChannels[0].uri);
           }
           
           set({ subscribedChannels: sortedChannels });
@@ -1533,6 +1587,7 @@ export const useChannelSubscriptions = () => {
   const unsubscribeFromChannel = useUserStore(state => state.unsubscribeFromChannel);
   const isSubscribedToChannel = useUserStore(state => state.isSubscribedToChannel);
   const restoreDefaultChannel = useUserStore(state => state.restoreDefaultChannel);
+  const setDefaultChannel = useUserStore(state => state.setDefaultChannel);
   const getAvailableDefaultChannels = useUserStore(state => state.getAvailableDefaultChannels);
   const reorderChannels = useUserStore(state => state.reorderChannels);
   const batchSubscribeToChannels = useUserStore(state => state.batchSubscribeToChannels);
@@ -1544,6 +1599,7 @@ export const useChannelSubscriptions = () => {
     unsubscribeFromChannel,
     isSubscribedToChannel,
     restoreDefaultChannel,
+    setDefaultChannel,
     getAvailableDefaultChannels,
     reorderChannels,
     batchSubscribeToChannels,

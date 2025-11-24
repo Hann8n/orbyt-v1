@@ -67,7 +67,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   // Simple unified empty message for no-videos state
   const getNoVideosMessage = (): string => {
     if (isYourMixFeed) {
-      return 'subscribe to channels to see videos here';
+      return 'nothing on the air...';
     }
     return 'nothing here yet...';
   };
@@ -315,6 +315,8 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           <View style={styles.iconContainer}>
             {(isProfileFeed || (feedOption && feedOption.startsWith('hashtag:'))) && type === 'no-videos' ? (
               <Image source={UFOGif} style={styles.ufoGif} />
+            ) : isYourMixFeed && type === 'no-videos' ? (
+              <Image source={TVStaticGif} style={styles.ufoGif} />
             ) : (
               <Icon 
                 name={icon} 
@@ -326,6 +328,17 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
         <Text style={[styles.emptyText, { color: textColor }]}>
           {displayMessage}
         </Text>
+        {isYourMixFeed && type === 'no-videos' && (
+          <TouchableOpacity
+            style={styles.addChannelsButton}
+            onPress={() => {
+              navigation.push('/explore');
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.addChannelsButtonText}>Explore Channels</Text>
+          </TouchableOpacity>
+        )}
         {onRetry && (type === 'error' || type === 'no-connection') && (
           <TouchableOpacity 
             style={[styles.retryButton, { borderColor: textColor }]} 
@@ -447,6 +460,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
     marginLeft: 10,
+  },
+  addChannelsButton: {
+    backgroundColor: Colors.white,
+    borderRadius: BORDER_RADIUS.FULL,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    marginTop: 24,
+  },
+  addChannelsButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontFamily: 'Firma-SemiBold',
   },
 
 });

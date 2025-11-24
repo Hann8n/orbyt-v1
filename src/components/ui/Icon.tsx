@@ -96,6 +96,8 @@ const TELESCOPE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" h
 
 const TV_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/><path fill="currentColor" d="M16.95 4.007a1 1 0 0 0-1.414-1.414l-3.89 3.889a.5.5 0 0 1-.707 0L8.464 4.007A1 1 0 0 0 7.05 5.42l1.414 1.414q.086.086.175.165H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-5.053a4 4 0 0 0 .174-.165zM5 9h14v10H5z"/></g></svg>`;
 
+const STAR_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>star_fill</title><g id="star_fill" fill='none'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='currentColor' d='M10.92 2.868a1.25 1.25 0 0 1 2.16 0l2.795 4.798 5.428 1.176a1.25 1.25 0 0 1 .667 2.054l-3.7 4.141.56 5.525a1.25 1.25 0 0 1-1.748 1.27L12 19.592l-5.082 2.24a1.25 1.25 0 0 1-1.748-1.27l.56-5.525-3.7-4.14a1.25 1.25 0 0 1 .667-2.055l5.428-1.176z'/></g></svg>`;
+
 const SHARE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><path fill="#fff" d="m10.114 4.491l-.203 3.144l-.02.417l-.09.01C5.363 8.582 2 12.366 2 17q0 .686.102 1.357c.279 1.845.489 2.024 1.772.498a9 9 0 0 1 1.04-1.03a7.96 7.96 0 0 1 4.754-1.818l.226-.005l.061 1.229l.166 2.345c.08.804.926 1.353 1.704.914c.352-.198.695-.41 1.04-.62c1.787-1.118 3.46-2.403 5.09-3.738c.96-.8 1.8-1.558 2.516-2.248c.33-.323.66-.646.979-.98c.462-.484.508-1.285.024-1.792c-1.114-1.165-2.688-2.624-4.647-4.172c-1.588-1.242-3.23-2.402-4.97-3.421c-.837-.477-1.667.177-1.743.972"/></g></svg>`;
 
 const INBOX_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>chat_1_fill</title><g id="chat_1_fill" fill='none'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#FFFFFFFF' d='M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10H4a2 2 0 0 1-2-2v-8C2 6.477 6.477 2 12 2m0 12H9a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2m3-4H9a1 1 0 0 0-.117 1.993L9 12h6a1 1 0 0 0 .117-1.993z'/></g></svg>`;
@@ -141,13 +143,16 @@ const HISTORY_ANTICLOCKWISE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" 
 const EXPERIMENTAL_FEEDS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path d="m12.594 23.258l-.012.002l-.071.035l-.02.004l-.014-.004l-.071-.036q-.016-.004-.024.006l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.016-.018m.264-.113l-.014.002l-.184.093l-.01.01l-.003.011l.018.43l.005.012l.008.008l.201.092q.019.005.029-.008l.004-.014l-.034-.614q-.005-.019-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.003-.011l.018-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="M16 2a1 1 0 1 1 0 2v14a4 4 0 0 1-8 0V4a1 1 0 0 1 0-2zm-2 13h-2a1 1 0 1 0 0 2h2zm0-4h-2a1 1 0 0 0-.117 1.993L12 13h2zm0-4h-2a1 1 0 1 0 0 2h2z"/></g></svg>`;
 
 // Gallery Icon SVG
-const GALLERY_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>photo_album_fill</title><g id="photo_album_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#FFFFFFFF' d='M5 3a3 3 0 0 0-3 3v10a2 2 0 0 0 2 2V6a1 1 0 0 1 1-1h14a2 2 0 0 0-2-2zm0 5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v11.333a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zm15 0H7v7.848L10.848 12a1.25 1.25 0 0 1 1.768 0l3.241 3.24.884-.883a1.25 1.25 0 0 1 1.768 0L20 15.848zm-2 3a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0'/></g></svg>`;
+const GALLERY_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>photo_album_2_fill</title><g id="photo_album_2_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='M5 3a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1m0 2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm14 8.686V7H5v12h.929l8.308-8.308a1.25 1.25 0 0 1 1.768 0zM8.5 12a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3'/></g></svg>`;
 
 // Flash Icon SVG
 const FLASH_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>flash_fill</title><g id="flash_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#FFFFFFFF' d='M13.232 1.36c.632-.758 1.863-.24 1.763.742L14.289 9H20a1 1 0 0 1 .768 1.64l-10 12c-.632.758-1.863.24-1.763-.742L9.711 15H4a1 1 0 0 1-.768-1.64z'/></g></svg>`;
 
-// Camera Rotate Icon SVG
-const CAMERA_ROTATE_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>camera_rotate_fill</title><g id="camera_rotate_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#FFFFFFFF' d='M14.586 3A2 2 0 0 1 16 3.586L17.414 5H20a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2.586L8 3.586A2 2 0 0 1 9.414 3zm-5.93 9.5a1 1 0 0 0-.963.693l-.645 2a1 1 0 0 0 1.903.616 4.498 4.498 0 0 0 6.906-.99 1 1 0 1 0-1.713-1.031 2.502 2.502 0 0 1-4.54-.573 1 1 0 0 0-.948-.715M12 8a4.493 4.493 0 0 0-3.857 2.18 1 1 0 1 0 1.714 1.032A2.494 2.494 0 0 1 12 10c1.131 0 2.09.752 2.397 1.785a1 1 0 0 0 1.867.132l.043-.11.645-2a1 1 0 0 0-1.903-.616A4.483 4.483 0 0 0 12 8'/></g></svg>`;
+// Camera Rotate Icon SVG (Refresh icon)
+const CAMERA_ROTATE_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>refresh_4_fill</title><g id="refresh_4_fill" fill='none'><path d='M24 0v24H0V0zM12.594 23.258l-.012.002-.071.035-.02.004-.014-.004-.071-.036c-.01-.003-.019 0-.024.006l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.016-.018m.264-.113-.014.002-.184.093-.01.01-.003.011.018.43.005.012.008.008.201.092c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.003-.011.018-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='M4 9.5A1.5 1.5 0 0 1 5.5 11a5.5 5.5 0 0 0 5.279 5.496L11 16.5h2.382a1.5 1.5 0 0 1 2.065-2.164l.114.103 2.5 2.5a1.494 1.494 0 0 1 .43.89l.009.157v.028a1.49 1.49 0 0 1-.348.947l-.097.105-2.494 2.495a1.5 1.5 0 0 1-2.272-1.947l.093-.114H11A8.5 8.5 0 0 1 2.5 11 1.5 1.5 0 0 1 4 9.5m4.44-7.06a1.5 1.5 0 0 1 2.27 1.946l-.092.114H13a8.5 8.5 0 0 1 8.5 8.5 1.5 1.5 0 1 1-3 0 5.5 5.5 0 0 0-5.279-5.496L13 7.5h-2.382a1.5 1.5 0 0 1-2.065 2.164L8.44 9.56l-2.5-2.5a1.5 1.5 0 0 1-.103-2.008l.103-.114 2.5-2.5Z'/></g></svg>`;
+
+// Delete Back Icon SVG
+const DELETE_BACK_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>delete_back_fill</title><g id="delete_back_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='M8.108 3a3 3 0 0 0-2.544 1.41l-4.08 6.53a2 2 0 0 0 0 2.12l4.08 6.53A3 3 0 0 0 8.108 21H19a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3zm8.427 12.536a1 1 0 0 1-1.414 0L13 13.414l-2.121 2.122a1 1 0 1 1-1.415-1.415L11.586 12 9.464 9.879a1 1 0 0 1 1.415-1.415L13 10.586l2.121-2.122a1 1 0 1 1 1.414 1.415L14.415 12l2.12 2.121a1 1 0 0 1 0 1.415'/></g></svg>`;
 
 // Custom Plus Icon component
 export const PlusIcon: React.FC<{ size: number; color: string; strokeWidth: number }> = ({ 
@@ -660,7 +665,7 @@ export const ExperimentalFeedsIcon: React.FC<{ size: number; color: string; styl
 
 // Custom Gallery Icon component
 export const GalleryIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
-  const svgXml = GALLERY_ICON_SVG.replace(/#FFFFFFFF/g, color);
+  const svgXml = GALLERY_ICON_SVG.replace(/#09244BFF/g, color);
   return (
     <SvgXml 
       xml={svgXml} 
@@ -686,7 +691,20 @@ export const FlashIcon: React.FC<{ size: number; color: string; style?: StylePro
 
 // Custom Camera Rotate Icon component
 export const CameraRotateIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
-  const svgXml = CAMERA_ROTATE_ICON_SVG.replace(/#FFFFFFFF/g, color);
+  const svgXml = CAMERA_ROTATE_ICON_SVG.replace(/#09244BFF/g, color);
+  return (
+    <SvgXml 
+      xml={svgXml} 
+      width={size} 
+      height={size} 
+      style={style}
+    />
+  );
+};
+
+// Custom Delete Back Icon component
+export const DeleteBackIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = DELETE_BACK_ICON_SVG.replace(/#09244BFF/g, color);
   return (
     <SvgXml 
       xml={svgXml} 
@@ -818,10 +836,10 @@ export const DownSmallFillIcon: React.FC<{ size: number; color: string; style?: 
 };
 
 // Custom Close Fill Icon component
-const CLOSE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="m12 14.122l5.303 5.303a1.5 1.5 0 0 0 2.122-2.122L14.12 12l5.304-5.303a1.5 1.5 0 1 0-2.122-2.121L12 9.879L6.697 4.576a1.5 1.5 0 1 0-2.122 2.12L9.88 12l-5.304 5.304a1.5 1.5 0 1 0 2.122 2.12z"/></g></svg>`;
+const CLOSE_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>close_fill</title><g id="close_fill" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='m12 14.122 5.303 5.303a1.5 1.5 0 0 0 2.122-2.122L14.12 12l5.304-5.303a1.5 1.5 0 1 0-2.122-2.121L12 9.879 6.697 4.576a1.5 1.5 0 1 0-2.122 2.12L9.88 12l-5.304 5.304a1.5 1.5 0 1 0 2.122 2.12z'/></g></svg>`;
 
 export const CloseFillIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
-  const svgXml = CLOSE_FILL_ICON_SVG.replace(/#fff/g, color);
+  const svgXml = CLOSE_FILL_ICON_SVG.replace(/#09244BFF/g, color);
   return (
     <SvgXml 
       xml={svgXml} 
@@ -1042,10 +1060,10 @@ export const ChevronRightIcon: React.FC<{ size: number; color: string; style?: S
 };
 
 // Custom Arrow Right Fill Icon component
-const ARROW_RIGHT_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none"><path d="M24 0v24H0V0zM12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.019-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="m15.06 5.283l5.657 5.657a1.5 1.5 0 0 1 0 2.12l-5.656 5.658a1.5 1.5 0 0 1-2.122-2.122l3.096-3.096H4.5a1.5 1.5 0 0 1 0-3h11.535L12.94 7.404a1.5 1.5 0 0 1 2.122-2.121Z"/></g></svg>`;
+const ARROW_RIGHT_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>arrow_right_fill</title><g id="arrow_right_fill" fill='none' fill-rule='nonzero'><path d='M24 0v24H0V0h24ZM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018Zm.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022Zm-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01-.184-.092Z'/><path fill='#09244BFF' d='m15.06 5.283 5.657 5.657a1.5 1.5 0 0 1 0 2.12l-5.656 5.658a1.5 1.5 0 0 1-2.122-2.122l3.096-3.096H4.5a1.5 1.5 0 0 1 0-3h11.535L12.94 7.404a1.5 1.5 0 0 1 2.122-2.121Z'/></g></svg>`;
 
 export const ArrowRightFillIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
-  const svgXml = ARROW_RIGHT_FILL_ICON_SVG.replace(/#fff/g, color);
+  const svgXml = ARROW_RIGHT_FILL_ICON_SVG.replace(/#09244BFF/g, color);
   return (
     <SvgXml 
       xml={svgXml} 
@@ -1372,6 +1390,9 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'camera-rotate' || name === 'camera-rotate-fill') {
       return <CameraRotateIcon size={size} color={color} style={style} />;
     }
+    if (name === 'delete-back' || name === 'delete-back-fill') {
+      return <DeleteBackIcon size={size} color={color} style={style} />;
+    }
     if (name === 'at' || name === 'at-line') {
       return <AtLineIcon size={size} color={color} style={style} />;
     }
@@ -1400,6 +1421,10 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'alert-circle') return <AlertCircleIcon size={size} color={color} style={style} />;
     if (name === 'camera') return <VideoCamera2FillIcon size={size} color={color} style={style} />;
     if (name === 'shuffle') return <ShuffleIcon size={size} color={color} style={style} />;
+    if (name === 'star-fill') {
+      const svgXml = STAR_FILL_ICON_SVG.replace(/currentColor/g, color);
+      return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+    }
     if (name === 'radio-button-on') return <RadioButtonOnIcon size={size} color={color} style={style} />;
     if (name === 'radio-button-off') return <RadioButtonOffIcon size={size} color={color} style={style} />;
     if (name === 'device-tv' || name === 'video-movies-vintage-tv-1') return <TvIcon size={size} color={color} />;

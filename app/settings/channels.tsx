@@ -1,9 +1,8 @@
-import React, { useEffect, useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { Alert, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
-import { FlashList } from '@shopify/flash-list';
 
 import { useSubscribedChannels } from '../../src/hooks/useSubscribedChannels';
 import { Colors } from '../../src/components/ui/UI';
@@ -11,7 +10,9 @@ import { Avatar, Icon } from '../../src/components/ui/UI';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
 import ListHeader from '../../src/components/ui/ListHeader';
+import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
 import { isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash } from '../../src/utils/orbytChannels';
+import { DEFAULT_CHANNELS } from '../../src/stores/userStore';
 
 interface ChannelUser {
   did: string;
@@ -23,6 +24,7 @@ interface ChannelUser {
   isOrbytChannel?: boolean;
   channelColor?: string;
   uri?: string;
+  isDefault?: boolean;
 }
 
 export default function ChannelManagementScreen() {
@@ -33,13 +35,15 @@ export default function ChannelManagementScreen() {
     subscribedChannels: channels,
     reorderChannels,
     unsubscribeFromChannel,
-    restoreDefaultChannel,
+    setDefaultChannel,
     getAvailableDefaultChannels,
+    restoreDefaultChannel,
   } = useSubscribedChannels();
 
-  // Edit mode state
-  const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [selectedChannel, setSelectedChannel] = useState<ChannelUser | null>(null);
+  const [isSheetVisible, setIsSheetVisible] = useState(false);
   const [availableDefaults, setAvailableDefaults] = useState<ChannelUser[]>([]);
+  const [displayedTitle, setDisplayedTitle] = useState<string>('');
 
   // Transform channels data
   const listData = useMemo((): ChannelUser[] => {
@@ -47,10 +51,8 @@ export default function ChannelManagementScreen() {
       // Add default avatars for built-in feeds
       let avatar = channel.avatar;
       if (channel.uri === 'following') {
-        // Use a generic following icon - could be a people/users icon
         avatar = undefined; // Will use fallback icon
       } else {
-        // Use channelGIF for Orbyt channels if available
         avatar = getChannelAvatarUri(channel.uri, channel.avatar);
       }
       
@@ -68,6 +70,7 @@ export default function ChannelManagementScreen() {
         isOrbytChannel: isOrbyt,
         channelColor: orbytChannel?.channelColor,
         uri: channel.uri,
+        isDefault: channel.isDefault,
       };
     });
   }, [channels]);
@@ -80,8 +83,7 @@ export default function ChannelManagementScreen() {
         const transformedDefaults = defaults.map((channel) => {
           const isOrbyt = channel.isOrbytChannel ?? isOrbytChannel(channel.uri);
           const orbytChannel = isOrbyt ? getChannelByUri(channel.uri) : undefined;
-          // Use channelGIF for Orbyt channels if available
-          const avatar = getChannelAvatarUri(channel.uri, channel.avatar);
+          const avatar = channel.uri === 'following' ? undefined : getChannelAvatarUri(channel.uri, channel.avatar);
           return {
             did: channel.uri,
             handle: channel.uri.split('/').pop() || '',
@@ -92,6 +94,7 @@ export default function ChannelManagementScreen() {
             isOrbytChannel: isOrbyt,
             channelColor: orbytChannel?.channelColor,
             uri: channel.uri,
+            isDefault: false,
           };
         });
         setAvailableDefaults(transformedDefaults);
@@ -103,20 +106,46 @@ export default function ChannelManagementScreen() {
   }, [getAvailableDefaultChannels, channels]);
 
   const handleChannelPress = useCallback((channel: ChannelUser) => {
-    if (channel.uri) {
-      const encodedUri = encodeURIComponent(channel.uri);
+    setSelectedChannel(channel);
+    setIsSheetVisible(true);
+    // Set the displayed title immediately
+    if (channel.isOrbytChannel && channel.uri && shouldShowChannelSlash(channel.uri)) {
+      setDisplayedTitle(`/${channel.displayName || channel.handle || 'Unknown channel'}`);
+    } else {
+      setDisplayedTitle(channel.displayName || channel.handle || 'Unknown channel');
+    }
+  }, []);
+
+  const handleSetAsDefault = useCallback(async () => {
+    if (!selectedChannel?.uri) return;
+    
+    try {
+      await setDefaultChannel(selectedChannel.uri);
+      setIsSheetVisible(false);
+      setSelectedChannel(null);
+    } catch (error) {
+      console.error('Error setting default channel:', error);
+      Alert.alert('Error', 'Failed to set default channel. Please try again.');
+    }
+  }, [selectedChannel, setDefaultChannel]);
+
+  const handleViewChannel = useCallback(() => {
+    if (selectedChannel?.uri) {
+      const encodedUri = encodeURIComponent(selectedChannel.uri);
+      setIsSheetVisible(false);
+      setSelectedChannel(null);
       navigation.push(`/channel/${encodedUri}`);
     }
-  }, [navigation]);
+  }, [selectedChannel, navigation]);
 
-  const handleUnsubscribe = useCallback(async (channel: ChannelUser) => {
-    if (!channel.uri) return;
+  const handleUnsubscribe = useCallback(async () => {
+    if (!selectedChannel?.uri) return;
     
-    const isDefaultChannel = ['following'].includes(channel.uri);
-    const title = isDefaultChannel ? 'Remove Default Channel' : 'Unsubscribe from Channel';
-    const message = isDefaultChannel 
-      ? `Remove "${channel.displayName}" from your channels? You can add it back anytime.`
-      : `Are you sure you want to unsubscribe from "${channel.displayName}"?`;
+    const isBuiltInChannel = DEFAULT_CHANNELS.some(ch => ch.uri === selectedChannel.uri);
+    const title = isBuiltInChannel ? 'Remove Built-in Channel' : 'Unsubscribe from Channel';
+    const message = isBuiltInChannel 
+      ? `Remove "${selectedChannel.displayName}" from your channels? You can add it back anytime.`
+      : `Are you sure you want to unsubscribe from "${selectedChannel.displayName}"?`;
     
     Alert.alert(
       title,
@@ -124,12 +153,12 @@ export default function ChannelManagementScreen() {
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: isDefaultChannel ? 'Remove' : 'Unsubscribe',
-          style: 'destructive',
+          text: isBuiltInChannel ? 'Remove' : 'Unsubscribe',
           onPress: async () => {
             try {
-              await unsubscribeFromChannel(channel.uri!);
-              // Channel automatically updated in store
+              await unsubscribeFromChannel(selectedChannel.uri!);
+              setIsSheetVisible(false);
+              setSelectedChannel(null);
             } catch (error) {
               console.error('Error unsubscribing from channel:', error);
               Alert.alert('Error', 'Failed to unsubscribe from channel. Please try again.');
@@ -138,7 +167,7 @@ export default function ChannelManagementScreen() {
         }
       ]
     );
-  }, [unsubscribeFromChannel]);
+  }, [selectedChannel, unsubscribeFromChannel]);
 
   const handleRestoreDefault = useCallback(async (channel: ChannelUser) => {
     if (!channel.uri) return;
@@ -150,16 +179,18 @@ export default function ChannelManagementScreen() {
       const transformedDefaults = defaults.map((ch) => {
         const isOrbyt = ch.isOrbytChannel ?? isOrbytChannel(ch.uri);
         const orbytChannel = isOrbyt ? getChannelByUri(ch.uri) : undefined;
+        const avatar = ch.uri === 'following' ? undefined : getChannelAvatarUri(ch.uri, ch.avatar);
         return {
           did: ch.uri,
           handle: ch.uri.split('/').pop() || '',
           displayName: ch.displayName,
-          avatar: undefined,
+          avatar: avatar,
           description: ch.description,
           isChannel: true,
           isOrbytChannel: isOrbyt,
           channelColor: orbytChannel?.channelColor,
           uri: ch.uri,
+          isDefault: false,
         };
       });
       setAvailableDefaults(transformedDefaults);
@@ -179,16 +210,15 @@ export default function ChannelManagementScreen() {
   const handleDragEnd = useCallback(async ({ data }: { data: ChannelUser[] }) => {
     try {
       const reorderedChannels = data.map((channel, index) => {
-        const isDefaultChannel = ['following'].includes(channel.uri || channel.did);
-        
+        const originalChannel = channels.find(ch => ch.uri === channel.uri);
         return {
           uri: channel.uri || channel.did,
           displayName: channel.displayName || channel.handle || 'Unknown channel',
           description: channel.description,
           avatar: channel.avatar,
-          isDefault: isDefaultChannel,
+          isDefault: originalChannel?.isDefault || false,
           order: index,
-          subscribedAt: Date.now(),
+          subscribedAt: originalChannel?.subscribedAt || Date.now(),
         };
       });
       
@@ -197,32 +227,43 @@ export default function ChannelManagementScreen() {
       console.error('Error reordering channels:', error);
       Alert.alert('Error', 'Failed to reorder channels. Please try again.');
     }
-  }, [reorderChannels]);
+  }, [reorderChannels, channels]);
 
   const renderChannelItem = useCallback(({ item, drag, isActive }: { 
     item: ChannelUser; 
     drag: () => void; 
     isActive: boolean; 
-  }) => (
-    <ScaleDecorator>
-      <TouchableOpacity
-        style={[styles.channelItem, isActive && styles.activeChannelItem]}
-        onPress={() => handleChannelPress(item)}
-        onLongPress={drag}
-        activeOpacity={0.7}
-        disabled={isActive}
-      >
-        <Avatar 
-          uri={item.avatar} 
-          type="channel" 
-          size={40} 
-          ringColor="transparent" 
-          style={styles.channelAvatar}
-          fallbackIcon={item.uri === 'following' ? 'users' : 'tv'}
-          fallbackIconSize={24}
-          fallbackIconColor={item.uri === 'following' ? '#FFFFFF' : Colors.lightGray}
-          profileColors={item.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
-        />
+  }) => {
+    const isBuiltInChannel = DEFAULT_CHANNELS.some(ch => ch.uri === item.uri);
+    const fallbackIcon = item.uri === 'following' ? 'users' : (item.uri === 'your-mix' ? 'shuffle' : 'tv');
+    const fallbackIconColor = item.uri === 'following' ? '#1e3a8a' : (item.uri === 'your-mix' ? '#581c87' : (isBuiltInChannel ? '#FFFFFF' : Colors.lightGray));
+    const profileColors = item.uri === 'following' 
+      ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' }
+      : (item.uri === 'your-mix' 
+        ? { backgroundColor: '#9333ea', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' }
+        : undefined);
+    const showDefaultBadge = item.isDefault;
+
+    return (
+      <ScaleDecorator>
+        <TouchableOpacity
+          style={[styles.channelItem, isActive && styles.activeChannelItem]}
+          onPress={() => handleChannelPress(item)}
+          onLongPress={drag}
+          activeOpacity={0.7}
+          disabled={isActive}
+        >
+          <Avatar 
+            uri={item.avatar} 
+            type="channel" 
+            size={40} 
+            ringColor="transparent" 
+            style={styles.channelAvatar}
+            fallbackIcon={fallbackIcon}
+            fallbackIconSize={24}
+            fallbackIconColor={fallbackIconColor}
+            profileColors={profileColors}
+          />
         <View style={styles.channelContent}>
           {item.isOrbytChannel ? (
             <View style={styles.orbytChannelName}>
@@ -232,11 +273,23 @@ export default function ChannelManagementScreen() {
               <Text style={styles.displayName} numberOfLines={1}>
                 {item.displayName || item.handle || 'Unknown channel'}
               </Text>
+              {showDefaultBadge && (
+                <View style={styles.defaultBadge}>
+                  <Icon name="star-fill" size={14} color={Colors.green} />
+                </View>
+              )}
             </View>
           ) : (
-            <Text style={styles.displayName} numberOfLines={1}>
-              {item.displayName || item.handle || 'Unknown channel'}
-            </Text>
+            <View style={styles.channelNameRow}>
+              <Text style={styles.displayName} numberOfLines={1}>
+                {item.displayName || item.handle || 'Unknown channel'}
+              </Text>
+              {showDefaultBadge && (
+                <View style={styles.defaultBadge}>
+                  <Icon name="star-fill" size={14} color={Colors.green} />
+                </View>
+              )}
+            </View>
           )}
           {item.description && (
             <Text style={styles.description} numberOfLines={2}>
@@ -245,29 +298,18 @@ export default function ChannelManagementScreen() {
           )}
         </View>
         <View style={styles.actionButtons}>
-          {!isEditMode && (
-            <TouchableOpacity
-              style={styles.dragHandle}
-              onPressIn={drag}
-              activeOpacity={0.7}
-            >
-              <Icon name="menu-fill" size={20} color={Colors.lightGray} />
-            </TouchableOpacity>
-          )}
-          {isEditMode && (
-            <TouchableOpacity
-              style={styles.unsubscribeButton}
-              onPress={() => handleUnsubscribe(item)}
-              activeOpacity={0.7}
-              disabled={isActive}
-            >
-              <Icon name="delete-2-fill" size={16} color={Colors.STATUS.ERROR} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.dragHandle}
+            onPressIn={drag}
+            activeOpacity={0.7}
+          >
+            <Icon name="menu-fill" size={20} color={Colors.gray} />
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     </ScaleDecorator>
-  ), [handleChannelPress, handleUnsubscribe, isEditMode]);
+    );
+  }, [handleChannelPress]);
 
   const renderEmpty = useCallback(() => (
     <View style={styles.emptyContainer}>
@@ -297,29 +339,7 @@ export default function ChannelManagementScreen() {
     </View>
   ), [navigation]);
 
-  // No loading state needed - channels are loaded from store
-  if (false) {
-    return (
-      <View style={[styles.container, { backgroundColor: Colors.black }]}>
-        <FlashList
-          data={[]}
-          renderItem={() => null}
-          keyExtractor={() => 'loading'}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={renderListHeader}
-          ListEmptyComponent={() => (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Loading channels...</Text>
-            </View>
-          )}
-          contentContainerStyle={[
-            styles.listContainer,
-            { paddingBottom: insets.bottom + 20 }
-          ]}
-        />
-      </View>
-    );
-  }
+  const sheetTitle = displayedTitle || 'Channel Options';
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.black }]}>
@@ -331,16 +351,24 @@ export default function ChannelManagementScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={renderListHeader}
         ListEmptyComponent={renderEmpty}
-        extraData={isEditMode}
         ListFooterComponent={() => (
-          <View>
-            {availableDefaults.length > 0 && isEditMode && (
-              <View style={styles.restoreSection}>
-                <Text style={[styles.restoreTitle, { marginHorizontal: 20 }]}>Default Channels</Text>
-                {availableDefaults.map((channel) => (
+          availableDefaults.length > 0 ? (
+            <View style={styles.restoreSection}>
+              <Text style={styles.restoreTitle}>Built-in Channels</Text>
+              {availableDefaults.map((channel) => {
+                const isBuiltInChannel = DEFAULT_CHANNELS.some(ch => ch.uri === channel.uri);
+                const fallbackIcon = channel.uri === 'following' ? 'users' : (channel.uri === 'your-mix' ? 'shuffle' : 'tv');
+                const fallbackIconColor = channel.uri === 'following' ? '#1e3a8a' : (channel.uri === 'your-mix' ? '#581c87' : (isBuiltInChannel ? '#FFFFFF' : Colors.lightGray));
+                const profileColors = channel.uri === 'following' 
+                  ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' }
+                  : (channel.uri === 'your-mix' 
+                    ? { backgroundColor: '#9333ea', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' }
+                    : undefined);
+
+                return (
                   <TouchableOpacity
                     key={channel.uri}
-                    style={styles.channelItem}
+                    style={styles.restoreChannelItem}
                     onPress={() => handleRestoreDefault(channel)}
                     activeOpacity={0.7}
                   >
@@ -350,10 +378,10 @@ export default function ChannelManagementScreen() {
                       size={40} 
                       ringColor="transparent" 
                       style={styles.channelAvatar}
-                      fallbackIcon={channel.uri === 'following' ? 'users' : 'tv'}
+                      fallbackIcon={fallbackIcon}
                       fallbackIconSize={24}
-                      fallbackIconColor={channel.uri === 'following' ? '#FFFFFF' : Colors.lightGray}
-                      profileColors={channel.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined}
+                      fallbackIconColor={fallbackIconColor}
+                      profileColors={profileColors}
                     />
                     <View style={styles.channelContent}>
                       {channel.isOrbytChannel ? (
@@ -381,28 +409,48 @@ export default function ChannelManagementScreen() {
                       </TouchableOpacity>
                     </View>
                   </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            <TouchableOpacity
-              onPress={() => setIsEditMode(!isEditMode)}
-              activeOpacity={0.8}
-              style={{ paddingVertical: 20 }}
-            >
-              <Text style={styles.editButtonText}>
-                {isEditMode ? 'Done' : 'Edit'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+                );
+              })}
+            </View>
+          ) : null
         )}
         contentContainerStyle={[
           styles.listContainer,
           { paddingBottom: insets.bottom + 20 }
         ]}
       />
+      
+      <VerticalListSheet
+        visible={isSheetVisible}
+        onDismiss={() => {
+          setIsSheetVisible(false);
+          setSelectedChannel(null);
+        }}
+        title={displayedTitle || 'Channel Options'}
+        showCancelButton={true}
+      >
+        <View style={styles.sheetContent}>
+          {selectedChannel && !selectedChannel.isDefault && (
+            <VerticalListButton
+              label="Set as Default"
+              onPress={handleSetAsDefault}
+            />
+          )}
+          {selectedChannel && !DEFAULT_CHANNELS.some(ch => ch.uri === selectedChannel.uri) && (
+            <VerticalListButton
+              label="View"
+              onPress={handleViewChannel}
+            />
+          )}
+          <VerticalListButton
+            label={DEFAULT_CHANNELS.some(ch => ch.uri === selectedChannel?.uri) ? 'Remove' : 'Unsubscribe'}
+            onPress={handleUnsubscribe}
+          />
+        </View>
+      </VerticalListSheet>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -429,8 +477,6 @@ const styles = StyleSheet.create({
   },
   dragHandle: {
     padding: 8,
-    backgroundColor: hexToRGBA(Colors.lightGray, 0.1),
-    borderRadius: BORDER_RADIUS.SMALL,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
@@ -445,6 +491,11 @@ const styles = StyleSheet.create({
   channelContent: {
     flex: 1,
     justifyContent: 'center',
+  },
+  channelNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
   },
   orbytChannelName: {
     flexDirection: 'row',
@@ -464,18 +515,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Bold',
     flexShrink: 1,
   },
+  defaultBadge: {
+    marginLeft: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   description: {
     color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Regular',
-  },
-  unsubscribeButton: {
-    padding: 8,
-    backgroundColor: hexToRGBA(Colors.STATUS.ERROR, 0.1),
-    borderRadius: BORDER_RADIUS.SMALL,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
   },
   emptyContainer: {
     flex: 1,
@@ -516,39 +564,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
-  },
-  loadingText: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Firma-Medium',
-  },
-  editButtonText: {
-    color: Colors.lightGray,
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
-    marginTop: 8,
-    marginBottom: 12,
+  sheetContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   restoreSection: {
     marginTop: 20,
     paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: hexToRGBA(Colors.lightGray, 0.1),
   },
   restoreTitle: {
     color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-SemiBold',
     marginBottom: 12,
+    marginHorizontal: 20,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  restoreChannelItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: 'transparent',
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   restoreButton: {
     padding: 8,

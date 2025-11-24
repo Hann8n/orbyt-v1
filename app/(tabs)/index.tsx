@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useImperativeHandle, forwardRef, memo } from 'react';
+import React, { useState, useCallback, useImperativeHandle, forwardRef, memo, useMemo, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -8,11 +8,23 @@ import { SwipeableFeedContainer } from '../../src/components';
 import { HomeScreenRef, FeedOption } from '../../src/types';
 import { useVisibilityRouteTracker } from '../../src/hooks';
 import { Colors } from '../../src/components/ui/UI';
+import { useSubscribedChannels } from '../../src/hooks/useSubscribedChannels';
 
 interface HomeScreenProps {}
 
 const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
-  const [currentFeed, setCurrentFeed] = useState<FeedOption>('following');
+  const { subscribedChannels } = useSubscribedChannels();
+  const defaultFeed = useMemo(() => {
+    const defaultChannel = subscribedChannels.find(ch => ch.isDefault);
+    return defaultChannel?.uri || subscribedChannels[0]?.uri;
+  }, [subscribedChannels]);
+  const [currentFeed, setCurrentFeed] = useState<FeedOption>(defaultFeed);
+  
+  useEffect(() => {
+    if (defaultFeed) {
+      setCurrentFeed(defaultFeed);
+    }
+  }, [defaultFeed]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const queryClient = useQueryClient();
   useVisibilityRouteTracker('home', 'index');
