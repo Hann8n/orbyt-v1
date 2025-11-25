@@ -29,13 +29,12 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import VideoPreviewModal from '../../src/components/features/video/Preview/VideoPreviewModal';
 import { Avatar } from '../../src/components/ui/UI';
 import { VerificationBadge } from '../../src/components/features/badging';
-import Icon, { BackArrowIcon, ChevronDownIcon, Loading3FillIcon, InformationLineIcon } from '../../src/components/ui/Icon';
+import Icon, { BackArrowIcon, ChevronDownIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/videoPath';
 
 import { Colors } from '../../src/components/ui/UI';
-import { VideoInfoDisplay } from '../../src/components/ui';
 import AuthorItem from '../../src/components/ui/AuthorItem';
 import { isTablet } from '../../src/utils/helpers';
 import { useCurrentUser, useAccountManagement } from '../../src/stores/userStore';
@@ -569,15 +568,6 @@ const VideoPostScreen: React.FC = () => {
                 <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
                   <BackArrowIcon size={32} color={Colors.white} />
                 </TouchableOpacity>
-                {videoInfo && (
-                  <TouchableOpacity 
-                    onPress={() => setShowVideoInfoSheet(true)} 
-                    style={styles.headerButton}
-                    activeOpacity={0.7}
-                  >
-                    <InformationLineIcon size={32} color={Colors.white} />
-                  </TouchableOpacity>
-                )}
               </View>
                         {/* Description Section */}
           <View style={styles.descriptionSection}>
@@ -1111,21 +1101,6 @@ const VideoPostScreen: React.FC = () => {
           </View>
         </VerticalListSheet>
 
-        {/* Video Info Sheet */}
-        {videoInfo && (
-          <VerticalListSheet
-            visible={showVideoInfoSheet}
-            onDismiss={() => setShowVideoInfoSheet(false)}
-            title="Video Details"
-            snapPoints={['auto']}
-            showCancelButton={true}
-            cancelButtonText="Close"
-          >
-            <VideoInfoDisplay
-              videoInfo={videoInfo.originalInfo}
-            />
-          </VerticalListSheet>
-        )}
       </SafeAreaView>
     );
   }
@@ -1157,15 +1132,6 @@ const VideoPostScreen: React.FC = () => {
             <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
               <BackArrowIcon size={32} color={Colors.white} />
             </TouchableOpacity>
-            {videoInfo && (
-              <TouchableOpacity 
-                onPress={() => setShowVideoInfoSheet(true)} 
-                style={styles.headerButton}
-                activeOpacity={0.7}
-              >
-                <InformationLineIcon size={32} color={Colors.white} />
-              </TouchableOpacity>
-            )}
           </View>
           {/* Video Preview Section */}
           <View style={styles.previewSection}>
@@ -1714,22 +1680,6 @@ const VideoPostScreen: React.FC = () => {
           ))}
         </View>
       </VerticalListSheet>
-
-      {/* Video Info Sheet */}
-      {videoInfo && (
-        <VerticalListSheet
-          visible={showVideoInfoSheet}
-          onDismiss={() => setShowVideoInfoSheet(false)}
-          title="Video Details"
-          snapPoints={['auto']}
-          showCancelButton={true}
-          cancelButtonText="Close"
-        >
-          <VideoInfoDisplay
-            videoInfo={videoInfo.originalInfo}
-          />
-        </VerticalListSheet>
-      )}
 
     </SafeAreaView>
   );
