@@ -28,10 +28,7 @@ import Animated, {
   useSharedValue, 
   withSpring, 
   useAnimatedStyle, 
-  withTiming,
-  runOnJS,
-  interpolate,
-  Extrapolate
+  withTiming
 } from 'react-native-reanimated';
 import Icon, { CloseFillIcon, Loading3FillIcon, ArrowRightFillIcon } from '../../src/components/ui/Icon';
 import BottomToolBar from '../../src/components/ui/BottomToolBar';
@@ -45,8 +42,15 @@ const ASPECT_RATIO = 9 / 16;
 const VIDEO_WIDTH = SCREEN_WIDTH;
 const VIDEO_HEIGHT = VIDEO_WIDTH / ASPECT_RATIO;
 
-const MAX_DURATION = 60; // Maximum total recording duration in seconds
 const MIN_SEGMENT_DURATION = 0.5; // Minimum duration for a segment in seconds
+
+// Duration options in seconds
+const DURATION_OPTIONS = [
+  { value: 6.5, label: '6.5s' },
+  { value: 16, label: '16s' },
+  { value: 60, label: '1m' },
+  { value: 180, label: '3m' },
+] as const;
 
 interface VideoSegment {
   startTime: number;
@@ -60,14 +64,13 @@ const CreateScreen: React.FC = () => {
   const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
   const [isRecording, setIsRecording] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(false);
-  const [recordingProgress, setRecordingProgress] = useState(0);
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
   const [recordedVideo, setRecordedVideo] = useState<{ uri: string } | null>(null);
   const [segments, setSegments] = useState<VideoSegment[]>([]);
   const [totalDuration, setTotalDuration] = useState(0);
-  const [zoom, setZoom] = useState(0); // Expo Camera uses 0-1 range
+  const [selectedDuration, setSelectedDuration] = useState(60); // Default to 60 seconds (1 minute)
 
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const segmentStartTime = useRef<number>(0);
@@ -76,18 +79,13 @@ const CreateScreen: React.FC = () => {
 
   const recButtonScale = useSharedValue(1);
   const progressWidth = useSharedValue(0);
-  const recordingPulse = useSharedValue(0);
-  const dragDistance = useSharedValue(0);
-  const isZooming = useSharedValue(false);
   
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   
-  // Expo Camera zoom is 0-1 range, where 0 is no zoom and 1 is max zoom
-  const minZoom = 0;
-  const neutralZoom = 0;
-  const maxZoom = 1;
+  // Get current max duration from selected option
+  const maxDuration = selectedDuration;
 
   // Request camera permissions on mount
   useEffect(() => {
@@ -98,12 +96,6 @@ const CreateScreen: React.FC = () => {
     checkPermissions();
   }, [cameraPermission, requestCameraPermission, microphonePermission, requestMicrophonePermission]);
   
-  // Reset zoom when switching cameras
-  useEffect(() => {
-    setZoom(neutralZoom);
-    dragDistance.value = 0;
-    isZooming.value = false;
-  }, [isFrontCamera, neutralZoom, dragDistance, isZooming]);
 
   // Disable flash when switching to front camera
   useEffect(() => {
@@ -119,35 +111,14 @@ const CreateScreen: React.FC = () => {
 
   const animatedProgressStyle = useAnimatedStyle(() => ({
     width: `${progressWidth.value}%`,
-  }));
+  }), []);
 
-  const animatedRecordingPulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(recordingPulse.value, [0, 1], [1, 1.1], Extrapolate.CLAMP) }],
-    opacity: interpolate(recordingPulse.value, [0, 1], [0.8, 1], Extrapolate.CLAMP),
-  }));
-
-  // Start recording pulse animation
-  const startRecordingPulse = useCallback(() => {
-    recordingPulse.value = withTiming(1, { duration: 1000 }, () => {
-      recordingPulse.value = withTiming(0, { duration: 1000 }, () => {
-        if (isRecording) {
-          runOnJS(startRecordingPulse)();
-        }
-      });
-    });
-  }, [isRecording, recordingPulse]);
-
-  // Stop recording pulse animation
-  const stopRecordingPulse = useCallback(() => {
-    recordingPulse.value = withTiming(0, { duration: 200 });
-  }, [recordingPulse]);
 
   // Define stopRecording first so that it can be used inside startRecording
   const stopRecording = useCallback(async () => {
     if (cameraRef.current && isRecording) {
       try {
         setIsProcessing(true);
-        stopRecordingPulse();
         
         if (recordingTimer.current) clearInterval(recordingTimer.current);
         recButtonScale.value = withSpring(1);
@@ -171,20 +142,18 @@ const CreateScreen: React.FC = () => {
                 },
               ]);
               setTotalDuration(prev => prev + segmentDuration);
+            } else {
+              // Reset progress bar if segment was too short
+              const progress = (totalDuration / maxDuration) * 100;
+              progressWidth.value = withTiming(progress, { duration: 200 });
             }
             setRecordedVideo(video);
           }
         }
         
-        // Reset zoom to neutralZoom when recording stops
-        setZoom(neutralZoom);
-        dragDistance.value = 0;
-        isZooming.value = false;
-        
         // Reset if maximum duration has been reached
-        if (totalDuration >= MAX_DURATION) {
-          progressWidth.value = withTiming(0);
-          setRecordingProgress(0);
+        if (totalDuration >= maxDuration) {
+          progressWidth.value = withTiming(0, { duration: 200 });
           setSegments([]);
           setTotalDuration(0);
         }
@@ -198,10 +167,10 @@ const CreateScreen: React.FC = () => {
         recordingPromiseRef.current = null;
       }
     }
-  }, [isRecording, recButtonScale, progressWidth, totalDuration, stopRecordingPulse, dragDistance, isZooming, neutralZoom]);
+  }, [isRecording, recButtonScale, progressWidth, totalDuration, maxDuration]);
 
   const startRecording = useCallback(async () => {
-    if (cameraRef.current && !isRecording && totalDuration < MAX_DURATION) {
+    if (cameraRef.current && !isRecording && totalDuration < maxDuration) {
       // Ensure microphone permission only when needed
       if (!microphonePermission?.granted) {
         const result = await requestMicrophonePermission();
@@ -213,57 +182,47 @@ const CreateScreen: React.FC = () => {
       
       setIsRecording(true);
       recButtonScale.value = withSpring(1.2);
-      startRecordingPulse();
-      
-      // Start at neutralZoom
-      setZoom(neutralZoom);
       
       segmentStartTime.current = Date.now();
       try {
         const recordingOptions: CameraRecordingOptions = {
-          maxDuration: MAX_DURATION - totalDuration,
-          mute: !microphonePermission?.granted,
-          videoQuality: '1080p',
+          maxDuration: maxDuration - totalDuration,
         };
         
         recordingPromiseRef.current = cameraRef.current.recordAsync(recordingOptions);
         
-        // Update progress bar at ~60fps
+        // Update progress bar smoothly
         recordingTimer.current = setInterval(() => {
           const currentDuration = totalDuration + ((Date.now() - segmentStartTime.current) / 1000);
-          const progress = (currentDuration / MAX_DURATION) * 100;
+          const progress = (currentDuration / maxDuration) * 100;
           if (progress >= 100) {
             stopRecording();
             if (recordingTimer.current) clearInterval(recordingTimer.current);
-            progressWidth.value = withTiming(100);
+            progressWidth.value = withTiming(100, { duration: 200 });
           } else {
-            setRecordingProgress(progress);
-            progressWidth.value = withTiming(progress);
+            progressWidth.value = withTiming(progress, { duration: 100 });
           }
-        }, 16);
+        }, 50);
       } catch (e) {
         setIsRecording(false);
-        stopRecordingPulse();
         recordingPromiseRef.current = null;
       }
     }
-  }, [isRecording, recButtonScale, progressWidth, totalDuration, stopRecording, microphonePermission, requestMicrophonePermission, startRecordingPulse, stopRecordingPulse, neutralZoom]);
+  }, [isRecording, recButtonScale, progressWidth, totalDuration, stopRecording, microphonePermission, requestMicrophonePermission, maxDuration]);
   
   // Handle press start - begin recording
   const handlePressIn = useCallback(() => {
-    if (!isRecording && totalDuration < MAX_DURATION) {
-      setZoom(neutralZoom);
+    if (!isRecording && totalDuration < maxDuration) {
       startRecording();
     }
-  }, [isRecording, totalDuration, neutralZoom, startRecording]);
+  }, [isRecording, totalDuration, startRecording, maxDuration]);
 
   // Handle press end - stop recording
   const handlePressOut = useCallback(() => {
     if (isRecording) {
-      setZoom(neutralZoom);
       stopRecording();
     }
-  }, [isRecording, neutralZoom, stopRecording]);
+  }, [isRecording, stopRecording]);
 
   const pickFromGallery = async () => {
     try {
@@ -312,10 +271,10 @@ const CreateScreen: React.FC = () => {
         const segmentDuration = asset.duration ? (asset.duration > 1000 ? asset.duration / 1000 : asset.duration) : 0;
         if (segmentDuration > 0) {
           const newTotalDuration = totalDuration + segmentDuration;
-          if (newTotalDuration > MAX_DURATION) {
+          if (newTotalDuration > maxDuration) {
             Alert.alert(
               'Video too long',
-              `Adding this video would exceed the ${MAX_DURATION} second limit. Please select a shorter video.`
+              `Adding this video would exceed the ${maxDuration} second limit. Please select a shorter video.`
             );
             setIsLoadingFromGallery(false);
             setIsProcessing(false);
@@ -335,9 +294,8 @@ const CreateScreen: React.FC = () => {
           await new Promise(resolve => setTimeout(resolve, 100));
           setSegments(prev => [...prev, gallerySegment]);
           setTotalDuration(newTotalDuration);
-          const progress = (newTotalDuration / MAX_DURATION) * 100;
-          progressWidth.value = withTiming(progress);
-          setRecordingProgress(progress);
+          const progress = (newTotalDuration / maxDuration) * 100;
+          progressWidth.value = withTiming(progress, { duration: 300 });
         } else {
           Alert.alert('Invalid video', 'Could not determine video duration.');
           setIsLoadingFromGallery(false);
@@ -374,6 +332,25 @@ const CreateScreen: React.FC = () => {
     }
   };
 
+  const deleteLastSegment = useCallback(() => {
+    if (segments.length > 0) {
+      const newSegments = [...segments];
+      const removedSegment = newSegments.pop();
+      const newTotalDuration = Math.max(0, totalDuration - (removedSegment?.duration || 0));
+      
+      setSegments(newSegments);
+      setTotalDuration(newTotalDuration);
+      
+      // Explicitly reset progress to 0 when all segments are deleted
+      const progress = newSegments.length === 0 ? 0 : (newTotalDuration / maxDuration) * 100;
+      progressWidth.value = withTiming(progress, { duration: 300 });
+    } else if (totalDuration > 0) {
+      // Handle case where there's progress but no segments (e.g., tiny rejected segment)
+      setTotalDuration(0);
+      progressWidth.value = withTiming(0, { duration: 300 });
+    }
+  }, [segments, totalDuration, maxDuration, progressWidth]);
+
   const handleToolAction = useCallback((action: string) => {
     switch (action) {
       case 'gallery':
@@ -395,27 +372,18 @@ const CreateScreen: React.FC = () => {
 
   const handleBackPress = () => navigation.back();
 
-  const deleteLastSegment = () => {
-    if (segments.length > 0) {
-      const newSegments = [...segments];
-      const removedSegment = newSegments.pop();
-      setSegments(newSegments);
-      const newTotalDuration = totalDuration - (removedSegment?.duration || 0);
-      setTotalDuration(newTotalDuration);
-      const progress = (newTotalDuration / MAX_DURATION) * 100;
-      progressWidth.value = withTiming(progress);
-      setRecordingProgress(progress);
-    }
-  };
-
   const finishRecording = useCallback(async () => {
     if (segments.length === 0) return;
     setIsProcessing(true);
     try {
       // Prepare segments data for video editor
       const segmentsData = segments.map(segment => {
-        const videoPath = 'uri' in segment.video ? segment.video.uri : segment.video.path;
-        const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
+        const videoPath = 'uri' in segment.video 
+          ? segment.video.uri 
+          : (segment.video as ImagePicker.ImagePickerAsset).uri;
+        const assetId = 'uri' in segment.video 
+          ? null 
+          : (segment.video as ImagePicker.ImagePickerAsset).assetId || null;
         return {
           videoPath: videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`,
           assetId,
@@ -461,34 +429,14 @@ const CreateScreen: React.FC = () => {
     return (
       <>
         {/* Progress Bar */}
-        <View style={styles.progressBarOverlay}>
+        <View style={[styles.progressBarOverlay, { height: insets.top }]}>
           <View style={styles.combinedProgressBarContainer}>
-            <View style={styles.progressSegmentsContainer}>
-              {segments.map((segment, index) => (
-                <React.Fragment key={`segment-${index}-${segment.startTime}`}>
-                  {index > 0 && <View style={styles.segmentSeparator} />}
-                  <View
-                    style={{
-                      width: `${(segment.duration / MAX_DURATION) * 100}%`,
-                      height: '100%',
-                      backgroundColor: Colors.purple,
-                    }}
-                  />
-                </React.Fragment>
-              ))}
-              {isRecording && (
-                <Animated.View
-                  style={[
-                    {
-                      width: `${recordingProgress - ((totalDuration / MAX_DURATION) * 100)}%`,
-                      height: '100%',
-                      backgroundColor: Colors.red,
-                    },
-                    animatedRecordingPulseStyle
-                  ]}
-                />
-              )}
-            </View>
+            <Animated.View
+              style={[
+                styles.progressBarFill,
+                animatedProgressStyle
+              ]}
+            />
           </View>
         </View>
 
@@ -501,7 +449,7 @@ const CreateScreen: React.FC = () => {
             facing={isFrontCamera ? 'front' : 'back'}
             mode="video"
             enableTorch={flash === 'on' && !isFrontCamera}
-            zoom={zoom}
+            zoom={0}
             mute={!microphonePermission?.granted}
             videoQuality="1080p"
             ratio="16:9"
@@ -533,6 +481,40 @@ const CreateScreen: React.FC = () => {
       <TouchableOpacity style={[styles.backButton, { top: insets.top + 10 }]} onPress={handleBackPress}>
         <CloseFillIcon size={26} color="white" />
       </TouchableOpacity>
+      
+      {/* Duration Selector */}
+      {!isRecording && segments.length === 0 && (
+        <View style={[styles.durationSelector, { top: insets.top + 10 }]}>
+          {DURATION_OPTIONS.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.durationOption,
+                selectedDuration === option.value && styles.durationOptionSelected,
+              ]}
+              onPress={() => {
+                // Only allow changing duration if not recording and no segments exist
+                if (!isRecording && segments.length === 0) {
+                  setSelectedDuration(option.value);
+                }
+              }}
+              disabled={isRecording || segments.length > 0}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.durationOptionText,
+                  selectedDuration === option.value && styles.durationOptionTextSelected,
+                  (isRecording || segments.length > 0) && styles.durationOptionTextDisabled,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+      
       {segments.length > 0 && (
         <TouchableOpacity 
           style={[styles.doneButton, { top: insets.top + 10 }]} 
@@ -548,7 +530,7 @@ const CreateScreen: React.FC = () => {
         mode="create" 
         onToolPress={handleToolAction} 
         flashActive={flash === 'on'} 
-        hasSegments={segments.length > 0}
+        hasSegments={totalDuration > 0}
       />
     </SafeAreaView>
   );
@@ -612,7 +594,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: isSmallScreen() ? 20 : (SCREEN_HEIGHT - VIDEO_HEIGHT) / 2.6,
     zIndex: 999,
   },
   combinedProgressBarContainer: {
@@ -621,19 +602,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     position: 'relative',
     overflow: 'hidden',
-    minHeight: isSmallScreen() ? 4 : 2,
   },
-  progressSegmentsContainer: {
-    flexDirection: 'row',
+  progressBarFill: {
     height: '100%',
-    width: '100%',
-    backgroundColor: Colors.black,
-    minHeight: isSmallScreen() ? 4 : 2,
-  },
-  segmentSeparator: {
-    width: 0,
-    backgroundColor: Colors.black,
-    height: '100%',
+    backgroundColor: Colors.purple,
+    borderRadius: 0,
   },
   backButton: {
     position: 'absolute',
@@ -643,6 +616,38 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  durationSelector: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    height: 44,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  durationOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  durationOptionSelected: {
+    backgroundColor: Colors.white,
+  },
+  durationOptionText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontFamily: 'Firma-Medium',
+  },
+  durationOptionTextSelected: {
+    color: Colors.black,
+    fontFamily: 'Firma-SemiBold',
+  },
+  durationOptionTextDisabled: {
+    opacity: 0.5,
   },
   doneButton: {
     position: 'absolute',
@@ -686,22 +691,6 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 8,
     backgroundColor: Colors.red,
-  },
-  zoomIndicator: {
-    position: 'absolute',
-    top: -50,
-    alignSelf: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: Colors.overlayBlack60,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    borderWidth: 1,
-    borderColor: Colors.overlayWhite10,
-  },
-  zoomIndicatorText: {
-    color: Colors.white,
-    fontSize: 14,
-    fontFamily: 'Firma-SemiBold',
   },
 });
 

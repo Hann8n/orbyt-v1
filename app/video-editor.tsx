@@ -417,95 +417,48 @@ const VideoEditorScreen: React.FC = () => {
       return;
     }
 
-    if (clips.length === 1) {
-      // Single clip - use it directly
-      setMergedVideoPath(clips[0].videoPath);
-      return;
-    }
-
     setIsMerging(true);
     try {
       const { default: VideoProcessingService } = await import('../src/services/VideoProcessingService');
       
-      // Convert clips to VideoSegment format for merging
-      const processingSegments = clips.map((clip, index) => {
-        // Handle trimmed clips - keep original path format
-        const originalPath = clip.videoPath;
-        let videoPath = originalPath.replace('file://', '');
-        let clipDuration = clip.duration;
-        
-        // Create proper video object format expected by VideoProcessingService
-        // VideoProcessingService.getVideoPath() checks for 'uri' property
-        // For gallery videos (ImagePickerAsset format), use 'uri'
-        // For camera videos (ExpoCameraVideo format), use 'uri'
+      // Convert clips to VideoSegment format
+      const processingSegments = clips.map((clip) => {
         const videoObject: any = {
-          duration: clipDuration,
+          uri: clip.videoPath,
+          duration: clip.duration,
         };
         
-        if (clip.sourceType === 'gallery' || clip.assetId) {
-          // ImagePickerAsset format - has 'uri' property
-          videoObject.uri = originalPath; // Keep file:// prefix for uri
-          if (clip.assetId) {
-            videoObject.assetId = clip.assetId;
-          }
-        } else {
-          // ExpoCameraVideo format - has 'uri' property
-          videoObject.uri = originalPath; // Keep file:// prefix for uri
+        if (clip.assetId) {
+          videoObject.assetId = clip.assetId;
         }
-        
-        console.log(`[VideoEditor] Preparing clip ${index + 1}/${clips.length}:`, {
-          originalPath,
-          videoPath,
-          duration: clipDuration,
-          sourceType: clip.sourceType,
-          hasAssetId: !!clip.assetId,
-          videoObjectKeys: Object.keys(videoObject),
-        });
         
         return {
           startTime: 0,
-          duration: clipDuration,
+          duration: clip.duration,
           video: videoObject,
           sourceType: clip.sourceType,
         };
       });
-
-      console.log(`[VideoEditor] Merging ${processingSegments.length} clips...`);
       
-      // Merge clips using FFmpeg for seamless concatenation
-      const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
-      const mergedPath = mergedVideo.path.startsWith('file://') 
-        ? mergedVideo.path 
-        : `file://${mergedVideo.path}`;
+      // Process clips (merges multiple or normalizes single)
+      const processedVideo = await VideoProcessingService.mergeSegments(processingSegments);
+      const processedPath = processedVideo.path.startsWith('file://') 
+        ? processedVideo.path 
+        : `file://${processedVideo.path}`;
       
-      console.log(`[VideoEditor] Merge complete!`, {
-        mergedPath,
-        duration: mergedVideo.duration,
-        width: mergedVideo.width,
-        height: mergedVideo.height,
-      });
-      
-      // Verify the merged file exists
-      const normalizedMergedPath = mergedPath.replace('file://', '');
-      const mergedFile = new File(normalizedMergedPath);
-      if (!mergedFile.exists) {
-        throw new Error(`Merged video file not found at: ${normalizedMergedPath}`);
+      // Verify processed file exists
+      const processedFile = new File(processedPath.replace('file://', ''));
+      if (!processedFile.exists) {
+        throw new Error(`Processed video file not found at: ${processedPath}`);
       }
       
-      console.log(`[VideoEditor] Merged file verified at: ${normalizedMergedPath}`);
-      
-      setMergedVideoPath(mergedPath);
+      setMergedVideoPath(processedPath);
     } catch (error) {
-      console.error('[VideoEditor] Error merging clips:', error);
       Alert.alert(
-        'Merge Error', 
-        `Failed to merge clips: ${error instanceof Error ? error.message : 'Unknown error'}. Using first clip.`
+        'Processing Error', 
+        `Failed to process video: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
-      // Fallback to first clip if merge fails
-      if (clips.length > 0) {
-        console.log('[VideoEditor] Falling back to first clip:', clips[0].videoPath);
-        setMergedVideoPath(clips[0].videoPath);
-      }
+      setMergedVideoPath(null);
     } finally {
       setIsMerging(false);
     }
@@ -524,14 +477,6 @@ const VideoEditorScreen: React.FC = () => {
     ? (currentVideoPath.startsWith('file://') ? currentVideoPath : `file://${currentVideoPath}`)
     : '';
 
-  // Debug: Log current video URI
-  useEffect(() => {
-    if (videoUri) {
-      console.log('[VideoEditor] Current video URI:', videoUri);
-      console.log('[VideoEditor] Merged video path:', mergedVideoPath);
-      console.log('[VideoEditor] Number of clips:', clips.length);
-    }
-  }, [videoUri, mergedVideoPath, clips.length]);
 
   // Cleanup temporary files
   useEffect(() => {
@@ -577,11 +522,9 @@ const VideoEditorScreen: React.FC = () => {
         throw new Error(`Invalid temp path generated: ${tempPath}`);
       }
       
-      console.log('[getTempFilePath] Generated path:', tempPath);
       tempFilesRef.current.push(tempPath);
       return tempPath;
     } catch (error) {
-      console.warn('[getTempFilePath] New API failed, using fallback:', error);
       // Fallback to old API if new API fails
       const timestamp = Date.now();
       const random = Math.random().toString(36).substring(7);
@@ -605,7 +548,6 @@ const VideoEditorScreen: React.FC = () => {
         throw new Error(`Invalid temp path generated: ${tempPath}`);
       }
       
-      console.log('[getTempFilePath] Fallback path:', tempPath);
       tempFilesRef.current.push(tempPath);
       return tempPath;
     }
@@ -1016,7 +958,9 @@ const VideoEditorScreen: React.FC = () => {
               {isMerging && (
                 <View style={styles.loadingOverlay}>
                   <Loading3FillIcon size={48} color={Colors.white} />
-                  <Text style={styles.mergingText}>Merging clips...</Text>
+                  <Text style={styles.mergingText}>
+                    {clips.length > 1 ? 'Merging clips...' : 'Processing video...'}
+                  </Text>
                 </View>
               )}
               {videoUri && !isMerging && mergedVideoPath && (
@@ -1025,7 +969,7 @@ const VideoEditorScreen: React.FC = () => {
                   ref={videoRef}
                   source={{ uri: videoUri }}
                   style={styles.video}
-                  resizeMode="cover"
+                  resizeMode="contain"
                   paused={!isPlaying}
                   repeat={true}
                   muted={false}
@@ -1269,7 +1213,7 @@ const styles = StyleSheet.create({
     width: VIDEO_WIDTH,
     height: VIDEO_HEIGHT,
     alignSelf: 'center',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -1285,7 +1229,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
     zIndex: 2,
   },
   errorOverlay: {
@@ -1296,7 +1240,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
     zIndex: 3,
   },
   errorText: {
@@ -1308,6 +1252,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: Colors.black,
   },
   noVideoText: {
     color: Colors.lightGray,

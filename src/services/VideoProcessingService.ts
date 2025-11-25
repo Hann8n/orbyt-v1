@@ -535,6 +535,15 @@ class VideoProcessingService {
   }
 
   /**
+   * Strips fragment identifiers (#...) from file paths
+   * iOS asset URIs may include fragment identifiers that need to be removed
+   */
+  private static stripFragment(path: string): string {
+    const fragmentIndex = path.indexOf('#');
+    return fragmentIndex >= 0 ? path.substring(0, fragmentIndex) : path;
+  }
+
+  /**
    * Helper to extract video duration from ImagePickerAsset or ExpoCameraVideo
    */
   private static getVideoDuration(video: ImagePicker.ImagePickerAsset | ExpoCameraVideo): number {
@@ -739,15 +748,16 @@ class VideoProcessingService {
       // Analyze input video properties
       const inputProps = await this.analyzeVideoProperties(inputPath);
       
-      // Check if normalization is needed
+      // Check if normalization is needed (skip if already matches target format)
+      const isMp4Container = normalizedInput.toLowerCase().endsWith('.mp4');
       const needsNormalization = 
+        !isMp4Container ||
         inputProps.codec !== 'h264' ||
         inputProps.width !== targetWidth ||
         inputProps.height !== targetHeight ||
         Math.abs(inputProps.frameRate - targetFrameRate) > 0.5;
 
       if (!needsNormalization) {
-        // Video already matches target format, just copy it
         const inputFile = new File(normalizedInput);
         const outputFile = new File(normalizedOutput);
         inputFile.copy(outputFile);
@@ -759,23 +769,8 @@ class VideoProcessingService {
       const targetBitrate = VIDEO_QUALITY_STANDARDS[qualityStandard]?.bitrate || 4000000;
 
       // Build FFmpeg command for normalization
-      // -vf scale: resize to target resolution, maintain aspect ratio with padding if needed
-      // -r: set frame rate
-      // -c:v libx264: use H.264 codec
-      // -preset medium: balance between speed and quality
-      // -crf 23: constant rate factor for quality (alternative to bitrate)
-      // -c:a aac: encode audio to AAC
-      // -movflags +faststart: optimize for streaming
       const scaleFilter = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2`;
       const ffmpegCommand = `-i "${normalizedInput}" -vf "${scaleFilter}" -r ${targetFrameRate} -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -movflags +faststart "${normalizedOutput}"`;
-
-      logger.info('Normalizing video format', {
-        component: 'VideoProcessingService',
-        input: normalizedInput,
-        output: normalizedOutput,
-        targetResolution: `${targetWidth}x${targetHeight}`,
-        targetFrameRate,
-      });
 
       const session = await FFmpegKit.execute(ffmpegCommand);
       const returnCode = await session.getReturnCode();
@@ -809,6 +804,7 @@ class VideoProcessingService {
    * Merges multiple video segments into a single video file
    * Uses FFmpeg complex filter for clean merging without audio/video sync glitches
    * from mixing different clip formats (camera vs uploaded, variable vs fixed frame rates)
+   * Single videos are normalized for standardization even if they don't need merging
    */
   static async mergeSegments(segments: VideoSegment[]): Promise<ProcessedVideo> {
     if (segments.length === 0) {
@@ -816,13 +812,63 @@ class VideoProcessingService {
     }
 
     if (segments.length === 1) {
-      // For single segment, just return the video as-is
+      // For single segment, normalize it for standardization
       const segment = segments[0];
+      const videoPath = this.getVideoPath(segment.video);
+      
+      // Handle iCloud videos on iOS
+      let localVideoPath = videoPath;
+      const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
+      if (assetId && Platform.OS === 'ios') {
+        try {
+          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
+            shouldDownloadFromNetwork: true,
+          });
+          if (assetInfo.localUri) {
+            localVideoPath = assetInfo.localUri;
+          }
+        } catch (mediaError) {
+          logger.warn('Failed to get asset from MediaLibrary, using provided path', { 
+            component: 'VideoProcessingService' 
+          });
+        }
+      }
+      
+      // Strip fragment identifier from path (iOS asset URIs may include #...)
+      localVideoPath = this.stripFragment(localVideoPath);
+      
+      // Analyze video to determine target resolution
+      const asset = 'assetId' in segment.video ? segment.video as ImagePicker.ImagePickerAsset : undefined;
+      const videoProps = await this.analyzeVideoProperties(localVideoPath, asset);
+      const targetWidth = videoProps.width > 0 ? videoProps.width : 1080;
+      const targetHeight = videoProps.height > 0 ? videoProps.height : 1920;
+      
+      // Normalize single video to MP4 container with H.264 codec for compatibility
+      const tempDir = new Directory(Paths.cache, `video_normalize_${Date.now()}`);
+      tempDir.create({ intermediates: true });
+      const outputFile = new File(tempDir, `normalized_${Date.now()}.mp4`);
+      
+      const normalizedPath = await this.normalizeVideoFormat(
+        localVideoPath,
+        outputFile.uri,
+        targetWidth,
+        targetHeight,
+        MERGE_TARGET_FPS
+      );
+      
+      const finalPath = normalizedPath.startsWith('file://') ? normalizedPath : `file://${normalizedPath}`;
+      
+      // Verify normalized file exists
+      const normalizedFile = new File(finalPath.replace('file://', ''));
+      if (!normalizedFile.exists) {
+        throw new Error('Normalized video file was not created');
+      }
+      
       return {
-        path: this.getVideoPath(segment.video),
+        path: finalPath,
         duration: this.getVideoDuration(segment.video),
-        width: this.getVideoWidth(segment.video),
-        height: this.getVideoHeight(segment.video),
+        width: targetWidth,
+        height: targetHeight,
       };
     }
 
@@ -981,7 +1027,7 @@ class VideoProcessingService {
 
         // Normalize path for FFmpeg
         // Remove fragment identifier (#...) that iOS gallery URIs may contain
-        let normalizedPath = videoPath.replace('file://', '').split('#')[0];
+        let normalizedPath = this.stripFragment(videoPath.replace('file://', ''));
         if (Platform.OS === 'ios' && !normalizedPath.startsWith('/')) {
           normalizedPath = '/' + normalizedPath;
         }
