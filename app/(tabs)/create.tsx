@@ -34,6 +34,7 @@ import Icon, { CloseFillIcon, Loading3FillIcon, ArrowRightFillIcon } from '../..
 import BottomToolBar from '../../src/components/ui/BottomToolBar';
 import { isSmallScreen, getBottomNavBarHeight } from '../../src/utils/helpers';
 import VideoProcessingService from '../../src/services/VideoProcessingService';
+import { debugVideoPath } from '../../src/utils/videoPath';
 import { Colors } from '../../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -149,7 +150,9 @@ const CreateScreen: React.FC = () => {
           const video = await recordingPromiseRef.current;
           if (video) {
             const segmentDuration = (Date.now() - segmentStartTime.current) / 1000;
+            let updatedDuration: number | null = null;
             if (segmentDuration >= MIN_SEGMENT_DURATION) {
+              updatedDuration = totalDuration + segmentDuration;
               setSegments(prev => [
                 ...prev,
                 {
@@ -159,21 +162,20 @@ const CreateScreen: React.FC = () => {
                   sourceType: 'camera',
                 },
               ]);
-              setTotalDuration(prev => prev + segmentDuration);
+              setTotalDuration(updatedDuration);
             } else {
               // Reset progress bar if segment was too short
               const progress = (totalDuration / maxDuration) * 100;
               progressWidth.value = withTiming(progress, { duration: 200 });
             }
             setRecordedVideo(video);
+            
+            if (updatedDuration !== null && updatedDuration >= maxDuration) {
+              progressWidth.value = withTiming(0, { duration: 200 });
+              setSegments([]);
+              setTotalDuration(0);
+            }
           }
-        }
-        
-        // Reset if maximum duration has been reached
-        if (totalDuration >= maxDuration) {
-          progressWidth.value = withTiming(0, { duration: 200 });
-          setSegments([]);
-          setTotalDuration(0);
         }
         
         setIsProcessing(false);
@@ -270,21 +272,8 @@ const CreateScreen: React.FC = () => {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
         
-        // Ensure video is downloaded from iCloud using MediaLibrary
-        let videoUri = asset.uri;
-        if (asset.assetId && Platform.OS === 'ios') {
-          try {
-            const mediaAsset = await MediaLibrary.getAssetInfoAsync(asset.assetId, {
-              shouldDownloadFromNetwork: true,
-            });
-            if (mediaAsset.localUri) {
-              videoUri = mediaAsset.localUri;
-            }
-          } catch (mediaError) {
-            console.warn('Failed to download video from iCloud:', mediaError);
-            // Continue with original URI - it might work
-          }
-        }
+        // iCloud downloads will be handled by VideoProcessingService.standardizeVideoPath()
+        // when processing the video
         
         const segmentDuration = asset.duration ? (asset.duration > 1000 ? asset.duration / 1000 : asset.duration) : 0;
         if (segmentDuration > 0) {
@@ -299,13 +288,10 @@ const CreateScreen: React.FC = () => {
             return;
           }
           
-          // Update asset URI if we got a new one from MediaLibrary
-          const updatedAsset = videoUri !== asset.uri ? { ...asset, uri: videoUri } : asset;
-          
           const gallerySegment: VideoSegment = {
             startTime: Date.now(),
             duration: segmentDuration,
-            video: updatedAsset, // Use full ImagePickerAsset with downloaded URI
+            video: asset, // Use full ImagePickerAsset - standardization will handle iCloud downloads
             sourceType: 'gallery',
           };
           
@@ -379,24 +365,54 @@ const CreateScreen: React.FC = () => {
     if (segments.length === 0 || isProcessing) return;
     setIsProcessing(true);
     try {
-      // If only one segment, normalize and go directly to post screen
+      // If only one segment, check compatibility and process accordingly
       if (segments.length === 1) {
         const segment = segments[0];
-        const normalizedVideo = await VideoProcessingService.normalizeVideo(segment.video);
+        const asset = 'assetId' in segment.video ? segment.video as ImagePicker.ImagePickerAsset : undefined;
+        // Both { uri: string } and ImagePickerAsset have uri property
+        const videoPath = segment.video.uri;
+        
+        // Debug: Log the incoming video path
+        debugVideoPath('create.tsx single segment', videoPath, asset);
+        
+        // Standardize path first (handles iCloud downloads)
+        const standardizedPath = await VideoProcessingService.standardizeVideoPath(videoPath, asset);
+        
+        console.log('[create.tsx] Standardized path:', standardizedPath);
+        
+        // Check if video is already compatible - skip normalization if so
+        const isCompatible = await VideoProcessingService.isVideoCompatible(videoPath, asset);
+        
+        let finalVideoPath: string;
+        if (isCompatible) {
+          // Video is compatible, use standardized path directly
+          finalVideoPath = standardizedPath;
+          console.log('[create.tsx] Video compatible, using standardized path');
+        } else {
+          // Video needs normalization
+          console.log('[create.tsx] Video needs normalization');
+          const normalizedVideo = await VideoProcessingService.normalizeVideo(segment.video);
+          finalVideoPath = normalizedVideo.path;
+          console.log('[create.tsx] Normalized path:', finalVideoPath);
+        }
+        
+        // Debug: Log the final path being sent
+        debugVideoPath('create.tsx -> VideoPostScreen', finalVideoPath);
         
         // Only navigate if component is still mounted
         if (isMountedRef.current) {
-          // Navigate directly to post screen with normalized video
+          // Navigate directly to post screen with processed video
           navigation.push({
             pathname: '/post/[id]',
             params: {
               id: 'new',
-              videoPath: normalizedVideo.path
+              videoPath: finalVideoPath
             }
           });
         }
       } else {
         // Multiple segments need merging - go to processing screen
+        console.log('[create.tsx] Multiple segments, going to processing screen');
         // Only navigate if component is still mounted
         if (isMountedRef.current) {
           navigation.push({
@@ -408,9 +424,14 @@ const CreateScreen: React.FC = () => {
         }
       }
     } catch (error) {
+      console.error('[create.tsx] Error processing video:', error);
       // Only reset processing state if component is still mounted
       if (isMountedRef.current) {
         Alert.alert('Error', 'Failed to process video. Please try again.');
+        setIsProcessing(false);
+      }
+    } finally {
+      if (isMountedRef.current) {
         setIsProcessing(false);
       }
     }

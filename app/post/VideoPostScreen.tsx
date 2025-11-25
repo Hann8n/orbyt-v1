@@ -32,6 +32,7 @@ import { VerificationBadge } from '../../src/components/features/badging';
 import Icon, { BackArrowIcon, ChevronDownIcon, Loading3FillIcon, InformationLineIcon } from '../../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
+import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/videoPath';
 
 import { Colors } from '../../src/components/ui/UI';
 import { VideoInfoDisplay } from '../../src/components/ui';
@@ -71,36 +72,8 @@ const COMMENT_FILTERS = [
 const VideoPostScreen: React.FC = () => {
   const params = useLocalSearchParams();
   
-  // Handle video parameter - it can come as videoPath or video object (ImagePickerAsset or legacy format)
+  // Video path is already standardized when it arrives from create.tsx or video-processing.tsx
   const videoPath = params.videoPath as string;
-  const videoObjectString = params.video as string;
-  
-  // Parse video object if it's a string, otherwise use videoPath - memoize to prevent recreation
-  const videoObject = useMemo(() => {
-    if (!videoObjectString) return null;
-    try {
-      return JSON.parse(videoObjectString);
-    } catch (e) {
-      console.warn('Failed to parse video object:', e);
-      return null;
-    }
-  }, [videoObjectString]);
-  
-  // Create video object with proper structure - memoize to prevent recreation
-  // Handle ImagePickerAsset (has 'uri' property) or legacy format (has 'path' property)
-  const video = useMemo(() => {
-    return videoObject || {
-      path: videoPath || '',
-      width: 360,
-      height: 640,
-      duration: 0
-    };
-  }, [videoObject, videoPath]);
-  
-  // Normalize video path - ImagePickerAsset uses 'uri', legacy uses 'path' - memoize to prevent recreation
-  const normalizedVideoPath = useMemo(() => {
-    return (video.uri || video.path || videoPath || '').toString();
-  }, [video.uri, video.path, videoPath]);
   
   const textOverlays = (params.textOverlays as any) || [];
   const navigation = useRouter();
@@ -139,10 +112,10 @@ const VideoPostScreen: React.FC = () => {
   const descriptionModalOpacity = useRef(new Animated.Value(0)).current;
   const [videoLoading, setVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState<string | null>(null);
-  // Store video dimensions for aspect ratio - handle both ImagePickerAsset and legacy format
+  // Store video dimensions for aspect ratio
   const [videoDimensions, setVideoDimensions] = useState({ 
-    width: video.width || 360, 
-    height: video.height || 640 
+    width: 360, 
+    height: 640 
   });
   const [videoVolume, setVideoVolume] = useState(1);
   
@@ -223,15 +196,14 @@ const VideoPostScreen: React.FC = () => {
   // Check video size on component mount
   useEffect(() => {
     const checkVideoSize = async () => {
-      if (normalizedVideoPath) {
+      if (videoPath) {
         try {
-          const assetId = video.assetId;
-          const sizeInfo = await VideoProcessingService.checkVideoSize(normalizedVideoPath, assetId);
+          // Path is already standardized, no need for assetId
+          const sizeInfo = await VideoProcessingService.checkVideoSize(videoPath);
           setVideoSizeInfo(sizeInfo);
           
-          // Get comprehensive video information - pass ImagePickerAsset if available
-          const asset = video.uri ? video as ImagePicker.ImagePickerAsset : undefined;
-          const compressionInfo = await VideoProcessingService.getCompressionInfo(normalizedVideoPath, asset);
+          // Get comprehensive video information
+          const compressionInfo = await VideoProcessingService.getCompressionInfo(videoPath);
           setVideoInfo(compressionInfo);
         } catch (error) {
           console.error('Error checking video size:', error);
@@ -240,20 +212,20 @@ const VideoPostScreen: React.FC = () => {
     };
 
     checkVideoSize();
-  }, [normalizedVideoPath]);
+  }, [videoPath]);
 
   // Compress video if needed
   const compressVideo = async () => {
-    if (!normalizedVideoPath || isCompressing) return;
+    if (!videoPath || isCompressing) return;
     
     setIsCompressing(true);
     try {
-      // Compress the video
-      const compressedVideo = await VideoProcessingService.compressVideoWithSizeLimit(normalizedVideoPath);
+      // Compress the video (path is already standardized)
+      const compressedVideo = await VideoProcessingService.compressVideoWithSizeLimit(videoPath);
       setCompressedVideoPath(compressedVideo.path);
       
       // Get compression statistics
-      const stats = await VideoProcessingService.getCompressionStats(normalizedVideoPath, compressedVideo.path);
+      const stats = await VideoProcessingService.getCompressionStats(videoPath, compressedVideo.path);
       setCompressionStats(stats);
       
       // Update video size info
@@ -327,50 +299,13 @@ const VideoPostScreen: React.FC = () => {
   const handlePost = async () => {
     if (isPosting) return;
     
-    if (!normalizedVideoPath) {
+    if (!videoPath) {
       Alert.alert('error', 'no video selected');
       return;
     }
 
-    // Track the actual video path to use (may be updated if downloading from iCloud)
-    let videoPathToUse = normalizedVideoPath;
-
-    // Validate video file exists - try MediaLibrary if we have assetId (iCloud videos)
-    try {
-      const assetId = video.assetId;
-      let fileExists = false;
-      
-      if (assetId && Platform.OS === 'ios') {
-        try {
-          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
-            shouldDownloadFromNetwork: true,
-          });
-          if (assetInfo.localUri) {
-            const file = new File(assetInfo.localUri);
-            fileExists = file.exists;
-            if (fileExists) {
-              // Update path to use the downloaded local URI
-              videoPathToUse = assetInfo.localUri;
-            }
-          }
-        } catch (mediaError) {
-          // Fall through to FileSystem check
-        }
-      }
-      
-      if (!fileExists) {
-        const file = new File(videoPathToUse);
-        fileExists = file.exists;
-      }
-      
-      if (!fileExists) {
-        Alert.alert('error', 'video file not found. please try again.');
-        return;
-      }
-    } catch (error) {
-      Alert.alert('error', 'unable to access video file. please try again.');
-      return;
-    }
+    // Path is already standardized and validated - trust it
+    const videoPathToUse = compressedVideoPath || videoPath;
 
     // Description is optional for video posts
 
@@ -521,58 +456,43 @@ const VideoPostScreen: React.FC = () => {
     }
   };
 
-  // Ensure file:// prefix for local files and validate path - memoize to prevent recreation
-  const videoUri = useMemo(() => {
-    return normalizedVideoPath && normalizedVideoPath.trim() 
-      ? (normalizedVideoPath.startsWith('file://') ? normalizedVideoPath : `file://${normalizedVideoPath}`) 
-      : '';
-  }, [normalizedVideoPath]);
+  // Resolved video path info
+  const [videoPathInfo, setVideoPathInfo] = useState<VideoPathInfo | null>(null);
   
-  // Track last validated path to prevent duplicate validations
-  const lastValidatedPathRef = useRef<string>('');
-  
-  // Debug logging and file validation - only run when video path actually changes
+  // Resolve video path on mount or when videoPath changes
   useEffect(() => {
-    // Only validate if the path has changed
-    if (videoUri === lastValidatedPathRef.current) {
-      return;
-    }
-    
-    lastValidatedPathRef.current = videoUri;
-    
-    console.log('VideoPostScreen Debug:', {
-      videoPath: videoPath,
-      videoObjectString: videoObjectString,
-      parsedVideoObject: videoObject,
-      finalVideo: video,
-      videoUri: videoUri
-    });
-    
-    // Validate video file exists if we have a local path
-    const validateVideoFile = async () => {
-      if (videoUri && videoUri.startsWith('file://')) {
-        try {
-          const file = new File(videoUri);
-          console.log('Video file validation:', {
-            path: videoUri,
-            exists: file.exists,
-            size: file.exists ? file.size : 0,
-          });
-          
-          if (!file.exists) {
-            setVideoError('Video file not found');
-          } else {
-            setVideoError(null);
-          }
-        } catch (error) {
-          console.error('Error validating video file:', error);
-          setVideoError('Unable to access video file');
+    const resolveVideo = async () => {
+      if (!videoPath) {
+        setVideoError('No video path provided');
+        return;
+      }
+
+      // Debug the incoming path
+      debugVideoPath('VideoPostScreen received', videoPath);
+      
+      try {
+        setVideoLoading(true);
+        setVideoError(null);
+        
+        // Use the utility to resolve the path (handles iCloud, normalization, validation)
+        const pathInfo = await resolveVideoPath(videoPath);
+        
+        setVideoPathInfo(pathInfo);
+        
+        if (!pathInfo.exists) {
+          setVideoError('Video file not found');
         }
+      } catch (error) {
+        console.error('[VideoPostScreen] Error resolving video path:', error);
+        setVideoError('Unable to access video file');
       }
     };
-    
-    validateVideoFile();
-  }, [videoUri]); // Only depend on videoUri, which is memoized based on normalizedVideoPath
+
+    resolveVideo();
+  }, [videoPath]);
+
+  // Final video URI for playback
+  const videoUri = videoPathInfo?.uri || '';
 
   // Handle keyboard visibility for input spacing
   useEffect(() => {
@@ -931,11 +851,12 @@ const VideoPostScreen: React.FC = () => {
         <VideoPreviewModal
           visible={showPreviewModal}
           onClose={handleClosePreviewModal}
-          videoPath={normalizedVideoPath || ''}
+          videoPath={videoPath || ''}
           description={description}
           userProfile={profileData}
           initialTime={currentTime}
           initialIsPlaying={isPlaying}
+          channel={selectedChannel}
         />
 
         {/* Full-Screen Description Input Modal */}
@@ -1261,7 +1182,7 @@ const VideoPostScreen: React.FC = () => {
                     ref={videoRef}
                     source={{ uri: videoUri }}
                     style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
-                    resizeMode="cover"
+                    resizeMode="contain"
                     paused={!isPlaying}
                     repeat={true}
                     muted={true}
@@ -1528,11 +1449,12 @@ const VideoPostScreen: React.FC = () => {
       <VideoPreviewModal
         visible={showPreviewModal}
         onClose={handleClosePreviewModal}
-        videoPath={normalizedVideoPath || ''}
+        videoPath={videoPath || ''}
         description={description}
         userProfile={profileData}
         initialTime={currentTime}
         initialIsPlaying={isPlaying}
+        channel={selectedChannel}
       />
 
       {/* Full-Screen Description Input Modal */}
@@ -1857,7 +1779,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   videoContainer: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
     position: 'relative',
     overflow: 'hidden',
     alignSelf: 'center',

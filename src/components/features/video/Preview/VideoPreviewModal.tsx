@@ -17,6 +17,7 @@ import VideoCard from '../VideoCard';
 import type { VideoCardRef } from '../VideoCard';
 import type { OrbytChannel } from '../../../../utils/orbytChannels';
 import { extractFeedSlug } from '../../../../utils/orbytChannels';
+import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../../../utils/videoPath';
 // import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 
 
@@ -43,12 +44,43 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
 }) => {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  const [videoPathInfo, setVideoPathInfo] = useState<VideoPathInfo | null>(null);
   const videoCardRef = useRef<VideoCardRef>(null);
   const insets = useSafeAreaInsets();
 
-  // Simple video URI formatting
-  const videoUri = videoPath && videoPath.trim() ? 
-    (videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`) : '';
+  // Resolve video path when it changes (handles Photos library and iCloud)
+  useEffect(() => {
+    const resolveVideo = async () => {
+      if (!videoPath) {
+        setVideoPathInfo(null);
+        setVideoError(null);
+        return;
+      }
+
+      try {
+        setVideoError(null);
+        debugVideoPath('VideoPreviewModal received', videoPath);
+
+        // Use the utility to resolve the path (handles Photos library copying)
+        const pathInfo = await resolveVideoPath(videoPath);
+
+        setVideoPathInfo(pathInfo);
+
+        if (!pathInfo.exists) {
+          setVideoError('Video file not found');
+        }
+      } catch (error) {
+        console.error('Error resolving video path in modal:', error);
+        setVideoError('Failed to load video');
+        setVideoPathInfo(null);
+      }
+    };
+
+    resolveVideo();
+  }, [videoPath]);
+
+  // Final video URI for playback
+  const videoUri = videoPathInfo?.uri || '';
 
   // Create simple preview post for VideoCard
   // Extract channel slug for tag if channel is selected
@@ -77,7 +109,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
     replyCount: 0,
     embed: {
       $type: 'app.bsky.embed.video#view',
-      playlist: videoUri,
+      playlist: videoUri || '',
       aspectRatio: { width: 9, height: 16 },
     },
   };

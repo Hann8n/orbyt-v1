@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import { File, Directory, Paths } from 'expo-file-system';
 import Compressor from 'react-native-compressor';
+import { resolveVideoPath } from '../utils/videoPath';
 import { logger } from '../utils/logger';
 
 // Expo Camera video result type
@@ -198,6 +199,45 @@ class VideoProcessingService {
       return videoInfo;
     } catch (error) {
       throw error;
+    }
+  }
+
+  /**
+   * Standardizes a video path so the app can safely use it (adds file://, copies from Photos, etc.)
+   */
+  static async standardizeVideoPath(
+    videoPath: string,
+    asset?: ImagePicker.ImagePickerAsset
+  ): Promise<string> {
+    const assetId = asset?.assetId || (asset as any)?.id || null;
+    const resolved = await resolveVideoPath(videoPath, assetId);
+    if (!resolved.uri) {
+      throw new Error('Failed to standardize video path');
+    }
+    return resolved.uri;
+  }
+
+  /**
+   * Quick compatibility check to skip unnecessary normalization work
+   */
+  static async isVideoCompatible(
+    videoPath: string,
+    asset?: ImagePicker.ImagePickerAsset
+  ): Promise<boolean> {
+    try {
+      const standardized = await this.standardizeVideoPath(videoPath, asset);
+      const localPath = standardized.replace('file://', '');
+      const props = await this.analyzeVideoProperties(localPath, asset);
+
+      const codec = (props.codec || '').toLowerCase();
+      const codecOk = codec.includes('264') || codec.includes('avc');
+      const frameRateOk = props.frameRate <= 60;
+      const resolutionOk = Math.max(props.width, props.height) <= 1920;
+
+      return codecOk && frameRateOk && resolutionOk;
+    } catch (error) {
+      logger.warn('Failed to check video compatibility', { component: 'VideoProcessingService' });
+      return false;
     }
   }
 
@@ -1122,203 +1162,6 @@ class VideoProcessingService {
     }
   }
 
-  /**
-   * Merge multiple videos using FFmpeg concat demuxer
-   * Normalizes all videos to a common format (H.264, highest resolution, 30fps) before concatenating
-   */
-  private static async mergeVideosWithCompressor(
-    videoPaths: string[],
-    outputPath: string,
-    segments?: VideoSegment[]
-  ): Promise<string> {
-    try {
-      if (videoPaths.length === 1) {
-        // Single video - return as-is
-        return videoPaths[0];
-      }
-
-      // Check if FFmpegKit is available
-      if (!FFmpegKit || !ReturnCode) {
-        throw new Error('FFmpegKit is not available. Please rebuild the app with native modules linked.');
-      }
-
-      // Create temporary directory for normalization and concat file
-      const tempDir = new Directory(Paths.cache, `video_merge_${Date.now()}`);
-      tempDir.create({ intermediates: true });
-
-      // Phase 1: Analyze all videos to determine target format
-      logger.info('Analyzing video properties for normalization', {
-        component: 'VideoProcessingService',
-        videoCount: videoPaths.length,
-      });
-
-      const videoProperties: VideoProperties[] = [];
-      for (const videoPath of videoPaths) {
-        // Try to get asset info from segments if available
-        let asset: ImagePicker.ImagePickerAsset | undefined;
-        if (segments) {
-          const segment = segments.find(s => {
-            const segPath = this.getVideoPath(s.video);
-            return segPath === videoPath || segPath.replace('file://', '') === videoPath.replace('file://', '');
-          });
-          if (segment && 'uri' in segment.video) {
-            asset = segment.video as ImagePicker.ImagePickerAsset;
-          }
-        }
-
-        const props = await this.analyzeVideoProperties(videoPath, asset);
-        videoProperties.push(props);
-      }
-
-      // Determine target format: highest resolution, 30fps, H.264
-      let targetWidth = 0;
-      let targetHeight = 0;
-      const targetFrameRate = 30;
-
-      for (const props of videoProperties) {
-        const totalPixels = props.width * props.height;
-        const currentTotalPixels = targetWidth * targetHeight;
-        if (totalPixels > currentTotalPixels) {
-          targetWidth = props.width;
-          targetHeight = props.height;
-        }
-      }
-
-      // Fallback to first video's resolution if no valid resolution found
-      if (targetWidth === 0 || targetHeight === 0) {
-        targetWidth = videoProperties[0]?.width || 1080;
-        targetHeight = videoProperties[0]?.height || 1920;
-      }
-
-      logger.info('Target format determined', {
-        component: 'VideoProcessingService',
-        resolution: `${targetWidth}x${targetHeight}`,
-        frameRate: targetFrameRate,
-        codec: 'h264',
-      });
-
-      // Phase 2: Normalize all videos to target format
-      const normalizedPaths: string[] = [];
-      for (let i = 0; i < videoPaths.length; i++) {
-        const videoPath = videoPaths[i];
-        const props = videoProperties[i];
-        
-        // Check if normalization is needed
-        const needsNormalization = 
-          props.codec !== 'h264' ||
-          props.width !== targetWidth ||
-          props.height !== targetHeight ||
-          Math.abs(props.frameRate - targetFrameRate) > 0.5;
-
-        if (needsNormalization) {
-          // Normalize this video
-          const normalizedOutput = new File(tempDir, `normalized_${i}.mp4`);
-          const normalizedPath = await this.normalizeVideoFormat(
-            videoPath,
-            normalizedOutput.uri,
-            targetWidth,
-            targetHeight,
-            targetFrameRate
-          );
-          normalizedPaths.push(normalizedPath.replace('file://', ''));
-        } else {
-          // Video already matches target format
-          let normalized = videoPath.replace('file://', '');
-          if (Platform.OS === 'ios' && !normalized.startsWith('/')) {
-            normalized = '/' + normalized;
-          }
-          normalizedPaths.push(normalized);
-        }
-      }
-
-      // Phase 3: Concatenate normalized videos
-      // Normalize output path
-      let normalizedOutput = outputPath.replace('file://', '');
-      if (Platform.OS === 'ios' && !normalizedOutput.startsWith('/')) {
-        normalizedOutput = '/' + normalizedOutput;
-      }
-
-      // Create concat file list for FFmpeg
-      const concatFile = new File(tempDir, 'concat.txt');
-      const concatContent = normalizedPaths
-        .map(path => {
-          // Escape single quotes in paths
-          const escapedPath = path.replace(/'/g, "'\\''");
-          return `file '${escapedPath}'`;
-        })
-        .join('\n');
-
-      concatFile.write(concatContent);
-
-      let concatFilePath = concatFile.uri.replace('file://', '');
-      if (Platform.OS === 'ios' && !concatFilePath.startsWith('/')) {
-        concatFilePath = '/' + concatFilePath;
-      }
-
-      // Execute FFmpeg concat command
-      // -f concat: use concat demuxer
-      // -safe 0: allow unsafe file names
-      // -i: input file (concat list)
-      // -c copy: copy streams without re-encoding (now safe since all videos are normalized)
-      const ffmpegCommand = `-f concat -safe 0 -i "${concatFilePath}" -c copy "${normalizedOutput}"`;
-      
-      logger.info('Executing FFmpeg merge command', { 
-        component: 'VideoProcessingService',
-        command: ffmpegCommand,
-        videoCount: normalizedPaths.length,
-        normalized: true,
-      });
-
-      const session = await FFmpegKit.execute(ffmpegCommand);
-      const returnCode = await session.getReturnCode();
-
-      if (ReturnCode.isSuccess(returnCode)) {
-        // Verify output file exists
-        const outputFile = new File(normalizedOutput);
-        if (!outputFile.exists) {
-          throw new Error('FFmpeg merge completed but output file not found');
-        }
-
-        // Clean up temporary normalized files and concat file
-        try {
-          for (let i = 0; i < normalizedPaths.length; i++) {
-            const normalizedFile = new File(tempDir, `normalized_${i}.mp4`);
-            if (normalizedFile.exists) {
-              normalizedFile.delete();
-            }
-          }
-          if (concatFile.exists) {
-            concatFile.delete();
-          }
-        } catch (cleanupError) {
-          logger.warn('Failed to cleanup temp files', { component: 'VideoProcessingService' });
-        }
-
-        // Return path with file:// prefix for React Native
-        return normalizedOutput.startsWith('file://') ? normalizedOutput : `file://${normalizedOutput}`;
-      } else {
-        const failStackTrace = await session.getFailStackTrace();
-        const output = await session.getOutput();
-        logger.error('FFmpeg merge failed', {
-          component: 'VideoProcessingService',
-          returnCode,
-          failStackTrace,
-          output
-        });
-        throw new Error(`FFmpeg merge failed: ${failStackTrace || output || 'Unknown error'}`);
-      }
-    } catch (error) {
-      logger.error('FFmpeg merge error', error, { component: 'VideoProcessingService' });
-      
-      // Fallback: use the first video if merging fails
-      if (videoPaths.length > 0) {
-        logger.warn('Falling back to first video segment', { component: 'VideoProcessingService' });
-        return videoPaths[0];
-      }
-      
-      throw new Error(`Failed to merge videos: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
 
   /**
    * Cleans up temporary files

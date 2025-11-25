@@ -20,6 +20,7 @@ import Video, { VideoRef } from 'react-native-video';
 import * as FileSystem from 'expo-file-system';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
+import { resolveVideoPath, debugVideoPath } from '../src/utils/videoPath';
 import { BackArrowIcon, ArrowRightFillIcon, Loading3FillIcon, CloseFillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import { BORDER_RADIUS } from '../src/utils/constants';
@@ -472,10 +473,37 @@ const VideoEditorScreen: React.FC = () => {
   // Current video path is the merged video for seamless playback
   const currentVideoPath = mergedVideoPath || '';
 
-  // Normalize video path
-  const videoUri = currentVideoPath && currentVideoPath.trim()
-    ? (currentVideoPath.startsWith('file://') ? currentVideoPath : `file://${currentVideoPath}`)
-    : '';
+  // Resolved video URI for playback
+  const [resolvedVideoUri, setResolvedVideoUri] = useState<string>('');
+  
+  // Resolve video path when it changes
+  useEffect(() => {
+    const resolve = async () => {
+      if (!currentVideoPath) {
+        setResolvedVideoUri('');
+        return;
+      }
+      
+      debugVideoPath('VideoEditor currentVideoPath', currentVideoPath);
+      
+      try {
+        const pathInfo = await resolveVideoPath(currentVideoPath);
+        setResolvedVideoUri(pathInfo.uri);
+        
+        if (!pathInfo.exists) {
+          setVideoError('Video file not found');
+        }
+      } catch (error) {
+        console.error('[VideoEditor] Error resolving path:', error);
+        setVideoError('Unable to access video');
+      }
+    };
+    
+    resolve();
+  }, [currentVideoPath]);
+
+  // Final video URI for playback
+  const videoUri = resolvedVideoUri;
 
 
   // Cleanup temporary files
@@ -642,7 +670,7 @@ const VideoEditorScreen: React.FC = () => {
       return [...prev, editingOverlay];
     });
     
-    setEditingOverlay(null);
+    setEditingOverlayId(null);
     setShowTextOverlaySheet(false);
   }, [editingOverlay]);
 
@@ -784,7 +812,7 @@ const VideoEditorScreen: React.FC = () => {
       
       // Update current video path
       const finalPath = workingPath.startsWith('file://') ? workingPath : `file://${workingPath}`;
-      setCurrentVideoPath(finalPath);
+      setMergedVideoPath(finalPath);
       
       // Reset video player
       if (videoRef.current) {

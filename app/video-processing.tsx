@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import VideoProcessingService, { VideoSegment as ProcessingVideoSegment } from '../src/services/VideoProcessingService';
+import { debugVideoPath } from '../src/utils/videoPath';
 import { Alert } from 'react-native';
 
 interface VideoSegment {
@@ -23,9 +24,13 @@ const VideoProcessingScreen: React.FC = () => {
   const params = useLocalSearchParams();
   const navigation = useRouter();
   const [status, setStatus] = useState('Preparing video...');
+  const processingRef = useRef(false);
 
   useEffect(() => {
     const processVideo = async () => {
+      if (processingRef.current) return;
+      processingRef.current = true;
+
       try {
         // Parse segments from params
         const segmentsParam = params.segments as string;
@@ -42,21 +47,26 @@ const VideoProcessingScreen: React.FC = () => {
         // This screen only handles merging (multiple segments)
         // Single videos should be handled directly in create.tsx
         if (segments.length === 1) {
-          // Fallback: normalize single video if it somehow reaches here
-          setStatus('Normalizing video...');
-          const normalizedVideo = await VideoProcessingService.normalizeVideo(segments[0].video);
+          // Single segment shouldn't reach here - pass through without processing
+          const segment = segments[0];
+          const videoPath = segment.video.uri || segment.video.path;
           
           navigation.replace({
             pathname: '/post/[id]',
             params: { 
               id: 'new',
-              videoPath: normalizedVideo.path
+              videoPath: videoPath
             }
           });
           return;
         }
 
         setStatus('Merging videos...');
+        
+        // Debug: Log each segment's video path
+        segments.forEach((segment, index) => {
+          debugVideoPath(`video-processing segment ${index}`, segment.video?.uri || segment.video?.path);
+        });
         
         // Convert to ProcessingVideoSegment format
         const processingSegments: ProcessingVideoSegment[] = segments.map(segment => ({
@@ -67,23 +77,23 @@ const VideoProcessingScreen: React.FC = () => {
         }));
 
         // Use the VideoProcessingService to merge segments
+        // mergeSegments returns a standardized path (with file:// prefix)
         const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
         
-        setStatus('Finalizing...');
+        console.log('[video-processing] Merged video path:', mergedVideo.path);
+        debugVideoPath('video-processing -> VideoPostScreen', mergedVideo.path);
         
-        const videoPath = mergedVideo.path.startsWith('file://') 
-          ? mergedVideo.path 
-          : `file://${mergedVideo.path}`;
+        setStatus('Finalizing...');
         
         // Small delay to show completion
         await new Promise(resolve => setTimeout(resolve, 300));
         
-        // Navigate to post screen
+        // Navigate to post screen with standardized path
         navigation.replace({
           pathname: '/post/[id]',
           params: { 
             id: 'new',
-            videoPath: videoPath
+            videoPath: mergedVideo.path
           }
         });
       } catch (error: any) {
