@@ -557,7 +557,7 @@ const VideoPostScreen: React.FC = () => {
     };
     
     validateVideoFile();
-  }, [resolvedVideoPath]);
+  }, [videoPath, videoObjectString, videoObject, video, resolvedVideoPath, videoUri]);
 
   // Handle keyboard visibility for input spacing
   useEffect(() => {
