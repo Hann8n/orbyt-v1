@@ -434,9 +434,7 @@ const VideoPostScreen: React.FC = () => {
 
   // Handler to sync time when opening full screen modal
   const handleEditVideo = () => {
-    // Fade out audio before opening modal
-    fadeVolume(videoVolume, 0, 200);
-    setTimeout(() => setShowPreviewModal(true), 200);
+    setShowPreviewModal(true);
   };
 
   // Handler to sync time when closing full screen modal

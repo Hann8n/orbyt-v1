@@ -151,7 +151,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       presentationStyle="fullScreen"
       onRequestClose={handleClose}
     >
