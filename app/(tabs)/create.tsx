@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
   backButton: {
     position: 'absolute',
     left: 10,
-    zIndex: 10,
+    zIndex: 1000,
     width: 44,
     height: 44,
     alignItems: 'center',

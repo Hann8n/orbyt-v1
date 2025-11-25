@@ -129,12 +129,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   });
   const setFeedHeaderVisibility = useVisibilityCoreStore((state) => state.setFeedHeaderVisibility);
 
-  // Compute activeItemIndex from activeItemUri
-  const activeItemIndex = useMemo(() => {
-    if (!activeItemUri) return -1;
-    return feed.findIndex(item => item.post?.uri === activeItemUri);
-  }, [activeItemUri, feed]);
-
   const updateHeaderVisibility = useCallback((visiblePercent: number) => {
     if (!scopedVisibilityKey || !isHeaderFeed) {
       return;
@@ -199,8 +193,9 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   // List data with end card
   const listData = useMemo(() => {
     const base = visibleFeed;
-    // Always append end card when there are items in the feed
-    if (base.length > 0) {
+    const shouldAppendEndCard = !isLoading && !isError && !isFetchingNextPage && !hasNextPage && base.length > 0;
+    
+    if (shouldAppendEndCard) {
       return [
         ...base,
         {
@@ -210,7 +205,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       ];
     }
     return base;
-  }, [visibleFeed]);
+  }, [visibleFeed, isLoading, isError, isFetchingNextPage, hasNextPage]);
 
   // Error handling
   const effectiveError = forceError ? new Error('Forced error for testing') : error;
@@ -264,7 +259,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     lastScrollOffset.current = offsetY;
   }, [onPositionChange]);
 
-  // Render item function - simplified visibility logic with preloading for adjacent videos
+  // Render item function - simplified visibility logic
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<FeedItem>) => {
     if (item.endCard) {
       return (
@@ -283,11 +278,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
     const isVideoVisible = isVideoVisibleHelper(item.post.uri) && canPlay;
     
-    // Determine if this is an adjacent video that should be preloaded
-    const isAdjacentVideo = activeItemIndex >= 0 && 
-                           Math.abs(index - activeItemIndex) === 1;
-    const shouldPreload = isAdjacentVideo && canPlay;
-    
     return (
       <VideoItem
         key={`${item.post.uri}_${index}`}
@@ -301,13 +291,11 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         moderationDecision={item.moderationDecision}
         isModal={isModal}
         index={index}
-        shouldPreload={shouldPreload}
       />
     );
   }, [
     cardHeight,
     activeItemUri,
-    activeItemIndex,
     feedOption,
     canPlay,
     isFeedActive,
@@ -315,7 +303,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     secondaryColor,
     handleVideoStatus,
     isModal,
-    isVideoVisibleHelper,
   ]);
 
   // Item type for FlashList recycling optimization
@@ -525,9 +512,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         
         // FlashList performance optimizations
         removeClippedSubviews={true}
-        drawDistance={cardHeight * 2} // Optimize draw distance for better performance
         overrideItemLayout={(layout, item, index) => {
-          // Account for 6px total margin (3px top + 3px bottom from VideoItem marginVertical: 3)
+          // Account for 8px total margin (4px top + 4px bottom) added to VideoCard
           layout.span = cardHeight + 6;
         }}
         
