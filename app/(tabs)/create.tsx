@@ -20,7 +20,7 @@ import {
   useMicrophonePermissions,
   CameraRecordingOptions
 } from 'expo-camera';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
@@ -33,7 +33,7 @@ import Animated, {
 import Icon, { CloseFillIcon, Loading3FillIcon, ArrowRightFillIcon } from '../../src/components/ui/Icon';
 import BottomToolBar from '../../src/components/ui/BottomToolBar';
 import { isSmallScreen, getBottomNavBarHeight } from '../../src/utils/helpers';
-import VideoProcessingService, { VideoSegment as ProcessingVideoSegment } from '../../src/services/VideoProcessingService';
+import VideoProcessingService from '../../src/services/VideoProcessingService';
 import { Colors } from '../../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -76,6 +76,7 @@ const CreateScreen: React.FC = () => {
   const segmentStartTime = useRef<number>(0);
   const cameraRef = useRef<CameraView>(null);
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
+  const isMountedRef = useRef(true);
 
   const recButtonScale = useSharedValue(1);
   const progressWidth = useSharedValue(0);
@@ -96,6 +97,23 @@ const CreateScreen: React.FC = () => {
     checkPermissions();
   }, [cameraPermission, requestCameraPermission, microphonePermission, requestMicrophonePermission]);
   
+  // Cleanup: reset processing state when component unmounts or user navigates away
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      setIsProcessing(false);
+    };
+  }, []);
+
+  // Reset processing state when screen comes back into focus (user navigated back)
+  useFocusEffect(
+    useCallback(() => {
+      // Reset processing state when screen is focused again
+      setIsProcessing(false);
+      isMountedRef.current = true;
+    }, [])
+  );
 
   // Disable flash when switching to front camera
   useEffect(() => {
@@ -300,21 +318,6 @@ const CreateScreen: React.FC = () => {
           Alert.alert('Invalid video', 'Could not determine video duration.');
           setIsLoadingFromGallery(false);
         }
-        
-        // Show video info alert for gallery videos
-        try {
-          const finalAsset = videoUri !== asset.uri ? { ...asset, uri: videoUri } : asset;
-          const videoInfo = await VideoProcessingService.getVideoInfo(videoUri, finalAsset);
-          const sizeInfo = await VideoProcessingService.checkVideoSize(videoUri, asset.assetId);
-          
-          Alert.alert(
-            'Video Selected',
-            `Resolution: ${videoInfo.resolution}\nQuality: ${videoInfo.qualityStandard}\nDuration: ${videoInfo.durationFormatted}\nSize: ${videoInfo.sizeFormatted}\nAspect Ratio: ${videoInfo.aspectRatio}\nFrame Rate: ${videoInfo.frameRate} fps\nCodec: ${videoInfo.codec.toUpperCase()}\n\n${sizeInfo.needsCompression ? 'Video will be compressed for upload.' : 'Video is ready for upload.'}`,
-            [{ text: 'OK' }]
-          );
-        } catch (error) {
-          // Silent fail for video info
-        }
       }
     } catch (e) {
       Alert.alert('Error', 'Failed to access gallery. Please try again.');
@@ -373,38 +376,45 @@ const CreateScreen: React.FC = () => {
   const handleBackPress = () => navigation.back();
 
   const finishRecording = useCallback(async () => {
-    if (segments.length === 0) return;
+    if (segments.length === 0 || isProcessing) return;
     setIsProcessing(true);
     try {
-      // Prepare segments data for video editor
-      const segmentsData = segments.map(segment => {
-        const videoPath = 'uri' in segment.video 
-          ? segment.video.uri 
-          : (segment.video as ImagePicker.ImagePickerAsset).uri;
-        const assetId = 'uri' in segment.video 
-          ? null 
-          : (segment.video as ImagePicker.ImagePickerAsset).assetId || null;
-        return {
-          videoPath: videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`,
-          assetId,
-          duration: segment.duration,
-          sourceType: segment.sourceType || 'camera',
-        };
-      });
-
-      // Pass all segments to video editor as JSON
-      navigation.push({
-        pathname: '/video-editor',
-        params: { 
-          segments: JSON.stringify(segmentsData)
+      // If only one segment, normalize and go directly to post screen
+      if (segments.length === 1) {
+        const segment = segments[0];
+        const normalizedVideo = await VideoProcessingService.normalizeVideo(segment.video);
+        
+        // Only navigate if component is still mounted
+        if (isMountedRef.current) {
+          // Navigate directly to post screen with normalized video
+          navigation.push({
+            pathname: '/post/[id]',
+            params: {
+              id: 'new',
+              videoPath: normalizedVideo.path
+            }
+          });
         }
-      });
+      } else {
+        // Multiple segments need merging - go to processing screen
+        // Only navigate if component is still mounted
+        if (isMountedRef.current) {
+          navigation.push({
+            pathname: '/video-processing',
+            params: { 
+              segments: JSON.stringify(segments)
+            }
+          });
+        }
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to process videos. Please try again.');
-    } finally {
-      setIsProcessing(false);
+      // Only reset processing state if component is still mounted
+      if (isMountedRef.current) {
+        Alert.alert('Error', 'Failed to process video. Please try again.');
+        setIsProcessing(false);
+      }
     }
-  }, [segments, navigation]);
+  }, [segments, navigation, isProcessing]);
 
   // Render content based on the state of permissions and device availability
   const renderContent = () => {
@@ -522,7 +532,11 @@ const CreateScreen: React.FC = () => {
           disabled={isProcessing}
           activeOpacity={0.7}
         >
-          <ArrowRightFillIcon size={30} color="white" />
+          {isProcessing ? (
+            <Loading3FillIcon size={30} color="white" />
+          ) : (
+            <ArrowRightFillIcon size={30} color="white" />
+          )}
         </TouchableOpacity>
       )}
       {renderContent()}
@@ -695,42 +709,3 @@ const styles = StyleSheet.create({
 });
 
 export default CreateScreen;
-
-async function mergeSegments(segments: VideoSegment[]): Promise<{ uri: string; duration?: number; width?: number; height?: number }> {
-  try {
-    // Convert to ProcessingVideoSegment format
-    const processingSegments: ProcessingVideoSegment[] = segments.map(segment => ({
-      startTime: segment.startTime,
-      duration: segment.duration,
-      video: segment.video,
-      sourceType: segment.sourceType,
-    }));
-
-    // Use the VideoProcessingService to merge segments
-    const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
-    
-    return {
-      uri: mergedVideo.path.startsWith('file://') ? mergedVideo.path : `file://${mergedVideo.path}`,
-      duration: mergedVideo.duration,
-      width: mergedVideo.width,
-      height: mergedVideo.height,
-    };
-  } catch (error) {
-    // Fallback: return the first segment if merging fails
-    const totalDurationMs = segments.reduce((sum, seg) => sum + seg.duration * 1000, 0);
-    const firstVideo = segments[0].video;
-    const videoUri = 'uri' in firstVideo ? firstVideo.uri : (firstVideo as ImagePicker.ImagePickerAsset).uri;
-    const videoDuration = 'uri' in firstVideo 
-      ? totalDurationMs / 1000
-      : ((firstVideo as ImagePicker.ImagePickerAsset).duration ? ((firstVideo as ImagePicker.ImagePickerAsset).duration! > 1000 ? (firstVideo as ImagePicker.ImagePickerAsset).duration! / 1000 : (firstVideo as ImagePicker.ImagePickerAsset).duration!) : totalDurationMs / 1000);
-    const videoWidth = 'uri' in firstVideo ? 0 : ((firstVideo as ImagePicker.ImagePickerAsset).width || 0);
-    const videoHeight = 'uri' in firstVideo ? 0 : ((firstVideo as ImagePicker.ImagePickerAsset).height || 0);
-    
-    return {
-      uri: videoUri,
-      duration: videoDuration,
-      width: videoWidth,
-      height: videoHeight,
-    };
-  }
-}

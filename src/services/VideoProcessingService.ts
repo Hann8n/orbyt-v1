@@ -801,10 +801,77 @@ class VideoProcessingService {
   }
 
   /**
+   * Normalizes a single video to standard format (MP4, H.264)
+   * Handles all video types (camera, gallery, etc.) and ensures consistent format
+   * 
+   * @param video - Video from ImagePickerAsset or ExpoCameraVideo
+   * @returns Promise resolving to normalized video with standard format
+   */
+  static async normalizeVideo(
+    video: ImagePicker.ImagePickerAsset | ExpoCameraVideo
+  ): Promise<ProcessedVideo> {
+    const videoPath = this.getVideoPath(video);
+    
+    // Handle iCloud videos on iOS
+    let localVideoPath = videoPath;
+    const assetId = 'assetId' in video ? video.assetId : null;
+    if (assetId && Platform.OS === 'ios') {
+      try {
+        const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
+          shouldDownloadFromNetwork: true,
+        });
+        if (assetInfo.localUri) {
+          localVideoPath = assetInfo.localUri;
+        }
+      } catch (mediaError) {
+        logger.warn('Failed to get asset from MediaLibrary, using provided path', { 
+          component: 'VideoProcessingService' 
+        });
+      }
+    }
+    
+    // Strip fragment identifier from path (iOS asset URIs may include #...)
+    localVideoPath = this.stripFragment(localVideoPath);
+    
+    // Analyze video to determine target resolution
+    const asset = 'assetId' in video ? video as ImagePicker.ImagePickerAsset : undefined;
+    const videoProps = await this.analyzeVideoProperties(localVideoPath, asset);
+    const targetWidth = videoProps.width > 0 ? videoProps.width : 1080;
+    const targetHeight = videoProps.height > 0 ? videoProps.height : 1920;
+    
+    // Normalize video to MP4 container with H.264 codec for compatibility
+    const tempDir = new Directory(Paths.cache, `video_normalize_${Date.now()}`);
+    tempDir.create({ intermediates: true });
+    const outputFile = new File(tempDir, `normalized_${Date.now()}.mp4`);
+    
+    const normalizedPath = await this.normalizeVideoFormat(
+      localVideoPath,
+      outputFile.uri,
+      targetWidth,
+      targetHeight,
+      MERGE_TARGET_FPS
+    );
+    
+    const finalPath = normalizedPath.startsWith('file://') ? normalizedPath : `file://${normalizedPath}`;
+    
+    // Verify normalized file exists
+    const normalizedFile = new File(finalPath.replace('file://', ''));
+    if (!normalizedFile.exists) {
+      throw new Error('Normalized video file was not created');
+    }
+    
+    return {
+      path: finalPath,
+      duration: this.getVideoDuration(video),
+      width: targetWidth,
+      height: targetHeight,
+    };
+  }
+
+  /**
    * Merges multiple video segments into a single video file
    * Uses FFmpeg complex filter for clean merging without audio/video sync glitches
    * from mixing different clip formats (camera vs uploaded, variable vs fixed frame rates)
-   * Single videos are normalized for standardization even if they don't need merging
    */
   static async mergeSegments(segments: VideoSegment[]): Promise<ProcessedVideo> {
     if (segments.length === 0) {
@@ -812,64 +879,8 @@ class VideoProcessingService {
     }
 
     if (segments.length === 1) {
-      // For single segment, normalize it for standardization
-      const segment = segments[0];
-      const videoPath = this.getVideoPath(segment.video);
-      
-      // Handle iCloud videos on iOS
-      let localVideoPath = videoPath;
-      const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
-      if (assetId && Platform.OS === 'ios') {
-        try {
-          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
-            shouldDownloadFromNetwork: true,
-          });
-          if (assetInfo.localUri) {
-            localVideoPath = assetInfo.localUri;
-          }
-        } catch (mediaError) {
-          logger.warn('Failed to get asset from MediaLibrary, using provided path', { 
-            component: 'VideoProcessingService' 
-          });
-        }
-      }
-      
-      // Strip fragment identifier from path (iOS asset URIs may include #...)
-      localVideoPath = this.stripFragment(localVideoPath);
-      
-      // Analyze video to determine target resolution
-      const asset = 'assetId' in segment.video ? segment.video as ImagePicker.ImagePickerAsset : undefined;
-      const videoProps = await this.analyzeVideoProperties(localVideoPath, asset);
-      const targetWidth = videoProps.width > 0 ? videoProps.width : 1080;
-      const targetHeight = videoProps.height > 0 ? videoProps.height : 1920;
-      
-      // Normalize single video to MP4 container with H.264 codec for compatibility
-      const tempDir = new Directory(Paths.cache, `video_normalize_${Date.now()}`);
-      tempDir.create({ intermediates: true });
-      const outputFile = new File(tempDir, `normalized_${Date.now()}.mp4`);
-      
-      const normalizedPath = await this.normalizeVideoFormat(
-        localVideoPath,
-        outputFile.uri,
-        targetWidth,
-        targetHeight,
-        MERGE_TARGET_FPS
-      );
-      
-      const finalPath = normalizedPath.startsWith('file://') ? normalizedPath : `file://${normalizedPath}`;
-      
-      // Verify normalized file exists
-      const normalizedFile = new File(finalPath.replace('file://', ''));
-      if (!normalizedFile.exists) {
-        throw new Error('Normalized video file was not created');
-      }
-      
-      return {
-        path: finalPath,
-        duration: this.getVideoDuration(segment.video),
-        width: targetWidth,
-        height: targetHeight,
-      };
+      // For single segment, use normalizeVideo
+      return await this.normalizeVideo(segments[0].video);
     }
 
     try {

@@ -75,25 +75,32 @@ const VideoPostScreen: React.FC = () => {
   const videoPath = params.videoPath as string;
   const videoObjectString = params.video as string;
   
-  // Parse video object if it's a string, otherwise use videoPath
-  let videoObject: any = null;
-  try {
-    videoObject = videoObjectString ? JSON.parse(videoObjectString) : null;
-  } catch (e) {
-    console.warn('Failed to parse video object:', e);
-  }
+  // Parse video object if it's a string, otherwise use videoPath - memoize to prevent recreation
+  const videoObject = useMemo(() => {
+    if (!videoObjectString) return null;
+    try {
+      return JSON.parse(videoObjectString);
+    } catch (e) {
+      console.warn('Failed to parse video object:', e);
+      return null;
+    }
+  }, [videoObjectString]);
   
-  // Create video object with proper structure
+  // Create video object with proper structure - memoize to prevent recreation
   // Handle ImagePickerAsset (has 'uri' property) or legacy format (has 'path' property)
-  const video = videoObject || {
-    path: videoPath || '',
-    width: 360,
-    height: 640,
-    duration: 0
-  };
+  const video = useMemo(() => {
+    return videoObject || {
+      path: videoPath || '',
+      width: 360,
+      height: 640,
+      duration: 0
+    };
+  }, [videoObject, videoPath]);
   
-  // Normalize video path - ImagePickerAsset uses 'uri', legacy uses 'path'
-  let normalizedVideoPath = (video.uri || video.path || videoPath || '').toString();
+  // Normalize video path - ImagePickerAsset uses 'uri', legacy uses 'path' - memoize to prevent recreation
+  const normalizedVideoPath = useMemo(() => {
+    return (video.uri || video.path || videoPath || '').toString();
+  }, [video.uri, video.path, videoPath]);
   
   const textOverlays = (params.textOverlays as any) || [];
   const navigation = useRouter();
@@ -325,6 +332,9 @@ const VideoPostScreen: React.FC = () => {
       return;
     }
 
+    // Track the actual video path to use (may be updated if downloading from iCloud)
+    let videoPathToUse = normalizedVideoPath;
+
     // Validate video file exists - try MediaLibrary if we have assetId (iCloud videos)
     try {
       const assetId = video.assetId;
@@ -339,8 +349,8 @@ const VideoPostScreen: React.FC = () => {
             const file = new File(assetInfo.localUri);
             fileExists = file.exists;
             if (fileExists) {
-              // Update normalized path to use the downloaded local URI
-              normalizedVideoPath = assetInfo.localUri;
+              // Update path to use the downloaded local URI
+              videoPathToUse = assetInfo.localUri;
             }
           }
         } catch (mediaError) {
@@ -349,7 +359,7 @@ const VideoPostScreen: React.FC = () => {
       }
       
       if (!fileExists) {
-        const file = new File(normalizedVideoPath);
+        const file = new File(videoPathToUse);
         fileExists = file.exists;
       }
       
@@ -386,8 +396,8 @@ const VideoPostScreen: React.FC = () => {
         });
       }, 300);
       
-      // Use compressed video if available, otherwise use original
-      const videoPathToUpload = compressedVideoPath || normalizedVideoPath;
+      // Use compressed video if available, otherwise use the validated path
+      const videoPathToUpload = compressedVideoPath || videoPathToUse;
       
       // Extract slug from channel URI to ensure it matches what the backend expects
       const channelSlug = selectedChannel 
@@ -511,11 +521,25 @@ const VideoPostScreen: React.FC = () => {
     }
   };
 
-  // Ensure file:// prefix for local files and validate path
-  const videoUri = normalizedVideoPath && normalizedVideoPath.trim() ? (normalizedVideoPath.startsWith('file://') ? normalizedVideoPath : `file://${normalizedVideoPath}`) : '';
+  // Ensure file:// prefix for local files and validate path - memoize to prevent recreation
+  const videoUri = useMemo(() => {
+    return normalizedVideoPath && normalizedVideoPath.trim() 
+      ? (normalizedVideoPath.startsWith('file://') ? normalizedVideoPath : `file://${normalizedVideoPath}`) 
+      : '';
+  }, [normalizedVideoPath]);
   
-  // Debug logging and file validation
+  // Track last validated path to prevent duplicate validations
+  const lastValidatedPathRef = useRef<string>('');
+  
+  // Debug logging and file validation - only run when video path actually changes
   useEffect(() => {
+    // Only validate if the path has changed
+    if (videoUri === lastValidatedPathRef.current) {
+      return;
+    }
+    
+    lastValidatedPathRef.current = videoUri;
+    
     console.log('VideoPostScreen Debug:', {
       videoPath: videoPath,
       videoObjectString: videoObjectString,
@@ -537,6 +561,8 @@ const VideoPostScreen: React.FC = () => {
           
           if (!file.exists) {
             setVideoError('Video file not found');
+          } else {
+            setVideoError(null);
           }
         } catch (error) {
           console.error('Error validating video file:', error);
@@ -546,7 +572,7 @@ const VideoPostScreen: React.FC = () => {
     };
     
     validateVideoFile();
-  }, [videoPath, videoObjectString, videoObject, video, videoUri]);
+  }, [videoUri]); // Only depend on videoUri, which is memoized based on normalizedVideoPath
 
   // Handle keyboard visibility for input spacing
   useEffect(() => {
