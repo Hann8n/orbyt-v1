@@ -12,8 +12,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../../ui/UI';
 import { BackArrowIcon, Loading3FillIcon } from '../../../ui/Icon';
+import { BORDER_RADIUS } from '../../../../utils/constants';
 import VideoCard from '../VideoCard';
 import type { VideoCardRef } from '../VideoCard';
+import type { OrbytChannel } from '../../../../utils/orbytChannels';
+import { extractFeedSlug } from '../../../../utils/orbytChannels';
 // import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 
 
@@ -25,6 +28,7 @@ interface VideoPreviewModalProps {
   userProfile?: any;
   initialTime?: number;
   initialIsPlaying?: boolean;
+  channel?: OrbytChannel | null;
 }
 
 const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
@@ -35,6 +39,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
   userProfile,
   initialTime = 0,
   initialIsPlaying = true,
+  channel,
 }) => {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
@@ -46,6 +51,10 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
     (videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`) : '';
 
   // Create simple preview post for VideoCard
+  // Extract channel slug for tag if channel is selected
+  const channelSlug = channel ? (extractFeedSlug(channel.uri) || channel.slug) : null;
+  const tags = channelSlug ? [`orbyt-channel-${channelSlug}`] : [];
+  
   const previewPost = {
     uri: 'preview-post',
     cid: 'preview-cid',
@@ -59,7 +68,9 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
     record: {
       text: description,
       createdAt: new Date().toISOString(),
+      tags: tags,
     },
+    tags: tags,
     viewer: {},
     likeCount: 0,
     repostCount: 0,
@@ -126,7 +137,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
           style={[styles.backButton, { top: insets.top + 15 }]}
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
-          <BackArrowIcon size={24} color={Colors.white} />
+          <BackArrowIcon size={32} color={Colors.white} />
         </TouchableOpacity>
         
         {/* 9:16 VideoCard with overlay */}
@@ -176,14 +187,15 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    left: 20,
+    left: 15,
     zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+    padding: 8,
+    borderRadius: BORDER_RADIUS.LARGE,
+    width: 44,
+    height: 44,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.overlayBlack50,
   },
   videoContainer: {
     flex: 1,
