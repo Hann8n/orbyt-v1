@@ -92,8 +92,11 @@ const VideoPostScreen: React.FC = () => {
     duration: 0
   };
   
-  // Normalize video path - ImagePickerAsset uses 'uri', legacy uses 'path'
-  let normalizedVideoPath = (video.uri || video.path || videoPath || '').toString();
+  // Initial video path from params - may need iCloud download resolution
+  const initialVideoPath = (video.uri || video.path || videoPath || '').toString();
+  
+  // Resolved video path state - this is the actual local path after iCloud download if needed
+  const [resolvedVideoPath, setResolvedVideoPath] = useState<string>(initialVideoPath);
   
   const textOverlays = (params.textOverlays as any) || [];
   const navigation = useRouter();
@@ -213,18 +216,50 @@ const VideoPostScreen: React.FC = () => {
     }
   }, [currentUser?.did]);
 
-  // Check video size on component mount
+  // Resolve video path on mount - download from iCloud if needed
+  useEffect(() => {
+    const resolveVideoPath = async () => {
+      const assetId = video.assetId;
+      let resolvedPath = initialVideoPath;
+      
+      // For iOS gallery videos, ensure the video is downloaded locally (iCloud support)
+      if (assetId && Platform.OS === 'ios') {
+        try {
+          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
+            shouldDownloadFromNetwork: true,
+          });
+          if (assetInfo.localUri) {
+            resolvedPath = assetInfo.localUri;
+          }
+        } catch (mediaError) {
+          console.warn('Failed to download video from iCloud:', mediaError);
+          // Continue with original path
+        }
+      }
+      
+      // Ensure file:// prefix
+      if (resolvedPath && !resolvedPath.startsWith('file://')) {
+        resolvedPath = `file://${resolvedPath}`;
+      }
+      
+      setResolvedVideoPath(resolvedPath);
+    };
+
+    resolveVideoPath();
+  }, [initialVideoPath, video.assetId]);
+
+  // Check video size after video path is resolved
   useEffect(() => {
     const checkVideoSize = async () => {
-      if (normalizedVideoPath) {
+      if (resolvedVideoPath) {
         try {
           const assetId = video.assetId;
-          const sizeInfo = await VideoProcessingService.checkVideoSize(normalizedVideoPath, assetId);
+          const sizeInfo = await VideoProcessingService.checkVideoSize(resolvedVideoPath, assetId);
           setVideoSizeInfo(sizeInfo);
           
           // Get comprehensive video information - pass ImagePickerAsset if available
           const asset = video.uri ? video as ImagePicker.ImagePickerAsset : undefined;
-          const compressionInfo = await VideoProcessingService.getCompressionInfo(normalizedVideoPath, asset);
+          const compressionInfo = await VideoProcessingService.getCompressionInfo(resolvedVideoPath, asset);
           setVideoInfo(compressionInfo);
         } catch (error) {
           console.error('Error checking video size:', error);
@@ -233,20 +268,20 @@ const VideoPostScreen: React.FC = () => {
     };
 
     checkVideoSize();
-  }, [normalizedVideoPath]);
+  }, [resolvedVideoPath]);
 
   // Compress video if needed
   const compressVideo = async () => {
-    if (!normalizedVideoPath || isCompressing) return;
+    if (!resolvedVideoPath || isCompressing) return;
     
     setIsCompressing(true);
     try {
       // Compress the video
-      const compressedVideo = await VideoProcessingService.compressVideoWithSizeLimit(normalizedVideoPath);
+      const compressedVideo = await VideoProcessingService.compressVideoWithSizeLimit(resolvedVideoPath);
       setCompressedVideoPath(compressedVideo.path);
       
       // Get compression statistics
-      const stats = await VideoProcessingService.getCompressionStats(normalizedVideoPath, compressedVideo.path);
+      const stats = await VideoProcessingService.getCompressionStats(resolvedVideoPath, compressedVideo.path);
       setCompressionStats(stats);
       
       // Update video size info
@@ -320,40 +355,15 @@ const VideoPostScreen: React.FC = () => {
   const handlePost = async () => {
     if (isPosting) return;
     
-    if (!normalizedVideoPath) {
+    if (!resolvedVideoPath) {
       Alert.alert('error', 'no video selected');
       return;
     }
 
-    // Validate video file exists - try MediaLibrary if we have assetId (iCloud videos)
+    // Validate video file exists
     try {
-      const assetId = video.assetId;
-      let fileExists = false;
-      
-      if (assetId && Platform.OS === 'ios') {
-        try {
-          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
-            shouldDownloadFromNetwork: true,
-          });
-          if (assetInfo.localUri) {
-            const file = new File(assetInfo.localUri);
-            fileExists = file.exists;
-            if (fileExists) {
-              // Update normalized path to use the downloaded local URI
-              normalizedVideoPath = assetInfo.localUri;
-            }
-          }
-        } catch (mediaError) {
-          // Fall through to FileSystem check
-        }
-      }
-      
-      if (!fileExists) {
-        const file = new File(normalizedVideoPath);
-        fileExists = file.exists;
-      }
-      
-      if (!fileExists) {
+      const file = new File(resolvedVideoPath.replace('file://', ''));
+      if (!file.exists) {
         Alert.alert('error', 'video file not found. please try again.');
         return;
       }
@@ -386,8 +396,8 @@ const VideoPostScreen: React.FC = () => {
         });
       }, 300);
       
-      // Use compressed video if available, otherwise use original
-      const videoPathToUpload = compressedVideoPath || normalizedVideoPath;
+      // Use compressed video if available, otherwise use resolved path
+      const videoPathToUpload = compressedVideoPath || resolvedVideoPath;
       
       // Extract slug from channel URI to ensure it matches what the backend expects
       const channelSlug = selectedChannel 
@@ -511,8 +521,8 @@ const VideoPostScreen: React.FC = () => {
     }
   };
 
-  // Ensure file:// prefix for local files and validate path
-  const videoUri = normalizedVideoPath && normalizedVideoPath.trim() ? (normalizedVideoPath.startsWith('file://') ? normalizedVideoPath : `file://${normalizedVideoPath}`) : '';
+  // Video URI for display - resolvedVideoPath already has file:// prefix
+  const videoUri = resolvedVideoPath || '';
   
   // Debug logging and file validation
   useEffect(() => {
@@ -521,16 +531,17 @@ const VideoPostScreen: React.FC = () => {
       videoObjectString: videoObjectString,
       parsedVideoObject: videoObject,
       finalVideo: video,
+      resolvedVideoPath: resolvedVideoPath,
       videoUri: videoUri
     });
     
     // Validate video file exists if we have a local path
     const validateVideoFile = async () => {
-      if (videoUri && videoUri.startsWith('file://')) {
+      if (resolvedVideoPath && resolvedVideoPath.startsWith('file://')) {
         try {
-          const file = new File(videoUri);
+          const file = new File(resolvedVideoPath.replace('file://', ''));
           console.log('Video file validation:', {
-            path: videoUri,
+            path: resolvedVideoPath,
             exists: file.exists,
             size: file.exists ? file.size : 0,
           });
@@ -546,7 +557,7 @@ const VideoPostScreen: React.FC = () => {
     };
     
     validateVideoFile();
-  }, [videoPath, videoObjectString, videoObject, video, videoUri]);
+  }, [resolvedVideoPath]);
 
   // Handle keyboard visibility for input spacing
   useEffect(() => {
@@ -905,7 +916,7 @@ const VideoPostScreen: React.FC = () => {
         <VideoPreviewModal
           visible={showPreviewModal}
           onClose={handleClosePreviewModal}
-          videoPath={normalizedVideoPath || ''}
+          videoPath={resolvedVideoPath || ''}
           description={description}
           userProfile={profileData}
           initialTime={currentTime}
@@ -1502,7 +1513,7 @@ const VideoPostScreen: React.FC = () => {
       <VideoPreviewModal
         visible={showPreviewModal}
         onClose={handleClosePreviewModal}
-        videoPath={normalizedVideoPath || ''}
+        videoPath={resolvedVideoPath || ''}
         description={description}
         userProfile={profileData}
         initialTime={currentTime}

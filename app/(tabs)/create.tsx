@@ -401,6 +401,21 @@ const CreateScreen: React.FC = () => {
     }
   };
 
+  const handleBackPress = () => navigation.back();
+
+  const deleteLastSegment = () => {
+    if (segments.length > 0) {
+      const newSegments = [...segments];
+      const removedSegment = newSegments.pop();
+      setSegments(newSegments);
+      const newTotalDuration = totalDuration - (removedSegment?.duration || 0);
+      setTotalDuration(newTotalDuration);
+      const progress = (newTotalDuration / MAX_DURATION) * 100;
+      progressWidth.value = withTiming(progress);
+      setRecordingProgress(progress);
+    }
+  };
+
   const handleToolAction = useCallback((action: string) => {
     switch (action) {
       case 'gallery':
@@ -420,74 +435,58 @@ const CreateScreen: React.FC = () => {
     }
   }, [pickFromGallery, flipCamera, toggleFlash, deleteLastSegment]);
 
-  const handleBackPress = () => navigation.back();
-
-  const deleteLastSegment = () => {
-    if (segments.length > 0) {
-      const newSegments = [...segments];
-      const removedSegment = newSegments.pop();
-      setSegments(newSegments);
-      const newTotalDuration = totalDuration - (removedSegment?.duration || 0);
-      setTotalDuration(newTotalDuration);
-      const progress = (newTotalDuration / MAX_DURATION) * 100;
-      progressWidth.value = withTiming(progress);
-      setRecordingProgress(progress);
-    }
-  };
-
   const finishRecording = useCallback(async () => {
     if (segments.length === 0) return;
     setIsProcessing(true);
     try {
-      if (segments.length === 1) {
-        const segment = segments[0];
+      // Helper to ensure video path has file:// prefix
+      const ensureFilePrefix = (path: string): string => 
+        path.startsWith('file://') ? path : `file://${path}`;
+
+      // Helper to get local video path, downloading from iCloud if needed
+      const getLocalVideoPath = async (segment: VideoSegment): Promise<string> => {
         const videoPath = 'uri' in segment.video ? segment.video.uri : segment.video.path;
+        const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
         
-        if (segment.sourceType === 'gallery') {
+        // For gallery videos on iOS, ensure the video is downloaded locally (iCloud support)
+        if (segment.sourceType === 'gallery' && assetId && Platform.OS === 'ios') {
           try {
-            const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
-            const optimizedVideo = await VideoProcessingService.optimizeVideoForPosting(videoPath, assetId);
-            const videoWithUri = { 
-              ...optimizedVideo, 
-              path: optimizedVideo.path.startsWith('file://') ? optimizedVideo.path : `file://${optimizedVideo.path}`
-            };
-            navigation.push({
-              pathname: '/post/[id]',
-              params: { id: 'new', videoPath: videoWithUri.path }
+            const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
+              shouldDownloadFromNetwork: true,
             });
-            return;
-          } catch (error) {
-            const fallbackPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
-            navigation.push({
-              pathname: '/post/[id]',
-              params: { id: 'new', videoPath: fallbackPath }
-            });
-            return;
+            if (assetInfo.localUri) {
+              return ensureFilePrefix(assetInfo.localUri);
+            }
+          } catch (mediaError) {
+            // Fall through to use original path
           }
         }
-        const finalPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
+        
+        return ensureFilePrefix(videoPath);
+      };
+
+      // SINGLE CLIP: Pass directly to VideoPostScreen without modifications
+      // VideoPostScreen handles compression if needed
+      if (segments.length === 1) {
+        const localPath = await getLocalVideoPath(segments[0]);
         navigation.push({
           pathname: '/post/[id]',
-          params: { id: 'new', videoPath: finalPath }
+          params: { id: 'new', videoPath: localPath }
         });
         return;
       }
       
-      // Merge all recorded segments into a single file
+      // MULTIPLE CLIPS: Merge using FFmpeg, then pass to VideoPostScreen
       try {
         const mergedVideo = await mergeSegments(segments);
-        const videoWithUri = { 
-          ...mergedVideo, 
-          path: mergedVideo.path.startsWith('file://') ? mergedVideo.path : `file://${mergedVideo.path}`
-        };
         navigation.push({
           pathname: '/post/[id]',
-          params: { id: 'new', videoPath: videoWithUri.path }
+          params: { id: 'new', videoPath: ensureFilePrefix(mergedVideo.path) }
         });
       } catch (mergeError) {
+        // Fallback: use first segment if merge fails
         if (segments.length > 0) {
-          const fallbackVideo = segments[0].video;
-          const fallbackPath = 'uri' in fallbackVideo ? fallbackVideo.uri : fallbackVideo.path;
+          const localPath = await getLocalVideoPath(segments[0]);
           Alert.alert(
             'Merge Failed',
             'Failed to merge video segments. Using the first segment instead.',
@@ -495,7 +494,7 @@ const CreateScreen: React.FC = () => {
           );
           navigation.push({
             pathname: '/post/[id]',
-            params: { id: 'new', videoPath: fallbackPath.startsWith('file://') ? fallbackPath : `file://${fallbackPath}` }
+            params: { id: 'new', videoPath: localPath }
           });
         } else {
           throw mergeError;
