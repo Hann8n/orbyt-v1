@@ -46,7 +46,7 @@ export const Colors = {
   gray: '#818896', // Base gray
   
   // Gray Shades (lightest to darkest)
-  lightGray: '#CFD6E8',
+  lightGray: '#ccd7e9',
   mediumGray: '#3E414B',
   darkGray: '#181c22',
   
@@ -97,7 +97,7 @@ export const Colors = {
   INTERACTIVE: {
     HEART: {
       ACTIVE: '#FE4359',     // red
-      INACTIVE: '#CFD6E8',   // gray
+      INACTIVE: '#ccd7e9',   // gray
     },
     REPOST: {
       ACTIVE: '#00D4AA',     // green
@@ -114,7 +114,7 @@ export const Colors = {
   },
 
   PROFILE: {
-    DEFAULT_RING: '#CFD6E8', // lightGray
+    DEFAULT_RING: '#ccd7e9', // lightGray
   },
 
   SHIMMER: {

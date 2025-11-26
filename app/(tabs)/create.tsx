@@ -26,7 +26,6 @@ import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import Animated, { 
   useSharedValue, 
-  withSpring, 
   useAnimatedStyle, 
   withTiming
 } from 'react-native-reanimated';
@@ -80,8 +79,8 @@ const CreateScreen: React.FC = () => {
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
   const isMountedRef = useRef(true);
 
-  const recButtonScale = useSharedValue(1);
   const progressWidth = useSharedValue(0);
+  const buttonOpacity = useSharedValue(1);
   
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
@@ -125,13 +124,18 @@ const CreateScreen: React.FC = () => {
   }, [isFrontCamera]);
 
   // Animated styles
-  const animatedRecordingStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: recButtonScale.value }],
-  }));
-
   const animatedProgressStyle = useAnimatedStyle(() => ({
     width: `${progressWidth.value}%`,
   }), []);
+
+  const animatedButtonOpacityStyle = useAnimatedStyle(() => ({
+    opacity: buttonOpacity.value,
+  }), []);
+
+  // Animate button opacity when recording state changes
+  useEffect(() => {
+    buttonOpacity.value = withTiming(isRecording ? 0.5 : 1, { duration: 100 });
+  }, [isRecording]);
 
 
   // Define stopRecording first so that it can be used inside startRecording
@@ -141,7 +145,6 @@ const CreateScreen: React.FC = () => {
         setIsProcessing(true);
         
         if (recordingTimer.current) clearInterval(recordingTimer.current);
-        recButtonScale.value = withSpring(1);
         
         // Stop recording - expo-camera's stopRecording() stops the recording
         // Then await the promise from recordAsync() to get the video result
@@ -187,7 +190,7 @@ const CreateScreen: React.FC = () => {
         recordingPromiseRef.current = null;
       }
     }
-  }, [isRecording, recButtonScale, progressWidth, totalDuration, maxDuration]);
+  }, [isRecording, progressWidth, totalDuration, maxDuration]);
 
   const startRecording = useCallback(async () => {
     if (cameraRef.current && !isRecording && totalDuration < maxDuration) {
@@ -201,7 +204,6 @@ const CreateScreen: React.FC = () => {
       }
       
       setIsRecording(true);
-      recButtonScale.value = withSpring(1.2);
       
       segmentStartTime.current = Date.now();
       try {
@@ -228,7 +230,7 @@ const CreateScreen: React.FC = () => {
         recordingPromiseRef.current = null;
       }
     }
-  }, [isRecording, recButtonScale, progressWidth, totalDuration, stopRecording, microphonePermission, requestMicrophonePermission, maxDuration]);
+  }, [isRecording, progressWidth, totalDuration, stopRecording, microphonePermission, requestMicrophonePermission, maxDuration]);
   
   // Handle press start - begin recording
   const handlePressIn = useCallback(() => {
@@ -313,7 +315,13 @@ const CreateScreen: React.FC = () => {
     }
   };
 
-  const flipCamera = () => setIsFrontCamera(prev => !prev);
+  const flipCamera = useCallback(async () => {
+    // Stop any active recording before switching cameras
+    if (isRecording && cameraRef.current) {
+      await stopRecording();
+    }
+    setIsFrontCamera(prev => !prev);
+  }, [isRecording, stopRecording]);
   const toggleFlash = () => {
     // Only allow flash on back camera
     if (!isFrontCamera) {
@@ -475,6 +483,7 @@ const CreateScreen: React.FC = () => {
         <View style={styles.cameraContainer}>
           <StatusBar barStyle="light-content" />
           <CameraView
+            key={`camera-${isFrontCamera ? 'front' : 'back'}`}
             ref={cameraRef}
             style={styles.camera}
             facing={isFrontCamera ? 'front' : 'back'}
@@ -487,13 +496,13 @@ const CreateScreen: React.FC = () => {
           />
           
           {/* Controls */}
-          <View style={[styles.centerButtonContainer, { bottom: bottomNavBarHeight + (isSmallScreen() ? 20 : 30) }]}>
+          <View style={[styles.centerButtonContainer, { bottom: bottomNavBarHeight + (isSmallScreen() ? 40 : 50) }]}>
             <Pressable
               onPressIn={handlePressIn}
               onPressOut={handlePressOut}
               style={styles.recordButtonContainer}
             >
-              <Animated.View style={[styles.recordButton, animatedRecordingStyle]}>
+              <Animated.View style={[styles.recordButton, animatedButtonOpacityStyle]}>
                 {isLoadingFromGallery ? (
                   <Loading3FillIcon size={32} color="white" />
                 ) : (
@@ -721,20 +730,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recordButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 4,
+    width: 90,
+    height: 90,
+    borderRadius: 47.5,
+    borderWidth: 5,
     borderColor: Colors.white,
     backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
   captureButtonInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    width: 74,
+    height: 74,
+    borderRadius: 38,
+    backgroundColor: 'rgba(129, 136, 150, 0.4)',
   },
   captureButtonRecording: {
     width: 40,

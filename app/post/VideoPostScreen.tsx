@@ -20,16 +20,16 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { Host, Button, Text as SwiftUIText } from '@expo/ui/swift-ui';
+import { glassEffect, frame, cornerRadius, background } from '@expo/ui/swift-ui/modifiers';
 import Video, { VideoRef } from 'react-native-video';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import VideoPreviewModal from '../../src/components/features/video/Preview/VideoPreviewModal';
 import { Avatar } from '../../src/components/ui/UI';
 import { VerificationBadge } from '../../src/components/features/badging';
-import Icon, { BackArrowIcon, ChevronDownIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
+import Icon, { BackArrowIcon, ChevronDownIcon, Loading3FillIcon, DownSmallFillIcon } from '../../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/videoPath';
@@ -43,14 +43,14 @@ import ProfileCache from '../../src/services/cache/ProfileCache';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import VideoProcessingService from '../../src/services/VideoProcessingService';
 import { SavedAccount } from '../../src/stores/userStore';
-import { getPostableChannels, shouldShowChannelSlash, OrbytChannel, extractFeedSlug } from '../../src/utils/orbytChannels';
+import { getPostableChannels, shouldShowChannelSlash, OrbytChannel, extractFeedSlug, getChannelAvatarUri } from '../../src/utils/orbytChannels';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
 import { useRichTextSearchTrigger, RichTextSearchModal } from '../../src/components/ui/usersearch';
 import { parseRichText } from '../../src/utils/richTextParser';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16; // 9:16 aspect ratio for video cards
-const VIDEO_WIDTH = SCREEN_WIDTH * 0.4; // Keep the same relative width as before
+const VIDEO_WIDTH = SCREEN_WIDTH * 0.33; // Slightly smaller preview
 
 // Content warning options
 const CONTENT_WARNINGS = [
@@ -103,8 +103,6 @@ const VideoPostScreen: React.FC = () => {
   const [showChannelSelectionSheet, setShowChannelSelectionSheet] = useState(false);
   const [showVideoInfoSheet, setShowVideoInfoSheet] = useState(false);
   
-  // Preview modal state
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
   
   // Full-screen description input modal state
   const [showDescriptionInputModal, setShowDescriptionInputModal] = useState(false);
@@ -432,26 +430,6 @@ const VideoPostScreen: React.FC = () => {
     }, [])
   );
 
-  // Handler to sync time when opening full screen modal
-  const handleEditVideo = () => {
-    setShowPreviewModal(true);
-  };
-
-  // Handler to sync time when closing full screen modal
-  const handleClosePreviewModal = (modalCurrentTime?: number, modalIsPlaying?: boolean) => {
-    setShowPreviewModal(false);
-    // Fade in audio after closing modal
-    fadeVolume(videoVolume, 1, 200);
-    if (typeof modalCurrentTime === 'number') {
-      setCurrentTime(modalCurrentTime);
-      if (videoRef.current && videoRef.current.seek) {
-        videoRef.current.seek(modalCurrentTime);
-      }
-    }
-    if (typeof modalIsPlaying === 'boolean') {
-      setIsPlaying(modalIsPlaying);
-    }
-  };
 
   // Resolved video path info
   const [videoPathInfo, setVideoPathInfo] = useState<VideoPathInfo | null>(null);
@@ -569,7 +547,7 @@ const VideoPostScreen: React.FC = () => {
               </View>
                         {/* Description Section */}
           <View style={styles.descriptionSection}>
-            <Text style={styles.sectionHeaderTitle}>Description</Text>
+            <Text style={[styles.sectionHeaderTitle, { marginBottom: 6 }]}>Description</Text>
             <TouchableOpacity 
               onPress={() => setShowDescriptionInputModal(true)}
               activeOpacity={0.7}
@@ -642,32 +620,53 @@ const VideoPostScreen: React.FC = () => {
               <View style={styles.section}>
                 <Text style={styles.sectionHeaderTitle}>Channel</Text>
                 <TouchableOpacity 
-                  style={styles.sectionSelector}
+                  style={styles.channelSelectorContainer}
                   onPress={() => setShowChannelSelectionSheet(true)}
                   activeOpacity={0.7}
                 >
-                  <View style={styles.sectionSelectorContent}>
+                  <View style={styles.channelSelectorBox}>
                     {!selectedChannel ? (
-                      <Text style={styles.sectionSelectorText}>Pick a channel</Text>
+                      <Avatar
+                        type="channel"
+                        size={52}
+                        ringColor="transparent"
+                        noRing={true}
+                        fallbackIcon="device-tv"
+                        fallbackIconColor={Colors.lightGray}
+                        fallbackIconSize={32}
+                      />
                     ) : (
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        {shouldShowChannelSlash(selectedChannel.uri) && (
-                          <Text style={[
-                            styles.sectionSelectorText, 
-                            styles.orbytSlash, 
-                            { 
-                              color: selectedChannel.channelColor || '#FFD700',
-                              fontFamily: 'Firma-SemiBold'
-                            }
-                          ]}>/</Text>
-                        )}
-                        <Text style={[styles.sectionSelectorText, { fontFamily: 'Firma-Bold' }]}>
-                          {selectedChannel.displayName.toLowerCase()}
-                        </Text>
-                      </View>
+                      <Avatar
+                        uri={getChannelAvatarUri(selectedChannel.uri)}
+                        type="channel"
+                        size={52}
+                        ringColor="transparent"
+                        noRing={true}
+                      />
                     )}
                   </View>
-                  <ChevronDownIcon size={20} color={Colors.lightGray} />
+                  {!selectedChannel ? (
+                    <View style={styles.channelSelectorPlaceholderContainer}>
+                      <Text style={styles.channelSelectorPlaceholderText}>Pick a channel</Text>
+                      <DownSmallFillIcon size={20} color={Colors.lightGray} />
+                    </View>
+                  ) : (
+                    <View style={styles.channelSelectorNameContainer}>
+                      {shouldShowChannelSlash(selectedChannel.uri) && (
+                        <Text style={[
+                          styles.channelSelectorName, 
+                          styles.orbytSlash, 
+                          { 
+                            color: selectedChannel.channelColor || '#FFD700',
+                            fontFamily: 'Firma-SemiBold'
+                          }
+                        ]}>/</Text>
+                      )}
+                      <Text style={[styles.channelSelectorName, { fontFamily: 'Firma-Bold' }]}>
+                        {selectedChannel.displayName.toLowerCase()}
+                      </Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               </View>
               {/* Comment Filtering */}
@@ -696,37 +695,38 @@ const VideoPostScreen: React.FC = () => {
               </View>
               {/* Post Button */}
               <View style={[styles.landscapePostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-                {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
-                  <TouchableOpacity 
-                    style={styles.landscapePostButtonGlass}
-                    onPress={handlePost}
-                    disabled={isPosting}
-                    activeOpacity={0.8}
-                  >
-                    <GlassView
-                      style={StyleSheet.absoluteFill}
-                      glassEffectStyle="clear"
-                      tintColor="rgba(255,255,255,0.9)"
-                      isInteractive
-                    />
-                    <View style={styles.buttonContent}>
+                {Platform.OS === 'ios' ? (
+                  <Host style={{ width: SCREEN_WIDTH * 0.6, height: 60 }}>
+                    <Button
+                      onPress={handlePost}
+                      disabled={isPosting}
+                      modifiers={[
+                        frame({ width: SCREEN_WIDTH * 0.6, height: 60 }),
+                        cornerRadius(BORDER_RADIUS.FULL),
+                        glassEffect({
+                          glass: {
+                            variant: 'regular',
+                            tint: Colors.lightGray,
+                          },
+                        }),
+                      ]}
+                    >
                       {isPosting ? (
-                        <View style={styles.loadingContainer}>
-                          <Loading3FillIcon size={24} color={Colors.black} />
-                          <Text style={styles.postButtonText}>
-                            {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
-                             uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
-                             'Creating post...'}
-                          </Text>
-                        </View>
+                        <SwiftUIText size={18} weight="black" color={Colors.black}>
+                          {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
+                           uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
+                           'Creating post...'}
+                        </SwiftUIText>
                       ) : (
-                        <Text style={styles.postButtonText}>Post</Text>
+                        <SwiftUIText size={18} weight="black" color={Colors.black}>
+                          POST
+                        </SwiftUIText>
                       )}
-                    </View>
-                  </TouchableOpacity>
+                    </Button>
+                  </Host>
                 ) : (
                   <TouchableOpacity 
-                    style={styles.landscapePostButtonHost}
+                    style={[styles.landscapePostButtonHost, { width: SCREEN_WIDTH * 0.6 }]}
                     onPress={handlePost}
                     disabled={isPosting}
                     activeOpacity={0.8}
@@ -742,7 +742,7 @@ const VideoPostScreen: React.FC = () => {
                           </Text>
                         </View>
                       ) : (
-                        <Text style={styles.postButtonText}>Post</Text>
+                        <Text style={styles.postButtonText}>POST</Text>
                       )}
                     </View>
                   </TouchableOpacity>
@@ -753,7 +753,7 @@ const VideoPostScreen: React.FC = () => {
           {/* Right: Video Preview Side */}
           <View style={styles.landscapeVideoSide}>
             <View style={styles.previewSection}>
-              <TouchableOpacity onPress={handleEditVideo} activeOpacity={0.8} style={[styles.videoContainer, { width: '100%', aspectRatio: ASPECT_RATIO, maxHeight: '90%' }]}> 
+              <View style={[styles.videoContainer, { width: '100%', aspectRatio: ASPECT_RATIO, maxHeight: '90%' }]}> 
                 {videoLoading && (
                   <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: Colors.darkGray }]}> 
                     <Loading3FillIcon size={48} color={Colors.white} />
@@ -768,7 +768,7 @@ const VideoPostScreen: React.FC = () => {
                         resizeMode="contain"
                         paused={!isPlaying}
                         repeat={true}
-                        muted={true}
+                        muted={false}
                         volume={videoVolume}
                       onLoadStart={() => {
                         setVideoLoading(true);
@@ -795,7 +795,7 @@ const VideoPostScreen: React.FC = () => {
                     />
                   ) : (
                     <View style={{ justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-                      <Text style={{ color: Colors.white, fontSize: 16, textAlign: 'center' }}>
+                      <Text style={{ color: Colors.lightGray, fontSize: 16, textAlign: 'center' }}>
                         No video source available
                       </Text>
                     </View>
@@ -803,7 +803,7 @@ const VideoPostScreen: React.FC = () => {
                 </View>
                 {videoError && (
                   <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 3, backgroundColor: Colors.darkGray }]}> 
-                    <Text style={{ color: Colors.white, fontSize: 16 }}>{videoError && videoError.toLowerCase()}</Text>
+                    <Text style={{ color: Colors.lightGray, fontSize: 16 }}>{videoError && videoError.toLowerCase()}</Text>
                   </View>
                 )}
                 {!videoLoading && !videoError && textOverlays && textOverlays.length > 0 && textOverlays.map((overlay: TextOverlay) => (
@@ -831,21 +831,10 @@ const VideoPostScreen: React.FC = () => {
                     </Text>
                   </View>
                 ))}
-              </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
-        {/* Video Preview Modal (unchanged) */}
-        <VideoPreviewModal
-          visible={showPreviewModal}
-          onClose={handleClosePreviewModal}
-          videoPath={videoPath || ''}
-          description={description}
-          userProfile={profileData}
-          initialTime={currentTime}
-          initialIsPlaying={isPlaying}
-          channel={selectedChannel}
-        />
 
         {/* Full-Screen Description Input Modal */}
         <Modal
@@ -877,7 +866,7 @@ const VideoPostScreen: React.FC = () => {
                     {...richTextInputProps}
                     style={[styles.descriptionModalInput, { height: descriptionInputHeight, color: description.length > 0 ? 'transparent' : Colors.white }]}
                     placeholder="Add text & tags (optional)"
-                    placeholderTextColor={Colors.lightGray}
+                    placeholderTextColor={Colors.gray}
                     multiline
                     maxLength={300}
                     autoFocus={true}
@@ -1049,10 +1038,12 @@ const VideoPostScreen: React.FC = () => {
         <VerticalListSheet
           visible={showChannelSelectionSheet}
           onDismiss={() => setShowChannelSelectionSheet(false)}
-          title="Channel (optional)"
+          title="Pick a channel"
           snapPoints={['auto']}
           showCancelButton={true}
-          cancelButtonText="Close"
+          cancelButtonText="Cancel"
+          titleSize={28}
+          hideCloseButton={true}
         >
           <View style={styles.sheetContent}>
             <VerticalListButton
@@ -1133,7 +1124,7 @@ const VideoPostScreen: React.FC = () => {
           </View>
           {/* Video Preview Section */}
           <View style={styles.previewSection}>
-            <TouchableOpacity onPress={handleEditVideo} activeOpacity={0.8} style={[styles.videoContainer, { width: containerWidth, height: containerHeight }]}>
+            <View style={[styles.videoContainer, { width: containerWidth, height: containerHeight }]}>
               {/* Show loading indicator while video is loading */}
               {videoLoading && (
                 <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: Colors.darkGray }]}> 
@@ -1149,7 +1140,7 @@ const VideoPostScreen: React.FC = () => {
                     resizeMode="contain"
                     paused={!isPlaying}
                     repeat={true}
-                    muted={true}
+                    muted={false}
                     volume={videoVolume}
                     onLoadStart={() => {
                       setVideoLoading(true);
@@ -1177,7 +1168,7 @@ const VideoPostScreen: React.FC = () => {
                   />
                 ) : (
                   <View style={{ justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-                    <Text style={{ color: Colors.white, fontSize: 16, textAlign: 'center' }}>
+                    <Text style={{ color: Colors.lightGray, fontSize: 16, textAlign: 'center' }}>
                       No video source available
                     </Text>
                   </View>
@@ -1186,7 +1177,7 @@ const VideoPostScreen: React.FC = () => {
               {/* Error message if video fails to load */}
               {videoError && (
                 <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 3, backgroundColor: Colors.darkGray }]}> 
-                  <Text style={{ color: Colors.white, fontSize: 16 }}>{videoError}</Text>
+                  <Text style={{ color: Colors.lightGray, fontSize: 16 }}>{videoError}</Text>
                 </View>
               )}
               {/* Text Overlays - only show if they exist */}
@@ -1215,12 +1206,12 @@ const VideoPostScreen: React.FC = () => {
                   </Text>
                 </View>
               ))}
-            </TouchableOpacity>
+            </View>
           </View>
           
           {/* Description Section */}
-          <View style={styles.descriptionSection}>
-            <Text style={styles.sectionHeaderTitle}>Description</Text>
+          <View style={[styles.descriptionSection, { marginTop: containerHeight, paddingTop: 0 }]}>
+            <Text style={[styles.sectionHeaderTitle, { marginBottom: 0}]}>Description</Text>
             <TouchableOpacity 
               onPress={() => setShowDescriptionInputModal(true)}
               activeOpacity={0.7}
@@ -1294,32 +1285,53 @@ const VideoPostScreen: React.FC = () => {
           <View style={styles.section}>
             <Text style={styles.sectionHeaderTitle}>Channel</Text>
             <TouchableOpacity 
-              style={styles.sectionSelector}
+              style={styles.channelSelectorContainer}
               onPress={() => setShowChannelSelectionSheet(true)}
               activeOpacity={0.7}
             >
-              <View style={styles.sectionSelectorContent}>
+              <View style={styles.channelSelectorBox}>
                 {!selectedChannel ? (
-                  <Text style={styles.sectionSelectorText}>Pick a channel</Text>
+                  <Avatar
+                    type="channel"
+                    size={52}
+                    ringColor="transparent"
+                    noRing={true}
+                    fallbackIcon="device-tv"
+                    fallbackIconColor={Colors.lightGray}
+                    fallbackIconSize={32}
+                  />
                 ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {shouldShowChannelSlash(selectedChannel.uri) && (
-                      <Text style={[
-                        styles.sectionSelectorText, 
-                        styles.orbytSlash, 
-                        { 
-                          color: selectedChannel.channelColor || '#FFD700',
-                          fontFamily: 'Firma-SemiBold'
-                        }
-                      ]}>/</Text>
-                    )}
-                    <Text style={[styles.sectionSelectorText, { fontFamily: 'Firma-Bold' }]}>
-                      {selectedChannel.displayName.toLowerCase()}
-                    </Text>
-                  </View>
+                  <Avatar
+                    uri={getChannelAvatarUri(selectedChannel.uri)}
+                    type="channel"
+                    size={52}
+                    ringColor="transparent"
+                    noRing={true}
+                  />
                 )}
               </View>
-              <ChevronDownIcon size={20} color={Colors.lightGray} />
+              {!selectedChannel ? (
+                <View style={styles.channelSelectorPlaceholderContainer}>
+                  <Text style={styles.channelSelectorPlaceholderText}>Pick a channel</Text>
+                  <DownSmallFillIcon size={20} color={Colors.lightGray} />
+                </View>
+              ) : (
+                <View style={styles.channelSelectorNameContainer}>
+                  {shouldShowChannelSlash(selectedChannel.uri) && (
+                    <Text style={[
+                      styles.channelSelectorName, 
+                      styles.orbytSlash, 
+                      { 
+                        color: selectedChannel.channelColor || '#FFD700',
+                        fontFamily: 'Firma-SemiBold'
+                      }
+                    ]}>/</Text>
+                  )}
+                  <Text style={styles.channelSelectorName}>
+                    {selectedChannel.displayName.toLowerCase()}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
           
@@ -1355,37 +1367,38 @@ const VideoPostScreen: React.FC = () => {
 
         
         <View style={[styles.floatingPostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-          {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
-            <TouchableOpacity 
-              style={styles.floatingPostButtonGlass}
-              onPress={handlePost}
-              disabled={isPosting}
-              activeOpacity={0.8}
-            >
-              <GlassView
-                style={StyleSheet.absoluteFill}
-                glassEffectStyle="clear"
-                tintColor="rgba(255,255,255,0.9)"
-                isInteractive
-              />
-              <View style={styles.buttonContent}>
+          {Platform.OS === 'ios' ? (
+            <Host style={{ width: SCREEN_WIDTH * 0.6, height: 60 }}>
+              <Button
+                onPress={handlePost}
+                disabled={isPosting}
+                modifiers={[
+                  frame({ width: SCREEN_WIDTH * 0.6, height: 60 }),
+                  cornerRadius(BORDER_RADIUS.FULL),
+                  glassEffect({
+                    glass: {
+                      variant: 'regular',
+                      tint: Colors.lightGray,
+                    },
+                  }),
+                ]}
+              >
                 {isPosting ? (
-                  <View style={styles.loadingContainer}>
-                    <Loading3FillIcon size={24} color={Colors.black} />
-                    <Text style={styles.postButtonText}>
-                      {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
-                       uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
-                       'Creating post...'}
-                    </Text>
-                  </View>
+                  <SwiftUIText size={18} weight="black" color={Colors.black}>
+                    {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
+                     uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
+                     'Creating post...'}
+                  </SwiftUIText>
                 ) : (
-                  <Text style={styles.postButtonText}>Post</Text>
+                  <SwiftUIText size={18} weight="black" color={Colors.black}>
+                    POST
+                  </SwiftUIText>
                 )}
-              </View>
-            </TouchableOpacity>
+              </Button>
+            </Host>
           ) : (
             <TouchableOpacity 
-              style={styles.floatingPostButtonHost}
+              style={[styles.floatingPostButtonHost, { width: SCREEN_WIDTH * 0.6 }]}
               onPress={handlePost}
               disabled={isPosting}
               activeOpacity={0.8}
@@ -1401,25 +1414,13 @@ const VideoPostScreen: React.FC = () => {
                     </Text>
                   </View>
                 ) : (
-                  <Text style={styles.postButtonText}>Post</Text>
+                  <Text style={styles.postButtonText}>POST</Text>
                 )}
               </View>
             </TouchableOpacity>
           )}
         </View>
       </KeyboardAvoidingView>
-      
-      {/* Video Preview Modal */}
-      <VideoPreviewModal
-        visible={showPreviewModal}
-        onClose={handleClosePreviewModal}
-        videoPath={videoPath || ''}
-        description={description}
-        userProfile={profileData}
-        initialTime={currentTime}
-        initialIsPlaying={isPlaying}
-        channel={selectedChannel}
-      />
 
       {/* Full-Screen Description Input Modal */}
       <Modal
@@ -1460,7 +1461,7 @@ const VideoPostScreen: React.FC = () => {
                     {...richTextInputProps}
                     style={[styles.descriptionModalInput, { height: descriptionInputHeight, color: description.length > 0 ? 'transparent' : Colors.white }]}
                     placeholder="Add text & tags (optional)"
-                    placeholderTextColor={Colors.lightGray}
+                    placeholderTextColor={Colors.gray}
                     multiline
                     maxLength={300}
                     autoFocus={true}
@@ -1632,10 +1633,12 @@ const VideoPostScreen: React.FC = () => {
       <VerticalListSheet
         visible={showChannelSelectionSheet}
         onDismiss={() => setShowChannelSelectionSheet(false)}
-        title="Channel (optional)"
+        title="Pick a channel"
         snapPoints={['auto']}
         showCancelButton={true}
         cancelButtonText="Close"
+        titleSize={26}
+        hideCloseButton={true}
       >
         <View style={styles.sheetContent}>
           <VerticalListButton
@@ -1699,7 +1702,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   headerTitle: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
   },
@@ -1721,8 +1724,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   previewSection: {
-    flex: 1,
-    justifyContent: 'center',
+    position: 'absolute',
+    top: 22, // Align preview top with button center (button height 44 / 2 = 22)
+    left: 0,
+    right: 0,
     alignItems: 'center',
     paddingVertical: 0,
   },
@@ -1731,7 +1736,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     alignSelf: 'center',
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.SMALL,
   },
   video: {
     width: '100%',
@@ -1744,7 +1749,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   textOverlay: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 22,
     fontFamily: 'Firma-Bold',
     textAlign: 'center',
@@ -1804,7 +1809,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   timeText: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 12,
     fontFamily: 'Firma-Regular',
   },
@@ -1823,12 +1828,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loadingText: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-Medium',
   },
   descriptionInput: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
     fontSize: 16,
     minHeight: 80,
@@ -1841,7 +1846,7 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   sectionHeaderTitle: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
     marginBottom: 12,
@@ -1859,7 +1864,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionSelectorText: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
   },
@@ -1876,7 +1881,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   optionText: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Bold',
   },
@@ -1939,7 +1944,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.lightGray,
     paddingVertical: 12,
     paddingHorizontal: 0,
-    color: Colors.white,
+    color: Colors.lightGray,
     marginTop: 5,
     marginBottom: 10,
     fontFamily: 'Firma-Regular',
@@ -1964,13 +1969,14 @@ const styles = StyleSheet.create({
   floatingPostButtonContainer: {
     position: 'absolute',
     bottom: 20,
-    left: 20,
-    right: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
   },
   floatingPostButtonHost: {
     height: 60,
-    borderRadius: 30, // Fully rounded (height/2)
-    backgroundColor: Colors.white,
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: Colors.lightGray,
     shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -1981,7 +1987,7 @@ const styles = StyleSheet.create({
   },
   floatingPostButtonGlass: {
     height: 60,
-    borderRadius: 30, // Fully rounded (height/2)
+    borderRadius: BORDER_RADIUS.FULL,
     shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -2064,8 +2070,8 @@ const styles = StyleSheet.create({
   },
   landscapePostButtonHost: {
     height: 60,
-    borderRadius: 30, // Fully rounded (height/2)
-    backgroundColor: Colors.white,
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: Colors.lightGray,
     shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -2076,7 +2082,7 @@ const styles = StyleSheet.create({
   },
   landscapePostButtonGlass: {
     height: 60,
-    borderRadius: 30, // Fully rounded (height/2)
+    borderRadius: BORDER_RADIUS.FULL,
     shadowColor: Colors.lightGray,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -2112,7 +2118,7 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   channelListButtonText: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontFamily: 'Firma-SemiBold',
     fontSize: 18,
   },
@@ -2142,7 +2148,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.LARGE,
   },
   sheetOptionText: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
     flex: 1,
@@ -2160,20 +2166,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   descriptionInputPreview: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
     fontSize: 16,
     lineHeight: 24,
   },
   descriptionInputPreviewBold: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Bold',
     fontSize: 16,
     lineHeight: 24,
     fontWeight: 'bold',
   },
   descriptionInputPlaceholder: {
-    color: Colors.lightGray,
+    color: Colors.gray,
   },
   descriptionModalContainer: {
     flex: 1,
@@ -2197,7 +2203,7 @@ const styles = StyleSheet.create({
     width: 60,
   },
   descriptionModalTitle: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
   },
@@ -2206,7 +2212,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   descriptionModalDoneText: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
   },
@@ -2222,7 +2228,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   descriptionModalInput: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
     fontSize: 16,
     textAlignVertical: 'top',
@@ -2239,22 +2245,56 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
   descriptionPreviewText: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-Regular',
     textAlignVertical: 'top',
   },
   descriptionPreviewNormal: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
   },
   descriptionPreviewBold: {
-    color: Colors.white,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Bold',
     fontWeight: 'bold',
   },
   searchResultsContainer: {
     flex: 1,
+  },
+  channelSelectorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  channelSelectorBox: {
+    width: 52,
+    height: 52,
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.SMALL,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  channelSelectorPlaceholderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 0,
+  },
+  channelSelectorPlaceholderText: {
+    color: Colors.lightGray,
+    fontSize: 18,
+    fontFamily: 'Firma-Medium',
+  },
+  channelSelectorNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  channelSelectorName: {
+    color: Colors.white,
+    fontSize: 18,
+    fontFamily: 'Firma-Bold',
   },
 
 });

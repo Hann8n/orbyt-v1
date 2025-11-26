@@ -5,7 +5,7 @@ import ImageColors, { ImageColorsResult } from 'react-native-image-colors';
 const Colors = {
   white: '#FFFFFF',
   black: '#000000',
-  lightGray: '#CFD6E8',
+  lightGray: '#ccd7e9',
   darkGray: '#181c22',
 };
 
