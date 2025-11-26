@@ -71,7 +71,8 @@ const CreateScreen: React.FC = () => {
   const [recordedVideo, setRecordedVideo] = useState<{ uri: string } | null>(null);
   const [segments, setSegments] = useState<VideoSegment[]>([]);
   const [totalDuration, setTotalDuration] = useState(0);
-  const [selectedDuration, setSelectedDuration] = useState(60); // Default to 60 seconds (1 minute)
+  const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
+  const [isDurationSelectorExpanded, setIsDurationSelectorExpanded] = useState(false);
 
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const segmentStartTime = useRef<number>(0);
@@ -171,9 +172,8 @@ const CreateScreen: React.FC = () => {
             setRecordedVideo(video);
             
             if (updatedDuration !== null && updatedDuration >= maxDuration) {
-              progressWidth.value = withTiming(0, { duration: 200 });
-              setSegments([]);
-              setTotalDuration(0);
+              // Cap progress at 100% when max duration is reached, but keep segments
+              progressWidth.value = withTiming(100, { duration: 200 });
             }
           }
         }
@@ -516,33 +516,48 @@ const CreateScreen: React.FC = () => {
       {/* Duration Selector */}
       {!isRecording && segments.length === 0 && (
         <View style={[styles.durationSelector, { top: insets.top + 10 }]}>
-          {DURATION_OPTIONS.map((option) => (
+          {isDurationSelectorExpanded ? (
+            <>
+              {DURATION_OPTIONS.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.durationOption,
+                    selectedDuration === option.value && styles.durationOptionSelected,
+                  ]}
+                  onPress={() => {
+                    // Only allow changing duration if not recording and no segments exist
+                    if (!isRecording && segments.length === 0) {
+                      setSelectedDuration(option.value);
+                      setIsDurationSelectorExpanded(false);
+                    }
+                  }}
+                  disabled={isRecording || segments.length > 0}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.durationOptionText,
+                      selectedDuration === option.value && styles.durationOptionTextSelected,
+                      (isRecording || segments.length > 0) && styles.durationOptionTextDisabled,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </>
+          ) : (
             <TouchableOpacity
-              key={option.value}
-              style={[
-                styles.durationOption,
-                selectedDuration === option.value && styles.durationOptionSelected,
-              ]}
-              onPress={() => {
-                // Only allow changing duration if not recording and no segments exist
-                if (!isRecording && segments.length === 0) {
-                  setSelectedDuration(option.value);
-                }
-              }}
-              disabled={isRecording || segments.length > 0}
+              style={styles.durationOption}
+              onPress={() => setIsDurationSelectorExpanded(true)}
               activeOpacity={0.7}
             >
-              <Text
-                style={[
-                  styles.durationOptionText,
-                  selectedDuration === option.value && styles.durationOptionTextSelected,
-                  (isRecording || segments.length > 0) && styles.durationOptionTextDisabled,
-                ]}
-              >
-                {option.label}
+              <Text style={styles.durationOptionText}>
+                {DURATION_OPTIONS.find(opt => opt.value === selectedDuration)?.label || '16s'}
               </Text>
             </TouchableOpacity>
-          ))}
+          )}
         </View>
       )}
       
@@ -640,7 +655,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: Colors.purple,
+    backgroundColor: Colors.blurple,
     borderRadius: 0,
   },
   backButton: {

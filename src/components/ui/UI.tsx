@@ -74,6 +74,7 @@ export const Colors = {
   cosmicPurple: '#9D4EDD', // Deep purple
   sunsetOrange: '#FF4500', // Bright orange
   bluesky: '#0385ff', // Bluesky brand color
+  blurple: '#4528ea', // Blurple color
   
   // Feedback button colors
   interestedLight: '#d77e12', // Light orange
