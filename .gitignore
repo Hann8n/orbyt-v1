@@ -41,3 +41,6 @@ yarn-error.*
 # OAuth private keys (never commit these!)
 private-key.pem
 private-keys.json
+docs/BYTE_REVERSE_ENGINEERING_INSIGHTS.md
+.gitignore
+docs/BYTE_FEATURE_PARITY_ANALYSIS.md

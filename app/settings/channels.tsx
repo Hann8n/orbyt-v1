@@ -1,8 +1,7 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { Alert, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Alert, View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 
 import { useSubscribedChannels } from '../../src/hooks/useSubscribedChannels';
 import { Colors } from '../../src/components/ui/UI';
@@ -33,7 +32,6 @@ export default function ChannelManagementScreen() {
   
   const {
     subscribedChannels: channels,
-    reorderChannels,
     unsubscribeFromChannel,
     setDefaultChannel,
     getAvailableDefaultChannels,
@@ -118,6 +116,12 @@ export default function ChannelManagementScreen() {
 
   const handleSetAsDefault = useCallback(async () => {
     if (!selectedChannel?.uri) return;
+    
+    // Only allow 'following' or 'your-mix' as default
+    if (selectedChannel.uri !== 'following' && selectedChannel.uri !== 'your-mix') {
+      Alert.alert('Invalid Selection', 'Only "Following" or "Your Mix" can be set as the default feed.');
+      return;
+    }
     
     try {
       await setDefaultChannel(selectedChannel.uri);
@@ -207,32 +211,8 @@ export default function ChannelManagementScreen() {
     }, 100);
   }, [navigation]);
 
-  const handleDragEnd = useCallback(async ({ data }: { data: ChannelUser[] }) => {
-    try {
-      const reorderedChannels = data.map((channel, index) => {
-        const originalChannel = channels.find(ch => ch.uri === channel.uri);
-        return {
-          uri: channel.uri || channel.did,
-          displayName: channel.displayName || channel.handle || 'Unknown channel',
-          description: channel.description,
-          avatar: channel.avatar,
-          isDefault: originalChannel?.isDefault || false,
-          order: index,
-          subscribedAt: originalChannel?.subscribedAt || Date.now(),
-        };
-      });
-      
-      await reorderChannels(reorderedChannels);
-    } catch (error) {
-      console.error('Error reordering channels:', error);
-      Alert.alert('Error', 'Failed to reorder channels. Please try again.');
-    }
-  }, [reorderChannels, channels]);
-
-  const renderChannelItem = useCallback(({ item, drag, isActive }: { 
+  const renderChannelItem = useCallback(({ item }: { 
     item: ChannelUser; 
-    drag: () => void; 
-    isActive: boolean; 
   }) => {
     const isBuiltInChannel = DEFAULT_CHANNELS.some(ch => ch.uri === item.uri);
     const fallbackIcon = item.uri === 'following' ? 'users' : (item.uri === 'your-mix' ? 'shuffle' : 'tv');
@@ -245,25 +225,22 @@ export default function ChannelManagementScreen() {
     const showDefaultBadge = item.isDefault;
 
     return (
-      <ScaleDecorator>
-        <TouchableOpacity
-          style={[styles.channelItem, isActive && styles.activeChannelItem]}
-          onPress={() => handleChannelPress(item)}
-          onLongPress={drag}
-          activeOpacity={0.7}
-          disabled={isActive}
-        >
-          <Avatar 
-            uri={item.avatar} 
-            type="channel" 
-            size={40} 
-            ringColor="transparent" 
-            style={styles.channelAvatar}
-            fallbackIcon={fallbackIcon}
-            fallbackIconSize={24}
-            fallbackIconColor={fallbackIconColor}
-            profileColors={profileColors}
-          />
+      <TouchableOpacity
+        style={styles.channelItem}
+        onPress={() => handleChannelPress(item)}
+        activeOpacity={0.7}
+      >
+        <Avatar 
+          uri={item.avatar} 
+          type="channel" 
+          size={40} 
+          ringColor="transparent" 
+          style={styles.channelAvatar}
+          fallbackIcon={fallbackIcon}
+          fallbackIconSize={24}
+          fallbackIconColor={fallbackIconColor}
+          profileColors={profileColors}
+        />
         <View style={styles.channelContent}>
           {item.isOrbytChannel ? (
             <View style={styles.orbytChannelName}>
@@ -297,17 +274,7 @@ export default function ChannelManagementScreen() {
             </Text>
           )}
         </View>
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.dragHandle}
-            onPressIn={drag}
-            activeOpacity={0.7}
-          >
-            <Icon name="menu-fill" size={20} color={Colors.gray} />
-          </TouchableOpacity>
-        </View>
       </TouchableOpacity>
-    </ScaleDecorator>
     );
   }, [handleChannelPress]);
 
@@ -343,11 +310,10 @@ export default function ChannelManagementScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.black }]}>
-      <DraggableFlatList
+      <FlatList
         data={listData}
         renderItem={renderChannelItem}
-        keyExtractor={(item) => item.did}
-        onDragEnd={handleDragEnd}
+        keyExtractor={(item, index) => item.uri || item.did || `channel-${index}`}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={renderListHeader}
         ListEmptyComponent={renderEmpty}
@@ -430,7 +396,7 @@ export default function ChannelManagementScreen() {
         showCancelButton={true}
       >
         <View style={styles.sheetContent}>
-          {selectedChannel && !selectedChannel.isDefault && (
+          {selectedChannel && !selectedChannel.isDefault && (selectedChannel.uri === 'following' || selectedChannel.uri === 'your-mix') && (
             <VerticalListButton
               label="Set as Default"
               onPress={handleSetAsDefault}
@@ -467,19 +433,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
-  activeChannelItem: {
-    backgroundColor: Colors.black,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-  },
   actionButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  dragHandle: {
-    padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
   },
   channelAvatar: {
     width: 40,

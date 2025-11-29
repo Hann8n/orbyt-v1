@@ -3,34 +3,27 @@ import {
   View,
   StyleSheet,
   Dimensions,
-  Text,
-  TouchableOpacity,
   StatusBar,
-  FlatList,
   Animated,
-  Platform,
-  ScrollView,
-  Image,
-  ViewToken,
+  TouchableOpacity,
 } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
+import PagerView from 'react-native-pager-view';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from '../../ui/UI';
-import { Icon, Avatar } from '../../ui/UI';
 import FeedRenderer from './FeedRenderer';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
-import { isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash } from '../../../utils/orbytChannels';
 import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BORDER_RADIUS } from '../../../utils/constants';
-import { useRouter } from 'expo-router';
 import { useVisibilityTabIsActive } from '../../../core/visibility';
 
 // Define the feed options type
 export type FeedOption = string;
 
-// Feed configuration - will be populated from subscribed channels
-const FEED_CONFIG: { [key: string]: { label: string; order: number } } = {};
+// Hardcoded feed options - only 'following' and 'your-mix'
+const FEED_LABELS: { [key: string]: string } = {
+  'following': 'following',
+  'your-mix': 'your mix',
+};
 
 interface SwipeableFeedContainerProps {
   initialFeed?: FeedOption;
@@ -50,19 +43,10 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   applySafeArea = false,
   indicatorFontSize,
 }) => {
-  const flatListRef = useRef<FlatList>(null);
-  const indicatorScrollViewRef = useRef<any>(null);
-  const { subscribedChannels, getAvailableDefaultChannels, restoreDefaultChannel } = useSubscribedChannels();
-  const isSmallDevice = isSmallScreen() || isTablet();
+  const pagerViewRef = useRef<PagerView>(null);
+  const { subscribedChannels } = useSubscribedChannels();
   const insets = useSafeAreaInsets();
-  const navigation = useRouter();
   const isTabActive = useVisibilityTabIsActive('index');
-
-
-
-  
-  // State for available default channels
-  const [availableDefaultChannels, setAvailableDefaultChannels] = useState<any[]>([]);
 
   // Memoized screen dimensions handling
   const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
@@ -90,51 +74,19 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   // Animation values for feed bar visibility and transitions
   const feedBarOpacity = useRef(new Animated.Value(1)).current;
   const feedBarTranslateY = useRef(new Animated.Value(0)).current;
-  const horizontalScrollOffset = useRef(new Animated.Value(0)).current;
   const [isFeedBarVisible, setIsFeedBarVisible] = useState(true);
-  const [isHorizontalScrolling, setIsHorizontalScrolling] = useState(false);
-  const [currentScrollProgress, setCurrentScrollProgress] = useState(0);
 
-  // Refs to prevent re-renders on scroll
-  const currentScrollProgressRef = useRef(0);
-  const isHorizontalScrollingRef = useRef(false);
-  const currentFeedIndexRef = useRef(0);
+  // Use PagerView's page tracking directly - updated via onPageSelected
+  const currentPageRef = useRef(0);
+  // Track scroll progress from PagerView's onPageScroll for indicator animation
+  const pageScrollProgress = useRef(0);
+  // State to trigger indicator re-renders during scroll (doesn't affect feeds)
+  const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
 
-  // Memoized feed configuration from subscribed channels
-  const feedConfig = useMemo(() => {
-    const config: { [key: string]: { label: string; order: number } } = {};
-    subscribedChannels.forEach(channel => {
-      config[channel.uri] = {
-        label: channel.displayName.toLowerCase(),
-        order: channel.order,
-      };
-    });
-    return config;
-  }, [subscribedChannels]);
-
-  const feedViewabilityConfig = useRef({
-    viewAreaCoveragePercentThreshold: 80,
-    minimumViewTime: 120,
-  }).current;
-
-  // Memoized feed options in order
+  // Always show 'following' first, then 'your-mix'
   const feedOptions = useMemo(() => {
-    const options = Object.keys(feedConfig).sort(
-      (a, b) => feedConfig[a].order - feedConfig[b].order
-    ) as FeedOption[];
-    return options;
-  }, [feedConfig]);
-
-  // Scroll indicator to keep active feed visible (defined early to avoid use-before-declare)
-  const scrollIndicatorToActive = useCallback((index: number) => {
-    if (indicatorScrollViewRef.current) {
-      const indicatorWidth = 120; // Account for text width + padding
-      const containerWidth = screenWidth - 32; // Account for horizontal padding
-      const targetPosition = (index * indicatorWidth) - (containerWidth / 2) + (indicatorWidth / 2);
-      const scrollPosition = Math.max(0, targetPosition);
-      indicatorScrollViewRef.current.scrollTo({ x: scrollPosition, animated: true });
-    }
-  }, [screenWidth]);
+    return ['following', 'your-mix'] as FeedOption[];
+  }, []);
 
   // Set initial feed index when feed options are available
   const hasAppliedInitialIndexRef = useRef(false);
@@ -144,40 +96,39 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       
       // Always set a valid index, defaulting to 0 if initialFeed is not found
       const targetIndex = initialIndex >= 0 ? initialIndex : 0;
+      
+      // Update both ref and state
+      currentPageRef.current = targetIndex;
       setCurrentFeedIndex(targetIndex);
-      currentFeedIndexRef.current = targetIndex;
-      setCurrentScrollProgress(targetIndex);
-      currentScrollProgressRef.current = targetIndex;
+      pageScrollProgress.current = targetIndex;
+      setIndicatorScrollProgress(targetIndex);
       
       onFeedChange?.(feedOptions[targetIndex]);
       
-      // Ensure the FlatList starts on the desired initial index
+      // Ensure the PagerView starts on the desired initial index
       requestAnimationFrame(() => {
-        flatListRef.current?.scrollToIndex({ index: targetIndex, animated: false });
+        pagerViewRef.current?.setPage(targetIndex);
       });
       
-      // Keep indicator in sync
-      scrollIndicatorToActive(targetIndex);
       hasAppliedInitialIndexRef.current = true;
     }
-  }, [feedOptions, initialFeed, scrollIndicatorToActive, onFeedChange]);
+  }, [feedOptions, initialFeed, onFeedChange]);
 
-  // Compute current feed option with no-flicker fallback to the intended initial feed
+  // Compute current feed option using PagerView's tracked page
   const pendingInitialIndex = feedOptions.findIndex(option => option === initialFeed);
-  const currentFeedOption = hasAppliedInitialIndexRef.current
-    ? (feedOptions[currentFeedIndex] || (feedOptions[0] || 'following'))
-    : (pendingInitialIndex >= 0 ? feedOptions[pendingInitialIndex] : (feedOptions[0] || 'following'));
+  const activePageIndex = hasAppliedInitialIndexRef.current ? currentPageRef.current : (pendingInitialIndex >= 0 ? pendingInitialIndex : 0);
+  const currentFeedOption = feedOptions[activePageIndex] || (feedOptions[0] || 'following');
 
-  // Ensure FlatList renders the correct initial index on the first paint when items are available
-  const initialIndexForFlatList = useMemo(() => {
+  // Ensure PagerView renders the correct initial index on the first paint when items are available
+  const initialPageIndex = useMemo(() => {
     if (hasAppliedInitialIndexRef.current) {
-      return Math.max(0, Math.min(currentFeedIndex, Math.max(0, feedOptions.length - 1)));
+      return Math.max(0, Math.min(currentPageRef.current, Math.max(0, feedOptions.length - 1)));
     }
     if (feedOptions.length > 0) {
       return pendingInitialIndex >= 0 ? pendingInitialIndex : 0;
     }
     return 0;
-  }, [hasAppliedInitialIndexRef.current, currentFeedIndex, feedOptions.length, pendingInitialIndex]);
+  }, [hasAppliedInitialIndexRef.current, feedOptions.length, pendingInitialIndex]);
 
   // Animate feed bar visibility
   const animateFeedBar = useCallback((visible: boolean, immediate: boolean = false) => {
@@ -212,39 +163,28 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     animateFeedBar(true, true);
   }, [currentFeedIndex, animateFeedBar]);
 
-  // Handle feed change
-  const handleFeedChange = useCallback((newIndex: number) => {
-    if (newIndex >= 0 && newIndex < feedOptions.length) {
-      setCurrentFeedIndex(newIndex);
-      currentFeedIndexRef.current = newIndex;
-      currentScrollProgressRef.current = newIndex;
-      setCurrentScrollProgress(newIndex);
-      const newFeedOption = feedOptions[newIndex];
-      onFeedChange?.(newFeedOption);
-      scrollIndicatorToActive(newIndex);
-    }
-  }, [feedOptions, onFeedChange, scrollIndicatorToActive]);
 
-  const handleFeedChangeRef = useRef(handleFeedChange);
-  useEffect(() => {
-    handleFeedChangeRef.current = handleFeedChange;
-  }, [handleFeedChange]);
-
-  const onViewableFeedsChanged = useRef(({ viewableItems }: { viewableItems: Array<ViewToken> }) => {
+  // Handle page change from PagerView - final confirmation after transition completes
+  const handlePageSelected = useCallback((event: any) => {
     if (!hasAppliedInitialIndexRef.current) return;
-
-    const firstVisible = viewableItems.find(item => item.isViewable && typeof item.index === 'number');
-    if (!firstVisible || typeof firstVisible.index !== 'number') {
-      return;
+    
+    const nextIndex = event.nativeEvent.position;
+    const prevIndex = currentPageRef.current;
+    
+    // Ensure refs are in sync (should already be updated by onPageScroll, but confirm)
+    if (nextIndex !== prevIndex) {
+      currentPageRef.current = nextIndex;
+      pageScrollProgress.current = nextIndex;
+      setCurrentFeedIndex(nextIndex);
+      setIndicatorScrollProgress(nextIndex);
     }
-
-    const nextIndex = firstVisible.index;
-    if (nextIndex === currentFeedIndexRef.current) {
-      return;
+    
+    // Notify parent of feed change (only on final selection, not during scroll)
+    const newFeedOption = feedOptions[nextIndex];
+    if (newFeedOption && nextIndex !== prevIndex) {
+      onFeedChange?.(newFeedOption);
     }
-
-    handleFeedChangeRef.current(nextIndex);
-  }).current;
+  }, [feedOptions, onFeedChange]);
 
   // Handle position saving for each feed
   const handlePositionChange = useCallback((position: number) => {
@@ -263,116 +203,56 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     }));
   }, [currentFeedOption, feedRetries]);
 
-  // Handle restoring default channel
-  const handleRestoreDefaultChannel = useCallback(async (channelUri: string) => {
-    try {
-      await restoreDefaultChannel(channelUri);
-      // Refresh available defaults
-      const defaults = await getAvailableDefaultChannels();
-      setAvailableDefaultChannels(defaults);
-    } catch (error) {
-    }
-  }, [restoreDefaultChannel, getAvailableDefaultChannels]);
-
-  // Handle explore button press
-  const handleExplorePress = useCallback(() => {
-    navigation.push('/explore');
-  }, [navigation]);
-
-  // Ensure current feed index stays in range when options change
+  // Ensure current page stays in range when options change
   useEffect(() => {
     if (feedOptions.length === 0) return;
-    if (currentFeedIndex >= feedOptions.length) {
+    if (currentPageRef.current >= feedOptions.length) {
       const lastIndex = Math.max(0, feedOptions.length - 1);
+      currentPageRef.current = lastIndex;
       setCurrentFeedIndex(lastIndex);
-      currentFeedIndexRef.current = lastIndex;
     }
-  }, [feedOptions, currentFeedIndex]);
+  }, [feedOptions]);
 
-  // Load available default channels when no channels are subscribed
-  useEffect(() => {
-    const loadAvailableDefaults = async () => {
-      if (subscribedChannels.length === 0) {
-        try {
-          const defaults = await getAvailableDefaultChannels();
-          setAvailableDefaultChannels(defaults);
-        } catch (error) {
-        }
-      } else {
-        setAvailableDefaultChannels([]);
-      }
-    };
-    loadAvailableDefaults();
-  }, [subscribedChannels.length, getAvailableDefaultChannels]);
-
-  // Optimized horizontal scroll handler with improved responsiveness
-  const scrollUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleHorizontalScroll = useCallback((event: any) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
+  // Handle page scroll from PagerView - update visibility and indicator immediately during scroll
+  const handlePageScroll = useCallback((event: any) => {
+    const { position, offset } = event.nativeEvent;
+    const progress = position + offset;
+    const roundedPosition = Math.round(progress);
     
-    // Immediate visual updates using refs to prevent re-renders
-    horizontalScrollOffset.setValue(offsetX);
-    const progress = offsetX / screenWidth;
-    currentScrollProgressRef.current = progress;
+    // Update refs immediately for calculations
+    pageScrollProgress.current = progress;
     
-    // Show feed bar during scrolling (immediate)
-    if (!isHorizontalScrollingRef.current) {
-      isHorizontalScrollingRef.current = true;
-      setIsHorizontalScrolling(true);
-      animateFeedBar(true);
-    }
-
-    // Debounce progress updates so indicator responds smoothly without spamming renders
-    if (scrollUpdateTimeoutRef.current) {
-      clearTimeout(scrollUpdateTimeoutRef.current);
-    }
-
-    scrollUpdateTimeoutRef.current = setTimeout(() => {
-      setCurrentScrollProgress(progress);
-    }, 16);
-  }, [animateFeedBar, horizontalScrollOffset, screenWidth]);
-
-  // Handle scroll end to update current feed
-  const handleScrollEnd = useCallback((event: any) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const newIndex = Math.round(offsetX / screenWidth);
-    
-    if (newIndex !== currentFeedIndexRef.current) {
-      handleFeedChange(newIndex);
+    // Update visibility immediately during scroll (not waiting for onPageSelected)
+    // This makes feeds visible/hidden in real-time as user swipes
+    if (roundedPosition !== currentPageRef.current && roundedPosition >= 0 && roundedPosition < feedOptions.length) {
+      currentPageRef.current = roundedPosition;
+      setCurrentFeedIndex(roundedPosition);
     }
     
-    isHorizontalScrollingRef.current = false;
-    setIsHorizontalScrolling(false);
-  }, [handleFeedChange, screenWidth]);
+    // Update indicator progress for smooth animation
+    setIndicatorScrollProgress(progress);
+    
+    // Show feed bar during scrolling
+    animateFeedBar(true);
+  }, [animateFeedBar, feedOptions.length]);
+
+  // Handle scroll state changes from PagerView
+  const handlePageScrollStateChanged = useCallback((event: any) => {
+    const state = event.nativeEvent.pageScrollState;
+    // Feed bar stays visible, no special handling needed
+  }, []);
 
   // Handle feed indicator tap
   const handleIndicatorTap = useCallback((feedOption: FeedOption) => {
-          const targetIndex = feedOptions.findIndex(option => option === feedOption);
-      if (targetIndex >= 0) {
-        flatListRef.current?.scrollToIndex({
-          index: targetIndex,
-          animated: true,
-        });
-      
+    const targetIndex = feedOptions.findIndex(option => option === feedOption);
+    if (targetIndex >= 0) {
+      pagerViewRef.current?.setPage(targetIndex);
       // Show feed bar immediately when tapping indicator
       animateFeedBar(true, true);
     }
   }, [feedOptions, animateFeedBar]);
 
-  // Cleanup timeouts and subscriptions
-  useEffect(() => {
-    return () => {
-      if (scrollUpdateTimeoutRef.current) {
-        clearTimeout(scrollUpdateTimeoutRef.current);
-      }
-    };
-  }, []);
 
-  // Scroll indicator when feed changes
-  useEffect(() => {
-    scrollIndicatorToActive(currentFeedIndex);
-  }, [currentFeedIndex, scrollIndicatorToActive]);
 
   // Memoized query options for feed rendering
   const baseQueryOptions = useMemo(() => ({
@@ -399,30 +279,29 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   }, [screenWidth, screenHeight, indicatorFontSize]);
 
   // Render individual feed with comprehensive memoization
+  // Visibility uses currentFeedIndex state (synced with PagerView's page tracking)
   const renderFeed = useCallback(({ item: feedOption, index }: { item: FeedOption; index: number }) => {
+    // Use state for visibility - triggers re-render when page changes (synced with PagerView via handlePageSelected)
     const isVisible = isTabActive && index === currentFeedIndex;
     const isNeighbor = isTabActive && Math.abs(currentFeedIndex - index) === 1;
     
     return (
-      <View style={feedPageStyle}> 
-        <FeedRenderer
-          feedOption={String(feedOption)}
-          onRetryFeed={handleRetryFeed}
-          onPositionChange={handlePositionChange}
-          initialPosition={savedPositions[feedOption]}
-          queryOptions={baseQueryOptions}
-          // Pass visibility state to control video playback and fetching - consistent with ListFeedView
-          isVisible={isVisible}
-          isRefreshing={isRefreshing}
-          forceError={forceError}
-          shouldPrefetch={isNeighbor}
-          visibilityKey={feedOption}
-        />
-      </View>
+      <FeedRenderer
+        feedOption={String(feedOption)}
+        onRetryFeed={handleRetryFeed}
+        onPositionChange={handlePositionChange}
+        initialPosition={savedPositions[feedOption]}
+        queryOptions={baseQueryOptions}
+        // Pass visibility state to control video playback and fetching - consistent with ListFeedView
+        isVisible={isVisible}
+        isRefreshing={isRefreshing}
+        forceError={forceError}
+        shouldPrefetch={isNeighbor}
+        visibilityKey={feedOption}
+      />
     );
   }, [
     currentFeedIndex,
-    feedPageStyle,
     handleRetryFeed,
     handlePositionChange,
     savedPositions,
@@ -433,23 +312,24 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   ]);
 
 
-  // Get indicator style with gradual opacity based on scroll progress
+  // Get indicator style using PagerView's scroll progress directly from SDK
   const getIndicatorStyle = useCallback((feedOption: FeedOption) => {
-    const feedIndex = feedConfig[feedOption]?.order || 0;
+    const feedIndex = feedOptions.findIndex(option => option === feedOption);
     const isActive = feedOption === currentFeedOption;
     
-    // Use intended initial index for progress until the initial index is applied to avoid flicker
-    const initialIdx = feedOptions.findIndex(option => option === initialFeed);
+    // Use state directly for smooth real-time updates during scroll (not ref)
     const baseProgress = hasAppliedInitialIndexRef.current
-      ? currentScrollProgressRef.current
-      : (initialIdx >= 0 ? initialIdx : 0);
+      ? indicatorScrollProgress
+      : (feedOptions.findIndex(option => option === initialFeed) >= 0 
+          ? feedOptions.findIndex(option => option === initialFeed) 
+          : 0);
 
     // Calculate opacity based on distance from current position
     let opacity = 0.6; // Default inactive opacity
     if (isActive) {
       opacity = 1;
     } else {
-      // Gradual opacity based on scroll progress
+      // Gradual opacity based on PagerView's scroll progress (real-time from state)
       const distance = Math.abs(baseProgress - feedIndex);
       opacity = Math.max(0.3, 1 - distance * 0.4);
     }
@@ -466,95 +346,13 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
         },
       ],
     };
-  }, [currentFeedOption, currentScrollProgressRef.current, feedConfig, feedOptions, initialFeed, indicatorBaseFontSize]);
-
-  // Render empty state when no channels are subscribed
-  const renderEmptyState = useCallback(() => (
-    <View style={styles.emptyContainer}>
-      <Image 
-        source={require('../../../assets/tv_static.gif')} 
-        style={styles.tvStaticGif}
-        resizeMode="contain"
-      />
-      <Text style={styles.emptyTitle}>No channels yet</Text>
-      <Text style={styles.emptySubtitle}>Explore channels to subscribe to them</Text>
-      <TouchableOpacity
-        style={styles.exploreButton}
-        onPress={handleExplorePress}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.exploreButtonText}>Explore Channels</Text>
-      </TouchableOpacity>
-      
-      {availableDefaultChannels.length > 0 && (
-        <View style={styles.defaultChannelsContainer}>
-          <Text style={styles.defaultChannelsTitle}>Default Channels</Text>
-          {availableDefaultChannels.map((channel) => (
-            <TouchableOpacity
-              key={channel.uri}
-              style={styles.defaultChannelItem}
-              onPress={() => handleRestoreDefaultChannel(channel.uri)}
-              activeOpacity={0.7}
-            >
-              <Avatar 
-                uri={channel.uri === 'following' || channel.uri === 'your-mix' ? undefined : getChannelAvatarUri(channel.uri, channel.avatar)} 
-                type="channel" 
-                size={40} 
-                ringColor="transparent" 
-                style={styles.defaultChannelAvatar}
-                fallbackIcon={channel.uri === 'following' ? 'users' : (channel.uri === 'your-mix' ? 'sparkles' : 'tv')}
-                fallbackIconSize={24}
-                fallbackIconColor={channel.uri === 'following' || channel.uri === 'your-mix' ? '#FFFFFF' : Colors.lightGray}
-                profileColors={channel.uri === 'following' ? { backgroundColor: '#3B82F6', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : (channel.uri === 'your-mix' ? { backgroundColor: '#9333ea', foregroundColor: '#FFFFFF', textColor: '#FFFFFF' } : undefined)}
-              />
-              <View style={styles.defaultChannelContent}>
-                {channel.isOrbytChannel ? (() => {
-                  const orbytChannel = getChannelByUri(channel.uri);
-                  const channelColor = orbytChannel?.channelColor || '#FFD700';
-                  const showSlash = shouldShowChannelSlash(channel.uri);
-                  return (
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      {showSlash && (
-                        <Text style={[styles.defaultChannelName, styles.orbytSlash, { color: channelColor }]}>/</Text>
-                      )}
-                      <Text style={styles.defaultChannelName}>{channel.displayName}</Text>
-                    </View>
-                  );
-                })() : (
-                  <Text style={styles.defaultChannelName}>{channel.displayName}</Text>
-                )}
-              </View>
-              <View style={styles.defaultChannelActionButtons}>
-                <TouchableOpacity
-                  style={styles.defaultChannelRestoreButton}
-                  onPress={() => handleRestoreDefaultChannel(channel.uri)}
-                  activeOpacity={0.7}
-                >
-                  <Icon name="plus" size={16} color={Colors.green} />
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </View>
-  ), [availableDefaultChannels, handleRestoreDefaultChannel, handleExplorePress]);
-
-  // Show empty state if no channels are subscribed
-  if (feedOptions.length === 0) {
-    return (
-      <GestureHandlerRootView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
-        {renderEmptyState()}
-      </GestureHandlerRootView>
-    );
-  }
+  }, [currentFeedOption, feedOptions, initialFeed, indicatorBaseFontSize, indicatorScrollProgress]);
 
   return (
     <GestureHandlerRootView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
       
-      {/* Animated Feed Indicators with horizontal scrolling */}
+      {/* Feed Indicators - animated using PagerView's scroll progress */}
       <Animated.View 
         style={[
           styles.feedSwitcher, 
@@ -565,13 +363,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
           }
         ]}
       >
-        <ScrollView
-          ref={indicatorScrollViewRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.indicatorContainer}
-          scrollEnabled={false} // Disable manual scrolling, only programmatic
-        >
+        <View style={styles.indicatorContainer}>
           {feedOptions.map((feedOption) => (
             <TouchableOpacity
               key={feedOption}
@@ -580,53 +372,31 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
               style={styles.indicatorItem}
             >
               <Animated.Text style={getIndicatorStyle(feedOption)}>
-                {String(feedConfig[feedOption]?.label || feedOption)}
+                {FEED_LABELS[feedOption] || feedOption}
               </Animated.Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
       </Animated.View>
 
-      {/* Horizontal FlatList for feeds with optimized gesture handling - consistent with ListFeedView */}
-      <FlatList
-        ref={flatListRef}
-        data={feedOptions}
-        renderItem={renderFeed}
-        keyExtractor={(item) => item}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={handleScrollEnd}
-        onScroll={handleHorizontalScroll}
-        onViewableItemsChanged={onViewableFeedsChanged}
-        viewabilityConfig={feedViewabilityConfig}
-        scrollEventThrottle={16}
-        initialScrollIndex={initialIndexForFlatList}
-        getItemLayout={(_, index) => ({
-          length: screenWidth,
-          offset: screenWidth * index,
-          index,
-        })}
-        style={styles.flatList}
-        // Optimized gesture handling to prevent interference with nested FlashList
-        directionalLockEnabled={true}
-        alwaysBounceHorizontal={false}
-        alwaysBounceVertical={false}
-        bounces={false}
-        decelerationRate="fast"
-                 scrollEnabled={true}
-        // Remove nestedScrollEnabled to prevent gesture conflicts
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={1}
-        windowSize={3}
-        initialNumToRender={1}
-        // Add horizontal scroll indicator to prevent vertical scroll interference
-        indicatorStyle="white"
-        contentContainerStyle={{ 
-          flexGrow: 1,
-          backgroundColor: Colors.black,
-        }}
-      />
+      {/* PagerView for feeds with optimized gesture handling */}
+      <PagerView
+        ref={pagerViewRef}
+        style={styles.pagerView}
+        initialPage={initialPageIndex}
+        onPageSelected={handlePageSelected}
+        onPageScroll={handlePageScroll}
+        onPageScrollStateChanged={handlePageScrollStateChanged}
+        scrollEnabled={true}
+        overdrag={false}
+        pageMargin={0}
+      >
+        {feedOptions.map((feedOption, index) => (
+          <View key={feedOption} style={feedPageStyle}>
+            {renderFeed({ item: feedOption, index })}
+          </View>
+        ))}
+      </PagerView>
     </GestureHandlerRootView>
   );
 });
@@ -650,121 +420,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   indicatorContainer: {
+    flexDirection: 'row',
     paddingHorizontal: 16,
     alignItems: 'center',
+    justifyContent: 'flex-start',
   },
   indicatorItem: {
     paddingHorizontal: 4, // Reduced from 8 to 4 for tighter spacing
   },
-  flatList: {
+  pagerView: {
     flex: 1,
   },
   feedPage: {
     // width will be set dynamically
     height: '100%',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingTop: 20,
-  },
-  tvStaticGif: {
-    width: 120,
-    height: 120,
-    marginBottom: 24,
-    opacity: 0.8,
-  },
-  emptyTitle: {
-    color: Colors.white,
-    fontSize: 20,
-    fontFamily: 'Firma-Bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Firma-Medium',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  exploreButton: {
-    backgroundColor: Colors.white,
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderWidth: 0,
-    borderColor: 'transparent',
-  },
-  exploreButtonText: {
-    color: '#000000',
-    fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
-  },
-  defaultChannelsContainer: {
-    width: '100%',
-    maxWidth: 400,
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    alignItems: 'center',
-  },
-  defaultChannelsTitle: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Firma-SemiBold',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  defaultChannelItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: 'transparent',
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    width: '100%',
-    justifyContent: 'center',
-  },
-  defaultChannelAvatar: {
-    width: 40,
-    height: 40,
-    marginRight: 12,
-    borderWidth: 0,
-    borderColor: 'transparent',
-  },
-  defaultChannelContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  defaultChannelName: {
-    color: Colors.white,
-    fontSize: 16,
-    marginBottom: 2,
-    fontFamily: 'Firma-Bold',
-    flexShrink: 1,
-  },
-  orbytSlash: {
-    fontFamily: 'Firma-SemiBold',
-    marginRight: 0,
-  },
-  defaultChannelActionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  defaultChannelRestoreButton: {
-    padding: 8,
-    backgroundColor: Colors.darkGreen,
-    borderRadius: BORDER_RADIUS.SMALL,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
   },
 });
 

@@ -3,12 +3,12 @@ import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   StatusBar,
   Platform,
   Dimensions,
 } from 'react-native';
+import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '../../src/components/ui/UI';
@@ -17,7 +17,7 @@ import { getBottomNavBarHeight } from '../../src/utils/helpers';
 import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
 import MessagesTab from '../../src/components/features/activity/MessagesTab';
 
-// Activity Swipeable Pager Component
+// Activity Swipeable Pager Component using react-native-pager-view
 const ActivitySwipePager = ({
   activeTab,
   onActiveTabChange,
@@ -27,48 +27,46 @@ const ActivitySwipePager = ({
   onActiveTabChange: (tab: 'notifications' | 'messages') => void;
   renderTabContent: (tabId: 'notifications' | 'messages') => React.ReactNode;
 }) => {
-  const flatListRef = useRef<FlatList>(null);
-  const [dims, setDims] = useState(Dimensions.get('window'));
-
-  useEffect(() => {
-    const sub = Dimensions.addEventListener('change', ({ window }) => setDims(window));
-    return () => sub?.remove();
-  }, []);
-
-  const screenWidth = dims.width;
+  const pagerViewRef = useRef<PagerView>(null);
   const pages: Array<'notifications' | 'messages'> = ['notifications', 'messages'];
   const activeIndex = pages.indexOf(activeTab);
 
+  // Sync PagerView page when activeTab changes (e.g., from TabNavigation tap)
   useEffect(() => {
-    if (flatListRef.current && activeIndex >= 0) {
-      flatListRef.current.scrollToIndex({ index: activeIndex, animated: true });
+    if (pagerViewRef.current && activeIndex >= 0) {
+      requestAnimationFrame(() => {
+        pagerViewRef.current?.setPage(activeIndex);
+      });
     }
   }, [activeIndex]);
 
-  const getItemLayout = useCallback((_, index: number) => ({ length: screenWidth, offset: screenWidth * index, index }), [screenWidth]);
+  // Handle page selection from PagerView swipe
+  const handlePageSelected = useCallback((event: any) => {
+    const selectedIndex = event.nativeEvent.position;
+    const nextTab = pages[selectedIndex];
+    if (nextTab && nextTab !== activeTab) {
+      onActiveTabChange(nextTab);
+    }
+  }, [activeTab, pages, onActiveTabChange]);
+
+  const initialPageIndex = activeIndex >= 0 ? activeIndex : 0;
 
   return (
     <View style={styles.activityContainer}>
-      <FlatList
-        ref={flatListRef}
-        data={pages}
-        keyExtractor={(t) => `activity-page-${t}`}
-        renderItem={({ item }) => (
-          <View style={{ width: screenWidth, flex: 1 }}>
-            {renderTabContent(item)}
+      <PagerView
+        ref={pagerViewRef}
+        style={styles.pagerView}
+        initialPage={initialPageIndex}
+        onPageSelected={handlePageSelected}
+        scrollEnabled={true}
+        pageMargin={0}
+      >
+        {pages.map((page) => (
+          <View key={page} style={styles.pagerPage}>
+            {renderTabContent(page)}
           </View>
-        )}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        getItemLayout={getItemLayout}
-        onMomentumScrollEnd={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
-          const nextTab = pages[index];
-          if (nextTab && nextTab !== activeTab) onActiveTabChange(nextTab);
-        }}
-        initialScrollIndex={activeIndex < 0 ? 0 : activeIndex}
-      />
+        ))}
+      </PagerView>
     </View>
   );
 };
@@ -156,5 +154,12 @@ const styles = StyleSheet.create({
   activityContainer: {
     flex: 1,
     backgroundColor: Colors.black,
+  },
+  pagerView: {
+    flex: 1,
+  },
+  pagerPage: {
+    width: '100%',
+    height: '100%',
   },
 });

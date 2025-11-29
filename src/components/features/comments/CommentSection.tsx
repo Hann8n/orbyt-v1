@@ -40,8 +40,6 @@ import { useKeyboardState } from 'react-native-keyboard-controller';
 import CommentItem, { Comment, Like } from './CommentItem';
 import { useUserStore } from '../../../stores/userStore';
 import { useGlobalCommentSection, useGlobalShareSheet } from '../../../hooks/useGlobalModals';
-import { useVisibilityOverlay } from '../../../hooks';
-import { useVisibilityCoreStore } from '../../../core/visibility/visibilityStore';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
 import AuthorItem from '../../ui/AuthorItem';
@@ -105,7 +103,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const post = globalData?.post || propPost;
   const onDismiss = propOnDismiss || dismissCommentSection;
   const visible = propVisible !== undefined ? propVisible : !!globalData;
-  useVisibilityOverlay(Boolean(visible));
   const totalLikes = globalData?.totalLikes ?? propTotalLikes;
   const totalComments = globalData?.totalComments ?? propTotalComments;
   const isLiked = globalData?.isLiked ?? propIsLiked;
@@ -338,9 +335,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
 
   const handleClose = useCallback(() => {
-    // Clear overlay to restore video playback
-    const setOverlay = useVisibilityCoreStore.getState().setOverlay;
-    setOverlay(false);
     setNewCommentText('');
     setActiveTab('comments');
     setLikesQueryEnabled(false);

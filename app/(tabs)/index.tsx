@@ -15,8 +15,14 @@ interface HomeScreenProps {}
 const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
   const { subscribedChannels } = useSubscribedChannels();
   const defaultFeed = useMemo(() => {
-    const defaultChannel = subscribedChannels.find(ch => ch.isDefault);
-    return defaultChannel?.uri || subscribedChannels[0]?.uri;
+    // Only consider 'following' or 'your-mix' as valid feeds
+    const defaultChannel = subscribedChannels.find(ch => ch.isDefault && (ch.uri === 'following' || ch.uri === 'your-mix'));
+    if (defaultChannel) {
+      return defaultChannel.uri;
+    }
+    // Fallback to 'following' if no default is set
+    const followingChannel = subscribedChannels.find(ch => ch.uri === 'following');
+    return followingChannel?.uri || 'following';
   }, [subscribedChannels]);
   const [currentFeed, setCurrentFeed] = useState<FeedOption>(defaultFeed);
   

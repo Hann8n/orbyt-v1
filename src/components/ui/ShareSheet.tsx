@@ -24,8 +24,6 @@ import { Colors } from './UI';
 import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
-import { useVisibilityOverlay } from '../../hooks';
-import { useVisibilityCoreStore } from '../../core/visibility/visibilityStore';
 
 // No props needed for global ShareSheet
 interface ShareSheetProps {}
@@ -38,7 +36,6 @@ const feedbackStateMap = new Map<string, string>();
 const ShareSheet: React.FC<ShareSheetProps> = () => {
   const { getCurrentData, dismissShareSheet } = useGlobalShareSheet();
   const data = getCurrentData();
-  useVisibilityOverlay(Boolean(data));
   
   // Always render the TrueSheet component, but only show content when there's data
   const { postUri, postCid, authorDid, authorName, feedOption, sourceFeed } = data || {};
@@ -94,9 +91,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
 
   // Handle dismiss from TrueSheet - fires when sheet is dismissed by any means
   const handleDismiss = useCallback(() => {
-    // Clear overlay to restore video playback
-    const setOverlay = useVisibilityCoreStore.getState().setOverlay;
-    setOverlay(false);
     // Clear the data state - skip dismiss since we're already in onDismiss callback
     dismissShareSheet(true);
   }, [dismissShareSheet]);
