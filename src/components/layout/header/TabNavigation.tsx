@@ -246,7 +246,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabText: {
-    fontSize: 16,
     fontWeight: 'bold',
     opacity: 0.7,
   },

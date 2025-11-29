@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
@@ -12,6 +12,7 @@ import {
   Keyboard,
   Dimensions,
   FlatList,
+  Animated,
 } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,7 +29,6 @@ import Svg, { Path, Rect, G } from 'react-native-svg';
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import HeaderBanner from '../../src/components/ui/HeaderBanner';
-import { TabNavigation, TabOption } from '../../src/components/layout/header';
 import { logger } from '../../src/utils/logger';
 
 import { SearchIcon, FollowIcon, CheckIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
@@ -37,7 +37,7 @@ import { VerificationBadge } from '../../src/components/features/badging';
 import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
-import { getBottomNavBarHeight } from '../../src/utils/helpers';
+import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import { extractVideoThumbnail } from '../../src/utils/helpers/video';
 import { formatNumber } from '../../src/utils/helpers';
 import { HeaderService, useHeaders } from '../../src/services/APIService';
@@ -143,6 +143,12 @@ type ListItem = SearchResult | SectionHeader | SpotlightVideosSection | PeopleCh
 
 
 
+// Tab labels
+const SEARCH_TAB_LABELS: { [key: string]: string } = {
+  'profiles': 'Profiles',
+  'channels': 'Channels',
+};
+
 // Minimal swipeable pager for search tabs using react-native-pager-view
 const SearchSwipePager = ({
   topOffset,
@@ -150,12 +156,14 @@ const SearchSwipePager = ({
   activeTab,
   onActiveTabChange,
   renderTabContent,
+  onScrollProgressChange,
 }: {
   topOffset: number;
   bottomOffset: number;
   activeTab: 'profiles' | 'channels';
   onActiveTabChange: (tab: 'profiles' | 'channels') => void;
   renderTabContent: (tabId: 'profiles' | 'channels') => React.ReactNode;
+  onScrollProgressChange?: (progress: number) => void;
 }) => {
   const pagerViewRef = useRef<PagerView>(null);
   const [dims, setDims] = useState(Dimensions.get('window'));
@@ -167,24 +175,75 @@ const SearchSwipePager = ({
 
   const pages: Array<'profiles' | 'channels'> = ['profiles', 'channels'];
   const activeIndex = pages.indexOf(activeTab);
+  const currentPageRef = useRef(activeIndex);
+  const hasAppliedInitialIndexRef = useRef(false);
 
-  // Sync PagerView page when activeTab changes (e.g., from TabNavigation tap)
+  // Set initial page index
+  useLayoutEffect(() => {
+    if (!hasAppliedInitialIndexRef.current && pages.length > 0) {
+      const targetIndex = activeIndex >= 0 ? activeIndex : 0;
+      currentPageRef.current = targetIndex;
+      onScrollProgressChange?.(targetIndex);
+      requestAnimationFrame(() => {
+        pagerViewRef.current?.setPage(targetIndex);
+      });
+      hasAppliedInitialIndexRef.current = true;
+    }
+  }, [activeIndex, pages.length, onScrollProgressChange]);
+
+  // Sync PagerView page when activeTab changes (e.g., from indicator tap)
   useEffect(() => {
-    if (pagerViewRef.current && activeIndex >= 0) {
+    if (hasAppliedInitialIndexRef.current && pagerViewRef.current && activeIndex >= 0) {
       requestAnimationFrame(() => {
         pagerViewRef.current?.setPage(activeIndex);
       });
     }
   }, [activeIndex]);
 
-  // Handle page selection from PagerView swipe
+  // Handle page scroll from PagerView - update indicator directly from SDK
+  // This fires synchronously during scroll, no state batching
+  const handlePageScroll = useCallback((event: any) => {
+    const { position, offset } = event.nativeEvent;
+    const progress = position + offset;
+    const roundedPosition = Math.round(progress);
+    
+    // Update indicator progress directly from SDK - immediate, no batching
+    onScrollProgressChange?.(progress);
+    
+    // Update active tab immediately during scroll (not waiting for onPageSelected)
+    // This makes indicators respond in real-time as user swipes
+    if (roundedPosition !== currentPageRef.current && roundedPosition >= 0 && roundedPosition < pages.length) {
+      currentPageRef.current = roundedPosition;
+      const nextTab = pages[roundedPosition];
+      if (nextTab && nextTab !== activeTab) {
+        onActiveTabChange(nextTab);
+      }
+    }
+  }, [pages, activeTab, onActiveTabChange, onScrollProgressChange]);
+
+  // Handle page selection from PagerView - final confirmation after transition completes
   const handlePageSelected = useCallback((event: any) => {
-    const selectedIndex = event.nativeEvent.position;
-    const nextTab = pages[selectedIndex];
+    if (!hasAppliedInitialIndexRef.current) return;
+    
+    const nextIndex = event.nativeEvent.position;
+    const prevIndex = currentPageRef.current;
+    
+    if (nextIndex !== prevIndex) {
+      currentPageRef.current = nextIndex;
+      // Ensure indicator is at exact position after transition
+      onScrollProgressChange?.(nextIndex);
+    }
+    
+    const nextTab = pages[nextIndex];
     if (nextTab && nextTab !== activeTab) {
       onActiveTabChange(nextTab);
     }
-  }, [activeTab, pages, onActiveTabChange]);
+  }, [activeTab, pages, onActiveTabChange, onScrollProgressChange]);
+
+  // Handle scroll state changes from PagerView
+  const handlePageScrollStateChanged = useCallback((event: any) => {
+    // No special handling needed
+  }, []);
 
   const initialPageIndex = activeIndex >= 0 ? activeIndex : 0;
 
@@ -200,6 +259,8 @@ const SearchSwipePager = ({
         style={styles.pagerView}
         initialPage={initialPageIndex}
         onPageSelected={handlePageSelected}
+        onPageScroll={handlePageScroll}
+        onPageScrollStateChanged={handlePageScrollStateChanged}
         scrollEnabled={true}
         pageMargin={0}
       >
@@ -773,6 +834,7 @@ const ExploreScreen: React.FC = () => {
   const [cacheUpdateTrigger, setCacheUpdateTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState<'profiles' | 'channels'>('profiles');
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
+  const hasAppliedInitialIndexRef = useRef(false);
   const [visitHistory, setVisitHistory] = useState<Array<{
     type: 'profile' | 'channel';
     data: Profile | Channel;
@@ -791,11 +853,45 @@ const ExploreScreen: React.FC = () => {
     }, [visitHistory.length, searchQuery])
   );
 
-  // Define tab options for search results
-  const tabOptions: TabOption[] = useMemo(() => [
-    { id: 'profiles', label: 'Profiles' },
-    { id: 'channels', label: 'Channels' },
-  ], []);
+  const pages: Array<'profiles' | 'channels'> = ['profiles', 'channels'];
+  const activeIndex = pages.indexOf(activeTab);
+  // State to trigger indicator re-renders during scroll (doesn't affect feeds) - matches SwipeableFeedContainer
+  const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(activeIndex >= 0 ? activeIndex : 0);
+
+  // Get indicator style using PagerView's scroll progress - matches SwipeableFeedContainer exactly
+  const getIndicatorStyle = useCallback((tabId: 'profiles' | 'channels') => {
+    const tabIndex = pages.indexOf(tabId);
+    const isActive = tabId === activeTab;
+    
+    // Use state directly for smooth real-time updates during scroll (not ref) - matches SwipeableFeedContainer
+    const baseProgress = indicatorScrollProgress;
+
+    // Calculate opacity based on distance from current position - matches SwipeableFeedContainer
+    let opacity = 0.6; // Default inactive opacity
+    if (isActive) {
+      opacity = 1;
+    } else {
+      // Gradual opacity based on PagerView's scroll progress (real-time from state)
+      const distance = Math.abs(baseProgress - tabIndex);
+      opacity = Math.max(0.3, 1 - distance * 0.4);
+    }
+    
+    // Larger font size for search tabs (under search bar)
+    const indicatorBaseFontSize = 20;
+    
+    return {
+      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.6)',
+      fontSize: indicatorBaseFontSize,
+      marginRight: 8,
+      fontWeight: 'bold' as const,
+      opacity,
+    };
+  }, [activeTab, pages, indicatorScrollProgress, activeIndex]);
+
+  // Handle indicator tap
+  const handleIndicatorTap = useCallback((tabId: 'profiles' | 'channels') => {
+    setActiveTab(tabId);
+  }, []);
 
 
   const navigation = useRouter();
@@ -1441,7 +1537,7 @@ const ExploreScreen: React.FC = () => {
             </View>
           ) : showSearchResults ? (
             <>
-              {/* Tab Navigation */}
+              {/* Tab Navigation with animated indicators */}
               <View
                 style={[
                   styles.searchTabsContainer,
@@ -1451,27 +1547,29 @@ const ExploreScreen: React.FC = () => {
                   },
                 ]}
               >
-                <View style={styles.tabNavigationWrapper}>
-                  <TabNavigation
-                    tabs={tabOptions}
-                    activeTab={activeTab}
-                    onTabPress={(tabId) => {
-                      const newTab = tabId as 'profiles' | 'channels';
-                      setActiveTab(newTab);
-                    }}
-                    textColor={Colors.white}
-                    backgroundColor="transparent"
-                    style={styles.searchTabs}
-                  />
+                <View style={styles.indicatorContainer}>
+                  {pages.map((tabId) => (
+                    <TouchableOpacity
+                      key={tabId}
+                      onPress={() => handleIndicatorTap(tabId)}
+                      activeOpacity={0.7}
+                      style={styles.indicatorItem}
+                    >
+                      <Text style={getIndicatorStyle(tabId)}>
+                        {SEARCH_TAB_LABELS[tabId] || tabId}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </View>
 
               {/* Tab Content */}
               <SearchSwipePager
-                topOffset={insets.top + 65 + 50}
+                topOffset={insets.top + 65 + 36}
                 bottomOffset={getBottomNavBarHeight(insets)}
                 activeTab={activeTab}
                 onActiveTabChange={setActiveTab}
+                onScrollProgressChange={setIndicatorScrollProgress}
                 renderTabContent={(tabId) => (
                   <SearchFeedRenderer
                     feedOption={tabId}
@@ -2314,20 +2412,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    paddingLeft: 5,
-    paddingRight: 0,
+    paddingHorizontal: 16,
     paddingTop: 0,
   },
-  tabNavigationWrapper: {
-    backgroundColor: 'transparent',
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+  indicatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 8,
+    paddingBottom: 0,
   },
-  searchTabs: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+  indicatorItem: {
+    paddingHorizontal: 4,
   },
   searchResultsContainer: {
     position: 'absolute',

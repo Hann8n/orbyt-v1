@@ -340,11 +340,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       marginRight: 8,
       fontWeight: 'bold' as const,
       opacity,
-      transform: [
-        {
-          scale: isActive ? 1.1 : 1,
-        },
-      ],
     };
   }, [currentFeedOption, feedOptions, initialFeed, indicatorBaseFontSize, indicatorScrollProgress]);
 
