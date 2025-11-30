@@ -322,12 +322,12 @@ const CreateScreen: React.FC = () => {
     }
     setIsFrontCamera(prev => !prev);
   }, [isRecording, stopRecording]);
-  const toggleFlash = () => {
+  const toggleFlash = useCallback(() => {
     // Only allow flash on back camera
     if (!isFrontCamera) {
       setFlash(prev => (prev === 'off' ? 'on' : 'off'));
     }
-  };
+  }, [isFrontCamera]);
 
   const deleteLastSegment = useCallback(() => {
     if (segments.length > 0) {
@@ -379,6 +379,11 @@ const CreateScreen: React.FC = () => {
         const asset = 'assetId' in segment.video ? segment.video as ImagePicker.ImagePickerAsset : undefined;
         // Both { uri: string } and ImagePickerAsset have uri property
         const videoPath = segment.video.uri;
+        
+        // Validate that videoPath exists before proceeding
+        if (!videoPath) {
+          throw new Error('Video URI is undefined. Cannot process video.');
+        }
         
         // Debug: Log the incoming video path
         debugVideoPath('create.tsx single segment', videoPath, asset);
@@ -434,12 +439,12 @@ const CreateScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('[create.tsx] Error processing video:', error);
-      // Only reset processing state if component is still mounted
+      // Only show alert if component is still mounted
       if (isMountedRef.current) {
         Alert.alert('Error', 'Failed to process video. Please try again.');
-        setIsProcessing(false);
       }
     } finally {
+      // Reset processing state in finally block to ensure cleanup
       if (isMountedRef.current) {
         setIsProcessing(false);
       }
@@ -591,6 +596,7 @@ const CreateScreen: React.FC = () => {
         onToolPress={handleToolAction} 
         flashActive={flash === 'on'} 
         hasSegments={totalDuration > 0}
+        isFrontCamera={isFrontCamera}
       />
     </SafeAreaView>
   );

@@ -2802,12 +2802,15 @@ class AtprotoService {
       // No legacy migration; initialize without colors by default
       let colors: { backgroundColor: string; textColor: string } | null = null;
 
-      // Pull current subscribed channels from userStore
+      // Pull current subscribed channels from userStore (filter built-ins)
       let subscribedChannels: string[] = [];
       try {
         const { useUserStore } = await import('../../stores/userStore');
         const channels = useUserStore.getState().subscribedChannels || [];
-        subscribedChannels = channels.map((c: any) => c.uri).filter(Boolean);
+        const allUris = channels.map((c: any) => c.uri).filter(Boolean);
+        // Filter out built-in channels
+        const BUILT_IN_CHANNELS = ['following', 'your-mix'];
+        subscribedChannels = allUris.filter((uri: string) => !BUILT_IN_CHANNELS.includes(uri));
       } catch {}
 
       await this.upsertOrbytProfileRecord({
@@ -2833,8 +2836,11 @@ class AtprotoService {
    * Update subscribed channels in orbyt profile record
    */
   static async updateOrbytProfileChannels(channelUris: string[]): Promise<void> {
+    // Filter out built-in channels before saving
+    const BUILT_IN_CHANNELS = ['following', 'your-mix'];
+    const filteredUris = (channelUris || []).filter(uri => !BUILT_IN_CHANNELS.includes(uri));
     await this.upsertOrbytProfileRecord({
-      subscribedChannels: Array.from(new Set(channelUris || [])),
+      subscribedChannels: Array.from(new Set(filteredUris)),
     });
   }
 

@@ -180,9 +180,19 @@ const SearchSwipePager = ({
   const activeIndex = pages.indexOf(activeTab);
   const currentPageRef = useRef(activeIndex);
   const hasAppliedInitialIndexRef = useRef(false);
+  const previousPagesRef = useRef<string>(JSON.stringify(pages));
 
-  // Set initial page index
+  // Set initial page index and re-initialize when pages array structure changes
   useLayoutEffect(() => {
+    const currentPagesString = JSON.stringify(pages);
+    const pagesChanged = currentPagesString !== previousPagesRef.current;
+    
+    // Reset initialization flag if pages array structure changed
+    if (pagesChanged) {
+      hasAppliedInitialIndexRef.current = false;
+      previousPagesRef.current = currentPagesString;
+    }
+    
     if (!hasAppliedInitialIndexRef.current && pages.length > 0) {
       const targetIndex = activeIndex >= 0 ? activeIndex : 0;
       currentPageRef.current = targetIndex;
@@ -192,7 +202,7 @@ const SearchSwipePager = ({
       });
       hasAppliedInitialIndexRef.current = true;
     }
-  }, [activeIndex, pages.length, onScrollProgressChange]);
+  }, [activeIndex, pages, onScrollProgressChange]);
 
   // Sync PagerView page when activeTab changes (e.g., from indicator tap)
   useEffect(() => {
@@ -854,7 +864,8 @@ const ExploreScreen: React.FC = () => {
     if (pages.length > 0 && !pages.includes(activeTab)) {
       setActiveTab(pages[0]);
     }
-  }, [pages, activeTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages]);
 
   // Update indicatorScrollProgress when activeIndex changes (fixes stale state when pages array changes)
   useEffect(() => {
