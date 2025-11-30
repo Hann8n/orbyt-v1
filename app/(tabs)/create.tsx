@@ -389,7 +389,8 @@ const CreateScreen: React.FC = () => {
         console.log('[create.tsx] Standardized path:', standardizedPath);
         
         // Check if video is already compatible - skip normalization if so
-        const isCompatible = await VideoProcessingService.isVideoCompatible(videoPath, asset);
+        // Use standardizedPath for compatibility check since that's the path we'll actually use
+        const isCompatible = await VideoProcessingService.isVideoCompatible(standardizedPath, asset);
         
         let finalVideoPath: string;
         if (isCompatible) {

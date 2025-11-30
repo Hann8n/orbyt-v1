@@ -367,7 +367,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         showArrow={false}
         backgroundColor="transparent"
         hideHandleLine={true}
-        noRing={true}
         customFontSize={16}
         onPress={handlePress}
         style={styles.likeItem}

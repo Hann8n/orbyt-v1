@@ -12,7 +12,7 @@ const MessagesTab: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ConversationList />
+      <ConversationList bottomNavBarHeight={bottomNavBarHeight} />
     </View>
   );
 };

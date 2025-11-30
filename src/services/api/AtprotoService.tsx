@@ -1454,7 +1454,10 @@ class AtprotoService {
   static async listNotifications(cursor: string | null = null, limit = 50): Promise<{ notifications: any[]; cursor: string | null }> {
     await this.ensureSession();
     try {
-      const params: { cursor?: string, limit: number } = { limit };
+      const params: { cursor?: string, limit: number, reasons?: string[] } = { 
+        limit,
+        reasons: ['like', 'repost', 'follow', 'mention', 'reply', 'quote', 'starterpack-joined', 'verified', 'unverified']
+      };
       if (cursor !== null) {
         params.cursor = cursor;
       }
@@ -1990,11 +1993,22 @@ class AtprotoService {
       // Return all feeds without filtering
       const allFeeds = response.data.feeds || [];
       
-      // Mark feeds as experimental based on content mode but don't filter them
+      // Extract contentMode from API response (may be at feed.contentMode or feed.view?.contentMode)
+      // If contentMode is missing, derive it from isExperimental flag
       const processedFeeds = allFeeds.map((feed: any) => {
-        const isVideoOnly = feed.contentMode === 'app.bsky.feed.defs#contentModeVideo';
+        let contentMode = feed.contentMode || feed.view?.contentMode;
+        
+        // Fallback: if contentMode is missing but isExperimental exists, derive it
+        if (!contentMode && feed.isExperimental !== undefined) {
+          contentMode = feed.isExperimental 
+            ? undefined // Non-video feed (no contentMode set)
+            : 'app.bsky.feed.defs#contentModeVideo'; // Video-only feed
+        }
+        
+        const isVideoOnly = contentMode === 'app.bsky.feed.defs#contentModeVideo';
         return {
           ...feed,
+          contentMode, // Preserve contentMode at top level for easy access
           isExperimental: !isVideoOnly
         };
       });
@@ -2021,11 +2035,22 @@ class AtprotoService {
       // Return all feeds without filtering
       const allFeeds = response.data.feeds || [];
       
-      // Mark feeds as experimental based on content mode but don't filter them
+      // Extract contentMode from API response (may be at feed.contentMode or feed.view?.contentMode)
+      // If contentMode is missing, derive it from isExperimental flag
       const processedFeeds = allFeeds.map((feed: any) => {
-        const isVideoOnly = feed.contentMode === 'app.bsky.feed.defs#contentModeVideo';
+        let contentMode = feed.contentMode || feed.view?.contentMode;
+        
+        // Fallback: if contentMode is missing but isExperimental exists, derive it
+        if (!contentMode && feed.isExperimental !== undefined) {
+          contentMode = feed.isExperimental 
+            ? undefined // Non-video feed (no contentMode set)
+            : 'app.bsky.feed.defs#contentModeVideo'; // Video-only feed
+        }
+        
+        const isVideoOnly = contentMode === 'app.bsky.feed.defs#contentModeVideo';
         return {
           ...feed,
+          contentMode, // Preserve contentMode at top level for easy access
           isExperimental: !isVideoOnly
         };
       });

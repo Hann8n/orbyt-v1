@@ -325,7 +325,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
           : 0);
 
     // Calculate opacity based on distance from current position
-    let opacity = 0.6; // Default inactive opacity
+    let opacity = 0.75; // Default inactive opacity
     if (isActive) {
       opacity = 1;
     } else {
@@ -335,10 +335,10 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     }
     
     return {
-      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.6)',
+      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.75)',
       fontSize: indicatorBaseFontSize,
       marginRight: 8,
-      fontWeight: 'bold' as const,
+      fontFamily: 'Firma-Black',
       opacity,
     };
   }, [currentFeedOption, feedOptions, initialFeed, indicatorBaseFontSize, indicatorScrollProgress]);

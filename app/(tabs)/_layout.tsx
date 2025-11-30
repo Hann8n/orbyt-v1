@@ -5,13 +5,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { Colors } from '../../src/components/ui/UI';
+import { Colors, Avatar } from '../../src/components/ui/UI';
 import { Loading3FillIcon } from '../../src/components/ui/Icon';
-import Icon, { HomeIcon, ExploreIcon, NotificationIcon, ProfileIcon } from '../../src/components/ui/Icon';
+import Icon, { HomeIcon, ExploreIcon, NotificationIcon } from '../../src/components/ui/Icon';
 import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
 import { NotificationIndicator } from '../../src/components/ui/NotificationIndicator';
+import { useUserStore } from '../../src/stores/userStore';
+import { useProfile } from '../../src/services/cache/ProfileCache';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
@@ -126,6 +128,41 @@ export default function TabsLayout() {
     );
   };
 
+  const ProfileTabIcon = ({ color, focused }: { color: string; focused: boolean }) => {
+    const currentUserHandle = useUserStore((state) => state.currentUser?.handle);
+    const { data: profileData } = useProfile(currentUserHandle);
+
+    return (
+      <View style={{ position: 'relative' }}>
+        <Avatar
+          uri={profileData?.avatar}
+          type="profile"
+          size={tabIconSize}
+          showRing={true}
+          profileColors={profileData?.profileColors ? {
+            backgroundColor: profileData.profileColors.backgroundColor,
+            textColor: profileData.profileColors.foregroundColor || color,
+            foregroundColor: profileData.profileColors.foregroundColor || color,
+          } : undefined}
+          ringColor={profileData?.profileColors?.foregroundColor || color}
+        />
+        {!focused && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              borderRadius: tabIconSize / 2,
+              backgroundColor: 'rgba(128, 128, 128, 0.5)',
+            }}
+          />
+        )}
+      </View>
+    );
+  };
+
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
 
   return (
@@ -150,7 +187,7 @@ export default function TabsLayout() {
           },
           tabBarActiveTintColor: '#fff',
           tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
-          tabBarIcon: ({ color }) => {
+          tabBarIcon: ({ color, focused }) => {
             switch (route.name) {
               case 'index':
                 return <HomeIcon size={tabIconSize} color={color as string} />;
@@ -168,7 +205,7 @@ export default function TabsLayout() {
                   </View>
                 );
               case 'profile':
-                return <ProfileIcon size={tabIconSize} color={color as string} />;
+                return <ProfileTabIcon color={color as string} focused={focused} />;
               default:
                 return <Icon name="home" size={tabIconSizeSm} color={color as string} />;
             }

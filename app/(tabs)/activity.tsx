@@ -164,7 +164,7 @@ const ActivityScreen: React.FC = () => {
     const baseProgress = indicatorScrollProgress;
 
     // Calculate opacity based on distance from current position - matches SwipeableFeedContainer
-    let opacity = 0.6; // Default inactive opacity
+    let opacity = 0.75; // Default inactive opacity
     if (isActive) {
       opacity = 1;
     } else {
@@ -234,17 +234,19 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     backgroundColor: Colors.black,
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
     paddingBottom: 0,
     paddingTop: 0,
   },
   tabSection: {
     marginTop: 0,
+    alignItems: 'flex-start',
   },
   indicatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
+    alignSelf: 'flex-start',
     paddingTop: 4,
     paddingBottom: 4,
     minHeight: 48,

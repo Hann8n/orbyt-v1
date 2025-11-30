@@ -86,7 +86,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                   activeOpacity={0.7}
                 >
                   <GridViewIcon 
-                    color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.6)} 
+                    color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.75)} 
                     size={20}
                   />
                 </TouchableOpacity>
@@ -99,7 +99,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                   activeOpacity={0.7}
                 >
                   <ListViewIcon 
-                    color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.6)} 
+                    color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.75)} 
                     size={20}
                   />
                 </TouchableOpacity>
@@ -156,7 +156,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
               style={[
                 styles.tabText,
                 { 
-                  color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.7),
+                  color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.8),
                   fontFamily: activeTab === tab.id 
                     ? (variant === 'header' ? 'Firma-Black' : 'Firma-Black')
                     : (variant === 'header' ? 'Firma-SemiBold' : 'Firma-SemiBold'),
@@ -185,7 +185,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
               activeOpacity={0.7}
             >
               <GridViewIcon 
-                color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.6)} 
+                color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.75)} 
                 size={20}
               />
             </TouchableOpacity>
@@ -198,7 +198,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
               activeOpacity={0.7}
             >
               <ListViewIcon 
-                color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.6)} 
+                color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.75)} 
                 size={20}
               />
             </TouchableOpacity>
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontWeight: 'bold',
-    opacity: 0.7,
+    opacity: 0.8,
   },
   activeTabText: {
     opacity: 1,

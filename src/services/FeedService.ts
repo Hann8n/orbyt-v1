@@ -697,6 +697,7 @@ class FeedService {
                 author: channel.creator,
                 text: channel.displayName,
                 avatar: channel.avatar,
+                contentMode: channel.contentMode, // Already extracted by AtprotoService
               } as any,
               shouldCache: true,
               uniqueKey: channel.uri,

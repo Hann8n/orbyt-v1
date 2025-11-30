@@ -629,8 +629,6 @@ const VideoPostScreen: React.FC = () => {
                       <Avatar
                         type="channel"
                         size={52}
-                        ringColor="transparent"
-                        noRing={true}
                         fallbackIcon="device-tv"
                         fallbackIconColor={Colors.lightGray}
                         fallbackIconSize={32}
@@ -640,8 +638,6 @@ const VideoPostScreen: React.FC = () => {
                         uri={getChannelAvatarUri(selectedChannel.uri)}
                         type="channel"
                         size={52}
-                        ringColor="transparent"
-                        noRing={true}
                       />
                     )}
                   </View>

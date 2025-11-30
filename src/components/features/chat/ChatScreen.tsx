@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Alert, Text, TouchableOpacity, TextInput, Image } from 'react-native';
-import { GiftedChat, IMessage, Send, InputToolbar, Composer } from 'react-native-gifted-chat';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { View, StyleSheet, Alert, Text, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { GiftedChat, IMessage } from 'react-native-gifted-chat';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Animated as RNAnimated } from 'react-native';
 
-import { Colors } from '../../ui/UI';
+import { Colors, Avatar } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import Icon, { BackArrowIcon, Loading3FillIcon } from '../../ui/Icon';
 import { Message, Conversation, ReactionView } from '../../../services/ChatService';
@@ -30,9 +31,8 @@ interface ChatScreenProps {
 
 export default function ChatScreen({ conversationId, recipientDid }: ChatScreenProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
   const queryClient = useQueryClient();
-  const oauthService = AtProtoOAuthService.getInstance();
+  const insets = useSafeAreaInsets();
   
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('1');
@@ -43,6 +43,19 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   
   // Chat actions sheet state
   const [showActionsSheet, setShowActionsSheet] = useState(false);
+
+  // Dismiss keyboard when screen loses focus
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        // Dismiss keyboard when navigating away with a small delay
+        // to allow animations to complete
+        setTimeout(() => {
+          Keyboard.dismiss();
+        }, 100);
+      };
+    }, [])
+  );
 
   useEffect(() => {
     const getUserSession = async () => {
@@ -134,7 +147,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   });
 
   // Get the other user DID from conversation members
-  const otherUserDid = React.useMemo(() => {
+  const otherUserDid = useMemo(() => {
     if (conversationData?.members?.length > 0) {
       const otherMember = conversationData.members.find(member => member.did !== currentUserId);
       return otherMember?.did;
@@ -168,8 +181,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         name: msg.senderDid === currentUserId ? 'You' : otherDisplayName,
         avatar: msg.senderDid === currentUserId ? currentUser?.avatar : undefined,
       },
-      sent: undefined,
-      received: undefined,
       // Include reactions data for the MessageReactions component
       reactions: msg.reactions || [],
       // Include embed data for embedded posts
@@ -204,9 +215,8 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   const onSend = useCallback((newMessages: ChatMessage[] = []) => {
     if (newMessages.length > 0) {
       const message = newMessages[0];
-      setMessages((previousMessages) =>
-        GiftedChat.append(previousMessages, newMessages)
-      );
+      // Update messages state directly (modern pattern)
+      setMessages((previousMessages) => [...newMessages, ...previousMessages]);
       
       // Send the message via API
       sendMessageMutation.mutate(message.text);
@@ -359,29 +369,25 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   };
 
 
-  const renderComposer = (props: any) => {
+  const renderComposer = useCallback((props: any) => {
     return (
-      <View style={styles.inputWrapper}>
-        <TextInput
-          {...props.textInputProps}
-          style={styles.textInput}
-          placeholder="Type a message..."
-          placeholderTextColor={Colors.lightGray}
-          multiline={true}
-          value={props.text || ''}
-          onChangeText={props.onTextChanged}
-          maxLength={1000}
-          returnKeyType="default"
-          blurOnSubmit={false}
-          autoCorrect={true}
-          autoCapitalize="sentences"
-          textAlignVertical="top"
-        />
-      </View>
+      <TextInput
+        {...props.textInputProps}
+        style={styles.textInput}
+        placeholder="Type a message..."
+        placeholderTextColor={Colors.lightGray}
+        multiline={true}
+        maxLength={1000}
+        returnKeyType="default"
+        blurOnSubmit={false}
+        autoCorrect={true}
+        autoCapitalize="sentences"
+        textAlignVertical="top"
+      />
     );
-  };
+  }, []);
 
-  const renderSend = (props: any) => {
+  const renderSend = useCallback((props: any) => {
     const hasText = props.text && props.text.trim().length > 0;
     const isDisabled = !hasText || sendMessageMutation.isPending;
     
@@ -395,7 +401,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         onPress={() => {
           if (props.text && props.text.trim() && !sendMessageMutation.isPending) {
             // Create the message object that GiftedChat expects
-            const message = {
+            const message: ChatMessage = {
               _id: Math.random().toString(36).substr(2, 9),
               text: props.text.trim(),
               createdAt: new Date(),
@@ -406,8 +412,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
               },
             };
             props.onSend([message]);
-            // Clear the input text
-            props.onTextChanged('');
           }
         }}
         activeOpacity={0.8}
@@ -425,28 +429,25 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         )}
       </TouchableOpacity>
     );
-  };
+  }, [currentUserId, currentUser, sendMessageMutation.isPending]);
 
-  const renderInputToolbar = (props: any) => {
+
+  const renderInputToolbar = useCallback((props: any) => {
     return (
-      <View style={styles.inputContainer}>
-        <View style={styles.inputRow}>
-          <View style={styles.inputWrapper}>
-            {props.renderComposer && props.renderComposer(props)}
-          </View>
-          <View style={styles.sendColumn}>
-            {props.renderSend && props.renderSend(props)}
-          </View>
+      <View style={styles.inputToolbar}>
+        <View style={styles.inputToolbarContent}>
+          {props.renderComposer && props.renderComposer(props)}
+          {props.renderSend && props.renderSend(props)}
         </View>
       </View>
     );
-  };
+  }, []);
 
-  const renderAvatar = () => null;
+  const renderAvatar = useCallback(() => null, []);
 
 
   // Get the other user (not the current user) from the conversation
-  const getOtherUser = () => {
+  const otherUser = useMemo(() => {
     if (!otherUserDid) {
       return null;
     }
@@ -470,12 +471,9 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     }
     
     return null;
-  };
+  }, [otherUserDid, conversationData, otherUserProfile, currentUserId]);
 
-  const otherUser = getOtherUser();
-  
-
-  const renderDay = (dayProps: any) => {
+  const renderDay = useCallback((dayProps: any) => {
     const date = dayProps.currentMessage?.createdAt;
     if (!date) return null;
     
@@ -486,9 +484,9 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         <View style={styles.daySeparatorLine} />
       </View>
     );
-  };
+  }, []);
 
-  const renderMessage = (props: any) => {
+  const renderMessage = useCallback((props: any) => {
     const message = props.currentMessage;
     const hasEmbed = message.embed?.record;
     const isCurrentUser = message.user._id === currentUserId;
@@ -674,7 +672,14 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         )}
       </TouchableOpacity>
     );
-  };
+  }, [currentUserId, selectedMessageId, handleEmojiSelect, handleReactionPress]);
+
+  // Memoize user object for GiftedChat
+  const giftedChatUser = useMemo(() => ({
+    _id: currentUserId,
+    name: currentUser?.handle || 'You',
+    avatar: currentUser?.avatar,
+  }), [currentUserId, currentUser]);
 
   if (isLoading || isLoadingConversation || isLoadingOtherUser || !isUserReady) {
     return (
@@ -695,14 +700,29 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     );
   }
 
+  // Calculate header height for keyboard offset
+  const headerHeight = 60; // Approximate header height
+  
   return (
-    <View style={styles.container}>
-      {/* Chat Header */}
-      <View style={styles.chatHeader}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight - insets.bottom : 0}
+        enabled={true}
+      >
+        {/* Chat Header */}
+        <View style={styles.chatHeader}>
         <View style={styles.headerContent}>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => {
+              // Dismiss keyboard first, then navigate after a brief delay
+              Keyboard.dismiss();
+              setTimeout(() => {
+                router.back();
+              }, 150);
+            }}
             activeOpacity={0.7}
           >
             <BackArrowIcon size={28} color={Colors.white} />
@@ -716,6 +736,13 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                   onPress={() => router.push(`/profile/${otherUser.did}`)}
                   activeOpacity={0.7}
                 >
+                  <Avatar
+                    uri={otherUser.avatar}
+                    type="profile"
+                    size={45}
+                    showRing={true}
+                    style={styles.headerAvatar}
+                  />
                   <Text style={styles.headerDisplayName} numberOfLines={1}>
                     {otherUser.displayName || otherUser.handle || 'User'}
                   </Text>
@@ -727,7 +754,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                   onPress={() => setShowActionsSheet(true)}
                   activeOpacity={0.7}
                 >
-                  <Icon name="more-fill" size={20} color={Colors.white} />
+                  <Icon name="more-fill" size={24} color={Colors.white} />
                 </TouchableOpacity>
               </View>
             </>
@@ -747,35 +774,27 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       <GiftedChat
         messages={messages}
         onSend={onSend}
-        user={{
-          _id: currentUserId,
-          name: currentUser?.handle || 'You',
-          avatar: currentUser?.avatar,
-        }}
+        user={giftedChatUser}
         renderSend={renderSend}
         renderMessage={renderMessage}
         renderComposer={renderComposer}
         renderInputToolbar={renderInputToolbar}
         renderAvatar={renderAvatar}
         renderDay={renderDay}
-        placeholder=""
-        alwaysShowSend={true}
         scrollToBottomComponent={() => (
           <View style={styles.scrollToBottomButton}>
             <Icon name="chevron-down" size={16} color={Colors.white} />
           </View>
         )}
-        infiniteScroll={true}
-        isLoadingEarlier={false}
-        showUserAvatar={false}
         minInputToolbarHeight={50}
         maxComposerHeight={120}
         minComposerHeight={42}
         messagesContainerStyle={styles.messagesContainer}
         scrollToBottomStyle={styles.scrollToBottomContainer}
-        bottomOffset={0}
-        isKeyboardInternallyHandled={true}
-        keyboardShouldPersistTaps="handled"
+        listProps={{ 
+          keyboardShouldPersistTaps: 'handled',
+        }}
+        keyboardAvoidingViewProps={undefined}
         onPressAvatar={() => {
           // Dismiss emoji bar when tapping avatar
           setSelectedMessageId(null);
@@ -790,7 +809,8 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         otherUserDid={otherUserDid}
       />
       
-    </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -799,11 +819,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
+  keyboardContainer: {
+    flex: 1,
+  },
   chatHeader: {
     backgroundColor: Colors.black,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.darkGray,
-    paddingTop: 0,
+    borderBottomWidth: 0,
     paddingBottom: 12,
     paddingHorizontal: 12,
   },
@@ -818,6 +839,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: Colors.darkGray,
   },
   headerCenter: {
     flex: 1,
@@ -825,11 +848,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerUserInfo: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
+    gap: 4,
   },
   headerAvatar: {
-    marginRight: 12,
+    marginBottom: 0,
   },
   headerAvatarImage: {
     width: 40,
@@ -850,17 +874,23 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Bold',
   },
   headerDisplayName: {
-    fontSize: 20,
-    fontFamily: 'Firma-SemiBold',
+    fontSize: 16,
+    fontFamily: 'Firma-Bold',
     color: Colors.white,
+    textAlign: 'center',
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerActionButton: {
-    padding: 8,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginLeft: 8,
+    borderRadius: BORDER_RADIUS.FULL,
+    backgroundColor: Colors.darkGray,
   },
   headerTextPlaceholder: {
     marginLeft: 12,
@@ -932,27 +962,22 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  inputContainer: {
+  inputToolbar: {
     backgroundColor: Colors.black,
-    borderTopWidth: 1,
-    borderTopColor: Colors.darkGray,
+    borderTopWidth: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingHorizontal: 0,
+    marginHorizontal: 0,
+    marginBottom: 0,
+    marginTop: 0,
+  },
+  inputToolbarContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    width: '100%',
-  },
-  inputWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    borderRadius: BORDER_RADIUS.LARGE,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    position: 'relative',
+    paddingBottom: 0,
+    paddingTop: 0,
   },
   textInput: {
     backgroundColor: 'transparent',
@@ -961,14 +986,11 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 42,
     maxHeight: 120,
-    paddingRight: 0,
-    paddingTop: 9,
-    paddingBottom: 9,
-    paddingLeft: 0,
     textAlignVertical: 'top',
     fontFamily: 'Firma-Regular',
     fontSize: 18,
     lineHeight: 24,
+    marginRight: 8,
   },
   sendColumn: {
     alignItems: 'center',
@@ -1138,7 +1160,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   sentMessage: {
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.blurple,
     alignSelf: 'flex-end',
   },
   receivedMessage: {
@@ -1150,7 +1172,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   sentMessageText: {
-    color: Colors.black,
+    color: Colors.white,
   },
   receivedMessageText: {
     color: Colors.white,
