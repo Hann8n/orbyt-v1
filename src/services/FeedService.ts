@@ -421,11 +421,14 @@ class FeedService {
         }
         response = await AtprotoService.getFeed(cursor, feedLink, {}, false, limit, 'custom');
       } else if (feedOptionForAPI === 'your-mix') {
-        // Get subscribed channels from user store (already filtered - no built-ins)
-        const { subscribedChannels } = await import('../stores/userStore').then(m => m.useUserStore.getState());
+        // Get subscribed channels and algorithmic feed provider from user store
+        const { subscribedChannels, algorithmicFeedProvider } = await import('../stores/userStore').then(m => m.useUserStore.getState());
         
-        // If no channels subscribed, return empty feed
-        if (!subscribedChannels || subscribedChannels.length === 0) {
+        // If no channels subscribed AND no algorithmic feed, return empty feed
+        const hasChannels = subscribedChannels && subscribedChannels.length > 0;
+        const hasAlgorithmic = !!algorithmicFeedProvider;
+        
+        if (!hasChannels && !hasAlgorithmic) {
           return { feed: [], cursor: null };
         }
         
@@ -445,80 +448,97 @@ class FeedService {
         // Prepare feed sources - convert channels to appropriate format
         interface FeedSource {
           uri: string;
-          type: 'feed' | 'hashtag';
+          type: 'feed' | 'hashtag' | 'algorithmic';
           hashtag?: string;
           sort?: 'top' | 'latest';
         }
         
         const feedSources: FeedSource[] = [];
-        const maxFeeds = Math.min(subscribedChannels.length, FEED_CONFIG.maxFeedsPerFetch);
         
-        for (const channel of subscribedChannels.slice(0, maxFeeds)) {
-          if (channel.uri.startsWith('hashtag:')) {
-            // Already in hashtag format
-            const hashtagWithSort = channel.uri.substring(8);
-            const parts = hashtagWithSort.split(':');
-            const hashtag = parts[0];
-            const sort = parts[1] === 'top' ? 'top' : 'latest';
-            feedSources.push({
-              uri: channel.uri,
-              type: 'hashtag',
-              hashtag,
-              sort,
-            });
-          } else if (channel.uri.startsWith('at://local.orbyt.channel/')) {
-            // Local Orbyt channels - convert postable ones to hashtag
-            const orbytChannel = getChannelByUri(channel.uri);
-            if (orbytChannel?.isPostable !== false) {
-              const hashtagFormat = channelToHashtag(channel.uri);
-              if (hashtagFormat) {
-                const hashtag = hashtagFormat.substring(8);
-                feedSources.push({
-                  uri: channel.uri,
-                  type: 'hashtag',
-                  hashtag,
-                  sort: 'latest',
-                });
-                continue;
+        // Add algorithmic feed provider if set
+        if (algorithmicFeedProvider) {
+          feedSources.push({
+            uri: algorithmicFeedProvider,
+            type: 'algorithmic',
+          });
+        }
+        
+        // Add channel feeds
+        if (hasChannels) {
+          const maxFeeds = Math.min(subscribedChannels.length, FEED_CONFIG.maxFeedsPerFetch);
+          
+          for (const channel of subscribedChannels.slice(0, maxFeeds)) {
+            if (channel.uri.startsWith('hashtag:')) {
+              // Already in hashtag format
+              const hashtagWithSort = channel.uri.substring(8);
+              const parts = hashtagWithSort.split(':');
+              const hashtag = parts[0];
+              const sort = parts[1] === 'top' ? 'top' : 'latest';
+              feedSources.push({
+                uri: channel.uri,
+                type: 'hashtag',
+                hashtag,
+                sort,
+              });
+            } else if (channel.uri.startsWith('at://local.orbyt.channel/')) {
+              // Local Orbyt channels - convert postable ones to hashtag
+              const orbytChannel = getChannelByUri(channel.uri);
+              if (orbytChannel?.isPostable !== false) {
+                const hashtagFormat = channelToHashtag(channel.uri);
+                if (hashtagFormat) {
+                  const hashtag = hashtagFormat.substring(8);
+                  feedSources.push({
+                    uri: channel.uri,
+                    type: 'hashtag',
+                    hashtag,
+                    sort: 'latest',
+                  });
+                  continue;
+                }
               }
-            }
-            // Non-postable or conversion failed - treat as feed URI
-            feedSources.push({
-              uri: channel.uri,
-              type: 'feed',
-            });
-          } else if (channel.uri.startsWith('at://')) {
-            // Regular feed generator URI
-            const orbytChannel = getChannelByUri(channel.uri);
-            if (orbytChannel && orbytChannel.isPostable !== false) {
-              // Postable Orbyt channel - try to convert to hashtag
-              const hashtagFormat = channelToHashtag(channel.uri);
-              if (hashtagFormat) {
-                const hashtag = hashtagFormat.substring(8);
-                feedSources.push({
-                  uri: channel.uri,
-                  type: 'hashtag',
-                  hashtag,
-                  sort: 'latest',
-                });
-                continue;
+              // Non-postable or conversion failed - treat as feed URI
+              feedSources.push({
+                uri: channel.uri,
+                type: 'feed',
+              });
+            } else if (channel.uri.startsWith('at://')) {
+              // Regular feed generator URI
+              const orbytChannel = getChannelByUri(channel.uri);
+              if (orbytChannel && orbytChannel.isPostable !== false) {
+                // Postable Orbyt channel - try to convert to hashtag
+                const hashtagFormat = channelToHashtag(channel.uri);
+                if (hashtagFormat) {
+                  const hashtag = hashtagFormat.substring(8);
+                  feedSources.push({
+                    uri: channel.uri,
+                    type: 'hashtag',
+                    hashtag,
+                    sort: 'latest',
+                  });
+                  continue;
+                }
               }
+              // Non-postable or non-Orbyt - use as feed generator
+              feedSources.push({
+                uri: channel.uri,
+                type: 'feed',
+              });
             }
-            // Non-postable or non-Orbyt - use as feed generator
-            feedSources.push({
-              uri: channel.uri,
-              type: 'feed',
-            });
           }
         }
         
         // Calculate fetch limit per feed for better distribution
-        const itemsPerFeed = Math.max(10, Math.ceil(limit / feedSources.length));
+        // Give algorithmic feed a larger share to keep content fresh
+        const algorithmicCount = feedSources.filter(s => s.type === 'algorithmic').length;
+        const channelCount = feedSources.length - algorithmicCount;
+        const algorithmicLimit = algorithmicCount > 0 ? Math.ceil(limit * 0.4) : 0; // 40% for algorithmic
+        const channelLimit = channelCount > 0 ? Math.ceil((limit - algorithmicLimit) / channelCount) : 0;
         
         // Fetch from all feed sources in parallel
         const feedPromises = feedSources.map(async (source) => {
           try {
             const sourceCursor = cursorState[source.uri] || null;
+            const itemsPerFeed = source.type === 'algorithmic' ? algorithmicLimit : Math.max(10, channelLimit);
             
             if (source.type === 'hashtag') {
               // Fetch from hashtag
@@ -536,7 +556,7 @@ class FeedService {
                 success: true,
               };
             } else {
-              // Fetch from feed generator
+              // Fetch from feed generator (both regular and algorithmic)
               const feedResponse = await AtprotoService.getFeed(
                 sourceCursor,
                 source.uri,

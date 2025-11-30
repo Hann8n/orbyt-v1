@@ -310,6 +310,16 @@ const SettingsScreen: React.FC = () => {
             },
           showChevron: true
         },
+        {
+          id: 'algorithmic-feed',
+          label: 'Algorithmic feed',
+          icon: 'sparkles',
+          onPress: () => {
+            navigation.back();
+            setTimeout(() => navigation.push('/settings/algorithmic-feed'), 100);
+          },
+          showChevron: true
+        },
 
         // {
         //   id: 'experimental-feeds',

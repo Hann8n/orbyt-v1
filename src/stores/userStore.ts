@@ -44,7 +44,6 @@ export interface SubscribedChannel {
   description?: string;
   avatar?: string;
   memberCount?: number;
-  isDefault?: boolean;
   isOrbytChannel?: boolean; // True if this is an Orbyt-managed hashtag feed
   subscribedAt: number;
 }
@@ -78,6 +77,9 @@ interface UserState {
   experimentalFeedsEnabled: boolean;
   feedDebugOverlayEnabled: boolean;
   
+  // Algorithmic feed provider - scoped by DID
+  algorithmicFeedProvider: string | null; // Feed URI or null for none
+  
   // Subscribed channels - scoped by DID
   subscribedChannels: SubscribedChannel[];
   
@@ -109,7 +111,6 @@ interface UserState {
   }) => Promise<void>;
   unsubscribeFromChannel: (uri: string) => Promise<void>;
   isSubscribedToChannel: (uri: string) => boolean;
-  setDefaultChannel: (uri: string) => Promise<void>;
   
   // Batch operations for efficiency
   batchSubscribeToChannels: (channels: Array<{
@@ -130,6 +131,10 @@ interface UserState {
   setFeedDebugOverlayEnabled: (enabled: boolean) => Promise<void>;
   getExperimentalFeedsEnabled: () => Promise<boolean>;
   getFeedDebugOverlayEnabled: () => Promise<boolean>;
+  
+  // Algorithmic feed provider
+  setAlgorithmicFeedProvider: (uri: string | null) => Promise<void>;
+  getAlgorithmicFeedProvider: () => Promise<string | null>;
   
   // State management
   setCurrentUser: (user: UserState['currentUser']) => void;
@@ -161,8 +166,22 @@ const STORAGE_KEYS = {
   ACCOUNTS: 'saved_accounts',
   ACTIVE_ACCOUNT: 'active_account_did',
   SUBSCRIBED_CHANNELS: 'subscribed_channels',
-  DEFAULT_CHANNEL_URI: 'default_channel_uri',
   DEVELOPER_MEMBERS: 'developer_members_cache',
+  ALGORITHMIC_FEED_PROVIDER: 'algorithmic_feed_provider',
+} as const;
+
+// Available algorithmic feed providers
+export const ALGORITHMIC_FEED_PROVIDERS = {
+  BLUESKY_VIDEO: {
+    uri: 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids',
+    displayName: 'For Your Consideration',
+    description: 'Built-in recommendations algorithm',
+  },
+  VIDEOS_FOR_YOU: {
+    uri: 'at://did:plc:3guzzweuqraryl3rdkimjamk/app.bsky.feed.generator/videos-for-you',
+    displayName: 'Videos For You',
+    description: 'Personalized video recommendations by spacecowboy17',
+  },
 } as const;
 
 // Developer list URI - the Bluesky list that defines developer access
@@ -201,6 +220,9 @@ export const useUserStore = create<UserState>()(
       // Feed settings
       experimentalFeedsEnabled: true,
       feedDebugOverlayEnabled: false,
+      
+      // Algorithmic feed provider - default to Bluesky Video (thevids)
+      algorithmicFeedProvider: ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri,
       
       // Subscribed channels
       subscribedChannels: [],
@@ -456,6 +478,46 @@ export const useUserStore = create<UserState>()(
           // Try to restore session for the new account
           try {
             await get().restoreSession(did);
+            
+            // Verify agent is set before proceeding
+            const state = get();
+            if (!state.agent) {
+              throw new Error('Agent not available after session restore');
+            }
+            
+            // Update state - keep isSwitchingAccount true until data is loaded
+            set({ 
+              savedAccounts: accounts,
+              activeAccountDid: did,
+            });
+            
+            // Load user-specific data and wait for it to complete
+            await Promise.all([
+              get().loadUserSpecificSettings(did),
+              get().loadSubscribedChannels(did),
+              get().refreshDeveloperAccess()
+            ]).catch(error => {
+              logger.warn('Failed to load some user settings', { component: 'userStore', error: error.message });
+            });
+            
+            // Initialize orbyt profile record now that API client is ready
+            // This was skipped during restoreSession because isSwitchingAccount was true
+            try {
+              await AtprotoService.initOrbytProfileIfNeeded();
+            } catch (error) {
+              // Best-effort only, don't fail account switch if this fails
+              logger.debug('Failed to initialize orbyt profile during account switch', { component: 'userStore', error });
+            }
+            
+            // Set isSwitchingAccount to false FIRST so feed queries can be enabled
+            // This ensures feeds wait until the account switch is complete before fetching
+            set({ isSwitchingAccount: false });
+            
+            // Then invalidate all React Query caches to trigger fresh data fetch for the new account
+            // This ensures feeds, profiles, and all user-specific data refreshes
+            // Feeds will now be enabled (because isSwitchingAccount is false) and can fetch successfully
+            queryClient.invalidateQueries();
+            
           } catch (restoreErr) {
             const restoreMsg = restoreErr instanceof Error ? restoreErr.message : '';
             logger.error('Session restoration failed for account switch', restoreErr, { component: 'userStore', did });
@@ -480,22 +542,6 @@ export const useUserStore = create<UserState>()(
               throw new Error('Session expired - please sign in again');
             }
           }
-          
-          // Update state
-          set({ 
-            savedAccounts: accounts,
-            activeAccountDid: did,
-            isSwitchingAccount: false,
-          });
-          
-          // Load user-specific data
-          Promise.all([
-            get().loadUserSpecificSettings(did),
-            get().loadSubscribedChannels(did),
-            get().refreshDeveloperAccess()
-          ]).catch(error => {
-            logger.warn('Failed to load some user settings', { component: 'userStore', error: error.message });
-          });
           
           // Call completion callback if provided
           if (onComplete) {
@@ -735,29 +781,6 @@ export const useUserStore = create<UserState>()(
         return get().subscribedChannels.some(ch => ch.uri === uri);
       },
        
-      setDefaultChannel: async (uri: string) => {
-        try {
-          const currentUser = get().currentUser;
-          if (!currentUser?.did) {
-            throw new Error('No active user');
-          }
-          
-          // Only allow 'following' or 'your-mix' as default (built-in channels)
-          if (uri !== 'following' && uri !== 'your-mix') {
-            throw new Error('Only "following" or "your-mix" can be set as default');
-          }
-          
-          // Save default channel URI (built-in channels are handled separately)
-          const defaultKey = getUserScopedKey(STORAGE_KEYS.DEFAULT_CHANNEL_URI, currentUser.did);
-          await AsyncStorage.setItem(defaultKey, uri);
-          
-        } catch (error) {
-          logger.error('Error setting default channel', error, { component: 'userStore' });
-          throw error;
-        }
-      },
-
-      
       // Batch operations for efficiency
       batchSubscribeToChannels: async (channels: Array<{
         uri: string;
@@ -903,6 +926,54 @@ export const useUserStore = create<UserState>()(
         }
       },
       
+      // Algorithmic feed provider actions
+      setAlgorithmicFeedProvider: async (uri: string | null) => {
+        try {
+          const currentUser = get().currentUser;
+          const key = currentUser?.did 
+            ? getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, currentUser.did)
+            : STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER;
+          
+          if (uri === null) {
+            await AsyncStorage.removeItem(key);
+          } else {
+            await AsyncStorage.setItem(key, uri);
+          }
+          
+          set({ algorithmicFeedProvider: uri });
+          
+          // Sync algorithmic feed provider to orbyt profile record (best-effort)
+          try {
+            await AtprotoService.updateOrbytProfileAlgorithmicFeedProvider(uri);
+          } catch {}
+          
+          // Clear FeedService cache for your-mix to ensure fresh content
+          feedService.clearFeedCache();
+          
+          // Remove all cached your-mix queries and refetch with new provider
+          queryClient.removeQueries({ queryKey: ['feed', 'your-mix'] });
+          queryClient.invalidateQueries({ queryKey: ['feed', 'your-mix'] });
+        } catch (error) {
+          logger.error('Error setting algorithmic feed provider', error, { component: 'userStore' });
+          throw error;
+        }
+      },
+      
+      getAlgorithmicFeedProvider: async () => {
+        try {
+          const currentUser = get().currentUser;
+          const key = currentUser?.did 
+            ? getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, currentUser.did)
+            : STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER;
+          const value = await AsyncStorage.getItem(key);
+          // Default to Bluesky Video if not set
+          return value ?? ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri;
+        } catch (error) {
+          logger.error('Error getting algorithmic feed provider', error, { component: 'userStore' });
+          return ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri;
+        }
+      },
+      
       // State management actions
       setCurrentUser: (user) => set({ currentUser: user }),
       setAuthenticating: (authenticating) => set({ isAuthenticating: authenticating }),
@@ -946,6 +1017,10 @@ export const useUserStore = create<UserState>()(
             ChannelCache.clearCache(),
             ModerationService.clearModerationCache(),
           ]);
+          
+          // Note: We don't invalidate queries here because clearAllCaches is called
+          // before account switch. Queries will be invalidated after the new account
+          // session is restored in switchAccount.
           
         } catch (error) {
           logger.error('Error clearing caches', error, { component: 'userStore' });
@@ -1182,6 +1257,31 @@ export const useUserStore = create<UserState>()(
           const experimentalFeedsEnabled = await get().getExperimentalFeedsEnabled();
           const feedDebugOverlayEnabled = await get().getFeedDebugOverlayEnabled();
           
+          // Record-first backfill: Load algorithmic feed provider from profile record first
+          let algorithmicFeedProvider: string | null = null;
+          try {
+            const record = await AtprotoService.getOrbytProfileRecordForDid(did);
+            const remoteProvider = record?.algorithmicFeedProvider;
+            
+            // If profile record has a value, use it (even if null)
+            if (remoteProvider !== undefined) {
+              algorithmicFeedProvider = remoteProvider;
+              // Save to local storage for faster access next time
+              const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
+              if (algorithmicFeedProvider === null) {
+                await AsyncStorage.removeItem(key);
+              } else {
+                await AsyncStorage.setItem(key, algorithmicFeedProvider);
+              }
+            } else {
+              // No value in profile record, try local storage
+              algorithmicFeedProvider = await get().getAlgorithmicFeedProvider();
+            }
+          } catch {
+            // Fallback to local storage if profile record fetch fails
+            algorithmicFeedProvider = await get().getAlgorithmicFeedProvider();
+          }
+          
           // Sync moderation settings with Bluesky API (this will also cache them)
           await ModerationService.syncModerationSettings(get().agent);
           
@@ -1192,6 +1292,7 @@ export const useUserStore = create<UserState>()(
           set({ 
             experimentalFeedsEnabled,
             feedDebugOverlayEnabled,
+            algorithmicFeedProvider,
           });
           
         } catch (error) {
@@ -1250,7 +1351,7 @@ export const useUserStore = create<UserState>()(
             // Always update to ensure profile record is clean (removes built-ins if they exist)
             await AtprotoService.updateOrbytProfileChannels(urisToSync);
           } catch (error) {
-            logger.warn('Failed to clean profile record of built-in channels', error, { component: 'userStore' });
+            logger.warn('Failed to clean profile record of built-in channels', { component: 'userStore', error: error instanceof Error ? error.message : String(error) });
           }
           
         } catch (error) {
@@ -1338,6 +1439,7 @@ export const useUserStore = create<UserState>()(
         activeAccountDid: state.activeAccountDid,
         experimentalFeedsEnabled: state.experimentalFeedsEnabled,
         feedDebugOverlayEnabled: state.feedDebugOverlayEnabled,
+        algorithmicFeedProvider: state.algorithmicFeedProvider,
         // Filter out built-in channels before persisting
         subscribedChannels: state.subscribedChannels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri)),
         isDeveloper: state.isDeveloper,
@@ -1419,7 +1521,6 @@ export const useChannelSubscriptions = () => {
   const subscribeToChannel = useUserStore(state => state.subscribeToChannel);
   const unsubscribeFromChannel = useUserStore(state => state.unsubscribeFromChannel);
   const isSubscribedToChannel = useUserStore(state => state.isSubscribedToChannel);
-  const setDefaultChannel = useUserStore(state => state.setDefaultChannel);
   const batchSubscribeToChannels = useUserStore(state => state.batchSubscribeToChannels);
   const batchUnsubscribeFromChannels = useUserStore(state => state.batchUnsubscribeFromChannels);
   
@@ -1428,7 +1529,6 @@ export const useChannelSubscriptions = () => {
     subscribeToChannel,
     unsubscribeFromChannel,
     isSubscribedToChannel,
-    setDefaultChannel,
     batchSubscribeToChannels,
     batchUnsubscribeFromChannels,
   };
@@ -1477,6 +1577,19 @@ export const useFeedSettings = () => {
     setFeedDebugOverlayEnabled,
     getExperimentalFeedsEnabled,
     getFeedDebugOverlayEnabled,
+  };
+};
+
+// Hook for algorithmic feed provider settings
+export const useAlgorithmicFeedProvider = () => {
+  const algorithmicFeedProvider = useUserStore(state => state.algorithmicFeedProvider);
+  const setAlgorithmicFeedProvider = useUserStore(state => state.setAlgorithmicFeedProvider);
+  const getAlgorithmicFeedProvider = useUserStore(state => state.getAlgorithmicFeedProvider);
+  
+  return {
+    algorithmicFeedProvider,
+    setAlgorithmicFeedProvider,
+    getAlgorithmicFeedProvider,
   };
 };
 

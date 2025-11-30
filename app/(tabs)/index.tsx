@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useImperativeHandle, forwardRef, memo, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useImperativeHandle, forwardRef, memo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -8,29 +8,14 @@ import { SwipeableFeedContainer } from '../../src/components';
 import { HomeScreenRef, FeedOption } from '../../src/types';
 import { useVisibilityRouteTracker } from '../../src/hooks';
 import { Colors } from '../../src/components/ui/UI';
-import { useSubscribedChannels } from '../../src/hooks/useSubscribedChannels';
 
 interface HomeScreenProps {}
 
 const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
-  const { subscribedChannels } = useSubscribedChannels();
-  const defaultFeed = useMemo(() => {
-    // Only consider 'following' or 'your-mix' as valid feeds
-    const defaultChannel = subscribedChannels.find(ch => ch.isDefault && (ch.uri === 'following' || ch.uri === 'your-mix'));
-    if (defaultChannel) {
-      return defaultChannel.uri;
-    }
-    // Fallback to 'following' if no default is set
-    const followingChannel = subscribedChannels.find(ch => ch.uri === 'following');
-    return followingChannel?.uri || 'following';
-  }, [subscribedChannels]);
-  const [currentFeed, setCurrentFeed] = useState<FeedOption>(defaultFeed);
-  
-  useEffect(() => {
-    if (defaultFeed) {
-      setCurrentFeed(defaultFeed);
-    }
-  }, [defaultFeed]);
+  // Home screen always defaults to 'your-mix'
+  // Built-in channels ('following' and 'your-mix') are not in subscribedChannels,
+  // so we always default to 'your-mix' directly
+  const [currentFeed, setCurrentFeed] = useState<FeedOption>('your-mix');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const queryClient = useQueryClient();
   useVisibilityRouteTracker('home', 'index');

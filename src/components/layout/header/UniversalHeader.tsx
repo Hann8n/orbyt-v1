@@ -14,6 +14,7 @@ import { Avatar } from '../../ui/UI';
 import { Colors } from '../../ui/UI';
 import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import { TextWithLinks } from '../../ui/TextWithLinks';
+import type { RichTextFacet } from '../../../utils/richTextParser';
 
 // Types for the universal header system
 export interface HeaderAction {
@@ -35,7 +36,7 @@ export interface HeaderContent {
   subtitle?: string;
   subtitleSecondary?: string; // e.g., Joined date or secondary line
   description?: string;
-  facets?: any[];
+  facets?: RichTextFacet[];
   badge?: React.ReactNode;
   onAvatarPress?: () => void;
   onTitlePress?: () => void;

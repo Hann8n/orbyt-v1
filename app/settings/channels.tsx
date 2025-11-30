@@ -22,7 +22,6 @@ interface ChannelUser {
   isOrbytChannel?: boolean;
   channelColor?: string;
   uri?: string;
-  isDefault?: boolean;
 }
 
 export default function ChannelManagementScreen() {

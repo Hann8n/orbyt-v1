@@ -70,6 +70,7 @@ const CreateScreen: React.FC = () => {
   const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
   const [recordedVideo, setRecordedVideo] = useState<{ uri: string } | null>(null);
   const [segments, setSegments] = useState<VideoSegment[]>([]);
+  const segmentsRef = useRef<VideoSegment[]>([]);
   const [totalDuration, setTotalDuration] = useState(0);
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
   const [isDurationSelectorExpanded, setIsDurationSelectorExpanded] = useState(false);
@@ -82,6 +83,11 @@ const CreateScreen: React.FC = () => {
   const isRecordingRef = useRef(false);
   
   const isFocused = useIsFocused();
+
+  // Keep segmentsRef in sync with segments state
+  useEffect(() => {
+    segmentsRef.current = segments;
+  }, [segments]);
 
   const progressWidth = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
@@ -182,15 +188,17 @@ const CreateScreen: React.FC = () => {
             let updatedDuration: number | null = null;
             if (segmentDuration >= MIN_SEGMENT_DURATION) {
               updatedDuration = totalDuration + segmentDuration;
-              setSegments(prev => [
-                ...prev,
-                {
-                  startTime: segmentStartTime.current,
-                  duration: segmentDuration,
-                  video,
-                  sourceType: 'camera',
-                },
-              ]);
+              const newSegment = {
+                startTime: segmentStartTime.current,
+                duration: segmentDuration,
+                video,
+                sourceType: 'camera' as const,
+              };
+              setSegments(prev => {
+                const updated = [...prev, newSegment];
+                segmentsRef.current = updated;
+                return updated;
+              });
               setTotalDuration(updatedDuration);
             } else {
               // Reset progress bar if segment was too short
@@ -327,7 +335,11 @@ const CreateScreen: React.FC = () => {
           };
           
           await new Promise(resolve => setTimeout(resolve, 100));
-          setSegments(prev => [...prev, gallerySegment]);
+          setSegments(prev => {
+            const updated = [...prev, gallerySegment];
+            segmentsRef.current = updated;
+            return updated;
+          });
           setTotalDuration(newTotalDuration);
           const progress = (newTotalDuration / maxDuration) * 100;
           progressWidth.value = withTiming(progress, { duration: 300 });
@@ -365,6 +377,7 @@ const CreateScreen: React.FC = () => {
       const newTotalDuration = Math.max(0, totalDuration - (removedSegment?.duration || 0));
       
       setSegments(newSegments);
+      segmentsRef.current = newSegments;
       setTotalDuration(newTotalDuration);
       
       // Explicitly reset progress to 0 when all segments are deleted
@@ -411,11 +424,15 @@ const CreateScreen: React.FC = () => {
       await stopRecording();
     }
     
+    // Use ref to get the latest segments value after stopRecording updates state
+    // This ensures we have the most up-to-date segments including any just added
+    const currentSegments = segmentsRef.current;
+    
     setIsProcessing(true);
     try {
       // If only one segment, check compatibility and process accordingly
-      if (segments.length === 1) {
-        const segment = segments[0];
+      if (currentSegments.length === 1) {
+        const segment = currentSegments[0];
         const asset = 'assetId' in segment.video ? segment.video as ImagePicker.ImagePickerAsset : undefined;
         // Both { uri: string } and ImagePickerAsset have uri property
         const videoPath = segment.video.uri;
@@ -472,7 +489,7 @@ const CreateScreen: React.FC = () => {
           navigation.push({
             pathname: '/video-processing',
             params: { 
-              segments: JSON.stringify(segments)
+              segments: JSON.stringify(currentSegments)
             }
           });
         }
