@@ -21,6 +21,7 @@ import {
   CameraRecordingOptions
 } from 'expo-camera';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
@@ -78,6 +79,9 @@ const CreateScreen: React.FC = () => {
   const cameraRef = useRef<CameraView>(null);
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
   const isMountedRef = useRef(true);
+  const isRecordingRef = useRef(false);
+  
+  const isFocused = useIsFocused();
 
   const progressWidth = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
@@ -103,6 +107,15 @@ const CreateScreen: React.FC = () => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      // Stop recording if active when component unmounts
+      if (isRecordingRef.current && cameraRef.current) {
+        cameraRef.current.stopRecording();
+        if (recordingTimer.current) {
+          clearInterval(recordingTimer.current);
+        }
+        isRecordingRef.current = false;
+        setIsRecording(false);
+      }
       setIsProcessing(false);
     };
   }, []);
@@ -113,6 +126,18 @@ const CreateScreen: React.FC = () => {
       // Reset processing state when screen is focused again
       setIsProcessing(false);
       isMountedRef.current = true;
+      
+      return () => {
+        // Cleanup when screen loses focus - stop recording if active
+        if (isRecordingRef.current && cameraRef.current) {
+          cameraRef.current.stopRecording();
+          if (recordingTimer.current) {
+            clearInterval(recordingTimer.current);
+          }
+          isRecordingRef.current = false;
+          setIsRecording(false);
+        }
+      };
     }, [])
   );
 
@@ -140,7 +165,7 @@ const CreateScreen: React.FC = () => {
 
   // Define stopRecording first so that it can be used inside startRecording
   const stopRecording = useCallback(async () => {
-    if (cameraRef.current && isRecording) {
+    if (cameraRef.current && isRecordingRef.current) {
       try {
         setIsProcessing(true);
         
@@ -182,18 +207,20 @@ const CreateScreen: React.FC = () => {
         }
         
         setIsProcessing(false);
+        isRecordingRef.current = false;
         setIsRecording(false);
         recordingPromiseRef.current = null;
       } catch (e) {
         setIsProcessing(false);
+        isRecordingRef.current = false;
         setIsRecording(false);
         recordingPromiseRef.current = null;
       }
     }
-  }, [isRecording, progressWidth, totalDuration, maxDuration]);
+  }, [progressWidth, totalDuration, maxDuration]);
 
   const startRecording = useCallback(async () => {
-    if (cameraRef.current && !isRecording && totalDuration < maxDuration) {
+    if (cameraRef.current && !isRecordingRef.current && totalDuration < maxDuration) {
       // Ensure microphone permission only when needed
       if (!microphonePermission?.granted) {
         const result = await requestMicrophonePermission();
@@ -203,6 +230,7 @@ const CreateScreen: React.FC = () => {
         }
       }
       
+      isRecordingRef.current = true;
       setIsRecording(true);
       
       segmentStartTime.current = Date.now();
@@ -226,25 +254,26 @@ const CreateScreen: React.FC = () => {
           }
         }, 50);
       } catch (e) {
+        isRecordingRef.current = false;
         setIsRecording(false);
         recordingPromiseRef.current = null;
       }
     }
-  }, [isRecording, progressWidth, totalDuration, stopRecording, microphonePermission, requestMicrophonePermission, maxDuration]);
+  }, [progressWidth, totalDuration, stopRecording, microphonePermission, requestMicrophonePermission, maxDuration]);
   
   // Handle press start - begin recording
   const handlePressIn = useCallback(() => {
-    if (!isRecording && totalDuration < maxDuration) {
+    if (!isRecordingRef.current && totalDuration < maxDuration) {
       startRecording();
     }
-  }, [isRecording, totalDuration, startRecording, maxDuration]);
+  }, [totalDuration, startRecording, maxDuration]);
 
   // Handle press end - stop recording
   const handlePressOut = useCallback(() => {
-    if (isRecording) {
+    if (isRecordingRef.current) {
       stopRecording();
     }
-  }, [isRecording, stopRecording]);
+  }, [stopRecording]);
 
   const pickFromGallery = async () => {
     try {
@@ -317,11 +346,11 @@ const CreateScreen: React.FC = () => {
 
   const flipCamera = useCallback(async () => {
     // Stop any active recording before switching cameras
-    if (isRecording && cameraRef.current) {
+    if (isRecordingRef.current && cameraRef.current) {
       await stopRecording();
     }
     setIsFrontCamera(prev => !prev);
-  }, [isRecording, stopRecording]);
+  }, [stopRecording]);
   const toggleFlash = useCallback(() => {
     // Only allow flash on back camera
     if (!isFrontCamera) {
@@ -367,10 +396,21 @@ const CreateScreen: React.FC = () => {
     }
   }, [pickFromGallery, flipCamera, toggleFlash, deleteLastSegment]);
 
-  const handleBackPress = () => navigation.back();
+  const handleBackPress = async () => {
+    if (isRecordingRef.current) {
+      await stopRecording();
+    }
+    navigation.back();
+  };
 
   const finishRecording = useCallback(async () => {
     if (segments.length === 0 || isProcessing) return;
+    
+    // Stop recording if active
+    if (isRecordingRef.current) {
+      await stopRecording();
+    }
+    
     setIsProcessing(true);
     try {
       // If only one segment, check compatibility and process accordingly
@@ -449,7 +489,7 @@ const CreateScreen: React.FC = () => {
         setIsProcessing(false);
       }
     }
-  }, [segments, navigation, isProcessing]);
+  }, [segments, navigation, isProcessing, stopRecording]);
 
   // Render content based on the state of permissions and device availability
   const renderContent = () => {
@@ -485,21 +525,23 @@ const CreateScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Camera View */}
+        {/* Camera View - only render when screen is focused */}
         <View style={styles.cameraContainer}>
           <StatusBar barStyle="light-content" />
-          <CameraView
-            key={`camera-${isFrontCamera ? 'front' : 'back'}`}
-            ref={cameraRef}
-            style={styles.camera}
-            facing={isFrontCamera ? 'front' : 'back'}
-            mode="video"
-            enableTorch={flash === 'on' && !isFrontCamera}
-            zoom={0}
-            mute={!microphonePermission?.granted}
-            videoQuality="1080p"
-            ratio="16:9"
-          />
+          {isFocused && (
+            <CameraView
+              key={`camera-${isFrontCamera ? 'front' : 'back'}`}
+              ref={cameraRef}
+              style={styles.camera}
+              facing={isFrontCamera ? 'front' : 'back'}
+              mode="video"
+              enableTorch={flash === 'on' && !isFrontCamera}
+              zoom={0}
+              mute={!microphonePermission?.granted}
+              videoQuality="1080p"
+              ratio="16:9"
+            />
+          )}
           
           {/* Controls */}
           <View style={[styles.centerButtonContainer, { bottom: bottomNavBarHeight + (isSmallScreen() ? 40 : 50) }]}>
