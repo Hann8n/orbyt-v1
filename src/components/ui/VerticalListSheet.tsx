@@ -39,6 +39,14 @@ interface VerticalListSheetProps {
    * Name for global TrueSheet methods
    */
   name?: string;
+  /**
+   * Custom title font size
+   */
+  titleSize?: number;
+  /**
+   * Hide the close button in the header
+   */
+  hideCloseButton?: boolean;
 }
 
 const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
@@ -53,6 +61,8 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   scrollRef,
   enableGlass = true,
   name,
+  titleSize,
+  hideCloseButton = false,
 }) => {
   // Bottom sheet ref and snap points
   const bottomSheetRef = useRef<TrueSheet>(null);
@@ -119,10 +129,12 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       <View style={styles.content}>
         {/* Header with title and close button */}
         <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text style={[styles.headerTitle, titleSize && { fontSize: titleSize }]} numberOfLines={1}>
             {title}
           </Text>
-          {customHeaderButton ? (
+          {hideCloseButton ? (
+            <View style={styles.closeButton} />
+          ) : customHeaderButton ? (
             customHeaderButton
           ) : (
             <TouchableOpacity 

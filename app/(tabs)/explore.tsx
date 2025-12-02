@@ -1,18 +1,20 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
   Text,
   StyleSheet,
   TextInput,
-  FlatList,
   Image,
   TouchableOpacity,
   StatusBar,
   Platform,
   Keyboard,
   Dimensions,
+  FlatList,
+  Animated,
 } from 'react-native';
+import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 
@@ -27,7 +29,6 @@ import Svg, { Path, Rect, G } from 'react-native-svg';
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import HeaderBanner from '../../src/components/ui/HeaderBanner';
-import { TabNavigation, TabOption } from '../../src/components/layout/header';
 import { logger } from '../../src/utils/logger';
 
 import { SearchIcon, FollowIcon, CheckIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
@@ -36,13 +37,13 @@ import { VerificationBadge } from '../../src/components/features/badging';
 import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
-import { getBottomNavBarHeight } from '../../src/utils/helpers';
+import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import { extractVideoThumbnail } from '../../src/utils/helpers/video';
 import { formatNumber } from '../../src/utils/helpers';
 import { HeaderService, useHeaders } from '../../src/services/APIService';
 import { useFeed } from '../../src/hooks/useFeed';
 import { ModerationService } from '../../src/services/ModerationService';
-import { useUserStore } from '../../src/stores/userStore';
+import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { Colors as UIColors } from '../../src/components/ui/UI';
 import { getAllChannels, isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash, extractFeedSlug } from '../../src/utils/orbytChannels';
 
@@ -85,7 +86,8 @@ interface Channel {
   avatar?: string;
   likeCount?: number;
   indexedAt: string;
-  isExperimental?: boolean; // Added for experimental feed badge
+  contentMode?: string; // Used to determine if feed is experimental (non-video)
+  isExperimental?: boolean; // Added for experimental feed badge (computed from contentMode)
 }
 
 interface SearchResult {
@@ -142,21 +144,32 @@ type ListItem = SearchResult | SectionHeader | SpotlightVideosSection | PeopleCh
 
 
 
-// Minimal swipeable pager for search tabs
+// Tab labels
+const SEARCH_TAB_LABELS: { [key: string]: string } = {
+  'recently-visited': 'Recently Visited',
+  'profiles': 'People',
+  'channels': 'Feeds',
+};
+
+// Minimal swipeable pager for search tabs using react-native-pager-view
 const SearchSwipePager = ({
   topOffset,
   bottomOffset,
   activeTab,
   onActiveTabChange,
   renderTabContent,
+  onScrollProgressChange,
+  pages,
 }: {
   topOffset: number;
   bottomOffset: number;
-  activeTab: 'profiles' | 'channels';
-  onActiveTabChange: (tab: 'profiles' | 'channels') => void;
-  renderTabContent: (tabId: 'profiles' | 'channels') => React.ReactNode;
+  activeTab: 'recently-visited' | 'profiles' | 'channels';
+  onActiveTabChange: (tab: 'recently-visited' | 'profiles' | 'channels') => void;
+  renderTabContent: (tabId: 'recently-visited' | 'profiles' | 'channels') => React.ReactNode;
+  onScrollProgressChange?: (progress: number) => void;
+  pages: Array<'recently-visited' | 'profiles' | 'channels'>;
 }) => {
-  const flatListRef = useRef<FlatList>(null);
+  const pagerViewRef = useRef<PagerView>(null);
   const [dims, setDims] = useState(Dimensions.get('window'));
 
   useEffect(() => {
@@ -164,17 +177,88 @@ const SearchSwipePager = ({
     return () => sub?.remove();
   }, []);
 
-  const screenWidth = dims.width;
-  const pages: Array<'profiles' | 'channels'> = ['profiles', 'channels'];
   const activeIndex = pages.indexOf(activeTab);
+  const currentPageRef = useRef(activeIndex);
+  const hasAppliedInitialIndexRef = useRef(false);
+  const previousPagesRef = useRef<string>(JSON.stringify(pages));
 
+  // Set initial page index and re-initialize when pages array structure changes
+  useLayoutEffect(() => {
+    const currentPagesString = JSON.stringify(pages);
+    const pagesChanged = currentPagesString !== previousPagesRef.current;
+    
+    // Reset initialization flag if pages array structure changed
+    if (pagesChanged) {
+      hasAppliedInitialIndexRef.current = false;
+      previousPagesRef.current = currentPagesString;
+    }
+    
+    if (!hasAppliedInitialIndexRef.current && pages.length > 0) {
+      const targetIndex = activeIndex >= 0 ? activeIndex : 0;
+      currentPageRef.current = targetIndex;
+      onScrollProgressChange?.(targetIndex);
+      requestAnimationFrame(() => {
+        pagerViewRef.current?.setPage(targetIndex);
+      });
+      hasAppliedInitialIndexRef.current = true;
+    }
+  }, [activeIndex, pages, onScrollProgressChange]);
+
+  // Sync PagerView page when activeTab changes (e.g., from indicator tap)
   useEffect(() => {
-    if (flatListRef.current && activeIndex >= 0) {
-      flatListRef.current.scrollToIndex({ index: activeIndex, animated: true });
+    if (hasAppliedInitialIndexRef.current && pagerViewRef.current && activeIndex >= 0) {
+      requestAnimationFrame(() => {
+        pagerViewRef.current?.setPage(activeIndex);
+      });
     }
   }, [activeIndex]);
 
-  const getItemLayout = useCallback((_, index: number) => ({ length: screenWidth, offset: screenWidth * index, index }), [screenWidth]);
+  // Handle page scroll from PagerView - update indicator directly from SDK
+  // This fires synchronously during scroll, no state batching
+  const handlePageScroll = useCallback((event: any) => {
+    const { position, offset } = event.nativeEvent;
+    const progress = position + offset;
+    const roundedPosition = Math.round(progress);
+    
+    // Update indicator progress directly from SDK - immediate, no batching
+    onScrollProgressChange?.(progress);
+    
+    // Update active tab immediately during scroll (not waiting for onPageSelected)
+    // This makes indicators respond in real-time as user swipes
+    if (roundedPosition !== currentPageRef.current && roundedPosition >= 0 && roundedPosition < pages.length) {
+      currentPageRef.current = roundedPosition;
+      const nextTab = pages[roundedPosition];
+      if (nextTab && nextTab !== activeTab) {
+        onActiveTabChange(nextTab);
+      }
+    }
+  }, [pages, activeTab, onActiveTabChange, onScrollProgressChange]);
+
+  // Handle page selection from PagerView - final confirmation after transition completes
+  const handlePageSelected = useCallback((event: any) => {
+    if (!hasAppliedInitialIndexRef.current) return;
+    
+    const nextIndex = event.nativeEvent.position;
+    const prevIndex = currentPageRef.current;
+    
+    if (nextIndex !== prevIndex) {
+      currentPageRef.current = nextIndex;
+      // Ensure indicator is at exact position after transition
+      onScrollProgressChange?.(nextIndex);
+    }
+    
+    const nextTab = pages[nextIndex];
+    if (nextTab && nextTab !== activeTab) {
+      onActiveTabChange(nextTab);
+    }
+  }, [activeTab, pages, onActiveTabChange, onScrollProgressChange]);
+
+  // Handle scroll state changes from PagerView
+  const handlePageScrollStateChanged = useCallback((event: any) => {
+    // No special handling needed
+  }, []);
+
+  const initialPageIndex = activeIndex >= 0 ? activeIndex : 0;
 
   return (
     <View
@@ -183,26 +267,22 @@ const SearchSwipePager = ({
         { top: topOffset, bottom: bottomOffset, zIndex: 19 },
       ]}
     >
-      <FlatList
-        ref={flatListRef}
-        data={pages}
-        keyExtractor={(t) => `search-page-${t}`}
-        renderItem={({ item }) => (
-          <View style={{ width: screenWidth, flex: 1 }}>
-            {renderTabContent(item)}
+      <PagerView
+        ref={pagerViewRef}
+        style={styles.pagerView}
+        initialPage={initialPageIndex}
+        onPageSelected={handlePageSelected}
+        onPageScroll={handlePageScroll}
+        onPageScrollStateChanged={handlePageScrollStateChanged}
+        scrollEnabled={true}
+        pageMargin={0}
+      >
+        {pages.map((page) => (
+          <View key={page} style={styles.pagerPage}>
+            {renderTabContent(page)}
           </View>
-        )}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        getItemLayout={getItemLayout}
-        onMomentumScrollEnd={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
-          const nextTab = pages[index];
-          if (nextTab && nextTab !== activeTab) onActiveTabChange(nextTab);
-        }}
-        initialScrollIndex={activeIndex < 0 ? 0 : activeIndex}
-      />
+        ))}
+      </PagerView>
     </View>
   );
 };
@@ -522,7 +602,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
       showsVerticalScrollIndicator={false}
       ListEmptyComponent={() => (
         <View style={styles.emptyTabContent}>
-          <Text style={styles.emptyTabText}>No profiles found</Text>
+          <Text style={styles.emptyTabText}>No people found</Text>
         </View>
       )}
     />
@@ -588,7 +668,7 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPr
       showsVerticalScrollIndicator={false}
       ListEmptyComponent={() => (
         <View style={styles.emptyTabContent}>
-          <Text style={styles.emptyTabText}>No channels found</Text>
+          <Text style={styles.emptyTabText}>No feeds found</Text>
         </View>
       )}
     />
@@ -597,7 +677,7 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPr
 
 
 // Custom Feed Renderer for Search Results
-const SearchFeedRenderer = React.memo(({ feedOption, searchResults, onFollow, followedUsers, cacheUpdateTrigger, isLoading, onProfilePress, onChannelPress }: {
+const SearchFeedRenderer = React.memo(({ feedOption, searchResults, onFollow, followedUsers, cacheUpdateTrigger, isLoading, onProfilePress, onChannelPress, visitHistory, onHistoryItemPress, onClearHistory }: {
   feedOption: string;
   searchResults: SearchResult[];
   onFollow: (profile: Profile) => void;
@@ -606,7 +686,25 @@ const SearchFeedRenderer = React.memo(({ feedOption, searchResults, onFollow, fo
   isLoading?: boolean;
   onProfilePress?: (profile: Profile) => void;
   onChannelPress?: (channel: Channel) => void;
+  visitHistory?: Array<{ type: 'profile' | 'channel'; data: Profile | Channel }>;
+  onHistoryItemPress?: (item: { type: 'profile' | 'channel'; data: Profile | Channel }) => void;
+  onClearHistory?: () => void;
 }) => {
+  // Show visit history for recently-visited tab
+  if (feedOption === 'recently-visited') {
+    return (
+      <VisitHistoryList
+        visitHistory={visitHistory || []}
+        onHistoryItemPress={onHistoryItemPress || (() => {})}
+        onClearHistory={onClearHistory || (() => {})}
+        currentColors={{ backgroundColor: Colors.black, textColor: Colors.white }}
+        onFollow={onFollow}
+        followedUsers={followedUsers}
+        cacheUpdateTrigger={cacheUpdateTrigger}
+      />
+    );
+  }
+
   if (feedOption === 'profiles') {
     return (
       <ProfilesFeedRenderer
@@ -642,121 +740,97 @@ const VisitHistoryList = React.memo(({
   followedUsers: Set<string>;
   cacheUpdateTrigger: number;
 }) => {
-  if (visitHistory.length === 0) {
-    return (
-      <View style={styles.searchHistoryContainer}>
-        <View style={styles.searchHistoryHeader}>
-          <Text style={[styles.searchHistoryTitle, { color: currentColors.textColor }]}>
-            Recently Visited
-          </Text>
-        </View>
-        <View style={styles.emptyHistoryContainer}>
-          <Text style={[styles.emptyHistoryText, { color: hexToRGBA(currentColors.textColor, 0.6) }]}>
-            No recent visits
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.searchHistoryContainer}>
-      <View style={styles.searchHistoryHeader}>
-        <Text style={[styles.searchHistoryTitle, { color: currentColors.textColor }]}>
-          Recently Visited
-        </Text>
-        <TouchableOpacity onPress={onClearHistory} style={styles.clearHistoryButton}>
-          <Text style={[styles.clearHistoryText, { color: hexToRGBA(currentColors.textColor, 0.7) }]}>
-            Clear
-          </Text>
-        </TouchableOpacity>
-      </View>
-      <FlashList
-        data={visitHistory}
-        keyExtractor={(item, index) => {
-          if (item.type === 'profile') {
-            return `history-profile-${(item.data as Profile).did}`;
-          } else {
-            return `history-channel-${(item.data as Channel).uri}`;
-          }
-        }}
-        renderItem={({ item }) => {
-          const isProfile = item.type === 'profile';
-          const profileData = isProfile ? (item.data as Profile) : null;
-          const channelData = !isProfile ? (item.data as Channel) : null;
-          
-          if (isProfile && profileData) {
-            return (
-              <View style={styles.profileItem}>
-                <TouchableOpacity
-                  style={styles.profileTouchable}
-                  onPress={() => onHistoryItemPress(item)}
-                  activeOpacity={0.7}
-                >
-                  <Avatar
-                    uri={profileData.avatar}
-                    type="profile"
-                    size={40}
-                    ringColor="transparent"
-                    style={styles.profileImage}
-                  />
-                  <View style={styles.profileContent}>
-                    <View style={{flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0}}>
-                      <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
-                        {profileData.displayName || profileData.handle || 'Unknown user'}
-                      </Text>
-                      {profileData.handle && profileData.handle.trim() && profileData.handle.length > 0 && (
-                        <VerificationBadge 
-                          handle={profileData.handle.trim()} 
-                          textSize={14} 
-                          textColor={Colors.white}
-                        />
-                      )}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-                {!(ProfileCache.getProfileFromCacheSync(profileData.handle || '')?.isFollowing ?? profileData.isFollowing) && (
-                  <TouchableOpacity
-                    style={styles.followButton}
-                    onPress={() => onFollow(profileData)}
-                    activeOpacity={0.8}
-                  >
-                    <FollowIcon size={16} color={Colors.black} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            );
-          } else if (!isProfile && channelData) {
-            return (
+    <FlashList
+      data={visitHistory}
+      keyExtractor={(item, index) => {
+        if (item.type === 'profile') {
+          return `history-profile-${(item.data as Profile).did}`;
+        } else {
+          return `history-channel-${(item.data as Channel).uri}`;
+        }
+      }}
+      renderItem={({ item }) => {
+        const isProfile = item.type === 'profile';
+        const profileData = isProfile ? (item.data as Profile) : null;
+        const channelData = !isProfile ? (item.data as Channel) : null;
+        
+        if (isProfile && profileData) {
+          return (
+            <View style={styles.profileItem}>
               <TouchableOpacity
-                style={styles.channelItem}
+                style={styles.profileTouchable}
                 onPress={() => onHistoryItemPress(item)}
                 activeOpacity={0.7}
               >
                 <Avatar
-                  uri={getChannelAvatarUri(channelData.uri, channelData.avatar)}
-                  type="channel"
+                  uri={profileData.avatar}
+                  type="profile"
                   size={40}
                   ringColor="transparent"
-                  style={styles.channelImage}
+                  style={styles.profileImage}
                 />
-                <View style={styles.channelContent}>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <ChannelNameDisplay channel={channelData} />
-                    {channelData.isExperimental && (
-                      <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
+                <View style={styles.profileContent}>
+                  <View style={{flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0}}>
+                    <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
+                      {profileData.displayName || profileData.handle || 'Unknown user'}
+                    </Text>
+                    {profileData.handle && profileData.handle.trim() && profileData.handle.length > 0 && (
+                      <VerificationBadge 
+                        handle={profileData.handle.trim()} 
+                        textSize={14} 
+                        textColor={Colors.white}
+                      />
                     )}
                   </View>
                 </View>
               </TouchableOpacity>
-            );
-          }
-          return null;
-        }}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
-    </View>
+              {!(ProfileCache.getProfileFromCacheSync(profileData.handle || '')?.isFollowing ?? profileData.isFollowing) && (
+                <TouchableOpacity
+                  style={styles.followButton}
+                  onPress={() => onFollow(profileData)}
+                  activeOpacity={0.8}
+                >
+                  <FollowIcon size={16} color={Colors.black} />
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        } else if (!isProfile && channelData) {
+          return (
+            <TouchableOpacity
+              style={styles.channelItem}
+              onPress={() => onHistoryItemPress(item)}
+              activeOpacity={0.7}
+            >
+              <Avatar
+                uri={getChannelAvatarUri(channelData.uri, channelData.avatar)}
+                type="channel"
+                size={40}
+                ringColor="transparent"
+                style={styles.channelImage}
+              />
+              <View style={styles.channelContent}>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <ChannelNameDisplay channel={channelData} />
+                  {channelData.isExperimental && (
+                    <Icon name="bug" size={12} color={Colors.lightGreen} style={styles.experimentalIcon} />
+                  )}
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        }
+        return null;
+      }}
+      contentContainerStyle={styles.listContainer}
+      showsVerticalScrollIndicator={false}
+      ListEmptyComponent={() => (
+        <View style={styles.emptyTabContent}>
+          <Text style={styles.emptyTabText}>No recent visits</Text>
+        </View>
+      )}
+    />
   );
 });
 
@@ -765,31 +839,77 @@ const ExploreScreen: React.FC = () => {
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
   const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
   const [cacheUpdateTrigger, setCacheUpdateTrigger] = useState(0);
-  const [activeTab, setActiveTab] = useState<'profiles' | 'channels'>('profiles');
+  const [activeTab, setActiveTab] = useState<'recently-visited' | 'profiles' | 'channels'>('recently-visited');
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
+  const hasAppliedInitialIndexRef = useRef(false);
   const [visitHistory, setVisitHistory] = useState<Array<{
     type: 'profile' | 'channel';
     data: Profile | Channel;
   }>>([]);
   
-  // Track if we navigated from recently visited to restore on return
-  const navigatedFromHistoryRef = useRef<boolean>(false);
 
-  // Restore search focus only when returning from history item navigation
-  useFocusEffect(
-    useCallback(() => {
-      if (navigatedFromHistoryRef.current && visitHistory.length > 0 && !searchQuery.trim()) {
-        setIsSearchFocused(true);
-        navigatedFromHistoryRef.current = false;
-      }
-    }, [visitHistory.length, searchQuery])
-  );
+  // Dynamic pages: show recently-visited when no query, show profiles/channels when searching
+  const pages: Array<'recently-visited' | 'profiles' | 'channels'> = useMemo(() => {
+    if (debouncedQuery.length === 0) {
+      return ['recently-visited'];
+    }
+    return ['profiles', 'channels'];
+  }, [debouncedQuery.length]);
+  const activeIndex = pages.indexOf(activeTab);
+  // State to trigger indicator re-renders during scroll (doesn't affect feeds) - matches SwipeableFeedContainer
+  const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(activeIndex >= 0 ? activeIndex : 0);
 
-  // Define tab options for search results
-  const tabOptions: TabOption[] = useMemo(() => [
-    { id: 'profiles', label: 'Profiles' },
-    { id: 'channels', label: 'Channels' },
-  ], []);
+  // Reset activeTab when pages change
+  useEffect(() => {
+    if (pages.length > 0 && !pages.includes(activeTab)) {
+      setActiveTab(pages[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages]);
+
+  // Update indicatorScrollProgress when activeIndex changes (fixes stale state when pages array changes)
+  useEffect(() => {
+    if (activeIndex >= 0) {
+      setIndicatorScrollProgress(activeIndex);
+    } else {
+      setIndicatorScrollProgress(0);
+    }
+  }, [activeIndex]);
+
+  // Get indicator style using PagerView's scroll progress - matches SwipeableFeedContainer exactly
+  const getIndicatorStyle = useCallback((tabId: 'recently-visited' | 'profiles' | 'channels') => {
+    const tabIndex = pages.indexOf(tabId);
+    const isActive = tabId === activeTab;
+    
+    // Use state directly for smooth real-time updates during scroll (not ref) - matches SwipeableFeedContainer
+    const baseProgress = indicatorScrollProgress;
+
+    // Calculate opacity based on distance from current position - matches SwipeableFeedContainer
+    let opacity = 0.75; // Default inactive opacity
+    if (isActive) {
+      opacity = 1;
+    } else {
+      // Gradual opacity based on PagerView's scroll progress (real-time from state)
+      const distance = Math.abs(baseProgress - tabIndex);
+      opacity = Math.max(0.3, 1 - distance * 0.4);
+    }
+    
+    // Larger font size for search tabs (under search bar)
+    const indicatorBaseFontSize = 20;
+    
+    return {
+      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.6)',
+      fontSize: indicatorBaseFontSize,
+      marginRight: 8,
+      fontWeight: 'bold' as const,
+      opacity,
+    };
+  }, [activeTab, pages, indicatorScrollProgress, activeIndex]);
+
+  // Handle indicator tap
+  const handleIndicatorTap = useCallback((tabId: 'recently-visited' | 'profiles' | 'channels') => {
+    setActiveTab(tabId);
+  }, []);
 
 
   const navigation = useRouter();
@@ -798,6 +918,9 @@ const ExploreScreen: React.FC = () => {
   // Use the follow mutation hook for proper cache management
   const followMutation = useFollowMutation();
   const insets = useSafeAreaInsets();
+  
+  // Get experimental feeds setting
+  const { experimentalFeedsEnabled } = useFeedSettings();
 
   // Handle follow toggle with persistent cache
   const handleFollow = useCallback((profile: Profile) => {
@@ -895,15 +1018,17 @@ const ExploreScreen: React.FC = () => {
       return [];
     }
 
-
     // Convert feed items to search results format
-    return searchFeed.map((feedItem, index) => {
+    const results = searchFeed.map((feedItem, index) => {
       const post = feedItem.post;
       
       // Better channel detection logic - check for feed generator URIs
       const isChannel = post.uri?.includes('app.bsky.feed.generator');
       
       if (isChannel) {
+        // Check contentMode directly from post - preserved from FeedService
+        const contentMode = (post as any).contentMode;
+        
         // For channels, the post structure is different - it contains channel data directly
         return {
           type: 'channel' as const,
@@ -921,8 +1046,8 @@ const ExploreScreen: React.FC = () => {
             },
             avatar: (post as any).avatar || post.author?.avatar || '',
             likeCount: (post as any).likeCount || 0,
-            isExperimental: (post as any).isExperimental || false,
-          } as Channel,
+            contentMode, // Store contentMode to determine if feed is experimental
+          } as Channel & { contentMode?: string },
           relevance: 10 - index,
         };
       }
@@ -951,17 +1076,26 @@ const ExploreScreen: React.FC = () => {
       // For channel-like content with embed
       if (post.embed?.$type === 'app.bsky.embed.record') {
         const postText = (post as any).text || '';
-        return {
-          type: 'channel' as const,
-          data: {
-            uri: post.uri,
-            cid: post.cid,
-            displayName: postText || 'Unknown channel',
-            description: postText || '',
-            creator: post.author || {},
-          } as Channel,
-          relevance: 10 - index,
-        };
+        // Check if this embedded record is a feed generator (channel)
+        const embedRecord = (post.embed as any)?.record;
+        const isEmbedChannel = embedRecord?.uri?.includes('app.bsky.feed.generator');
+        
+        if (isEmbedChannel) {
+          const contentMode = embedRecord?.contentMode || embedRecord?.view?.contentMode;
+          
+          return {
+            type: 'channel' as const,
+            data: {
+              uri: embedRecord?.uri || post.uri,
+              cid: embedRecord?.cid || post.cid,
+              displayName: postText || 'Unknown channel',
+              description: postText || '',
+              creator: post.author || {},
+              contentMode, // Store contentMode to determine if feed is experimental
+            } as Channel & { contentMode?: string },
+            relevance: 10 - index,
+          };
+        }
       }
       
       // Default to profile
@@ -982,7 +1116,25 @@ const ExploreScreen: React.FC = () => {
         relevance: 10 - index,
       };
     });
-  }, [searchFeedOption, searchFeed, cacheUpdateTrigger]);
+    
+    // Filter out experimental (non-video) channels when experimental feeds are disabled
+    const filtered = results.filter((result) => {
+      if (result.type === 'channel') {
+        const channel = result.data as Channel & { contentMode?: string };
+        // Check contentMode directly - non-video feeds (contentMode !== 'app.bsky.feed.defs#contentModeVideo') are experimental
+        const contentMode = channel.contentMode;
+        const isVideoOnly = contentMode === 'app.bsky.feed.defs#contentModeVideo';
+        
+        // If experimental feeds are disabled, filter out non-video (experimental) channels
+        if (!experimentalFeedsEnabled && !isVideoOnly) {
+          return false;
+        }
+      }
+      return true;
+    });
+    
+    return filtered;
+  }, [searchFeedOption, searchFeed, cacheUpdateTrigger, experimentalFeedsEnabled]);
 
 
 
@@ -1036,7 +1188,6 @@ const ExploreScreen: React.FC = () => {
     setSearchQuery('');
     setDebouncedQuery('');
     setIsSearchFocused(false);
-    navigatedFromHistoryRef.current = false; // Reset flag when manually clearing
     Keyboard.dismiss();
   };
 
@@ -1095,9 +1246,6 @@ const ExploreScreen: React.FC = () => {
 
   // Handle visit history item selection
   const handleHistoryItemPress = useCallback((item: { type: 'profile' | 'channel'; data: Profile | Channel }) => {
-    // Mark that we're navigating from history so we can restore on return
-    navigatedFromHistoryRef.current = true;
-    
     if (item.type === 'profile') {
       const profile = item.data as Profile;
       if (profile.handle) {
@@ -1121,7 +1269,7 @@ const ExploreScreen: React.FC = () => {
         navigation.push(`/channel/${encodeURIComponent(channel.uri)}`);
       }
     }
-  }, [queryClient, navigation, isSearchFocused]);
+  }, [queryClient, navigation]);
 
   // Load visit history on mount
   useEffect(() => {
@@ -1275,8 +1423,6 @@ const ExploreScreen: React.FC = () => {
     [isLoadingHeaders, headers.length]
   );
   const isSearching = isSearchFocused || debouncedQuery.length > 0;
-  const showSearchHistory = isSearchFocused && debouncedQuery.length === 0;
-  const showSearchResults = isSearchFocused && debouncedQuery.length > 0;
   const computedHeaderHeight = useMemo(() => {
     // When searching, reserve space for the search bar area so content starts below it
     if (isSearching) {
@@ -1387,14 +1533,7 @@ const ExploreScreen: React.FC = () => {
           onChangeText={setSearchQuery}
           onFocus={() => setIsSearchFocused(true)}
           onBlur={() => {
-            // Don't hide if we're navigating from history (will restore on return)
-            if (navigatedFromHistoryRef.current) {
-              return;
-            }
-            // Keep search focused if there's a query to prevent results from disappearing
-            if (!searchQuery.trim()) {
-              setIsSearchFocused(false);
-            }
+            // Keep search focused to prevent results from disappearing
           }}
           onSubmitEditing={handleSearchSubmit}
           autoCapitalize="none"
@@ -1409,78 +1548,59 @@ const ExploreScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Search History or Search Results */}
+      {/* Search Results */}
       {isSearching && (
         <>
-          {showSearchHistory ? (
-            <View
-              style={[
-                styles.searchHistoryWrapper,
-                {
-                  top: insets.top + 65,
-                  bottom: getBottomNavBarHeight(insets),
-                  zIndex: 20,
-                },
-              ]}
-            >
-              <VisitHistoryList
-                visitHistory={visitHistory}
-                onHistoryItemPress={handleHistoryItemPress}
-                onClearHistory={clearVisitHistory}
-                currentColors={{ backgroundColor: Colors.black, textColor: Colors.white }}
+          {/* Tab Navigation with animated indicators */}
+          <View
+            style={[
+              styles.searchTabsContainer,
+              {
+                top: insets.top + 65, // Position closer to search bar
+                zIndex: 20,
+              },
+            ]}
+          >
+            <View style={styles.indicatorContainer}>
+              {pages.map((tabId) => (
+                <TouchableOpacity
+                  key={tabId}
+                  onPress={() => handleIndicatorTap(tabId)}
+                  activeOpacity={0.7}
+                  style={styles.indicatorItem}
+                >
+                  <Text style={getIndicatorStyle(tabId)}>
+                    {SEARCH_TAB_LABELS[tabId] || tabId}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Tab Content */}
+          <SearchSwipePager
+            topOffset={insets.top + 65 + 36}
+            bottomOffset={getBottomNavBarHeight(insets)}
+            activeTab={activeTab}
+            onActiveTabChange={setActiveTab}
+            onScrollProgressChange={setIndicatorScrollProgress}
+            pages={pages}
+            renderTabContent={(tabId) => (
+              <SearchFeedRenderer
+                feedOption={tabId}
+                searchResults={searchResults}
                 onFollow={handleFollow}
                 followedUsers={followedUsers}
                 cacheUpdateTrigger={cacheUpdateTrigger}
+                isLoading={isSearchLoading}
+                onProfilePress={handleProfileNavigation}
+                onChannelPress={handleChannelNavigation}
+                visitHistory={visitHistory}
+                onHistoryItemPress={handleHistoryItemPress}
+                onClearHistory={clearVisitHistory}
               />
-            </View>
-          ) : showSearchResults ? (
-            <>
-              {/* Tab Navigation */}
-              <View
-                style={[
-                  styles.searchTabsContainer,
-                  {
-                    top: insets.top + 65, // Position closer to search bar
-                    zIndex: 20,
-                  },
-                ]}
-              >
-                <View style={styles.tabNavigationWrapper}>
-                  <TabNavigation
-                    tabs={tabOptions}
-                    activeTab={activeTab}
-                    onTabPress={(tabId) => {
-                      const newTab = tabId as 'profiles' | 'channels';
-                      setActiveTab(newTab);
-                    }}
-                    textColor={Colors.white}
-                    backgroundColor="transparent"
-                    style={styles.searchTabs}
-                  />
-                </View>
-              </View>
-
-              {/* Tab Content */}
-              <SearchSwipePager
-                topOffset={insets.top + 65 + 50}
-                bottomOffset={getBottomNavBarHeight(insets)}
-                activeTab={activeTab}
-                onActiveTabChange={setActiveTab}
-                renderTabContent={(tabId) => (
-                  <SearchFeedRenderer
-                    feedOption={tabId}
-                    searchResults={searchResults}
-                    onFollow={handleFollow}
-                    followedUsers={followedUsers}
-                    cacheUpdateTrigger={cacheUpdateTrigger}
-                    isLoading={isSearchLoading}
-                    onProfilePress={handleProfileNavigation}
-                    onChannelPress={handleChannelNavigation}
-                  />
-                )}
-              />
-            </>
-          ) : null}
+            )}
+          />
         </>
       )}
       
@@ -1827,7 +1947,7 @@ const ExploreScreen: React.FC = () => {
             return (
               <View style={styles.emptyContainer}>
                 <Text style={styles.noResults}>
-                  No {activeTab} found for "{debouncedQuery}"
+                  No {SEARCH_TAB_LABELS[activeTab] || activeTab} found for "{debouncedQuery}"
                 </Text>
                 <Text style={styles.noResultsSubtext}>Try searching for something else</Text>
               </View>
@@ -2308,26 +2428,31 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    paddingLeft: 5,
-    paddingRight: 0,
+    paddingHorizontal: 16,
     paddingTop: 0,
   },
-  tabNavigationWrapper: {
-    backgroundColor: 'transparent',
-    borderRadius: BORDER_RADIUS.LARGE,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+  indicatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 8,
+    paddingBottom: 0,
   },
-  searchTabs: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+  indicatorItem: {
+    paddingHorizontal: 4,
   },
   searchResultsContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
     backgroundColor: Colors.black,
+  },
+  pagerView: {
+    flex: 1,
+  },
+  pagerPage: {
+    width: '100%',
+    height: '100%',
   },
   searchFeedPage: {
     flex: 1,
@@ -2347,12 +2472,6 @@ const styles = StyleSheet.create({
   },
 
   // Search History Styles
-  searchHistoryWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    backgroundColor: Colors.black,
-  },
   searchHistoryContainer: {
     flex: 1,
     paddingTop: 10,

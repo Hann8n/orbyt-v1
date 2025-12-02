@@ -2,7 +2,7 @@
   "expo": {
     "name": "orbyt",
     "slug": "byte-app",
-    "version": "1.0.1",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -44,7 +44,14 @@
     },
     "plugins": [
       "expo-font",
-      "react-native-vision-camera",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+          "recordAudioAndroid": true
+        }
+      ],
       [
         "expo-image-picker",
         {
@@ -82,7 +89,7 @@
           "iosUrl": "https://github.com/NooruddinLakhani/ffmpeg-kit-ios-full-gpl/archive/refs/tags/latest.zip",
           "androidUrl": "https://github.com/NooruddinLakhani/ffmpeg-kit-full-gpl/releases/download/v1.0.0/ffmpeg-kit-full-gpl.aar"
         }
-      ],
+      ]
     ],
     "extra": {
       "eas": {

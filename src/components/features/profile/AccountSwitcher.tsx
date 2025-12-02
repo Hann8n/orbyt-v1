@@ -409,6 +409,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           displayName={displayName}
           avatar={account.cachedProfile?.avatar}
           size="large"
+          showRing={true}
           showArrow={!editMode && !isActive}
           showDeleteButton={editMode}
           onDeletePress={() => handleRemoveAccount(account)}

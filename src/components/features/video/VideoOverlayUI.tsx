@@ -185,13 +185,16 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     transform: [{ scale: likeScale.value }],
   }));
   
-  const uiCalculations = useMemo(() => ({
-    contentPadding: Math.round(Math.max(8, Math.min(14, width * 0.025))),
-    actionIconSize: Math.round(Math.max(28, Math.min(40, width * 0.085))),
-    smallIconSize: Math.max(14, Math.min(20, Math.round(width * 0.05))),
-    authorAvatarSize: Math.round(Math.max(46, Math.min(64, width * 0.12))),
-    repostAvatarSize: Math.round(Math.max(20, Math.min(28, width * 0.06))),
-  }), [width]);
+  const uiCalculations = useMemo(() => {
+    return {
+      contentPadding: Math.round(Math.max(8, Math.min(14, width * 0.025))),
+      actionIconSize: Math.round(Math.max(28, Math.min(40, width * 0.085))),
+      smallIconSize: Math.max(14, Math.min(20, Math.round(width * 0.05))),
+      // No ring offset needed since overlay avatars don't use rings by default
+      authorAvatarSize: Math.round(Math.max(46, Math.min(64, width * 0.12))),
+      repostAvatarSize: Math.round(Math.max(20, Math.min(28, width * 0.06))),
+    };
+  }, [width]);
   
   const { contentPadding, actionIconSize, smallIconSize, authorAvatarSize, repostAvatarSize } = uiCalculations;
 
@@ -331,7 +334,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     : 'https://via.placeholder.com/40'}
                   type="user"
                   size={isTabletDevice ? Math.max(repostAvatarSize, 22) : repostAvatarSize}
-                  ringColor="transparent"
                   style={styles.repostAvatar}
                 />
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
@@ -411,12 +413,11 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               type="profile"
               size={authorAvatarSize}
               profileColors={profileColors}
-              ringColor="transparent"
-                              style={[
-                  isTabletDevice
-                    ? styles.profilePictureTablet
-                    : styles.profilePicture
-                ]}
+              style={[
+                isTabletDevice
+                  ? styles.profilePictureTablet
+                  : styles.profilePicture
+              ]}
             />
             <View style={styles.authorTextContainer}>
               <View style={{flexDirection: 'row', alignItems: 'center'}}>

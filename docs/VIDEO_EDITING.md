@@ -2,25 +2,51 @@
 
 ## Overview
 
-The app now includes comprehensive video editing capabilities powered by FFmpeg, allowing users to capture, trim, reorder, and stitch multiple video clips before posting.
+The app now includes comprehensive video editing capabilities powered by FFmpeg, allowing users to capture, trim, reorder, and stitch multiple video clips before posting. The video merging system uses a **complex filter approach** to ensure clean cuts and prevent glitches when mixing different clip types.
 
 ## Architecture
 
 ### Service Layer
 
 #### VideoEditingService (`src/services/VideoEditingService.ts`)
-Core video editing operations using FFmpeg:
-- **Video Concatenation**: True multi-segment video merging
-- **Video Trimming**: Cut videos to specific time ranges
-- **Video Compression**: Quality-controlled compression
-- **Metadata Extraction**: Get video duration, resolution, bitrate, etc.
-- **Thumbnail Generation**: Extract frames from videos
+Advanced video editing operations using FFmpeg:
+- **Text Overlays**: Add text to videos with customizable positioning, size, color, and fonts
+- **Background Music**: Mix background music with original video audio
+- **Volume Control**: Adjust video audio volume
+- **Audio Mixing**: Blend multiple audio tracks with independent volume controls
 
 #### VideoProcessingService (`src/services/VideoProcessingService.ts`)
-Enhanced to use VideoEditingService for true video concatenation:
-- Primary merge uses FFmpeg-based concatenation
-- Fallback method for compatibility
-- Compression and optimization maintained
+Core video processing with enhanced merging capabilities:
+- **Complex Filter Merge**: Single-pass FFmpeg filter graph for seamless video concatenation
+- **Format Normalization**: Automatic resolution, frame rate, and audio format standardization
+- **Compression**: Quality-controlled compression with size limits
+- **Metadata Extraction**: Get video duration, resolution, bitrate, codec information
+
+### Complex Filter Merge Approach
+
+The new `mergeSegmentsComplex()` method solves the "unclean cuts" problem by using a single-pass FFmpeg complex filter graph instead of the traditional "normalize then concat" approach.
+
+**Why Complex Filter?**
+- The traditional `concat` demuxer with `-c copy` is fragile when mixing different video types
+- Slight differences in audio sample rate, timebase, or pixel aspect ratio cause glitches
+- Camera videos (often variable frame rate) mixed with uploaded videos (diverse encodings) fail
+- Complex filter processes everything in a single unified stream
+
+**How It Works:**
+1. **Accept any input**: Each segment is processed independently in the filter graph
+2. **Video normalization**: `scale` + `pad` + `setsar` filters ensure consistent dimensions and aspect ratio
+3. **Audio normalization**: `aformat` filter forces 44.1kHz stereo for all audio streams
+4. **Single-pass concat**: All normalized streams are concatenated in one operation
+5. **Clean output**: Single continuous H.264 video with AAC audio
+
+**Filter Graph Example:**
+```
+[0:v]scale=1080:1920:...,pad=...,setsar=1,fps=30[v0];
+[0:a]aformat=sample_rates=44100:channel_layouts=stereo[a0];
+[1:v]scale=1080:1920:...,pad=...,setsar=1,fps=30[v1];
+[1:a]aformat=sample_rates=44100:channel_layouts=stereo[a1];
+[v0][a0][v1][a1]concat=n=2:v=1:a=1[outv][outa]
+```
 
 ### UI Layer
 
@@ -65,23 +91,45 @@ Post Screen (VideoPostScreen.tsx)
 
 ### 1. Video Clip Trimming
 - **Status**: Service ready, UI placeholder
-- **Implementation**: `VideoEditingService.trimVideo()`
+- **Implementation**: Can be added using FFmpeg trim filters
 - **Usage**: Cut videos to specific start/end times
 - **Future**: Add trim slider UI in editor
 
 ### 2. Video Stitching/Concatenation
 - **Status**: Fully implemented ✅
-- **Implementation**: `VideoEditingService.concatenateVideos()`
-- **Usage**: Merge multiple clips into one seamless video
-- **Method**: FFmpeg concat demuxer (fast, preserves quality)
+- **Implementation**: `VideoProcessingService.mergeSegmentsComplex()`
+- **Method**: FFmpeg complex filter (single-pass, prevents glitches)
+- **Benefits**: 
+  - Clean cuts between different video types
+  - No glitches from mixing camera and uploaded videos
+  - Handles variable frame rates and different audio formats
+  - Single continuous output stream
 
-### 3. Clip Reordering
+### 3. Text Overlays
+- **Status**: Service implemented ✅
+- **Implementation**: `VideoEditingService.addTextOverlay()`
+- **Features**:
+  - Customizable position (center, corner, custom coordinates)
+  - Adjustable font size and color
+  - Optional custom font support
+  - Automatic text escaping for special characters
+
+### 4. Background Music & Audio Mixing
+- **Status**: Service implemented ✅
+- **Implementation**: `VideoEditingService.addBackgroundMusic()`
+- **Features**:
+  - Mix background music with original audio
+  - Independent volume controls for video and music
+  - Automatic duration matching (music ends when video ends)
+  - Support for various audio formats
+
+### 5. Clip Reordering
 - **Status**: Fully implemented ✅
 - **Implementation**: react-native-draggable-flatlist
 - **Usage**: Long press and drag clips to reorder
 - **Visual**: Active segment highlighted during drag
 
-### 4. Clip Management
+### 6. Clip Management
 - **Status**: Fully implemented ✅
 - **Features**:
   - Delete individual clips
@@ -89,7 +137,7 @@ Post Screen (VideoPostScreen.tsx)
   - See source type (camera vs gallery)
   - Visual thumbnail preview
 
-### 5. Video Preview
+### 7. Video Preview
 - **Status**: Fully implemented ✅
 - **Usage**: Preview merged video before finalizing
 - **Implementation**: Generates merged video in background
@@ -118,8 +166,14 @@ Post Screen (VideoPostScreen.tsx)
 
 **Key Commands**:
 ```bash
-# Concatenate videos
--f concat -safe 0 -i filelist.txt -c copy output.mp4
+# Complex filter merge (new approach)
+-i input1.mp4 -i input2.mp4 -filter_complex "[0:v]scale=1080:1920:...,pad=...[v0];[0:a]aformat=...[a0];[1:v]scale=1080:1920:...,pad=...[v1];[1:a]aformat=...[a1];[v0][a0][v1][a1]concat=n=2:v=1:a=1[outv][outa]" -map "[outv]" -map "[outa]" -c:v libx264 -preset ultrafast -c:a aac output.mp4
+
+# Text overlay
+-i input.mp4 -vf "drawtext=text='Hello':fontsize=24:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2" -c:v libx264 -c:a copy output.mp4
+
+# Background music mixing
+-i video.mp4 -i music.mp3 -filter_complex "[0:a]volume=0.5[a0];[1:a]volume=1.0[a1];[a0][a1]amix=inputs=2:duration=first[outa]" -map 0:v -map "[outa]" -c:v copy -c:a aac output.mp4
 
 # Trim video
 -i input.mp4 -ss START -t DURATION -c copy output.mp4
@@ -135,7 +189,7 @@ interface VideoSegment {
   id: string;                          // Unique identifier
   startTime: number;                   // Capture timestamp
   duration: number;                    // Duration in seconds
-  video: VideoFile | ImagePickerAsset; // Video data
+  video: ImagePickerAsset | ExpoCameraVideo; // Video data
   sourceType?: 'camera' | 'gallery';   // Source
   trimStart?: number;                  // Optional trim start
   trimEnd?: number;                    // Optional trim end
@@ -183,8 +237,8 @@ interface VideoSegment {
 ### Planned Features
 1. **Trim Slider UI**: Visual timeline for precise trimming
 2. **Video Filters**: Color adjustments, brightness, etc.
-3. **Audio Controls**: Volume, mute, background music
-4. **Text Overlays**: Add text to specific segments
+3. **Text Overlay UI**: User interface for adding text overlays with real-time preview
+4. **Audio Controls UI**: Interface for background music selection and volume controls
 5. **Transitions**: Fade, dissolve between clips
 6. **Speed Control**: Slow motion, time lapse
 
@@ -194,6 +248,9 @@ interface VideoSegment {
 - Segment thumbnails from specific frames
 - Multi-select for batch operations
 - Export edited videos without posting
+- Real-time preview of text overlays and music
+- Multiple text overlays at different timestamps
+- Audio fade in/out effects
 
 ## Testing
 
@@ -221,7 +278,7 @@ interface VideoSegment {
 - `react-native-draggable-flatlist`: Drag-to-reorder UI
 - `react-native-gesture-handler`: Touch gestures
 - `react-native-video`: Video preview
-- `react-native-vision-camera`: Camera capture
+- `expo-camera`: Camera capture
 - `expo-file-system`: File operations
 - `expo-image-picker`: Gallery selection
 - `expo-media-library`: iCloud video access

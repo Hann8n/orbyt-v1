@@ -248,6 +248,8 @@ export default function RootLayout() {
           <Stack.Screen name="(modals)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="insights" options={{ headerShown: false }} />
+          <Stack.Screen name="video-editor" options={{ headerShown: false }} />
+          <Stack.Screen name="video-processing" options={{ headerShown: false }} />
           <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="channel/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="profile/[did]" options={{ headerShown: false }} />

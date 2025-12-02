@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, SafeAreaView } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
 import { Colors } from '../../src/components/ui/UI';
@@ -10,20 +10,18 @@ export default function IndividualChatScreen() {
 
   if (!id) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.errorContainer}>
           {/* Error state */}
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <ChatScreen conversationId={id} />
-      </View>
-    </SafeAreaView>
+    <View style={styles.container}>
+      <ChatScreen conversationId={id} />
+    </View>
   );
 }
 

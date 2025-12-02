@@ -16,7 +16,7 @@ import {
   View,
   Text,
   Dimensions,
-  TouchableWithoutFeedback,
+  Pressable,
   TouchableOpacity,
   StyleSheet,
   Platform,
@@ -27,12 +27,13 @@ import { BlurView } from 'expo-blur';
 import { Image } from 'react-native';
 import Video from 'react-native-video';
 import { Colors } from '../../ui/UI';
-import { Loading3FillIcon } from '../../ui/Icon';
+import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
 import { extractVideoUrl } from '../../../utils/helpers/video';
 import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
 import { useThumbnailColor } from '../../../hooks/useThumbnailColor';
 import { useFocusEffect } from 'expo-router';
+import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 
 // Use any type for post
 type Post = any;
@@ -65,8 +66,7 @@ export interface VideoCardProps {
   feedOption?: string;
   sourceFeed?: string;
   isModal?: boolean;
-  // Preloading prop for adjacent videos
-  shouldPreload?: boolean;
+
 }
 
 // Helper for video assets extraction - simplified
@@ -97,8 +97,9 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     feedOption,
     sourceFeed,
     isModal = false,
-    shouldPreload = false,
+
   }, ref) => {
+    const { presentCommentSection } = useGlobalCommentSection();
     
     // Enhanced video state management with automatic recycling
     const [videoState, setVideoState] = useRecyclingState({
@@ -129,6 +130,14 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     // Animated value for smooth dimming transition
     const dimmingOpacity = useRef(new Animated.Value(isVisible ? 0 : 1)).current;
     const [shouldShowDimming, setShouldShowDimming] = useState(!isVisible);
+    
+    // Double tap to like state
+    const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
+    const singleTapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const heartScale = useRef(new Animated.Value(0)).current;
+    const heartOpacity = useRef(new Animated.Value(0)).current;
+    const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
+    const [showHeart, setShowHeart] = useState(false);
 
     // Get video assets - simplified
     const { thumbnailUrl: posterUrl, videoEmbed, videoUrl } = getVideoAssets(post);
@@ -200,14 +209,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                            isVisible && // Use visibility instead of external shouldPlay prop
                            !!videoUrl;
 
-    // Load video if:
-    // 1. Content is not hidden due to moderation warning OR user chose to view it
-    // 2. Video URL exists and is not empty
-    // 3. Either video is visible OR should be preloaded for adjacent position
-    const isContentHidden = hasWarning && !shouldShowContent;
-    const hasValidUrl = !!videoUrl && videoUrl.trim() !== '';
-    const shouldLoad = isVisible || shouldPreload;
-    const shouldLoadVideo = !isContentHidden && hasValidUrl && shouldLoad;
+    const shouldLoadVideo = !(hasWarning && !shouldShowContent) && !!videoUrl && videoUrl.trim() !== '';
 
     // Simplified video playback control functions
     const togglePlayback = useCallback((shouldPlay?: boolean) => {
@@ -235,9 +237,6 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const play = useCallback(() => togglePlayback(true), [togglePlayback]);
     const pause = useCallback(() => togglePlayback(false), [togglePlayback]);
     const togglePlay = useCallback(() => togglePlayback(), [togglePlayback]);
-    
-    // Tap handler uses the same toggle function
-    const handleVideoTap = useCallback(() => togglePlayback(), [togglePlayback]);
 
     const seekTo = useCallback((position: number) => {
       if (playerRef.current) {
@@ -406,7 +405,144 @@ error('Like action failed:', error);
       } finally {
         setOverlayState(prev => ({ ...prev, isLikePending: false }));
       }
-    }, [overlayState.isLikePending, overlayState.isLiked, overlayState.likeCount, overlayState.likeUri, post.uri, post.cid]);
+    }, [overlayState.isLikePending, overlayState.isLiked, overlayState.likeCount, overlayState.likeUri, post.uri, post.cid, setOverlayState]);
+
+    // Like-only handler for double tap (doesn't unlike)
+    const handleLikeOnly = useCallback(async () => {
+      // Only like if not already liked and not pending
+      if (overlayState.isLiked || overlayState.isLikePending) return;
+      
+      // Optimistic update
+      setOverlayState(prev => ({
+        ...prev,
+        isLikePending: true,
+        isLiked: true,
+        likeCount: prev.likeCount + 1
+      }));
+      
+      try {
+        const likeUri = await AtprotoService.likePost(post.uri, post.cid);
+        setOverlayState(prev => ({ ...prev, likeUri }));
+      } catch (error) {
+        console.error('Like action failed:', error);
+        // Revert optimistic update
+        setOverlayState(prev => ({
+          ...prev,
+          isLiked: false,
+          likeCount: prev.likeCount - 1
+        }));
+      } finally {
+        setOverlayState(prev => ({ ...prev, isLikePending: false }));
+      }
+    }, [overlayState.isLiked, overlayState.isLikePending, post.uri, post.cid, setOverlayState]);
+
+    // Double tap to like animation
+    const animateHeart = useCallback((x: number, y: number) => {
+      heartScale.stopAnimation();
+      heartOpacity.stopAnimation();
+      setHeartPosition({ x, y });
+      setShowHeart(true);
+      heartScale.setValue(0);
+      heartOpacity.setValue(1);
+      
+      Animated.parallel([
+        Animated.sequence([
+          Animated.spring(heartScale, {
+            toValue: 1.2,
+            tension: 100,
+            friction: 7,
+            useNativeDriver: true,
+          }),
+          Animated.spring(heartScale, {
+            toValue: 1,
+            tension: 100,
+            friction: 7,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.delay(200),
+          Animated.timing(heartOpacity, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start(() => {
+        setShowHeart(false);
+      });
+    }, [heartScale, heartOpacity]);
+
+    // Enhanced tap handler with double tap detection
+    const handleVideoTap = useCallback((event: any) => {
+      const now = Date.now();
+      const x = event.nativeEvent?.locationX ?? cardHeight / 2;
+      const y = event.nativeEvent?.locationY ?? cardHeight / 2;
+      
+      // Clear any pending single tap
+      if (singleTapTimeoutRef.current) {
+        clearTimeout(singleTapTimeoutRef.current);
+        singleTapTimeoutRef.current = null;
+      }
+      
+      if (lastTapRef.current) {
+        const timeDiff = now - lastTapRef.current.time;
+        const xDiff = Math.abs(x - lastTapRef.current.x);
+        const yDiff = Math.abs(y - lastTapRef.current.y);
+        
+        // Double tap detected (within 500ms and similar position)
+        if (timeDiff < 500 && xDiff < 50 && yDiff < 50) {
+          // Always show animation for visual feedback
+          animateHeart(x, y);
+          // Only like (never unlike) on double tap
+          handleLikeOnly();
+          lastTapRef.current = null;
+          return;
+        }
+      }
+      
+      // Store this tap for potential double tap
+      lastTapRef.current = { time: now, x, y };
+      
+      // Wait a bit to see if there's a second tap
+      singleTapTimeoutRef.current = setTimeout(() => {
+        // Single tap - toggle playback
+        togglePlayback();
+        lastTapRef.current = null;
+        singleTapTimeoutRef.current = null;
+      }, 400);
+    }, [togglePlayback, overlayState.isLiked, overlayState.isLikePending, handleLike, animateHeart]);
+
+    // Handle long press to show comments
+    const handleLongPress = useCallback(() => {
+      // Clear any pending single tap
+      if (singleTapTimeoutRef.current) {
+        clearTimeout(singleTapTimeoutRef.current);
+        singleTapTimeoutRef.current = null;
+      }
+      // Clear double tap tracking
+      lastTapRef.current = null;
+      
+      // Show comment section
+      presentCommentSection({
+        post,
+        totalLikes: overlayState.likeCount,
+        totalComments: post.replyCount || 0,
+        isLiked: overlayState.isLiked,
+        postedAt: post.record?.createdAt || post.indexedAt,
+        onToggleLike: handleLike,
+        isLikePending: overlayState.isLikePending,
+      });
+    }, [post, overlayState.likeCount, overlayState.isLiked, overlayState.isLikePending, presentCommentSection, handleLike]);
+
+    // Cleanup timeout on unmount
+    useEffect(() => {
+      return () => {
+        if (singleTapTimeoutRef.current) {
+          clearTimeout(singleTapTimeoutRef.current);
+        }
+      };
+    }, []);
 
     const handleRepost = useCallback(async () => {
       if (overlayState.isRepostPending) return;
@@ -465,7 +601,12 @@ error('Repost action failed:', error);
     return (
       <View style={[styles.container, { height: cardHeight, backgroundColor: thumbnailBackgroundColor }]}>
         {/* Unified Video and Overlay Container */}
-        <TouchableWithoutFeedback onPress={handleVideoTap}>
+        <Pressable 
+          onPress={handleVideoTap} 
+          onLongPress={handleLongPress}
+          delayLongPress={400}
+          style={styles.videoContainerPressable}
+        >
           <View style={[styles.videoContainer, { backgroundColor: thumbnailBackgroundColor }]}>
             {/* Thumbnail removed - using background color instead */}
             
@@ -488,13 +629,12 @@ error('Repost action failed:', error);
                 onError={handleError}
                 onReadyForDisplay={handleReadyForDisplay}
                 onBuffer={handleBuffering}
-                progressUpdateInterval={1000} // Increased interval (reduced frequency) for better performance
+                progressUpdateInterval={500} // Reduce update frequency for better performance
                 bufferConfig={{
-                  minBufferMs: 2500, // Reduced for faster initial playback
-                  maxBufferMs: 10000, // Reduced to save memory
-                  bufferForPlaybackMs: 1000, // Start playback faster
-                  bufferForPlaybackAfterRebufferMs: 2000, // Resume faster after buffering
-                  cacheSizeMB: 200, // Limit cache size
+                  minBufferMs: 15000, // Increase buffer size for smoother playback
+                  maxBufferMs: 50000,
+                  bufferForPlaybackMs: 2500,
+                  bufferForPlaybackAfterRebufferMs: 5000
                 }}
                 ignoreSilentSwitch="ignore"
                 allowsExternalPlayback={false}
@@ -526,6 +666,24 @@ error('Repost action failed:', error);
               />
             )}
 
+            {/* Double tap heart animation */}
+            {showHeart && (
+              <Animated.View
+                style={[
+                  styles.heartAnimationContainer,
+                  {
+                    left: heartPosition.x - 50,
+                    top: heartPosition.y - 50,
+                    opacity: heartOpacity,
+                    transform: [{ scale: heartScale }],
+                  },
+                ]}
+                pointerEvents="none"
+              >
+                <HeartFillIcon size={100} color={Colors.INTERACTIVE.HEART.ACTIVE} />
+              </Animated.View>
+            )}
+
             {/* Integrated Overlay System using VideoOverlayUI */}
             {showOverlay && isVisible && (
               <VideoOverlayUI
@@ -546,7 +704,7 @@ error('Repost action failed:', error);
               />
             )}
           </View>
-        </TouchableWithoutFeedback>
+        </Pressable>
         
         {/* Content Warning Overlay */}
         {isBlurred && (
@@ -581,6 +739,10 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     overflow: 'hidden',
+  },
+  videoContainerPressable: {
+    width: '100%',
+    height: '100%',
   },
   videoContainer: {
     width: '100%',
@@ -653,21 +815,15 @@ const styles = StyleSheet.create({
     zIndex: 5,
     pointerEvents: 'none', // Allow touch events to pass through when not dimmed
   },
+  heartAnimationContainer: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 15,
+  },
 
 });
 
-// Optimized memo comparison to prevent unnecessary re-renders
-const arePropsEqual = (prevProps: VideoCardProps, nextProps: VideoCardProps) => {
-  // Only re-render if these critical props change
-  return (
-    prevProps.post.uri === nextProps.post.uri &&
-    prevProps.isVisible === nextProps.isVisible &&
-    prevProps.shouldDisablePlayback === nextProps.shouldDisablePlayback &&
-    prevProps.shouldPreload === nextProps.shouldPreload &&
-    prevProps.height === nextProps.height &&
-    prevProps.isModal === nextProps.isModal &&
-    prevProps.moderationDecision === nextProps.moderationDecision
-  );
-};
-
-export default memo(VideoCard, arePropsEqual);
+export default VideoCard;

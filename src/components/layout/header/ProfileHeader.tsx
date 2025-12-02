@@ -14,6 +14,7 @@ import ProfileCache from '../../../services/cache/ProfileCache';
 import ChatService from '../../../services/ChatService';
 import { FollowIcon, MutualHeartIcon, ProfileEditIcon, InboxIcon} from '../../ui/Icon';
 import { hexToRGBA, getStatusBarStyle } from '../../../utils/formatting/colorUtils';
+import { parseRichText } from '../../../utils/richTextParser';
 
 interface ProfileHeaderProps {
   handle: string | null;
@@ -265,12 +266,18 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       }
     })();
 
+    // Parse description to generate rich text facets
+    const parsedDescription = profileData.description 
+      ? parseRichText(profileData.description)
+      : null;
+
     return {
       avatar: profileData.avatar || undefined,
       title: profileData.displayName || profileData.handle || 'Unknown User',
       subtitle,
       // subtitleSecondary intentionally omitted (no joined date in header)
-      description: profileData.description,
+      description: parsedDescription?.text,
+      facets: parsedDescription?.facets,
       badge: profileData.handle ? (
         <>
           {isBeta && (

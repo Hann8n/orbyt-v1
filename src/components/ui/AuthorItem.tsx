@@ -33,7 +33,7 @@ interface AuthorItemProps {
   handleColor?: string;
   hideHandleLine?: boolean;
   hideDisplayName?: boolean;
-  noRing?: boolean;
+  showRing?: boolean;
   customFontSize?: number;
   showDeleteButton?: boolean;
   onDeletePress?: () => void;
@@ -59,7 +59,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   handleColor,
   hideHandleLine,
   hideDisplayName,
-  noRing,
+  showRing,
   customFontSize,
   showDeleteButton = false,
   onDeletePress,
@@ -140,7 +140,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
             uri={actualAvatar}
             type="profile"
             size={config.avatarSize}
-            noRing={noRing}
+            showRing={showRing}
           />
         </View>
         <View style={styles.accountInfoContainer}>

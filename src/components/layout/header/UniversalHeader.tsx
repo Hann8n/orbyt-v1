@@ -14,6 +14,7 @@ import { Avatar } from '../../ui/UI';
 import { Colors } from '../../ui/UI';
 import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import { TextWithLinks } from '../../ui/TextWithLinks';
+import type { RichTextFacet } from '../../../utils/richTextParser';
 
 // Types for the universal header system
 export interface HeaderAction {
@@ -35,7 +36,7 @@ export interface HeaderContent {
   subtitle?: string;
   subtitleSecondary?: string; // e.g., Joined date or secondary line
   description?: string;
-  facets?: any[];
+  facets?: RichTextFacet[];
   badge?: React.ReactNode;
   onAvatarPress?: () => void;
   onTitlePress?: () => void;
@@ -395,13 +396,9 @@ const HeaderContentComponent = memo<{
             <Avatar
               uri={content.avatar}
               type={content.avatarStyle === 'rounded-square' ? 'channel' : 'profile'}
-              size={100}
+              size={120}
               profileColors={{ backgroundColor, textColor, foregroundColor: textColor }}
-              style={[
-                styles.avatarImage,
-                content.avatarStyle === 'rounded-square' && styles.avatarImageRoundedSquare,
-                { borderWidth: 3 }
-              ]}
+              showRing={true}
             />
           )}
         </TouchableOpacity>
@@ -879,9 +876,6 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
   avatar: {
-    width: 112,
-    height: 112,
-    borderRadius: BORDER_RADIUS.FULL,
     justifyContent: 'center',
     alignItems: 'center',
   },

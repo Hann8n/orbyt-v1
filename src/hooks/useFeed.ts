@@ -73,23 +73,40 @@ export function useFeed(
   const queryClient = useQueryClient();
   // Use direct selector to prevent re-renders when other user data changes
   const currentUser = useUserStore(state => state.currentUser);
+  const isSwitchingAccount = useUserStore(state => state.isSwitchingAccount);
+  const agent = useUserStore(state => state.agent);
 
-  // Invalidate feed queries when user changes
-  useEffect(() => {
-    if (currentUser?.did) {
-      // Invalidate all feed queries when user changes
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
-    }
-  }, [currentUser?.did, queryClient]);
-
-  // Use current user's DID for user-specific feeds, fallback to passed userDid for profile feeds
-  const effectiveUserDid = feedOption === 'following' 
+  // Use current user's DID for user-specific feeds (following and your-mix), fallback to passed userDid for profile feeds
+  // Both 'following' and 'your-mix' are user-specific and should include userDid in query key to ensure fresh data on account switch
+  const effectiveUserDid = (feedOption === 'following' || feedOption === 'your-mix')
     ? currentUser?.did 
     : userDid;
 
+  // Invalidate feed queries when user changes - but only after account switch is complete
+  // The query key change (via effectiveUserDid) will automatically trigger a new fetch
+  useEffect(() => {
+    // Only invalidate if account switch is complete and we have a user DID
+    if (currentUser?.did && !isSwitchingAccount && agent) {
+      // Invalidate all feed queries when user changes to clear old account's data
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+    }
+  }, [currentUser?.did, isSwitchingAccount, agent, queryClient]);
+
+  // Ensure query is enabled only when:
+  // 1. Base enabled flag is true
+  // 2. Account switch is complete (not switching)
+  // 3. Agent is available (API client ready)
+  // 4. For user-specific feeds, we have a user DID
+  const isUserSpecificFeed = feedOption === 'following' || feedOption === 'your-mix';
+  const queryEnabled = enabled 
+    && !isSwitchingAccount 
+    && !!agent 
+    && (!isUserSpecificFeed || !!effectiveUserDid);
+
   // Create optimized infinite query with centralized configuration
+  // When effectiveUserDid changes, React Query treats this as a new query and fetches fresh data
   const query = feedService.createInfiniteQuery(feedOption, effectiveUserDid, {
-    enabled,
+    enabled: queryEnabled,
     staleTime: FEED_CONFIG.STALE_TIME,
     gcTime: FEED_CONFIG.GC_TIME,
     retry: FEED_CONFIG.MAX_RETRIES,

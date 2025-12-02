@@ -1,88 +1,149 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   StatusBar,
   Platform,
   Dimensions,
+  Animated,
+  TouchableOpacity,
 } from 'react-native';
+import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '../../src/components/ui/UI';
-import { TabNavigation, TabOption } from '../../src/components/layout/header';
-import { getBottomNavBarHeight } from '../../src/utils/helpers';
+import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
 import MessagesTab from '../../src/components/features/activity/MessagesTab';
 
-// Activity Swipeable Pager Component
+// Tab labels
+const TAB_LABELS: { [key: string]: string } = {
+  'notifications': 'Notifications',
+  'messages': 'Messages',
+};
+
+// Activity Swipeable Pager Component using react-native-pager-view
 const ActivitySwipePager = ({
   activeTab,
   onActiveTabChange,
   renderTabContent,
+  onScrollProgressChange,
 }: {
   activeTab: 'notifications' | 'messages';
   onActiveTabChange: (tab: 'notifications' | 'messages') => void;
   renderTabContent: (tabId: 'notifications' | 'messages') => React.ReactNode;
+  onScrollProgressChange?: (progress: number) => void;
 }) => {
-  const flatListRef = useRef<FlatList>(null);
-  const [dims, setDims] = useState(Dimensions.get('window'));
-
-  useEffect(() => {
-    const sub = Dimensions.addEventListener('change', ({ window }) => setDims(window));
-    return () => sub?.remove();
-  }, []);
-
-  const screenWidth = dims.width;
+  const pagerViewRef = useRef<PagerView>(null);
   const pages: Array<'notifications' | 'messages'> = ['notifications', 'messages'];
   const activeIndex = pages.indexOf(activeTab);
 
+  // Track scroll progress from PagerView's onPageScroll for indicator animation
+  const currentPageRef = useRef(activeIndex);
+  const hasAppliedInitialIndexRef = useRef(false);
+
+  // Set initial page index
+  useLayoutEffect(() => {
+    if (!hasAppliedInitialIndexRef.current && pages.length > 0) {
+      const targetIndex = activeIndex >= 0 ? activeIndex : 0;
+      currentPageRef.current = targetIndex;
+      onScrollProgressChange?.(targetIndex);
+      requestAnimationFrame(() => {
+        pagerViewRef.current?.setPage(targetIndex);
+      });
+      hasAppliedInitialIndexRef.current = true;
+    }
+  }, [activeIndex, pages.length, onScrollProgressChange]);
+
+  // Sync PagerView page when activeTab changes (e.g., from indicator tap)
   useEffect(() => {
-    if (flatListRef.current && activeIndex >= 0) {
-      flatListRef.current.scrollToIndex({ index: activeIndex, animated: true });
+    if (hasAppliedInitialIndexRef.current && pagerViewRef.current && activeIndex >= 0) {
+      requestAnimationFrame(() => {
+        pagerViewRef.current?.setPage(activeIndex);
+      });
     }
   }, [activeIndex]);
 
-  const getItemLayout = useCallback((_, index: number) => ({ length: screenWidth, offset: screenWidth * index, index }), [screenWidth]);
+  // Handle page scroll from PagerView - update indicator directly from SDK
+  // This fires synchronously during scroll, no state batching
+  const handlePageScroll = useCallback((event: any) => {
+    const { position, offset } = event.nativeEvent;
+    const progress = position + offset;
+    const roundedPosition = Math.round(progress);
+    
+    // Update indicator progress directly from SDK - immediate, no batching
+    onScrollProgressChange?.(progress);
+    
+    // Update active tab immediately during scroll (not waiting for onPageSelected)
+    // This makes indicators respond in real-time as user swipes
+    if (roundedPosition !== currentPageRef.current && roundedPosition >= 0 && roundedPosition < pages.length) {
+      currentPageRef.current = roundedPosition;
+      const nextTab = pages[roundedPosition];
+      if (nextTab && nextTab !== activeTab) {
+        onActiveTabChange(nextTab);
+      }
+    }
+  }, [pages, activeTab, onActiveTabChange, onScrollProgressChange]);
+
+  // Handle page selection from PagerView - final confirmation after transition completes
+  const handlePageSelected = useCallback((event: any) => {
+    if (!hasAppliedInitialIndexRef.current) return;
+    
+    const nextIndex = event.nativeEvent.position;
+    const prevIndex = currentPageRef.current;
+    
+    if (nextIndex !== prevIndex) {
+      currentPageRef.current = nextIndex;
+      // Ensure indicator is at exact position after transition
+      onScrollProgressChange?.(nextIndex);
+    }
+    
+    const nextTab = pages[nextIndex];
+    if (nextTab && nextTab !== activeTab) {
+      onActiveTabChange(nextTab);
+    }
+  }, [activeTab, pages, onActiveTabChange, onScrollProgressChange]);
+
+  // Handle scroll state changes from PagerView
+  const handlePageScrollStateChanged = useCallback((event: any) => {
+    // No special handling needed
+  }, []);
+
+  const initialPageIndex = activeIndex >= 0 ? activeIndex : 0;
 
   return (
     <View style={styles.activityContainer}>
-      <FlatList
-        ref={flatListRef}
-        data={pages}
-        keyExtractor={(t) => `activity-page-${t}`}
-        renderItem={({ item }) => (
-          <View style={{ width: screenWidth, flex: 1 }}>
-            {renderTabContent(item)}
+      <PagerView
+        ref={pagerViewRef}
+        style={styles.pagerView}
+        initialPage={initialPageIndex}
+        onPageSelected={handlePageSelected}
+        onPageScroll={handlePageScroll}
+        onPageScrollStateChanged={handlePageScrollStateChanged}
+        scrollEnabled={true}
+        pageMargin={0}
+      >
+        {pages.map((page) => (
+          <View key={page} style={styles.pagerPage}>
+            {renderTabContent(page)}
           </View>
-        )}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        getItemLayout={getItemLayout}
-        onMomentumScrollEnd={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
-          const nextTab = pages[index];
-          if (nextTab && nextTab !== activeTab) onActiveTabChange(nextTab);
-        }}
-        initialScrollIndex={activeIndex < 0 ? 0 : activeIndex}
-      />
+        ))}
+      </PagerView>
     </View>
   );
 };
 
 const ActivityScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'notifications' | 'messages'>('notifications');
+  // State to trigger indicator re-renders during scroll (doesn't affect feeds) - matches SwipeableFeedContainer
+  const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   
-  // Define tab options for activity
-  const tabOptions: TabOption[] = useMemo(() => [
-    { id: 'notifications', label: 'Notifications' },
-    { id: 'messages', label: 'Messages' },
-  ], []);
+  const pages: Array<'notifications' | 'messages'> = ['notifications', 'messages'];
+  const activeIndex = pages.indexOf(activeTab);
 
   // Tab content renderer
   const renderTabContent = useCallback((tabId: 'notifications' | 'messages') => {
@@ -94,24 +155,62 @@ const ActivityScreen: React.FC = () => {
     return null;
   }, []);
 
+  // Get indicator style using PagerView's scroll progress - matches SwipeableFeedContainer exactly
+  const getIndicatorStyle = useCallback((tabId: 'notifications' | 'messages') => {
+    const tabIndex = pages.indexOf(tabId);
+    const isActive = tabId === activeTab;
+    
+    // Use state directly for smooth real-time updates during scroll (not ref) - matches SwipeableFeedContainer
+    const baseProgress = indicatorScrollProgress;
+
+    // Calculate opacity based on distance from current position - matches SwipeableFeedContainer
+    let opacity = 0.75; // Default inactive opacity
+    if (isActive) {
+      opacity = 1;
+    } else {
+      // Gradual opacity based on PagerView's scroll progress (real-time from state)
+      const distance = Math.abs(baseProgress - tabIndex);
+      opacity = Math.max(0.3, 1 - distance * 0.4);
+    }
+    
+    // Larger font size for activity header tabs
+    const indicatorBaseFontSize = 22;
+    
+    return {
+      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.6)',
+      fontSize: indicatorBaseFontSize,
+      marginRight: 8,
+      fontWeight: 'bold' as const,
+      opacity,
+    };
+  }, [activeTab, pages, indicatorScrollProgress, activeIndex]);
+
+  // Handle indicator tap
+  const handleIndicatorTap = useCallback((tabId: 'notifications' | 'messages') => {
+    setActiveTab(tabId);
+  }, []);
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
 
-      {/* Header with integrated tabs */}
+      {/* Header with animated tab indicators */}
       <View style={[styles.headerSection, { paddingTop: insets.top }]}>
         <View style={styles.tabSection}>
-          <TabNavigation
-            tabs={tabOptions}
-            activeTab={activeTab}
-            onTabPress={(tabId) => {
-              const newTab = tabId as 'notifications' | 'messages';
-              setActiveTab(newTab);
-            }}
-            textColor={Colors.white}
-            backgroundColor="transparent"
-            style={[styles.tabNavigation, styles.customTabContainer]}
-          />
+          <View style={styles.indicatorContainer}>
+            {pages.map((tabId) => (
+              <TouchableOpacity
+                key={tabId}
+                onPress={() => handleIndicatorTap(tabId)}
+                activeOpacity={0.7}
+                style={styles.indicatorItem}
+              >
+                <Text style={getIndicatorStyle(tabId)}>
+                  {TAB_LABELS[tabId] || tabId}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </View>
 
@@ -120,6 +219,7 @@ const ActivityScreen: React.FC = () => {
         activeTab={activeTab}
         onActiveTabChange={setActiveTab}
         renderTabContent={renderTabContent}
+        onScrollProgressChange={setIndicatorScrollProgress}
       />
     </View>
   );
@@ -134,27 +234,35 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     backgroundColor: Colors.black,
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
     paddingBottom: 0,
     paddingTop: 0,
   },
   tabSection: {
     marginTop: 0,
+    alignItems: 'flex-start',
   },
-  tabNavigation: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+  indicatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    alignSelf: 'flex-start',
+    paddingTop: 4,
+    paddingBottom: 4,
+    minHeight: 48,
   },
-  customTabContainer: {
-    paddingVertical: 0,
-    marginTop: 0,
-    minHeight: 36,
-    paddingTop: 0,
-    paddingBottom: 0,
+  indicatorItem: {
+    paddingHorizontal: 4,
   },
   activityContainer: {
     flex: 1,
     backgroundColor: Colors.black,
+  },
+  pagerView: {
+    flex: 1,
+  },
+  pagerPage: {
+    width: '100%',
+    height: '100%',
   },
 });

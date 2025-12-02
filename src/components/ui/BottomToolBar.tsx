@@ -9,15 +9,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../utils/helpers';
 import Icon from './Icon';
+import { Colors } from './UI';
 
 interface BottomToolBarProps {
   mode: 'create' | 'edit';
   onToolPress?: (toolName: string) => void;
   flashActive?: boolean;
   hasSegments?: boolean; // Add this prop to control delete button state
+  isFrontCamera?: boolean; // Add this prop to disable flash in front camera mode
 }
 
-const BottomToolBar: React.FC<BottomToolBarProps> = ({ mode, onToolPress, flashActive, hasSegments = false }) => {
+const BottomToolBar: React.FC<BottomToolBarProps> = ({ mode, onToolPress, flashActive, hasSegments = false, isFrontCamera = false }) => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
 
@@ -34,7 +36,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({ mode, onToolPress, flashA
       return [
         { id: 'text', icon: 'text' },
         { id: 'trim', icon: 'scissors' },
-        { id: 'filter', icon: 'palette' },
+        { id: 'filter', icon: 'color-picker-fill' },
         { id: 'audio', icon: 'music' },
       ];
     }
@@ -58,12 +60,18 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({ mode, onToolPress, flashA
         }
       ]}>
         {tools.map((tool) => {
-          const isDisabled = tool.id === 'delete' && !hasSegments;
-          const iconColor = tool.id === 'flash' && flashActive 
-            ? Colors.yellow 
-            : isDisabled 
-            ? Colors.gray 
-            : "white";
+          const isDeleteDisabled = tool.id === 'delete' && !hasSegments;
+          const isFlashDisabled = tool.id === 'flash' && isFrontCamera;
+          const isDisabled = isDeleteDisabled || isFlashDisabled;
+          
+          let iconColor = "white";
+          if (tool.id === 'flash' && isFlashDisabled) {
+            iconColor = Colors.gray;
+          } else if (tool.id === 'flash' && flashActive) {
+            iconColor = Colors.yellow;
+          } else if (isDisabled) {
+            iconColor = Colors.gray;
+          }
           
           return (
             <TouchableOpacity
@@ -85,8 +93,6 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({ mode, onToolPress, flashA
     </View>
   );
 };
-
-import { Colors } from './UI';
 
 const styles = StyleSheet.create({
   safeArea: {

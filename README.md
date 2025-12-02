@@ -10,7 +10,7 @@ A new video app built for bluesky
 - **Navigation**: [React Navigation](https://github.com/react-navigation/react-navigation)
 - **State Management**: [TanStack Query](https://github.com/TanStack/query) (React Query)
 - **Video**: [React Native Video](https://github.com/TheWidlarzGroup/react-native-video)
-- **Camera**: [Vision Camera](https://github.com/mrousavy/react-native-vision-camera)
+- **Camera**: [Expo Camera](https://docs.expo.dev/versions/latest/sdk/camera/)
 - **Storage**: AsyncStorage and SecureStore
 - **API**: [Atproto](https://github.com/bluesky-social/atproto/tree/main/packages/api)
 

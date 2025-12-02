@@ -316,6 +316,7 @@ export default function EmbeddedPostCard({
             uri={avatarUrl}
             type="profile"
             size={32}
+            showRing={true}
             fallbackIcon="user"
             fallbackIconColor={Colors.white}
             style={styles.cleanAvatar}
@@ -394,6 +395,7 @@ export default function EmbeddedPostCard({
               uri={avatarUrl}
               type="profile"
               size={32}
+              showRing={true}
               fallbackIcon="user"
               fallbackIconColor={Colors.white}
               style={styles.authorAvatar}

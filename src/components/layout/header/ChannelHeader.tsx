@@ -10,6 +10,7 @@ import { hexToRGBA, darkenColor, getStatusBarStyle, isColorDark } from '../../..
 import { Colors } from '../../ui/UI';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
 import { isOrbytChannel, getChannelByUri, shouldShowChannelSlash } from '../../../utils/orbytChannels';
+import { parseRichText } from '../../../utils/richTextParser';
  
 
 
@@ -367,12 +368,18 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       </View>
     ) : undefined;
 
+    // Parse description to generate rich text facets
+    const parsedDescription = channel.description 
+      ? parseRichText(channel.description)
+      : null;
+
     return {
       avatar: channel.avatar,
       title: channel.name,
       customTitle: customTitle,
       subtitle: isOrbyt ? undefined : (channel.creator?.handle ? channel.creator.handle : undefined),
-      description: channel.description,
+      description: parsedDescription?.text,
+      facets: parsedDescription?.facets,
       badge: experimentalBadge,
       avatarStyle: 'rounded-square' as const,
       onTitlePress: handleCreatorPress,

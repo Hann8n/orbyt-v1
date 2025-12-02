@@ -36,7 +36,7 @@ import { BORDER_RADIUS } from '../../utils/constants';
 export const Colors = {
   // Basic Colors
   black: '#000000',
-  white: '#FFFFFF',
+  white: '#f3f5fe',
   red: '#FE4359',
   green: '#00D4AA',
   blue: '#6366F1', // Vibrant purple-blue
@@ -46,9 +46,10 @@ export const Colors = {
   gray: '#818896', // Base gray
   
   // Gray Shades (lightest to darkest)
-  lightGray: '#CFD6E8',
+  lightGray: '#ccd7e9',
   mediumGray: '#3E414B',
   darkGray: '#181c22',
+  mutedGray: '#9a9eb9', // Muted blue-gray
   
   // Blue/Purple Shades
   lightBlue: '#00E5FF', // Bright cyan
@@ -74,6 +75,7 @@ export const Colors = {
   cosmicPurple: '#9D4EDD', // Deep purple
   sunsetOrange: '#FF4500', // Bright orange
   bluesky: '#0385ff', // Bluesky brand color
+  blurple: '#4528ea', // Blurple color
   
   // Feedback button colors
   interestedLight: '#d77e12', // Light orange
@@ -96,7 +98,7 @@ export const Colors = {
   INTERACTIVE: {
     HEART: {
       ACTIVE: '#FE4359',     // red
-      INACTIVE: '#CFD6E8',   // gray
+      INACTIVE: '#ccd7e9',   // gray
     },
     REPOST: {
       ACTIVE: '#00D4AA',     // green
@@ -113,7 +115,7 @@ export const Colors = {
   },
 
   PROFILE: {
-    DEFAULT_RING: '#CFD6E8', // lightGray
+    DEFAULT_RING: '#ccd7e9', // lightGray
   },
 
   SHIMMER: {
@@ -296,7 +298,7 @@ interface AvatarProps {
   fallbackIconColor?: string;
   fallbackIconSize?: number;
   ringColor?: string;
-  noRing?: boolean;
+  showRing?: boolean; // Show ring border (default: false, no ring)
   profileColors?: {
     backgroundColor: string;
     foregroundColor: string;
@@ -313,7 +315,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   fallbackIconColor = Colors.lightGray,
   fallbackIconSize,
   ringColor,
-  noRing = false,
+  showRing = false,
   profileColors,
 }) => {
   const defaultFallbackIcon = type === 'channel' ? 'device-tv' : 'user';
@@ -330,20 +332,42 @@ export const Avatar: React.FC<AvatarProps> = ({
     }
   };
 
-  const baseStyle = {
+  const borderRadius = getBorderRadius();
+  // Slightly thicker ring for larger avatars (profile screen)
+  const ringWidth = showRing ? (size >= 100 ? 3.5 : 2.5) : 0;
+  // No separation when no ring - separation only exists between image and ring
+  const separation = showRing ? (size >= 100 ? 1.5 : 1) : 0;
+  const innerSize = size - (ringWidth * 2) - (separation * 2);
+  const innerBorderRadius = type === 'channel' ? BORDER_RADIUS.MEDIUM : innerSize * 0.5;
+
+  const containerStyle: ViewStyle = {
     width: size,
     height: size,
-    borderRadius: getBorderRadius(),
-    borderWidth: noRing ? 0 : 2,
-    borderColor: noRing ? 'transparent' : (ringColor || (profileColors?.textColor || Colors.lightGray)),
+    borderRadius,
+    borderWidth: showRing ? ringWidth : 0,
+    borderColor: showRing ? (ringColor || (profileColors?.textColor || Colors.lightGray)) : 'transparent',
+    padding: separation,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: showRing ? Colors.black : 'transparent',
+    overflow: 'hidden',
+  };
+
+  const imageStyle: ImageStyle = {
+    width: innerSize,
+    height: innerSize,
+    borderRadius: innerBorderRadius,
   };
 
   if (uri) {
     return (
-      <Image
-        source={{ uri }}
-        style={[baseStyle as ImageStyle, style as StyleProp<ImageStyle>]}
-      />
+      <View style={[containerStyle, style as StyleProp<ViewStyle>]}>
+        <Image
+          source={{ uri }}
+          style={imageStyle}
+          resizeMode="cover"
+        />
+      </View>
     );
   }
 
@@ -352,28 +376,37 @@ export const Avatar: React.FC<AvatarProps> = ({
     // Import Icon component dynamically to avoid circular dependency
     const { default: Icon } = require('./Icon');
     return (
-      <View style={[baseStyle, style, { 
+      <View style={[containerStyle, style as StyleProp<ViewStyle>, { 
         backgroundColor: profileColors?.backgroundColor || Colors.darkGray,
-        justifyContent: 'center',
-        alignItems: 'center',
         borderWidth: 0, // Remove border for colored backgrounds
+        padding: 0, // Remove padding for colored backgrounds
       }]}>
-        <Icon 
-          name={fallbackIcon} 
-          size={iconSize} 
-          color={fallbackIconColor} 
-        />
+        <View style={{
+          width: size,
+          height: size,
+          borderRadius,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+          <Icon 
+            name={fallbackIcon} 
+            size={iconSize} 
+            color={fallbackIconColor} 
+          />
+        </View>
       </View>
     );
   }
 
   // Use default avatar image if no uri is provided
   return (
-    <Image
-      source={require('../../assets/Default-avatar.png')}
-      style={[baseStyle as ImageStyle, style as StyleProp<ImageStyle>]}
-      resizeMode="cover"
-    />
+    <View style={[containerStyle, style as StyleProp<ViewStyle>]}>
+      <Image
+        source={require('../../assets/Default-avatar.png')}
+        style={imageStyle}
+        resizeMode="cover"
+      />
+    </View>
   );
 };
 

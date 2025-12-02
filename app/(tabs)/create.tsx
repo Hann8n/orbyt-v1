@@ -14,32 +14,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
-  Camera, 
-  useCameraDevice, 
-  useCameraPermission, 
-  useCameraFormat,
-  useMicrophonePermission,
-  useLocationPermission,
-  VideoFile
-} from 'react-native-vision-camera';
-import { useRouter } from 'expo-router';
+  CameraView, 
+  CameraType,
+  useCameraPermissions,
+  useMicrophonePermissions,
+  CameraRecordingOptions
+} from 'expo-camera';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import Animated, { 
   useSharedValue, 
-  withSpring, 
   useAnimatedStyle, 
-  withTiming,
-  runOnJS,
-  interpolate,
-  Extrapolate
+  withTiming
 } from 'react-native-reanimated';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Icon, { CloseFillIcon, Loading3FillIcon, ArrowRightFillIcon } from '../../src/components/ui/Icon';
 import BottomToolBar from '../../src/components/ui/BottomToolBar';
 import { isSmallScreen, getBottomNavBarHeight } from '../../src/utils/helpers';
-import VideoProcessingService, { VideoSegment as ProcessingVideoSegment } from '../../src/services/VideoProcessingService';
+import VideoProcessingService from '../../src/services/VideoProcessingService';
+import { debugVideoPath } from '../../src/utils/videoPath';
 import { Colors } from '../../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -48,103 +43,109 @@ const ASPECT_RATIO = 9 / 16;
 const VIDEO_WIDTH = SCREEN_WIDTH;
 const VIDEO_HEIGHT = VIDEO_WIDTH / ASPECT_RATIO;
 
-const MAX_DURATION = 60; // Maximum total recording duration in seconds
 const MIN_SEGMENT_DURATION = 0.5; // Minimum duration for a segment in seconds
+
+// Duration options in seconds
+const DURATION_OPTIONS = [
+  { value: 6.5, label: '6.5s' },
+  { value: 16, label: '16s' },
+  { value: 60, label: '1m' },
+  { value: 180, label: '3m' },
+] as const;
 
 interface VideoSegment {
   startTime: number;
   duration: number;
-  video: VideoFile | ImagePicker.ImagePickerAsset;
+  video: { uri: string } | ImagePicker.ImagePickerAsset;
   sourceType?: 'camera' | 'gallery';
 }
 
 const CreateScreen: React.FC = () => {
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission();
-  const { hasPermission: hasLocationPermission, requestPermission: requestLocationPermission } = useLocationPermission();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
   const [isRecording, setIsRecording] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(false);
-  const [recordingProgress, setRecordingProgress] = useState(0);
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
-  const [recordedVideo, setRecordedVideo] = useState<VideoFile | null>(null);
+  const [recordedVideo, setRecordedVideo] = useState<{ uri: string } | null>(null);
   const [segments, setSegments] = useState<VideoSegment[]>([]);
+  const segmentsRef = useRef<VideoSegment[]>([]);
   const [totalDuration, setTotalDuration] = useState(0);
-  const [zoom, setZoom] = useState(1); // Will be updated when device loads
+  const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
+  const [isDurationSelectorExpanded, setIsDurationSelectorExpanded] = useState(false);
 
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const segmentStartTime = useRef<number>(0);
-  const cameraRef = useRef<Camera>(null);
+  const cameraRef = useRef<CameraView>(null);
+  const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
+  const isMountedRef = useRef(true);
+  const isRecordingRef = useRef(false);
+  
+  const isFocused = useIsFocused();
 
-  const recButtonScale = useSharedValue(1);
+  // Keep segmentsRef in sync with segments state
+  useEffect(() => {
+    segmentsRef.current = segments;
+  }, [segments]);
+
   const progressWidth = useSharedValue(0);
-  const recordingPulse = useSharedValue(0);
-  const dragDistance = useSharedValue(0);
-  const isZooming = useSharedValue(false);
-
-  const device = useCameraDevice(isFrontCamera ? 'front' : 'back');
-  
-  // Optimize camera format for 9:16 aspect ratio
-  const format = useCameraFormat(device, [
-    { videoResolution: { width: 1080, height: 1920 } }, // 9:16 aspect ratio
-    { videoResolution: { width: 720, height: 1280 } }, // Fallback 9:16
-    { fps: 30 }, // Prefer 30fps for better quality/performance balance
-    { videoHdr: false }, // Disable HDR for now (can enable if device supports)
-  ]);
-  
-  // Frame processor setup (requires frame processor plugins for actual processing)
-  // Example: Install @react-native-vision-camera/frame-processors or vision-camera-v3
-  // Then uncomment and customize:
-  /*
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-    // Process frames here
-    // Example: Apply filters, detect faces, scan QR codes, etc.
-    // Requires native frame processor plugins
-  }, []);
-  */
+  const buttonOpacity = useSharedValue(1);
   
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   
-  // Get zoom range from device (clamp maxZoom to reasonable value)
-  const minZoom = device?.minZoom ?? 1;
-  const neutralZoom = device?.neutralZoom ?? 1;
-  const deviceMaxZoom = device?.maxZoom ?? 1;
-  const maxZoom = Math.min(deviceMaxZoom, 16); // Clamp to realistic max like docs suggest
+  // Get current max duration from selected option
+  const maxDuration = selectedDuration;
 
   // Request camera permissions on mount
   useEffect(() => {
     const checkPermissions = async () => {
-      if (!hasPermission) await requestPermission();
-      if (!hasMicPermission) await requestMicPermission();
-      // Request location permission for GPS tags (optional, non-blocking)
-      if (!hasLocationPermission) {
-        requestLocationPermission().catch(() => {
-          // Silent fail - location is optional
-        });
-      }
+      if (!cameraPermission?.granted) await requestCameraPermission();
+      if (!microphonePermission?.granted) await requestMicrophonePermission();
     };
     checkPermissions();
-  }, [hasPermission, requestPermission, hasMicPermission, requestMicPermission, hasLocationPermission, requestLocationPermission]);
+  }, [cameraPermission, requestCameraPermission, microphonePermission, requestMicrophonePermission]);
   
-  // Initialize zoom to neutralZoom when device loads
+  // Cleanup: reset processing state when component unmounts or user navigates away
   useEffect(() => {
-    if (device) {
-      setZoom(neutralZoom);
-    }
-  }, [device, neutralZoom]);
-  
-  // Reset zoom when switching cameras
-  useEffect(() => {
-    if (device) {
-      setZoom(neutralZoom);
-      dragDistance.value = 0;
-      isZooming.value = false;
-    }
-  }, [isFrontCamera, device, neutralZoom, dragDistance, isZooming]);
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // Stop recording if active when component unmounts
+      if (isRecordingRef.current && cameraRef.current) {
+        cameraRef.current.stopRecording();
+        if (recordingTimer.current) {
+          clearInterval(recordingTimer.current);
+        }
+        isRecordingRef.current = false;
+        setIsRecording(false);
+      }
+      setIsProcessing(false);
+    };
+  }, []);
+
+  // Reset processing state when screen comes back into focus (user navigated back)
+  useFocusEffect(
+    useCallback(() => {
+      // Reset processing state when screen is focused again
+      setIsProcessing(false);
+      isMountedRef.current = true;
+      
+      return () => {
+        // Cleanup when screen loses focus - stop recording if active
+        if (isRecordingRef.current && cameraRef.current) {
+          cameraRef.current.stopRecording();
+          if (recordingTimer.current) {
+            clearInterval(recordingTimer.current);
+          }
+          isRecordingRef.current = false;
+          setIsRecording(false);
+        }
+      };
+    }, [])
+  );
 
   // Disable flash when switching to front camera
   useEffect(() => {
@@ -154,143 +155,133 @@ const CreateScreen: React.FC = () => {
   }, [isFrontCamera]);
 
   // Animated styles
-  const animatedRecordingStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: recButtonScale.value }],
-  }));
-
   const animatedProgressStyle = useAnimatedStyle(() => ({
     width: `${progressWidth.value}%`,
-  }));
+  }), []);
 
-  const animatedRecordingPulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(recordingPulse.value, [0, 1], [1, 1.1], Extrapolate.CLAMP) }],
-    opacity: interpolate(recordingPulse.value, [0, 1], [0.8, 1], Extrapolate.CLAMP),
-  }));
+  const animatedButtonOpacityStyle = useAnimatedStyle(() => ({
+    opacity: buttonOpacity.value,
+  }), []);
 
-  // Start recording pulse animation
-  const startRecordingPulse = useCallback(() => {
-    recordingPulse.value = withTiming(1, { duration: 1000 }, () => {
-      recordingPulse.value = withTiming(0, { duration: 1000 }, () => {
-        if (isRecording) {
-          runOnJS(startRecordingPulse)();
-        }
-      });
-    });
-  }, [isRecording, recordingPulse]);
+  // Animate button opacity when recording state changes
+  useEffect(() => {
+    buttonOpacity.value = withTiming(isRecording ? 0.5 : 1, { duration: 100 });
+  }, [isRecording]);
 
-  // Stop recording pulse animation
-  const stopRecordingPulse = useCallback(() => {
-    recordingPulse.value = withTiming(0, { duration: 200 });
-  }, [recordingPulse]);
 
   // Define stopRecording first so that it can be used inside startRecording
   const stopRecording = useCallback(async () => {
-    if (cameraRef.current && isRecording) {
+    if (cameraRef.current && isRecordingRef.current) {
       try {
         setIsProcessing(true);
-        stopRecordingPulse();
         
-        await cameraRef.current.stopRecording();
         if (recordingTimer.current) clearInterval(recordingTimer.current);
-        recButtonScale.value = withSpring(1);
         
-        // Reset zoom to neutralZoom when recording stops
-        setZoom(neutralZoom);
-        dragDistance.value = 0;
-        isZooming.value = false;
+        // Stop recording - expo-camera's stopRecording() stops the recording
+        // Then await the promise from recordAsync() to get the video result
+        cameraRef.current.stopRecording();
         
-        // Reset if maximum duration has been reached
-        if (totalDuration >= MAX_DURATION) {
-          progressWidth.value = withTiming(0);
-          setRecordingProgress(0);
-          setSegments([]);
-          setTotalDuration(0);
+        if (recordingPromiseRef.current) {
+          const video = await recordingPromiseRef.current;
+          if (video) {
+            const segmentDuration = (Date.now() - segmentStartTime.current) / 1000;
+            let updatedDuration: number | null = null;
+            if (segmentDuration >= MIN_SEGMENT_DURATION) {
+              updatedDuration = totalDuration + segmentDuration;
+              const newSegment = {
+                startTime: segmentStartTime.current,
+                duration: segmentDuration,
+                video,
+                sourceType: 'camera' as const,
+              };
+              setSegments(prev => {
+                const updated = [...prev, newSegment];
+                segmentsRef.current = updated;
+                return updated;
+              });
+              setTotalDuration(updatedDuration);
+            } else {
+              // Reset progress bar if segment was too short
+              const progress = (totalDuration / maxDuration) * 100;
+              progressWidth.value = withTiming(progress, { duration: 200 });
+            }
+            setRecordedVideo(video);
+            
+            if (updatedDuration !== null && updatedDuration >= maxDuration) {
+              // Cap progress at 100% when max duration is reached, but keep segments
+              progressWidth.value = withTiming(100, { duration: 200 });
+            }
+          }
         }
+        
+        setIsProcessing(false);
+        isRecordingRef.current = false;
+        setIsRecording(false);
+        recordingPromiseRef.current = null;
       } catch (e) {
         setIsProcessing(false);
+        isRecordingRef.current = false;
         setIsRecording(false);
+        recordingPromiseRef.current = null;
       }
     }
-  }, [isRecording, recButtonScale, progressWidth, totalDuration, stopRecordingPulse, device, dragDistance, isZooming, neutralZoom]);
+  }, [progressWidth, totalDuration, maxDuration]);
 
   const startRecording = useCallback(async () => {
-    if (cameraRef.current && !isRecording && totalDuration < MAX_DURATION) {
+    if (cameraRef.current && !isRecordingRef.current && totalDuration < maxDuration) {
       // Ensure microphone permission only when needed
-      if (!hasMicPermission) {
-        const granted = await requestMicPermission();
-        if (!granted) {
+      if (!microphonePermission?.granted) {
+        const result = await requestMicrophonePermission();
+        if (!result.granted) {
           Alert.alert('Microphone Permission', 'Please enable microphone access to record video with sound.');
           return;
         }
       }
       
+      isRecordingRef.current = true;
       setIsRecording(true);
-      recButtonScale.value = withSpring(1.2);
-      startRecordingPulse();
-      
-      // Start at neutralZoom
-      setZoom(neutralZoom);
       
       segmentStartTime.current = Date.now();
       try {
-        cameraRef.current.startRecording({
-          fileType: 'mp4',
-          onRecordingFinished: (video) => {
-            const segmentDuration = (Date.now() - segmentStartTime.current) / 1000;
-            if (segmentDuration >= MIN_SEGMENT_DURATION) {
-              setSegments(prev => [
-                ...prev,
-                {
-                  startTime: segmentStartTime.current,
-                  duration: segmentDuration,
-                  video,
-                },
-              ]);
-              setTotalDuration(prev => prev + segmentDuration);
-            }
-            setRecordedVideo(video);
-            setIsProcessing(false);
-            setIsRecording(false);
-          },
-          onRecordingError: (error) => {
-            setIsRecording(false);
-            setIsProcessing(false);
-            stopRecordingPulse();
-            Alert.alert('Recording failed', 'Please try again');
-          },
-        });
+        const recordingOptions: CameraRecordingOptions = {
+          maxDuration: maxDuration - totalDuration,
+        };
         
-        // Update progress bar at ~60fps
+        recordingPromiseRef.current = cameraRef.current.recordAsync(recordingOptions);
+        
+        // Update progress bar smoothly
         recordingTimer.current = setInterval(() => {
           const currentDuration = totalDuration + ((Date.now() - segmentStartTime.current) / 1000);
-          const progress = (currentDuration / MAX_DURATION) * 100;
+          const progress = (currentDuration / maxDuration) * 100;
           if (progress >= 100) {
             stopRecording();
             if (recordingTimer.current) clearInterval(recordingTimer.current);
-            progressWidth.value = withTiming(100);
+            progressWidth.value = withTiming(100, { duration: 200 });
           } else {
-            setRecordingProgress(progress);
-            progressWidth.value = withTiming(progress);
+            progressWidth.value = withTiming(progress, { duration: 100 });
           }
-        }, 16);
+        }, 50);
       } catch (e) {
+        isRecordingRef.current = false;
         setIsRecording(false);
-        stopRecordingPulse();
+        recordingPromiseRef.current = null;
       }
     }
-  }, [isRecording, flash, recButtonScale, progressWidth, totalDuration, stopRecording, hasMicPermission, requestMicPermission, startRecordingPulse, stopRecordingPulse, neutralZoom]);
+  }, [progressWidth, totalDuration, stopRecording, microphonePermission, requestMicrophonePermission, maxDuration]);
   
-  // Recording gesture - simple press and hold
-  const recordingGesture = Gesture.LongPress()
-    .minDuration(0) // Activate immediately, no delay
-    .onStart(() => {
-      runOnJS(setZoom)(neutralZoom);
-      runOnJS(startRecording)();
-    })
-    .onEnd(() => {
-      runOnJS(setZoom)(neutralZoom);
-      runOnJS(stopRecording)();
-    });
+  // Handle press start - begin recording
+  const handlePressIn = useCallback(() => {
+    if (!isRecordingRef.current && totalDuration < maxDuration) {
+      startRecording();
+    }
+  }, [totalDuration, startRecording, maxDuration]);
+
+  // Handle press end - stop recording
+  const handlePressOut = useCallback(() => {
+    if (isRecordingRef.current) {
+      stopRecording();
+    }
+  }, [stopRecording]);
 
   const pickFromGallery = async () => {
     try {
@@ -320,69 +311,41 @@ const CreateScreen: React.FC = () => {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
         
-        // Ensure video is downloaded from iCloud using MediaLibrary
-        let videoUri = asset.uri;
-        if (asset.assetId && Platform.OS === 'ios') {
-          try {
-            const mediaAsset = await MediaLibrary.getAssetInfoAsync(asset.assetId, {
-              shouldDownloadFromNetwork: true,
-            });
-            if (mediaAsset.localUri) {
-              videoUri = mediaAsset.localUri;
-            }
-          } catch (mediaError) {
-            console.warn('Failed to download video from iCloud:', mediaError);
-            // Continue with original URI - it might work
-          }
-        }
+        // iCloud downloads will be handled by VideoProcessingService.standardizeVideoPath()
+        // when processing the video
         
         const segmentDuration = asset.duration ? (asset.duration > 1000 ? asset.duration / 1000 : asset.duration) : 0;
         if (segmentDuration > 0) {
           const newTotalDuration = totalDuration + segmentDuration;
-          if (newTotalDuration > MAX_DURATION) {
+          if (newTotalDuration > maxDuration) {
             Alert.alert(
               'Video too long',
-              `Adding this video would exceed the ${MAX_DURATION} second limit. Please select a shorter video.`
+              `Adding this video would exceed the ${maxDuration} second limit. Please select a shorter video.`
             );
             setIsLoadingFromGallery(false);
             setIsProcessing(false);
             return;
           }
           
-          // Update asset URI if we got a new one from MediaLibrary
-          const updatedAsset = videoUri !== asset.uri ? { ...asset, uri: videoUri } : asset;
-          
           const gallerySegment: VideoSegment = {
             startTime: Date.now(),
             duration: segmentDuration,
-            video: updatedAsset, // Use full ImagePickerAsset with downloaded URI
+            video: asset, // Use full ImagePickerAsset - standardization will handle iCloud downloads
             sourceType: 'gallery',
           };
           
           await new Promise(resolve => setTimeout(resolve, 100));
-          setSegments(prev => [...prev, gallerySegment]);
+          setSegments(prev => {
+            const updated = [...prev, gallerySegment];
+            segmentsRef.current = updated;
+            return updated;
+          });
           setTotalDuration(newTotalDuration);
-          const progress = (newTotalDuration / MAX_DURATION) * 100;
-          progressWidth.value = withTiming(progress);
-          setRecordingProgress(progress);
+          const progress = (newTotalDuration / maxDuration) * 100;
+          progressWidth.value = withTiming(progress, { duration: 300 });
         } else {
           Alert.alert('Invalid video', 'Could not determine video duration.');
           setIsLoadingFromGallery(false);
-        }
-        
-        // Show video info alert for gallery videos
-        try {
-          const finalAsset = videoUri !== asset.uri ? { ...asset, uri: videoUri } : asset;
-          const videoInfo = await VideoProcessingService.getVideoInfo(videoUri, finalAsset);
-          const sizeInfo = await VideoProcessingService.checkVideoSize(videoUri, asset.assetId);
-          
-          Alert.alert(
-            'Video Selected',
-            `Resolution: ${videoInfo.resolution}\nQuality: ${videoInfo.qualityStandard}\nDuration: ${videoInfo.durationFormatted}\nSize: ${videoInfo.sizeFormatted}\nAspect Ratio: ${videoInfo.aspectRatio}\nFrame Rate: ${videoInfo.frameRate} fps\nCodec: ${videoInfo.codec.toUpperCase()}\n\n${sizeInfo.needsCompression ? 'Video will be compressed for upload.' : 'Video is ready for upload.'}`,
-            [{ text: 'OK' }]
-          );
-        } catch (error) {
-          // Silent fail for video info
         }
       }
     } catch (e) {
@@ -393,13 +356,39 @@ const CreateScreen: React.FC = () => {
     }
   };
 
-  const flipCamera = () => setIsFrontCamera(prev => !prev);
-  const toggleFlash = () => {
+  const flipCamera = useCallback(async () => {
+    // Stop any active recording before switching cameras
+    if (isRecordingRef.current && cameraRef.current) {
+      await stopRecording();
+    }
+    setIsFrontCamera(prev => !prev);
+  }, [stopRecording]);
+  const toggleFlash = useCallback(() => {
     // Only allow flash on back camera
-    if (!isFrontCamera && device?.hasFlash) {
+    if (!isFrontCamera) {
       setFlash(prev => (prev === 'off' ? 'on' : 'off'));
     }
-  };
+  }, [isFrontCamera]);
+
+  const deleteLastSegment = useCallback(() => {
+    if (segments.length > 0) {
+      const newSegments = [...segments];
+      const removedSegment = newSegments.pop();
+      const newTotalDuration = Math.max(0, totalDuration - (removedSegment?.duration || 0));
+      
+      setSegments(newSegments);
+      segmentsRef.current = newSegments;
+      setTotalDuration(newTotalDuration);
+      
+      // Explicitly reset progress to 0 when all segments are deleted
+      const progress = newSegments.length === 0 ? 0 : (newTotalDuration / maxDuration) * 100;
+      progressWidth.value = withTiming(progress, { duration: 300 });
+    } else if (totalDuration > 0) {
+      // Handle case where there's progress but no segments (e.g., tiny rejected segment)
+      setTotalDuration(0);
+      progressWidth.value = withTiming(0, { duration: 300 });
+    }
+  }, [segments, totalDuration, maxDuration, progressWidth]);
 
   const handleToolAction = useCallback((action: string) => {
     switch (action) {
@@ -420,115 +409,119 @@ const CreateScreen: React.FC = () => {
     }
   }, [pickFromGallery, flipCamera, toggleFlash, deleteLastSegment]);
 
-  const handleBackPress = () => navigation.back();
-
-  const deleteLastSegment = () => {
-    if (segments.length > 0) {
-      const newSegments = [...segments];
-      const removedSegment = newSegments.pop();
-      setSegments(newSegments);
-      const newTotalDuration = totalDuration - (removedSegment?.duration || 0);
-      setTotalDuration(newTotalDuration);
-      const progress = (newTotalDuration / MAX_DURATION) * 100;
-      progressWidth.value = withTiming(progress);
-      setRecordingProgress(progress);
+  const handleBackPress = async () => {
+    if (isRecordingRef.current) {
+      await stopRecording();
     }
+    navigation.back();
   };
 
   const finishRecording = useCallback(async () => {
-    if (segments.length === 0) return;
+    if (segments.length === 0 || isProcessing) return;
+    
+    // Stop recording if active
+    if (isRecordingRef.current) {
+      await stopRecording();
+    }
+    
+    // Use ref to get the latest segments value after stopRecording updates state
+    // This ensures we have the most up-to-date segments including any just added
+    const currentSegments = segmentsRef.current;
+    
     setIsProcessing(true);
     try {
-      if (segments.length === 1) {
-        const segment = segments[0];
-        const videoPath = 'uri' in segment.video ? segment.video.uri : segment.video.path;
+      // If only one segment, check compatibility and process accordingly
+      if (currentSegments.length === 1) {
+        const segment = currentSegments[0];
+        const asset = 'assetId' in segment.video ? segment.video as ImagePicker.ImagePickerAsset : undefined;
+        // Both { uri: string } and ImagePickerAsset have uri property
+        const videoPath = segment.video.uri;
         
-        if (segment.sourceType === 'gallery') {
-          try {
-            const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
-            const optimizedVideo = await VideoProcessingService.optimizeVideoForPosting(videoPath, assetId);
-            const videoWithUri = { 
-              ...optimizedVideo, 
-              path: optimizedVideo.path.startsWith('file://') ? optimizedVideo.path : `file://${optimizedVideo.path}`
-            };
-            navigation.push({
-              pathname: '/post/[id]',
-              params: { id: 'new', videoPath: videoWithUri.path }
-            });
-            return;
-          } catch (error) {
-            const fallbackPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
-            navigation.push({
-              pathname: '/post/[id]',
-              params: { id: 'new', videoPath: fallbackPath }
-            });
-            return;
-          }
+        // Validate that videoPath exists before proceeding
+        if (!videoPath) {
+          throw new Error('Video URI is undefined. Cannot process video.');
         }
-        const finalPath = videoPath.startsWith('file://') ? videoPath : `file://${videoPath}`;
-        navigation.push({
-          pathname: '/post/[id]',
-          params: { id: 'new', videoPath: finalPath }
-        });
-        return;
-      }
-      
-      // Merge all recorded segments into a single file
-      try {
-        const mergedVideo = await mergeSegments(segments);
-        const videoWithUri = { 
-          ...mergedVideo, 
-          path: mergedVideo.path.startsWith('file://') ? mergedVideo.path : `file://${mergedVideo.path}`
-        };
-        navigation.push({
-          pathname: '/post/[id]',
-          params: { id: 'new', videoPath: videoWithUri.path }
-        });
-      } catch (mergeError) {
-        if (segments.length > 0) {
-          const fallbackVideo = segments[0].video;
-          const fallbackPath = 'uri' in fallbackVideo ? fallbackVideo.uri : fallbackVideo.path;
-          Alert.alert(
-            'Merge Failed',
-            'Failed to merge video segments. Using the first segment instead.',
-            [{ text: 'OK' }]
-          );
+        
+        // Debug: Log the incoming video path
+        debugVideoPath('create.tsx single segment', videoPath, asset);
+        
+        // Standardize path first (handles iCloud downloads)
+        const standardizedPath = await VideoProcessingService.standardizeVideoPath(videoPath, asset);
+        
+        console.log('[create.tsx] Standardized path:', standardizedPath);
+        
+        // Check if video is already compatible - skip normalization if so
+        // Use standardizedPath for compatibility check since that's the path we'll actually use
+        const isCompatible = await VideoProcessingService.isVideoCompatible(standardizedPath, asset);
+        
+        let finalVideoPath: string;
+        if (isCompatible) {
+          // Video is compatible, use standardized path directly
+          finalVideoPath = standardizedPath;
+          console.log('[create.tsx] Video compatible, using standardized path');
+        } else {
+          // Video needs normalization
+          console.log('[create.tsx] Video needs normalization');
+          const normalizedVideo = await VideoProcessingService.normalizeVideo(segment.video);
+          finalVideoPath = normalizedVideo.path;
+          console.log('[create.tsx] Normalized path:', finalVideoPath);
+        }
+        
+        // Debug: Log the final path being sent
+        debugVideoPath('create.tsx -> VideoPostScreen', finalVideoPath);
+        
+        // Only navigate if component is still mounted
+        if (isMountedRef.current) {
+          // Navigate directly to post screen with processed video
           navigation.push({
             pathname: '/post/[id]',
-            params: { id: 'new', videoPath: fallbackPath.startsWith('file://') ? fallbackPath : `file://${fallbackPath}` }
+            params: {
+              id: 'new',
+              videoPath: finalVideoPath
+            }
           });
-        } else {
-          throw mergeError;
+        }
+      } else {
+        // Multiple segments need merging - go to processing screen
+        console.log('[create.tsx] Multiple segments, going to processing screen');
+        // Only navigate if component is still mounted
+        if (isMountedRef.current) {
+          navigation.push({
+            pathname: '/video-processing',
+            params: { 
+              segments: JSON.stringify(currentSegments)
+            }
+          });
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to process videos. Please try again.');
+      console.error('[create.tsx] Error processing video:', error);
+      // Only show alert if component is still mounted
+      if (isMountedRef.current) {
+        Alert.alert('Error', 'Failed to process video. Please try again.');
+      }
     } finally {
-      setIsProcessing(false);
+      // Reset processing state in finally block to ensure cleanup
+      if (isMountedRef.current) {
+        setIsProcessing(false);
+      }
     }
-  }, [segments, navigation]);
+  }, [segments, navigation, isProcessing, stopRecording]);
 
   // Render content based on the state of permissions and device availability
   const renderContent = () => {
-    if (!hasPermission) {
+    if (!cameraPermission) {
+      // Camera permissions are still loading
+      return <View style={styles.warningContainer} />;
+    }
+
+    if (!cameraPermission.granted) {
       return (
         <View style={styles.warningContainer}>
           <Icon name="videocam" size={64} color={Colors.lightGray} style={styles.errorIcon} />
           <Text style={styles.warningText}>Please enable camera permissions</Text>
-          <TouchableOpacity style={styles.button} activeOpacity={0.7} onPress={requestPermission}>
-            <Text style={styles.buttonText}>Open Settings</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (!device) {
-      return (
-        <View style={styles.warningContainer}>
-          <Icon name="videocam" size={64} color={Colors.lightGray} style={styles.errorIcon} />
-          <Text style={styles.warningText}>No Camera Found</Text>
-          <TouchableOpacity style={styles.button} activeOpacity={0.7} onPress={() => Linking.openSettings()}>
-            <Text style={styles.buttonText}>Open Settings</Text>
+          <TouchableOpacity style={styles.button} activeOpacity={0.7} onPress={requestCameraPermission}>
+            <Text style={styles.buttonText}>Grant Permission</Text>
           </TouchableOpacity>
         </View>
       );
@@ -538,68 +531,50 @@ const CreateScreen: React.FC = () => {
     return (
       <>
         {/* Progress Bar */}
-        <View style={styles.progressBarOverlay}>
+        <View style={[styles.progressBarOverlay, { height: insets.top }]}>
           <View style={styles.combinedProgressBarContainer}>
-            <View style={styles.progressSegmentsContainer}>
-              {segments.map((segment, index) => (
-                <React.Fragment key={`segment-${segment.startTime}`}>
-                  {index > 0 && <View style={styles.segmentSeparator} />}
-                  <View
-                    style={{
-                      width: `${(segment.duration / MAX_DURATION) * 100}%`,
-                      height: '100%',
-                      backgroundColor: Colors.purple,
-                    }}
-                  />
-                </React.Fragment>
-              ))}
-              {isRecording && (
-                <Animated.View
-                  style={[
-                    {
-                      width: `${recordingProgress - ((totalDuration / MAX_DURATION) * 100)}%`,
-                      height: '100%',
-                      backgroundColor: Colors.red,
-                    },
-                    animatedRecordingPulseStyle
-                  ]}
-                />
-              )}
-            </View>
+            <Animated.View
+              style={[
+                styles.progressBarFill,
+                animatedProgressStyle
+              ]}
+            />
           </View>
         </View>
 
-        {/* Camera View */}
+        {/* Camera View - only render when screen is focused */}
         <View style={styles.cameraContainer}>
           <StatusBar barStyle="light-content" />
-          <Camera
-            ref={cameraRef}
-            style={styles.camera}
-            device={device}
-            format={format}
-            isActive={true}
-            enableZoomGesture
-            zoom={zoom}
-            audio={hasMicPermission}
-            video
-            videoStabilizationMode="cinematic"
-            enableLocation={hasLocationPermission}
-            torch={flash === 'on' && !isFrontCamera && device?.hasFlash ? 'on' : 'off'}
-          />
+          {isFocused && (
+            <CameraView
+              key={`camera-${isFrontCamera ? 'front' : 'back'}`}
+              ref={cameraRef}
+              style={styles.camera}
+              facing={isFrontCamera ? 'front' : 'back'}
+              mode="video"
+              enableTorch={flash === 'on' && !isFrontCamera}
+              zoom={0}
+              mute={!microphonePermission?.granted}
+              videoQuality="1080p"
+              ratio="16:9"
+            />
+          )}
           
           {/* Controls */}
-          <View style={[styles.centerButtonContainer, { bottom: bottomNavBarHeight + (isSmallScreen() ? 20 : 30) }]}>
-            <GestureDetector gesture={recordingGesture}>
-              <Animated.View style={styles.recordButtonContainer}>
-                <Animated.View style={[styles.recordButton, animatedRecordingStyle]}>
-                  {isLoadingFromGallery ? (
-                    <Loading3FillIcon size={32} color="white" />
-                  ) : (
-                    <View style={styles.captureButtonInner} />
-                  )}
-                </Animated.View>
+          <View style={[styles.centerButtonContainer, { bottom: bottomNavBarHeight + (isSmallScreen() ? 40 : 50) }]}>
+            <Pressable
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
+              style={styles.recordButtonContainer}
+            >
+              <Animated.View style={[styles.recordButton, animatedButtonOpacityStyle]}>
+                {isLoadingFromGallery ? (
+                  <Loading3FillIcon size={32} color="white" />
+                ) : (
+                  <View style={styles.captureButtonInner} />
+                )}
               </Animated.View>
-            </GestureDetector>
+            </Pressable>
           </View>
         </View>
       </>
@@ -611,6 +586,55 @@ const CreateScreen: React.FC = () => {
       <TouchableOpacity style={[styles.backButton, { top: insets.top + 10 }]} onPress={handleBackPress}>
         <CloseFillIcon size={26} color="white" />
       </TouchableOpacity>
+      
+      {/* Duration Selector */}
+      {!isRecording && segments.length === 0 && (
+        <View style={[styles.durationSelector, { top: insets.top + 10 }]}>
+          {isDurationSelectorExpanded ? (
+            <>
+              {DURATION_OPTIONS.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.durationOption,
+                    selectedDuration === option.value && styles.durationOptionSelected,
+                  ]}
+                  onPress={() => {
+                    // Only allow changing duration if not recording and no segments exist
+                    if (!isRecording && segments.length === 0) {
+                      setSelectedDuration(option.value);
+                      setIsDurationSelectorExpanded(false);
+                    }
+                  }}
+                  disabled={isRecording || segments.length > 0}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.durationOptionText,
+                      selectedDuration === option.value && styles.durationOptionTextSelected,
+                      (isRecording || segments.length > 0) && styles.durationOptionTextDisabled,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </>
+          ) : (
+            <TouchableOpacity
+              style={styles.durationOption}
+              onPress={() => setIsDurationSelectorExpanded(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.durationOptionText}>
+                {DURATION_OPTIONS.find(opt => opt.value === selectedDuration)?.label || '16s'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+      
       {segments.length > 0 && (
         <TouchableOpacity 
           style={[styles.doneButton, { top: insets.top + 10 }]} 
@@ -618,7 +642,11 @@ const CreateScreen: React.FC = () => {
           disabled={isProcessing}
           activeOpacity={0.7}
         >
-          <ArrowRightFillIcon size={30} color="white" />
+          {isProcessing ? (
+            <Loading3FillIcon size={30} color="white" />
+          ) : (
+            <ArrowRightFillIcon size={30} color="white" />
+          )}
         </TouchableOpacity>
       )}
       {renderContent()}
@@ -626,7 +654,8 @@ const CreateScreen: React.FC = () => {
         mode="create" 
         onToolPress={handleToolAction} 
         flashActive={flash === 'on'} 
-        hasSegments={segments.length > 0}
+        hasSegments={totalDuration > 0}
+        isFrontCamera={isFrontCamera}
       />
     </SafeAreaView>
   );
@@ -690,7 +719,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: isSmallScreen() ? 20 : (SCREEN_HEIGHT - VIDEO_HEIGHT) / 2.6,
     zIndex: 999,
   },
   combinedProgressBarContainer: {
@@ -699,28 +727,52 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     position: 'relative',
     overflow: 'hidden',
-    minHeight: isSmallScreen() ? 4 : 2,
   },
-  progressSegmentsContainer: {
-    flexDirection: 'row',
+  progressBarFill: {
     height: '100%',
-    width: '100%',
-    backgroundColor: Colors.black,
-    minHeight: isSmallScreen() ? 4 : 2,
-  },
-  segmentSeparator: {
-    width: 0,
-    backgroundColor: Colors.black,
-    height: '100%',
+    backgroundColor: Colors.blurple,
+    borderRadius: 0,
   },
   backButton: {
     position: 'absolute',
     left: 10,
-    zIndex: 10,
+    zIndex: 1000,
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  durationSelector: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    height: 44,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  durationOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  durationOptionSelected: {
+    backgroundColor: Colors.white,
+  },
+  durationOptionText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontFamily: 'Firma-Medium',
+  },
+  durationOptionTextSelected: {
+    color: Colors.black,
+    fontFamily: 'Firma-SemiBold',
+  },
+  durationOptionTextDisabled: {
+    opacity: 0.5,
   },
   doneButton: {
     position: 'absolute',
@@ -744,20 +796,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recordButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 4,
+    width: 90,
+    height: 90,
+    borderRadius: 47.5,
+    borderWidth: 5,
     borderColor: Colors.white,
     backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
   captureButtonInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    width: 74,
+    height: 74,
+    borderRadius: 38,
+    backgroundColor: 'rgba(129, 136, 150, 0.4)',
   },
   captureButtonRecording: {
     width: 40,
@@ -765,61 +817,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: Colors.red,
   },
-  zoomIndicator: {
-    position: 'absolute',
-    top: -50,
-    alignSelf: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: Colors.overlayBlack60,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    borderWidth: 1,
-    borderColor: Colors.overlayWhite10,
-  },
-  zoomIndicatorText: {
-    color: Colors.white,
-    fontSize: 14,
-    fontFamily: 'Firma-SemiBold',
-  },
 });
 
 export default CreateScreen;
-
-async function mergeSegments(segments: VideoSegment[]): Promise<VideoFile> {
-  try {
-    // Convert to ProcessingVideoSegment format
-    const processingSegments: ProcessingVideoSegment[] = segments.map(segment => ({
-      startTime: segment.startTime,
-      duration: segment.duration,
-      video: segment.video,
-      sourceType: segment.sourceType,
-    }));
-
-    // Use the VideoProcessingService to merge segments
-    const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
-    
-    return {
-      path: mergedVideo.path,
-      duration: mergedVideo.duration,
-      width: mergedVideo.width,
-      height: mergedVideo.height,
-    };
-  } catch (error) {
-    // Fallback: return the first segment if merging fails
-    const totalDurationMs = segments.reduce((sum, seg) => sum + seg.duration * 1000, 0);
-    const firstVideo = segments[0].video;
-    const videoPath = 'uri' in firstVideo ? firstVideo.uri : firstVideo.path;
-    const videoDuration = 'uri' in firstVideo 
-      ? (firstVideo.duration ? (firstVideo.duration > 1000 ? firstVideo.duration / 1000 : firstVideo.duration) : totalDurationMs / 1000)
-      : totalDurationMs / 1000;
-    const videoWidth = 'uri' in firstVideo ? (firstVideo.width || 0) : (firstVideo.width || 0);
-    const videoHeight = 'uri' in firstVideo ? (firstVideo.height || 0) : (firstVideo.height || 0);
-    
-    return {
-      path: videoPath,
-      duration: videoDuration,
-      width: videoWidth,
-      height: videoHeight,
-    };
-  }
-}

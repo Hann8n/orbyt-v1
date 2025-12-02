@@ -3,23 +3,26 @@ import { View, Text, StyleSheet, TouchableOpacity, RefreshControl } from 'react-
 import { FlashList } from '@shopify/flash-list';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { Colors } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { Avatar } from '../../ui/UI';
 import { Conversation } from '../../../services/ChatService';
 import ChatService from '../../../services/ChatService';
-import AuthorItem from '../../ui/AuthorItem';
-import RelativeDate from '../../ui/RelativeDate';
+import { formatRelativeDate } from '../../ui/RelativeDate';
 import Icon, { Loading3FillIcon } from '../../ui/Icon';
-import { AtProtoOAuthService } from '../../../services/auth/OAuthService';
 
 interface ConversationListProps {
   onConversationPress?: (conversation: Conversation) => void;
+  bottomNavBarHeight?: number;
 }
 
-export default function ConversationList({ onConversationPress }: ConversationListProps) {
+// Divider component for conversations
+const ConversationDivider = () => (
+  <View style={styles.divider} />
+);
+
+export default function ConversationList({ onConversationPress, bottomNavBarHeight = 0 }: ConversationListProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserDid, setCurrentUserDid] = useState<string>('');
   const queryClient = useQueryClient();
@@ -73,98 +76,77 @@ error('Error getting user session:', error);
     const hasEmbed = !!(item.lastMessage && 'embed' in item.lastMessage && (item.lastMessage as any).embed);
     
     return (
-      <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)}>
-        <TouchableOpacity
-          style={styles.conversationItem}
-          onPress={() => handleConversationPress(item)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.conversationContent}>
-            <View style={styles.avatarContainer}>
-              <Avatar
-                uri={otherMember.avatar}
-                type="profile"
-                size={52}
-                noRing={false}
-              />
-              {item.unreadCount > 0 && (
-                <View style={styles.unreadIndicator} />
-              )}
-            </View>
-            
-            <View style={styles.conversationInfo}>
-              <View style={styles.conversationHeader}>
-                <View style={styles.nameAndTime}>
-                  <Text style={[
-                    styles.conversationName,
-                    item.unreadCount > 0 && styles.unreadConversationName
-                  ]} numberOfLines={1}>
-                    {otherMember?.displayName || otherMember?.handle}
-                  </Text>
-                  {item.lastMessageCreatedAt && (
-                    <RelativeDate
-                      dateString={item.lastMessageCreatedAt}
-                      style={styles.conversationTime}
-                    />
-                  )}
-                </View>
-              </View>
-              
-              <View style={styles.conversationFooter}>
-                <Text 
-                  style={[
-                    styles.lastMessage,
-                    item.unreadCount > 0 && styles.unreadMessage
-                  ]}
-                  numberOfLines={1}
-                >
-                  {hasEmbed && !item.lastMessageText ? 'sent a post' : (item.lastMessageText || 'No messages yet')}
-                </Text>
-              </View>
-            </View>
-            
-            <View style={styles.chevronContainer}>
-              <Icon 
-                name="chevron-right" 
-                size={20} 
-                color={Colors.gray} 
-              />
-            </View>
+      <TouchableOpacity
+        style={styles.conversationItem}
+        onPress={() => handleConversationPress(item)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.avatarContainer}>
+          <Avatar
+            uri={otherMember.avatar}
+            type="profile"
+            size={50}
+            showRing={true}
+            style={styles.profileImage}
+          />
+          {item.unreadCount > 0 && (
+            <View style={styles.unreadIndicator} />
+          )}
+        </View>
+        <View style={styles.conversationInfo}>
+          <View style={styles.conversationHeader}>
+            <Text style={[
+              styles.conversationName,
+              item.unreadCount > 0 && styles.unreadConversationName
+            ]} numberOfLines={1}>
+              {otherMember?.displayName || otherMember?.handle}
+            </Text>
+            {item.lastMessageCreatedAt && (
+              <Text style={styles.conversationTime}>
+                {formatRelativeDate(item.lastMessageCreatedAt)}
+              </Text>
+            )}
           </View>
-        </TouchableOpacity>
-      </Animated.View>
+          
+          <View style={styles.conversationFooter}>
+            <Text 
+              style={[
+                styles.lastMessage,
+                item.unreadCount > 0 && styles.unreadMessage
+              ]}
+              numberOfLines={1}
+            >
+              {hasEmbed && !item.lastMessageText ? 'sent a post' : (item.lastMessageText || 'No messages yet')}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
     );
   };
 
   const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIconContainer}>
+    <View style={styles.emptyContainer}>
+      <View style={styles.emptyContent}>
         <Icon 
           name="inbox" 
           size={48} 
           color={Colors.gray} 
         />
+        <Text style={styles.emptyText}>no conversations yet</Text>
       </View>
-      <Text style={styles.emptyStateTitle}>No conversations yet</Text>
-      <Text style={styles.emptyStateSubtitle}>
-        Start a conversation by messaging someone from their profile
-      </Text>
     </View>
   );
 
   const renderErrorState = () => (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIconContainer}>
+    <View style={styles.emptyContainer}>
+      <View style={styles.emptyContent}>
         <Icon 
           name="alert-circle" 
           size={48} 
           color={Colors.lightRed} 
         />
+        <Text style={styles.emptyText}>unable to load conversations</Text>
       </View>
-      <Text style={styles.emptyStateTitle}>Unable to load conversations</Text>
-      <Text style={styles.emptyStateSubtitle}>
-        Please check your connection and try again
-      </Text>
     </View>
   );
 
@@ -173,7 +155,6 @@ error('Error getting user session:', error);
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <Loading3FillIcon size={48} color={Colors.white} />
-          <Text style={styles.loadingText}>Loading conversations...</Text>
         </View>
       </View>
     );
@@ -189,6 +170,7 @@ error('Error getting user session:', error);
         data={conversations}
         renderItem={renderConversation}
         keyExtractor={(item) => item.id}
+        ItemSeparatorComponent={ConversationDivider}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -198,7 +180,10 @@ error('Error getting user session:', error);
           />
         }
         ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={conversations.length === 0 ? styles.emptyContainer : styles.listContainer}
+        contentContainerStyle={conversations.length === 0 ? styles.emptyContainer : {
+          paddingHorizontal: 15,
+          paddingBottom: bottomNavBarHeight + 5,
+        }}
         showsVerticalScrollIndicator={false}
       />
     </View>
@@ -211,18 +196,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
   conversationItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.darkGray,
-  },
-  conversationContent: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.darkGray,
+    marginLeft: 62, // Align with content (50px avatar + 12px margin)
+    marginRight: -15, // Extend to right edge, ignoring 15px padding
   },
   avatarContainer: {
     position: 'relative',
-    marginRight: 16,
+  },
+  profileImage: {
+    width: 50,
+    height: 50,
+    borderRadius: BORDER_RADIUS.FULL,
+    marginRight: 12,
   },
   unreadIndicator: {
     position: 'absolute',
@@ -237,95 +228,70 @@ const styles = StyleSheet.create({
   },
   conversationInfo: {
     flex: 1,
-    minWidth: 0,
+    justifyContent: 'flex-start',
+    marginRight: 10,
   },
   conversationHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  nameAndTime: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+    marginBottom: 2,
   },
   conversationName: {
-    fontSize: 17,
-    fontFamily: 'Firma-Bold',
     color: Colors.white,
-    marginRight: 8,
+    fontSize: 18,
+    marginBottom: 2,
+    fontFamily: 'Firma-Bold',
+    fontWeight: 'bold',
+    marginRight: 4,
   },
   unreadConversationName: {
     color: Colors.white,
-    fontWeight: '700',
   },
   conversationTime: {
-    fontSize: 13,
-    fontFamily: 'Firma-Medium',
     color: Colors.gray,
+    fontSize: 13,
+    fontFamily: 'Firma-Regular',
+    marginLeft: 4,
   },
   conversationFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
   },
   lastMessage: {
-    fontSize: 15,
-    fontFamily: 'Firma-Regular',
-    color: Colors.lightGray,
-    flex: 1,
-    marginRight: 8,
+    color: Colors.mutedGray,
+    fontSize: 16,
+    fontFamily: 'Firma-Medium',
   },
   unreadMessage: {
     color: Colors.white,
     fontFamily: 'Firma-SemiBold',
     fontWeight: '600',
   },
-  chevronContainer: {
-    marginLeft: 12,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    minHeight: 400,
-  },
-  emptyIconContainer: {
-    marginBottom: 24,
-    opacity: 0.6,
-  },
-  emptyStateTitle: {
-    fontSize: 22,
-    fontFamily: 'Firma-Bold',
-    color: Colors.white,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  emptyStateSubtitle: {
-    fontSize: 16,
-    fontFamily: 'Firma-Regular',
-    color: Colors.lightGray,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
   emptyContainer: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 60,
   },
-  listContainer: {
-    paddingBottom: 32,
+  emptyContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    color: Colors.lightGray,
+    fontSize: 16,
+    textAlign: 'center',
+    fontFamily: 'Firma-Medium',
+    marginTop: 16,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  loadingText: {
-    fontSize: 16,
-    fontFamily: 'Firma-Medium',
-    color: Colors.lightGray,
-    marginTop: 16,
+    paddingTop: 100,
+    paddingBottom: 100,
   },
 });

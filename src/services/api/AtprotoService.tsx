@@ -1390,33 +1390,101 @@ class AtprotoService {
     }
   }
 
-  static async sendVideoFeedback(postUri: string, type: 'interested' | 'not_interested'): Promise<void> {
+  /**
+   * Send video feedback (show more/show less) to the appropriate feed provider
+   * Uses the app.bsky.feed.sendInteractions API to communicate preferences to feed generators
+   * @param postUri - The post URI to send feedback for
+   * @param type - Type of feedback: 'interested' (show more) or 'not_interested' (show less)
+   * @param sourceFeed - Optional source feed URI where the post came from (for accurate interaction routing)
+   * @param feedContext - Optional context string from the feed generator (for tracking)
+   */
+  static async sendVideoFeedback(
+    postUri: string, 
+    type: 'interested' | 'not_interested', 
+    sourceFeed?: string,
+    feedContext?: string
+  ): Promise<void> {
     try {
+      await this.ensureSession();
+      
       // Get the current user's DID from OAuth session
       const userDid = await this.getCurrentUserDid();
       if (!userDid) {
         throw new Error('No authenticated user found');
       }
 
-      // For now, we'll use a custom approach since Bluesky doesn't have a direct feedback API
-      // We can store the feedback locally and potentially send it to a custom endpoint
-      // This is a placeholder implementation that can be extended later
+      // Determine target feed for the interaction
+      // Priority: 1. sourceFeed (if post came from an algorithmic feed)
+      //           2. User's selected algorithmic feed provider
+      //           3. null (no target, just store locally)
+      let targetFeed: string | null = null;
       
-      // Store feedback in local storage
+      // Import algorithmic feed providers to check if sourceFeed is one of them
+      const { ALGORITHMIC_FEED_PROVIDERS, useUserStore } = await import('../../stores/userStore');
+      const algorithmicFeedUris: string[] = Object.values(ALGORITHMIC_FEED_PROVIDERS).map(p => p.uri);
+      
+      if (sourceFeed && algorithmicFeedUris.includes(sourceFeed)) {
+        // Post came from an algorithmic feed - route interaction to that feed
+        targetFeed = sourceFeed;
+      } else {
+        // Fall back to user's selected algorithmic feed provider
+        const { algorithmicFeedProvider } = useUserStore.getState();
+        targetFeed = algorithmicFeedProvider;
+      }
+
+      // Store feedback in local storage for persistence/history
       const feedbackKey = `video_feedback_${postUri}`;
       const feedbackData = {
         postUri,
         type,
         timestamp: new Date().toISOString(),
         userDid: userDid,
-        targetFeed: 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids' // Always send to vids feed
+        targetFeed: targetFeed,
       };
-      
-      // Store in AsyncStorage for persistence
       await AsyncStorage.setItem(feedbackKey, JSON.stringify(feedbackData));
+
+      // If we have a target feed, send the interaction to Bluesky's API
+      // This communicates the preference to the feed generator
+      if (targetFeed) {
+        const { api } = await this.getApiClient();
+        
+        // Map our feedback types to Bluesky's interaction events
+        // app.bsky.feed.defs#requestMore = show more like this
+        // app.bsky.feed.defs#requestLess = show less like this
+        const event = type === 'interested' 
+          ? 'app.bsky.feed.defs#requestMore' 
+          : 'app.bsky.feed.defs#requestLess';
+        
+        // Build the interaction object
+        const interaction: { item: string; event: string; feedContext?: string } = {
+          item: postUri,
+          event: event,
+        };
+        
+        // Include feedContext if provided (helps feed generators track context)
+        if (feedContext) {
+          interaction.feedContext = feedContext;
+        }
+        
+        // Send the interaction to the Bluesky API
+        await api.app.bsky.feed.sendInteractions({
+          interactions: [interaction],
+        });
+        
+        logger.debug('Sent feed interaction', { 
+          component: 'AtprotoService', 
+          postUri, 
+          event, 
+          targetFeed 
+        });
+      }
       
     } catch (error: unknown) {
-      throw error;
+      // Log error but don't throw - interactions are best-effort
+      logger.warn('Failed to send feed interaction', { 
+        component: 'AtprotoService', 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
     }
   }
 
@@ -1454,7 +1522,10 @@ class AtprotoService {
   static async listNotifications(cursor: string | null = null, limit = 50): Promise<{ notifications: any[]; cursor: string | null }> {
     await this.ensureSession();
     try {
-      const params: { cursor?: string, limit: number } = { limit };
+      const params: { cursor?: string, limit: number, reasons?: string[] } = { 
+        limit,
+        reasons: ['like', 'repost', 'follow', 'mention', 'reply', 'quote', 'starterpack-joined', 'verified', 'unverified']
+      };
       if (cursor !== null) {
         params.cursor = cursor;
       }
@@ -1990,11 +2061,22 @@ class AtprotoService {
       // Return all feeds without filtering
       const allFeeds = response.data.feeds || [];
       
-      // Mark feeds as experimental based on content mode but don't filter them
+      // Extract contentMode from API response (may be at feed.contentMode or feed.view?.contentMode)
+      // If contentMode is missing, derive it from isExperimental flag
       const processedFeeds = allFeeds.map((feed: any) => {
-        const isVideoOnly = feed.contentMode === 'app.bsky.feed.defs#contentModeVideo';
+        let contentMode = feed.contentMode || feed.view?.contentMode;
+        
+        // Fallback: if contentMode is missing but isExperimental exists, derive it
+        if (!contentMode && feed.isExperimental !== undefined) {
+          contentMode = feed.isExperimental 
+            ? undefined // Non-video feed (no contentMode set)
+            : 'app.bsky.feed.defs#contentModeVideo'; // Video-only feed
+        }
+        
+        const isVideoOnly = contentMode === 'app.bsky.feed.defs#contentModeVideo';
         return {
           ...feed,
+          contentMode, // Preserve contentMode at top level for easy access
           isExperimental: !isVideoOnly
         };
       });
@@ -2021,11 +2103,22 @@ class AtprotoService {
       // Return all feeds without filtering
       const allFeeds = response.data.feeds || [];
       
-      // Mark feeds as experimental based on content mode but don't filter them
+      // Extract contentMode from API response (may be at feed.contentMode or feed.view?.contentMode)
+      // If contentMode is missing, derive it from isExperimental flag
       const processedFeeds = allFeeds.map((feed: any) => {
-        const isVideoOnly = feed.contentMode === 'app.bsky.feed.defs#contentModeVideo';
+        let contentMode = feed.contentMode || feed.view?.contentMode;
+        
+        // Fallback: if contentMode is missing but isExperimental exists, derive it
+        if (!contentMode && feed.isExperimental !== undefined) {
+          contentMode = feed.isExperimental 
+            ? undefined // Non-video feed (no contentMode set)
+            : 'app.bsky.feed.defs#contentModeVideo'; // Video-only feed
+        }
+        
+        const isVideoOnly = contentMode === 'app.bsky.feed.defs#contentModeVideo';
         return {
           ...feed,
+          contentMode, // Preserve contentMode at top level for easy access
           isExperimental: !isVideoOnly
         };
       });
@@ -2712,11 +2805,17 @@ class AtprotoService {
     joinDate?: string;
     colors?: { backgroundColor: string; textColor: string } | null;
     subscribedChannels?: string[];
+    algorithmicFeedProvider?: string | null;
   }): Promise<boolean> {
     try {
       const userDid = await this.getCurrentUserDid();
       if (!userDid) return false;
-      const { api } = await this.getApiClient();
+      const apiClient = await this.getApiClient();
+      if (!apiClient) {
+        logger.debug('API client not available, skipping profile record update', { component: 'AtprotoService' });
+        return false;
+      }
+      const { api } = apiClient;
 
       // Read existing
       let existing: any | null = null;
@@ -2737,6 +2836,7 @@ class AtprotoService {
         // Preserve prior fields unless overridden
         colors: update.colors === undefined ? existing?.colors || null : update.colors,
         subscribedChannels: update.subscribedChannels ?? existing?.subscribedChannels ?? [],
+        algorithmicFeedProvider: update.algorithmicFeedProvider === undefined ? existing?.algorithmicFeedProvider ?? null : update.algorithmicFeedProvider,
       };
 
       if (existing) {
@@ -2777,18 +2877,31 @@ class AtprotoService {
       // No legacy migration; initialize without colors by default
       let colors: { backgroundColor: string; textColor: string } | null = null;
 
-      // Pull current subscribed channels from userStore
+      // Pull current subscribed channels from userStore (filter built-ins)
       let subscribedChannels: string[] = [];
       try {
         const { useUserStore } = await import('../../stores/userStore');
         const channels = useUserStore.getState().subscribedChannels || [];
-        subscribedChannels = channels.map((c: any) => c.uri).filter(Boolean);
+        const allUris = channels.map((c: any) => c.uri).filter(Boolean);
+        // Filter out built-in channels
+        const BUILT_IN_CHANNELS = ['following', 'your-mix'];
+        subscribedChannels = allUris.filter((uri: string) => !BUILT_IN_CHANNELS.includes(uri));
+      } catch {}
+
+      // Pull current algorithmic feed provider from userStore
+      let algorithmicFeedProvider: string | null = null;
+      try {
+        const { useUserStore, ALGORITHMIC_FEED_PROVIDERS } = await import('../../stores/userStore');
+        const provider = useUserStore.getState().algorithmicFeedProvider;
+        // Use current value or default to Bluesky Video
+        algorithmicFeedProvider = provider ?? ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri;
       } catch {}
 
       await this.upsertOrbytProfileRecord({
         joinDate: new Date().toISOString(),
         colors,
         subscribedChannels,
+        algorithmicFeedProvider,
       });
     } catch {
       // best-effort only
@@ -2808,8 +2921,20 @@ class AtprotoService {
    * Update subscribed channels in orbyt profile record
    */
   static async updateOrbytProfileChannels(channelUris: string[]): Promise<void> {
+    // Filter out built-in channels before saving
+    const BUILT_IN_CHANNELS = ['following', 'your-mix'];
+    const filteredUris = (channelUris || []).filter(uri => !BUILT_IN_CHANNELS.includes(uri));
     await this.upsertOrbytProfileRecord({
-      subscribedChannels: Array.from(new Set(channelUris || [])),
+      subscribedChannels: Array.from(new Set(filteredUris)),
+    });
+  }
+
+  /**
+   * Update algorithmic feed provider in orbyt profile record
+   */
+  static async updateOrbytProfileAlgorithmicFeedProvider(uri: string | null): Promise<void> {
+    await this.upsertOrbytProfileRecord({
+      algorithmicFeedProvider: uri,
     });
   }
 

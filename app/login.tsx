@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   },
   liquidGlassButton: {
     width: '100%',
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.FULL,
     marginTop: 8,
     marginBottom: 16,
     overflow: 'hidden',
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   blurContainer: {
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.FULL,
     overflow: 'hidden',
   },
   glassGradient: {
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: BORDER_RADIUS.FULL,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },

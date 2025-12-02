@@ -9,7 +9,6 @@ import {
   ScrollView,
   Modal,
   Dimensions,
-  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -17,7 +16,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, SharedValue } f
 import * as ImagePicker from 'expo-image-picker';
 import { Button, Host } from '@expo/ui/swift-ui';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { Colors } from '../../ui/UI';
+import { Colors, Avatar } from '../../ui/UI';
 import { Loading3FillIcon } from '../../ui/Icon';
 import { useProfileUpdateMutation } from '../../../services/cache/ProfileCache';
 
@@ -800,15 +799,17 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               {/* Avatar Section */}
               <View style={styles.section}>
                 <View style={styles.avatarContainer}>
-                  <View style={[styles.avatar, { borderColor: currentColors.textColor }]}>
-                    {editAvatar ? (
-                      <Image source={{ uri: editAvatar }} style={styles.avatarImage} />
-                    ) : profileData?.avatar ? (
-                      <Image source={{ uri: profileData.avatar }} style={styles.avatarImage} />
-                    ) : (
-                      <Text style={styles.avatarText}>👤</Text>
-                    )}
-                  </View>
+                  <Avatar
+                    uri={editAvatar || profileData?.avatar}
+                    type="profile"
+                    size={112}
+                    profileColors={{
+                      backgroundColor: currentColors.backgroundColor,
+                      textColor: currentColors.textColor,
+                      foregroundColor: currentColors.textColor,
+                    }}
+                    showRing={true}
+                  />
                   <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.8}>
                     {isLiquidGlassAvailable ? (
                       <GlassView 
@@ -963,23 +964,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-  },
-  avatar: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-  },
-  avatarText: {
-    fontSize: 48,
   },
   uploadButton: {
     borderRadius: 20,
