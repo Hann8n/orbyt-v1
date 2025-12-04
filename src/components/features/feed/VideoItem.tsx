@@ -125,7 +125,6 @@ const VideoItem: React.FC<VideoItemProps> = ({
         ref={videoRef}
         post={{ ...post, embed: videoEmbed }}
         isVisible={isVisible}
-        shouldCache={true}
         shouldDisablePlayback={!allowPlayback}
         onVideoStatus={handleVideoStatusChange}
         height={itemHeight}

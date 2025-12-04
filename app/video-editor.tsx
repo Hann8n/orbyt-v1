@@ -16,7 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Video, { VideoRef } from 'react-native-video';
+import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
+import { useEvent } from 'expo';
 import * as FileSystem from 'expo-file-system';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
@@ -67,7 +68,7 @@ interface EditableTextOverlayProps {
   onDragEnd: (id: string) => void;
   onTap: (id: string) => void;
   onTextChange: (id: string, text: string) => void;
-  onUpdate: (id: string, updates: Partial<TextOverlayEdit>) => void;
+  onUpdate: (updates: Partial<TextOverlayEdit>) => void;
   onDelete: (id: string) => void;
   onDone: () => void;
 }
@@ -90,7 +91,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
   const textInputRef = useRef<TextInput>(null);
   const dragStartPositions = useRef<{ x: number; y: number } | null>(null);
   const hasMoved = useRef(false);
-  const tapTimeout = useRef<NodeJS.Timeout | null>(null);
+  const tapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Focus input when editing starts
   useEffect(() => {
@@ -359,7 +360,7 @@ const VideoEditorScreen: React.FC = () => {
   const params = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const videoRef = useRef<VideoRef>(null);
+  const playerRef = useRef<VideoPlayer | null>(null);
   
   // Parse segments from params or fallback to single videoPath
   const segmentsParam = params.segments as string | undefined;
@@ -505,6 +506,70 @@ const VideoEditorScreen: React.FC = () => {
   // Final video URI for playback
   const videoUri = resolvedVideoUri;
 
+  // Create expo-video player
+  const player = useVideoPlayer(null, (p) => {
+    p.loop = true;
+    p.volume = masterVolume;
+    playerRef.current = p;
+  });
+
+  // Attach/replace source when resolved
+  useEffect(() => {
+    if (!player) return;
+    if (videoUri) {
+      try {
+        player.replace({ uri: videoUri });
+        setVideoError(null);
+      } catch (e) {
+        setVideoError('Failed to load video');
+      }
+    }
+  }, [player, videoUri]);
+
+  // Handle player status changes
+  (useEvent as any)(player, 'statusChange', (payload: any) => {
+    const status = typeof payload === 'string' ? payload : payload?.status;
+    if (status === 'loading') {
+      setVideoLoading(true);
+      setVideoError(null);
+    } else if (status === 'readyToPlay') {
+      setVideoLoading(false);
+      if (player.duration) {
+        setDuration(player.duration);
+      }
+    } else if (status === 'error') {
+      setVideoLoading(false);
+      setVideoError('Failed to load video');
+    }
+  });
+
+  // Track playback progress
+  useEffect(() => {
+    if (!player) return;
+    const interval = setInterval(() => {
+      if (player.currentTime !== undefined) {
+        setCurrentTime(player.currentTime);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, [player]);
+
+  // Sync play/pause state
+  useEffect(() => {
+    if (!player) return;
+    if (isPlaying) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [player, isPlaying]);
+
+  // Update volume when masterVolume changes
+  useEffect(() => {
+    if (player) {
+      player.volume = masterVolume;
+    }
+  }, [player, masterVolume]);
 
   // Cleanup temporary files
   useEffect(() => {
@@ -558,7 +623,7 @@ const VideoEditorScreen: React.FC = () => {
       const random = Math.random().toString(36).substring(7);
       const fileName = `video_edit_${timestamp}_${random}.mp4`;
       
-      let tempDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+      let tempDir = (FileSystem as any).cacheDirectory || (FileSystem as any).documentDirectory;
       if (!tempDir) {
         throw new Error('Unable to determine temporary directory');
       }
@@ -815,8 +880,8 @@ const VideoEditorScreen: React.FC = () => {
       setMergedVideoPath(finalPath);
       
       // Reset video player
-      if (videoRef.current) {
-        videoRef.current.seek(0);
+      if (player) {
+        player.currentTime = 0;
       }
       
       Alert.alert('Success', 'Video edits applied successfully!');
@@ -991,43 +1056,13 @@ const VideoEditorScreen: React.FC = () => {
                   </Text>
                 </View>
               )}
-              {videoUri && !isMerging && mergedVideoPath && (
-                <Video
+              {videoUri && !isMerging && mergedVideoPath && player && (
+                <VideoView
                   key={mergedVideoPath}
-                  ref={videoRef}
-                  source={{ uri: videoUri }}
+                  player={player}
                   style={styles.video}
-                  resizeMode="contain"
-                  paused={!isPlaying}
-                  repeat={true}
-                  muted={false}
-                  volume={masterVolume}
-                  playInBackground={false}
-                  playWhenInactive={false}
-                  ignoreSilentSwitch="ignore"
-              onLoadStart={() => {
-                setVideoLoading(true);
-                setVideoError(null);
-              }}
-              onLoad={(e) => {
-                setVideoLoading(false);
-                if (e?.duration) {
-                  setDuration(e.duration);
-                }
-                // Ensure video starts playing immediately after load
-                if (isPlaying && videoRef.current) {
-                  videoRef.current.seek(0);
-                }
-              }}
-              onProgress={(status) => {
-                if (status?.currentTime !== undefined) {
-                  setCurrentTime(status.currentTime);
-                }
-              }}
-              onError={(e) => {
-                setVideoLoading(false);
-                setVideoError('Failed to load video');
-              }}
+                  contentFit="contain"
+                  nativeControls={false}
                 />
               )}
             </>

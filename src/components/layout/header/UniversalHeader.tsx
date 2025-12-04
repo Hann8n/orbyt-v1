@@ -43,6 +43,7 @@ export interface HeaderContent {
   isEditMode?: boolean;
   avatarStyle?: 'circle' | 'rounded-square';
   hideAvatar?: boolean;
+  avatarBlurRadius?: number;
 }
 
 export interface CustomActionLayout {
@@ -399,6 +400,7 @@ const HeaderContentComponent = memo<{
               size={120}
               profileColors={{ backgroundColor, textColor, foregroundColor: textColor }}
               showRing={true}
+              blurRadius={content.avatarBlurRadius}
             />
           )}
         </TouchableOpacity>
@@ -555,9 +557,9 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     styles.header,
     { 
       backgroundColor: backgroundImage ? 'transparent' : backgroundColor,
-      ...(applySafeArea && { paddingTop: insets.top }),
-      ...(minHeight && { minHeight }),
     },
+    applySafeArea && { paddingTop: insets.top },
+    minHeight && { minHeight },
     style,
   ], [backgroundColor, backgroundImage, style, applySafeArea, insets.top, minHeight]);
 

@@ -47,7 +47,7 @@ const MIN_SEGMENT_DURATION = 0.5; // Minimum duration for a segment in seconds
 
 // Duration options in seconds
 const DURATION_OPTIONS = [
-  { value: 6.5, label: '6.5s' },
+  { value: 6, label: '6s' },
   { value: 16, label: '16s' },
   { value: 60, label: '1m' },
   { value: 180, label: '3m' },
@@ -536,7 +536,8 @@ const CreateScreen: React.FC = () => {
             <Animated.View
               style={[
                 styles.progressBarFill,
-                animatedProgressStyle
+                { backgroundColor: selectedDuration === 6 ? '#09eb9a' : Colors.blurple },
+                animatedProgressStyle,
               ]}
             />
           </View>

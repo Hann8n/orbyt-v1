@@ -21,7 +21,6 @@ import { isSmallScreen, isTablet, getVideoCardHeight, getBottomNavBarHeight } fr
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon } from '../../ui/Icon';
-import { preloadVideoData } from '../../../utils/helpers/video';
 import { 
   APP_CONSTANTS, 
   SCROLL_CONSTANTS, 
@@ -535,11 +534,14 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         viewabilityConfig={viewabilityConfig}
         
         // Scroll behavior
-        scrollEnabled={listData.length > 0}
+        scrollEnabled={true}
         showsVerticalScrollIndicator={false}
-        bounces={false}
+        bounces={true}
         directionalLockEnabled={true}
         initialScrollIndex={typeof initialIndex === 'number' ? initialIndex : undefined}
+        
+        // Pull to refresh
+        refreshControl={refreshControl as any}
         
         // Prevent horizontal interference
         alwaysBounceVertical={false}
@@ -593,7 +595,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         
         // Content container styling
         contentContainerStyle={{
-          backgroundColor: backgroundColor || Colors.black,
+          // Force black between items so margins render as black
+          backgroundColor: Colors.black,
           paddingBottom: visibleFeed.length === 0 ? 0 : viewportDimensions.bottomNavBarHeight,
         }}
       />

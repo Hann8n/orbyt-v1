@@ -300,18 +300,10 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     <View 
       style={[
         styles.emptyContainer,
-        viewableAreaHeight
-          ? { height: viewableAreaHeight }
-          : {
-              minHeight: isProfileFeed
-                ? Dimensions.get('window').height - insets.top - insets.bottom
-                : Dimensions.get('window').height - insets.top - insets.bottom,
-              paddingTop: insets.top,
-              paddingBottom: insets.bottom,
-            }
+        viewableAreaHeight && { height: viewableAreaHeight },
       ]}
     >
-              <View style={[styles.contentContainer, shouldOffsetTop && { paddingTop: topThirdOffset }]}>
+      <View style={[styles.contentContainer, shouldOffsetTop && { paddingTop: topThirdOffset }]}>
           <View style={styles.iconContainer}>
             {(isProfileFeed || (feedOption && feedOption.startsWith('hashtag:'))) && type === 'no-videos' ? (
               <Image source={UFOGif} style={styles.ufoGif} />
@@ -357,7 +349,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    backgroundColor: Colors.black,
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     alignItems: 'center',

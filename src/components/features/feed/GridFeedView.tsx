@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   Dimensions,
   Image,
+  ScrollView,
 } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -87,21 +89,35 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   const onScroll = () => {};
 
   // Responsive grid columns and item size
-  const screen = Dimensions.get('window');
-  let numColumns = 4;
-  if (isTablet()) {
-    numColumns = 6;
-  } else if (isSmallScreen()) {
-    numColumns = 3;
-  }
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // Breakpoints: ensure at least 3 columns; default 3 on mobile
+  // Adjust as needed: 3 (<=480), 4 (<=900), 5 (<=1200), 6 (>1200 or tablets)
+  const computedColumns = useMemo(() => {
+    const w = windowWidth || Dimensions.get('window').width;
+    let cols = 3; // default mobile
+    if (w > 1200 || isTablet()) {
+      cols = 6;
+    } else if (w > 900) {
+      cols = 5;
+    } else if (w > 480) {
+      cols = 4;
+    } else {
+      cols = 3;
+    }
+    // enforce minimum of 3
+    return Math.max(3, cols);
+  }, [windowWidth]);
+
+  const numColumns = computedColumns;
   // With borders instead of margins, items can use full width divided by columns
-  const itemWidth = screen.width / numColumns;
+  const itemWidth = (windowWidth || Dimensions.get('window').width) / numColumns;
   const itemHeight = itemWidth * (16 / 9);
 
-  // Remove safe area insets for all grid views
-  const effectiveInsets = { top: 0, bottom: 0, left: 0, right: 0 } as const;
+  // Use actual safe area insets and bottom nav bar height
+  const insets = useSafeAreaInsets();
+  const effectiveInsets = { top: insets.top || 0, bottom: insets.bottom || 0, left: insets.left || 0, right: insets.right || 0 } as const;
   const bottomNavBarHeight = getBottomNavBarHeight(effectiveInsets);
-  const viewableAreaHeight = screen.height - effectiveInsets.top - bottomNavBarHeight;
+  const viewableAreaHeight = (windowHeight || Dimensions.get('window').height) - effectiveInsets.top - bottomNavBarHeight;
       // When used inside a custom container, subtract header height
   const headerHeightForTabs = ListComponent ? 280 : 0;
   const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
@@ -168,62 +184,77 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
 
   // Use FlashList to render the grid with appropriate numColumns
   return (
-    <View style={[styles.container, { backgroundColor }]}> 
-      {(() => {
-        const ListEl: any = ListComponent || FlashList;
-        return (
-          <ListEl
-            key={`grid-${feedOption}-${userDid || 'default'}`}
-            data={feed}
-            renderItem={renderGridItem}
-            keyExtractor={(item: FeedItem, index: number) => `grid-${item.post.uri}-${index}`}
-            numColumns={numColumns}
-            contentContainerStyle={[
-              styles.listContent,
-              feed.length === 0 && styles.emptyContentContainer,
-              feed.length === 0
-                ? { paddingBottom: 0, backgroundColor }
-                : { paddingBottom: bottomNavBarHeight + 20, backgroundColor }
-            ]}
-            columnWrapperStyle={[styles.columnWrapper, { backgroundColor }]}
-            showsVerticalScrollIndicator={false}
-            contentInsetAdjustmentBehavior="never"
-            bounces={false}
-            ListHeaderComponent={headerComponent}
-            ListEmptyComponent={
-              isError ? (
-                <EmptyFeed 
-                  type="error" 
-                  secondaryColor={secondaryColor} 
-                  profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
-                  onRetry={onRetry}
-                  isProfileFeed={isProfileFeed || isHeaderFeed}
-                  viewableAreaHeight={emptyComponentHeight}
-                  feedOption={feedOption}
-                />
-              ) : (
-                <EmptyFeed 
-                  type={feedOption === 'following' ? 'no-following' : 'no-videos'} 
-                  secondaryColor={secondaryColor} 
-                  profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
-                  isProfileFeed={isProfileFeed || isHeaderFeed}
-                  viewableAreaHeight={emptyComponentHeight}
-                  feedOption={feedOption}
-                />
-              ) as React.ReactElement
-            }
-            refreshControl={refreshControl as any}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            // Disable scrolling when there are no items
-            scrollEnabled={feed.length > 0}
-            onEndReached={hasNextPage ? onLoadMore : undefined}
-            onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-            removeClippedSubviews={false}
-    
-          />
-        );
-      })()}
+    <View style={[styles.container, { backgroundColor }]}>
+      {feed.length === 0 ? (
+        // Empty state: Use ScrollView for proper pull-to-refresh support
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollViewContent}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+          refreshControl={refreshControl as any}
+        >
+          {headerComponent && (
+            <View style={styles.headerWrapper}>
+              {headerComponent}
+            </View>
+          )}
+          {isError ? (
+            <EmptyFeed 
+              type="error" 
+              secondaryColor={secondaryColor} 
+              profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
+              onRetry={onRetry}
+              isProfileFeed={isProfileFeed || isHeaderFeed}
+              viewableAreaHeight={emptyComponentHeight}
+              feedOption={feedOption}
+            />
+          ) : (
+            <EmptyFeed 
+              type={feedOption === 'following' ? 'no-following' : 'no-videos'} 
+              secondaryColor={secondaryColor} 
+              profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
+              isProfileFeed={isProfileFeed || isHeaderFeed}
+              viewableAreaHeight={emptyComponentHeight}
+              feedOption={feedOption}
+            />
+          )}
+        </ScrollView>
+      ) : (
+        // Grid content: Use FlashList with header inside
+        (() => {
+          const ListEl: any = ListComponent || FlashList;
+          return (
+            <ListEl
+              key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
+              data={feed}
+              renderItem={renderGridItem}
+              keyExtractor={(item: FeedItem, index: number) => `grid-${item.post.uri}-${index}`}
+              numColumns={numColumns}
+              contentContainerStyle={[
+                styles.listContent,
+                { paddingBottom: effectiveInsets.bottom + bottomNavBarHeight, backgroundColor }
+              ]}
+              columnWrapperStyle={styles.columnWrapper}
+              showsVerticalScrollIndicator={false}
+              contentInsetAdjustmentBehavior="never"
+              bounces={true}
+              ListHeaderComponent={headerComponent ? (
+                <View style={styles.headerWrapper}>
+                  {headerComponent}
+                </View>
+              ) : null}
+              refreshControl={refreshControl as any}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+              scrollEnabled={true}
+              onEndReached={hasNextPage ? onLoadMore : undefined}
+              onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+              removeClippedSubviews={false}
+            />
+          );
+        })()
+      )}
     </View>
   );
 };
@@ -231,19 +262,25 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.black, // Changed back to black
+    backgroundColor: Colors.black,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+  },
+  headerWrapper: {
+    width: '100%',
+    backgroundColor: 'transparent',
   },
   listContent: {
     flexGrow: 1,
     paddingBottom: 20,
-    paddingHorizontal: 0, // Remove extra horizontal padding
-  },
-  emptyContentContainer: {
-    flex: 1,
+    paddingHorizontal: 0,
   },
   columnWrapper: {
     marginBottom: ITEM_MARGIN,
-    backgroundColor: Colors.black, // default; overridden by prop
   },
   gridItem: {
     position: 'relative',

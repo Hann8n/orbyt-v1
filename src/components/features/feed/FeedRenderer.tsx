@@ -119,12 +119,8 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
   visibilityKey,
   shouldPrefetch = false,
 }) => {
-    const resolvedVisibilityKey = useMemo(() => {
-      if (typeof visibilityKey === 'string' && visibilityKey.length > 0) {
-        return visibilityKey;
-      }
-      return userDid ? `${feedOption}:${userDid}` : feedOption;
-    }, [feedOption, userDid, visibilityKey]);
+  // Resolve visibility key for feed tracking
+  const resolvedVisibilityKey = visibilityKey || (userDid ? `${feedOption}:${userDid}` : feedOption);
   // Memoized feed type detection
   const isSearchFeed = useMemo(() => feedOption === 'search', [feedOption]);
 
@@ -234,52 +230,52 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     }
   }, [hasNextPage, isFetchingNextPage, isVisible, fetchNextPage]);
 
-  // Memoized error state render
-  const errorStateRender = useMemo(() => {
-    if (errorState.finalIsError && !isSearchFeed) {
-      return (
-        <View style={[styles.errorContainer, { backgroundColor }]}>
-          <EmptyFeed 
-            type="error"
-            secondaryColor={secondaryColor}
-            profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
-            onRetry={handleRetry}
-            feedOption={feedOption}
-          />
-        </View>
-      );
-    }
-
-    // Offline state
-    if (isPaused && !isSearchFeed) {
-      return (
-        <View style={[styles.errorContainer, { backgroundColor }]}>
-          <EmptyFeed 
-            type="no-connection"
-            secondaryColor={secondaryColor}
-            profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
-            onRetry={handleRetry}
-            feedOption={feedOption}
-          />
-        </View>
-      );
-    }
-
-    return null;
-  }, [
-    errorState.finalIsError,
-    isSearchFeed,
-    backgroundColor,
-    secondaryColor,
-    handleRetry,
-    feedOption,
-    isPaused,
-  ]);
-
   // Early return for error states
-  if (errorStateRender) {
-    return errorStateRender;
+  if (errorState.finalIsError && !isSearchFeed) {
+    return (
+      <View style={[styles.errorContainer, { backgroundColor }]}>
+        <EmptyFeed 
+          type="error"
+          secondaryColor={secondaryColor}
+          profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
+          onRetry={handleRetry}
+          feedOption={feedOption}
+        />
+      </View>
+    );
   }
+
+  // Offline state
+  if (isPaused && !isSearchFeed) {
+    return (
+      <View style={[styles.errorContainer, { backgroundColor }]}>
+        <EmptyFeed 
+          type="no-connection"
+          secondaryColor={secondaryColor}
+          profileColors={secondaryColor ? { backgroundColor, textColor: secondaryColor } : undefined}
+          onRetry={handleRetry}
+          feedOption={feedOption}
+        />
+      </View>
+    );
+  }
+
+  // Simple position change handler - just forwards to parent and handles pagination
+  const handlePositionChangeWithPreload = useCallback((position: number) => {
+    onPositionChange?.(position);
+
+    // If we're near the end, request more items proactively
+    if (!feed || feed.length === 0) return;
+    
+    const nextIndex = Number.isInteger(position) && position >= 0 && position < feed.length
+      ? position
+      : Math.max(0, Math.floor(position / 600));
+    
+    const endIndex = Math.min(nextIndex + 5, feed.length);
+    if (endIndex >= (feed.length - 3) && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage?.();
+    }
+  }, [onPositionChange, feed, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Memoized common props to prevent recreation on every render
   const commonProps = useMemo(() => ({
@@ -296,7 +292,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     onRetry: handleRetry,
     isProfileLoading,
     isProfileFeed,
-    onPositionChange,
+    onPositionChange: handlePositionChangeWithPreload,
     initialPosition,
     initialIndex,
     initialUri,

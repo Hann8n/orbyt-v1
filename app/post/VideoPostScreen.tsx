@@ -22,7 +22,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Host, Button, Text as SwiftUIText } from '@expo/ui/swift-ui';
 import { glassEffect, frame, cornerRadius, background } from '@expo/ui/swift-ui/modifiers';
-import Video, { VideoRef } from 'react-native-video';
+import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
+import { useEvent } from 'expo';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
@@ -79,11 +80,9 @@ const VideoPostScreen: React.FC = () => {
   const [description, setDescription] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const videoRef = useRef<any>(null);
+  const playerRef = useRef<VideoPlayer | null>(null);
 
   // Content warning state
   const [selectedContentWarnings, setSelectedContentWarnings] = useState<string[]>([]);
@@ -236,18 +235,7 @@ const VideoPostScreen: React.FC = () => {
     }
   };
 
-  const handleVideoLoad = (status: any) => {
-    if (status.isLoaded) {
-      setDuration(status.durationMillis || 0);
-    }
-  };
-
-  const handleVideoProgress = (status: any) => {
-    if (status.isLoaded) {
-      setCurrentTime(status.positionMillis || 0);
-      setProgress((status.positionMillis || 0) / (status.durationMillis || 1));
-    }
-  };
+  // removed legacy expo-av handlers (not used with expo-video)
 
 
   const formatTime = (milliseconds: number) => {
@@ -468,6 +456,76 @@ const VideoPostScreen: React.FC = () => {
 
   // Final video URI for playback
   const videoUri = videoPathInfo?.uri || '';
+
+  // Create expo-video player without initial source; attach source when resolved
+  const player = useVideoPlayer(null, (p) => {
+    p.loop = true;
+    p.volume = videoVolume;
+    playerRef.current = p;
+  });
+
+  // Attach/replace source when `videoUri` becomes available
+  useEffect(() => {
+    if (!player) return;
+    if (videoUri) {
+      try {
+        player.replace({ uri: videoUri });
+        // Clear previous errors when replacing source
+        setVideoError(null);
+      } catch (e) {
+        setVideoError('Failed to load video');
+      }
+    }
+  }, [player, videoUri]);
+
+  // Handle player status changes (support either string or object payload)
+  (useEvent as any)(player, 'statusChange', (payload: any) => {
+    const status = typeof payload === 'string' ? payload : payload?.status;
+    if (status === 'loading') {
+      setVideoLoading(true);
+      setVideoError(null);
+    } else if (status === 'readyToPlay') {
+      setVideoLoading(false);
+      if (player.currentTime === 0 && currentTime > 0) {
+        player.currentTime = currentTime;
+      }
+    } else if (status === 'error') {
+      setVideoLoading(false);
+      setVideoError('Failed to load video');
+    }
+  });
+
+  // Track playback progress
+  useEffect(() => {
+    if (!player) return;
+    const interval = setInterval(() => {
+      if (player.currentTime !== undefined) {
+        setCurrentTime(player.currentTime);
+        // First tick indicates frames are advancing; hide loading overlay
+        if (videoLoading) {
+          setVideoLoading(false);
+        }
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, [player]);
+
+  // Sync play/pause state
+  useEffect(() => {
+    if (!player) return;
+    if (isPlaying) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [player, isPlaying]);
+
+  // Update volume when videoVolume changes
+  useEffect(() => {
+    if (player) {
+      player.volume = videoVolume;
+    }
+  }, [player, videoVolume]);
 
   // Handle keyboard visibility for input spacing
   useEffect(() => {
@@ -756,39 +814,13 @@ const VideoPostScreen: React.FC = () => {
                   </View>
                 )}
                 <View style={{ width: '100%', aspectRatio: ASPECT_RATIO, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
-                  {videoUri ? (
-                      <Video
-                        ref={videoRef}
-                        source={{ uri: videoUri }}
+                  {videoUri && player ? (
+                      <VideoView
+                        player={player}
                         style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
-                        resizeMode="contain"
-                        paused={!isPlaying}
-                        repeat={true}
-                        muted={false}
-                        volume={videoVolume}
-                      onLoadStart={() => {
-                        setVideoLoading(true);
-                        setVideoError(null);
-                      }}
-                      onLoad={e => {
-                        setVideoLoading(false);
-                        if (e?.naturalSize?.width && e?.naturalSize?.height) {
-                          setVideoDimensions({ width: e.naturalSize.width, height: e.naturalSize.height });
-                        }
-                        if (currentTime > 0 && videoRef.current && videoRef.current.seek) {
-                          videoRef.current.seek(currentTime);
-                        }
-                      }}
-                      onProgress={status => {
-                        if (status?.currentTime !== undefined) {
-                          setCurrentTime(status.currentTime);
-                        }
-                      }}
-                      onError={e => {
-                        setVideoLoading(false);
-                        setVideoError('Failed to load video');
-                      }}
-                    />
+                        contentFit="contain"
+                        nativeControls={false}
+                      />
                   ) : (
                     <View style={{ justifyContent: 'center', alignItems: 'center', flex: 1 }}>
                       <Text style={{ color: Colors.lightGray, fontSize: 16, textAlign: 'center' }}>
@@ -1128,39 +1160,12 @@ const VideoPostScreen: React.FC = () => {
                 </View>
               )}
               <View style={{ width: containerWidth, height: containerHeight, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
-                {videoUri ? (
-                  <Video
-                    ref={videoRef}
-                    source={{ uri: videoUri }}
+                {videoUri && player ? (
+                  <VideoView
+                    player={player}
                     style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
-                    resizeMode="contain"
-                    paused={!isPlaying}
-                    repeat={true}
-                    muted={false}
-                    volume={videoVolume}
-                    onLoadStart={() => {
-                      setVideoLoading(true);
-                      setVideoError(null);
-                    }}
-                    onLoad={e => {
-                      setVideoLoading(false);
-                      if (e?.naturalSize?.width && e?.naturalSize?.height) {
-                        setVideoDimensions({ width: e.naturalSize.width, height: e.naturalSize.height });
-                      }
-                      // Seek to currentTime if not at start
-                      if (currentTime > 0 && videoRef.current && videoRef.current.seek) {
-                        videoRef.current.seek(currentTime);
-                      }
-                    }}
-                    onProgress={status => {
-                      if (status?.currentTime !== undefined) {
-                        setCurrentTime(status.currentTime);
-                      }
-                    }}
-                    onError={e => {
-                      setVideoLoading(false);
-                      setVideoError('Failed to load video');
-                    }}
+                    contentFit="contain"
+                    nativeControls={false}
                   />
                 ) : (
                   <View style={{ justifyContent: 'center', alignItems: 'center', flex: 1 }}>
@@ -1291,7 +1296,6 @@ const VideoPostScreen: React.FC = () => {
                     type="channel"
                     size={52}
                     ringColor="transparent"
-                    noRing={true}
                     fallbackIcon="device-tv"
                     fallbackIconColor={Colors.lightGray}
                     fallbackIconSize={32}
@@ -1302,7 +1306,6 @@ const VideoPostScreen: React.FC = () => {
                     type="channel"
                     size={52}
                     ringColor="transparent"
-                    noRing={true}
                   />
                 )}
               </View>

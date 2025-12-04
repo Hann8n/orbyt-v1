@@ -61,7 +61,6 @@ export interface Post {
 
 export interface FeedItem {
   post: Post;
-  shouldCache?: boolean;
   uniqueKey?: string;
   reason?: {
     $type?: string;
@@ -640,7 +639,6 @@ class FeedService {
                 },
                 viewer: profile.viewer,
               } as any,
-              shouldCache: true,
               uniqueKey: profile.did,
             });
           });
@@ -655,7 +653,6 @@ class FeedService {
                 avatar: channel.avatar,
                 contentMode: channel.contentMode, // Already extracted by AtprotoService
               } as any,
-              shouldCache: true,
               uniqueKey: channel.uri,
             });
           });

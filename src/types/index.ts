@@ -34,7 +34,6 @@ export interface FeedItem {
       handle?: string;
     };
   };
-  shouldCache?: boolean;
   uniqueKey?: string;
   reason?: {
     $type?: string;

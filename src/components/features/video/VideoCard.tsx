@@ -9,6 +9,8 @@ import React, {
 } from 'react';
 import { useRecyclingState } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
+import { useEvent } from 'expo';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { AtprotoService } from '../../../services/api/AtprotoService';
@@ -25,15 +27,15 @@ import {
 import { BlurView } from 'expo-blur';
 
 import { Image } from 'react-native';
-import Video from 'react-native-video';
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
-import { extractVideoUrl } from '../../../utils/helpers/video';
+import { extractVideoUrl, extractVideoThumbnail, createVideoSource } from '../../../utils/helpers/video';
 import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
 import { useThumbnailColor } from '../../../hooks/useThumbnailColor';
 import { useFocusEffect } from 'expo-router';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
+import { usePostInteractionStore } from '../../../stores/postInteractionStore';
 
 // Use any type for post
 type Post = any;
@@ -60,7 +62,6 @@ export interface VideoCardProps {
   shouldDisablePlayback?: boolean;
   isPlaying?: boolean;
   moderationDecision?: any;
-  shouldCache?: boolean;
   // Overlay props
   showOverlay?: boolean;
   feedOption?: string;
@@ -68,20 +69,6 @@ export interface VideoCardProps {
   isModal?: boolean;
 
 }
-
-// Helper for video assets extraction - simplified
-const getVideoAssets = (post: Post) => {
-  const videoEmbed = post.embed;
-  const videoUrl = videoEmbed?.playlist || 
-                  post.embed?.external?.uri || 
-                  post.embed?.record?.uri || 
-                  post.embed?.url ||
-                  post.videoUrl ||
-                  '';
-  const thumbnailUrl = videoEmbed?.thumbnail || '';
-  
-  return { videoEmbed, videoUrl, thumbnailUrl };
-};
 
 const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
   ({ 
@@ -92,7 +79,6 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     moderationDecision, 
     shouldDisablePlayback = false, 
     isPlaying: shouldPlay = false,
-    shouldCache = true,
     showOverlay = true,
     feedOption,
     sourceFeed,
@@ -100,6 +86,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
 
   }, ref) => {
     const { presentCommentSection } = useGlobalCommentSection();
+    const { updatePostInteraction, getPostInteraction } = usePostInteractionStore();
     
     // Enhanced video state management with automatic recycling
     const [videoState, setVideoState] = useRecyclingState({
@@ -107,20 +94,23 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       userPaused: false,
       isReady: false,
       isBuffering: false,
-      duration: 0,
-      currentPosition: 0,
     }, [post.uri]); // Auto-resets when post.uri changes
 
-    // Overlay state - using recycling state for automatic reset
-    const [overlayState, setOverlayState] = useRecyclingState({
-      isLikePending: false,
-      isRepostPending: false,
+    // Get persisted interaction state from store
+    const persistedInteraction = getPostInteraction(post.uri, {
       isLiked: !!post.viewer?.like,
       likeCount: post.likeCount || 0,
       repostCount: post.repostCount || 0,
       isReposted: !!post.viewer?.repost,
-      likeUri: post.viewer?.like, // Track like URI for proper unlike functionality
-      repostUri: post.viewer?.repost, // Track repost URI for proper unrepost functionality
+      likeUri: post.viewer?.like,
+      repostUri: post.viewer?.repost,
+    });
+
+    // Overlay state - using recycling state for automatic reset, but initialize from store
+    const [overlayState, setOverlayState] = useRecyclingState({
+      isLikePending: false,
+      isRepostPending: false,
+      ...persistedInteraction,
     }, [post.uri]); // Auto-resets when post.uri changes
 
     // Refs
@@ -139,8 +129,9 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
     const [showHeart, setShowHeart] = useState(false);
 
-    // Get video assets - simplified
-    const { thumbnailUrl: posterUrl, videoEmbed, videoUrl } = getVideoAssets(post);
+    // Get video URL and thumbnail using shared utilities
+    const videoUrl = extractVideoUrl(post.embed);
+    const posterUrl = extractVideoThumbnail(post.embed);
     
     // Extract thumbnail color for background
     const { backgroundColor: thumbnailBackgroundColor } = useThumbnailColor(posterUrl);
@@ -151,6 +142,20 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const postAspectRatio = post.embed?.aspectRatio;
     const defaultAspectRatio = postAspectRatio ? postAspectRatio.width / postAspectRatio.height : 16/9;
     const cardHeight = height || width * defaultAspectRatio;
+
+    // HLS-only source creation
+    const videoSource = createVideoSource(videoUrl);
+    
+    // Create expo-video player with setup callback
+    const player = useVideoPlayer(videoSource, (player) => {
+      player.loop = true;
+      player.muted = false;
+      player.timeUpdateEventInterval = 0; // Explicit: no progress updates (overlay has no progress bar)
+    });
+    
+    // Listen to player status changes using expo's useEvent hook
+    const { status: playerStatus } = useEvent(player, 'statusChange', { status: player?.status ?? 'idle' });
+    const { isPlaying: playerIsPlaying } = useEvent(player, 'playingChange', { isPlaying: player?.playing ?? false });
 
     // Simplified content warning state
     const [userChoseToView, setUserChoseToView] = useState(false);
@@ -209,7 +214,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                            isVisible && // Use visibility instead of external shouldPlay prop
                            !!videoUrl;
 
-    const shouldLoadVideo = !(hasWarning && !shouldShowContent) && !!videoUrl && videoUrl.trim() !== '';
+    const shouldLoadVideo = !(hasWarning && !shouldShowContent) && !!videoSource;
 
     // Simplified video playback control functions
     const togglePlayback = useCallback((shouldPlay?: boolean) => {
@@ -233,65 +238,47 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       });
     }, [hasWarning, shouldShowContent, shouldDisablePlayback, setVideoState]);
 
-    // Simplified play/pause functions that use the main toggle function
-    const play = useCallback(() => togglePlayback(true), [togglePlayback]);
-    const pause = useCallback(() => togglePlayback(false), [togglePlayback]);
-    const togglePlay = useCallback(() => togglePlayback(), [togglePlayback]);
-
-    const seekTo = useCallback((position: number) => {
-      if (playerRef.current) {
-        playerRef.current.seek(position);
-        setVideoState(prev => ({ ...prev, currentPosition: position }));
-      }
-    }, []);
+    // togglePlayback handles all play/pause logic directly
 
     const seek = useCallback((position: number) => {
-      seekTo(position);
-    }, [seekTo]);
-
-    // Enhanced unload function that properly cleans up resources
-    const unload = useCallback(() => {
-      if (playerRef.current) {
-        // First pause the video
-        if (!videoState.userPaused) {
-          setVideoState(prev => ({ ...prev, userPaused: true }));
-        }
-        // Then reset position
-        playerRef.current.seek(0);
-        setVideoState(prev => ({ ...prev, currentPosition: 0 }));
+      if (player) {
+        // expo-video uses seconds, convert from ms if needed
+        const positionInSeconds = position > 1000 ? position / 1000 : position;
+        player.currentTime = positionInSeconds;
       }
-    }, [videoState.userPaused]);
-
-    // Use our main togglePlayback function
-    const playPause = useCallback((shouldPlay: boolean) => togglePlayback(shouldPlay), [togglePlayback]);
-
-    const getPlayState = useCallback(() => {
-      // Return false if content is blurred and user hasn't chosen to view
-      if (hasWarning && !shouldShowContent) return false;
-      return shouldPlayVideo;
-    }, [shouldPlayVideo, hasWarning, shouldShowContent]);
-
-    const getCurrentTime = useCallback(() => {
-      return videoState.currentPosition;
-    }, [videoState.currentPosition]);
-
-    const getDuration = useCallback(() => {
-      return videoState.duration;
-    }, [videoState.duration]);
+    }, [player]);
 
     // Expose functions via ref
     useImperativeHandle(ref, () => ({
-      play,
-      pause,
-      togglePlay,
-      seekTo,
+      play: () => togglePlayback(true),
+      pause: () => togglePlayback(false),
+      togglePlay: () => togglePlayback(),
+      getDuration: () => {
+        if (player && player.duration) {
+          return player.duration * 1000; // Convert to ms
+        }
+        return 0;
+      },
+      seekTo: seek,
       seek,
-      unload,
-      playPause,
-      getPlayState,
-      getCurrentTime,
-      getDuration
-    }));
+      unload: () => {
+        if (player) {
+          player.pause();
+          player.currentTime = 0;
+          if (!videoState.userPaused) {
+            setVideoState(prev => ({ ...prev, userPaused: true }));
+          }
+        }
+      },
+      playPause: (shouldPlay: boolean) => togglePlayback(shouldPlay),
+      getPlayState: () => !videoState.userPaused && playerIsPlaying,
+      getCurrentTime: () => {
+        if (player && player.currentTime) {
+          return player.currentTime * 1000; // Convert to ms
+        }
+        return 0;
+      },
+    }), [player, playerIsPlaying, videoState.userPaused, togglePlayback, seek]);
 
     // Track previous shouldDisablePlayback to detect when overlay blocking is removed
     const prevShouldDisablePlaybackRef = useRef(shouldDisablePlayback);
@@ -328,101 +315,118 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       }, [videoState.userPaused, togglePlayback])
     );
 
-    // Video event handlers - use post URI for simple tracking
-    const handleLoad = useCallback((data: { duration?: number }) => {
-      if (!data || !data.duration) return;
-      const duration = data.duration * 1000;
-      setVideoState(prev => ({
-        ...prev,
-        isReady: true,
-        isBuffering: false,
-        hasError: false,
-        duration
-      }));
-      onVideoStatus?.(post.uri, 'loaded');
-    }, [post.uri, onVideoStatus]);
+    // Handle player status changes via effect
+    useEffect(() => {
+      if (!player) return;
+      
+      if (playerStatus === 'readyToPlay') {
+        setVideoState(prev => ({
+          ...prev,
+          isReady: true,
+          isBuffering: false,
+          hasError: false,
+        }));
+        onVideoStatus?.(post.uri, 'loaded');
+      } else if (playerStatus === 'loading') {
+        setVideoState(prev => ({
+          ...prev,
+          isBuffering: true
+        }));
+        onVideoStatus?.(post.uri, 'loading');
+      } else if (playerStatus === 'error') {
+        setVideoState(prev => ({
+          ...prev,
+          hasError: true,
+          isBuffering: false
+        }));
+        onVideoStatus?.(post.uri, 'error');
+      }
+    }, [playerStatus, player, post.uri, onVideoStatus]);
 
-
-
-    // Simplified handleEnd that uses seekTo
-    const handleEnd = useCallback(() => {
-      seekTo(0); // This already updates state and seeks the player
-    }, [seekTo]);
-
-    const handleError = useCallback((error: Error | unknown) => {
-      setVideoState(prev => ({
-        ...prev,
-        hasError: true,
-        isBuffering: false
-      }));
-      onVideoStatus?.(post.uri, 'error');
-    }, [post.uri, onVideoStatus]);
-
-    const handleReadyForDisplay = useCallback(() => {
-      setVideoState(prev => ({
-        ...prev,
-        isBuffering: false
-      }));
-      onVideoStatus?.(post.uri, 'ready');
-    }, [post.uri, onVideoStatus]);
-
-    const handleBuffering = useCallback(({ isBuffering }: { isBuffering: boolean }) => {
-      setVideoState(prev => ({
-        ...prev,
-        isBuffering
-      }));
-    }, []);
+    // Control playback based on shouldPlayVideo
+    useEffect(() => {
+      if (!player) return;
+      
+      if (shouldPlayVideo && !playerIsPlaying) {
+        player.play();
+      } else if (!shouldPlayVideo && playerIsPlaying) {
+        player.pause();
+      }
+    }, [shouldPlayVideo, playerIsPlaying, player]);
 
     // Simplified overlay interaction handlers
     const handleLike = useCallback(async () => {
       if (overlayState.isLikePending) return;
       
+      const newIsLiked = !overlayState.isLiked;
+      const newLikeCount = newIsLiked ? overlayState.likeCount + 1 : overlayState.likeCount - 1;
+      
       // Optimistic update
       setOverlayState(prev => ({
         ...prev,
         isLikePending: true,
-        isLiked: !prev.isLiked,
-        likeCount: prev.isLiked ? prev.likeCount - 1 : prev.likeCount + 1
+        isLiked: newIsLiked,
+        likeCount: newLikeCount
       }));
       
       try {
         if (!overlayState.isLiked) {
           const likeUri = await AtprotoService.likePost(post.uri, post.cid);
           setOverlayState(prev => ({ ...prev, likeUri }));
+          // Persist to store
+          updatePostInteraction(post.uri, {
+            isLiked: true,
+            likeCount: newLikeCount,
+            likeUri,
+          });
         } else {
           if (!overlayState.likeUri) throw new Error('No like URI found');
           await AtprotoService.deleteLike(overlayState.likeUri);
           setOverlayState(prev => ({ ...prev, likeUri: undefined }));
+          // Persist to store
+          updatePostInteraction(post.uri, {
+            isLiked: false,
+            likeCount: newLikeCount,
+            likeUri: undefined,
+          });
         }
       } catch (error) {
-error('Like action failed:', error);
+        console.error('Like action failed:', error);
         // Revert optimistic update
         setOverlayState(prev => ({
           ...prev,
-          isLiked: !prev.isLiked,
-          likeCount: prev.isLiked ? prev.likeCount + 1 : prev.likeCount - 1
+          isLiked: !newIsLiked,
+          likeCount: overlayState.likeCount
         }));
       } finally {
         setOverlayState(prev => ({ ...prev, isLikePending: false }));
       }
-    }, [overlayState.isLikePending, overlayState.isLiked, overlayState.likeCount, overlayState.likeUri, post.uri, post.cid, setOverlayState]);
+    }, [overlayState.isLikePending, overlayState.isLiked, overlayState.likeCount, overlayState.likeUri, post.uri, post.cid, setOverlayState, updatePostInteraction]);
 
     // Like-only handler for double tap (doesn't unlike)
     const handleLikeOnly = useCallback(async () => {
       // Only like if not already liked and not pending
       if (overlayState.isLiked || overlayState.isLikePending) return;
       
+      const newLikeCount = overlayState.likeCount + 1;
+      
       // Optimistic update
       setOverlayState(prev => ({
         ...prev,
         isLikePending: true,
         isLiked: true,
-        likeCount: prev.likeCount + 1
+        likeCount: newLikeCount
       }));
       
       try {
         const likeUri = await AtprotoService.likePost(post.uri, post.cid);
         setOverlayState(prev => ({ ...prev, likeUri }));
+        // Persist to store
+        updatePostInteraction(post.uri, {
+          isLiked: true,
+          likeCount: newLikeCount,
+          likeUri,
+        });
       } catch (error) {
         console.error('Like action failed:', error);
         // Revert optimistic update
@@ -434,7 +438,7 @@ error('Like action failed:', error);
       } finally {
         setOverlayState(prev => ({ ...prev, isLikePending: false }));
       }
-    }, [overlayState.isLiked, overlayState.isLikePending, post.uri, post.cid, setOverlayState]);
+    }, [overlayState.isLiked, overlayState.isLikePending, overlayState.likeCount, post.uri, post.cid, setOverlayState, updatePostInteraction]);
 
     // Double tap to like animation
     const animateHeart = useCallback((x: number, y: number) => {
@@ -547,35 +551,50 @@ error('Like action failed:', error);
     const handleRepost = useCallback(async () => {
       if (overlayState.isRepostPending) return;
       
+      const newIsReposted = !overlayState.isReposted;
+      const newRepostCount = newIsReposted ? overlayState.repostCount + 1 : overlayState.repostCount - 1;
+      
       // Optimistic update
       setOverlayState(prev => ({
         ...prev,
         isRepostPending: true,
-        isReposted: !prev.isReposted,
-        repostCount: prev.isReposted ? prev.repostCount - 1 : prev.repostCount + 1
+        isReposted: newIsReposted,
+        repostCount: newRepostCount
       }));
       
       try {
         if (!overlayState.isReposted) {
           const repostUri = await AtprotoService.repostPost(post.uri, post.cid);
           setOverlayState(prev => ({ ...prev, repostUri }));
+          // Persist to store
+          updatePostInteraction(post.uri, {
+            isReposted: true,
+            repostCount: newRepostCount,
+            repostUri,
+          });
         } else {
           if (!overlayState.repostUri) throw new Error('No repost URI found');
           await AtprotoService.deleteRepost(overlayState.repostUri);
           setOverlayState(prev => ({ ...prev, repostUri: undefined }));
+          // Persist to store
+          updatePostInteraction(post.uri, {
+            isReposted: false,
+            repostCount: newRepostCount,
+            repostUri: undefined,
+          });
         }
       } catch (error) {
-error('Repost action failed:', error);
+        console.error('Repost action failed:', error);
         // Revert optimistic update
         setOverlayState(prev => ({
           ...prev,
-          isReposted: !prev.isReposted,
-          repostCount: prev.isReposted ? prev.repostCount + 1 : prev.repostCount - 1
+          isReposted: !newIsReposted,
+          repostCount: overlayState.repostCount
         }));
       } finally {
         setOverlayState(prev => ({ ...prev, isRepostPending: false }));
       }
-    }, [overlayState.isRepostPending, overlayState.isReposted, overlayState.repostCount, overlayState.repostUri, post.uri, post.cid]);
+    }, [overlayState.isRepostPending, overlayState.isReposted, overlayState.repostCount, overlayState.repostUri, post.uri, post.cid, setOverlayState, updatePostInteraction]);
 
     const navigation = useRouter();
     
@@ -596,8 +615,6 @@ error('Repost action failed:', error);
       }
     }, [shouldPlayVideo, post.uri, onVideoStatus]);
 
-    if (!shouldCache) return null;
-
     return (
       <View style={[styles.container, { height: cardHeight, backgroundColor: thumbnailBackgroundColor }]}>
         {/* Unified Video and Overlay Container */}
@@ -608,51 +625,34 @@ error('Repost action failed:', error);
           style={styles.videoContainerPressable}
         >
           <View style={[styles.videoContainer, { backgroundColor: thumbnailBackgroundColor }]}>
-            {/* Thumbnail removed - using background color instead */}
-            
-            {/* Video Player */}
-            {shouldLoadVideo && (
-              <Video
-                ref={playerRef}
-                source={{ uri: videoUrl }}
-                style={[styles.videoPlayer, { backgroundColor: thumbnailBackgroundColor }]}
+            {/* Poster thumbnail - shows until video is ready */}
+            {!!posterUrl && !videoState.isReady && (
+              <Image
+                source={{ uri: posterUrl }}
                 resizeMode="contain"
-                // Removed poster to avoid conflict with renderLoader
-                paused={!shouldPlayVideo}
-                muted={false}
-                repeat={true}
-                playInBackground={false}
-                playWhenInactive={false}
-                onLoadStart={() => onVideoStatus?.(post.uri, 'loading')}
-                onLoad={handleLoad}
-                onEnd={handleEnd}
-                onError={handleError}
-                onReadyForDisplay={handleReadyForDisplay}
-                onBuffer={handleBuffering}
-                progressUpdateInterval={500} // Reduce update frequency for better performance
-                bufferConfig={{
-                  minBufferMs: 15000, // Increase buffer size for smoother playback
-                  maxBufferMs: 50000,
-                  bufferForPlaybackMs: 2500,
-                  bufferForPlaybackAfterRebufferMs: 5000
-                }}
-                ignoreSilentSwitch="ignore"
-                allowsExternalPlayback={false}
-                automaticallyWaitsToMinimizeStalling={true} // Enable auto-waiting to reduce stalling
-                useTextureView={false}
-                renderLoader={() => (
-                  <View style={styles.loadingOverlay}>
-                    <Loading3FillIcon size={48} color="white" />
-                  </View>
-                )}
+                style={styles.poster}
               />
             )}
             
+            {/* Video Player - expo-video VideoView */}
+            {shouldLoadVideo && player && (
+              <VideoView
+                player={player}
+                style={styles.videoPlayer}
+                contentFit="contain"
+                nativeControls={false}
+                playsInline
+                surfaceType={Platform.OS === 'android' ? 'textureView' : undefined}
+              />
+            )}
+            
+            {/* Buffering indicator removed per request */}
+            
             {/* Loading indicator only shown when needed */}
-            {!shouldLoadVideo && !isBlurred && !videoUrl && (
+            {!shouldLoadVideo && !isBlurred && (
               <View style={styles.loadingOverlay}>
                 <Loading3FillIcon size={48} color="white" />
-                <Text style={styles.loadingText}>No video URL found</Text>
+                <Text style={styles.loadingText}>No HLS stream available</Text>
               </View>
             )}
 
@@ -758,21 +758,27 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  loadingOverlay: {
+  poster: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
+    width: '100%',
+    height: '100%',
   },
+  
   loadingText: {
     color: 'white',
     marginTop: 10,
     fontSize: 12,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
   },
   contentWarningOverlay: {
     ...StyleSheet.absoluteFillObject,

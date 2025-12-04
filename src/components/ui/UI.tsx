@@ -294,6 +294,7 @@ interface AvatarProps {
   type?: AvatarType;
   size?: number;
   style?: StyleProp<ViewStyle | ImageStyle>;
+  blurRadius?: number;
   fallbackIcon?: string;
   fallbackIconColor?: string;
   fallbackIconSize?: number;
@@ -311,6 +312,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   type = 'profile',
   size = 40,
   style,
+  blurRadius,
   fallbackIcon,
   fallbackIconColor = Colors.lightGray,
   fallbackIconSize,
@@ -359,13 +361,17 @@ export const Avatar: React.FC<AvatarProps> = ({
     borderRadius: innerBorderRadius,
   };
 
+  // Normalize style: avoid accidentally passing strings which React treats as children
+  const styleSanitized = typeof style === 'object' || typeof style === 'undefined' ? (style as StyleProp<ViewStyle>) : undefined;
+
   if (uri) {
     return (
-      <View style={[containerStyle, style as StyleProp<ViewStyle>]}>
+      <View style={[containerStyle, styleSanitized]}> 
         <Image
           source={{ uri }}
           style={imageStyle}
           resizeMode="cover"
+          blurRadius={blurRadius || 0}
         />
       </View>
     );
@@ -376,7 +382,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     // Import Icon component dynamically to avoid circular dependency
     const { default: Icon } = require('./Icon');
     return (
-      <View style={[containerStyle, style as StyleProp<ViewStyle>, { 
+      <View style={[containerStyle, styleSanitized, { 
         backgroundColor: profileColors?.backgroundColor || Colors.darkGray,
         borderWidth: 0, // Remove border for colored backgrounds
         padding: 0, // Remove padding for colored backgrounds
@@ -400,7 +406,7 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   // Use default avatar image if no uri is provided
   return (
-    <View style={[containerStyle, style as StyleProp<ViewStyle>]}>
+    <View style={[containerStyle, styleSanitized]}> 
       <Image
         source={require('../../assets/Default-avatar.png')}
         style={imageStyle}

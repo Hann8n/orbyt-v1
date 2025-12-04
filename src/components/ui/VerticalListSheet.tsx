@@ -231,9 +231,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   listButtonDanger: {
-    backgroundColor: 'rgba(255,80,80,0.12)',
-    borderColor: 'rgba(255,80,80,0.25)',
-    borderWidth: 1,
+    backgroundColor: Colors.red,
+    borderColor: 'transparent',
+    borderWidth: 0,
   },
   listButtonContent: {
     flexDirection: 'row',
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   listButtonTextDanger: {
-    color: Colors.red,
+    color: Colors.black,
   },
 });
 
@@ -259,19 +259,22 @@ export const VerticalListButton: React.FC<{
   icon?: string;
   disabled?: boolean;
   danger?: boolean;
-}> = ({ label, onPress, icon, disabled, danger }) => {
+  style?: any;
+  textStyle?: any;
+}> = ({ label, onPress, icon, disabled, danger, style, textStyle }) => {
   return (
     <TouchableOpacity
       style={[
         styles.listButton,
         danger && styles.listButtonDanger,
+        style,
       ]}
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.7}
     >
       <View style={styles.listButtonContent}>
-        <Text style={[styles.listButtonText, danger && styles.listButtonTextDanger]}>
+        <Text style={[styles.listButtonText, danger && styles.listButtonTextDanger, textStyle]}>
           {label}
         </Text>
       </View>

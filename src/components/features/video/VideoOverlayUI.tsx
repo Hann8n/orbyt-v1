@@ -320,50 +320,25 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
         pointerEvents="box-none"
       >
         <View style={styles.infoColumn} pointerEvents="box-none">
-          {/* Repost indicator */}
+          {/* Repost indicator - repost icon + name text */}
           {post.repostedBy && (
             <View style={styles.repostIndicatorBox}>
               <TouchableOpacity 
-                style={styles.repostIndicatorContainer} 
+                style={styles.repostIndicatorContainer}
                 activeOpacity={0.7}
                 onPress={handleRepostAuthorPress}
               >
-                <Avatar
-                  uri={post.repostedBy?.avatar && post.repostedBy.avatar.startsWith('http')
-                    ? post.repostedBy.avatar
-                    : 'https://via.placeholder.com/40'}
-                  type="user"
-                  size={isTabletDevice ? Math.max(repostAvatarSize, 22) : repostAvatarSize}
-                  style={styles.repostAvatar}
+                <RefreshFillIcon 
+                  size={isTabletDevice ? 26 : 24}
+                  color={Colors.lightGray}
                 />
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                  <Text style={
-                    isTabletDevice
-                      ? styles.repostIndicatorTextTablet
-                      : styles.repostIndicatorText
-                  }>
-                    {(post.repostedBy?.displayName || post.repostedBy?.handle || 'Unknown').length > 30 
-                      ? (post.repostedBy?.displayName || post.repostedBy?.handle || 'Unknown').substring(0, 30) + '...'
-                      : (post.repostedBy?.displayName || post.repostedBy?.handle || 'Unknown')
-                    }
-                  </Text>
-                  {post.repostedBy?.handle && (
-                    <VerificationBadge 
-                      handle={post.repostedBy.handle} 
-                      textSize={isTabletDevice ? 16 : 14} 
-                      autoPosition={true}
-                      textColor={styles.repostIndicatorText.color}
-                    />
-                  )}
-                  <Text style={[
-                    isTabletDevice
-                      ? styles.repostIndicatorTextTablet
-                      : styles.repostIndicatorText,
-                    { marginLeft: -1 }
-                  ]}>
-                    {' reposted'}
-                  </Text>
-                </View>
+                <Text style={
+                  isTabletDevice
+                    ? styles.repostIndicatorTextTablet
+                    : styles.repostIndicatorText
+                }>
+                  {`reposted by ${(post.repostedBy?.displayName || post.repostedBy?.handle || 'Unknown')}`}
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -622,33 +597,34 @@ const styles = StyleSheet.create({
   repostIndicatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 3,
+    paddingVertical: 4,
+    paddingLeft: 0,
+    paddingRight: 4,
   },
   repostIndicatorText: {
-    color: 'rgba(0, 0, 0, 0.8)',
+    color: Colors.lightGray,
     fontSize: 14,
     fontFamily: 'Firma-SemiBold',
-    marginLeft: 4,
+    marginLeft: 6,
+    includeFontPadding: false,
+    lineHeight: 18,
   },
   repostIndicatorTextTablet: {
-    color: 'rgba(0, 0, 0, 0.8)',
+    color: Colors.lightGray,
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
-    marginLeft: 4,
+    marginLeft: 6,
+    includeFontPadding: false,
+    lineHeight: 20,
   },
   repostIndicatorBox: {
-    backgroundColor: 'rgba(255, 255, 255, 1)',
+    backgroundColor: 'transparent',
     borderRadius: BORDER_RADIUS.SMALL,
-    paddingHorizontal: 4,
-    marginBottom: 3,
+    marginBottom: 0,
     alignSelf: 'flex-start',
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
   },
   repostAvatar: {
-    marginRight: 2,
+    marginRight: 6,
   },
   descriptionContainer: {
     marginBottom: 6,

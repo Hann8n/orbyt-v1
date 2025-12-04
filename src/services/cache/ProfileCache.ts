@@ -876,8 +876,20 @@ class ProfileCache {
             }
 
             // Get both sides of the follow relationship from viewer data
-            const isFollowing = profile.viewer ? !!profile.viewer.following : undefined;
+            let isFollowing = profile.viewer ? !!profile.viewer.following : undefined;
             const isFollowedBy = profile.viewer ? !!profile.viewer.followedBy : undefined;
+            
+            // Check follow store for persisted state (overrides API if available)
+            try {
+              const { useFollowStore } = require('../../stores/followStore');
+              const followState = useFollowStore.getState().getFollowState(profile.did);
+              if (followState !== undefined) {
+                // Use persisted state if it exists (user action took precedence)
+                isFollowing = followState.isFollowing;
+              }
+            } catch (error) {
+              // Store not available, use API state
+            }
 
             const cacheObject: CachedProfile = {
               did: profile.did,
@@ -1384,6 +1396,19 @@ export function useProfileColors(handle: string | null | undefined) {
  */
 export function useFollowMutation() {
   const queryClient = useQueryClient();
+    const updateFollowState = (did: string, handle: string, isFollowing: boolean, followUri?: string) => {
+      try {
+        const { useFollowStore } = require('../../stores/followStore');
+        useFollowStore.getState().updateFollowState(did, {
+          handle,
+          did,
+          isFollowing,
+          followUri,
+        });
+      } catch (error) {
+        // Silently fail if store not available
+      }
+    };
   
   return useMutation({
     mutationFn: async ({ 
@@ -1402,16 +1427,21 @@ export function useFollowMutation() {
       }
       
       // Make the actual API call
+        let followUri: string | undefined;
       if (isFollowing) {
-        await AtprotoService.follow(profile.did);
+          followUri = await AtprotoService.follow(profile.did);
       } else {
         await AtprotoService.unfollow(profile.did);
+          followUri = undefined;
       }
       
       // Update the cache with the new following status
       await ProfileCache.updateFollowingStatus(handle, isFollowing, isFollowedBy);
       
-      return { handle, isFollowing, isFollowedBy };
+        // Persist to follow store for navigation
+        updateFollowState(profile.did, handle, isFollowing, followUri);
+      
+        return { handle, isFollowing, isFollowedBy, did: profile.did, followUri };
     },
     // When mutate is called:
     onMutate: async ({ handle, isFollowing, isFollowedBy }) => {
@@ -1428,6 +1458,11 @@ export function useFollowMutation() {
           isFollowing,
           ...(isFollowedBy !== undefined ? { isFollowedBy } : {})
         });
+        
+          // Also optimistically update follow store
+          if (previousProfile.did) {
+            updateFollowState(previousProfile.did, handle, isFollowing);
+          }
       }
       
       return { previousProfile };
@@ -1436,6 +1471,15 @@ export function useFollowMutation() {
     onError: (err, { handle }, context) => {
       if (context?.previousProfile) {
         queryClient.setQueryData(profileKeys.detail(handle), context.previousProfile);
+        
+          // Revert follow store state
+          if (context.previousProfile.did) {
+            updateFollowState(
+              context.previousProfile.did,
+              handle,
+              context.previousProfile.isFollowing ?? false
+            );
+          }
       }
     },
     // Always refetch after error or success to ensure cache consistency

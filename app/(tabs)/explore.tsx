@@ -1694,7 +1694,6 @@ const ExploreScreen: React.FC = () => {
                             const vData = v.post || v;
                             return {
                               post: vData,
-                              shouldCache: true,
                               uniqueKey: vData.uri,
                               moderationDecision: v.moderationDecision,
                             };

@@ -2349,7 +2349,6 @@ class AtprotoService {
             indexedAt: post.indexedAt,
             viewer: post.viewer || {}
           },
-          shouldCache: true,
           uniqueKey: post.uri,
         };
       });

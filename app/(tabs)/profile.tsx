@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } 
 import AtprotoService from '../../src/services/api/AtprotoService';
 // Use plain FlashList via FeedRenderer; no adapter/converter
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
+import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileCache, { 
   useProfile, 
@@ -17,6 +18,7 @@ import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
 import { useQueryClient } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
 import { useCurrentUser, useAccountManagement, useUserStore, useProfileCacheSync } from '../../src/stores/userStore';
+import { useProfileFlags } from '../../src/stores/profileInteractionStore';
 import { Colors } from '../../src/components/ui/UI';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
@@ -102,6 +104,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Ensure profile data is immediately available from cache
   const profileData = cachedProfile || (colorsHandle ? ProfileCache.getProfileFromCacheSync(colorsHandle) : null);
+  const { flags } = useProfileFlags(profileData?.did, profileData?.handle);
+  const isBlocked = !!flags?.isBlocked;
   
   // Memoized query options for profile feed
   const queryOptions = useMemo(() => ({
@@ -277,14 +281,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                   tintColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
                 />
               }
-              backgroundColor={Colors.black}
+              backgroundColor={dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor}
               secondaryColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
               isProfileLoading={isProfileLoading && !profileData}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               isVisible={isRouteFocused}
               visibilityKey={profileVisibilityKey}
-            />
+          />
       )}
       {isLoading && (
         <View style={styles.loadingOverlay}>
@@ -305,10 +309,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden'
   },
   headerContainer: {
-    minHeight: 280,
     backgroundColor: 'transparent',
-    marginBottom: 0,
-    paddingBottom: 0,
   },
   errorContainer: {
     flex: 1, 

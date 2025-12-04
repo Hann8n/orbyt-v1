@@ -198,7 +198,6 @@ const NotificationItem: React.FC<{
             likeCount: finalPostData.likeCount,
             indexedAt: finalPostData.indexedAt,
           },
-          shouldCache: true,
           uniqueKey: finalPostData.uri,
           moderationDecision: finalPostData.moderationDecision,
         };

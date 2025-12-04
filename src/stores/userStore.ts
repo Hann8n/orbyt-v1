@@ -24,7 +24,8 @@ import { ModerationService } from '../services/ModerationService';
 import { isOrbytChannel } from '../utils/orbytChannels';
 import { queryClient } from '../utils/queryClient';
 import { feedService } from '../services/FeedService';
-import { clearVideoCache, clearThumbnailColorCache } from '../utils/helpers/video';
+import { clearThumbnailColorCache } from '../utils/helpers/video';
+import { usePostInteractionStore } from './postInteractionStore';
 
 // Account types
 export interface SavedAccount {
@@ -1004,9 +1005,19 @@ export const useUserStore = create<UserState>()(
           feedService.clearFeedCache();
           feedService.clearCurrentFeed();
           
-          // Clear video caches
-          clearVideoCache();
+          // Clear thumbnail color cache
           clearThumbnailColorCache();
+          
+          // Clear post interaction cache
+          usePostInteractionStore.getState().clearInteractions();
+          
+            // Clear follow state cache
+            const { useFollowStore } = await import('./followStore');
+            useFollowStore.getState().clearFollows();
+
+          // Clear profile interaction flags
+          const { useProfileInteractionStore } = await import('./profileInteractionStore');
+          useProfileInteractionStore.getState().clearAll();
           
           // Clear AtprotoService cache
           AtprotoService.clearAllCaches();

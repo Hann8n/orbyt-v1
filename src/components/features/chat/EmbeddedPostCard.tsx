@@ -211,7 +211,6 @@ export default function EmbeddedPostCard({
             likeCount: postData.likeCount,
             indexedAt: postData.indexedAt,
           },
-          shouldCache: true,
           uniqueKey: postData.uri,
           moderationDecision: post.moderationDecision,
         };

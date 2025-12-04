@@ -25,6 +25,7 @@ import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListShee
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useAuth, useAccountManagement } from '../../../stores/userStore';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { useProfileFlags } from '../../../stores/profileInteractionStore';
 
 interface ProfileMenuProps {
   visible: boolean;
@@ -57,8 +58,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   const { signOut } = useAuth();
   const { removeAccount } = useAccountManagement();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [isBlocked, setIsBlocked] = useState<boolean>(false);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
   const insets = useSafeAreaInsets();
   
   // TrueSheet refs for proper stacking
@@ -70,6 +69,9 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     queryFn: () => AtprotoService.getProfile(handle),
     enabled: visible && !!handle,
   });
+
+  // Store-backed flags for this profile
+  const { flags, setFlags } = useProfileFlags(profile?.did, handle);
 
   // Check block status for non-own profiles
   const { data: blockStatus = false } = useQuery({
@@ -91,15 +93,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     initialData: false
   });
 
-  // Update isBlocked state when blockStatus changes
-  useEffect(() => {
-    setIsBlocked(blockStatus);
-  }, [blockStatus]);
+  const isBlocked = flags?.isBlocked ?? blockStatus;
+  const isMuted = flags?.isMuted ?? muteStatus;
 
-  // Update isMuted state when muteStatus changes
-  useEffect(() => {
-    setIsMuted(muteStatus);
-  }, [muteStatus]);
+  // flags are derived; no syncing effects needed
 
   // Block/unblock handler
   const handleBlockToggle = useCallback(async () => {
@@ -107,12 +104,18 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
     try {
       setIsSubmitting(true);
+      // do not optimistically set blocked; wait for confirmation/API
       
       if (isBlocked) {
+        // Ensure submenu is closed
+        submenuSheetRef.current?.dismiss();
         await AtprotoService.unblockUser(profile.did);
         queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(profile.did) });
-        setIsBlocked(false);
+        setFlags({ isBlocked: false });
+        onDismiss();
       } else {
+        // Ensure submenu is closed before showing confirmation alert
+        submenuSheetRef.current?.dismiss();
         Alert.alert(
           'block user',
           'are you sure you want to block this user? they will not be able to see your posts or interact with you.',
@@ -127,7 +130,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
               onPress: async () => {
                 await AtprotoService.blockUser(profile.did);
                 queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(profile.did) });
-                setIsBlocked(true);
+                setFlags({ isBlocked: true });
                 onDismiss();
               }
             }
@@ -136,6 +139,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       }
     } catch (error) {
       Alert.alert('error', 'failed to update block status. please try again.');
+      // No optimistic update; nothing to rollback
     } finally {
       setIsSubmitting(false);
     }
@@ -147,11 +151,13 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
 
     try {
       setIsSubmitting(true);
+      // optimistic update in store
+      setFlags({ isMuted: !isMuted });
       
       if (isMuted) {
         await AtprotoService.unmuteUser(profile.did);
         queryClient.invalidateQueries({ queryKey: ['mutes', 'status', profile.did] });
-        setIsMuted(false);
+        setFlags({ isMuted: false });
       } else {
         Alert.alert(
           'mute user',
@@ -167,7 +173,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
               onPress: async () => {
                 await AtprotoService.muteUser(profile.did);
                 queryClient.invalidateQueries({ queryKey: ['mutes', 'status', profile.did] });
-                setIsMuted(true);
+                setFlags({ isMuted: true });
                 onDismiss();
               }
             }
@@ -176,10 +182,12 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       }
     } catch (error) {
       Alert.alert('error', 'failed to update mute status. please try again.');
+      // rollback optimistic update
+      setFlags({ isMuted });
     } finally {
       setIsSubmitting(false);
     }
-  }, [profile?.did, isMuted, onDismiss, queryClient]);
+  }, [profile?.did, isMuted, onDismiss, queryClient, setFlags]);
 
   // Report handler
   const handleReport = useCallback(async () => {
@@ -452,7 +460,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
                 handleReport();
               }}
               disabled={isSubmitting}
-              danger
             />
             <VerticalListButton
               label={isBlocked ? 'Unblock Account' : 'Block Account'}
@@ -461,7 +468,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
                 handleBlockToggle();
               }}
               disabled={isSubmitting}
-              danger={!isBlocked}
             />
           </View>
         </View>

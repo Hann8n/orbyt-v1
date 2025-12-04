@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+import { setVideoCacheSizeAsync } from 'expo-video';
 
 // Keep local imports where they are; no file moves
 import { Colors } from '../src/components/ui/UI';
@@ -122,6 +123,13 @@ export default function RootLayout() {
   // Parallel initialization: fonts and auth state load simultaneously
   useEffect(() => {
     const initializeApp = async () => {
+      // Initialize video cache (500MB LRU cache for preloading)
+      try {
+        await setVideoCacheSizeAsync(500 * 1024 * 1024);
+      } catch (error) {
+        console.warn('Failed to set video cache size:', error);
+      }
+
       // Run font loading and user initialization in parallel
       const [fontsResult] = await Promise.allSettled([
         Font.loadAsync({

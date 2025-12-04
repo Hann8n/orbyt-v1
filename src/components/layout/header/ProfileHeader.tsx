@@ -3,6 +3,10 @@ import { useRouter } from 'expo-router';
 import { Text, TouchableOpacity, StatusBar } from 'react-native';
 import UniversalHeader, { HeaderAction, HeaderContent, CustomActionLayout } from './UniversalHeader';
 import { useProfile, useProfileColors, useFollowMutation } from '../../../services/cache/ProfileCache';
+import { createQueryKeys } from '../../../services/FeedService';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import AtprotoService from '../../../services/api/AtprotoService';
+import { useProfileFlags } from '../../../stores/profileInteractionStore';
 import { useOrbytProfile } from '../../../hooks';
 import VerificationBadge from '../../features/badging/VerificationBadge';
 import BetaBadge from '../../features/badging/BetaBadge';
@@ -65,9 +69,20 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   const { colors: profileColors } = useProfileColors(handle);
   const followMutation = useFollowMutation();
+  const queryClient = useQueryClient();
 
   // Ensure profile data is immediately available from cache to prevent flashing
   const profileData = profile || (handle ? ProfileCache.getProfileFromCacheSync(handle) : null);
+
+  // Block status and flags
+  const { flags, setFlags } = useProfileFlags(profileData?.did, profileData?.handle);
+  const { data: blockStatus = false } = useQuery({
+    queryKey: createQueryKeys.blocks.status(profileData?.did || ''),
+    queryFn: () => AtprotoService.isBlocked(profileData?.did || ''),
+    enabled: !!profileData?.did && !isOwnProfile,
+    initialData: false,
+  });
+  const isBlocked = flags?.isBlocked ?? blockStatus;
 
   // Fetch Orbyt profile record join date for this DID
   const { joinDate } = useOrbytProfile(profileData?.did);
@@ -142,15 +157,20 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     if (!profileData?.did || !profileData?.handle) return;
 
     try {
+      if (isBlocked) {
+        await AtprotoService.unblockUser(profileData.did);
+        setFlags({ isBlocked: false });
+        queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(profileData.did) });
+        return;
+      }
       const isCurrentlyFollowing = !!profileData.isFollowing;
-      
       followMutation.mutate({
         handle: profileData.handle,
         isFollowing: !isCurrentlyFollowing,
       });
     } catch (error) {
     }
-  }, [profileData, followMutation]);
+  }, [profileData, followMutation, isBlocked, setFlags, queryClient]);
 
   // Handle menu button press
   const handleMenuPress = useCallback(() => {
@@ -195,16 +215,16 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       const isFollowing = !!profileData.isFollowing;
       const isFollowedBy = !!profileData.isFollowedBy;
 
-      let label = 'follow';
+      let label = isBlocked ? 'Unblock' : 'follow';
       let icon: string | undefined = undefined;
-      let customIcon: React.ReactNode | undefined = (
+      let customIcon: React.ReactNode | undefined = isBlocked ? undefined : (
         <FollowIcon 
           size={16} 
           color={profileColors.textColor} 
         />
       );
 
-      if (isFollowing && isFollowedBy) {
+      if (!isBlocked && isFollowing && isFollowedBy) {
         label = 'Mutuals';
         icon = undefined;
         customIcon = (
@@ -213,7 +233,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             color={profileColors.backgroundColor} 
           />
         );
-      } else if (isFollowing) {
+      } else if (!isBlocked && isFollowing) {
         label = 'Following';
         icon = 'check';
         customIcon = undefined;
@@ -294,8 +314,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           />
         </>
       ) : undefined,
+      avatarBlurRadius: isBlocked ? 30 : 0,
     };
-  }, [profileData, profileColors.textColor, joinDate]);
+  }, [profileData, profileColors.textColor, joinDate, isBlocked]);
 
 
   // Get colors for description and tab navigation
