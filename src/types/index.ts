@@ -97,14 +97,11 @@ export interface ListFeedViewProps {
   error?: Error | null;
   onRetry?: () => void;
   onPositionChange?: (position: number) => void;
-  initialPosition?: number;
-  initialIndex?: number;
-  initialUri?: string;
   isVisible?: boolean;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   isModal?: boolean;
-
+  isProfileFeed?: boolean;
   isRefreshing?: boolean;
   isProfileLoading?: boolean;
   onScrubbingChange?: (isScrubbing: boolean) => void;

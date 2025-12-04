@@ -49,9 +49,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   error,
   onRetry,
   onPositionChange,
-  initialPosition,
-  initialIndex,
-  initialUri,
   isVisible = true,
   viewMode,
   onViewModeChange,
@@ -373,35 +370,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
   }, [feed.length, viewMode, onViewModeChange, scrollToIndex]);
 
-  // Initial positioning
-  useEffect(() => {
-    if (!flashListRef.current || listData.length === 0) return;
-
-    let targetIndex = initialIndex;
-    if (initialUri) {
-      const foundIndex = visibleFeed.findIndex(item => item?.post?.uri === initialUri);
-      if (foundIndex !== -1) {
-        targetIndex = foundIndex;
-      }
-    }
-    
-    if (typeof targetIndex === 'number') {
-      targetIndex = Math.max(0, Math.min(targetIndex, visibleFeed.length - 1));
-      
-      setTimeout(() => {
-        try {
-          flashListRef.current?.scrollToIndex({ 
-            index: targetIndex!, 
-            animated: false,
-            viewPosition: 0.5
-          });
-        } catch (error) {
-          // Handle scroll errors gracefully
-        }
-      }, APP_CONSTANTS.INITIAL_SCROLL_DELAY);
-    }
-  }, [initialIndex, initialUri, visibleFeed.length, listData.length, visibleFeed]);
-
   // Orientation change handling
   useEffect(() => {
     const handleOrientationChange = ({ window }: { window: ScaledSize }) => {
@@ -538,7 +506,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         showsVerticalScrollIndicator={false}
         bounces={true}
         directionalLockEnabled={true}
-        initialScrollIndex={typeof initialIndex === 'number' ? initialIndex : undefined}
         
         // Pull to refresh
         refreshControl={refreshControl as any}

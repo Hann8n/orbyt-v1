@@ -66,9 +66,8 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     };
   }, []);
   
-  // State for current feed and positions
+  // State for current feed
   const [currentFeedIndex, setCurrentFeedIndex] = useState(0);
-  const [savedPositions, setSavedPositions] = useState<{ [key in FeedOption]?: number }>({});
   const [feedRetries, setFeedRetries] = useState<{ [key in FeedOption]?: number }>({});
 
   // Animation values for feed bar visibility and transitions
@@ -186,14 +185,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     }
   }, [feedOptions, onFeedChange]);
 
-  // Handle position saving for each feed
-  const handlePositionChange = useCallback((position: number) => {
-    setSavedPositions(prev => ({
-      ...prev,
-      [currentFeedOption]: position
-    }));
-  }, [currentFeedOption]);
-
   // Handle retry for each feed
   const handleRetryFeed = useCallback(() => {
     const currentRetries = feedRetries[currentFeedOption] || 0;
@@ -289,8 +280,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       <FeedRenderer
         feedOption={String(feedOption)}
         onRetryFeed={handleRetryFeed}
-        onPositionChange={handlePositionChange}
-        initialPosition={savedPositions[feedOption]}
         queryOptions={baseQueryOptions}
         // Pass visibility state to control video playback and fetching - consistent with ListFeedView
         isVisible={isVisible}
@@ -303,8 +292,6 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
   }, [
     currentFeedIndex,
     handleRetryFeed,
-    handlePositionChange,
-    savedPositions,
     baseQueryOptions,
     isTabActive,
     isRefreshing,

@@ -222,8 +222,6 @@ export default function EmbeddedPostCard({
         router.push({
           pathname: '/(modals)/feed',
           params: {
-            initialIndex: 0,
-            initialUri: post.uri,
             feedOption: 'search',
             userDid: undefined,
             backgroundColor: 'transparent',

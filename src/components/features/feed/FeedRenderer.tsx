@@ -61,11 +61,6 @@ interface FeedRendererProps {
   onVerticalScroll?: (scrollY: number) => void;
   onScrubbingChange?: (isScrubbing: boolean) => void;
   
-  // Initial state
-  initialPosition?: number;
-  initialIndex?: number;
-  initialUri?: string;
-  
   // Search-specific props
   searchQuery?: string;
   hasNextPage?: boolean;
@@ -100,9 +95,6 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
   queryOptions = {},
   isProfileLoading,
   onPositionChange,
-  initialPosition,
-  initialIndex,
-  initialUri,
   isVisible = true,
   viewMode = 'list',
   onViewModeChange,
@@ -260,20 +252,21 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     );
   }
 
-  // Simple position change handler - just forwards to parent and handles pagination
+  // Simple position change handler - forwards to parent and triggers pagination when needed
   const handlePositionChangeWithPreload = useCallback((position: number) => {
     onPositionChange?.(position);
 
-    // If we're near the end, request more items proactively
+    // Trigger pagination when near the end of the feed
     if (!feed || feed.length === 0) return;
     
-    const nextIndex = Number.isInteger(position) && position >= 0 && position < feed.length
-      ? position
-      : Math.max(0, Math.floor(position / 600));
-    
-    const endIndex = Math.min(nextIndex + 5, feed.length);
-    if (endIndex >= (feed.length - 3) && hasNextPage && !isFetchingNextPage) {
-      fetchNextPage?.();
+    const feedLength = feed.length;
+    if (feedLength >= 3 && hasNextPage && !isFetchingNextPage) {
+      // If we're within the last 5 items, request more
+      const nearEndThreshold = Math.max(5, Math.ceil(feedLength * 0.1));
+      const estimatedIndex = Math.floor(position / 600); // Approximate item height
+      if (feedLength - estimatedIndex <= nearEndThreshold) {
+        fetchNextPage?.();
+      }
     }
   }, [onPositionChange, feed, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
@@ -293,9 +286,6 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     isProfileLoading,
     isProfileFeed,
     onPositionChange: handlePositionChangeWithPreload,
-    initialPosition,
-    initialIndex,
-    initialUri,
     isVisible,
     viewMode,
     onViewModeChange,
@@ -321,9 +311,6 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     isProfileLoading,
     isProfileFeed,
     onPositionChange,
-    initialPosition,
-    initialIndex,
-    initialUri,
     isVisible,
     viewMode,
     onViewModeChange,
@@ -415,8 +402,6 @@ const areEqual = (prevProps: FeedRendererProps, nextProps: FeedRendererProps) =>
   if (prevProps.backgroundColor !== nextProps.backgroundColor) return false;
   if (prevProps.secondaryColor !== nextProps.secondaryColor) return false;
   if (prevProps.userDid !== nextProps.userDid) return false;
-  if (prevProps.initialIndex !== nextProps.initialIndex) return false;
-  if (prevProps.initialUri !== nextProps.initialUri) return false;
   if (prevProps.forceError !== nextProps.forceError) return false;
   if (prevProps.shouldPrefetch !== nextProps.shouldPrefetch) return false;
   

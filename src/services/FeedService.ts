@@ -25,10 +25,8 @@ try {
   };
 }
 
-// Simplified performance constants - relying on React Query and FlashList defaults
+// React Query handles all caching - these are just for reference
 const CACHE_CONFIG = {
-  CLEANUP_INTERVAL: 30000,      // 30 seconds cleanup
-  MAX_CACHE_SIZE: 100,         // Reasonable cache size
   STALE_TIME: 5 * 60 * 1000,   // 5 minutes
   GC_TIME: 10 * 60 * 1000,     // 10 minutes
 } as const;
@@ -91,148 +89,28 @@ const FEED_CONFIG = {
   cacheTime: 60 * 60 * 1000, // 60 minutes - increased to better preserve video cache
 } as const;
 
-// FlashList-optimized feed state management
-class FeedStateManager {
-  private currentFeed: FeedItem[] = [];
-  
-  // FlashList-optimized caching with memory management
-  private feedCache = new Map<string, { 
-    data: FeedItem[]; 
-    timestamp: number; 
-    cursor?: string | null;
-    accessCount: number;
-    lastAccessed: number;
-  }>();
-  private readonly CACHE_TTL = FEED_CONFIG.staleTime; // Use FEED_CONFIG for consistency
-  
-  // Performance metrics for optimization tracking
-  private performanceMetrics = {
-    cacheHits: 0,
-    cacheMisses: 0,
-    memoryCleanups: 0,
-  };
-  
-  // Memory management
-  private cleanupInterval: ReturnType<typeof setInterval> | null = null;
-  
-  constructor() {
-    this.startMemoryManagement();
+/**
+ * Minimal state manager - only used for search results display
+ * React Query handles all feed caching via useInfiniteQuery
+ */
+class SearchFeedState {
+  private searchResults: FeedItem[] = [];
+
+  setSearchResults(feed: FeedItem[]) {
+    this.searchResults = feed;
   }
 
-  setCurrentFeed(feed: FeedItem[]) {
-    this.currentFeed = feed;
+  getSearchResults(): FeedItem[] {
+    return this.searchResults;
   }
 
-  getCurrentFeed(): FeedItem[] {
-    return this.currentFeed;
-  }
-
-  clearCurrentFeed() {
-    this.currentFeed = [];
-  }
-  
-  // FlashList-optimized cache management with performance tracking
-  getCachedFeed(cacheKey: string): { data: FeedItem[]; cursor?: string | null } | null {
-    const cached = this.feedCache.get(cacheKey);
-    
-    if (!cached) {
-      this.performanceMetrics.cacheMisses++;
-      return null;
-    }
-    
-    if (Date.now() - cached.timestamp < this.CACHE_TTL) {
-      // Update access tracking for LRU-style management
-      cached.accessCount++;
-      cached.lastAccessed = Date.now();
-      this.performanceMetrics.cacheHits++;
-      return { data: cached.data, cursor: cached.cursor };
-    }
-    
-    // Remove expired data
-    this.feedCache.delete(cacheKey);
-    this.performanceMetrics.cacheMisses++;
-    return null;
-  }
-
-  setCachedFeed(cacheKey: string, data: FeedItem[], cursor?: string | null): void {
-    // Implement cache size limit for memory management
-    if (this.feedCache.size >= CACHE_CONFIG.MAX_CACHE_SIZE) {
-      this.performLRUCleanup();
-    }
-    
-    this.feedCache.set(cacheKey, { 
-      data, 
-      timestamp: Date.now(), 
-      cursor,
-      accessCount: 1,
-      lastAccessed: Date.now(),
-    });
-  }
-
-  clearFeedCache(): void {
-    this.feedCache.clear();
-    this.performanceMetrics.memoryCleanups++;
-  }
-  
-  // FlashList memory management methods
-  private startMemoryManagement(): void {
-    this.cleanupInterval = setInterval(() => {
-      this.performMemoryCleanup();
-    }, CACHE_CONFIG.CLEANUP_INTERVAL);
-  }
-  
-  private performMemoryCleanup(): void {
-    const now = Date.now();
-    const expiredKeys: string[] = [];
-    
-    // Remove expired entries
-    const entries = Array.from(this.feedCache.entries());
-    for (const [key, value] of entries) {
-      if (now - value.timestamp > this.CACHE_TTL) {
-        expiredKeys.push(key);
-      }
-    }
-    
-    expiredKeys.forEach(key => this.feedCache.delete(key));
-    
-    if (expiredKeys.length > 0) {
-      this.performanceMetrics.memoryCleanups++;
-    }
-  }
-  
-  private performLRUCleanup(): void {
-    // Remove least recently used items when cache is full
-    const entries = Array.from(this.feedCache.entries());
-    entries.sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
-    
-    // Remove oldest 20% of entries
-    const removeCount = Math.floor(entries.length * 0.2);
-    for (let i = 0; i < removeCount; i++) {
-      this.feedCache.delete(entries[i][0]);
-    }
-  }
-  
-  getPerformanceMetrics() {
-    return {
-      ...this.performanceMetrics,
-      cacheSize: this.feedCache.size,
-      hitRate: this.performanceMetrics.cacheHits / 
-               (this.performanceMetrics.cacheHits + this.performanceMetrics.cacheMisses) || 0,
-      memoryUsage: this.feedCache.size / CACHE_CONFIG.MAX_CACHE_SIZE,
-    };
-  }
-  
-  destroy(): void {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = null;
-    }
-    this.clearFeedCache();
+  clearSearchResults() {
+    this.searchResults = [];
   }
 }
 
-// Singleton instance
-const feedStateManager = new FeedStateManager();
+// Singleton for search state only
+const searchFeedState = new SearchFeedState();
 
 // Query keys factory - consolidated from the old queryKeys.ts
 const createQueryKeys = {
@@ -380,19 +258,7 @@ class FeedService {
   }
 
   async fetchFeed(feedOption: FeedOption, userDid?: string, cursor?: string): Promise<APIResponse> {
-    // Use original feedOption for caching (keeps URI format for consistency)
-    const cacheKey = `${feedOption}_${userDid || 'anonymous'}_${cursor || 'initial'}`;
-    
-    // Check cache first for performance (for both initial loads and pagination)
-    const cachedResult = feedStateManager.getCachedFeed(cacheKey);
-    if (cachedResult) {
-      // Return cached data immediately - React Query will handle freshness
-      return {
-        feed: cachedResult.data,
-        cursor: cachedResult.cursor,
-      };
-    }
-
+    // React Query handles caching - no need for manual cache management
     try {
       const limit = FEED_CONFIG.defaultLimit;
       let response;
@@ -703,7 +569,7 @@ class FeedService {
         }
       } else if (feedOptionForAPI === 'search') {
         return {
-          feed: feedStateManager.getCurrentFeed(),
+          feed: searchFeedState.getSearchResults(),
           cursor: null,
         };
       } else {
@@ -750,11 +616,6 @@ class FeedService {
         }
       }
 
-      // Cache the result (both initial loads and pagination)
-      if (response) {
-        feedStateManager.setCachedFeed(cacheKey, response.feed, response.cursor);
-      }
-
       return response || { feed: [], cursor: null };
     } catch (error) {
       return { feed: [], cursor: null };
@@ -780,15 +641,10 @@ class FeedService {
   }
 
 
-  // State management methods
-  setCurrentFeed = feedStateManager.setCurrentFeed.bind(feedStateManager);
-  getCurrentFeed = feedStateManager.getCurrentFeed.bind(feedStateManager);
-  clearCurrentFeed = feedStateManager.clearCurrentFeed.bind(feedStateManager);
-  
-  // Cache management methods for performance optimization
-  clearFeedCache = feedStateManager.clearFeedCache.bind(feedStateManager);
-  getCachedFeed = feedStateManager.getCachedFeed.bind(feedStateManager);
-  setCachedFeed = feedStateManager.setCachedFeed.bind(feedStateManager);
+  // Search results state management (only used for search feeds)
+  setCurrentFeed = searchFeedState.setSearchResults.bind(searchFeedState);
+  getCurrentFeed = searchFeedState.getSearchResults.bind(searchFeedState);
+  clearCurrentFeed = searchFeedState.clearSearchResults.bind(searchFeedState);
 }
 
 // Export singleton instance

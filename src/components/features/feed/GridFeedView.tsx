@@ -139,8 +139,6 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
              navigation.push({
           pathname: '/(modals)/feed',
           params: {
-            initialUri: item.post.uri,
-            initialIndex: index.toString(),
             feedOption,
             userDid,
             backgroundColor,

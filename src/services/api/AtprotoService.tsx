@@ -1373,6 +1373,54 @@ class AtprotoService {
     }
   }
 
+  /**
+   * Batch fetch multiple posts by URI
+   * Uses app.bsky.feed.getPosts which accepts up to 25 URIs at once
+   * @param uris - Array of post URIs to fetch
+   * @returns Map of URI to post data
+   */
+  static async getPosts(uris: string[]): Promise<Map<string, any>> {
+    const result = new Map<string, any>();
+    if (!uris.length) return result;
+
+    try {
+      await this.ensureSession();
+      const { api } = await this.getApiClient();
+      
+      // API accepts max 25 URIs per request
+      const BATCH_SIZE = 25;
+      const batches: string[][] = [];
+      for (let i = 0; i < uris.length; i += BATCH_SIZE) {
+        batches.push(uris.slice(i, i + BATCH_SIZE));
+      }
+
+      // Fetch all batches in parallel
+      const responses = await Promise.all(
+        batches.map(batch => 
+          api.app.bsky.feed.getPosts({ uris: batch })
+            .catch(() => ({ data: { posts: [] } }))
+        )
+      );
+
+      // Collect all posts into the map
+      for (const response of responses) {
+        for (const post of response.data.posts) {
+          result.set(post.uri, post);
+        }
+      }
+
+      if (__DEV__) {
+        console.log(`[AtprotoService] Batch fetched ${result.size}/${uris.length} posts`);
+      }
+    } catch (error: unknown) {
+      if (__DEV__) {
+        console.log('[AtprotoService] Batch getPosts error:', error);
+      }
+    }
+
+    return result;
+  }
+
   static async isBlocked(did: string): Promise<boolean> {
     await this.ensureSession();
 

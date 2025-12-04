@@ -6,8 +6,6 @@ import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 
 import { BackArrowIcon } from '../../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { feedService } from '../../src/services/FeedService';
-import { getViewportDimensions } from '../../src/utils/helpers';
 import { Colors } from '../../src/components/ui/UI';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 import { hashtagToChannelSlug } from '../../src/utils/orbytChannels';
@@ -19,12 +17,10 @@ const FeedScreen: React.FC = memo(() => {
   useVisibilityRouteTracker('feed-modal');
   const isRouteFocused = useVisibilityRouteIsActive('feed-modal');
   
-  // Memoized route params extraction
+  // Memoized route params extraction - simplified, removed initial position tracking
   const routeParams = useMemo(() => {
     return {
       feed: params.feed as string,
-      initialIndex: params.initialIndex ? parseInt(params.initialIndex as string) : 0,
-      initialUri: params.initialUri as string,
       feedOption: params.feedOption as string,
       userDid: params.userDid as string,
       backgroundColor: params.backgroundColor as string,
@@ -32,21 +28,8 @@ const FeedScreen: React.FC = memo(() => {
       searchQuery: params.searchQuery as string,
       hasNextPage: params.hasNextPage === 'true',
       isFetchingNextPage: params.isFetchingNextPage === 'true',
-      fetchNextPage: params.fetchNextPage as string,
     };
   }, [params]);
-
-  // Memoized viewport dimensions calculation
-  const viewportDimensions = useMemo(() => 
-    getViewportDimensions(true, false),
-    []
-  );
-  
-  // Memoized initial position calculation
-  const initialPosition = useMemo(() => 
-    (routeParams.initialIndex || 0) * viewportDimensions.height,
-    [routeParams.initialIndex, viewportDimensions.height]
-  );
 
   const modalQueryOptions = useMemo(() => ({
     staleTime: 5 * 60 * 1000,
@@ -59,11 +42,8 @@ const FeedScreen: React.FC = memo(() => {
     if (routeParams.userDid) {
       keyParts.push(routeParams.userDid);
     }
-    if (routeParams.initialUri) {
-      keyParts.push(routeParams.initialUri);
-    }
     return keyParts.join(':');
-  }, [routeParams.feedOption, routeParams.userDid, routeParams.initialUri]);
+  }, [routeParams.feedOption, routeParams.userDid]);
 
   // Check if this is a hashtag feed
   const isHashtagFeed = routeParams.feedOption?.startsWith('hashtag:');
@@ -73,14 +53,13 @@ const FeedScreen: React.FC = memo(() => {
 
   // Memoized close handler
   const handleClose = useCallback(() => {
-    feedService.clearCurrentFeed();
     // Try navigation.back() first, fallback to replace if it fails
     try {
       navigation.back();
     } catch (error) {
       navigation.replace('/(tabs)');
     }
-  }, [navigation, isHashtagFeed]);
+  }, [navigation]);
 
   return (
     <View style={styles.container}>
@@ -109,8 +88,6 @@ const FeedScreen: React.FC = memo(() => {
         userDid={routeParams.userDid}
         backgroundColor={routeParams.backgroundColor || Colors.black}
         secondaryColor={routeParams.secondaryColor}
-        initialIndex={routeParams.initialIndex}
-        initialUri={routeParams.initialUri}
         isVisible={isRouteFocused} // Only play when this modal has focus
         isModal={true} // Mark as modal for optimized behavior
         isProfileLoading={false}

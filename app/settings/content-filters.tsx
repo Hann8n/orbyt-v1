@@ -128,7 +128,6 @@ const ContentFiltersScreen: React.FC = () => {
         // Reset moderation/feeds so all content re-evaluates with new rules
         ModerationService.clearModerationCache();
         feedService.clearCurrentFeed();
-        feedService.clearFeedCache();
         queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
 
       }
@@ -165,7 +164,6 @@ const ContentFiltersScreen: React.FC = () => {
         // Reset moderation/feeds so all content re-evaluates with new rules
         ModerationService.clearModerationCache();
         feedService.clearCurrentFeed();
-        feedService.clearFeedCache();
         queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
 
       }

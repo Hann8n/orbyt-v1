@@ -99,32 +99,16 @@ const NotificationItem: React.FC<{
   item: any; 
   navigation: any; 
   queryClient: any;
-}> = ({ item, navigation, queryClient }) => {
+  postDataMap: Map<string, any>;
+}> = ({ item, navigation, queryClient, postDataMap }) => {
   const { reason, author, post, reasonSubject, indexedAt } = item;
   
   // Determine if this is a post-related notification
   const isPostAction = ['like', 'repost', 'reply', 'quote', 'mention'].includes(reason);
   const postUri = post?.uri || reasonSubject;
   
-  // Fetch post data for thumbnails if we have a post URI but no post data
-  const { data: fetchedPost } = useQuery({
-    queryKey: ['notification-post', postUri],
-    queryFn: async () => {
-      if (!postUri || post) return null; // Don't fetch if we already have post data
-      try {
-        const postData = await AtprotoService.getPost(postUri);
-        return postData;
-      } catch (error) {
-        if (__DEV__) {
-          console.log('Failed to fetch post for thumbnail:', postUri, error);
-        }
-        return null;
-      }
-    },
-    enabled: isPostAction && !!postUri && !post, // Only fetch if we need it and don't have it
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-  });
+  // Get post data from the batch-fetched map (passed from parent)
+  const fetchedPost = postUri ? postDataMap.get(postUri) : undefined;
   
   // Use fetched post or existing post data
   const postData = post || fetchedPost;
@@ -240,8 +224,6 @@ const NotificationItem: React.FC<{
           navigation.push({
             pathname: '/(modals)/feed',
             params: {
-              initialIndex: 0,
-              initialUri: postUri,
               feedOption: 'search',
               userDid: undefined,
               backgroundColor: 'transparent',
@@ -421,35 +403,44 @@ const NotificationsTab: React.FC = () => {
     }
   }, [notifications]);
 
-  const renderNotificationContent = useCallback(({ item }: { item: any }) => {
-    // Debug logging - log raw notification structure (only first few to avoid spam)
-    if (__DEV__ && notifications.indexOf(item) < 3) {
-      const { reason, author, post, reasonSubject, record } = item;
-      const isPostAction = ['like', 'repost', 'reply', 'quote', 'mention'].includes(reason);
-      
-      if (isPostAction) {
-        console.log('=== NOTIFICATION DEBUG ===');
-        console.log('Reason:', reason);
-        console.log('Full notification item:', JSON.stringify(item, null, 2));
-        console.log('Post object:', JSON.stringify(post, null, 2));
-        console.log('Record object:', JSON.stringify(record, null, 2));
-        console.log('ReasonSubject:', reasonSubject);
-        console.log('Post keys:', post ? Object.keys(post) : 'no post');
-        console.log('Post embed:', post?.embed ? JSON.stringify(post.embed, null, 2) : 'no embed');
-        console.log('Post embeds:', post?.embeds ? JSON.stringify(post.embeds, null, 2) : 'no embeds');
-        console.log('Record embed:', record?.embed ? JSON.stringify(record.embed, null, 2) : 'no record embed');
-        console.log('=======================');
+  // Extract unique post URIs that need to be fetched (notifications without post data)
+  const postUrisToFetch = useMemo(() => {
+    const uris = new Set<string>();
+    for (const notification of notifications) {
+      const isPostAction = ['like', 'repost', 'reply', 'quote', 'mention'].includes(notification.reason);
+      const postUri = notification.post?.uri || notification.reasonSubject;
+      // Only add if it's a post action, has a URI, and doesn't already have post data
+      if (isPostAction && postUri && !notification.post) {
+        uris.add(postUri);
       }
     }
-    
+    return Array.from(uris);
+  }, [notifications]);
+
+  // Batch fetch all posts needed for notifications
+  const { data: postDataMap = new Map() } = useQuery({
+    queryKey: ['notification-posts-batch', postUrisToFetch.join(',')],
+    queryFn: async () => {
+      if (__DEV__) {
+        console.log(`[NotificationsTab] Batch fetching ${postUrisToFetch.length} unique posts`);
+      }
+      return AtprotoService.getPosts(postUrisToFetch);
+    },
+    enabled: postUrisToFetch.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
+
+  const renderNotificationContent = useCallback(({ item }: { item: any }) => {
     return (
       <NotificationItem 
         item={item} 
         navigation={navigation} 
         queryClient={queryClient}
+        postDataMap={postDataMap}
       />
     );
-  }, [navigation, queryClient, notifications]);
+  }, [navigation, queryClient, postDataMap]);
 
   const handleScrollBeginDrag = useCallback(() => {
     setIsScrolling(true);

@@ -948,9 +948,6 @@ export const useUserStore = create<UserState>()(
             await AtprotoService.updateOrbytProfileAlgorithmicFeedProvider(uri);
           } catch {}
           
-          // Clear FeedService cache for your-mix to ensure fresh content
-          feedService.clearFeedCache();
-          
           // Remove all cached your-mix queries and refetch with new provider
           queryClient.removeQueries({ queryKey: ['feed', 'your-mix'] });
           queryClient.invalidateQueries({ queryKey: ['feed', 'your-mix'] });
@@ -998,11 +995,10 @@ export const useUserStore = create<UserState>()(
       
       clearAllCaches: async () => {
         try {
-          // Clear React Query cache
+          // Clear React Query cache (this is the single source of truth for feed data)
           queryClient.clear();
           
-          // Clear FeedService cache
-          feedService.clearFeedCache();
+          // Clear search results state
           feedService.clearCurrentFeed();
           
           // Clear thumbnail color cache
