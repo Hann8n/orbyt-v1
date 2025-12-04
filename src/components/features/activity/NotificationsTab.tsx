@@ -129,19 +129,35 @@ const NotificationItem: React.FC<{
   // Use fetched post or existing post data
   const postData = post || fetchedPost;
   
-  // Try to get thumbnail from post data
+  // Try to get thumbnail from post data and determine post type
   let thumbnail: string | null = null;
+  let isVideoThumbnail = false;
   if (isPostAction && postData) {
     thumbnail = getPostThumbnail(postData);
+    
+    // Check if this is a video post for thumbnail styling
+    const embed = postData?.embed;
+    if (embed) {
+      if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
+        isVideoThumbnail = true;
+      } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
+        if (embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view') {
+          isVideoThumbnail = true;
+        }
+      }
+    }
   }
+  
+  // Determine the post type label (video vs post)
+  const postTypeLabel = isVideoThumbnail ? 'video' : 'post';
   
   let actionText = '';
   switch (reason) {
     case 'like':
-      actionText = 'liked your post';
+      actionText = `liked your ${postTypeLabel}`;
       break;
     case 'repost':
-      actionText = 'reshared your post';
+      actionText = `reshared your ${postTypeLabel}`;
       break;
     case 'follow':
       actionText = 'followed you';
@@ -169,7 +185,7 @@ const NotificationItem: React.FC<{
   }
 
   const handlePress = async () => {
-    // For post-related actions, navigate to feed modal
+    // For post-related actions, check if it's a video post
     if (isPostAction && postUri) {
       try {
         // Use fetched post or fetch it again
@@ -185,41 +201,61 @@ const NotificationItem: React.FC<{
           return;
         }
         
-        // Create a feed item with the post data
-        const feedItem = {
-          post: {
-            uri: finalPostData.uri,
-            cid: finalPostData.cid,
-            author: finalPostData.author,
-            record: finalPostData.record,
-            embed: finalPostData.embed,
-            replyCount: finalPostData.replyCount,
-            repostCount: finalPostData.repostCount,
-            likeCount: finalPostData.likeCount,
-            indexedAt: finalPostData.indexedAt,
-          },
-          uniqueKey: finalPostData.uri,
-          moderationDecision: finalPostData.moderationDecision,
+        // Check if this is a video post
+        const isVideoPost = () => {
+          const embed = finalPostData?.embed;
+          if (!embed) return false;
+          
+          if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
+            return true;
+          } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
+            return embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view';
+          }
+          return false;
         };
         
-        // Set the current feed with just this post
-        feedService.setCurrentFeed([feedItem]);
-        
-        // Navigate to feed modal
-        navigation.push({
-          pathname: '/(modals)/feed',
-          params: {
-            initialIndex: 0,
-            initialUri: postUri,
-            feedOption: 'search',
-            userDid: undefined,
-            backgroundColor: 'transparent',
-            secondaryColor: Colors.white,
-            searchQuery: '',
-            hasNextPage: 'false',
-            isFetchingNextPage: 'false',
-          }
-        });
+        // For video posts, open in feed modal
+        if (isVideoPost()) {
+          // Create a feed item with the post data
+          const feedItem = {
+            post: {
+              uri: finalPostData.uri,
+              cid: finalPostData.cid,
+              author: finalPostData.author,
+              record: finalPostData.record,
+              embed: finalPostData.embed,
+              replyCount: finalPostData.replyCount,
+              repostCount: finalPostData.repostCount,
+              likeCount: finalPostData.likeCount,
+              indexedAt: finalPostData.indexedAt,
+            },
+            uniqueKey: finalPostData.uri,
+            moderationDecision: finalPostData.moderationDecision,
+          };
+          
+          // Set the current feed with just this post
+          feedService.setCurrentFeed([feedItem]);
+          
+          // Navigate to feed modal
+          navigation.push({
+            pathname: '/(modals)/feed',
+            params: {
+              initialIndex: 0,
+              initialUri: postUri,
+              feedOption: 'search',
+              userDid: undefined,
+              backgroundColor: 'transparent',
+              secondaryColor: Colors.white,
+              searchQuery: '',
+              hasNextPage: 'false',
+              isFetchingNextPage: 'false',
+            }
+          });
+        } else {
+          // For non-video posts (text, images, links), open in Bluesky app
+          const { openPostInBluesky } = await import('../../../utils/blueskyLinks');
+          await openPostInBluesky(postUri);
+        }
       } catch (error) {
         // Fallback to profile on error
         if (author?.handle) {
@@ -249,56 +285,80 @@ const NotificationItem: React.FC<{
     }
   };
 
+  // Separate handler for profile navigation
+  const handleProfilePress = () => {
+    if (author?.handle) {
+      const handle = author.handle.trim();
+      // Prefetch profile using React Query before navigation
+      queryClient.prefetchQuery({
+        queryKey: profileKeys.detail(handle),
+        queryFn: () => ProfileCache.getProfile(handle),
+        staleTime: ProfileCache.cacheExpiry
+      }).finally(() => {
+        // Navigate regardless of prefetch success
+        const target = handle.trim();
+        if (target) { 
+          navigation.push(`/profile/${target}`); 
+        }
+      });
+    }
+  };
+
   return (
-    <TouchableOpacity
-      style={styles.notificationItem}
-      onPress={handlePress}
-    >
-      <Avatar
-        uri={author?.avatar}
-        type="profile"
-        size={50}
-        showRing={true}
-        style={styles.profileImage}
-      />
+    <View style={styles.notificationItem}>
+      <TouchableOpacity onPress={handleProfilePress} activeOpacity={0.7}>
+        <Avatar
+          uri={author?.avatar}
+          type="profile"
+          size={50}
+          showRing={true}
+          style={styles.profileImage}
+        />
+      </TouchableOpacity>
       <View style={styles.notificationContent}>
-        <View style={{flexDirection: 'row', alignItems: 'center'}}>
-          <Text style={styles.authorName}>
-            {author.displayName || author.handle || 'Unknown user'}
-          </Text>
-          {author.handle && (
-            <VerificationBadge 
-              handle={author.handle} 
-              textSize={14} 
-              textColor={Colors.white}
-            />
-          )}
-        </View>
-        <View style={styles.actionRow}>
-          <Text style={styles.actionText}>
-            {actionText}
-          </Text>
-          {indexedAt && (
-            <Text style={styles.timeText}>
-              {formatRelativeDate(indexedAt)}
+        <TouchableOpacity onPress={handleProfilePress} activeOpacity={0.7}>
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <Text style={styles.authorName}>
+              {author.displayName || author.handle || 'Unknown user'}
             </Text>
-          )}
-        </View>
+            {author.handle && (
+              <VerificationBadge 
+                handle={author.handle} 
+                textSize={14} 
+                textColor={Colors.white}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={{ flex: 1 }}>
+          <View style={styles.actionRow}>
+            <Text style={styles.actionText}>
+              {actionText}
+            </Text>
+            {indexedAt && (
+              <Text style={styles.timeText}>
+                {formatRelativeDate(indexedAt)}
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
       </View>
       {thumbnail && (
-        <Image
-          source={{ uri: thumbnail }}
-          style={styles.thumbnail}
-          resizeMode="cover"
-          onError={() => {
-            // Silently fail - image just won't display
-            if (__DEV__) {
-              console.log('Thumbnail failed to load:', thumbnail);
-            }
-          }}
-        />
+        <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
+          <Image
+            source={{ uri: thumbnail }}
+            style={isVideoThumbnail ? styles.thumbnailVideo : styles.thumbnailPhoto}
+            resizeMode="cover"
+            onError={() => {
+              // Silently fail - image just won't display
+              if (__DEV__) {
+                console.log('Thumbnail failed to load:', thumbnail);
+              }
+            }}
+          />
+        </TouchableOpacity>
       )}
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -527,9 +587,15 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     marginRight: 10,
   },
-  thumbnail: {
+  thumbnailVideo: {
     width: 45,
     height: 80, // 9:16 aspect ratio (45/80 = 0.5625)
+    borderRadius: BORDER_RADIUS.SMALL,
+    backgroundColor: Colors.darkGray,
+  },
+  thumbnailPhoto: {
+    width: 60,
+    height: 60, // 1:1 aspect ratio for photo posts
     borderRadius: BORDER_RADIUS.SMALL,
     backgroundColor: Colors.darkGray,
   },
