@@ -122,7 +122,7 @@ const HorizontalVideoList: React.FC<HorizontalVideoListProps> = ({
   );
 
   const keyExtractor = useCallback(
-    (item: FeedItem, index: number) => `horizontal-${item.post.uri}-${index}`,
+    (item: FeedItem) => item.post?.cid ? `${item.post.uri}:${item.post.cid}` : item.post.uri,
     []
   );
 

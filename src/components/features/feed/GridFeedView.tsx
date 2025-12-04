@@ -227,7 +227,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
               key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
               data={feed}
               renderItem={renderGridItem}
-              keyExtractor={(item: FeedItem, index: number) => `grid-${item.post.uri}-${index}`}
+              keyExtractor={(item: FeedItem) => item.post?.cid ? `${item.post.uri}:${item.post.cid}` : item.post.uri}
               numColumns={numColumns}
               contentContainerStyle={[
                 styles.listContent,

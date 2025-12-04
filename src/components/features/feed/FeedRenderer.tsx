@@ -252,23 +252,12 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     );
   }
 
-  // Simple position change handler - forwards to parent and triggers pagination when needed
-  const handlePositionChangeWithPreload = useCallback((position: number) => {
+  // Simple position change handler - forwards to parent only
+  // Pagination is handled by FlashList's onEndReached (via onLoadMore -> handleLoadMore)
+  // This avoids conflicting pagination triggers and ensures new content is added to next page
+  const handlePositionChange = useCallback((position: number) => {
     onPositionChange?.(position);
-
-    // Trigger pagination when near the end of the feed
-    if (!feed || feed.length === 0) return;
-    
-    const feedLength = feed.length;
-    if (feedLength >= 3 && hasNextPage && !isFetchingNextPage) {
-      // If we're within the last 5 items, request more
-      const nearEndThreshold = Math.max(5, Math.ceil(feedLength * 0.1));
-      const estimatedIndex = Math.floor(position / 600); // Approximate item height
-      if (feedLength - estimatedIndex <= nearEndThreshold) {
-        fetchNextPage?.();
-      }
-    }
-  }, [onPositionChange, feed, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [onPositionChange]);
 
   // Memoized common props to prevent recreation on every render
   const commonProps = useMemo(() => ({
@@ -285,7 +274,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     onRetry: handleRetry,
     isProfileLoading,
     isProfileFeed,
-    onPositionChange: handlePositionChangeWithPreload,
+    onPositionChange: handlePositionChange,
     isVisible,
     viewMode,
     onViewModeChange,

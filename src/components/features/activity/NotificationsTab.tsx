@@ -534,7 +534,7 @@ const NotificationsTab: React.FC = () => {
       initialNumToRender={15}
       updateCellsBatchingPeriod={30}
       maintainVisibleContentPosition={{ 
-        minIndexForVisible: 0, 
+        disabled: false, 
         autoscrollToTopThreshold: undefined 
       }}
       viewabilityConfig={viewabilityConfig}

@@ -114,6 +114,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     onViewableItemsChanged,
     viewabilityConfig,
     activeItemUri,
+    activeItemIndex,
     canPlay,
     isFeedActive,
     isVideoVisible: isVideoVisibleHelper,
@@ -181,6 +182,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
   const initialVisibilityTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasPrimedVisibleItemRef = useRef(false);
+  // Track if we've restored scroll position for this visibility session
+  const hasRestoredPositionRef = useRef(false);
+  // Track previous visibility to detect return to feed
+  const wasVisibleRef = useRef(isVisible);
 
   const visibleFeed = useMemo(() => {
     return isRefreshing ? [] : feed;
@@ -308,9 +313,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     return 'default';
   }, []);
 
-  // Key extractor with compound keys to force component recreation
-  const keyExtractor = useCallback((item: FeedItem, index: number) => {
-    return item.endCard ? 'end-card' : `${item.post.uri}_${index}_${item.post.cid}`;
+  // Key extractor with stable keys (no index) for FlashList v2 maintainVisibleContentPosition
+  // Index-based keys cause issues when new items are added because existing items get new keys
+  const keyExtractor = useCallback((item: FeedItem, _index: number) => {
+    return item.endCard ? 'end-card' : `${item.post.uri}:${item.post.cid}`;
   }, []);
 
   useEffect(() => {
@@ -358,6 +364,41 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       hasPrimedVisibleItemRef.current = true;
     }, 0);
   }, [isVisible, isFeedActive, viewMode, listData, activeItemUri, onViewableItemsChanged]);
+
+  // FlashList v2: Restore scroll position when returning to feed
+  // Uses stored activeItemIndex from visibility store to maintain video position
+  useEffect(() => {
+    // Track visibility changes
+    const wasVisible = wasVisibleRef.current;
+    wasVisibleRef.current = isVisible;
+
+    // Only restore on transition from not visible to visible
+    if (!wasVisible && isVisible && !hasRestoredPositionRef.current) {
+      // Check if we have a stored position and data to scroll to
+      if (activeItemIndex >= 0 && activeItemIndex < listData.length && flashListRef.current) {
+        // Reset the restored flag when we start restoration
+        hasRestoredPositionRef.current = true;
+        
+        // Small delay to ensure FlashList is ready
+        requestAnimationFrame(() => {
+          try {
+            flashListRef.current?.scrollToIndex({
+              index: activeItemIndex,
+              animated: false,
+              viewPosition: 0.5,
+            });
+          } catch (error) {
+            // Handle scroll errors gracefully - FlashList v2 is more resilient
+          }
+        });
+      }
+    }
+
+    // Reset restoration flag when visibility is lost so next return will restore
+    if (wasVisible && !isVisible) {
+      hasRestoredPositionRef.current = false;
+    }
+  }, [isVisible, activeItemIndex, listData.length]);
 
   // Grid item press handler
   const handleGridItemPress = useCallback((index: number) => {
@@ -506,6 +547,15 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         showsVerticalScrollIndicator={false}
         bounces={true}
         directionalLockEnabled={true}
+        
+        // FlashList v2: Maintain scroll position when content changes
+        // New videos are added to subsequent pages without disrupting current view
+        // disabled: false (default) ensures scroll position is preserved
+        // autoscrollToTopThreshold: undefined prevents auto-scrolling when new items are added at top
+        maintainVisibleContentPosition={{
+          disabled: false,
+          autoscrollToTopThreshold: undefined,
+        }}
         
         // Pull to refresh
         refreshControl={refreshControl as any}

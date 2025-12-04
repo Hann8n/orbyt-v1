@@ -5,8 +5,8 @@
  * Replaces: useFeedQuery.tsx, useInfiniteScroll.tsx
  */
 
-import { useCallback, useRef, useEffect, useMemo } from 'react';
-import { NativeScrollEvent, InteractionManager } from 'react-native';
+import { useRef, useEffect, useMemo } from 'react';
+import { InteractionManager } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useUserStore } from '../stores/userStore';
@@ -120,13 +120,16 @@ export function useFeed(
   // Flatten the pages for a single data array
   const feedPages = query.data?.pages ?? [];
 
-  const dedupedFeed = useMemo(() => {
+  // Deduplicate feed items and create stable array
+  // FlashList v2's maintainVisibleContentPosition handles new items gracefully
+  // when keyExtractor returns stable keys (not including index)
+  const feed = useMemo(() => {
     if (!feedPages.length) {
       return [] as FeedItem[];
     }
 
     const seenKeys = new Set<string>();
-    const nextFeed: FeedItem[] = [];
+    const result: FeedItem[] = [];
 
     for (const page of feedPages) {
       const items = page?.feed ?? [];
@@ -138,36 +141,19 @@ export function useFeed(
           continue;
         }
 
+        // Use same key format as keyExtractor for consistency
         const key = cid ? `${uri}:${cid}` : uri;
         if (seenKeys.has(key)) {
           continue;
         }
 
         seenKeys.add(key);
-        nextFeed.push(item);
+        result.push(item);
       }
     }
 
-    return nextFeed;
+    return result;
   }, [feedPages]);
-
-  const stableFeedRef = useRef<FeedItem[]>([]);
-
-  const feed = useMemo(() => {
-    const previous = stableFeedRef.current;
-    if (previous.length === dedupedFeed.length && dedupedFeed.length > 0) {
-      // Fast path: compare first and last items only
-      const firstMatch = previous[0]?.post?.uri === dedupedFeed[0]?.post?.uri;
-      const lastMatch = previous[previous.length - 1]?.post?.uri === dedupedFeed[dedupedFeed.length - 1]?.post?.uri;
-      
-      if (firstMatch && lastMatch) {
-        return previous;
-      }
-    }
-
-    stableFeedRef.current = dedupedFeed;
-    return dedupedFeed;
-  }, [dedupedFeed]);
 
   // Preload thumbnail colors when feed data changes
   useEffect(() => {
