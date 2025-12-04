@@ -53,8 +53,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     backgroundColor: string;
     textColor: string;
   } | null>(null);
-  useVisibilityRouteTracker('profile', 'profile');
-  const isRouteFocused = useVisibilityRouteIsActive('profile');
+  // Use DID in route key to differentiate between own profile and author profiles
+  const profileRouteKey = useMemo(() => {
+    if (providedHandle || providedDid) {
+      // Author profile: include the identifier to make route key unique
+      return `profile:${providedDid || providedHandle}`;
+    }
+    // Own profile tab: use default key
+    return 'profile:self';
+  }, [providedHandle, providedDid]);
+
+  useVisibilityRouteTracker(profileRouteKey, 'profile');
+  const isRouteFocused = useVisibilityRouteIsActive(profileRouteKey);
 
   const invalidateProfile = useProfileInvalidation();
   const queryClient = useQueryClient();
