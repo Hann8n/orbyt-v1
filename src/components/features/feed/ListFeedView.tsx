@@ -79,8 +79,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     feedOption === FEED_TYPES.PROFILE ||
     feedOption === FEED_TYPES.LIKES ||
     feedOption === FEED_TYPES.REPOSTS ||
-    (feedOption && feedOption.startsWith('at://'))
-  ), [feedOption]);
+    (feedOption && feedOption.startsWith('at://')) ||
+    (feedOption && feedOption.startsWith('hashtag:orbyt-channel-')) ||
+    Boolean(headerComponent)
+  ), [feedOption, headerComponent]);
 
   // Viewport calculations
   const viewportDimensions = useMemo(() => {

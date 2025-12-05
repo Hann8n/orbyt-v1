@@ -43,6 +43,10 @@ const ActivitySwipePager = ({
   // Track scroll progress from PagerView's onPageScroll for indicator animation
   const currentPageRef = useRef(activeIndex);
   const hasAppliedInitialIndexRef = useRef(false);
+  // Track if user is actively scrolling to prevent programmatic page changes during gestures
+  const isUserScrollingRef = useRef(false);
+  // Track if the activeTab change came from user gesture (not indicator tap)
+  const isUserGestureRef = useRef(false);
 
   // Set initial page index
   useLayoutEffect(() => {
@@ -58,11 +62,19 @@ const ActivitySwipePager = ({
   }, [activeIndex, pages.length, onScrollProgressChange]);
 
   // Sync PagerView page when activeTab changes (e.g., from indicator tap)
+  // Only sync if NOT in the middle of a user gesture
   useEffect(() => {
     if (hasAppliedInitialIndexRef.current && pagerViewRef.current && activeIndex >= 0) {
-      requestAnimationFrame(() => {
-        pagerViewRef.current?.setPage(activeIndex);
-      });
+      // Don't sync if user is actively scrolling - let the gesture complete naturally
+      if (isUserScrollingRef.current || isUserGestureRef.current) {
+        return;
+      }
+      // Only sync if the page actually changed (indicator tap)
+      if (currentPageRef.current !== activeIndex) {
+        requestAnimationFrame(() => {
+          pagerViewRef.current?.setPage(activeIndex);
+        });
+      }
     }
   }, [activeIndex]);
 
@@ -82,6 +94,8 @@ const ActivitySwipePager = ({
       currentPageRef.current = roundedPosition;
       const nextTab = pages[roundedPosition];
       if (nextTab && nextTab !== activeTab) {
+        // Mark as user gesture to prevent sync effect from interfering
+        isUserGestureRef.current = true;
         onActiveTabChange(nextTab);
       }
     }
@@ -102,13 +116,28 @@ const ActivitySwipePager = ({
     
     const nextTab = pages[nextIndex];
     if (nextTab && nextTab !== activeTab) {
+      isUserGestureRef.current = true;
       onActiveTabChange(nextTab);
     }
+    
+    // Reset user gesture flag after a short delay to allow state to settle
+    setTimeout(() => {
+      isUserGestureRef.current = false;
+    }, 100);
   }, [activeTab, pages, onActiveTabChange, onScrollProgressChange]);
 
   // Handle scroll state changes from PagerView
   const handlePageScrollStateChanged = useCallback((event: any) => {
-    // No special handling needed
+    const state = event.nativeEvent.pageScrollState;
+    // Track when user starts/stops scrolling
+    if (state === 'dragging' || state === 'settling') {
+      isUserScrollingRef.current = true;
+    } else if (state === 'idle') {
+      // Reset scrolling flag after a short delay to ensure gesture is complete
+      setTimeout(() => {
+        isUserScrollingRef.current = false;
+      }, 50);
+    }
   }, []);
 
   const initialPageIndex = activeIndex >= 0 ? activeIndex : 0;

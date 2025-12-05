@@ -3,13 +3,12 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   Image,
   TouchableOpacity,
   RefreshControl,
-  Platform,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../../../services/api/AtprotoService';
@@ -346,7 +345,6 @@ const NotificationItem: React.FC<{
 
 const NotificationsTab: React.FC = () => {
   const navigation = useRouter();
-  const [isScrolling, setIsScrolling] = useState(false);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
@@ -459,41 +457,8 @@ const NotificationsTab: React.FC = () => {
     );
   }, [navigation, queryClient, postDataMap]);
 
-  const handleScrollBeginDrag = useCallback(() => {
-    setIsScrolling(true);
-  }, []);
-
-  const handleScrollEndDrag = useCallback(() => {
-    setTimeout(() => setIsScrolling(false), 200);
-  }, []);
-
-  const handleMomentumScrollEnd = useCallback(() => {
-    setTimeout(() => setIsScrolling(false), 100);
-  }, []);
-
-  // Improved preloadNextPage logic similar to CommentSection
-  const preloadNextPage = useCallback(
-    (currentOffset: number, contentHeight: number, containerHeight: number) => {
-      const isCloseToBottom = (contentHeight - currentOffset - containerHeight) / contentHeight < 0.25;
-      if (isCloseToBottom && hasNextPage && !isFetchingNextPage) {
-        fetchNextPage();
-      }
-    },
-    [hasNextPage, isFetchingNextPage, fetchNextPage]
-  );
-
-  // Optimized viewabilityConfig
-  const viewabilityConfig = useMemo(
-    () => ({
-      viewAreaCoveragePercentThreshold: 50,
-      minimumViewTime: 300,
-    }),
-    []
-  );
-
-  // Create loading items for initial load
-  const loadingItems = useMemo(() => {
-    return Array(1).fill(0); // Just show one loading spinner
+  const keyExtractor = useCallback((item: any) => {
+    return item.uri || `notification-${item.indexedAt || Math.random()}`;
   }, []);
 
   if (isError) {
@@ -507,25 +472,25 @@ const NotificationsTab: React.FC = () => {
     );
   }
 
+  if (isLoading && notifications.length === 0) {
+    return (
+      <View style={styles.listContainer}>
+        <NotificationLoading />
+      </View>
+    );
+  }
+
   return (
-    <FlatList
+    <FlashList
       style={styles.listContainer}
       contentContainerStyle={{
         paddingHorizontal: 15,
         paddingBottom: bottomNavBarHeight + 5,
       }}
-      data={isLoading ? loadingItems : notifications}
-      renderItem={isLoading ? () => <NotificationLoading /> : renderNotificationContent}
-      keyExtractor={(item, index) => isLoading ? `loading-${index}` : item.uri || `notification-${index}`}
+      data={notifications}
+      renderItem={renderNotificationContent}
+      keyExtractor={keyExtractor}
       ItemSeparatorComponent={NotificationDivider}
-      onScroll={({ nativeEvent }) => {
-        const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
-        preloadNextPage(contentOffset.y, contentSize.height, layoutMeasurement.height);
-      }}
-      scrollEventThrottle={16}
-      onScrollBeginDrag={handleScrollBeginDrag}
-      onScrollEndDrag={handleScrollEndDrag}
-      onMomentumScrollEnd={handleMomentumScrollEnd}
       refreshControl={
         <RefreshControl
           refreshing={isRefetching && !isFetchingNextPage}
@@ -545,16 +510,6 @@ const NotificationsTab: React.FC = () => {
       }}
       onEndReachedThreshold={0.5}
       showsVerticalScrollIndicator={false}
-      removeClippedSubviews={Platform.OS === 'android'}
-      maxToRenderPerBatch={10}
-      windowSize={21}
-      initialNumToRender={15}
-      updateCellsBatchingPeriod={30}
-      maintainVisibleContentPosition={{ 
-        disabled: false, 
-        autoscrollToTopThreshold: undefined 
-      }}
-      viewabilityConfig={viewabilityConfig}
       ListEmptyComponent={!isLoading ? (
         <EmptyNotifications />
       ) : null}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -64,15 +64,15 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
     setRefreshing(false);
   };
 
-  const handleConversationPress = (conversation: Conversation) => {
+  const handleConversationPress = useCallback((conversation: Conversation) => {
     if (onConversationPress) {
       onConversationPress(conversation);
     } else {
       router.push(`/chat/${conversation.id}`);
     }
-  };
+  }, [onConversationPress]);
 
-  const renderConversation = ({ item }: { item: Conversation }) => {
+  const renderConversation = useCallback(({ item }: { item: Conversation }) => {
     const otherMember = item.members.find(member => member.did !== currentUserDid) || item.members[0];
     const hasEmbed = !!(item.lastMessage && 'embed' in item.lastMessage && (item.lastMessage as any).embed);
     
@@ -123,7 +123,7 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [currentUserDid, handleConversationPress]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
@@ -151,6 +151,16 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
     </View>
   );
 
+  // All hooks must be called before any conditional returns
+  const keyExtractor = useCallback((item: Conversation) => item.id, []);
+  
+  const contentContainerStyle = useMemo(() => {
+    return conversations.length === 0 ? styles.emptyContainer : {
+      paddingHorizontal: 15,
+      paddingBottom: bottomNavBarHeight + 5,
+    };
+  }, [conversations.length, bottomNavBarHeight]);
+
   if (isLoading && conversations.length === 0) {
     return (
       <View style={styles.container}>
@@ -170,7 +180,7 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
       <FlashList
         data={conversations}
         renderItem={renderConversation}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         ItemSeparatorComponent={ConversationDivider}
         refreshControl={
           <RefreshControl
@@ -181,10 +191,7 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
           />
         }
         ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={conversations.length === 0 ? styles.emptyContainer : {
-          paddingHorizontal: 15,
-          paddingBottom: bottomNavBarHeight + 5,
-        }}
+        contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
       />
     </View>
