@@ -17,8 +17,9 @@ const FeedScreen: React.FC = memo(() => {
   useVisibilityRouteTracker('feed-modal');
   const isRouteFocused = useVisibilityRouteIsActive('feed-modal');
   
-  // Memoized route params extraction - simplified, removed initial position tracking
+  // Memoized route params extraction - includes initial index for scrolling to selected video
   const routeParams = useMemo(() => {
+    const initialIndex = params.initialIndex ? parseInt(params.initialIndex as string, 10) : null;
     return {
       feed: params.feed as string,
       feedOption: params.feedOption as string,
@@ -28,6 +29,7 @@ const FeedScreen: React.FC = memo(() => {
       searchQuery: params.searchQuery as string,
       hasNextPage: params.hasNextPage === 'true',
       isFetchingNextPage: params.isFetchingNextPage === 'true',
+      initialIndex: isNaN(initialIndex as number) ? null : initialIndex,
     };
   }, [params]);
 
@@ -94,6 +96,7 @@ const FeedScreen: React.FC = memo(() => {
         queryOptions={modalQueryOptions}
         ListComponent={undefined}
         visibilityKey={modalVisibilityKey}
+        targetScrollIndex={routeParams.initialIndex}
       />
       
       {/* Show hashtag header if this is a hashtag feed (but not for orbyt channels) */}

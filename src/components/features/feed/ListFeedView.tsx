@@ -59,6 +59,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   forceError = false,
   ListComponent,
   visibilityKey,
+  targetScrollIndex,
 }) => {
   // Hooks
   const insets = useSafeAreaInsets();
@@ -418,9 +419,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
   }, [isVisible, activeItemIndex, activeItemUri, listData]);
 
-  // Grid item press handler
+  // Unified item press handler for grid and horizontal feeds
+  // Uses FlashList's native scrollToIndex when switching to list view
   const handleGridItemPress = useCallback((index: number) => {
-    if (viewMode === 'grid' && onViewModeChange && index >= 0 && index < feed.length) {
+    if ((viewMode === 'grid' || viewMode === 'horizontal') && onViewModeChange && index >= 0 && index < feed.length) {
       onViewModeChange('list');
       
       setTimeout(() => {
@@ -428,6 +430,16 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
     }
   }, [feed.length, viewMode, onViewModeChange, scrollToIndex]);
+
+  // Handle targetScrollIndex prop - scrolls to target when switching to list view
+  useEffect(() => {
+    if (targetScrollIndex !== null && targetScrollIndex !== undefined && viewMode === 'list' && listData.length > 0) {
+      const targetIndex = Math.max(0, Math.min(targetScrollIndex, listData.length - 1));
+      setTimeout(() => {
+        scrollToIndex(targetIndex);
+      }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
+    }
+  }, [targetScrollIndex, viewMode, listData.length, scrollToIndex]);
 
   // Orientation change handling
   useEffect(() => {

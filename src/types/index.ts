@@ -109,6 +109,7 @@ export interface ListFeedViewProps {
   forceError?: boolean;
   ListComponent?: any;
   visibilityKey?: string;
+  targetScrollIndex?: number | null;
 }
 
 // Screen Ref Types

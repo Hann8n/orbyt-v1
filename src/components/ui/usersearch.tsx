@@ -265,7 +265,7 @@ export function RichTextSearchModal({
                   hideHandleLine={false}
                   showArrow={false}
                   onPress={() => onSelectUser?.(item)}
-                  style={{ marginBottom: 0, paddingLeft: 0, paddingRight: 0, paddingTop: 15, paddingBottom: 15 }}
+                  style={{ marginBottom: 0, paddingLeft: 0, paddingRight: 0, paddingTop: 10, paddingBottom: 10 }}
                 />
               )}
               onEndReached={() => {
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 15,
+    paddingVertical: 10,
     paddingHorizontal: 0,
     borderRadius: BORDER_RADIUS.LARGE,
     marginBottom: 0,

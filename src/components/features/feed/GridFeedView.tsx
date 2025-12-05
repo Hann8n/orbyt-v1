@@ -233,7 +233,6 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
                 styles.listContent,
                 { paddingBottom: effectiveInsets.bottom + bottomNavBarHeight, backgroundColor }
               ]}
-              columnWrapperStyle={styles.columnWrapper}
               showsVerticalScrollIndicator={false}
               contentInsetAdjustmentBehavior="never"
               bounces={true}
@@ -248,7 +247,6 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
               scrollEnabled={true}
               onEndReached={hasNextPage ? onLoadMore : undefined}
               onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-              removeClippedSubviews={false}
             />
           );
         })()
@@ -276,9 +274,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: 20,
     paddingHorizontal: 0,
-  },
-  columnWrapper: {
-    marginBottom: ITEM_MARGIN,
   },
   gridItem: {
     position: 'relative',

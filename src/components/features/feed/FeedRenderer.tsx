@@ -6,6 +6,7 @@
 
 import React, { useCallback, useEffect, useState, useMemo, memo } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import ListFeedView from './ListFeedView';
 import GridFeedView from './GridFeedView';
@@ -15,6 +16,7 @@ import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import { Colors } from '../../ui/UI';
 import { feedService } from '../../../services/FeedService';
+import { APP_CONSTANTS } from '../../../utils/constants';
 
 // Types
 export interface Post {
@@ -81,6 +83,7 @@ interface FeedRendererProps {
   ListComponent?: any; // Optional custom list component for integration with collapsible tabs
   visibilityKey?: string;
   shouldPrefetch?: boolean;
+  targetScrollIndex?: number | null; // Initial index to scroll to when opening feed
 }
 
 // Memoized Feed Renderer Component with Performance Optimizations
@@ -110,6 +113,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
   ListComponent,
   visibilityKey,
   shouldPrefetch = false,
+  targetScrollIndex: propTargetScrollIndex,
 }) => {
   // Resolve visibility key for feed tracking
   const resolvedVisibilityKey = visibilityKey || (userDid ? `${feedOption}:${userDid}` : feedOption);
@@ -312,12 +316,36 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     resolvedVisibilityKey,
   ]);
 
+  // Unified handler for grid and horizontal item presses
+  // Opens feed modal and scrolls to selected video using FlashList's native scrollToIndex
+  const navigation = useRouter();
+  
+  const handleItemPress = useCallback((index: number) => {
+    if ((viewMode === 'grid' || viewMode === 'horizontal') && index >= 0 && index < feed.length) {
+      // Set the current feed so the modal can use it
+      feedService.setCurrentFeed(feed);
+      
+      // Navigate to feed modal with initial index
+      navigation.push({
+        pathname: '/(modals)/feed',
+        params: {
+          feedOption: feedOption || 'search',
+          userDid,
+          backgroundColor: backgroundColor || Colors.black,
+          secondaryColor: secondaryColor || Colors.white,
+          initialIndex: index.toString(),
+        }
+      });
+    }
+  }, [viewMode, feed.length, feed, feedOption, userDid, backgroundColor, secondaryColor, navigation]);
+
   // Memoized view selection to prevent unnecessary re-renders
   const feedView = useMemo(() => {
     if (viewMode === 'grid') {
       return (
         <GridFeedView
           {...commonProps}
+          onGridItemPress={handleItemPress}
           isError={isSearchFeed ? false : errorState.finalIsError}
           error={isSearchFeed ? null : errorState.finalError}
         />
@@ -328,11 +356,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
       return (
         <HorizontalVideoList
           {...commonProps}
-          onVideoItemPress={(index) => {
-            // Handle horizontal video item press
-            feedService.setCurrentFeed(feed);
-            // Navigation logic would go here
-          }}
+          onVideoItemPress={handleItemPress}
           isError={isSearchFeed ? false : errorState.finalIsError}
           error={isSearchFeed ? null : errorState.finalError}
         />
@@ -346,6 +370,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
         isError={isSearchFeed ? false : errorState.finalIsError}
         error={isSearchFeed ? null : errorState.finalError}
         visibilityKey={resolvedVisibilityKey}
+        targetScrollIndex={propTargetScrollIndex}
       />
     );
   }, [
@@ -357,6 +382,8 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     shouldShowLoader,
     feed,
     resolvedVisibilityKey,
+    handleItemPress,
+    propTargetScrollIndex,
   ]);
 
   return (
