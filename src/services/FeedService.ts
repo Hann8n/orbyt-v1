@@ -676,7 +676,7 @@ class FeedService {
       gcTime: queryOptions.cacheTime ?? FEED_CONFIG.cacheTime,
       refetchOnWindowFocus: queryOptions.refetchOnWindowFocus ?? false,
       refetchOnMount: queryOptions.refetchOnMount ?? false, // Changed from true to false to prevent unnecessary refreshes
-      refetchOnReconnect: queryOptions.refetchOnReconnect ?? false,
+      refetchOnReconnect: queryOptions.refetchOnReconnect ?? true,
       ...queryOptions
     });
   }

@@ -13,6 +13,7 @@ import {
   Dimensions,
   FlatList,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -874,6 +875,196 @@ const VisitHistoryList = React.memo(({
         </View>
       )}
     />
+  );
+});
+
+// Responsive Orbyt Channels Grid Component
+const OrbytChannelsGrid = React.memo(({ channels, navigation }: { channels: Channel[]; navigation: any }) => {
+  const { width: windowWidth } = useWindowDimensions();
+  
+  // Responsive column calculation - similar to GridFeedView
+  const computedColumns = useMemo(() => {
+    const w = windowWidth || Dimensions.get('window').width;
+    let cols = 3; // default mobile
+    if (w > 1200 || isTablet()) {
+      cols = 6;
+    } else if (w > 900) {
+      cols = 5;
+    } else if (w > 480) {
+      cols = 4;
+    } else {
+      cols = 3;
+    }
+    // enforce minimum of 3
+    return Math.max(3, cols);
+  }, [windowWidth]);
+  
+  // Responsive padding and gap based on screen size
+  const { padding, gap } = useMemo(() => {
+    const w = windowWidth || Dimensions.get('window').width;
+    if (isTablet() || w > 900) {
+      return { padding: 24, gap: 10 }; // Larger spacing for tablets
+    } else if (w > 480) {
+      return { padding: 20, gap: 8 }; // Medium spacing
+    } else {
+      return { padding: 20, gap: 7 }; // Default spacing for small screens
+    }
+  }, [windowWidth]);
+  
+  // Calculate grid dimensions
+  const { itemWidth, fullWidth, buttonHeight } = useMemo(() => {
+    const screenWidth = windowWidth || Dimensions.get('window').width;
+    const totalPadding = padding * 2; // Left and right padding
+    const totalGap = gap * (computedColumns - 1); // Gaps between items
+    
+    // Regular grid item width
+    const calculatedItemWidth = (screenWidth - totalPadding - totalGap) / computedColumns;
+    const gridItemHeight = calculatedItemWidth; // Square items
+    
+    // Full width for popular now and latest buttons
+    const calculatedFullWidth = screenWidth - totalPadding;
+    
+    // Reduced height for popular now and latest buttons (80% of grid item height)
+    const calculatedButtonHeight = Math.round(gridItemHeight * 0.8);
+    
+    return {
+      itemWidth: calculatedItemWidth,
+      fullWidth: calculatedFullWidth,
+      buttonHeight: calculatedButtonHeight,
+    };
+  }, [windowWidth, padding, gap, computedColumns]);
+
+  const shouldShowSpecialInRow = useMemo(() => {
+    return computedColumns >= 4 || isTablet();
+  }, [computedColumns]);
+
+  const { specialItemWidth, specialItemHeight } = useMemo(() => {
+    if (!shouldShowSpecialInRow) {
+      return { specialItemWidth: fullWidth, specialItemHeight: buttonHeight };
+    }
+
+    const columnsToSpan = Math.min(2, computedColumns);
+    const width = itemWidth * columnsToSpan + gap * (columnsToSpan - 1);
+    const height = Math.round(buttonHeight * 0.9);
+
+    return { specialItemWidth: width, specialItemHeight: height };
+  }, [shouldShowSpecialInRow, fullWidth, buttonHeight, itemWidth, gap, computedColumns]);
+  
+  // Separate popular now and latest from other channels
+  const popularNowChannel = channels.find(ch => {
+    const slug = extractFeedSlug(ch.uri || '');
+    return slug === 'popular-now';
+  });
+  const latestChannel = channels.find(ch => {
+    const slug = extractFeedSlug(ch.uri || '');
+    return slug === 'latest';
+  });
+  const otherChannels = channels.filter(ch => {
+    const slug = extractFeedSlug(ch.uri || '');
+    return slug !== 'popular-now' && slug !== 'latest';
+  });
+  
+  return (
+    <View style={[styles.channelsGridContainer, { paddingHorizontal: padding }]}>
+      {/* Render popular now and latest either stacked or side by side on large screens */}
+      {shouldShowSpecialInRow ? (
+        <View style={{ width: fullWidth, flexDirection: 'row', flexWrap: 'wrap' }}>
+          {popularNowChannel && (
+            <View
+              key={`orbyt-channel-popular-now`}
+              style={{ width: specialItemWidth, marginRight: latestChannel ? gap : 0, marginBottom: gap }}
+            >
+              <HorizontalChannelItem
+                channel={popularNowChannel}
+                itemWidth={specialItemWidth}
+                itemHeight={specialItemHeight}
+                onPress={() => {
+                  if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
+                    navigation.push(`/channel/${encodeURIComponent(popularNowChannel.uri.trim())}`);
+                  }
+                }}
+              />
+            </View>
+          )}
+          {latestChannel && (
+            <View
+              key={`orbyt-channel-latest`}
+              style={{ width: specialItemWidth, marginBottom: gap }}
+            >
+              <HorizontalChannelItem
+                channel={latestChannel}
+                itemWidth={specialItemWidth}
+                itemHeight={specialItemHeight}
+                onPress={() => {
+                  if (latestChannel.uri && latestChannel.uri.trim()) {
+                    navigation.push(`/channel/${encodeURIComponent(latestChannel.uri.trim())}`);
+                  }
+                }}
+              />
+            </View>
+          )}
+        </View>
+      ) : (
+        <>
+          {popularNowChannel && (
+            <View
+              key={`orbyt-channel-popular-now`}
+              style={{ width: fullWidth, marginBottom: gap }}
+            >
+              <HorizontalChannelItem
+                channel={popularNowChannel}
+                itemWidth={fullWidth}
+                itemHeight={buttonHeight}
+                onPress={() => {
+                  if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
+                    navigation.push(`/channel/${encodeURIComponent(popularNowChannel.uri.trim())}`);
+                  }
+                }}
+              />
+            </View>
+          )}
+          {latestChannel && (
+            <View
+              key={`orbyt-channel-latest`}
+              style={{ width: fullWidth, marginBottom: gap }}
+            >
+              <HorizontalChannelItem
+                channel={latestChannel}
+                itemWidth={fullWidth}
+                itemHeight={buttonHeight}
+                onPress={() => {
+                  if (latestChannel.uri && latestChannel.uri.trim()) {
+                    navigation.push(`/channel/${encodeURIComponent(latestChannel.uri.trim())}`);
+                  }
+                }}
+              />
+            </View>
+          )}
+        </>
+      )}
+      
+      {/* Render other channels in responsive grid */}
+      {otherChannels.map((channel, index) => (
+        <View
+          key={`orbyt-channel-${channel.uri || channel.cid || index}`}
+          style={{ 
+            width: itemWidth, 
+            marginRight: index % computedColumns === computedColumns - 1 ? 0 : gap,
+            marginBottom: gap
+          }}
+        >
+          <GridChannelItem
+            channel={channel}
+            itemWidth={itemWidth}
+            onPress={() => {
+              if (channel.uri && channel.uri.trim()) {
+                navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
+              }
+            }}
+          />
+        </View>
+      ))}
+    </View>
   );
 });
 
@@ -1886,95 +2077,7 @@ const ExploreScreen: React.FC = () => {
               return <PopularChannelsLoading />;
             }
             
-            const screenWidth = Dimensions.get('window').width;
-            const padding = 20 * 2; // Left and right padding
-            const gap = 7; // Gap between items
-            
-            // Separate popular now and latest from other channels
-            const popularNowChannel = item.channels.find(ch => {
-              const slug = extractFeedSlug(ch.uri || '');
-              return slug === 'popular-now';
-            });
-            const latestChannel = item.channels.find(ch => {
-              const slug = extractFeedSlug(ch.uri || '');
-              return slug === 'latest';
-            });
-            const otherChannels = item.channels.filter(ch => {
-              const slug = extractFeedSlug(ch.uri || '');
-              return slug !== 'popular-now' && slug !== 'latest';
-            });
-            
-            // Regular grid item width for other channels (3 columns)
-            const itemWidth = (screenWidth - padding - gap * 2) / 3;
-            // Height matches regular grid items (square, so same as itemWidth)
-            const gridItemHeight = itemWidth;
-            // Reduced height for popular now and latest buttons
-            const buttonHeight = Math.round(gridItemHeight * 0.8); // 80% of grid item height
-            
-            // Full width for popular now and latest
-            const fullWidth = screenWidth - padding;
-            
-            return (
-              <View style={styles.channelsGridContainer}>
-                {/* Render popular now and latest full-width and stacked */}
-                {popularNowChannel && (
-                  <View
-                    key={`orbyt-channel-popular-now`}
-                    style={{ width: fullWidth, marginBottom: gap }}
-                  >
-                    <HorizontalChannelItem
-                      channel={popularNowChannel}
-                      itemWidth={fullWidth}
-                      itemHeight={buttonHeight}
-                      onPress={() => {
-                        if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
-                          navigation.push(`/channel/${encodeURIComponent(popularNowChannel.uri.trim())}`);
-                        }
-                      }}
-                    />
-                  </View>
-                )}
-                {latestChannel && (
-                  <View
-                    key={`orbyt-channel-latest`}
-                    style={{ width: fullWidth, marginBottom: gap }}
-                  >
-                    <HorizontalChannelItem
-                      channel={latestChannel}
-                      itemWidth={fullWidth}
-                      itemHeight={buttonHeight}
-                      onPress={() => {
-                        if (latestChannel.uri && latestChannel.uri.trim()) {
-                          navigation.push(`/channel/${encodeURIComponent(latestChannel.uri.trim())}`);
-                        }
-                      }}
-                    />
-                  </View>
-                )}
-                
-                {/* Render other channels in 3-column grid */}
-                {otherChannels.map((channel, index) => (
-                  <View
-                    key={`orbyt-channel-${channel.uri || channel.cid || index}`}
-                    style={{ 
-                      width: itemWidth, 
-                      marginRight: index % 3 === 2 ? 0 : gap,
-                      marginBottom: gap
-                    }}
-                  >
-                    <GridChannelItem
-                      channel={channel}
-                      itemWidth={itemWidth}
-                      onPress={() => {
-                        if (channel.uri && channel.uri.trim()) {
-                          navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
-                        }
-                      }}
-                    />
-                  </View>
-                ))}
-              </View>
-            );
+            return <OrbytChannelsGrid channels={item.channels} navigation={navigation} />;
           }
           return null;
         }}
@@ -2132,7 +2235,6 @@ const styles = StyleSheet.create({
   channelsGridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 20,
     paddingBottom: 20,
   },
   gridChannelItem: {

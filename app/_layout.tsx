@@ -123,13 +123,6 @@ export default function RootLayout() {
   // Parallel initialization: fonts and auth state load simultaneously
   useEffect(() => {
     const initializeApp = async () => {
-      // Initialize video cache (500MB LRU cache for preloading)
-      try {
-        await setVideoCacheSizeAsync(500 * 1024 * 1024);
-      } catch (error) {
-        console.warn('Failed to set video cache size:', error);
-      }
-
       // Run font loading and user initialization in parallel
       const [fontsResult] = await Promise.allSettled([
         Font.loadAsync({
@@ -150,22 +143,46 @@ export default function RootLayout() {
       }
 
       setIsInitializing(false);
-
-      // Defer non-critical operations after app is ready
-      const currentUser = useUserStore.getState().currentUser;
-      if (currentUser?.did) {
-        // Prefetch feed in background (non-blocking)
-        queryClient.prefetchInfiniteQuery({
-          queryKey: createQueryKeys.feed.infinite('following', currentUser.did),
-          queryFn: ({ pageParam }) => feedService.fetchFeed('following', currentUser.did, pageParam as string),
-          initialPageParam: null,
-          getNextPageParam: (lastPage) => lastPage.cursor,
-        }).catch(() => {});
-      }
     };
 
     initializeApp();
   }, [initializeUserState, setFontsLoaded]);
+
+  // Initialize video cache after app is ready and videos are rendering
+  // This prevents view hierarchy conflicts when videos are already active
+  useEffect(() => {
+    if (!appIsReady) return;
+
+    const initializeVideoCache = async () => {
+      // Delay video cache initialization to ensure app layout is settled
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      try {
+        await setVideoCacheSizeAsync(500 * 1024 * 1024);
+      } catch (error) {
+        console.warn('Failed to set video cache size:', error);
+        // Non-critical error - app will continue to work with default cache settings
+      }
+    };
+
+    initializeVideoCache();
+  }, [appIsReady]);
+
+  // Prefetch feed in background after app is fully ready
+  useEffect(() => {
+    if (!appIsReady) return;
+
+    const currentUser = useUserStore.getState().currentUser;
+    if (currentUser?.did) {
+      // Prefetch feed in background (non-blocking)
+      queryClient.prefetchInfiniteQuery({
+        queryKey: createQueryKeys.feed.infinite('following', currentUser.did),
+        queryFn: ({ pageParam }) => feedService.fetchFeed('following', currentUser.did, pageParam as string),
+        initialPageParam: null,
+        getNextPageParam: (lastPage) => lastPage.cursor,
+      }).catch(() => {});
+    }
+  }, [appIsReady]);
 
   // Determine when app is ready (fonts loaded, initialization complete, auth state determined)
   useEffect(() => {
@@ -280,6 +297,7 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   rootView: {
     flex: 1,
+    backgroundColor: Colors.black,
   },
   gestureHandler: {
     flex: 1,

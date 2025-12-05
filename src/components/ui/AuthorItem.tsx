@@ -11,8 +11,6 @@ import UI from './UI';
 
 import { useProfile, useProfileColors, useFollowMutation } from '../../services/cache/ProfileCache';
 import { useCurrentUser } from '../../stores/userStore';
-import { formatHandle } from '../../utils/helpers';
-import { isCurrentUser } from '../../stores/profileInteractionStore';
  
 
 interface AuthorItemProps {
@@ -100,8 +98,6 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   // Get following status from ProfileCache using the hook
   const { data: cachedProfile } = useProfile(handle);
   const actualIsFollowing = cachedProfile?.isFollowing ?? isFollowing;
-  const { currentUser } = useCurrentUser();
-  const isCurrentUserProfile = isCurrentUser(cachedProfile?.did, handle, currentUser);
 
   const followMutation = useFollowMutation();
 
@@ -158,7 +154,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
                   fontFamily: nameFontWeight,
                 }
               ]} numberOfLines={1}>
-                {formatHandle(handle) || 'Unknown'}
+                {actualDisplayName}
               </Text>
             )}
             {handle && !hideDisplayName && (
@@ -169,8 +165,20 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
               />
             )}
           </View>
+          {!hideHandleLine && (
+            <Text style={[ 
+              styles.accountHandle,
+              { 
+                color: handleColor || Colors.lightGray,
+                fontSize: config.handleFontSize,
+                fontFamily: handleFontWeight,
+              }
+            ]} numberOfLines={1}>
+              {showDate && date ? date : handle}
+            </Text>
+          )}
         </View>
-        {showFollowButton && !isCurrentUserProfile ? (
+        {showFollowButton ? (
           <TouchableOpacity
             style={[
               styles.followButton,

@@ -69,6 +69,7 @@ export const Colors = {
 
   // Additional vibrant colors
   neonPink: '#FF0080', // Hot pink
+  neonPurple: '#ce3bff', // Neon purple
   electricBlue: '#00BFFF', // Electric blue
   vibrantTeal: '#00E6CC', // Bright teal
   glowGreen: '#39FF14', // Neon green

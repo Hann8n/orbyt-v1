@@ -175,7 +175,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       postUri: post.uri,
       postCid: post.cid,
       authorDid: post.author?.did || '',
-      authorName: post.author?.displayName || post.author?.handle,
+      authorName: post.author?.displayName,
+      authorHandle: post.author?.handle,
       feedOption: feedOption as any,
       sourceFeed,
     });

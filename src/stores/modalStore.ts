@@ -22,6 +22,7 @@ export interface ShareSheetData {
   postCid?: string;
   authorDid: string;
   authorName?: string;
+  authorHandle?: string;
   feedOption?: 'following' | 'discover';
   sourceFeed?: string;
 }

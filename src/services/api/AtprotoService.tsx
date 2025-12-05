@@ -1658,42 +1658,24 @@ class AtprotoService {
   }
 
   /**
-   * Mark notifications as seen by updating the seenAt timestamp
-   * @param seenAt - Optional ISO date-time string. If not provided, uses current time
+   * Mark all notifications as seen for the current user
+   * @returns Promise indicating success
    */
-  static async updateNotificationSeen(seenAt?: string): Promise<void> {
+  static async updateNotificationSeen(): Promise<void> {
     await this.ensureSession();
     try {
       const { api } = await this.getApiClient();
-      const timestamp = seenAt || new Date().toISOString();
+      // Call the Bluesky API to mark notifications as seen
+      // This uses the current timestamp as the seenAt parameter
       await api.app.bsky.notification.updateSeen({
-        seenAt: timestamp,
+        seenAt: new Date().toISOString()
       });
     } catch (error: unknown) {
-      // Silently fail - seen status is not critical
-      if (__DEV__) {
-        console.log('Failed to update notification seen status:', error);
-      }
-    }
-  }
-
-  /**
-   * Get the unread notification count
-   */
-  static async getUnreadNotificationCount(): Promise<number> {
-    await this.ensureSession();
-    try {
-      const { api } = await this.getApiClient();
-      const response = await api.app.bsky.notification.getUnreadCount();
-      return response.data.count || 0;
-    } catch (error: unknown) {
-      // Fallback to counting from listNotifications if getUnreadCount fails
-      try {
-        const response = await this.listNotifications(null, 1);
-        return response.notifications.filter(n => !n.isRead).length;
-      } catch {
-        return 0;
-      }
+      // Log error but don't throw - this is a non-critical operation
+      logger.debug('Error updating notification seen status', { 
+        component: 'AtprotoService',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 

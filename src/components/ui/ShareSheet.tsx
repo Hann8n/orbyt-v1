@@ -1,7 +1,6 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
-import { Animated } from 'react-native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { createQueryKeys } from '../../services/FeedService';
 import { convertAtUriToBlueskyUrl } from '../../utils/blueskyLinks';
 import {
@@ -14,48 +13,56 @@ import {
   Alert,
   Dimensions,
   ScrollView,
+  FlatList,
+  TextInput,
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from './Icon';
+import Icon, { Loading3FillIcon } from './Icon';
 import AtprotoService from '../../services/api/AtprotoService';
 import ProfileCache from '../../services/cache/ProfileCache';
 import { Colors } from './UI';
+import { Avatar } from './UI';
 import { hexToRGBA } from '../../utils/formatting/colorUtils';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
+import ChatService, { Conversation, RecordEmbed } from '../../services/ChatService';
+import { formatHandle } from '../../utils/helpers';
 
 // No props needed for global ShareSheet
 interface ShareSheetProps {}
 
-// Map to store feedback state by post URI
-const feedbackStateMap = new Map<string, string>();
-
-
+// Check if profile can receive messages based on chat settings
+const canBeMessaged = (profile: any): boolean => {
+  const allowIncoming = profile.associated?.chat?.allowIncoming;
+  switch (allowIncoming) {
+    case 'none':
+      return false;
+    case 'all':
+      return true;
+    case 'following':
+    case undefined:
+      return Boolean(profile.viewer?.followedBy);
+    default:
+      return false;
+  }
+};
 
 const ShareSheet: React.FC<ShareSheetProps> = () => {
   const { getCurrentData, dismissShareSheet } = useGlobalShareSheet();
   const data = getCurrentData();
   
   // Always render the TrueSheet component, but only show content when there's data
-  const { postUri, postCid, authorDid, authorName, feedOption, sourceFeed } = data || {};
-  // Helper function to check if feedback can be sent for this video
-  const canSendFeedback = (feed: string | undefined): boolean => {
-    // Allow feedback for any video
-    return true;
-  };
+  const { postUri, postCid, authorDid, authorName, authorHandle } = data || {};
   const queryClient = useQueryClient();
   const SCREEN_WIDTH = Dimensions.get('window').width;
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [feedbackSent, setFeedbackSent] = useState<string | null>(null);
   const [isBlocked, setIsBlocked] = useState<boolean>(false);
   const [isCurrentUser, setIsCurrentUser] = useState<boolean>(false);
-
-  // Animated values for smooth transitions
-  const interestedAnimation = useRef(new Animated.Value(0)).current;
-  const notInterestedAnimation = useRef(new Animated.Value(0)).current;
-  const interestedScale = interestedAnimation.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
-  const notInterestedScale = notInterestedAnimation.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
+  const [showConversationPicker, setShowConversationPicker] = useState<boolean>(false);
+  const [currentUserDid, setCurrentUserDid] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showSearch, setShowSearch] = useState<boolean>(false);
+  const searchInputRef = useRef<TextInput | null>(null);
 
   // TrueSheet sizes
   const snapPoints = useMemo(() => ['auto'] as any, []);
@@ -65,13 +72,16 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   useEffect(() => {
     const checkCurrentUser = async () => {
       try {
-        const currentUserDid = ProfileCache.getCurrentUserDid();
+        const cachedDid = ProfileCache.getCurrentUserDid();
         // If we don't have the currentUserDid cached, try to get it from the service
-        if (!currentUserDid) {
+        if (!cachedDid) {
           const currentUser = await AtprotoService.getCurrentUser();
-          setIsCurrentUser(currentUser?.did === authorDid);
+          const did = currentUser?.did || '';
+          setCurrentUserDid(did);
+          setIsCurrentUser(did === authorDid);
         } else {
-          setIsCurrentUser(currentUserDid === authorDid);
+          setCurrentUserDid(cachedDid);
+          setIsCurrentUser(cachedDid === authorDid);
         }
       } catch (error) {
       }
@@ -93,6 +103,10 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   const handleDismiss = useCallback(() => {
     // Clear the data state - skip dismiss since we're already in onDismiss callback
     dismissShareSheet(true);
+    // Reset local UI state
+    setShowConversationPicker(false);
+    setShowSearch(false);
+    setSearchQuery('');
   }, [dismissShareSheet]);
 
   // Programmatic dismiss function for buttons
@@ -107,57 +121,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   useEffect(() => {
     setIsBlocked(blockStatus);
   }, [blockStatus]);
-
-  // Load previous feedback state for this post if it exists
-  useEffect(() => {
-    if (postUri) {
-      const loadFeedback = async () => {
-        try {
-          // First check the in-memory map
-          const previousFeedback = feedbackStateMap.get(postUri);
-          if (previousFeedback) {
-            setFeedbackSent(previousFeedback);
-            // Update animation values to reflect the loaded state
-            if (previousFeedback === 'interested') {
-              interestedAnimation.setValue(1);
-              notInterestedAnimation.setValue(0);
-            } else if (previousFeedback === 'not_interested') {
-              interestedAnimation.setValue(0);
-              notInterestedAnimation.setValue(1);
-            }
-            return;
-          }
-          
-          // If not in memory, try to load from storage
-          const storedFeedback = await AtprotoService.getVideoFeedback(postUri);
-          if (storedFeedback) {
-            setFeedbackSent(storedFeedback.type);
-            feedbackStateMap.set(postUri, storedFeedback.type);
-            // Update animation values to reflect the loaded state
-            if (storedFeedback.type === 'interested') {
-              interestedAnimation.setValue(1);
-              notInterestedAnimation.setValue(0);
-            } else if (storedFeedback.type === 'not_interested') {
-              interestedAnimation.setValue(0);
-              notInterestedAnimation.setValue(1);
-            }
-          } else {
-            setFeedbackSent(null);
-            // Reset animation values when no feedback is found
-            interestedAnimation.setValue(0);
-            notInterestedAnimation.setValue(0);
-          }
-        } catch (error) {
-          setFeedbackSent(null);
-          // Reset animation values on error
-          interestedAnimation.setValue(0);
-          notInterestedAnimation.setValue(0);
-        }
-      };
-      
-      loadFeedback();
-    }
-  }, [postUri, interestedAnimation, notInterestedAnimation]);
 
 
 
@@ -231,75 +194,39 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     }
   }, [authorDid, isBlocked, dismissSheet, queryClient, isCurrentUser, postUri]);
 
-  // Handle interest feedback
-  const handleInterestFeedback = useCallback(async (type: 'interested' | 'not_interested') => {
-    if (isSubmitting) return;
-    
-    // Store previous state for rollback if needed
-    const previousFeedback = feedbackSent;
-    
+  // Save/download handler
+  const handleSave = useCallback(async () => {
     try {
       setIsSubmitting(true);
+      // Fetch post to get video URL
+      const post = await AtprotoService.getPost(postUri);
+      const videoEmbed = post?.embed;
       
-      // Animate the transition
-      const targetAnimation = type === 'interested' ? interestedAnimation : notInterestedAnimation;
-      const otherAnimation = type === 'interested' ? notInterestedAnimation : interestedAnimation;
+      if (!videoEmbed || !videoEmbed.playlist) {
+        Alert.alert('error', 'video not available for download.');
+        return;
+      }
       
-      if (feedbackSent === type) {
-        // Deselecting - animate to 0
-        Animated.parallel([
-          Animated.timing(targetAnimation, {
-            toValue: 0,
-            duration: 100,
-            useNativeDriver: false,
-          }),
-          Animated.timing(otherAnimation, {
-            toValue: 0,
-            duration: 100,
-            useNativeDriver: false,
-          })
-        ]).start();
-        setFeedbackSent(null);
-        feedbackStateMap.delete(postUri);
-      } else {
-        // Selecting - animate to 1
-        Animated.parallel([
-          Animated.timing(targetAnimation, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: false,
-          }),
-          Animated.timing(otherAnimation, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: false,
-          })
-        ]).start();
-        setFeedbackSent(type);
-        feedbackStateMap.set(postUri, type);
+      // Get video URL from playlist
+      const videoUrl = Array.isArray(videoEmbed.playlist) 
+        ? videoEmbed.playlist[0] 
+        : videoEmbed.playlist;
+      
+      if (!videoUrl) {
+        Alert.alert('error', 'video not available for download.');
+        return;
       }
-
-      // Make API call
-      if (feedbackSent === type) {
-        // Remove feedback
-        await AtprotoService.removeVideoFeedback(postUri);
-      } else {
-        await AtprotoService.sendVideoFeedback(postUri, type);
-      }
+      
+      // For now, show a message - actual download implementation would require
+      // additional native modules or expo-file-system
+      Alert.alert('coming soon', 'video download will be available in a future update.');
+      dismissSheet();
     } catch (error) {
-      // Revert to previous state on error
-      setFeedbackSent(previousFeedback);
-      if (previousFeedback) {
-        feedbackStateMap.set(postUri, previousFeedback);
-      } else {
-        feedbackStateMap.delete(postUri);
-      }
-      
-      Alert.alert('error', 'failed to save your feedback. please try again.');
+      Alert.alert('error', 'failed to save video. please try again.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [postUri, feedbackSent, isSubmitting, interestedAnimation, notInterestedAnimation]);
+  }, [postUri, dismissSheet]);
 
   // Report or delete post handler
   const handleReportOrDelete = useCallback(() => {
@@ -414,6 +341,122 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     }
   }, [postUri, dismissSheet]);
 
+  // Fetch conversations for send picker
+  const { data: conversationsData, isLoading: conversationsLoading } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => ChatService.getConversations(),
+    enabled: showConversationPicker,
+  });
+
+  const conversations = conversationsData?.conversations || [];
+  
+  // Search profiles when search query exists
+  const { data: searchData, fetchNextPage: fetchMoreProfiles, hasNextPage: hasMoreProfiles } = useInfiniteQuery<
+    { profiles: any[]; cursor: string | null },
+    Error,
+    InfiniteData<{ profiles: any[]; cursor: string | null }, string | null>,
+    ReturnType<typeof createQueryKeys.search.profiles>,
+    string | null
+  >({
+    queryKey: createQueryKeys.search.profiles(searchQuery),
+    queryFn: async ({ pageParam }) => {
+      return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
+    },
+    getNextPageParam: (lastPage) => lastPage?.cursor ?? null,
+    initialPageParam: null,
+    enabled: searchQuery.trim().length > 0,
+  });
+
+  const searchResults = useMemo(() => {
+    if (!searchData?.pages) return [];
+    return searchData.pages.flatMap(page => page.profiles || []);
+  }, [searchData]);
+
+  // Smart sorting: conversations first (recent), then search results sorted by canBeMessaged
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery.trim()) {
+      // Show recent conversations by default
+      return conversations;
+    }
+    // Show conversations matching search first, then new search profiles
+    const conversationMatches = conversations.filter((c: Conversation) => {
+      const otherMember = c.members.find(m => m.did !== currentUserDid) || c.members[0];
+      const name = otherMember?.displayName || '';
+      const handle = otherMember?.handle || '';
+      const q = searchQuery.toLowerCase();
+      return name.toLowerCase().includes(q) || handle.toLowerCase().includes(q);
+    });
+    
+    // Add search profiles that aren't already in conversations
+    const conversationDids = new Set(conversations.flatMap(c => c.members.map(m => m.did)));
+    const newProfiles = searchResults
+      .filter(p => !conversationDids.has(p.did))
+      .sort((a, b) => {
+        // Sort by canBeMessaged status (enabled first)
+        const aEnabled = canBeMessaged(a);
+        const bEnabled = canBeMessaged(b);
+        return bEnabled ? 1 : -1;
+      });
+    
+    return [...conversationMatches, ...newProfiles];
+  }, [conversations, currentUserDid, searchQuery, searchResults]);
+
+
+  // Auto-focus search input when search is shown
+  useEffect(() => {
+    if (showSearch) {
+      searchInputRef.current?.focus();
+    }
+  }, [showSearch]);
+
+  // Send video handler - opens conversation picker
+  const handleSend = useCallback(() => {
+    setShowConversationPicker(true);
+    setShowSearch(true);
+  }, []);
+
+  // Send video to selected conversation or create one with new profile
+  const handleSendToConversation = useCallback(async (item: any) => {
+    if (!postUri || !postCid) {
+      Alert.alert('error', 'missing post information.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      // Check if item is a conversation or a new profile
+      let conversationId = item.id;
+      if (!conversationId) {
+        // New profile - create conversation first
+        const convo = await ChatService.createConversation({ recipientDid: item.did });
+        conversationId = convo.id;
+      }
+
+      const embed: RecordEmbed = {
+        $type: 'app.bsky.embed.record',
+        record: {
+          uri: postUri,
+          cid: postCid,
+        },
+      };
+
+      await ChatService.sendMessage({
+        conversationId,
+        text: '',
+        embed: embed,
+      });
+
+      Alert.alert('sent', 'video sent successfully.');
+      setShowConversationPicker(false);
+      dismissSheet();
+    } catch (error: any) {
+      Alert.alert('error', error.message || 'failed to send video. please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [postUri, postCid, dismissSheet]);
+
   // Get menu options based on current state
   const getMenuOptions = () => {
     const options = [
@@ -422,44 +465,34 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         label: 'Share',
         icon: 'share',
         onPress: handleShare,
-        color: '#d140fc',
+        color: Colors.neonPurple,
         buttonColor: Colors.darkBlue
+      },
+      {
+        id: 'send',
+        label: 'Send',
+        icon: 'send-plane-fill',
+        onPress: handleSend,
+        color: Colors.green,
+        buttonColor: Colors.darkGreen
+      },
+      {
+        id: 'save',
+        label: 'Save',
+        icon: 'download',
+        onPress: handleSave,
+        color: Colors.bluesky,
+        buttonColor: Colors.notInterestedDark
+      },
+      {
+        id: 'report',
+        label: isCurrentUser ? 'Delete' : 'Report',
+        icon: 'report',
+        onPress: async () => handleReportOrDelete(),
+        color: Colors.red,
+        buttonColor: Colors.darkRed
       }
     ];
-
-    
-
-    // Add Interest feedback options (for any video, not current user's content)
-    if (canSendFeedback(sourceFeed) && !isCurrentUser) {
-      options.push({
-        id: 'interested',
-        label: 'Like',
-        icon: 'interested',
-        onPress: () => handleInterestFeedback('interested'),
-        color: feedbackSent === 'interested' ? Colors.darkGreen : Colors.green,
-        buttonColor: feedbackSent === 'interested' ? Colors.green : Colors.darkGreen
-      } as any);
-      
-      options.push({
-        id: 'not_interested',
-        label: 'Dislike',
-        icon: 'not_interested',
-        onPress: () => handleInterestFeedback('not_interested'),
-        color: feedbackSent === 'not_interested' ? Colors.dislikeBackground : Colors.dislikeIconBlue,
-        buttonColor: feedbackSent === 'not_interested' ? Colors.dislikeIconBlue : Colors.dislikeBackground
-      } as any);
-    }
-
-
-    // Add Report/Delete option
-    options.push({
-      id: 'report',
-      label: isCurrentUser ? 'Delete' : 'Report',
-      icon: 'report',
-      onPress: async () => handleReportOrDelete(),
-      color: Colors.red,
-      buttonColor: Colors.darkRed
-    } as any);
 
     return options;
   };
@@ -496,24 +529,28 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       onDismiss={handleDismiss}
       grabber={false}
       FooterComponent={
-        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 
-          <TouchableOpacity 
-            style={styles.cancelButton} 
-            onPress={dismissSheet} 
-            activeOpacity={0.7}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+        showConversationPicker
+          ? null
+          : (
+            <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 
+              <TouchableOpacity 
+                style={styles.cancelButton} 
+                onPress={dismissSheet} 
+                activeOpacity={0.7}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )
       }
     >
       <View style={styles.content}>
         {/* Author name and close button */}
-        {authorName && (
+        {(authorName || authorHandle) && !showConversationPicker && (
           <View style={styles.headerContainer}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              post by {authorName}
+              post by {authorHandle ? formatHandle(authorHandle) : authorName}
             </Text>
             <TouchableOpacity 
               style={styles.closeButton} 
@@ -524,43 +561,114 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
             </TouchableOpacity>
           </View>
         )}
-        
-                {/* Options */}
-        <View style={styles.contentContainer}>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={[styles.optionsContainer, { gap: fixedSpacing, paddingLeft: 20, paddingRight: 20 }]}
-          >
-            {menuOptions.map((option) => (
-              <View key={option.id} style={styles.optionWrapper}>
-                <TouchableOpacity 
-                  style={[
-                    styles.option,
-                    { backgroundColor: option.buttonColor, borderColor: hexToRGBA(option.color, 0.28) }
-                  ]}
-                  onPress={option.onPress}
-                  activeOpacity={0.7}
-                  disabled={isSubmitting}
-                >
-                  {(() => {
-                    const scale = option.id === 'interested'
-                      ? interestedScale
-                      : option.id === 'not_interested'
-                        ? notInterestedScale
-                        : 1;
-                    return (
-                      <Animated.View style={typeof scale === 'number' ? undefined : { transform: [{ scale }] }}>
-                        <Icon name={option.icon} size={36} color={option.color} />
-                      </Animated.View>
-                    );
-                  })()}
-                </TouchableOpacity>
-                <Text style={styles.optionText}>{option.label}</Text>
+
+        {/* Conversation picker */}
+        {showConversationPicker ? (
+          <View style={styles.pickerContainer}>
+            <View style={styles.pickerHeader}>
+              <TouchableOpacity 
+                style={styles.backButton} 
+                onPress={() => setShowConversationPicker(false)}
+                activeOpacity={0.7}
+              >
+                <Icon name="left_arrow_filled" size={20} color={Colors.white} />
+              </TouchableOpacity>
+              <Text style={styles.pickerTitle}>Send to</Text>
+              <View style={styles.headerSpacer} />
+            </View>
+            <TextInput
+              ref={searchInputRef}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search people"
+              placeholderTextColor={Colors.lightGray}
+              style={styles.searchInput}
+              autoFocus={true}
+            />
+            {conversationsLoading ? (
+              <View style={styles.loadingContainer}>
+                <Loading3FillIcon size={24} color={Colors.white} />
               </View>
-            ))}
-          </ScrollView>
-        </View>
+            ) : (
+              <FlatList
+                data={filteredConversations}
+                keyExtractor={(item, idx) => item.id || item.did || `search-${idx}`}
+                renderItem={({ item }) => {
+                  // Handle both conversations and search profiles
+                  const isConversation = !!item.id;
+                  const profile = isConversation 
+                    ? (item.members.find((member: any) => member.did !== currentUserDid) || item.members[0])
+                    : item;
+                  
+                  const isDisabled = !isConversation && !canBeMessaged(item);
+                  
+                  return (
+                    <TouchableOpacity
+                      style={[styles.conversationItem, isDisabled && styles.disabledItem]}
+                      onPress={() => handleSendToConversation(item)}
+                      activeOpacity={0.7}
+                      disabled={isSubmitting || isDisabled}
+                    >
+                      <Avatar
+                        uri={profile.avatar}
+                        type="profile"
+                        size={50}
+                        showRing={false}
+                      />
+                      <View style={styles.conversationInfo}>
+                        <Text style={[styles.conversationName, isDisabled && styles.disabledText]} numberOfLines={1}>
+                          {formatHandle(profile.handle) || 'user'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+                contentContainerStyle={[
+                  styles.conversationList,
+                  filteredConversations.length === 0 && styles.conversationListEmpty
+                ]}
+                keyboardShouldPersistTaps="handled"
+                onEndReached={() => {
+                  if (searchQuery.trim() && hasMoreProfiles && !conversationsLoading) {
+                    fetchMoreProfiles();
+                  }
+                }}
+                onEndReachedThreshold={0.5}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>No results</Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+        ) : (
+          /* Options */
+          <View style={styles.contentContainer}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.optionsContainer, { gap: fixedSpacing, paddingLeft: 20, paddingRight: 20 }]}
+            >
+              {menuOptions.map((option) => (
+                <View key={option.id} style={styles.optionWrapper}>
+                  <TouchableOpacity 
+                    style={[
+                      styles.option,
+                      { backgroundColor: option.buttonColor, borderColor: hexToRGBA(option.color, 0.28) }
+                    ]}
+                    onPress={option.onPress}
+                    activeOpacity={0.7}
+                    disabled={isSubmitting}
+                  >
+                    <Icon name={option.icon} size={45} color={option.color} />
+                  </TouchableOpacity>
+                  <Text style={styles.optionText}>{option.label}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </View>
     </TrueSheet>
   );
@@ -633,7 +741,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 80,
     height: 80,
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     backgroundColor: hexToRGBA(Colors.gray, 0.12),
     overflow: 'hidden',
     borderWidth: 0,
@@ -681,6 +789,110 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginTop: 12,
     textAlign: 'center',
+    fontFamily: 'Firma-Medium',
+  },
+  pickerContainer: {
+    flex: 1,
+    maxHeight: 400,
+    marginLeft: -12,
+    marginRight: -12,
+    paddingLeft: 20,
+    paddingRight: 20,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    marginBottom: 4,
+    marginLeft: -12,
+    marginRight: -12,
+  },
+  pickerTitle: {
+    color: Colors.white,
+    fontSize: 20,
+    fontWeight: 'bold',
+    fontFamily: 'Firma-Bold',
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    backgroundColor: hexToRGBA(Colors.gray, 0.12),
+  },
+  headerSpacer: {
+    width: 44,
+    height: 44,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    color: Colors.lightGray,
+    fontSize: 15,
+    fontFamily: 'Firma-Medium',
+  },
+  searchInput: {
+    marginHorizontal: 8,
+    marginBottom: 12,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    backgroundColor: hexToRGBA(Colors.gray, 0.12),
+    color: Colors.white,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontFamily: 'Firma-Medium',
+    fontSize: 17,
+  },
+  conversationList: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 16,
+    gap: 6,
+  },
+  conversationListEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  conversationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+  },
+  disabledItem: {
+    opacity: 0.5,
+  },
+  conversationInfo: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 12,
+  },
+  conversationName: {
+    color: Colors.white,
+    fontSize: 17,
+    fontWeight: '600',
+    fontFamily: 'Firma-SemiBold',
+    marginBottom: 2,
+  },
+  disabledText: {
+    color: Colors.lightGray,
+  },
+  conversationHandle: {
+    color: Colors.lightGray,
+    fontSize: 15,
     fontFamily: 'Firma-Medium',
   },
 });

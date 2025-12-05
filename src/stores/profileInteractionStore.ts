@@ -65,44 +65,14 @@ export const useProfileFlags = (did?: string, handle?: string) => {
   };
 };
 
-/**
- * Global utility to check if a profile is the current user
- * Can be used with DID or handle
- */
-export const useIsCurrentUser = (did?: string, handle?: string): boolean => {
-  const currentUser = useUserStore(state => state.currentUser);
-  
-  if (!currentUser) return false;
-  
-  // Check by DID first (most reliable)
-  if (did && currentUser.did) {
-    return did === currentUser.did;
-  }
-  
-  // Fallback to handle comparison
-  if (handle && currentUser.handle) {
-    return handle.toLowerCase().trim() === currentUser.handle.toLowerCase().trim();
-  }
-  
-  return false;
+// Check if profile is the current user
+export const isCurrentUser = (profileDid?: string, profileHandle?: string, currentUser?: any): boolean => {
+  if (!profileDid || !currentUser) return false;
+  return profileDid === currentUser.did || profileHandle === currentUser.handle;
 };
 
-/**
- * Non-hook version for use outside React components
- * Accepts the current user from store state
- */
-export const isCurrentUser = (did?: string, handle?: string, currentUser?: { did: string | null; handle: string | null } | null): boolean => {
-  if (!currentUser) return false;
-  
-  // Check by DID first (most reliable)
-  if (did && currentUser.did) {
-    return did === currentUser.did;
-  }
-  
-  // Fallback to handle comparison
-  if (handle && currentUser.handle) {
-    return handle.toLowerCase().trim() === currentUser.handle.toLowerCase().trim();
-  }
-  
-  return false;
+// Hook version for convenience
+export const useIsCurrentUser = (profileDid?: string, profileHandle?: string) => {
+  const currentUser = useUserStore(state => state.currentUser);
+  return isCurrentUser(profileDid, profileHandle, currentUser);
 };

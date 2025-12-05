@@ -23,9 +23,18 @@ import { logger } from '../utils/logger';
 import { ModerationService } from '../services/ModerationService';
 import { isOrbytChannel } from '../utils/orbytChannels';
 import { queryClient } from '../utils/queryClient';
-import { feedService } from '../services/FeedService';
 import { clearThumbnailColorCache } from '../utils/helpers/video';
 import { usePostInteractionStore } from './postInteractionStore';
+
+// Lazy import feedService to avoid circular dependency
+// FeedService imports useUserStore, so we import it dynamically when needed
+let feedService: any = null;
+const getFeedService = () => {
+  if (!feedService) {
+    feedService = require('../services/FeedService').feedService;
+  }
+  return feedService;
+};
 
 // Account types
 export interface SavedAccount {
@@ -999,7 +1008,7 @@ export const useUserStore = create<UserState>()(
           queryClient.clear();
           
           // Clear search results state
-          feedService.clearCurrentFeed();
+          getFeedService().clearCurrentFeed();
           
           // Clear thumbnail color cache
           clearThumbnailColorCache();

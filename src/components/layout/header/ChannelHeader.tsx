@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, TouchableOpacity, Text, Alert, StatusBar, Image } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Alert, StatusBar, Image, useWindowDimensions } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
@@ -62,6 +62,8 @@ const SubscribeButton: React.FC<{
 }> = ({ channel, textColor, backgroundColor, accentColor, channelColor, viewMode = 'list', onViewModeChange, showViewToggle = false, containerStyle }) => {
   const { subscribedChannels, subscribeToChannel, unsubscribeFromChannel } = useSubscribedChannels();
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const { width: screenWidth } = useWindowDimensions();
+  const isWideScreen = screenWidth > 768;
 
   // Direct subscription check - simplest possible
   const isSubscribed = useMemo(() => {
@@ -173,7 +175,7 @@ const SubscribeButton: React.FC<{
         onPress={handleSubscribe}
         disabled={isSubscribing}
         activeOpacity={0.8}
-        style={{ flex: 1, height: 40 }}
+        style={[styles.subscribeButtonTouch, isWideScreen && styles.subscribeButtonMax]}
       >
         <View
           style={[
@@ -469,11 +471,18 @@ const styles = StyleSheet.create({
   subscribeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     gap: 6,
     marginTop: 12,
     marginBottom: 20,
     width: '100%',
+  },
+  subscribeButtonTouch: {
+    flex: 1,
+    height: 40,
+  },
+  subscribeButtonMax: {
+    maxWidth: 400,
   },
   subscribeContainerWithTabs: {
     marginBottom: 0, // Reduced spacing when tabs are present
@@ -519,8 +528,10 @@ const styles = StyleSheet.create({
   viewToggleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexShrink: 0,
     gap: 4,
-    marginLeft: 8,
+    marginLeft: 12,
   },
   viewToggleButton: {
     padding: 6,

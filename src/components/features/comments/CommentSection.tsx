@@ -121,7 +121,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           postUri: post.uri,
           postCid: post.cid,
           authorDid: post.author.did,
-          authorName: formatHandle(post.author.handle) || 'Unknown',
+          authorName: post.author.displayName,
+          authorHandle: post.author.handle,
         });
       } else {
         onOpenShareSheet?.();

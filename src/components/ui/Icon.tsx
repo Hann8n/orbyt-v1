@@ -1500,6 +1500,10 @@ const Icon: React.FC<IconProps> = ({
       return <AtLineIcon size={size} color={color} style={style} />;
     }
 
+    if (name === 'explore' || name === 'search') {
+      return <ExploreIcon size={size} color={color} style={style} />;
+    }
+
     // Explicit mapping of remaining names to local SVGs only
     // Common aliases routed to existing local icons
     if (name === 'heart') return <HeartFillIcon size={size} color={color} />;
