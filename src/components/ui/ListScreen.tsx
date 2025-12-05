@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   profileImage: {
     width: 40,
     height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: BORDER_RADIUS.FULL,
     marginRight: 12,
     borderWidth: 0,
     borderColor: 'transparent',

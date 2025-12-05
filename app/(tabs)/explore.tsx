@@ -402,7 +402,7 @@ const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: (
       <Avatar
         uri={avatarUri}
         type="channel"
-        size={40}
+        size={48}
         ringColor="transparent"
         style={styles.channelImage}
       />
@@ -610,7 +610,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
             <Avatar
               uri={profile.avatar}
               type="profile"
-              size={40}
+              size={48}
               ringColor="transparent"
               style={styles.profileImage}
             />
@@ -622,7 +622,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
                 {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
                   <VerificationBadge 
                     handle={profile.handle.trim()} 
-                    textSize={14} 
+                    textSize={16} 
                     textColor={Colors.white}
                   />
                 )}
@@ -692,7 +692,7 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPr
           <Avatar
             uri={getChannelAvatarUri(channel.uri, channel.avatar)}
             type="channel"
-            size={40}
+            size={48}
             ringColor="transparent"
             style={styles.channelImage}
           />
@@ -809,7 +809,7 @@ const VisitHistoryList = React.memo(({
                 <Avatar
                   uri={profileData.avatar}
                   type="profile"
-                  size={40}
+                  size={48}
                   ringColor="transparent"
                   style={styles.profileImage}
                 />
@@ -821,7 +821,7 @@ const VisitHistoryList = React.memo(({
                     {profileData.handle && profileData.handle.trim() && profileData.handle.length > 0 && (
                       <VerificationBadge 
                         handle={profileData.handle.trim()} 
-                        textSize={14} 
+                        textSize={16} 
                         textColor={Colors.white}
                       />
                     )}
@@ -849,7 +849,7 @@ const VisitHistoryList = React.memo(({
               <Avatar
                 uri={getChannelAvatarUri(channelData.uri, channelData.avatar)}
                 type="channel"
-                size={40}
+                size={48}
                 ringColor="transparent"
                 style={styles.channelImage}
               />
@@ -1829,7 +1829,7 @@ const ExploreScreen: React.FC = () => {
                   <Avatar
                     uri={profile.avatar}
                     type="profile"
-                    size={40}
+                    size={48}
                     ringColor="transparent"
                     style={styles.profileImage}
                   />
@@ -1841,7 +1841,7 @@ const ExploreScreen: React.FC = () => {
                       {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
                         <VerificationBadge 
                           handle={profile.handle.trim()} 
-                          textSize={14} 
+                          textSize={16} 
                           textColor={Colors.white}
                         />
                       )}
@@ -2094,7 +2094,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 20,
-    position: 'relative',
   },
   profileTouchable: {
     flexDirection: 'row',
@@ -2102,12 +2101,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.FULL,
     marginRight: 12,
-    borderWidth: 0,
-    borderColor: 'transparent',
   },
   profileContent: {
     flex: 1,
@@ -2116,7 +2110,7 @@ const styles = StyleSheet.create({
   },
   displayName: {
     color: Colors.white,
-    fontSize: 16,
+    fontSize: 17,
     marginBottom: 2,
     fontFamily: 'Firma-SemiBold',
     flexShrink: 1,
@@ -2131,17 +2125,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    position: 'relative',
   },
   channelImage: {
-    width: 40,
-    height: 40,
     marginRight: 12,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   channelsGridContainer: {
     flexDirection: 'row',
@@ -2225,7 +2211,7 @@ const styles = StyleSheet.create({
   },
   channelName: {
     color: Colors.white,
-    fontSize: 14,
+    fontSize: 17,
     fontFamily: 'Firma-Bold',
     flexShrink: 1,
   },

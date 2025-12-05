@@ -254,11 +254,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   channelAvatar: {
-    width: 40,
-    height: 40,
     marginRight: 12,
-    borderWidth: 0,
-    borderColor: 'transparent',
   },
   channelContent: {
     flex: 1,

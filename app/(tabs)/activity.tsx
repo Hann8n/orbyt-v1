@@ -17,6 +17,8 @@ import { Colors } from '../../src/components/ui/UI';
 import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
 import MessagesTab from '../../src/components/features/activity/MessagesTab';
+import { useUnreadCount } from '../../src/hooks/useUnreadCount';
+import { NotificationIndicator } from '../../src/components/ui/NotificationIndicator';
 
 // Tab labels
 const TAB_LABELS: { [key: string]: string } = {
@@ -170,6 +172,7 @@ const ActivityScreen: React.FC = () => {
   const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
+  const { notificationsCount, messagesCount } = useUnreadCount();
   
   const pages: Array<'notifications' | 'messages'> = ['notifications', 'messages'];
   const activeIndex = pages.indexOf(activeTab);
@@ -234,9 +237,24 @@ const ActivityScreen: React.FC = () => {
                 activeOpacity={0.7}
                 style={styles.indicatorItem}
               >
-                <Text style={getIndicatorStyle(tabId)}>
-                  {TAB_LABELS[tabId] || tabId}
-                </Text>
+                <View style={{ position: 'relative', paddingRight: 2, paddingTop: 2 }}>
+                  <Text style={getIndicatorStyle(tabId)}>
+                    {TAB_LABELS[tabId] || tabId}
+                  </Text>
+                  {(tabId === 'notifications' ? notificationsCount > 0 : messagesCount > 0) && (
+                    <View style={{
+                      position: 'absolute',
+                      top: 0,
+                      right: 0,
+                      width: 12,
+                      height: 12,
+                      borderRadius: 6,
+                      backgroundColor: Colors.green,
+                      borderWidth: 2,
+                      borderColor: Colors.black,
+                    }} />
+                  )}
+                </View>
               </TouchableOpacity>
             ))}
           </View>

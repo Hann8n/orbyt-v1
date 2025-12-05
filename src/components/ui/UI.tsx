@@ -326,7 +326,9 @@ export const Avatar: React.FC<AvatarProps> = ({
   const getBorderRadius = () => {
     switch (type) {
       case 'channel':
-        return BORDER_RADIUS.MEDIUM; // Square-ish channel avatars with minimal rounding
+        // Scale border radius proportionally with avatar size
+        // Using ~25% of size for less rounding (10px for 40px avatar)
+        return size * 0.25;
       case 'profile':
       case 'user':
       default:
@@ -342,7 +344,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   // No separation when no ring - separation only exists between image and ring
   const separation = shouldShowRing ? (size >= 100 ? 1.5 : 1) : 0;
   const innerSize = size - (ringWidth * 2) - (separation * 2);
-  const innerBorderRadius = type === 'channel' ? BORDER_RADIUS.MEDIUM : innerSize * 0.5;
+  const innerBorderRadius = type === 'channel' ? size * 0.25 : innerSize * 0.5;
 
   const containerStyle: ViewStyle = {
     width: size,
