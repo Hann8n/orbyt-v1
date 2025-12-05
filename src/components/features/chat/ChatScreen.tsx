@@ -9,6 +9,7 @@ import { Animated as RNAnimated } from 'react-native';
 
 import { Colors, Avatar } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
+import { formatHandle } from '../../../utils/helpers';
 import Icon, { BackArrowIcon, Loading3FillIcon } from '../../ui/Icon';
 import { Message, Conversation, ReactionView } from '../../../services/ChatService';
 
@@ -146,6 +147,32 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     },
   });
 
+  // Accept conversation mutation
+  const acceptConversationMutation = useMutation({
+    mutationFn: () => ChatService.acceptConversation(conversationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['conversations-count'] });
+    },
+    onError: (error: any) => {
+      Alert.alert('Error', 'Failed to accept conversation');
+    },
+  });
+
+  // Reject/Leave conversation mutation
+  const rejectConversationMutation = useMutation({
+    mutationFn: () => ChatService.leaveConversation(conversationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['conversations-count'] });
+      router.back();
+    },
+    onError: (error: any) => {
+      Alert.alert('Error', 'Failed to reject conversation');
+    },
+  });
+
   // Get the other user DID from conversation members
   const otherUserDid = useMemo(() => {
     if (conversationData?.members?.length > 0) {
@@ -171,7 +198,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   const convertToGiftedChatMessages = useCallback((apiMessages: Message[]): ChatMessage[] => {
     // Derive the other user's display name from normalized conversation members
     const otherMember = conversationData?.members?.find(m => m.did !== currentUserId);
-    const otherDisplayName = otherMember?.displayName || otherMember?.handle || 'Other';
+    const otherDisplayName = formatHandle(otherMember?.handle) || 'Other';
     return apiMessages.map((msg) => ({
       _id: msg.id,
       text: msg.text,
@@ -262,7 +289,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         sender: {
           did: currentUserId,
           handle: currentUser?.handle || '',
-          displayName: currentUser?.displayName || currentUser?.handle || 'You',
+          displayName: formatHandle(currentUser?.handle) || 'You',
           avatar: currentUser?.avatar,
         },
         createdAt: new Date().toISOString(),
@@ -321,7 +348,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         sender: {
           did: currentUserId,
           handle: currentUser?.handle || '',
-          displayName: currentUser?.displayName || currentUser?.handle || 'You',
+          displayName: formatHandle(currentUser?.handle) || 'You',
           avatar: currentUser?.avatar,
         },
         createdAt: new Date().toISOString(),
@@ -433,6 +460,41 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
 
 
   const renderInputToolbar = useCallback((props: any) => {
+    const isPending = conversationData?.status === 'pending' || conversationData?.status === 'request';
+    
+    if (isPending) {
+      return (
+        <View style={styles.inputToolbar}>
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.rejectButton]}
+              onPress={() => rejectConversationMutation.mutate()}
+              disabled={rejectConversationMutation.isPending || acceptConversationMutation.isPending}
+              activeOpacity={0.7}
+            >
+              {rejectConversationMutation.isPending ? (
+                <Loading3FillIcon size={20} color={Colors.white} />
+              ) : (
+                <Text style={styles.actionButtonText}>Reject</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.acceptButton]}
+              onPress={() => acceptConversationMutation.mutate()}
+              disabled={rejectConversationMutation.isPending || acceptConversationMutation.isPending}
+              activeOpacity={0.7}
+            >
+              {acceptConversationMutation.isPending ? (
+                <Loading3FillIcon size={20} color={Colors.black} />
+              ) : (
+                <Text style={[styles.actionButtonText, styles.acceptButtonText]}>Accept</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+    
     return (
       <View style={styles.inputToolbar}>
         <View style={styles.inputToolbarContent}>
@@ -441,7 +503,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         </View>
       </View>
     );
-  }, []);
+  }, [conversationData?.status, rejectConversationMutation, acceptConversationMutation]);
 
   const renderAvatar = useCallback(() => null, []);
 
@@ -465,7 +527,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       return {
         did: otherUserDid,
         handle: otherUserProfile.handle,
-        displayName: otherUserProfile.displayName,
+        displayName: formatHandle(otherUserProfile.handle) || 'User',
         avatar: otherUserProfile.avatar,
       };
     }
@@ -744,7 +806,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                     style={styles.headerAvatar}
                   />
                   <Text style={styles.headerDisplayName} numberOfLines={1}>
-                    {otherUser.displayName || otherUser.handle || 'User'}
+                    {formatHandle(otherUser.handle) || 'User'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1176,5 +1238,34 @@ const styles = StyleSheet.create({
   },
   receivedMessageText: {
     color: Colors.white,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: BORDER_RADIUS.FULL,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.darkGray,
+  },
+  rejectButton: {
+    backgroundColor: Colors.darkGray,
+  },
+  acceptButton: {
+    backgroundColor: Colors.green,
+  },
+  actionButtonText: {
+    fontSize: 16,
+    fontFamily: 'Firma-SemiBold',
+    color: Colors.white,
+  },
+  acceptButtonText: {
+    color: Colors.black,
   },
 });

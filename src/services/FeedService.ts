@@ -626,16 +626,57 @@ class FeedService {
 
   // Query configuration
   createInfiniteQuery(feedOption: FeedOption, userDid?: string, queryOptions: any = {}) {
+    const queryClient = useQueryClient();
+    
     return useInfiniteQuery({
       queryKey: createQueryKeys.feed.infinite(feedOption, userDid),
-      queryFn: ({ pageParam }) => this.fetchFeed(feedOption, userDid, pageParam as string),
+      queryFn: async ({ pageParam }) => {
+        // Fetch feed data
+        const feedData = await this.fetchFeed(feedOption, userDid, pageParam as string);
+
+        // Extract unique author handles from this page for batch prefetching
+        const authorHandles = Array.from(
+          new Set(
+            feedData.feed
+              .map(item => item.post?.author?.handle)
+              .filter((h): h is string => !!h)
+          )
+        );
+
+        // Batch prefetch all author profiles in background
+        // Fire and forget - don't await, let it populate cache
+        if (authorHandles.length > 0) {
+          // Import ProfileCache dynamically to avoid circular dependency
+          import('./cache/ProfileCache').then(({ default: ProfileCache, profileKeys }) => {
+            ProfileCache.batchGetProfiles(authorHandles)
+              .then(profiles => {
+                // Prepopulate individual profile query keys for instant cache hits
+                profiles.forEach(profile => {
+                  if (profile?.handle) {
+                    queryClient.setQueryData(
+                      profileKeys.detail(profile.handle),
+                      profile
+                    );
+                  }
+                });
+              })
+              .catch(() => {
+                // Silently fail - feed still renders, individual fetches will work as fallback
+              });
+          }).catch(() => {
+            // Failed to load ProfileCache, skip prefetch
+          });
+        }
+
+        return feedData;
+      },
       initialPageParam: null,
       getNextPageParam: (lastPage) => lastPage.cursor,
       staleTime: queryOptions.staleTime ?? FEED_CONFIG.staleTime,
       gcTime: queryOptions.cacheTime ?? FEED_CONFIG.cacheTime,
       refetchOnWindowFocus: queryOptions.refetchOnWindowFocus ?? false,
       refetchOnMount: queryOptions.refetchOnMount ?? false, // Changed from true to false to prevent unnecessary refreshes
-      refetchOnReconnect: queryOptions.refetchOnReconnect ?? true,
+      refetchOnReconnect: queryOptions.refetchOnReconnect ?? false,
       ...queryOptions
     });
   }

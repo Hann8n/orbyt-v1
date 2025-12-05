@@ -13,7 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../../../services/api/AtprotoService';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useInfiniteQuery, useQueryClient, useQuery } from '@tanstack/react-query';
 
 import ProfileCache, { profileKeys } from '../../../services/cache/ProfileCache';
@@ -21,7 +21,7 @@ import { Avatar, Icon, Colors } from '../../../components/ui/UI';
 import { Loading3FillIcon } from '../../../components/ui/Icon';
 import { VerificationBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
-import { getBottomNavBarHeight } from '../../../utils/helpers';
+import { getBottomNavBarHeight, formatHandle } from '../../../utils/helpers';
 import { feedService } from '../../../services/FeedService';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 
@@ -301,7 +301,7 @@ const NotificationItem: React.FC<{
         <TouchableOpacity onPress={handleProfilePress} activeOpacity={0.7}>
           <View style={{flexDirection: 'row', alignItems: 'center'}}>
             <Text style={styles.authorName}>
-              {author.displayName || author.handle || 'Unknown user'}
+              {formatHandle(author.handle) || 'Unknown user'}
             </Text>
             {author.handle && (
               <VerificationBadge 
@@ -365,6 +365,23 @@ const NotificationsTab: React.FC = () => {
     
     initializeCache();
   }, []);
+
+  // Mark notifications as seen when the tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      // Update seen status when notifications tab is focused
+      AtprotoService.updateNotificationSeen()
+        .then(() => {
+          // Invalidate unread count query after successfully marking as seen
+          queryClient.invalidateQueries({ queryKey: ['notifications-count'] });
+        })
+        .catch(() => {
+          // Silently fail - seen status update is not critical
+          // Still try to refresh the count in case it changed
+          queryClient.invalidateQueries({ queryKey: ['notifications-count'] });
+        });
+    }, [queryClient])
+  );
 
   // Improved infinite query implementation - includes all notification types
   const {

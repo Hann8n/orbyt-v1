@@ -7,8 +7,7 @@ export const useUnreadCount = () => {
   const { data: notificationsData } = useQuery({
     queryKey: ['notifications-count'],
     queryFn: async () => {
-      const response = await AtprotoService.listNotifications(null);
-      return response.notifications.filter(n => !n.isRead).length;
+      return AtprotoService.getUnreadNotificationCount();
     },
     refetchInterval: 30000, // Check every 30 seconds
     staleTime: 60000, // Consider stale after 1 minute

@@ -23,7 +23,7 @@ import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
  
 import AtprotoService from '../../../services/api/AtprotoService';
-import { formatNumber } from '../../../utils/helpers';
+import { formatNumber, formatHandle } from '../../../utils/helpers';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
 import { HeartFillIcon } from '../../ui/Icon';
@@ -155,14 +155,12 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
 
     const authorName = useMemo(
       () =>
-        comment?.post?.author?.displayName ||
-        comment?.author?.displayName ||
-        comment?.post?.author?.handle ||
-        comment?.author?.handle ||
-        'Unknown',
+        formatHandle(
+          comment?.post?.author?.handle ||
+          comment?.author?.handle ||
+          ''
+        ) || 'Unknown',
       [
-        comment?.post?.author?.displayName,
-        comment?.author?.displayName,
         comment?.post?.author?.handle,
         comment?.author?.handle,
       ]
@@ -170,9 +168,11 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     
     const authorHandle = useMemo(
       () =>
-        comment?.post?.author?.handle ||
-        comment?.author?.handle ||
-        '',
+        formatHandle(
+          comment?.post?.author?.handle ||
+          comment?.author?.handle ||
+          ''
+        ),
       [comment?.post?.author?.handle, comment?.author?.handle]
     );
     

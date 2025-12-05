@@ -21,6 +21,9 @@ import { VerificationBadge } from '../badging';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
+import { formatHandle } from '../../../utils/helpers';
+import { isCurrentUser } from '../../../stores/profileInteractionStore';
+import { useUserStore } from '../../../stores/userStore';
  
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -95,6 +98,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const currentUser = useUserStore(state => state.currentUser);
 
   // Query for channel members (using following list of the channel creator)
   const {
@@ -243,6 +247,11 @@ const MembersListView: React.FC<MembersListViewProps> = ({
 
   // Handle follow/unfollow press
   const handleFollowPress = useCallback((member: Member) => {
+    // Don't allow following the current user
+    if (isCurrentUser(member.did, member.handle, currentUser)) {
+      return;
+    }
+    
     if (onFollowPress) {
       onFollowPress(member);
     } else {
@@ -253,7 +262,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
         followMutation.mutate({ member });
       }
     }
-  }, [onFollowPress, unfollowMutation, followMutation]);
+  }, [onFollowPress, unfollowMutation, followMutation, currentUser]);
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {
@@ -294,6 +303,8 @@ const MembersListView: React.FC<MembersListViewProps> = ({
 
   // Render member item
   const renderMemberItem = useCallback(({ item: member }: { item: Member }) => {
+    const isCurrentUserProfile = isCurrentUser(member.did, member.handle, currentUser);
+    
     return (
       <TouchableOpacity
         style={styles.memberItem}
@@ -309,7 +320,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
         <View style={styles.memberDetails}>
           <View style={styles.memberNameRow}>
             <Text style={styles.memberName} numberOfLines={1}>
-              {member.displayName || member.handle}
+              {member.displayName || formatHandle(member.handle)}
             </Text>
             <VerificationBadge
               handle={member.handle}
@@ -318,9 +329,21 @@ const MembersListView: React.FC<MembersListViewProps> = ({
             />
           </View>
         </View>
+        {/* Follow button would be rendered here if needed - check prevents showing for current user */}
+        {onFollowPress && !isCurrentUserProfile && (
+          <TouchableOpacity
+            style={[styles.followButton, { borderColor: textColor }]}
+            onPress={() => handleFollowPress(member)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.followButtonText, { color: textColor }]}>
+              {member.isFollowing ? 'Following' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
     );
-  }, [handleMemberPress]);
+  }, [handleMemberPress, handleFollowPress, onFollowPress, currentUser, textColor]);
 
   // Render loading item
   const renderLoadingItem = useCallback(() => (
@@ -562,13 +585,13 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     borderWidth: 1,
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     paddingHorizontal: 24,
     paddingVertical: 12,
+    marginTop: 20,
   },
   retryButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
     fontFamily: 'Firma-SemiBold',
   },
 });

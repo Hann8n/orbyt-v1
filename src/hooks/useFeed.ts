@@ -82,13 +82,37 @@ export function useFeed(
     ? currentUser?.did 
     : userDid;
 
-  // Invalidate feed queries when user changes - but only after account switch is complete
-  // The query key change (via effectiveUserDid) will automatically trigger a new fetch
+  // Track previous user DID to detect actual account changes (not just object reference changes)
+  const previousUserDidRef = useRef<string | undefined>(currentUser?.did);
+  
+  // Invalidate feed queries ONLY when user DID actually changes (account switch)
+  // This prevents unnecessary invalidations when navigating between feeds
   useEffect(() => {
-    // Only invalidate if account switch is complete and we have a user DID
-    if (currentUser?.did && !isSwitchingAccount && agent) {
-      // Invalidate all feed queries when user changes to clear old account's data
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
+    const currentDid = currentUser?.did;
+    const previousDid = previousUserDidRef.current;
+    
+    // Only invalidate if:
+    // 1. Account switch is complete
+    // 2. We have a user DID
+    // 3. The DID actually changed (not just object reference)
+    // 4. Agent is available
+    if (currentDid && !isSwitchingAccount && agent && currentDid !== previousDid) {
+      // Only invalidate user-specific feeds (following, your-mix) to preserve other feeds
+      // The query key change (via effectiveUserDid) will automatically trigger a new fetch for the new user
+      queryClient.invalidateQueries({ 
+        queryKey: ['feed', 'following'],
+        exact: false 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['feed', 'your-mix'],
+        exact: false 
+      });
+      
+      // Update ref to track the new DID
+      previousUserDidRef.current = currentDid;
+    } else if (currentDid && currentDid === previousDid) {
+      // Update ref even if DID didn't change (to track object reference updates)
+      previousUserDidRef.current = currentDid;
     }
   }, [currentUser?.did, isSwitchingAccount, agent, queryClient]);
 
@@ -113,7 +137,7 @@ export function useFeed(
     retryDelay: FEED_CONFIG.RETRY_DELAY,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
-    refetchOnReconnect: true,
+    refetchOnReconnect: false,
     ...queryOptions
   });
 

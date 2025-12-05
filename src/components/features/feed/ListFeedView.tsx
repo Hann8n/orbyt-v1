@@ -366,7 +366,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   }, [isVisible, isFeedActive, viewMode, listData, activeItemUri, onViewableItemsChanged]);
 
   // FlashList v2: Restore scroll position when returning to feed
-  // Uses stored activeItemIndex from visibility store to maintain video position
+  // Uses stored activeItemUri/activeItemIndex from visibility store to maintain video position
+  // Prefers URI-based matching for better reliability when feed data updates
   useEffect(() => {
     // Track visibility changes
     const wasVisible = wasVisibleRef.current;
@@ -374,23 +375,38 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
     // Only restore on transition from not visible to visible
     if (!wasVisible && isVisible && !hasRestoredPositionRef.current) {
-      // Check if we have a stored position and data to scroll to
-      if (activeItemIndex >= 0 && activeItemIndex < listData.length && flashListRef.current) {
+      if (flashListRef.current && listData.length > 0) {
         // Reset the restored flag when we start restoration
         hasRestoredPositionRef.current = true;
         
-        // Small delay to ensure FlashList is ready
-        requestAnimationFrame(() => {
-          try {
-            flashListRef.current?.scrollToIndex({
-              index: activeItemIndex,
-              animated: false,
-              viewPosition: 0.5,
-            });
-          } catch (error) {
-            // Handle scroll errors gracefully - FlashList v2 is more resilient
-          }
-        });
+        // Try to find the item by URI first (more reliable when feed data updates)
+        let targetIndex = -1;
+        if (activeItemUri) {
+          targetIndex = listData.findIndex(
+            item => !item.endCard && item.post?.uri === activeItemUri
+          );
+        }
+        
+        // Fall back to index-based restoration if URI not found
+        if (targetIndex < 0 && activeItemIndex >= 0 && activeItemIndex < listData.length) {
+          targetIndex = activeItemIndex;
+        }
+        
+        // Only restore if we found a valid target
+        if (targetIndex >= 0) {
+          // Small delay to ensure FlashList is ready
+          requestAnimationFrame(() => {
+            try {
+              flashListRef.current?.scrollToIndex({
+                index: targetIndex,
+                animated: false,
+                viewPosition: 0.5,
+              });
+            } catch (error) {
+              // Handle scroll errors gracefully - FlashList v2 is more resilient
+            }
+          });
+        }
       }
     }
 
@@ -398,7 +414,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     if (wasVisible && !isVisible) {
       hasRestoredPositionRef.current = false;
     }
-  }, [isVisible, activeItemIndex, listData.length]);
+  }, [isVisible, activeItemIndex, activeItemUri, listData]);
 
   // Grid item press handler
   const handleGridItemPress = useCallback((index: number) => {

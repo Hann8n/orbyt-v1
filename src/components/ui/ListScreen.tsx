@@ -15,6 +15,9 @@ import { Loading3FillIcon } from './Icon';
 import ListHeader from './ListHeader';
 import { VerificationBadge } from '../features/badging';
 import { useFollowMutation } from '../../services/cache/ProfileCache';
+import { formatHandle } from '../../utils/helpers';
+import { isCurrentUser } from '../../stores/profileInteractionStore';
+import { useUserStore } from '../../stores/userStore';
 
 interface User {
   did: string;
@@ -69,6 +72,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
   const insets = useSafeAreaInsets();
   const [actionUsers, setActionUsers] = useState<Set<string>>(new Set());
   const followMutation = useFollowMutation();
+  const currentUser = useUserStore(state => state.currentUser);
 
   const handleUserPress = useCallback((handle: string) => {
     if (onUserPress) {
@@ -105,59 +109,64 @@ const ListScreen: React.FC<ListScreenProps> = ({
     }
   }, [followMutation, followButtonAction, onActionPress]);
 
-  const renderUser = useCallback(({ item }: { item: User }) => (
-    <View style={styles.profileItem}>
-      <TouchableOpacity
-        style={styles.profileTouchable}
-        onPress={() => handleUserPress(item.handle)}
-      >
-        <Avatar 
-          uri={item.avatar} 
-          type={item.isChannel ? "channel" : "profile"} 
-          size={40} 
-          ringColor="transparent" 
-          style={styles.profileImage} 
-        />
-        <View style={styles.profileContent}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={styles.displayName} numberOfLines={1}>
-              {item.displayName || item.handle || (item.isChannel ? 'Unknown channel' : 'Unknown user')}
-            </Text>
-            {item.handle && item.handle.trim() && item.handle.length > 0 && !item.isChannel && (
-              <VerificationBadge 
-                handle={item.handle.trim()} 
-                textSize={14} 
-                textColor={Colors.white} 
+  const renderUser = useCallback(({ item }: { item: User }) => {
+    const isCurrentUserProfile = isCurrentUser(item.did, item.handle, currentUser);
+    const shouldShowFollowButton = showFollowButton && !isCurrentUserProfile;
+    
+    return (
+      <View style={styles.profileItem}>
+        <TouchableOpacity
+          style={styles.profileTouchable}
+          onPress={() => handleUserPress(item.handle)}
+        >
+          <Avatar 
+            uri={item.avatar} 
+            type={item.isChannel ? "channel" : "profile"} 
+            size={40} 
+            ringColor="transparent" 
+            style={styles.profileImage} 
+          />
+          <View style={styles.profileContent}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.displayName} numberOfLines={1}>
+                {item.displayName || formatHandle(item.handle) || (item.isChannel ? 'Unknown channel' : 'Unknown user')}
+              </Text>
+              {item.handle && item.handle.trim() && item.handle.length > 0 && !item.isChannel && (
+                <VerificationBadge 
+                  handle={item.handle.trim()} 
+                  textSize={14} 
+                  textColor={Colors.white} 
+                />
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+        {shouldShowFollowButton && (
+          <TouchableOpacity
+            style={[
+              styles.followButton,
+              actionUsers.has(item.handle || item.did) && styles.actionButton
+            ]}
+            onPress={() => handleFollowAction(item)}
+          >
+            {actionUsers.has(item.handle || item.did) ? (
+              <Icon 
+                name='checkmark' 
+                size={16} 
+                color={Colors.black} 
+              />
+            ) : (
+              <Icon 
+                name={followButtonIcon} 
+                size={16} 
+                color={Colors.black} 
               />
             )}
-          </View>
-        </View>
-      </TouchableOpacity>
-      {showFollowButton && (
-        <TouchableOpacity
-          style={[
-            styles.followButton,
-            actionUsers.has(item.handle || item.did) && styles.actionButton
-          ]}
-          onPress={() => handleFollowAction(item)}
-        >
-          {actionUsers.has(item.handle || item.did) ? (
-            <Icon 
-              name='checkmark' 
-              size={16} 
-              color={Colors.black} 
-            />
-          ) : (
-            <Icon 
-              name={followButtonIcon} 
-              size={16} 
-              color={Colors.black} 
-            />
-          )}
-        </TouchableOpacity>
-      )}
-    </View>
-  ), [handleUserPress, handleFollowAction, showFollowButton, followButtonIcon, followButtonAction, actionUsers]);
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }, [handleUserPress, handleFollowAction, showFollowButton, followButtonIcon, followButtonAction, actionUsers, currentUser]);
 
   const renderEmpty = useCallback(() => (
     <View style={styles.emptyContainer}>

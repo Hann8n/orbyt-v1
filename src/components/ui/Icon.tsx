@@ -23,7 +23,16 @@ import { useProfile } from '../../services/cache/ProfileCache';
 // SVG content as strings - updated to match the actual icon files
 const PLUS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none"><path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="M10.5 20a1.5 1.5 0 0 0 3 0v-6.5H20a1.5 1.5 0 0 0 0-3h-6.5V4a1.5 1.5 0 0 0-3 0v6.5H4a1.5 1.5 0 0 0 0 3h6.5z"/></g></svg>`;
 
+// Add Circle Line Icon (white interior, black border + black plus)
+const ADD_CIRCLE_LINE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><title>add_circle_line</title><g id="add_circle_line" fill="none"><circle cx="12" cy="12" r="10" fill="#FFF" stroke="currentColor" stroke-width="1"/><rect x="10.5" y="6.5" width="3" height="11" fill="currentColor"/><rect x="6.5" y="10.5" width="11" height="3" fill="currentColor"/></g></svg>`;
+
 const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M21.546 5.111a1.5 1.5 0 0 1 0 2.121L10.303 18.475a1.6 1.6 0 0 1-2.263 0L2.454 12.89a1.5 1.5 0 1 1 2.121-2.121l4.596 4.596L19.424 5.111a1.5 1.5 0 0 1 2.122 0"/></g></svg>`;
+
+// Follow Check Circle Icon (green fill with white checkmark)
+const FOLLOW_CHECK_CIRCLE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g id="follow_check_circle" fill="none"><circle cx="12" cy="12" r="10" fill="currentColor" stroke="#000" stroke-width="1"/><path d="M8 12.5l2.5 2.5l5.5-5.5" stroke="#000" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" fill="none"/></g></svg>`;
+
+// Check Circle Fill Icon (background fill uses currentColor, check uses white) - DEPRECATED, use FOLLOW_CHECK_CIRCLE_ICON_SVG instead
+const CHECK_CIRCLE_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none"><circle cx="12" cy="12" r="10" fill="currentColor"/><path fill="#fff" d="M21.546 5.111a1.5 1.5 0 0 1 0 2.121L10.303 18.475a1.6 1.6 0 0 1-2.263 0L2.454 12.89a1.5 1.5 0 1 1 2.121-2.121l4.596 4.596L19.424 5.111a1.5 1.5 0 0 1 2.122 0"/></g></svg>`;
 
 const LIST_VIEW_ICON_SVG = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- First video card -->
@@ -179,6 +188,12 @@ export const PlusIcon: React.FC<{ size: number; color: string; strokeWidth: numb
   );
 };
 
+// Add Circle Line Icon component
+export const AddCircleLineIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = ADD_CIRCLE_LINE_ICON_SVG.replace(/currentColor/g, color);
+  return <SvgXml xml={svgXml} width={size} height={size} style={style} />;
+};
+
 // Custom Check Icon component
 export const CheckIcon: React.FC<{ size: number; color: string; strokeWidth: number }> = ({ 
   size, 
@@ -191,6 +206,32 @@ export const CheckIcon: React.FC<{ size: number; color: string; strokeWidth: num
       xml={svgXml} 
       width={size} 
       height={size} 
+    />
+  );
+};
+
+// Follow Check Circle Icon component (new design with plus sign)
+export const FollowCheckCircleIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = FOLLOW_CHECK_CIRCLE_ICON_SVG.replace(/currentColor/g, color);
+  return (
+    <SvgXml 
+      xml={svgXml}
+      width={size}
+      height={size}
+      style={style}
+    />
+  );
+};
+
+// Check Circle Fill Icon component - now uses the new follow check circle design
+export const CheckCircleFillIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = FOLLOW_CHECK_CIRCLE_ICON_SVG.replace(/currentColor/g, color);
+  return (
+    <SvgXml 
+      xml={svgXml}
+      width={size}
+      height={size}
+      style={style}
     />
   );
 };
@@ -933,7 +974,7 @@ const SHIELD_OUTLINE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="
 
 const DOWNLOAD_2_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none"><path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="M20 14.5a1.5 1.5 0 0 1 1.5 1.5v4a2.5 2.5 0 0 1-2.5 2.5H5A2.5 2.5 0 0 1 2.5 20v-4a1.5 1.5 0 0 1 3 0v3.5h13V16a1.5 1.5 0 0 1 1.5-1.5m-8-13A1.5 1.5 0 0 1 13.5 3v9.036l1.682-1.682a1.5 1.5 0 0 1 2.121 2.12l-4.066 4.067a1.75 1.75 0 0 1-2.474 0l-4.066-4.066a1.5 1.5 0 0 1 2.121-2.121l1.682 1.682V3A1.5 1.5 0 0 1 12 1.5"/></g></svg>`;
 
-const ALERT_CIRCLE_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" fill-rule="evenodd"><path fill="#fff" d="M12 2a10 10 0 1 1 0 20A10 10 0 0 1 12 2m0 5a1 1 0 0 1 1 1v6.5a1 1 0 1 1-2 0V8a1 1 0 0 1 1-1m0 10.5a1.25 1.25 0 1 1 0 2.5a1.25 1.25 0 0 1 0-2.5"/></g></svg>`;
+const ALERT_CIRCLE_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>warning_fill</title><g id="warning_fill" fill='none'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#fff' d='M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m0 13a1 1 0 1 0 0 2 1 1 0 0 0 0-2m0-9a1 1 0 0 0-.993.883L11 7v6a1 1 0 0 0 1.993.117L13 13V7a1 1 0 0 0-1-1'/></g></svg>`;
 
 // Color Picker Fill Icon (for Color Palette)
 const COLOR_PICKER_FILL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none" fill-rule="evenodd"><path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="M20.477 3.511a3 3 0 0 0-4.243 0l-1.533 1.533a2.99 2.99 0 0 0-3.41.581l-.713.714a2 2 0 0 0 0 2.829l-6.486 6.485a3 3 0 0 0-.878 2.122v1.8a1.2 1.2 0 0 0 1.2 1.2h1.8a3 3 0 0 0 2.12-.88l6.486-6.484a2 2 0 0 0 2.829 0l.714-.715a2.99 2.99 0 0 0 .581-3.41l1.533-1.532a3 3 0 0 0 0-4.243M5.507 17.068l6.485-6.486l1.414 1.414l-6.485 6.486a1 1 0 0 1-.707.293h-1v-1a1 1 0 0 1 .293-.707"/></g></svg>`;
@@ -1364,6 +1405,11 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'checkmark' || name === 'check') {
       return <CheckIcon size={size} color={color} strokeWidth={strokeWidth} />;
     }
+    // check circle filled (defaults to black background if color is default white)
+    if (name === 'check-circle-fill' || name === 'check-circle' || name === 'check-black' || name === 'check-circle-black' || name === 'checkmark-black') {
+      const bgColor = color === Colors.white ? Colors.black : color;
+      return <CheckCircleFillIcon size={size} color={bgColor} style={style} />;
+    }
   if (name === 'shield-off' || name === 'mingcute:shield-shape-line') {
       return <ShieldOutlineIcon size={size} color={color} style={style} />;
   }
@@ -1471,6 +1517,9 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'users') return <UserIcon size={size} color={color} style={style} />;
     if (name === 'user-plus') return <PlusIcon size={size} color={color} strokeWidth={2.5} />;
     if (name === 'plus') return <PlusIcon size={size} color={color} strokeWidth={2.5} />;
+    if (name === 'add-circle-line' || name === 'add_circle_line' || name === 'circle-plus') {
+      return <AddCircleLineIcon size={size} color={color} style={style} />;
+    }
     if (name === 'minus-fill') return <MinusFillIcon size={size} color={color} style={style} />;
     if (name === 'trash') return <TrashIcon size={size} color={color} style={style} />;
     if (name === 'delete-2-fill') return <Delete2FillIcon size={size} color={color} style={style} />;

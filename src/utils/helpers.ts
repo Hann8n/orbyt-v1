@@ -21,6 +21,20 @@ export function formatNumber(num: number): string {
 }
 
 // ============================================================================
+// HANDLE FORMATTING UTILITIES
+// ============================================================================
+
+/**
+ * Format a handle by removing the .bsky.social suffix if present
+ * @param handle - The handle to format (can be null or undefined)
+ * @returns The formatted handle, or 'Unknown' if handle is falsy
+ */
+export function formatHandle(handle: string | null | undefined): string {
+  if (!handle) return 'Unknown';
+  return handle.replace(/\.bsky\.social$/, '');
+}
+
+// ============================================================================
 // SCREEN SIZE UTILITIES
 // ============================================================================
 

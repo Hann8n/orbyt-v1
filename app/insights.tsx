@@ -27,6 +27,7 @@ import { useUserStore } from '../src/stores/userStore';
 
 import { createQueryKeys } from '../src/services/FeedService';
 import { extractVideoUrl, extractVideoThumbnail } from '../src/utils/helpers/video';
+import { formatHandle } from '../src/utils/helpers';
 import ProfileCache from '../src/services/cache/ProfileCache';
 
 type InsightsNavigationProp = any;
@@ -1106,7 +1107,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
                   autoPosition={true}
                 />
               </View>
-              <Text style={styles.userHandle}>@{userData?.handle}</Text>
+              <Text style={styles.userHandle}>@{formatHandle(userData?.handle)}</Text>
               
               {/* Account Stats */}
               <View style={styles.accountStats}>
@@ -1415,7 +1416,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
                   />
                   <View style={styles.mutualConnectionInfo}>
                     <Text style={styles.mutualConnectionName}>{connection.displayName}</Text>
-                    <Text style={styles.mutualConnectionHandle}>@{connection.handle}</Text>
+                    <Text style={styles.mutualConnectionHandle}>@{formatHandle(connection.handle)}</Text>
                   </View>
                 </View>
               ))}
@@ -1443,7 +1444,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
                   />
                   <View style={styles.engagedFollowerInfo}>
                     <Text style={styles.engagedFollowerName}>{follower.displayName}</Text>
-                    <Text style={styles.engagedFollowerHandle}>@{follower.handle}</Text>
+                    <Text style={styles.engagedFollowerHandle}>@{formatHandle(follower.handle)}</Text>
                   </View>
                   <View style={styles.engagedFollowerStats}>
                     <Text style={styles.engagedFollowerCount}>{follower.interactionCount}</Text>
@@ -1475,7 +1476,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
                   />
                   <View style={styles.topCommenterInfo}>
                     <Text style={styles.topCommenterName}>{commenter.displayName}</Text>
-                    <Text style={styles.topCommenterHandle}>@{commenter.handle}</Text>
+                    <Text style={styles.topCommenterHandle}>@{formatHandle(commenter.handle)}</Text>
                   </View>
                   <View style={styles.topCommenterStats}>
                     <Text style={styles.topCommenterCount}>{commenter.commentCount}</Text>

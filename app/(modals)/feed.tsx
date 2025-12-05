@@ -47,9 +47,12 @@ const FeedScreen: React.FC = memo(() => {
 
   // Check if this is a hashtag feed
   const isHashtagFeed = routeParams.feedOption?.startsWith('hashtag:');
-  const hashtag = isHashtagFeed ? routeParams.feedOption.substring(8) : null;
+  const hashtagWithSort = isHashtagFeed ? routeParams.feedOption.substring(8) : null;
+  // Extract hashtag without sort suffix (e.g., "art:top" -> "art")
+  const hashtag = hashtagWithSort ? hashtagWithSort.split(':')[0] : null;
   // Check if this is an orbyt channel hashtag (don't show header for orbyt channels)
-  const isOrbytChannelHashtag = hashtag ? hashtagToChannelSlug(routeParams.feedOption || '') !== null : false;
+  // Orbyt channel hashtags start with "orbyt-channel-" or "orbyt-"
+  const isOrbytChannelHashtag = hashtag ? (hashtag.startsWith('orbyt-channel-') || hashtag.startsWith('orbyt-')) : false;
 
   // Memoized close handler
   const handleClose = useCallback(() => {
@@ -76,13 +79,6 @@ const FeedScreen: React.FC = memo(() => {
         <BackArrowIcon size={30} color={Colors.white} />
       </TouchableOpacity>
       
-      {/* Show hashtag header if this is a hashtag feed (but not for orbyt channels) */}
-      {isHashtagFeed && hashtag && !isOrbytChannelHashtag && (
-        <Text style={[styles.hashtagHeader, { top: insets.top + 15 }]}>
-          #{hashtag}
-        </Text>
-      )}
-      
       <FeedRenderer
         feedOption={routeParams.feedOption}
         userDid={routeParams.userDid}
@@ -99,6 +95,13 @@ const FeedScreen: React.FC = memo(() => {
         ListComponent={undefined}
         visibilityKey={modalVisibilityKey}
       />
+      
+      {/* Show hashtag header if this is a hashtag feed (but not for orbyt channels) */}
+      {isHashtagFeed && hashtag && !isOrbytChannelHashtag && (
+        <Text style={[styles.hashtagHeader, { top: insets.top + 15 }]}>
+          #{hashtag}
+        </Text>
+      )}
     </View>
   );
 });
@@ -118,16 +121,15 @@ const styles = StyleSheet.create({
 
   hashtagHeader: {
     position: 'absolute',
-    left: 64, // Start after the back button area (20 + 44 for button width)
-    right: 64, // Same spacing on both sides for proper centering
+    left: 70, // Account for back button area (20 + 30 icon + 20 spacing)
+    right: 70, // Match left padding to center the text
     textAlign: 'center',
     fontSize: 18,
     color: Colors.white,
     fontFamily: 'Firma-Bold',
-    zIndex: 10,
-    paddingTop: 5, // Perfect vertical alignment with back button icon center
+    zIndex: 100, // High z-index to ensure it's above feed content
     includeFontPadding: false, // Remove default font padding for precise alignment
-    textAlignVertical: 'center',
+    lineHeight: 30, // Match icon height for vertical alignment
   },
 });
 

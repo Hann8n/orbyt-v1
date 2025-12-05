@@ -282,6 +282,8 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
 
     // Track previous shouldDisablePlayback to detect when overlay blocking is removed
     const prevShouldDisablePlaybackRef = useRef(shouldDisablePlayback);
+    // Track previous visibility to detect when video becomes visible
+    const prevIsVisibleRef = useRef(isVisible);
     
     // Auto-resume when playback is re-enabled (e.g., overlay is removed)
     // This ensures videos resume automatically when overlay blocking is removed
@@ -300,6 +302,21 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       
       prevShouldDisablePlaybackRef.current = shouldDisablePlayback;
     }, [shouldDisablePlayback, isVisible, videoState.hasError, videoState.userPaused, setVideoState]);
+
+    // Auto-resume when video becomes visible (e.g., scrolling to next video after returning to feed)
+    // This fixes the issue where the next video doesn't autoplay after returning to a feed
+    useEffect(() => {
+      const wasVisible = prevIsVisibleRef.current;
+      const becameVisible = !wasVisible && isVisible;
+      
+      // When video becomes visible and can play, clear userPaused to allow autoplay
+      // This handles the case where userPaused was set due to screen blur
+      if (becameVisible && !shouldDisablePlayback && !videoState.hasError && videoState.userPaused) {
+        setVideoState(prev => ({ ...prev, userPaused: false }));
+      }
+      
+      prevIsVisibleRef.current = isVisible;
+    }, [isVisible, shouldDisablePlayback, videoState.hasError, videoState.userPaused, setVideoState]);
 
     // Simplified focus effect - pause on blur, resume on focus if needed
     useFocusEffect(

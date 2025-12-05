@@ -6,7 +6,7 @@ import { useProfile, useProfileColors, useFollowMutation } from '../../../servic
 import { createQueryKeys } from '../../../services/FeedService';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AtprotoService from '../../../services/api/AtprotoService';
-import { useProfileFlags } from '../../../stores/profileInteractionStore';
+import { useProfileFlags, useIsCurrentUser } from '../../../stores/profileInteractionStore';
 import { useOrbytProfile } from '../../../hooks';
 import VerificationBadge from '../../features/badging/VerificationBadge';
 import BetaBadge from '../../features/badging/BetaBadge';
@@ -19,6 +19,7 @@ import ChatService from '../../../services/ChatService';
 import { FollowIcon, MutualHeartIcon, ProfileEditIcon, InboxIcon} from '../../ui/Icon';
 import { hexToRGBA, getStatusBarStyle } from '../../../utils/formatting/colorUtils';
 import { parseRichText } from '../../../utils/richTextParser';
+import { formatHandle } from '../../../utils/helpers';
 
 interface ProfileHeaderProps {
   handle: string | null;
@@ -76,10 +77,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   // Block status and flags
   const { flags, setFlags } = useProfileFlags(profileData?.did, profileData?.handle);
+  const isCurrentUserProfile = useIsCurrentUser(profileData?.did, profileData?.handle);
   const { data: blockStatus = false } = useQuery({
     queryKey: createQueryKeys.blocks.status(profileData?.did || ''),
     queryFn: () => AtprotoService.isBlocked(profileData?.did || ''),
-    enabled: !!profileData?.did && !isOwnProfile,
+    enabled: !!profileData?.did && !isOwnProfile && !isCurrentUserProfile,
     initialData: false,
   });
   const isBlocked = flags?.isBlocked ?? blockStatus;
@@ -194,8 +196,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const customActions = useMemo((): CustomActionLayout[] => {
     if (!profileData) return [];
 
-
-    if (isOwnProfile) {
+    // Don't show follow button for current user
+    if (isOwnProfile || isCurrentUserProfile) {
       return [
         {
           type: 'button',
@@ -259,7 +261,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         },
       ];
     }
-  }, [profileData, isOwnProfile, handleFollowUnfollow, openEditSheet, handleMenuPress, profileColors.textColor]);
+  }, [profileData, isOwnProfile, isCurrentUserProfile, handleFollowUnfollow, openEditSheet, handleMenuPress, profileColors.textColor]);
 
   // Create header content with custom description component
   const headerContent = useMemo((): HeaderContent => {
@@ -293,7 +295,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
     return {
       avatar: profileData.avatar || undefined,
-      title: profileData.displayName || profileData.handle || 'Unknown User',
+      title: profileData.displayName || formatHandle(profileData.handle) || 'Unknown User',
       subtitle,
       // subtitleSecondary intentionally omitted (no joined date in header)
       description: parsedDescription?.text,

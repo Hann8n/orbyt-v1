@@ -35,7 +35,7 @@ export const ORBYT_CHANNELS: OrbytChannel[] = [
     uri: 'at://did:plc:2xrqztnmzlckb3xfuuukupso/app.bsky.feed.generator/popular-now',
     slug: 'popular-now',
     displayName: 'popular now',
-    channelColor: '#FF69B4', // Pink color for popular now channel
+    channelColor: '#FF93CB', // Pastel pink color for popular now channel
     channelGIF: PopularNowChannelGIF,
     showSlash: false, // Don't show slash for popular now
     isPostable: false, // Users cannot post to popular now

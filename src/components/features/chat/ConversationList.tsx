@@ -10,6 +10,7 @@ import { Avatar } from '../../ui/UI';
 import { Conversation } from '../../../services/ChatService';
 import ChatService from '../../../services/ChatService';
 import { formatRelativeDate } from '../../ui/RelativeDate';
+import { formatHandle } from '../../../utils/helpers';
 import Icon, { Loading3FillIcon } from '../../ui/Icon';
 
 interface ConversationListProps {
@@ -35,7 +36,7 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
         const session = userStore.currentUser;
         setCurrentUserDid(session?.did || '');
       } catch (error) {
-error('Error getting user session:', error);
+        console.error('Error getting user session:', error);
       }
     };
     getUserSession();
@@ -99,7 +100,7 @@ error('Error getting user session:', error);
               styles.conversationName,
               item.unreadCount > 0 && styles.unreadConversationName
             ]} numberOfLines={1}>
-              {otherMember?.displayName || otherMember?.handle}
+              {formatHandle(otherMember?.handle)}
             </Text>
             {item.lastMessageCreatedAt && (
               <Text style={styles.conversationTime}>
@@ -217,13 +218,13 @@ const styles = StyleSheet.create({
   },
   unreadIndicator: {
     position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    top: 1,
+    right: 8,
     backgroundColor: Colors.green,
-    borderWidth: 3,
+    borderRadius: BORDER_RADIUS.FULL,
+    width: 14,
+    height: 14,
+    borderWidth: 2,
     borderColor: Colors.black,
   },
   conversationInfo: {

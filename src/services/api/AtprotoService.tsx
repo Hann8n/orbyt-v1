@@ -1196,6 +1196,75 @@ class AtprotoService {
   }
 
   /**
+   * Batch fetch multiple actor profiles efficiently
+   * Uses Bluesky's native batch endpoint to fetch up to 25 profiles per request
+   * Automatically deduplicates and chunks requests into batches of 25
+   * 
+   * @param handles - Array of actor handles to fetch
+   * @returns Array of actor profiles
+   */
+  static async getProfilesInBatch(handles: string[]): Promise<any[]> {
+    if (!handles || handles.length === 0) {
+      return [];
+    }
+
+    try {
+      await this.ensureSession();
+      const { api } = await this.getApiClient();
+      
+      // Deduplicate and normalize handles
+      const uniqueHandles = Array.from(new Set(
+        handles
+          .map(h => h?.toLowerCase())
+          .filter(h => !!h && typeof h === 'string')
+      ));
+      
+      if (uniqueHandles.length === 0) {
+        return [];
+      }
+
+      // Single handle optimization
+      if (uniqueHandles.length === 1) {
+        try {
+          const profile = await api.app.bsky.actor.getProfile({ 
+            actor: uniqueHandles[0] 
+          });
+          return [profile.data];
+        } catch (error) {
+          logger.warn(`Failed to fetch profile ${uniqueHandles[0]}:`, error);
+          return [];
+        }
+      }
+
+      // Batch into chunks of 25 (API limit)
+      const BATCH_SIZE = 25;
+      const batches: string[][] = [];
+      
+      for (let i = 0; i < uniqueHandles.length; i += BATCH_SIZE) {
+        batches.push(uniqueHandles.slice(i, i + BATCH_SIZE));
+      }
+
+      // Fetch all batches in parallel
+      const batchPromises = batches.map(batch =>
+        api.app.bsky.actor.getProfiles({ actors: batch })
+          .then(response => response?.data?.profiles || [])
+          .catch(error => {
+            logger.warn(`Failed to fetch batch of profiles:`, error);
+            return [];
+          })
+      );
+
+      const results = await Promise.all(batchPromises);
+
+      // Flatten results
+      return results.flat();
+    } catch (error) {
+      logger.error('Error in getProfilesInBatch:', error);
+      return [];
+    }
+  }
+
+  /**
    * Follow a user
    * @param did - User DID to follow
    * @returns Follow URI
@@ -1585,6 +1654,46 @@ class AtprotoService {
       };
     } catch (error: unknown) {
       return { notifications: [], cursor: null };
+    }
+  }
+
+  /**
+   * Mark notifications as seen by updating the seenAt timestamp
+   * @param seenAt - Optional ISO date-time string. If not provided, uses current time
+   */
+  static async updateNotificationSeen(seenAt?: string): Promise<void> {
+    await this.ensureSession();
+    try {
+      const { api } = await this.getApiClient();
+      const timestamp = seenAt || new Date().toISOString();
+      await api.app.bsky.notification.updateSeen({
+        seenAt: timestamp,
+      });
+    } catch (error: unknown) {
+      // Silently fail - seen status is not critical
+      if (__DEV__) {
+        console.log('Failed to update notification seen status:', error);
+      }
+    }
+  }
+
+  /**
+   * Get the unread notification count
+   */
+  static async getUnreadNotificationCount(): Promise<number> {
+    await this.ensureSession();
+    try {
+      const { api } = await this.getApiClient();
+      const response = await api.app.bsky.notification.getUnreadCount();
+      return response.data.count || 0;
+    } catch (error: unknown) {
+      // Fallback to counting from listNotifications if getUnreadCount fails
+      try {
+        const response = await this.listNotifications(null, 1);
+        return response.notifications.filter(n => !n.isRead).length;
+      } catch {
+        return 0;
+      }
     }
   }
 

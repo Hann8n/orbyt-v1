@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Pressable, Linking, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 
@@ -16,6 +17,7 @@ import { feedService } from '../../../services/FeedService';
 import { openPostInBluesky } from '../../../utils/blueskyLinks';
 import MessageReactions from './MessageReactions';
 import { ReactionView } from '../../../services/ChatService';
+import { formatHandle } from '../../../utils/helpers';
 
 interface EmbeddedPostCardProps {
   postUri: string;
@@ -175,8 +177,8 @@ export default function EmbeddedPostCard({
   const thumbnailUrl = post ? getPostThumbnail(post) : null;
   const { backgroundColor: thumbnailBackgroundColor } = useThumbnailColor(thumbnailUrl);
   const postText = getPostText(post);
-  const authorDisplayName = post?.author?.displayName || post?.author?.handle || 'Unknown User';
-  const authorHandle = post?.author?.handle || '';
+  const authorDisplayName = post?.author?.displayName || formatHandle(post?.author?.handle) || 'Unknown User';
+  const authorHandle = formatHandle(post?.author?.handle || '');
   const authorAvatar = post?.author?.avatar;
   const isVideo = post ? isVideoPost(post) : false;
   const isImage = post ? isImagePost(post) : false;
@@ -289,6 +291,7 @@ export default function EmbeddedPostCard({
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
+          <Icon name="alert-circle" size={32} color={Colors.lightGray} />
           <Text style={styles.errorText}>Post not found</Text>
         </View>
       </View>
@@ -319,7 +322,7 @@ export default function EmbeddedPostCard({
             style={styles.cleanAvatar}
           />
           <Text style={styles.cleanAuthorName} numberOfLines={1}>
-            {author.displayName || author.handle || 'Unknown'}
+            {author.displayName || formatHandle(author.handle) || 'Unknown'}
           </Text>
           <View style={styles.headerBlueskyLogo}>
             <Icon name="bluesky-icon" size={18} color={Colors.bluesky} />
@@ -386,22 +389,22 @@ export default function EmbeddedPostCard({
             resizeMode="cover"
           />
           
+          {/* Black gradient from bottom */}
+          <LinearGradient
+            colors={['transparent', 'rgba(0, 0, 0, 0.5)']}
+            style={styles.videoGradient}
+          />
+          
           {/* Author overlay in bottom left */}
           <View style={styles.authorOverlay}>
             <Avatar 
               uri={avatarUrl}
               type="profile"
               size={32}
-              showRing={true}
+              showRing={false}
               fallbackIcon="user"
               fallbackIconColor={Colors.white}
-              style={styles.authorAvatar}
             />
-            <View style={styles.authorInfo}>
-              <Text style={styles.authorName} numberOfLines={1}>
-                {author.displayName || author.handle || 'Unknown'}
-              </Text>
-            </View>
           </View>
           
           {isBlurred && (
@@ -500,25 +503,8 @@ const styles = StyleSheet.create({
   },
   authorOverlay: {
     position: 'absolute',
-    bottom: 12,
-    left: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    maxWidth: '80%',
-  },
-  authorAvatar: {
-    marginRight: 8,
-  },
-  authorInfo: {
-    flex: 1,
-  },
-  authorName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.white,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    bottom: 8,
+    left: 8,
   },
   // Video post styles
   videoThumbnailContainer: {
@@ -532,6 +518,14 @@ const styles = StyleSheet.create({
   videoThumbnail: {
     width: '100%',
     height: '100%',
+  },
+  videoGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   // Text post styles
   textPostContainer: {
@@ -793,9 +787,15 @@ const styles = StyleSheet.create({
   errorContainer: {
     padding: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.MEDIUM,
   },
   errorText: {
     color: Colors.lightGray,
     fontSize: 14,
+    fontFamily: 'Firma-Medium',
+    textAlign: 'center',
   },
 });

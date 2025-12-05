@@ -34,7 +34,7 @@ import RelativeDate from '../../ui/RelativeDate';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useFocusEffect } from '@react-navigation/native';
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
-import { formatNumber } from '../../../utils/helpers';
+import { formatNumber, formatHandle } from '../../../utils/helpers';
 import { useUserSearchTrigger, UserSearchModal } from '../../ui/usersearch';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import CommentItem, { Comment, Like } from './CommentItem';
@@ -121,7 +121,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           postUri: post.uri,
           postCid: post.cid,
           authorDid: post.author.did,
-          authorName: post.author.displayName || post.author.handle,
+          authorName: formatHandle(post.author.handle) || 'Unknown',
         });
       } else {
         onOpenShareSheet?.();
@@ -232,7 +232,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const handleReplyPress = useCallback((comment: Comment) => {
     const properUri = comment?.uri || comment?.post?.uri;
     const properCid = comment?.cid || comment?.post?.cid;
-    const authorName = comment?.post?.author?.displayName || comment?.author?.displayName || comment?.post?.author?.handle || comment?.author?.handle || 'Unknown';
+    const authorName = formatHandle(comment?.post?.author?.handle || comment?.author?.handle || '') || 'Unknown';
     if (properUri && properCid) {
       setReplyContext({
         authorName,

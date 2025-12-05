@@ -10,7 +10,7 @@ import {
   UseQueryResult,
   QueryFunction
 } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 
 export interface CachedProfile {
@@ -276,6 +276,122 @@ class ProfileCache {
     }
   }
 
+  /**
+   * Batch fetch and cache multiple profiles
+   * Checks cache first, only fetches missing profiles from API
+   * More efficient than individual fetches for 2+ profiles
+   * 
+   * @param handles - Array of handles to fetch
+   * @returns Array of cached profiles
+   */
+  static async batchGetProfiles(handles: string[]): Promise<CachedProfile[]> {
+    if (!handles || handles.length === 0) {
+      return [];
+    }
+
+    this.initialize();
+
+    const uniqueHandles = Array.from(new Set(
+      handles
+        .map(h => h?.toLowerCase())
+        .filter(h => !!h && typeof h === 'string')
+    ));
+
+    // Check cache first
+    const cached: CachedProfile[] = [];
+    const needsFetch: string[] = [];
+
+    for (const handle of uniqueHandles) {
+      const cached_profile = await this.getProfileFromCache(handle);
+      if (cached_profile && this.isCacheValid(cached_profile)) {
+        cached.push(cached_profile);
+      } else {
+        needsFetch.push(handle);
+      }
+    }
+
+    // If all in cache, return early
+    if (needsFetch.length === 0) {
+      return cached;
+    }
+
+    // Fetch missing profiles in batch
+    try {
+      const profiles = await AtprotoService.getProfilesInBatch(needsFetch);
+      
+      // Cache each profile individually
+      const cachedProfiles: CachedProfile[] = [];
+      for (const profile of profiles) {
+        if (profile?.handle) {
+          const cachedProfile = await this.fetchAndCacheProfile(profile.handle);
+          if (cachedProfile) {
+            cachedProfiles.push(cachedProfile);
+          }
+        }
+      }
+
+      return [...cached, ...cachedProfiles];
+    } catch (error) {
+      // Return what we got from cache at least
+      return cached;
+    }
+  }
+
+  /**
+   * Batch fetch profiles by DIDs
+   * Useful when you have DIDs but not handles
+   * 
+   * @param dids - Array of DIDs to fetch
+   * @returns Array of cached profiles
+   */
+  static async batchGetProfilesByDid(dids: string[]): Promise<CachedProfile[]> {
+    if (!dids || dids.length === 0) {
+      return [];
+    }
+
+    const uniqueDids = Array.from(new Set(
+      dids.filter(d => !!d && typeof d === 'string')
+    ));
+
+    const cached: CachedProfile[] = [];
+    const needsFetch: string[] = [];
+
+    for (const did of uniqueDids) {
+      const cached_profile = this.getProfileFromCacheSyncByDid(did);
+      if (cached_profile && this.isCacheValid(cached_profile)) {
+        cached.push(cached_profile);
+      } else {
+        needsFetch.push(did);
+      }
+    }
+
+    if (needsFetch.length === 0) {
+      return cached;
+    }
+
+    try {
+      const profiles = await Promise.all(
+        needsFetch.map(did => 
+          AtprotoService.getProfileByDid(did)
+            .catch(() => null)
+        )
+      );
+
+      const results: CachedProfile[] = [];
+      for (const profile of profiles) {
+        if (profile?.handle) {
+          const cachedProfile = await this.fetchAndCacheProfile(profile.handle);
+          if (cachedProfile) {
+            results.push(cachedProfile);
+          }
+        }
+      }
+
+      return [...cached, ...results];
+    } catch (error) {
+      return cached;
+    }
+  }
 
   static async getProfile(handle: string): Promise<CachedProfile | null> {
     if (!handle) return null;
@@ -1336,6 +1452,80 @@ export function useProfileByDid(did: string | null | undefined): UseQueryResult<
     refetchOnWindowFocus: false,   // avoid unnecessary refetch
     refetchOnMount: false,         // don't refetch on mount if we have data
     refetchOnReconnect: false,     // don't refetch on reconnect
+  });
+}
+
+/**
+ * Hook to batch fetch multiple profiles efficiently
+ * Deduplicates handles and uses batch API endpoint
+ * 
+ * @param handles - Array of handles to fetch (can contain nulls)
+ * @returns React Query result with array of profiles
+ */
+export function useBatchProfiles(
+  handles: (string | null | undefined)[]
+): UseQueryResult<CachedProfile[], Error> {
+  const validHandles = useMemo(() => {
+    return Array.from(new Set(
+      handles
+        .filter((h): h is string => !!h)
+        .map(h => h.toLowerCase())
+    )).sort();
+  }, [handles]);
+
+  const queryKey = useMemo(
+    () => [...profileKeys.all, 'batch', ...validHandles] as const,
+    [validHandles]
+  );
+
+  return useQuery<CachedProfile[], Error>({
+    queryKey,
+    queryFn: async () => {
+      if (validHandles.length === 0) return [];
+      return ProfileCache.batchGetProfiles(validHandles);
+    },
+    enabled: validHandles.length > 0,
+    staleTime: PROFILE_CACHE_EXPIRY,
+    gcTime: PROFILE_CACHE_EXPIRY * 2,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
+}
+
+/**
+ * Hook to batch fetch multiple profiles by DID
+ * Useful when you have DIDs but not handles
+ * 
+ * @param dids - Array of DIDs to fetch (can contain nulls)
+ * @returns React Query result with array of profiles
+ */
+export function useBatchProfilesByDid(
+  dids: (string | null | undefined)[]
+): UseQueryResult<CachedProfile[], Error> {
+  const validDids = useMemo(() => {
+    return Array.from(new Set(
+      dids.filter((d): d is string => !!d)
+    )).sort();
+  }, [dids]);
+
+  const queryKey = useMemo(
+    () => [...profileKeys.all, 'batch-by-did', ...validDids] as const,
+    [validDids]
+  );
+
+  return useQuery<CachedProfile[], Error>({
+    queryKey,
+    queryFn: async () => {
+      if (validDids.length === 0) return [];
+      return ProfileCache.batchGetProfilesByDid(validDids);
+    },
+    enabled: validDids.length > 0,
+    staleTime: PROFILE_CACHE_EXPIRY,
+    gcTime: PROFILE_CACHE_EXPIRY * 2,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 }
 

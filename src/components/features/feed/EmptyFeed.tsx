@@ -10,6 +10,7 @@ import { VerificationBadge } from '../badging';
 import { useRouter } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import ProfileCache, { useFollowMutation } from '../../../services/cache/ProfileCache';
+import { formatHandle } from '../../../utils/helpers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Use require for static RN asset to avoid TS module typing issues
 const UFOGif = require('../../../assets/UFO5504.gif');
@@ -94,12 +95,12 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     switch (type) {
       case 'no-connection':
         return {
-          icon: 'interface-essential-satellite',
+          icon: 'alert-circle',
           defaultMessage: "can't connect to feed"
         };
       case 'error':
         return {
-          icon: 'interface-essential-satellite',
+          icon: 'alert-circle',
           defaultMessage: "something went wrong"
         };
       case 'no-following':
@@ -157,7 +158,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           <View style={styles.profileContent}>
             <View style={{flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0}}>
               <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
-                {item.displayName || item.handle || 'Unknown user'}
+                {item.displayName || formatHandle(item.handle) || 'Unknown user'}
               </Text>
               {item.handle && item.handle.trim() && item.handle.length > 0 && (
                 <VerificationBadge 
@@ -380,13 +381,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: BORDER_RADIUS.SMALL,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     marginTop: 20,
   },
   retryButtonText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Firma-SemiBold',
   },
   // Matching ExploreScreen styles exactly
   sectionHeader: {

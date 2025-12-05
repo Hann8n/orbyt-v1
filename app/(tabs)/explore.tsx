@@ -28,6 +28,7 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import Svg, { Path, Rect, G } from 'react-native-svg';
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { LinearGradient } from 'expo-linear-gradient';
 import HeaderBanner from '../../src/components/ui/HeaderBanner';
 import { logger } from '../../src/utils/logger';
 
@@ -39,11 +40,12 @@ import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import { feedService } from '../../src/services/FeedService';
 import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import { extractVideoThumbnail } from '../../src/utils/helpers/video';
-import { formatNumber } from '../../src/utils/helpers';
+import { formatNumber, formatHandle } from '../../src/utils/helpers';
 import { HeaderService, useHeaders } from '../../src/services/APIService';
 import { useFeed } from '../../src/hooks/useFeed';
 import { ModerationService } from '../../src/services/ModerationService';
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
+import { isCurrentUser } from '../../src/stores/profileInteractionStore';
 import { Colors as UIColors } from '../../src/components/ui/UI';
 import { getAllChannels, isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash, extractFeedSlug } from '../../src/utils/orbytChannels';
 
@@ -406,29 +408,39 @@ const GridChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel:
         { height: thumbnailHeight },
         itemHeight ? { aspectRatio: undefined } : {} // Remove aspectRatio when height is explicitly set
       ]}>
-        <Avatar
-          uri={avatarUri}
-          type="channel"
-          size={thumbnailHeight}
-          ringColor="transparent"
-          style={styles.gridChannelImage}
+        {avatarUri ? (
+          <Image
+            source={{ uri: avatarUri }}
+            style={styles.gridChannelImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.gridChannelImage, { backgroundColor: Colors.darkGray, justifyContent: 'center', alignItems: 'center' }]}>
+            <Icon name="device-tv" size={thumbnailHeight * 0.4} color={Colors.gray} />
+          </View>
+        )}
+        {/* Light gradient from bottom */}
+        <LinearGradient
+          colors={['transparent', 'rgba(0, 0, 0, 0.5)']}
+          style={styles.gridChannelGradient}
         />
-      </View>
-      <View style={styles.gridChannelNameContainer}>
-        {isOrbyt ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {shouldShowChannelSlash(channel.uri) && (
-              <Text style={[styles.gridChannelName, styles.orbytSlash, { color: channelColor }]}>/</Text>
-            )}
+        {/* Channel name overlay at bottom left */}
+        <View style={styles.gridChannelNameOverlay}>
+          {isOrbyt ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {shouldShowChannelSlash(channel.uri) && (
+                <Text style={[styles.gridChannelName, styles.orbytSlash, { color: channelColor }]}>/</Text>
+              )}
+              <Text style={styles.gridChannelName} numberOfLines={1}>
+                {channel.displayName || 'Unknown channel'}
+              </Text>
+            </View>
+          ) : (
             <Text style={styles.gridChannelName} numberOfLines={1}>
               {channel.displayName || 'Unknown channel'}
             </Text>
-          </View>
-        ) : (
-          <Text style={styles.gridChannelName} numberOfLines={1}>
-            {channel.displayName || 'Unknown channel'}
-          </Text>
-        )}
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -519,6 +531,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
 }) => {
   const navigation = useRouter();
   const queryClient = useQueryClient();
+  const currentUser = useUserStore(state => state.currentUser);
 
   const profiles = searchResults
     .filter((result): result is any => result.type === 'profile')
@@ -575,7 +588,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
             <View style={styles.profileContent}>
               <View style={{flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0}}>
                 <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
-                  {profile.displayName || profile.handle || 'Unknown user'}
+                  {formatHandle(profile.handle) || 'Unknown user'}
                 </Text>
                 {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
                   <VerificationBadge 
@@ -587,7 +600,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
               </View>
             </View>
           </TouchableOpacity>
-          {!(ProfileCache.getProfileFromCacheSync(profile.handle || '')?.isFollowing ?? profile.isFollowing) && (
+          {!(ProfileCache.getProfileFromCacheSync(profile.handle || '')?.isFollowing ?? profile.isFollowing) && !isCurrentUser(profile.did, profile.handle, currentUser) && (
             <TouchableOpacity
               style={styles.followButton}
               onPress={() => onFollow(profile)}
@@ -740,6 +753,7 @@ const VisitHistoryList = React.memo(({
   followedUsers: Set<string>;
   cacheUpdateTrigger: number;
 }) => {
+  const currentUser = useUserStore(state => state.currentUser);
   return (
     <FlashList
       data={visitHistory}
@@ -773,7 +787,7 @@ const VisitHistoryList = React.memo(({
                 <View style={styles.profileContent}>
                   <View style={{flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0}}>
                     <Text style={styles.displayName} numberOfLines={1} ellipsizeMode="tail">
-                      {profileData.displayName || profileData.handle || 'Unknown user'}
+                      {formatHandle(profileData.handle) || 'Unknown user'}
                     </Text>
                     {profileData.handle && profileData.handle.trim() && profileData.handle.length > 0 && (
                       <VerificationBadge 
@@ -785,7 +799,7 @@ const VisitHistoryList = React.memo(({
                   </View>
                 </View>
               </TouchableOpacity>
-              {!(ProfileCache.getProfileFromCacheSync(profileData.handle || '')?.isFollowing ?? profileData.isFollowing) && (
+              {!(ProfileCache.getProfileFromCacheSync(profileData.handle || '')?.isFollowing ?? profileData.isFollowing) && !isCurrentUser(profileData.did, profileData.handle, currentUser) && (
                 <TouchableOpacity
                   style={styles.followButton}
                   onPress={() => onFollow(profileData)}
@@ -846,6 +860,7 @@ const ExploreScreen: React.FC = () => {
     type: 'profile' | 'channel';
     data: Profile | Channel;
   }>>([]);
+  const currentUser = useUserStore(state => state.currentUser);
   
 
   // Dynamic pages: show recently-visited when no query, show profiles/channels when searching
@@ -1130,11 +1145,18 @@ const ExploreScreen: React.FC = () => {
           return false;
         }
       }
+      // Filter out current user from profile results
+      if (result.type === 'profile') {
+        const profile = result.data as Profile;
+        if (isCurrentUser(profile.did, profile.handle, currentUser)) {
+          return false;
+        }
+      }
       return true;
     });
     
     return filtered;
-  }, [searchFeedOption, searchFeed, cacheUpdateTrigger, experimentalFeedsEnabled]);
+  }, [searchFeedOption, searchFeed, cacheUpdateTrigger, experimentalFeedsEnabled, currentUser]);
 
 
 
@@ -1426,11 +1448,11 @@ const ExploreScreen: React.FC = () => {
   const computedHeaderHeight = useMemo(() => {
     // When searching, reserve space for the search bar area so content starts below it
     if (isSearching) {
-      return insets.top + 10 + 55 + 10 + 50 + 10; // safe area + top margin + search height + bottom margin + tabs height + bottom margin
+      return insets.top + 10 + 48 + 10 + 50 + 10; // safe area + top margin + search height + bottom margin + tabs height + bottom margin
     }
     // Calculate header height: use actual header ratio if available, otherwise use default 30% even during loading
     // This ensures consistent spacing during initial load to prevent spinner jump
-    const ratio = Math.max(0.2, Math.min(0.5, headers?.[0]?.heightRatio ?? 0.30));
+    const ratio = Math.max(0.2, Math.min(0.5, headers?.[0]?.heightRatio ?? 0.35));
     return Math.round(Dimensions.get('window').height * ratio);
   }, [isSearching, insets.top, headers]);
 
@@ -1518,7 +1540,7 @@ const ExploreScreen: React.FC = () => {
       >
         {Platform.OS === 'ios' && isLiquidGlassAvailable() && (
           <GlassView
-            style={[StyleSheet.absoluteFill, { borderRadius: BORDER_RADIUS.LARGE }]}
+            style={[StyleSheet.absoluteFill, { borderRadius: 8 }]}
             glassEffectStyle="clear"
             tintColor="white"
             isInteractive
@@ -1785,7 +1807,7 @@ const ExploreScreen: React.FC = () => {
                   <View style={styles.profileContent}>
                     <View style={{flexDirection: 'row', alignItems: 'center'}}>
                       <Text style={styles.displayName} numberOfLines={1}>
-                        {profile.displayName || profile.handle || 'Unknown user'}
+                        {formatHandle(profile.handle) || 'Unknown user'}
                       </Text>
                       {profile.handle && profile.handle.trim() && profile.handle.length > 0 && (
                         <VerificationBadge 
@@ -1797,7 +1819,7 @@ const ExploreScreen: React.FC = () => {
                     </View>
                   </View>
                 </TouchableOpacity>
-                {!(ProfileCache.getProfileFromCacheSync(profile.handle || '')?.isFollowing ?? profile.isFollowing) && (
+                {!(ProfileCache.getProfileFromCacheSync(profile.handle || '')?.isFollowing ?? profile.isFollowing) && !isCurrentUser(profile.did, profile.handle, currentUser) && (
                   <TouchableOpacity
                     style={styles.followButton}
                     onPress={() => handleFollow(profile)}
@@ -1837,7 +1859,7 @@ const ExploreScreen: React.FC = () => {
             
             const screenWidth = Dimensions.get('window').width;
             const padding = 20 * 2; // Left and right padding
-            const gap = 10; // Gap between items
+            const gap = 7; // Gap between items
             
             // Separate popular now and latest from other channels
             const popularNowChannel = item.channels.find(ch => {
@@ -1853,8 +1875,8 @@ const ExploreScreen: React.FC = () => {
               return slug !== 'popular-now' && slug !== 'latest';
             });
             
-            // Regular grid item width for other channels
-            const itemWidth = (screenWidth - padding - gap) / 2;
+            // Regular grid item width for other channels (3 columns)
+            const itemWidth = (screenWidth - padding - gap * 2) / 3;
             // Height matches regular grid items (square, so same as itemWidth)
             const gridItemHeight = itemWidth;
             // Reduced height for popular now and latest buttons
@@ -1901,11 +1923,15 @@ const ExploreScreen: React.FC = () => {
                   </View>
                 )}
                 
-                {/* Render other channels in 2-column grid */}
+                {/* Render other channels in 3-column grid */}
                 {otherChannels.map((channel, index) => (
                   <View
                     key={`orbyt-channel-${channel.uri || channel.cid || index}`}
-                    style={{ width: itemWidth, marginRight: index % 2 === 0 ? gap : 0 }}
+                    style={{ 
+                      width: itemWidth, 
+                      marginRight: index % 3 === 2 ? 0 : gap,
+                      marginBottom: gap
+                    }}
                   >
                     <GridChannelItem
                       channel={channel}
@@ -2005,14 +2031,14 @@ const styles = StyleSheet.create({
 
   searchContainer: {
     position: 'absolute',
-    left: 10,
-    right: 10,
+    left: 15,
+    right: 15,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.white,
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: 8,
     paddingHorizontal: 15,
-    height: 55,
+    height: 48,
     zIndex: 10,
     elevation: 5,
     shadowColor: Colors.black,
@@ -2028,11 +2054,11 @@ const styles = StyleSheet.create({
     color: 'black',
     fontSize: 20,
     height: '100%',
-    fontFamily: 'Firma-SemiBold',
-    marginLeft: 15,
+    fontFamily: 'Firma-Medium',
+    marginLeft: 10,
   },
   clearButton: {
-    padding: 10,
+    padding: 0,
   },
   profileItem: {
     flexDirection: 'row',
@@ -2093,27 +2119,34 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: 20,
     paddingBottom: 20,
-    justifyContent: 'space-between',
   },
   gridChannelItem: {
-    marginBottom: 10,
   },
   gridChannelThumbnail: {
     position: 'relative',
     width: '100%',
     aspectRatio: 1,
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: 8,
     overflow: 'hidden',
   },
   gridChannelImage: {
     width: '100%',
     height: '100%',
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: 8,
   },
-  gridChannelNameContainer: {
-    paddingTop: 8,
-    paddingLeft: 4,
-    alignItems: 'flex-start',
+  gridChannelGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+    borderRadius: 8,
+  },
+  gridChannelNameOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
   },
   gridChannelName: {
     color: Colors.white,
@@ -2121,8 +2154,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Bold',
   },
   horizontalChannelButton: {
-    marginBottom: 10,
-    borderRadius: BORDER_RADIUS.LARGE,
+    marginBottom: 0,
+    borderRadius: 8,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -2132,7 +2165,7 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: 8,
     overflow: 'hidden',
     alignItems: 'flex-end', // Align content to right
     justifyContent: 'flex-start', // Align to top
@@ -2140,7 +2173,7 @@ const styles = StyleSheet.create({
   horizontalChannelImage: {
     width: '100%',
     height: '100%',
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: 8,
   },
   horizontalChannelLabelContainer: {
     position: 'absolute',
@@ -2232,13 +2265,13 @@ const styles = StyleSheet.create({
 
   sectionHeader: {
     paddingHorizontal: 20,
-    paddingTop: 25,
+    paddingTop: 15,
     paddingBottom: 8,
   },
   sectionTitle: {
     color: Colors.white,
-    fontSize: 20,
-    fontFamily: 'Firma-Bold',
+    fontSize: 16,
+    fontFamily: 'Firma-SemiBold',
   },
 
 
@@ -2345,7 +2378,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   spotlightContainer: {
-    marginBottom: 10,
+    marginBottom: 7,
     marginHorizontal: 0,
   },
   spotlightScrollContainer: {
@@ -2353,25 +2386,25 @@ const styles = StyleSheet.create({
     paddingRight: 40, // Extra padding on the right to allow scrolling off screen
   },
   spotlightVideoItem: {
-    width: 95,
-    marginRight: 12,
+    width: 80,
+    marginRight: 7,
   },
   spotlightVideoThumbnailContainer: {
     position: 'relative',
-    marginBottom: 4,
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    marginBottom: 0,
+    borderRadius: 8,
     overflow: 'hidden' as const,
   },
   spotlightVideoThumbnail: {
-    width: 95,
-    height: 169, // 9:16 aspect ratio (95 * 16/9)
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    width: 80,
+    height: 142, // 9:16 aspect ratio (80 * 16/9)
+    borderRadius: 8,
     overflow: 'hidden' as const,
   },
   spotlightVideoThumbnailPlaceholder: {
-    width: 95,
-    height: 169, // 9:16 aspect ratio (95 * 16/9)
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    width: 80,
+    height: 142, // 9:16 aspect ratio (80 * 16/9)
+    borderRadius: 8,
     backgroundColor: Colors.darkGray,
     justifyContent: 'center',
     alignItems: 'center',
@@ -2385,7 +2418,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    borderRadius: 8,
   },
   spotlightWarningText: {
     color: Colors.white,
@@ -2420,7 +2453,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderRadius: 8,
   },
 
   searchTabsContainer: {

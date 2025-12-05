@@ -5,6 +5,7 @@ import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListShee
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon } from '../../ui/Icon';
 import { BORDER_RADIUS } from '../../../utils/constants';
+import { formatHandle } from '../../../utils/helpers';
 import ChatService from '../../../services/ChatService';
 
 interface ChatActionsSheetProps {
@@ -99,8 +100,8 @@ export default function ChatActionsSheet({
       member.did === otherUserDid
     );
     
-    // Use displayName first, then handle, then fallback to 'User'
-    return recipient?.displayName || recipient?.handle || 'User';
+    // Use handle, fallback to 'User'
+    return formatHandle(recipient?.handle) || 'User';
   };
 
   const handleAction = (action: ChatAction) => {

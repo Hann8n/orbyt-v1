@@ -13,10 +13,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../ui/UI';
 import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers';
-import Icon, { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon, TvIcon } from '../../ui/Icon';
+import Icon, { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon, TvIcon, AddCircleLineIcon, CheckCircleFillIcon } from '../../ui/Icon';
+import { useProfileFlags, isCurrentUser } from '../../../stores/profileInteractionStore';
+import { useUserStore } from '../../../stores/userStore';
 import { Avatar } from '../../ui/UI';
-import { formatNumber } from '../../../utils/helpers';
-import { useProfileColors } from '../../../services/cache/ProfileCache';
+import { formatNumber, formatHandle } from '../../../utils/helpers';
+import { useProfileColors, useProfile, useFollowMutation } from '../../../services/cache/ProfileCache';
 import { useChannelColors } from '../../../services/cache/ChannelCache';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
@@ -245,9 +247,31 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Get profile colors for overlay
   const { colors: profileColors } = useProfileColors(post.author?.handle);
+
   
   // Get channel colors for source feed
   const { colors: channelColors } = useChannelColors(sourceFeed);
+
+  // Follow state and mutation
+  const { data: cachedProfile } = useProfile(post.author?.handle);
+  const isFollowingProfile = cachedProfile?.isFollowing ?? false;
+  const isFollowing = isFollowingProfile;
+  const followMutation = useFollowMutation();
+  const currentUser = useUserStore(state => state.currentUser);
+  const isCurrentUserProfile = isCurrentUser(post.author?.did, post.author?.handle, currentUser);
+
+  // Show confirmation badge when follow succeeds
+  useEffect(() => {
+    if (followMutation.isSuccess) {
+      setShowFollowConfirmation(true);
+      // Hide after 6s in case it wasn't already set
+      const timer = setTimeout(() => setShowFollowConfirmation(false), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [followMutation.isSuccess]);
+
+  // Local UI state for confirmation badge
+  const [showFollowConfirmation, setShowFollowConfirmation] = useState(false);
 
   // Extract channel slug from post tags - simple match, no lookups
   // Tags can be in post.record.tags or post.tags (check both)
@@ -328,16 +352,19 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 activeOpacity={0.7}
                 onPress={handleRepostAuthorPress}
               >
-                <RefreshFillIcon 
-                  size={isTabletDevice ? 26 : 24}
-                  color={Colors.lightGray}
-                />
-                <Text style={
+                <View style={{ opacity: 0.8 }}>
+                  <RefreshFillIcon 
+                    size={isTabletDevice ? 26 : 24}
+                    color={Colors.lightGray}
+                  />
+                </View>
+                <Text style={[
                   isTabletDevice
                     ? styles.repostIndicatorTextTablet
-                    : styles.repostIndicatorText
-                }>
-                  {`reposted by ${(post.repostedBy?.displayName || post.repostedBy?.handle || 'Unknown')}`}
+                    : styles.repostIndicatorText,
+                  { opacity: 0.8 }
+                ]}>
+                  {`reposted by ${formatHandle(post.repostedBy?.handle)}`}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -383,7 +410,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             activeOpacity={0.7}
             onPress={handleAuthorPress}
           >
-            <Avatar
+            <View style={{ position: 'relative', overflow: 'visible' }}>
+              <Avatar
               uri={profilePicUrl}
               type="profile"
               size={authorAvatarSize}
@@ -394,6 +422,68 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   : styles.profilePicture
               ]}
             />
+              {/* Follow badge overlay: show + when not following, show check briefly after follow */}
+              {/**
+               * Badge size is proportional to avatar. We offset it negatively
+               * so the badge sits partly outside the avatar's top-right corner.
+               */}
+              {(() => {
+                const badgeSize = Math.round(authorAvatarSize * 0.42);
+                const offset = Math.round(badgeSize * 0.25);
+                // Make hit box larger for easier tapping, but keep icon in same position
+                // Use smaller multiplier to avoid blocking avatar center
+                const hitBoxSize = Math.round(badgeSize * 1.4);
+                // Adjust positioning so icon stays in same visual position
+                const hitBoxOffset = Math.round((hitBoxSize - badgeSize) / 2);
+
+                return (
+                  <>
+                    {!isFollowing && !showFollowConfirmation && !isCurrentUserProfile && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (!post.author?.handle) return;
+                          // Optimistically show checkmark immediately
+                          setShowFollowConfirmation(true);
+                          // Trigger server follow
+                          try {
+                            followMutation.mutate({ handle: post.author.handle, isFollowing: true });
+                          } catch (err) {
+                            // If mutation fails, hide the checkmark
+                            setShowFollowConfirmation(false);
+                          }
+                        }}
+                        disabled={followMutation.isPending}
+                        activeOpacity={0.9}
+                        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                        style={[
+                          styles.followBadge,
+                          { 
+                            right: -offset - hitBoxOffset, 
+                            top: -offset - hitBoxOffset 
+                          },
+                          { width: hitBoxSize, height: hitBoxSize },
+                        ]}
+                      >
+                        <AddCircleLineIcon size={badgeSize} color={Colors.black} />
+                      </TouchableOpacity>
+                    )}
+                    {showFollowConfirmation && !isCurrentUserProfile && (
+                      <View
+                        pointerEvents="none"
+                        style={[
+                          styles.followBadge,
+                          { right: -offset, top: -offset },
+                          { width: badgeSize, height: badgeSize },
+                        ]}
+                      >
+                        <CheckCircleFillIcon size={badgeSize} color="#01f5b3" />
+                      </View>
+                    )}
+                  </>
+                );
+              })()}
+              {/* Follow badge already rendered above by IIFE */}
+            </View>
             <View style={styles.authorTextContainer}>
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
                 <Text 
@@ -406,7 +496,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
-                  {author.displayName || author.handle || 'Unknown'}
+                  {formatHandle(author.handle)}
                 </Text>
                 {author.handle && <VerificationBadge 
                   handle={author.handle} 
@@ -688,21 +778,21 @@ const styles = StyleSheet.create({
   },
   authorName: {
     fontSize: 16,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Firma-SemiBold',
     lineHeight: 22,
     includeFontPadding: false,
     flexShrink: 1,
   },
   authorNameSmallScreen: {
     fontSize: 15,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Firma-SemiBold',
     lineHeight: 18,
     includeFontPadding: false,
     flexShrink: 1,
   },
   authorNameTablet: {
     fontSize: 19,
-    fontFamily: 'Firma-Black',
+    fontFamily: 'Firma-SemiBold',
     lineHeight: 25,
     includeFontPadding: false,
     flexShrink: 1,
@@ -787,6 +877,18 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.15)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+  },
+  followBadge: {
+    position: 'absolute',
+    zIndex: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    elevation: 6, // Android elevation
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   actionButtonDisabled: {
     // Removed opacity transparency effect
