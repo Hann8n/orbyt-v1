@@ -11,6 +11,7 @@ import {
   Platform,
   StatusBar,
   Linking,
+  PanResponder,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -74,6 +75,7 @@ const CreateScreen: React.FC = () => {
   const [totalDuration, setTotalDuration] = useState(0);
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
   const [isDurationSelectorExpanded, setIsDurationSelectorExpanded] = useState(false);
+  const [zoom, setZoom] = useState(0);
 
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const segmentStartTime = useRef<number>(0);
@@ -91,6 +93,9 @@ const CreateScreen: React.FC = () => {
 
   const progressWidth = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
+  const currentZoomRef = useRef(0);
+  const initialZoom = useRef(0);
+  const initialDistance = useRef(0);
   
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
@@ -98,6 +103,50 @@ const CreateScreen: React.FC = () => {
   
   // Get current max duration from selected option
   const maxDuration = selectedDuration;
+
+  // Keep currentZoomRef in sync with zoom state
+  useEffect(() => {
+    currentZoomRef.current = zoom;
+  }, [zoom]);
+
+  // PanResponder for pinch-to-zoom
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (evt) => {
+        return evt.nativeEvent.touches.length === 2;
+      },
+      onPanResponderGrant: (evt) => {
+        if (evt.nativeEvent.touches.length === 2) {
+          const touch1 = evt.nativeEvent.touches[0];
+          const touch2 = evt.nativeEvent.touches[1];
+          const dx = touch2.pageX - touch1.pageX;
+          const dy = touch2.pageY - touch1.pageY;
+          initialDistance.current = Math.sqrt(dx * dx + dy * dy);
+          initialZoom.current = currentZoomRef.current;
+        }
+      },
+      onPanResponderMove: (evt) => {
+        if (evt.nativeEvent.touches.length === 2) {
+          const touch1 = evt.nativeEvent.touches[0];
+          const touch2 = evt.nativeEvent.touches[1];
+          const dx = touch2.pageX - touch1.pageX;
+          const dy = touch2.pageY - touch1.pageY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          if (initialDistance.current > 0) {
+            const scale = distance / initialDistance.current;
+            const newZoom = Math.min(Math.max(0, initialZoom.current + (scale - 1) * 0.5), 1);
+            setZoom(newZoom);
+            currentZoomRef.current = newZoom;
+          }
+        }
+      },
+      onPanResponderRelease: () => {
+        initialDistance.current = 0;
+      },
+    })
+  ).current;
 
   // Request camera permissions on mount
   useEffect(() => {
@@ -362,6 +411,8 @@ const CreateScreen: React.FC = () => {
       await stopRecording();
     }
     setIsFrontCamera(prev => !prev);
+    setZoom(0);
+    currentZoomRef.current = 0;
   }, [stopRecording]);
   const toggleFlash = useCallback(() => {
     // Only allow flash on back camera
@@ -547,18 +598,20 @@ const CreateScreen: React.FC = () => {
         <View style={styles.cameraContainer}>
           <StatusBar barStyle="light-content" />
           {isFocused && (
-            <CameraView
-              key={`camera-${isFrontCamera ? 'front' : 'back'}`}
-              ref={cameraRef}
-              style={styles.camera}
-              facing={isFrontCamera ? 'front' : 'back'}
-              mode="video"
-              enableTorch={flash === 'on' && !isFrontCamera}
-              zoom={0}
-              mute={!microphonePermission?.granted}
-              videoQuality="1080p"
-              ratio="16:9"
-            />
+            <View {...panResponder.panHandlers} style={styles.cameraWrapper}>
+              <CameraView
+                key={`camera-${isFrontCamera ? 'front' : 'back'}`}
+                ref={cameraRef}
+                style={styles.camera}
+                facing={isFrontCamera ? 'front' : 'back'}
+                mode="video"
+                enableTorch={flash === 'on' && !isFrontCamera}
+                zoom={zoom}
+                mute={!microphonePermission?.granted}
+                videoQuality="1080p"
+                ratio="16:9"
+              />
+            </View>
           )}
           
           {/* Controls */}
@@ -709,6 +762,9 @@ const styles = StyleSheet.create({
   cameraContainer: {
     flex: 1,
     position: 'relative',
+  },
+  cameraWrapper: {
+    flex: 1,
   },
   camera: {
     width: VIDEO_WIDTH,
