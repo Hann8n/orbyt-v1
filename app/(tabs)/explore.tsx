@@ -1880,7 +1880,7 @@ const ExploreScreen: React.FC = () => {
             // Height matches regular grid items (square, so same as itemWidth)
             const gridItemHeight = itemWidth;
             // Reduced height for popular now and latest buttons
-            const buttonHeight = Math.round(gridItemHeight * 0.7); // 70% of grid item height
+            const buttonHeight = Math.round(gridItemHeight * 0.8); // 80% of grid item height
             
             // Full width for popular now and latest
             const fullWidth = screenWidth - padding;
@@ -2270,7 +2270,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: Colors.white,
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: 'Firma-SemiBold',
   },
 
@@ -2386,7 +2386,7 @@ const styles = StyleSheet.create({
     paddingRight: 40, // Extra padding on the right to allow scrolling off screen
   },
   spotlightVideoItem: {
-    width: 80,
+    width: 90,
     marginRight: 7,
   },
   spotlightVideoThumbnailContainer: {
@@ -2396,14 +2396,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden' as const,
   },
   spotlightVideoThumbnail: {
-    width: 80,
-    height: 142, // 9:16 aspect ratio (80 * 16/9)
+    width: 90,
+    height: 160, // 9:16 aspect ratio (90 * 16/9)
     borderRadius: 8,
     overflow: 'hidden' as const,
   },
   spotlightVideoThumbnailPlaceholder: {
-    width: 80,
-    height: 142, // 9:16 aspect ratio (80 * 16/9)
+    width: 90,
+    height: 160, // 9:16 aspect ratio (90 * 16/9)
     borderRadius: 8,
     backgroundColor: Colors.darkGray,
     justifyContent: 'center',
