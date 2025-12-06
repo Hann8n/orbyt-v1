@@ -6,7 +6,7 @@ import ListHeader from '../../src/components/ui/ListHeader';
 import Icon from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import { useAlgorithmicFeedProvider, ALGORITHMIC_FEED_PROVIDERS } from '../../src/stores/userStore';
-import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
+import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from '../../src/screens/settings/SettingsStyles';
 
 interface FeedProviderOption {
   id: string;

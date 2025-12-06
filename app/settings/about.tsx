@@ -18,7 +18,7 @@ import { Colors } from '../../src/components/ui/UI';
 import { AnimatedTV } from '../../src/components/ui';
 import Constants from 'expo-constants';
 import { useProfile } from '../../src/services/cache/ProfileCache';
-import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
+import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from '../../src/screens/settings/SettingsStyles';
 import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
 
 interface AboutItem {

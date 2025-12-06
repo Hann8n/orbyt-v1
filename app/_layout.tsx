@@ -126,12 +126,12 @@ export default function RootLayout() {
       // Run font loading and user initialization in parallel
       const [fontsResult] = await Promise.allSettled([
         Font.loadAsync({
-          'Firma-Regular': require('../src/assets/fonts/Firma-Regular.otf'),
-          'Firma-Medium': require('../src/assets/fonts/Firma-Medium.otf'),
-          'Firma-SemiBold': require('../src/assets/fonts/Firma-SemiBold.otf'),
-          'Firma-Bold': require('../src/assets/fonts/Firma-Bold.otf'),
-          'Firma-BoldItalic': require('../src/assets/fonts/Firma-BoldItalic.otf'),
-          'Firma-Black': require('../src/assets/fonts/Firma-Black.otf'),
+          'Firma-Regular': require('../assets/fonts/Firma-Regular.otf'),
+          'Firma-Medium': require('../assets/fonts/Firma-Medium.otf'),
+          'Firma-SemiBold': require('../assets/fonts/Firma-SemiBold.otf'),
+          'Firma-Bold': require('../assets/fonts/Firma-Bold.otf'),
+          'Firma-BoldItalic': require('../assets/fonts/Firma-BoldItalic.otf'),
+          'Firma-Black': require('../assets/fonts/Firma-Black.otf'),
         }),
         initializeUserState(),
       ]);

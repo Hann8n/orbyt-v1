@@ -35,7 +35,7 @@ import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useFocusEffect } from '@react-navigation/native';
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { formatNumber, formatHandle } from '../../../utils/helpers';
-import { useUserSearchTrigger, UserSearchModal } from '../../ui/usersearch';
+import { useUserSearchTrigger, UserSearchModal } from '../../ui/UserSearch';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import CommentItem, { Comment, Like } from './CommentItem';
 import { useUserStore } from '../../../stores/userStore';

@@ -413,7 +413,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   return (
     <View style={[containerStyle, styleSanitized]}> 
       <Image
-        source={require('../../assets/Default-avatar.png')}
+        source={require('../../../assets/Default-avatar.png')}
         style={imageStyle}
         resizeMode="cover"
       />

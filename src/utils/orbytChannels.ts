@@ -17,14 +17,14 @@ export interface OrbytChannel {
 }
 
 // Import channel GIFs
-const ArtChannelGIF = require('../assets/channelGIFs/art.gif');
-const ChillChannelGIF = require('../assets/channelGIFs/chill.gif');
-const HorrorChannelGIF = require('../assets/channelGIFs/horror.gif');
-const WeirdChannelGIF = require('../assets/channelGIFs/weird.gif');
-const PopularNowChannelGIF = require('../assets/channelGIFs/popular-now.gif');
-const LatestChannelGIF = require('../assets/channelGIFs/latest.gif');
-const EditsChannelGIF = require('../assets/channelGIFs/edits.gif');
-const ArchiveChannelGIF = require('../assets/channelGIFs/archive.gif');
+const ArtChannelGIF = require('../../assets/channelGIFs/art.gif');
+const ChillChannelGIF = require('../../assets/channelGIFs/chill.gif');
+const HorrorChannelGIF = require('../../assets/channelGIFs/horror.gif');
+const WeirdChannelGIF = require('../../assets/channelGIFs/weird.gif');
+const PopularNowChannelGIF = require('../../assets/channelGIFs/popular-now.gif');
+const LatestChannelGIF = require('../../assets/channelGIFs/latest.gif');
+const EditsChannelGIF = require('../../assets/channelGIFs/edits.gif');
+const ArchiveChannelGIF = require('../../assets/channelGIFs/archive.gif');
 
 /**
  * Orbyt channel definitions

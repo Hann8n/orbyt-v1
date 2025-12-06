@@ -46,7 +46,7 @@ import VideoProcessingService from '../../src/services/VideoProcessingService';
 import { SavedAccount } from '../../src/stores/userStore';
 import { getPostableChannels, shouldShowChannelSlash, OrbytChannel, extractFeedSlug, getChannelAvatarUri } from '../../src/utils/orbytChannels';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
-import { useRichTextSearchTrigger, RichTextSearchModal } from '../../src/components/ui/usersearch';
+import { useRichTextSearchTrigger, RichTextSearchModal } from '../../src/components/ui/UserSearch';
 import { parseRichText } from '../../src/utils/richTextParser';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

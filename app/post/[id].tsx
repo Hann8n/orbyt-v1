@@ -1,1 +1,1 @@
-export { default } from './VideoPostScreen';
+export { default } from '../../src/screens/post/VideoPostScreen';

@@ -4,7 +4,7 @@
 export { default as Icon } from './ui/Icon';
 export { default as HeaderBanner } from './ui/HeaderBanner';
 export { default as AuthorItem } from './ui/AuthorItem';
-export { UserSearchModal, useUserSearchTrigger } from './ui/usersearch';
+export { UserSearchModal, useUserSearchTrigger, useRichTextSearchTrigger, RichTextSearchModal } from './ui/UserSearch';
 export { default as BottomToolBar } from './ui/BottomToolBar';
 export { default as ListHeader } from './ui/ListHeader';
 export { default as VerticalListSheet } from './ui/VerticalListSheet';

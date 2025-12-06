@@ -10,7 +10,7 @@ import feedService, { createQueryKeys } from '../../src/services/FeedService';
 import { ModerationService } from '../../src/services/ModerationService';
 import { ModerationSettings, LabelPreference } from '../../src/services/ModerationTypes';
 import { useModeration, useUserStoreState } from '../../src/stores/userStore';
-import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles, settingsActiveStyles } from './SettingsStyles';
+import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles, settingsActiveStyles } from '../../src/screens/settings/SettingsStyles';
 
 interface ContentTypeOption {
   id: string;
