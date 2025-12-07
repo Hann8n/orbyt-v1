@@ -61,11 +61,11 @@
       "title": null,
       "subtitle": "join the orbyt discord",
       "titleColor": "#000000",
-      "subtitleColor": "#000000",
+      "subtitleColor": "#ffffff",
       "titleFontFamily": "Firma-Black",
       "titleFontSize": 28,
       "subtitleFontFamily": "Firma-SemiBold",
-      "subtitleFontSize": 16,
+      "subtitleFontSize": 20,
       "titleOpacity": 1,
       "subtitleOpacity": 0.9,
       "textOrder": "title-first"
