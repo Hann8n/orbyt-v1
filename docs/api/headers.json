@@ -53,6 +53,22 @@
       "titleOpacity": 1,
       "subtitleOpacity": 0.8,
       "textOrder": "title-first"
+    },
+    {
+      "id": "discord-header",
+      "imageUrl": "banners/3053370.png",
+      "destinationUrl": "https://discord.gg/8gNQPFygnF",
+      "title": null,
+      "subtitle": null,
+      "titleColor": "#000000",
+      "subtitleColor": "#000000",
+      "titleFontFamily": "Firma-Black",
+      "titleFontSize": 28,
+      "subtitleFontFamily": "Firma-SemiBold",
+      "subtitleFontSize": 16,
+      "titleOpacity": 1,
+      "subtitleOpacity": 0.9,
+      "textOrder": "title-first"
     }
   ]
 }
