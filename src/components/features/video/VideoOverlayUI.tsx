@@ -518,24 +518,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     isTabletDevice
                       ? styles.sourceTextTablet
                       : styles.sourceText,
-                    styles.sourceSlash,
                     { 
                       color: Colors.white,
                       opacity: 0.70
                     }
                   ]}>
-                    /
-                  </Text>
-                  <Text style={[
-                    isTabletDevice
-                      ? styles.sourceTextTablet
-                      : styles.sourceText,
-                    { 
-                      color: Colors.white,
-                      opacity: 0.70
-                    }
-                  ]}>
-                    {channelSlug}
+                    /{channelSlug}
                   </Text>
                 </TouchableOpacity>
               ) : null}
@@ -556,7 +544,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             activeOpacity={0.7}
           >
             <View style={styles.iconContainer}>
-              <MoreFillIcon size={isTabletDevice ? Math.max(actionIconSize - 2, 28) : actionIconSize - 2} color={Colors.white} />
+              <MoreFillIcon size={isTabletDevice ? Math.max(actionIconSize - 6, 24) : actionIconSize - 6} color={Colors.white} />
             </View>
           </TouchableOpacity>
 
@@ -729,7 +717,7 @@ const styles = StyleSheet.create({
   },
   descriptionText: {
     color: Colors.white,
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Firma-Regular',
     textShadowColor: 'rgba(0, 0, 0, 0.15)',
     textShadowOffset: { width: 0, height: 1 },
@@ -780,23 +768,23 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   authorName: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Firma-SemiBold',
-    lineHeight: 22,
+    lineHeight: 21,
     includeFontPadding: false,
     flexShrink: 1,
   },
   authorNameSmallScreen: {
     fontSize: 15,
     fontFamily: 'Firma-SemiBold',
-    lineHeight: 18,
+    lineHeight: 21,
     includeFontPadding: false,
     flexShrink: 1,
   },
   authorNameTablet: {
-    fontSize: 19,
+    fontSize: 15,
     fontFamily: 'Firma-SemiBold',
-    lineHeight: 25,
+    lineHeight: 21,
     includeFontPadding: false,
     flexShrink: 1,
   },
@@ -807,19 +795,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   sourceText: {
-    fontSize: 13,
-    fontFamily: 'Firma-Bold',
+    fontSize: 15,
+    fontFamily: 'Firma-Medium',
   },
   sourceTextSmallScreen: {
-    fontSize: 12,
-    fontFamily: 'Firma-Bold',
+    fontSize: 15,
+    fontFamily: 'Firma-Medium',
   },
   sourceTextTablet: {
     fontSize: 15,
-    fontFamily: 'Firma-Bold',
-  },
-  sourceSlash: {
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Firma-Medium',
   },
   actionsContainer: {
     flexDirection: 'column',

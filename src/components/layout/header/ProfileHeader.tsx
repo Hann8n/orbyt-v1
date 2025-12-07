@@ -207,6 +207,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           type: 'button',
           menuIcon: {
             onPress: handleMenuPress,
+            size: 28,
           },
           buttons: [
             {
@@ -247,6 +248,15 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
       const buttons: HeaderAction[] = [];
       
+      // Add follow button
+      buttons.push({
+        id: 'follow',
+        label,
+        icon,
+        customIcon,
+        onPress: handleFollowUnfollow,
+      } as HeaderAction);
+      
       // Add subscription button (only if following)
       if (isFollowing && !isBlocked) {
         buttons.push({
@@ -262,21 +272,13 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           active: isSubscribed, // Track subscription state for glass effect inversion
         } as HeaderAction);
       }
-      
-      // Add follow button
-      buttons.push({
-        id: 'follow',
-        label,
-        icon,
-        customIcon,
-        onPress: handleFollowUnfollow,
-      } as HeaderAction);
 
       return [
         {
           type: 'button',
           menuIcon: {
             onPress: handleMenuPress,
+            size: 28,
           },
           buttons,
         },
