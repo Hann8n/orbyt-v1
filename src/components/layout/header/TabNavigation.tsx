@@ -157,9 +157,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                 styles.tabText,
                 { 
                   color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.8),
-                  fontFamily: activeTab === tab.id 
-                    ? (variant === 'header' ? 'Firma-Black' : 'Firma-Black')
-                    : (variant === 'header' ? 'Firma-SemiBold' : 'Firma-SemiBold'),
+                  fontFamily: variant === 'header' ? 'Firma-Black' : 'Firma-Black',
                   fontSize: variant === 'header' ? 18 : 16
                 },
                 activeTab === tab.id && styles.activeTabText,

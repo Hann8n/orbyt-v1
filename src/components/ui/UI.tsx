@@ -341,9 +341,9 @@ export const Avatar: React.FC<AvatarProps> = ({
   // Channel avatars never show borders
   const shouldShowRing = type === 'channel' ? false : showRing;
   // Slightly thicker ring for larger avatars (profile screen)
-  const ringWidth = shouldShowRing ? (size >= 100 ? 3.5 : 2.5) : 0;
+  const ringWidth = shouldShowRing ? (size >= 100 ? 3.0 : 2.0) : 0;
   // No separation when no ring - separation only exists between image and ring
-  const separation = shouldShowRing ? (size >= 100 ? 1.5 : 1) : 0;
+  const separation = 0;
   const innerSize = size - (ringWidth * 2) - (separation * 2);
   const innerBorderRadius = type === 'channel' ? size * 0.25 : innerSize * 0.5;
 

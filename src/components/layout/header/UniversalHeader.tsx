@@ -413,7 +413,7 @@ const HeaderContentComponent = memo<{
         </TouchableOpacity>
         {content.onAvatarPress && (
           <View style={styles.uploadSection}>
-            <Text style={[styles.editSubheader, { color: hexToRGBA(textColor, 0.75) }]}>
+            <Text style={[styles.editSubheader, { color: textColor }]}>
               PROFILE PICTURE
             </Text>
             <TouchableOpacity
@@ -456,7 +456,7 @@ const HeaderContentComponent = memo<{
       
       <View style={styles.textContainer}>
         {content.isEditMode && (
-          <Text style={[styles.editSubheader, { color: hexToRGBA(textColor, 0.67) }]}>
+          <Text style={[styles.editSubheader, { color: textColor }]}>
             DISPLAY NAME
           </Text>
         )}
@@ -503,7 +503,7 @@ const HeaderContentComponent = memo<{
           >
             <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
               <Text
-                style={[styles.subtitle, { color: hexToRGBA(textColor, 0.67) }]}
+                style={[styles.subtitle, { color: textColor }]}
                 numberOfLines={1}
               >
                 {content.subtitle}
@@ -516,7 +516,7 @@ const HeaderContentComponent = memo<{
         {customDescription || (content.description && (
           <TextWithLinks
             text={content.description}
-            style={[styles.description, { color: hexToRGBA(textColor, 0.75) }]}
+            style={[styles.description, { color: textColor }]}
             onAuthorPress={navigateToAuthorProfile}
             onHashtagPress={navigateToHashtagFeed}
             facets={content.facets}
@@ -878,7 +878,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-    gap: 20,
+    gap: 0,
   },
   hiddenAvatar: {
     opacity: 0,
@@ -929,11 +929,11 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'Firma-Black',
     fontWeight: 'bold',
-    fontSize: 28,
+    fontSize: 30,
     flexShrink: 1,
   },
   subtitle: {
-    marginTop: 4,
+    marginTop: 0,
     marginBottom: 15,
     fontFamily: 'Firma-Medium',
     fontSize: 18,
@@ -949,7 +949,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     flexWrap: 'wrap',
     fontFamily: 'Firma-Medium',
-    fontSize: 16,
+    fontSize: 17,
   },
   editAvatarOverlay: {
     position: 'absolute',
