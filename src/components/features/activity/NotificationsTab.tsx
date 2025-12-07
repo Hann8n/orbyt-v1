@@ -23,6 +23,7 @@ import EmptyFeed from '../feed/EmptyFeed';
 import { getBottomNavBarHeight, formatHandle } from '../../../utils/helpers';
 import { feedService } from '../../../services/FeedService';
 import { formatRelativeDate } from '../../ui/RelativeDate';
+import { extractVideoThumbnail } from '../../../utils/helpers/video';
 
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
@@ -100,34 +101,88 @@ const NotificationItem: React.FC<{
   queryClient: any;
   postDataMap: Map<string, any>;
 }> = ({ item, navigation, queryClient, postDataMap }) => {
-  const { reason, author, post, reasonSubject, indexedAt } = item;
+  const { reason, author, post, reasonSubject, indexedAt, uri, record } = item;
+  
+  // Debug: Log raw notification structure for subscribed-post and other post notifications
+  useEffect(() => {
+    if (__DEV__ && (reason === 'subscribed-post' || reason === 'post' || !['like', 'repost', 'follow', 'mention', 'reply', 'quote', 'starterpack-joined', 'verified', 'unverified'].includes(reason))) {
+      console.log('[NotificationItem] Raw notification structure:', JSON.stringify(item, null, 2));
+      console.log('[NotificationItem] Reason:', reason);
+      console.log('[NotificationItem] Author:', author);
+      console.log('[NotificationItem] Post:', post);
+      console.log('[NotificationItem] URI:', uri);
+      console.log('[NotificationItem] Record:', record);
+      console.log('[NotificationItem] Record.embed:', record?.embed);
+      if (record?.embed) {
+        console.log('[NotificationItem] Embed type:', record.embed.$type);
+        console.log('[NotificationItem] Embed full:', JSON.stringify(record.embed, null, 2));
+      }
+    }
+  }, [item, reason, uri, record]);
   
   // Determine if this is a post-related notification
-  const isPostAction = ['like', 'repost', 'reply', 'quote', 'mention'].includes(reason);
-  const postUri = post?.uri || reasonSubject;
+  const isPostAction = ['like', 'repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'].includes(reason);
+  
+  // For subscribed-post notifications, the structure is different:
+  // - uri is at top level (post URI)
+  // - record contains the post record (with embed, text, etc.)
+  // - author is at top level
+  // For other notifications, use post?.uri or reasonSubject
+  const postUri = reason === 'subscribed-post' ? uri : (post?.uri || reasonSubject);
   
   // Get post data from the batch-fetched map (passed from parent)
   const fetchedPost = postUri ? postDataMap.get(postUri) : undefined;
   
-  // Use fetched post or existing post data
-  const postData = post || fetchedPost;
+  // For subscribed-post, construct post data from record + uri + author
+  // Use fetchedPost if available (for video posts to get thumbnail)
+  // For other notifications, use post or fetchedPost
+  let postData;
+  if (reason === 'subscribed-post' && record) {
+    // If we fetched the full post (for thumbnails), use that, otherwise construct from record
+    if (fetchedPost) {
+      postData = fetchedPost;
+    } else {
+      // Construct post structure from subscribed-post notification
+      postData = {
+        uri: uri,
+        cid: item.cid,
+        author: author,
+        record: record,
+        embed: record.embed,
+        indexedAt: indexedAt || item.indexedAt,
+      };
+    }
+  } else {
+    postData = post || fetchedPost;
+  }
   
   // Try to get thumbnail from post data and determine post type
   let thumbnail: string | null = null;
   let isVideoThumbnail = false;
   if (isPostAction && postData) {
-    thumbnail = getPostThumbnail(postData);
+    // Get embed from postData - for subscribed-post it's in record.embed, for others it's in embed
+    const embed = postData?.embed || postData?.record?.embed;
     
-    // Check if this is a video post for thumbnail styling
-    const embed = postData?.embed;
     if (embed) {
+      // Check if this is a video post
       if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
         isVideoThumbnail = true;
+        // Get video thumbnail - from fetched post or embed
+        thumbnail = embed.thumbnail || extractVideoThumbnail(embed) || null;
       } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
         if (embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view') {
           isVideoThumbnail = true;
+          thumbnail = embed.media?.thumbnail || extractVideoThumbnail(embed) || null;
         }
       }
+      
+      // If not a video or no video thumbnail found, try general thumbnail extraction
+      if (!thumbnail) {
+        thumbnail = getPostThumbnail(postData);
+      }
+    } else {
+      // Fallback to general thumbnail extraction
+      thumbnail = getPostThumbnail(postData);
     }
   }
   
@@ -154,6 +209,12 @@ const NotificationItem: React.FC<{
     case 'quote':
       actionText = 'quoted your post';
       break;
+    case 'post':
+      actionText = `posted a ${postTypeLabel}`;
+      break;
+    case 'subscribed-post':
+      actionText = `posted a ${postTypeLabel}`;
+      break;
     case 'starterpack-joined':
       actionText = 'joined your starter pack';
       break;
@@ -171,8 +232,13 @@ const NotificationItem: React.FC<{
     // For post-related actions, check if it's a video post
     if (isPostAction && postUri) {
       try {
-        // Use fetched post or fetch it again
-        const finalPostData = postData || await AtprotoService.getPost(postUri);
+        // For subscribed-post, we already have the post data in record
+        // For other notifications, use fetched post or fetch it again
+        let finalPostData = postData;
+        if (!finalPostData && reason !== 'subscribed-post') {
+          finalPostData = await AtprotoService.getPost(postUri);
+        }
+        
         if (!finalPostData) {
           // Fallback to profile if post fetch fails
           if (author?.handle) {
@@ -186,7 +252,7 @@ const NotificationItem: React.FC<{
         
         // Check if this is a video post
         const isVideoPost = () => {
-          const embed = finalPostData?.embed;
+          const embed = finalPostData?.embed || finalPostData?.record?.embed;
           if (!embed) return false;
           
           if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
@@ -199,20 +265,23 @@ const NotificationItem: React.FC<{
         
         // For video posts, open in feed modal
         if (isVideoPost()) {
+          // Ensure we have the embed - for subscribed-post it's in record.embed
+          const postEmbed = finalPostData.embed || finalPostData.record?.embed || record?.embed;
+          
           // Create a feed item with the post data
           const feedItem = {
             post: {
-              uri: finalPostData.uri,
-              cid: finalPostData.cid,
-              author: finalPostData.author,
-              record: finalPostData.record,
-              embed: finalPostData.embed,
-              replyCount: finalPostData.replyCount,
-              repostCount: finalPostData.repostCount,
-              likeCount: finalPostData.likeCount,
-              indexedAt: finalPostData.indexedAt,
+              uri: finalPostData.uri || postUri,
+              cid: finalPostData.cid || item.cid,
+              author: finalPostData.author || author,
+              record: finalPostData.record || record,
+              embed: postEmbed,
+              replyCount: finalPostData.replyCount || 0,
+              repostCount: finalPostData.repostCount || 0,
+              likeCount: finalPostData.likeCount || 0,
+              indexedAt: finalPostData.indexedAt || indexedAt || item.indexedAt,
             },
-            uniqueKey: finalPostData.uri,
+            uniqueKey: finalPostData.uri || postUri,
             moderationDecision: finalPostData.moderationDecision,
           };
           
@@ -418,15 +487,46 @@ const NotificationsTab: React.FC = () => {
     }
   }, [notifications]);
 
-  // Extract unique post URIs that need to be fetched (notifications without post data)
+  // Extract unique post URIs that need to be fetched
+  // Only fetch posts that need thumbnails (video posts without thumbnails) or missing post data
   const postUrisToFetch = useMemo(() => {
     const uris = new Set<string>();
     for (const notification of notifications) {
-      const isPostAction = ['like', 'repost', 'reply', 'quote', 'mention'].includes(notification.reason);
-      const postUri = notification.post?.uri || notification.reasonSubject;
-      // Only add if it's a post action, has a URI, and doesn't already have post data
-      if (isPostAction && postUri && !notification.post) {
-        uris.add(postUri);
+      const isPostAction = ['like', 'repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'].includes(notification.reason);
+      if (!isPostAction) continue;
+      
+      // Get post URI and embed based on notification type
+      let postUri: string | undefined;
+      let embed: any;
+      
+      if (notification.reason === 'subscribed-post') {
+        postUri = notification.uri;
+        embed = notification.record?.embed;
+      } else {
+        postUri = notification.post?.uri || notification.reasonSubject;
+        embed = notification.post?.embed;
+      }
+      
+      if (!postUri) continue;
+      
+      // Check if it's a video post that needs thumbnail
+      const isVideoPost = embed && (
+        embed.$type === 'app.bsky.embed.video' || 
+        embed.$type === 'app.bsky.embed.video#view' ||
+        (embed.$type === 'app.bsky.embed.recordWithMedia#view' && 
+         (embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view'))
+      );
+      
+      // For subscribed-post: fetch if video post without thumbnail
+      // For other notifications: fetch if missing post data OR video post without thumbnail
+      if (notification.reason === 'subscribed-post') {
+        if (isVideoPost && !embed.thumbnail && !embed.media?.thumbnail) {
+          uris.add(postUri);
+        }
+      } else {
+        if (!notification.post || (isVideoPost && !embed.thumbnail && !embed.media?.thumbnail)) {
+          uris.add(postUri);
+        }
       }
     }
     return Array.from(uris);
@@ -624,3 +724,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Medium',
   },
 });
+

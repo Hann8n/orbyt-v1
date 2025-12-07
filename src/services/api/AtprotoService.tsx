@@ -1639,15 +1639,31 @@ class AtprotoService {
   static async listNotifications(cursor: string | null = null, limit = 50): Promise<{ notifications: any[]; cursor: string | null }> {
     await this.ensureSession();
     try {
-      const params: { cursor?: string, limit: number, reasons?: string[] } = { 
-        limit,
-        reasons: ['like', 'repost', 'follow', 'mention', 'reply', 'quote', 'starterpack-joined', 'verified', 'unverified']
+      const params: { cursor?: string, limit: number } = { 
+        limit
       };
       if (cursor !== null) {
         params.cursor = cursor;
       }
       const { api } = await this.getApiClient();
       const response = await api.app.bsky.notification.listNotifications(params);
+      
+      // Debug: Log raw API response structure
+      if (__DEV__ && response.data?.notifications) {
+        console.log('[AtprotoService] Raw API response - total notifications:', response.data.notifications.length);
+        const subscribedPostNotifications = response.data.notifications.filter((n: any) => n.reason === 'subscribed-post');
+        if (subscribedPostNotifications.length > 0) {
+          console.log('[AtprotoService] Subscribed-post notifications found:', subscribedPostNotifications.length);
+          console.log('[AtprotoService] Sample subscribed-post notification:', JSON.stringify(subscribedPostNotifications[0], null, 2));
+          if (subscribedPostNotifications[0]?.record?.embed) {
+            console.log('[AtprotoService] Sample embed structure:', JSON.stringify(subscribedPostNotifications[0].record.embed, null, 2));
+          }
+        }
+        // Log all unique reasons
+        const uniqueReasons = [...new Set(response.data.notifications.map((n: any) => n.reason))];
+        console.log('[AtprotoService] All notification reasons from API:', uniqueReasons);
+      }
+      
       return { 
         notifications: response.data.notifications || [], 
         cursor: response.data.cursor || null 
