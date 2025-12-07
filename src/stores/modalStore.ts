@@ -15,6 +15,7 @@ export interface CommentSectionData {
   postedAt?: string;
   onToggleLike?: () => void;
   isLikePending?: boolean;
+  scrollToCommentUri?: string;
 }
 
 export interface ShareSheetData {

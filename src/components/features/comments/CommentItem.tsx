@@ -18,6 +18,7 @@ import Animated, {
   withSpring,
   withTiming,
   runOnJS,
+  Easing,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -125,10 +126,11 @@ interface CommentItemProps {
   rootCid?: string;
   level?: number;
   onImagePress?: (uri: string) => void;
+  highlightUri?: string;
 }
 
 const CommentItem: React.FC<CommentItemProps> = React.memo(
-  ({ comment, onDismiss, onReplyPress, rootUri, rootCid, level = 0, onImagePress }) => {
+  ({ comment, onDismiss, onReplyPress, rootUri, rootCid, level = 0, onImagePress, highlightUri }) => {
     const viewer = comment?.viewer || comment?.post?.viewer || {};
     const stats = comment?.post || comment;
     const [isLiked, setIsLiked] = useState<boolean>(!!viewer.like);
@@ -152,6 +154,36 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     // Define the proper URI and CID for the comment
     const properUri = comment?.uri || comment?.post?.uri;
     const properCid = comment?.cid || comment?.post?.cid;
+
+    // Highlight animation for target comment
+    const shouldHighlight = highlightUri && properUri === highlightUri;
+    const highlightOpacity = useSharedValue(0);
+    
+    React.useEffect(() => {
+      if (shouldHighlight) {
+        // Delay highlight start by 500ms to allow comment section to appear
+        const delayTimeout = setTimeout(() => {
+          // Smooth fade in with ease-out curve for natural feel
+          highlightOpacity.value = withTiming(1, { 
+            duration: 450,
+            easing: Easing.out(Easing.cubic),
+          });
+          // Then fade out after 2 seconds with smooth ease-in-out curve
+          setTimeout(() => {
+            highlightOpacity.value = withTiming(0, { 
+              duration: 1400,
+              easing: Easing.inOut(Easing.cubic),
+            });
+          }, 2000);
+        }, 500);
+        
+        return () => clearTimeout(delayTimeout);
+      }
+    }, [shouldHighlight, highlightOpacity]);
+    
+    const highlightStyle = useAnimatedStyle(() => ({
+      backgroundColor: `rgba(129, 136, 150, ${highlightOpacity.value * 0.12})`, // Colors.grey with subtle opacity
+    }));
 
     const authorName = useMemo(
       () =>
@@ -577,6 +609,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                 rootUri={rootUri}
                 rootCid={rootCid}
                 level={level + 1}
+                highlightUri={highlightUri}
               />
             ))}
         </View>
@@ -591,11 +624,21 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
         { marginLeft: 0, paddingLeft: 0 },
         level > 0 && { marginLeft: INDENT_PER_LEVEL * level },
       ]}>
-        <View style={[
+        <Animated.View style={[
           styles.commentItemContainer,
           { zIndex: 1, paddingVertical: 6, paddingHorizontal: 0, alignItems: 'center' },
         ]}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1 }}>
+          {/* Full-width highlight overlay */}
+          {shouldHighlight && (
+            <Animated.View 
+              style={[
+                styles.highlightOverlay,
+                highlightStyle,
+              ]}
+              pointerEvents="none"
+            />
+          )}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1, zIndex: 1 }}>
             <TouchableOpacity onPress={handleAuthorAvatarPress}>
               <UI.Avatar
                 uri={authorAvatar}
@@ -671,7 +714,17 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             </TouchableOpacity>
             {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
           </View>
-        </View>
+          {/* Full-width highlight overlay */}
+          {shouldHighlight && (
+            <Animated.View 
+              style={[
+                styles.highlightOverlay,
+                highlightStyle,
+              ]}
+              pointerEvents="none"
+            />
+          )}
+        </Animated.View>
 
         {renderReplies()}
       </View>
@@ -687,7 +740,8 @@ function areEqualCommentItem(prevProps: CommentItemProps, nextProps: CommentItem
     prevProps.rootUri === nextProps.rootUri &&
     prevProps.rootCid === nextProps.rootCid &&
     prevProps.level === nextProps.level &&
-    prevProps.onImagePress === nextProps.onImagePress
+    prevProps.onImagePress === nextProps.onImagePress &&
+    prevProps.highlightUri === nextProps.highlightUri
   );
 }
 
@@ -740,6 +794,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     backgroundColor: 'transparent',
     marginBottom: 2,
+    position: 'relative',
+  },
+  highlightOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: -16,
+    right: -16,
+    bottom: 0,
+    zIndex: -1,
   },
   commentContentContainer: {
     flex: 1,

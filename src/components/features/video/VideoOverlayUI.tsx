@@ -215,14 +215,16 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const repostScale = useSharedValue(1);
   const repostRotate = useSharedValue(0); // radians
   const repostAnimatedStyle = useAnimatedStyle(() => {
-    const rotateStr = `${repostRotate.value}rad`;
+    'worklet';
+    // Ensure rotate is always a string, even when value is 0
+    const rotateValue = repostRotate.value;
+    const rotateStr = rotateValue === 0 ? '0rad' : `${rotateValue}rad`;
     return {
-      // Cast to any to satisfy RN's transform union typing with animated values
       transform: [
-        { rotate: rotateStr as any },
-        { scale: repostScale.value as any },
+        { rotate: rotateStr },
+        { scale: repostScale.value },
       ] as any,
-};
+    };
   });
   
   const renderRepostIcon = useCallback(() => (

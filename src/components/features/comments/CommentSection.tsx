@@ -110,6 +110,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const postedAt = globalData?.postedAt ?? propPostedAt;
   const onToggleLike = globalData?.onToggleLike ?? propOnToggleLike;
   const isLikePending = globalData?.isLikePending ?? propIsLikePending;
+  const scrollToCommentUri = globalData?.scrollToCommentUri;
   const handleHeaderSharePress = useCallback(async () => {
     // Dismiss the comment section first
     onDismiss?.();
@@ -291,6 +292,41 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [commentsPages]
   );
 
+  // Scroll to specific comment when scrollToCommentUri is provided
+  useEffect(() => {
+    if (!scrollToCommentUri || !comments.length || commentsLoading || !commentsListRef.current) return;
+
+    // Recursively search for comment URI in comments and their replies
+    const findCommentIndex = (commentList: Comment[], targetUri: string): number => {
+      for (let i = 0; i < commentList.length; i++) {
+        const comment = commentList[i];
+        if (comment.uri === targetUri) return i;
+        // Check nested replies
+        if (comment.replies && comment.replies.length > 0) {
+          const nestedIndex = findCommentIndex(comment.replies, targetUri);
+          if (nestedIndex >= 0) return i; // Return parent index if found in replies
+        }
+      }
+      return -1;
+    };
+
+    const targetIndex = findCommentIndex(comments, scrollToCommentUri);
+    if (targetIndex >= 0 && targetIndex < comments.length) {
+      // Delay to ensure FlashList is ready and rendered
+      setTimeout(() => {
+        try {
+          commentsListRef.current?.scrollToIndex({
+            index: targetIndex,
+            animated: true,
+            viewPosition: 0.5,
+          });
+        } catch (error) {
+          // Silently handle scroll errors (index out of bounds, etc.)
+        }
+      }, 300);
+    }
+  }, [scrollToCommentUri, comments, commentsLoading]);
+
   const {
     data: likesPages,
     isLoading: likesLoading,
@@ -317,9 +353,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onDismiss={onDismiss}
         onImagePress={setFullscreenImageUri}
         onReplyPress={handleReplyPress}
+        highlightUri={scrollToCommentUri}
       />
     ),
-    [onDismiss, handleReplyPress]
+    [onDismiss, handleReplyPress, scrollToCommentUri]
   );
   
   const renderLikeItem = useCallback(
@@ -493,7 +530,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Icon 
-                  name={hasText ? "send-plane-fill" : "close"}
+                  name={hasText ? "arrow-up-fill" : "close"}
                   size={hasText ? 22 : 18}
                   color={hasText ? Colors.black : Colors.lightGray}
                 />
@@ -510,7 +547,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Icon 
-                    name="send-plane-fill" 
+                    name="arrow-up-fill" 
                     size={22} 
                     color={Colors.black}
                   />
@@ -709,7 +746,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       <TrueSheet
         ref={sheetRef}
         name="comment-section"
-        sizes={['medium', 'large']}
+        sizes={scrollToCommentUri ? ['100%'] : ['medium', 'large']}
         backgroundColor={Colors.black}
         onDismiss={handleClose}
         scrollRef={currentScrollRef}

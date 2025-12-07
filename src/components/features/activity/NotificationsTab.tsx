@@ -24,6 +24,7 @@ import { getBottomNavBarHeight, formatHandle } from '../../../utils/helpers';
 import { feedService } from '../../../services/FeedService';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { extractVideoThumbnail } from '../../../utils/helpers/video';
+import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
@@ -102,6 +103,7 @@ const NotificationItem: React.FC<{
   postDataMap: Map<string, any>;
 }> = ({ item, navigation, queryClient, postDataMap }) => {
   const { reason, author, post, reasonSubject, indexedAt, uri, record } = item;
+  const { presentCommentSection } = useGlobalCommentSection();
   
   // Debug: Log raw notification structure for subscribed-post and other post notifications
   useEffect(() => {
@@ -204,7 +206,7 @@ const NotificationItem: React.FC<{
       actionText = 'mentioned you';
       break;
     case 'reply':
-      actionText = 'replied to your post';
+      actionText = 'left a comment';
       break;
     case 'quote':
       actionText = 'quoted your post';
@@ -229,6 +231,81 @@ const NotificationItem: React.FC<{
   }
 
   const handlePress = async () => {
+    // For reply notifications, navigate to post then open comment section
+    if (reason === 'reply' && reasonSubject && uri) {
+      try {
+        const parentPost = await AtprotoService.getPost(reasonSubject);
+        if (!parentPost) {
+          // Fallback to profile if post fetch fails
+          if (author?.handle) {
+            const handle = author.handle.trim();
+            if (handle) {
+              navigation.push(`/profile/${handle}`);
+            }
+          }
+          return;
+        }
+
+        // Check if this is a video post
+        const embed = parentPost?.embed || parentPost?.record?.embed;
+        const isVideo = embed && (
+          embed.$type === 'app.bsky.embed.video' || 
+          embed.$type === 'app.bsky.embed.video#view' ||
+          (embed.$type === 'app.bsky.embed.recordWithMedia#view' && 
+           (embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view'))
+        );
+
+        if (isVideo) {
+          // For video posts, navigate to feed modal first
+          const feedItem = {
+            post: {
+              uri: parentPost.uri,
+              cid: parentPost.cid,
+              author: parentPost.author,
+              record: parentPost.record,
+              embed: embed,
+              replyCount: parentPost.replyCount || 0,
+              repostCount: parentPost.repostCount || 0,
+              likeCount: parentPost.likeCount || 0,
+              indexedAt: parentPost.indexedAt,
+            },
+            uniqueKey: parentPost.uri,
+            moderationDecision: parentPost.moderationDecision,
+          };
+          
+          feedService.setCurrentFeed([feedItem]);
+          
+          navigation.push({
+            pathname: '/(modals)/feed',
+            params: {
+              feedOption: 'search',
+              userDid: undefined,
+              backgroundColor: 'transparent',
+              secondaryColor: Colors.white,
+              searchQuery: '',
+              hasNextPage: 'false',
+              isFetchingNextPage: 'false',
+            }
+          });
+
+          // Open comment section after navigation with a delay
+          setTimeout(() => {
+            presentCommentSection({
+              post: parentPost,
+              scrollToCommentUri: uri,
+            });
+          }, 500);
+        } else {
+          // For non-video posts, open in Bluesky app
+          const { openPostInBluesky } = await import('../../../utils/blueskyLinks');
+          await openPostInBluesky(reasonSubject);
+        }
+        return;
+      } catch (error) {
+        // Fallback to regular post handling
+      }
+    }
+
     // For post-related actions, check if it's a video post
     if (isPostAction && postUri) {
       try {
