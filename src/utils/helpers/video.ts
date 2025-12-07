@@ -3,7 +3,6 @@
  * Uses native expo-video caching (500MB LRU)
  */
 
-import { extractColorsFromImage, darkenColor, isColorDark } from '../formatting/colorUtils';
 import type { VideoSource } from 'expo-video';
 
 /**
@@ -39,10 +38,6 @@ export interface VideoEmbed {
     height: number;
   };
 }
-
-// Simple LRU cache for thumbnail colors
-const thumbnailColorCache = new Map<string, string>();
-const MAX_COLOR_CACHE_SIZE = 100;
 
 /**
  * Helper function to get the actual video embed object from any embed type
@@ -99,65 +94,6 @@ export function extractVideoUrl(embed: any): string | null {
 export function extractVideoThumbnail(embed: any): string | null {
   const videoEmbed = getActualVideoEmbed(embed);
   return videoEmbed?.thumbnail || null;
-}
-
-/**
- * Extract background color from video thumbnail URL
- * Uses simple caching - no complex batch processing
- */
-export async function extractThumbnailColor(thumbnailUrl: string | null): Promise<string> {
-  if (!thumbnailUrl) return '#000000';
-
-  // Check cache first
-  const cached = thumbnailColorCache.get(thumbnailUrl);
-  if (cached) return cached;
-
-  try {
-    const colors = await extractColorsFromImage(thumbnailUrl);
-    let backgroundColor = colors.backgroundColor;
-
-    // Ensure dark background for videos
-    if (backgroundColor.toUpperCase() === '#FFFFFF') {
-      backgroundColor = '#000000';
-    } else {
-      let iterations = 0;
-      while (!isColorDark(backgroundColor) && iterations < 10) {
-        backgroundColor = darkenColor(backgroundColor, 0.4);
-        iterations++;
-      }
-      if (!isColorDark(backgroundColor)) {
-        backgroundColor = '#000000';
-      }
-    }
-
-    // Cache with LRU eviction
-    if (thumbnailColorCache.size >= MAX_COLOR_CACHE_SIZE) {
-      const firstKey = thumbnailColorCache.keys().next().value;
-      if (firstKey) thumbnailColorCache.delete(firstKey);
-    }
-    thumbnailColorCache.set(thumbnailUrl, backgroundColor);
-
-    return backgroundColor;
-  } catch {
-    return '#000000';
-  }
-}
-
-/**
- * Preload thumbnail colors for upcoming posts (fire and forget)
- */
-export function preloadThumbnailColors(posts: any[]): void {
-  const urls = posts
-    .slice(0, 5) // Only first 5
-    .map(post => getActualVideoEmbed(post?.embed)?.thumbnail)
-    .filter(Boolean);
-
-  // Fire and forget - don't await
-  urls.forEach(url => {
-    if (!thumbnailColorCache.has(url)) {
-      extractThumbnailColor(url).catch(() => { });
-    }
-  });
 }
 
 /**

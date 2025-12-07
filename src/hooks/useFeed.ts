@@ -10,7 +10,6 @@ import { InteractionManager } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useUserStore } from '../stores/userStore';
-import { preloadThumbnailColors } from '../utils/helpers/video';
 
 // Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
@@ -179,16 +178,6 @@ export function useFeed(
     return result;
   }, [feedPages]);
 
-  // Preload thumbnail colors when feed data changes
-  useEffect(() => {
-    if (feed.length > 0) {
-      // Defer preload until after interactions complete
-      const handle = InteractionManager.runAfterInteractions(() => {
-        preloadThumbnailColors(feed.slice(0, 10)); // Preload first 10 posts
-      });
-      return () => handle.cancel();
-    }
-  }, [feed]);
 
   // Infinite scroll state
   const isNearEndRef = useRef(false);

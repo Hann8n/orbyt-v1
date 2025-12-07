@@ -11,7 +11,6 @@ import { Avatar } from '../../ui/UI';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import Icon from '../../ui/Icon';
 import { AtprotoService } from '../../../services/api/AtprotoService';
-import { useThumbnailColor } from '../../../hooks/useThumbnailColor';
 import { ModerationDecision } from '../../../services/ModerationTypes';
 import { feedService } from '../../../services/FeedService';
 import { openPostInBluesky } from '../../../utils/blueskyLinks';
@@ -175,7 +174,6 @@ export default function EmbeddedPostCard({
 
   // Get post data
   const thumbnailUrl = post ? getPostThumbnail(post) : null;
-  const { backgroundColor: thumbnailBackgroundColor } = useThumbnailColor(thumbnailUrl);
   const postText = getPostText(post);
   const authorDisplayName = post?.author?.displayName || formatHandle(post?.author?.handle) || 'Unknown User';
   const authorHandle = formatHandle(post?.author?.handle || '');
