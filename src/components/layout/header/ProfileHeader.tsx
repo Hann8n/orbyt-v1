@@ -16,10 +16,11 @@ import ProfileMenu from '../../features/profile/ProfileMenu';
 import EditProfileSheet from '../../features/profile/EditProfileSheet';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import ChatService from '../../../services/ChatService';
-import { FollowIcon, MutualHeartIcon, ProfileEditIcon, InboxIcon} from '../../ui/Icon';
+import { FollowIcon, MutualHeartIcon, ProfileEditIcon, InboxIcon, BellFilledIcon} from '../../ui/Icon';
 import { hexToRGBA, getStatusBarStyle } from '../../../utils/formatting/colorUtils';
 import { parseRichText } from '../../../utils/richTextParser';
 import { formatHandle } from '../../../utils/helpers';
+import { useUserSubscription } from '../../../stores/subscriptionStore';
 
 interface ProfileHeaderProps {
   handle: string | null;
@@ -88,6 +89,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   // Fetch Orbyt profile record join date for this DID
   const { joinDate } = useOrbytProfile(profileData?.did);
+  
+  // Activity subscription status
+  const { isSubscribed, toggleSubscription } = useUserSubscription(profileData?.did);
   
   // Check if the current user can message this profile
   useEffect(() => {
@@ -221,35 +225,52 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       let icon: string | undefined = undefined;
       let customIcon: React.ReactNode | undefined = isBlocked ? undefined : (
         <FollowIcon 
-          size={16} 
+          size={14} 
           color={profileColors.textColor} 
         />
       );
 
       if (!isBlocked && isFollowing && isFollowedBy) {
-        label = 'Mutuals';
+        label = '';
         icon = undefined;
         customIcon = (
           <MutualHeartIcon 
-            size={16} 
+            size={20} 
             color={profileColors.backgroundColor} 
           />
         );
       } else if (!isBlocked && isFollowing) {
-        label = 'Following';
+        label = '';
         icon = 'check';
         customIcon = undefined;
       }
 
-      const buttons: HeaderAction[] = [
-        {
-          id: 'follow',
-          label,
-          icon,
-          customIcon,
-          onPress: handleFollowUnfollow,
-        } as HeaderAction
-      ];
+      const buttons: HeaderAction[] = [];
+      
+      // Add subscription button (only if following)
+      if (isFollowing && !isBlocked) {
+        buttons.push({
+          id: 'subscription',
+          label: '', // No label, icon only
+          customIcon: (
+            <BellFilledIcon 
+              size={20} 
+              color={isSubscribed ? profileColors.backgroundColor : profileColors.textColor} 
+            />
+          ),
+          onPress: toggleSubscription,
+          active: isSubscribed, // Track subscription state for glass effect inversion
+        } as HeaderAction);
+      }
+      
+      // Add follow button
+      buttons.push({
+        id: 'follow',
+        label,
+        icon,
+        customIcon,
+        onPress: handleFollowUnfollow,
+      } as HeaderAction);
 
       return [
         {
@@ -261,7 +282,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         },
       ];
     }
-  }, [profileData, isOwnProfile, isCurrentUserProfile, handleFollowUnfollow, openEditSheet, handleMenuPress, profileColors.textColor]);
+}, [profileData, isOwnProfile, isCurrentUserProfile, handleFollowUnfollow, openEditSheet, handleMenuPress, profileColors.textColor, profileColors.backgroundColor, isSubscribed, toggleSubscription, isBlocked]);
 
   // Create header content with custom description component
   const headerContent = useMemo((): HeaderContent => {

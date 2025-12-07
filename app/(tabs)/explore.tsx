@@ -47,6 +47,7 @@ import { useFeed } from '../../src/hooks/useFeed';
 import { ModerationService } from '../../src/services/ModerationService';
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { isCurrentUser } from '../../src/stores/profileInteractionStore';
+import { useFollowStore } from '../../src/stores/followStore';
 import { Colors as UIColors } from '../../src/components/ui/UI';
 import { getAllChannels, isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash, extractFeedSlug } from '../../src/utils/orbytChannels';
 
@@ -1082,6 +1083,8 @@ const ExploreScreen: React.FC = () => {
   }>>([]);
   const currentUser = useUserStore(state => state.currentUser);
   
+  // Subscribe to follow store to trigger re-renders when follow state changes
+  useFollowStore((state) => state.follows);
 
   // Dynamic pages: show recently-visited when no query, show profiles/channels when searching
   const pages: Array<'recently-visited' | 'profiles' | 'channels'> = useMemo(() => {
@@ -1248,6 +1251,8 @@ const ExploreScreen: React.FC = () => {
   });
 
   // Process search results for display
+  const followStoreFollows = useFollowStore((state) => state.follows);
+  
   const searchResults = useMemo(() => {
     if (!searchFeedOption || !searchFeed.length) {
       return [];
@@ -1291,18 +1296,21 @@ const ExploreScreen: React.FC = () => {
       if (post.author) {
         const handle = post.author.handle;
         const postText = (post as any).text || '';
+        const did = (post.author as any).did || '';
         // Get cached profile data for accurate following status
         const cachedProfile = handle ? ProfileCache.getProfileFromCacheSync(handle) : null;
+        // Check follow store for most recent follow state
+        const followStoreState = followStoreFollows?.get(did);
         
         return {
           type: 'profile' as const,
           data: {
-            did: (post.author as any).did || '',
+            did,
             handle: post.author.handle || '',
             displayName: post.author.displayName || '',
             avatar: post.author.avatar || '',
             description: postText || '',
-            isFollowing: cachedProfile?.isFollowing ?? !!(post as any).viewer?.following,
+            isFollowing: followStoreState?.isFollowing ?? cachedProfile?.isFollowing ?? !!(post as any).viewer?.following,
           } as Profile,
           relevance: 10 - index, // Higher relevance for earlier results
         };
@@ -1336,17 +1344,20 @@ const ExploreScreen: React.FC = () => {
       // Default to profile
       const handle = post.author?.handle;
       const postText = (post as any).text || '';
+      const did = (post.author as any)?.did || '';
       const cachedProfile = handle ? ProfileCache.getProfileFromCacheSync(handle) : null;
+      // Check follow store for most recent follow state
+      const followStoreState = followStoreFollows?.get(did);
       
       return {
         type: 'profile' as const,
         data: {
-          did: (post.author as any)?.did || '',
+          did,
           handle: post.author?.handle || '',
           displayName: post.author?.displayName || '',
           avatar: post.author?.avatar || '',
           description: postText || '',
-          isFollowing: cachedProfile?.isFollowing ?? !!(post as any).viewer?.following,
+          isFollowing: followStoreState?.isFollowing ?? cachedProfile?.isFollowing ?? !!(post as any).viewer?.following,
         } as Profile,
         relevance: 10 - index,
       };
@@ -1376,7 +1387,7 @@ const ExploreScreen: React.FC = () => {
     });
     
     return filtered;
-  }, [searchFeedOption, searchFeed, cacheUpdateTrigger, experimentalFeedsEnabled, currentUser]);
+  }, [searchFeedOption, searchFeed, cacheUpdateTrigger, experimentalFeedsEnabled, currentUser, followStoreFollows]);
 
 
 

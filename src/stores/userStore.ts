@@ -1216,6 +1216,16 @@ export const useUserStore = create<UserState>()(
             } else {
               // Defer developer access check - not critical for startup
               get().refreshDeveloperAccess().catch(() => {});
+              
+              // Initialize subscription store in background
+              setTimeout(async () => {
+                try {
+                  const { useSubscriptionStore } = await import('./subscriptionStore');
+                  await useSubscriptionStore.getState().initialize();
+                } catch (err) {
+                  // Silent failure - subscriptions are not critical
+                }
+              }, 1000);
             }
           } else {
           }

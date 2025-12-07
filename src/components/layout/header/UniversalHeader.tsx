@@ -26,6 +26,7 @@ export interface HeaderAction {
   disabled?: boolean;
   loading?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
+  active?: boolean; // For tracking active state of icon-only buttons (e.g., subscription button)
 }
 
 export interface HeaderContent {
@@ -90,18 +91,21 @@ const ActionButton = memo<{
   size?: 'small' | 'medium' | 'large';
 }>(({ action, textColor, backgroundColor, size = 'medium' }) => {
   const shouldUseGlass = useMemo(() => {
-    // Only target Edit / Follow / Mutuals-like actions / Message actions
+    // Only target Edit / Follow / Mutuals-like actions / Message actions / Subscription actions
     const label = (action.label || '').toLowerCase();
     const isEdit = action.id === 'edit' || label.includes('edit');
     const isFollowStates = action.id === 'follow' || label === 'follow' || label === 'following' || label === 'mutuals';
     const isMessage = action.id === 'message' || label === 'message';
-    return isLiquidGlassAvailable() && (isEdit || isFollowStates || isMessage);
+    const isSubscription = action.id === 'subscription';
+    return isLiquidGlassAvailable() && (isEdit || isFollowStates || isMessage || isSubscription);
   }, [action.id, action.label]);
 
   const getButtonStyle = useCallback(() => {
-    // Check if this is a following state (Following, Mutuals, etc.) or save button in edit mode
+    // Check if this is a following state (Following, Mutuals, etc.), save button in edit mode, or active subscription
     const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
+    const isIconOnlyFollowingState = (action.id === 'follow' && !action.label); // Icon-only Following/Mutuals
     const isSaveButton = action.id === 'save';
+    const isActiveSubscription = action.id === 'subscription' && action.active;
     
     const baseStyle = shouldUseGlass
       ? {
@@ -110,8 +114,8 @@ const ActionButton = memo<{
           borderColor: 'transparent',
         }
       : {
-          backgroundColor: (isFollowingState || isSaveButton) ? textColor : hexToRGBA(textColor, 0.2),
-          borderColor: (isFollowingState || isSaveButton) ? textColor : hexToRGBA(textColor, 0.3),
+          backgroundColor: (isFollowingState || isIconOnlyFollowingState || isSaveButton || isActiveSubscription) ? textColor : hexToRGBA(textColor, 0.2),
+          borderColor: (isFollowingState || isIconOnlyFollowingState || isSaveButton || isActiveSubscription) ? textColor : hexToRGBA(textColor, 0.3),
         };
 
     switch (action.variant) {
@@ -125,18 +129,18 @@ const ActionButton = memo<{
       default:
         return baseStyle;
     }
-  }, [action.variant, textColor, action.label, action.id, shouldUseGlass]);
+  }, [action.variant, textColor, action.label, action.id, shouldUseGlass, action.active]);
 
   const getButtonSize = useCallback(() => {
-    // Icon-only buttons should be circular
+    // Icon-only buttons should be circular/pill-shaped
     if (!action.label) {
       switch (size) {
         case 'small':
-          return { width: 32, height: 32, borderRadius: 100 };
+          return { width: 40, height: 32, borderRadius: 100 };
         case 'large':
-          return { width: 48, height: 48, borderRadius: 100 };
+          return { width: 56, height: 48, borderRadius: 100 };
         default:
-          return { width: 44, height: 44, borderRadius: 100 };
+          return { width: 50, height: 44, borderRadius: 100 };
       }
     }
     
@@ -156,7 +160,7 @@ const ActionButton = memo<{
       color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
     />
   ) : action.label ? (
-    <View style={styles.actionContent}>
+    <View style={styles.actionContent} pointerEvents="none">
       <Text style={[styles.actionText, { 
         color: (action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor,
         fontFamily: (action.variant === 'secondary' || action.id === 'save') ? 'Firma-Bold' : 'Firma-SemiBold'
@@ -176,14 +180,14 @@ const ActionButton = memo<{
     </View>
   ) : (
     // Icon-only button
-    <View style={styles.iconOnlyContent}>
+    <View style={styles.iconOnlyContent} pointerEvents="none">
       {action.customIcon ? (
         action.customIcon
       ) : action.icon ? (
         <Icon 
           name={action.icon} 
-          size={16} 
-          color={textColor} 
+          size={20} 
+          color={(action.id === 'follow' && !action.label) ? backgroundColor : textColor} 
           strokeWidth={2.5} 
         />
       ) : null}
@@ -192,8 +196,11 @@ const ActionButton = memo<{
 
   if (shouldUseGlass) {
     const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
+    const isIconOnlyFollowingState = (action.id === 'follow' && !action.label); // Icon-only Following/Mutuals
     const isMessageButton = action.id === 'message';
-    const glassTint = isFollowingState ? hexToRGBA(textColor, 1) : isMessageButton ? hexToRGBA(textColor, 0.08) : hexToRGBA(textColor, 0.08);
+    const isSubscriptionButton = action.id === 'subscription';
+    const isActiveSubscription = isSubscriptionButton && action.active;
+    const glassTint = (isFollowingState || isIconOnlyFollowingState || isActiveSubscription) ? hexToRGBA(textColor, 1) : (isMessageButton || isSubscriptionButton) ? hexToRGBA(textColor, 0.08) : hexToRGBA(textColor, 0.08);
     return (
       <TouchableOpacity
         style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
@@ -297,8 +304,8 @@ const CustomActionLayout = memo<{
 
   return (
     <View style={containerStyle}>
-      {renderMenuIcon()}
       {renderButtons()}
+      {renderMenuIcon()}
     </View>
   );
 });
@@ -837,7 +844,7 @@ const styles = StyleSheet.create({
   customActionsLayout: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 4,
     zIndex: 10,
   },
   customActionsLayoutLeft: {

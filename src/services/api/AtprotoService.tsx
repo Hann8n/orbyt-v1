@@ -3092,6 +3092,112 @@ class AtprotoService {
     });
   }
 
+  /**
+   * Subscribe to activity notifications from a user
+   * @param did - DID of the user to subscribe to
+   * @returns Promise resolving to subscription status
+   */
+  static async putActivitySubscription(did: string): Promise<{ subject: string; activitySubscription?: any }> {
+    try {
+      const { api } = await this.getApiClient();
+      
+      if (!api) {
+        throw new Error('No API client available');
+      }
+
+      // Cannot subscribe to yourself
+      const currentUserDid = await this.getCurrentUserDid();
+      if (currentUserDid === did) {
+        throw new Error('Cannot subscribe to your own activity');
+      }
+
+      const response = await api.app.bsky.notification.putActivitySubscription({
+        subject: did,
+        activitySubscription: {
+          post: true,
+          reply: true,
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      logger.error('Error subscribing to activity', error, { component: 'AtprotoService', did });
+      throw error;
+    }
+  }
+
+  /**
+   * Unsubscribe from activity notifications from a user
+   * @param did - DID of the user to unsubscribe from
+   * @returns Promise resolving to subscription status
+   */
+  static async deleteActivitySubscription(did: string): Promise<void> {
+    try {
+      const { api } = await this.getApiClient();
+      
+      if (!api) {
+        throw new Error('No API client available');
+      }
+
+      await api.app.bsky.notification.putActivitySubscription({
+        subject: did,
+        activitySubscription: {
+          post: false,
+          reply: false,
+        },
+      });
+    } catch (error) {
+      logger.error('Error unsubscribing from activity', error, { component: 'AtprotoService', did });
+      throw error;
+    }
+  }
+
+  /**
+   * List all activity subscriptions (users you're subscribed to)
+   * @param cursor - Pagination cursor
+   * @returns Promise with list of subscribed profiles
+   */
+  static async listActivitySubscriptions(cursor?: string): Promise<{ cursor?: string; subscriptions: any[] }> {
+    try {
+      const { api } = await this.getApiClient();
+      
+      if (!api) {
+        throw new Error('No API client available');
+      }
+
+      const params: any = {};
+      if (cursor) {
+        params.cursor = cursor;
+      }
+
+      const response = await api.app.bsky.notification.listActivitySubscriptions(params);
+
+      return {
+        cursor: response.data.cursor,
+        subscriptions: response.data.subscriptions || [],
+      };
+    } catch (error) {
+      logger.error('Error listing activity subscriptions', error, { component: 'AtprotoService' });
+      return { subscriptions: [] };
+    }
+  }
+
+  /**
+   * Check if subscribed to a specific user's activity
+   * @param did - DID of the user to check
+   * @returns Promise resolving to true if subscribed
+   */
+  static async isSubscribedToActivity(did: string): Promise<boolean> {
+    try {
+      // Fetch all subscriptions and check if this DID is in the list
+      const { subscriptions } = await this.listActivitySubscriptions();
+      return subscriptions.some((sub: any) => sub.did === did);
+    } catch (error) {
+      logger.error('Error checking subscription status', error, { component: 'AtprotoService', did });
+      return false;
+    }
+  }
+
   static async getStaticChannels(limit: number = 10): Promise<any[]> {
     try {
       const channelDids = await StaticChannelsService.getChannels();

@@ -21,6 +21,7 @@ export interface CachedProfile {
   description?: string;
   isFollowing?: boolean;
   isFollowedBy?: boolean;
+  isSubscribed?: boolean; // Activity subscription status
   hasCustomColors?: boolean; // Flag to indicate if colors are custom or extracted
   profileColors?: {
     backgroundColor: string;
@@ -668,6 +669,63 @@ class ProfileCache {
               
               // Notify subscribers of a profile update
               this.notifyProfileUpdated(normalizedHandle);
+            }
+            resolve();
+          } catch (error) {
+            resolve();
+          }
+        }, 0);
+      });
+    });
+  }
+  
+  /**
+   * Update the subscription status for a profile
+   * Supports optimistic updates for React Query
+   */
+  static async updateSubscriptionStatus(
+    did: string,
+    isSubscribed: boolean
+  ): Promise<void> {
+    if (!did) return;
+    
+    return new Promise((resolve) => {
+      // Move updates to background
+      requestAnimationFrame(() => {
+        setTimeout(async () => {
+          try {
+            // Find profile by DID in memory cache
+            let cachedProfile: CachedProfile | undefined;
+            let cacheKey: string | undefined;
+            
+            for (const [key, profile] of this.memoryCache.entries()) {
+              if (profile.did === did) {
+                cachedProfile = profile;
+                cacheKey = key;
+                break;
+              }
+            }
+            
+            // If not in memory, search storage
+            if (!cachedProfile) {
+              // Try to get from cache by DID directly
+              const profileByDid = await this.getProfileFromCacheByDid(did);
+              if (profileByDid) {
+                cachedProfile = profileByDid;
+                cacheKey = this.getCacheKey(profileByDid.handle.toLowerCase());
+              }
+            }
+            
+            if (cachedProfile && cacheKey) {
+              cachedProfile.isSubscribed = isSubscribed;
+              cachedProfile.lastUpdated = Date.now();
+              
+              // Update both memory and storage
+              this.memoryCache.set(cacheKey.replace('profile_', ''), cachedProfile);
+              await AsyncStorage.setItem(cacheKey, JSON.stringify(cachedProfile));
+              
+              // Notify subscribers of a profile update
+              this.notifyProfileUpdated(cachedProfile.handle);
             }
             resolve();
           } catch (error) {
@@ -1443,7 +1501,7 @@ class ProfileCache {
  * Hook to fetch and subscribe to profile data by DID (preferred method)
  */
 export function useProfileByDid(did: string | null | undefined): UseQueryResult<CachedProfile | null, Error> {
-  return useQuery<CachedProfile | null, Error>({
+  const queryResult = useQuery<CachedProfile | null, Error>({
     queryKey: did ? profileKeys.detail(`did_${did}`) : ['profiles', 'detail', 'did_'],
     queryFn: async () => did ? ProfileCache.getProfileByDid(did) : null,
     enabled: !!did,
@@ -1453,6 +1511,24 @@ export function useProfileByDid(did: string | null | undefined): UseQueryResult<
     refetchOnMount: false,         // don't refetch on mount if we have data
     refetchOnReconnect: false,     // don't refetch on reconnect
   });
+
+  // Subscribe to follow store for real-time follow state updates
+  const { useFollowStore } = require('../../stores/followStore');
+  const followState = useFollowStore((state) => 
+    queryResult.data?.did ? state.follows.get(queryResult.data.did) : undefined
+  );
+
+  // Merge follow store state with query data for real-time follow updates
+  return {
+    ...queryResult,
+    data: queryResult.data && followState?.isFollowing !== undefined
+      ? {
+          ...queryResult.data,
+          isFollowing: followState.isFollowing,
+          isFollowedBy: followState.isFollowedBy ?? queryResult.data.isFollowedBy,
+        }
+      : queryResult.data,
+  };
 }
 
 /**
@@ -1533,7 +1609,7 @@ export function useBatchProfilesByDid(
  * Hook to fetch and subscribe to profile data by handle (legacy)
  */
 export function useProfile(handle: string | null | undefined): UseQueryResult<CachedProfile | null, Error> {
-  return useQuery<CachedProfile | null, Error>({
+  const queryResult = useQuery<CachedProfile | null, Error>({
     queryKey: handle ? profileKeys.detail(handle) : ['profiles', 'detail', ''],
     queryFn: async () => handle ? ProfileCache.getProfile(handle) : null,
     enabled: !!handle,
@@ -1543,6 +1619,24 @@ export function useProfile(handle: string | null | undefined): UseQueryResult<Ca
     refetchOnMount: false,         // don't refetch on mount if we have data
     refetchOnReconnect: false,     // don't refetch on reconnect
   });
+
+  // Subscribe to follow store for real-time follow state updates
+  const { useFollowStore } = require('../../stores/followStore');
+  const followState = useFollowStore((state) => 
+    queryResult.data?.did ? state.follows.get(queryResult.data.did) : undefined
+  );
+
+  // Merge follow store state with query data for real-time follow updates
+  return {
+    ...queryResult,
+    data: queryResult.data && followState?.isFollowing !== undefined
+      ? {
+          ...queryResult.data,
+          isFollowing: followState.isFollowing,
+          isFollowedBy: followState.isFollowedBy ?? queryResult.data.isFollowedBy,
+        }
+      : queryResult.data,
+  };
 }
 
 /**

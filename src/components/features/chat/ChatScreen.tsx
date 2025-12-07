@@ -472,11 +472,13 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
               disabled={rejectConversationMutation.isPending || acceptConversationMutation.isPending}
               activeOpacity={0.7}
             >
-              {rejectConversationMutation.isPending ? (
-                <Loading3FillIcon size={20} color={Colors.white} />
-              ) : (
-                <Text style={styles.actionButtonText}>Reject</Text>
-              )}
+              <View pointerEvents="none">
+                {rejectConversationMutation.isPending ? (
+                  <Loading3FillIcon size={20} color={Colors.white} />
+                ) : (
+                  <Text style={styles.actionButtonText}>Reject</Text>
+                )}
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionButton, styles.acceptButton]}
@@ -484,11 +486,13 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
               disabled={rejectConversationMutation.isPending || acceptConversationMutation.isPending}
               activeOpacity={0.7}
             >
-              {acceptConversationMutation.isPending ? (
-                <Loading3FillIcon size={20} color={Colors.black} />
-              ) : (
-                <Text style={[styles.actionButtonText, styles.acceptButtonText]}>Accept</Text>
-              )}
+              <View pointerEvents="none">
+                {acceptConversationMutation.isPending ? (
+                  <Loading3FillIcon size={20} color={Colors.black} />
+                ) : (
+                  <Text style={[styles.actionButtonText, styles.acceptButtonText]}>Accept</Text>
+                )}
+              </View>
             </TouchableOpacity>
           </View>
         </View>

@@ -178,7 +178,7 @@ export default function ChatActionsSheet({
             disabled={isActionLoading}
             activeOpacity={0.7}
           >
-            <View style={styles.destructiveActionContent}>
+            <View style={styles.destructiveActionContent} pointerEvents="none">
               <Text style={styles.destructiveActionText}>
                 {action.title}
               </Text>
