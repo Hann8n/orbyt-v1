@@ -322,7 +322,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     }
     
     return {
-      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.75)',
+      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.8)',
       fontSize: indicatorBaseFontSize,
       marginRight: 8,
       fontFamily: 'Firma-Black',

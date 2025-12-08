@@ -1,26 +1,22 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Alert, Text, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
-import { GiftedChat, IMessage } from 'react-native-gifted-chat';
+import { GiftedChat } from 'react-native-gifted-chat';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Animated as RNAnimated } from 'react-native';
 
 import { Colors, Avatar } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { formatHandle } from '../../../utils/helpers';
 import Icon, { BackArrowIcon, Loading3FillIcon } from '../../ui/Icon';
-import { Message, Conversation, ReactionView } from '../../../services/ChatService';
-
-// Extend IMessage to include reactions
-interface ChatMessage extends IMessage {
-  reactions?: ReactionView[];
-}
+import { Conversation } from '../../../services/ChatService';
+import { useChatStore } from '../../../stores/chatStore';
+import { ChatMessage } from '../../../utils/chatHelpers';
+import { useCurrentUser } from '../../../stores/userStore';
+import { useMessageReactions } from '../../../hooks/useMessageReactions';
 import ChatService from '../../../services/ChatService';
-import { AtProtoOAuthService } from '../../../services/auth/OAuthService';
 import { AtprotoService } from '../../../services/api/AtprotoService';
-import AuthorItem from '../../ui/AuthorItem';
 import MessageReactions from './MessageReactions';
 import ChatActionsSheet from './ChatActionsSheet';
 import EmbeddedPostCard from './EmbeddedPostCard';
@@ -34,10 +30,12 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const { getGiftedChatMessages, setMessages: setCachedMessages } = useChatStore();
   
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [currentUserId, setCurrentUserId] = useState<string>('1');
-  const [isUserReady, setIsUserReady] = useState(false);
+  // Use existing hook from user store
+  const { currentUser } = useCurrentUser();
+  const currentUserId = currentUser?.did || '1';
+  const isUserReady = true; // Store is always ready
   
   // Inline emoji reaction state
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
@@ -49,30 +47,12 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   useFocusEffect(
     useCallback(() => {
       return () => {
-        // Dismiss keyboard when navigating away with a small delay
-        // to allow animations to complete
         setTimeout(() => {
           Keyboard.dismiss();
         }, 100);
       };
     }, [])
   );
-
-  useEffect(() => {
-    const getUserSession = async () => {
-      try {
-        const { useUserStore } = await import('../../../stores/userStore');
-        const userStore = useUserStore.getState();
-        const session = userStore.currentUser;
-        setCurrentUser(session);
-        setCurrentUserId(session?.did || '1');
-        setIsUserReady(true);
-      } catch (error) {
-        setIsUserReady(true); // Still render, but with fallback user
-      }
-    };
-    getUserSession();
-  }, []);
 
   // Fetch conversation details
   const {
@@ -90,10 +70,16 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     data: messagesData,
     isLoading,
     error,
-    refetch,
   } = useQuery({
     queryKey: ['messages', conversationId],
-    queryFn: () => ChatService.getMessages(conversationId),
+    queryFn: async () => {
+      const result = await ChatService.getMessages(conversationId);
+      // Update store cache with fresh messages
+      if (result.messages) {
+        setCachedMessages(conversationId, result.messages);
+      }
+      return result;
+    },
     refetchInterval: 10000, // Poll every 10 seconds when screen is active
     enabled: !!conversationId,
   });
@@ -115,36 +101,19 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     },
   });
 
-  // Add reaction mutation
-  const addReactionMutation = useMutation({
-    mutationFn: ({ messageId, emoji }: { messageId: string; emoji: string }) => 
-      ChatService.addReaction({
-        conversationId: conversationId,
-        messageId: messageId,
-        reactionValue: emoji,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
-    },
-    onError: (error: any) => {
-      // Don't show alert for reactions - they're non-critical
-    },
-  });
+  // Get other user for message conversion
+  const otherUser = useMemo(() => {
+    if (!conversationData?.members?.length) return undefined;
+    return conversationData.members.find(member => member.did !== currentUserId);
+  }, [conversationData?.members, currentUserId]);
 
-  // Remove reaction mutation
-  const removeReactionMutation = useMutation({
-    mutationFn: ({ messageId, emoji }: { messageId: string; emoji: string }) => 
-      ChatService.removeReaction({
-        conversationId: conversationId,
-        messageId: messageId,
-        reactionValue: emoji,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
-    },
-    onError: (error: any) => {
-      // Don't show alert for reactions - they're non-critical
-    },
+  // Use unified reaction handling hook
+  const { handleReactionToggle } = useMessageReactions({
+    conversationId,
+    messages,
+    setMessages,
+    currentUserId,
+    currentUser: currentUser ? { handle: currentUser.handle, avatar: currentUser.avatar } : undefined,
   });
 
   // Accept conversation mutation
@@ -175,12 +144,8 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
 
   // Get the other user DID from conversation members
   const otherUserDid = useMemo(() => {
-    if (conversationData?.members?.length > 0) {
-      const otherMember = conversationData.members.find(member => member.did !== currentUserId);
-      return otherMember?.did;
-    }
-    return null;
-  }, [conversationData, currentUserId]);
+    return otherUser?.did || null;
+  }, [otherUser]);
 
   // Check if current user initiated the conversation by checking if they sent the first message
   const currentUserInitiated = useMemo(() => {
@@ -218,34 +183,19 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     enabled: !!otherUserDid && !conversationData?.members?.find(m => m.did === otherUserDid)?.displayName,
   });
 
-  // Convert API messages to GiftedChat format
-  const convertToGiftedChatMessages = useCallback((apiMessages: Message[]): ChatMessage[] => {
-    // Derive the other user's display name from normalized conversation members
-    const otherMember = conversationData?.members?.find(m => m.did !== currentUserId);
-    const otherDisplayName = formatHandle(otherMember?.handle) || 'Other';
-    return apiMessages.map((msg) => ({
-      _id: msg.id,
-      text: msg.text,
-      createdAt: new Date(msg.createdAt),
-      user: {
-        _id: msg.senderDid,
-        name: msg.senderDid === currentUserId ? 'You' : otherDisplayName,
-        avatar: msg.senderDid === currentUserId ? currentUser?.avatar : undefined,
-      },
-      // Include reactions data for the MessageReactions component
-      reactions: msg.reactions || [],
-      // Include embed data for embedded posts
-      embed: msg.embed,
-    }));
-  }, [currentUserId, currentUser, conversationData?.members]);
 
-  // Update messages when data changes
+  // Update messages from store when data changes - store as single source of truth
   useEffect(() => {
-    if (messagesData?.messages) {
-      const giftedMessages = convertToGiftedChatMessages(messagesData.messages);
+    if (conversationId && isUserReady && currentUserId && (messagesData?.messages !== undefined || !isLoading)) {
+      const giftedMessages = getGiftedChatMessages(
+        conversationId,
+        currentUserId,
+        currentUser?.avatar,
+        otherUser
+      );
       setMessages(giftedMessages);
     }
-  }, [messagesData, convertToGiftedChatMessages]);
+  }, [conversationId, isUserReady, currentUserId, messagesData?.messages, isLoading, getGiftedChatMessages, currentUser?.avatar, otherUser]);
 
   // Mark conversation as read when user views the chat screen
   useEffect(() => {
@@ -274,129 +224,15 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     }
   }, [sendMessageMutation]);
 
-  // Handle inline emoji selection
+  // Unified reaction handlers using the hook
   const handleEmojiSelect = useCallback((emoji: string, messageId: string) => {
-    // Find the message to check current reactions
-    const targetMessage = messages.find(msg => String(msg._id) === messageId);
-    const isCurrentUserReacted = targetMessage?.reactions?.some(
-      reaction => reaction.value === emoji && reaction.sender.did === currentUserId
-    );
-
-    // Prepare optimistic update
-    const previousMessages = messages;
-
-    if (isCurrentUserReacted) {
-      // Optimistically remove
-      setMessages(prev => prev.map(m => {
-        if (String(m._id) !== messageId) return m;
-        const nextReactions = (m.reactions || []).filter(r => !(r.value === emoji && r.sender.did === currentUserId));
-        return { ...m, reactions: nextReactions } as ChatMessage;
-      }));
-
-      removeReactionMutation.mutate(
-        { messageId, emoji },
-        {
-          onError: () => {
-            // Rollback
-            setMessages(previousMessages);
-          },
-          onSettled: () => {
-            // Refresh to sync with server
-            queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
-          }
-        }
-      );
-    } else {
-      // Optimistically add
-      const optimisticReaction: ReactionView = {
-        value: emoji,
-        sender: {
-          did: currentUserId,
-          handle: currentUser?.handle || '',
-          displayName: formatHandle(currentUser?.handle) || 'You',
-          avatar: currentUser?.avatar,
-        },
-        createdAt: new Date().toISOString(),
-      };
-
-      setMessages(prev => prev.map(m => {
-        if (String(m._id) !== messageId) return m;
-        const nextReactions = [...(m.reactions || []), optimisticReaction];
-        return { ...m, reactions: nextReactions } as ChatMessage;
-      }));
-
-      addReactionMutation.mutate(
-        { messageId, emoji },
-        {
-          onError: () => {
-            // Rollback
-            setMessages(previousMessages);
-          },
-          onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
-          }
-        }
-      );
-    }
-
+    handleReactionToggle(emoji, messageId);
     setSelectedMessageId(null); // Hide the emoji bar
-  }, [addReactionMutation, removeReactionMutation, messages, currentUserId, currentUser, queryClient, conversationId]);
+  }, [handleReactionToggle]);
 
-  // Handle reaction press (toggle add/remove)
   const handleReactionPress = useCallback((messageId: string, emoji: string, isCurrentUserReacted: boolean) => {
-    const previousMessages = messages;
-
-    if (isCurrentUserReacted) {
-      // Optimistically remove
-      setMessages(prev => prev.map(m => {
-        if (String(m._id) !== messageId) return m;
-        const nextReactions = (m.reactions || []).filter(r => !(r.value === emoji && r.sender.did === currentUserId));
-        return { ...m, reactions: nextReactions } as ChatMessage;
-      }));
-
-      removeReactionMutation.mutate(
-        { messageId, emoji },
-        {
-          onError: () => {
-            setMessages(previousMessages);
-          },
-          onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
-          }
-        }
-      );
-    } else {
-      // Optimistically add
-      const optimisticReaction: ReactionView = {
-        value: emoji,
-        sender: {
-          did: currentUserId,
-          handle: currentUser?.handle || '',
-          displayName: formatHandle(currentUser?.handle) || 'You',
-          avatar: currentUser?.avatar,
-        },
-        createdAt: new Date().toISOString(),
-      };
-
-      setMessages(prev => prev.map(m => {
-        if (String(m._id) !== messageId) return m;
-        const nextReactions = [...(m.reactions || []), optimisticReaction];
-        return { ...m, reactions: nextReactions } as ChatMessage;
-      }));
-
-      addReactionMutation.mutate(
-        { messageId, emoji },
-        {
-          onError: () => {
-            setMessages(previousMessages);
-          },
-          onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
-          }
-        }
-      );
-    }
-  }, [addReactionMutation, removeReactionMutation, messages, currentUserId, currentUser, queryClient, conversationId]);
+    handleReactionToggle(emoji, messageId);
+  }, [handleReactionToggle]);
 
   // Format date for day separator
   const formatDate = (date: Date) => {
@@ -535,21 +371,12 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   const renderAvatar = useCallback(() => null, []);
 
   // Get the other user (not the current user) from the conversation
-  const otherUser = useMemo(() => {
-    if (!otherUserDid) {
-      return null;
-    }
-    
-    // First try to get from conversation members (this has the most complete data)
-    if (conversationData?.members?.length > 0) {
-      const otherUser = conversationData.members.find(member => member.did !== currentUserId);
-      if (otherUser) {
-        return otherUser;
-      }
-    }
+  // Prefer conversation members, fallback to profile query
+  const otherUserForDisplay = useMemo(() => {
+    if (otherUser) return otherUser;
     
     // If we have profile data from the profile query, use that
-    if (otherUserProfile) {
+    if (otherUserProfile && otherUserDid) {
       return {
         did: otherUserDid,
         handle: otherUserProfile.handle,
@@ -559,7 +386,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     }
     
     return null;
-  }, [otherUserDid, conversationData, otherUserProfile, currentUserId]);
+  }, [otherUser, otherUserProfile, otherUserDid]);
 
   const renderDay = useCallback((dayProps: any) => {
     const date = dayProps.currentMessage?.createdAt;
@@ -767,7 +594,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     _id: currentUserId,
     name: currentUser?.handle || 'You',
     avatar: currentUser?.avatar,
-  }), [currentUserId, currentUser]);
+  }), [currentUserId, currentUser?.handle, currentUser?.avatar]);
 
   if (isLoading || isLoadingConversation || isLoadingOtherUser || !isUserReady) {
     return (
@@ -835,23 +662,23 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
             <BackArrowIcon size={28} color={Colors.white} />
           </TouchableOpacity>
           
-          {otherUser ? (
+          {otherUserForDisplay ? (
             <>
               <View style={styles.headerCenter}>
                 <TouchableOpacity 
                   style={styles.headerUserInfo}
-                  onPress={() => router.push(`/profile/${otherUser.did}`)}
+                  onPress={() => router.push(`/profile/${otherUserForDisplay.did}`)}
                   activeOpacity={0.7}
                 >
                   <Avatar
-                    uri={otherUser.avatar}
+                    uri={otherUserForDisplay.avatar}
                     type="profile"
                     size={45}
                     showRing={true}
                     style={styles.headerAvatar}
                   />
                   <Text style={styles.headerDisplayName} numberOfLines={1}>
-                    {formatHandle(otherUser.handle) || 'User'}
+                    {formatHandle(otherUserForDisplay.handle) || 'User'}
                   </Text>
                 </TouchableOpacity>
               </View>

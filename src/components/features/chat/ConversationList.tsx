@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,6 +12,8 @@ import ChatService from '../../../services/ChatService';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { formatHandle } from '../../../utils/helpers';
 import Icon, { Loading3FillIcon } from '../../ui/Icon';
+import { useChatStore } from '../../../stores/chatStore';
+import { useCurrentUser } from '../../../stores/userStore';
 
 interface ConversationListProps {
   onConversationPress?: (conversation: Conversation) => void;
@@ -25,22 +27,12 @@ const ConversationDivider = () => (
 
 export default function ConversationList({ onConversationPress, bottomNavBarHeight = 0 }: ConversationListProps) {
   const [refreshing, setRefreshing] = useState(false);
-  const [currentUserDid, setCurrentUserDid] = useState<string>('');
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    const getUserSession = async () => {
-      try {
-        const { useUserStore } = await import('../../../stores/userStore');
-        const userStore = useUserStore.getState();
-        const session = userStore.currentUser;
-        setCurrentUserDid(session?.did || '');
-      } catch (error) {
-        console.error('Error getting user session:', error);
-      }
-    };
-    getUserSession();
-  }, []);
+  const { updateFromConversations } = useChatStore();
+  
+  // Use existing hook from user store
+  const { currentUser } = useCurrentUser();
+  const currentUserDid = currentUser?.did || '';
 
   const {
     data: conversationsData,
@@ -49,7 +41,14 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
     refetch,
   } = useQuery({
     queryKey: ['conversations'],
-    queryFn: () => ChatService.getConversations(),
+    queryFn: async () => {
+      const result = await ChatService.getConversations();
+      // Update chat store with conversations (includes latest messages)
+      if (result.conversations) {
+        updateFromConversations(result.conversations);
+      }
+      return result;
+    },
     refetchInterval: 30000, // Poll every 30 seconds
     staleTime: 10000, // Consider stale after 10 seconds for faster updates
   });

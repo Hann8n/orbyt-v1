@@ -22,8 +22,8 @@ import { NotificationIndicator } from '../../src/components/ui/NotificationIndic
 
 // Tab labels
 const TAB_LABELS: { [key: string]: string } = {
-  'notifications': 'Notifications',
-  'messages': 'Messages',
+  'notifications': 'notifications',
+  'messages': 'chats',
 };
 
 // Activity Swipeable Pager Component using react-native-pager-view
@@ -209,7 +209,7 @@ const ActivityScreen: React.FC = () => {
     const indicatorBaseFontSize = 22;
     
     return {
-      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.6)',
+      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.8)',
       fontSize: indicatorBaseFontSize,
       marginRight: 8,
       fontWeight: 'bold' as const,
