@@ -14,6 +14,7 @@ import BetaInfoSheet from '../../features/badging/BetaInfoSheet';
 import VerificationInfoSheet from '../../features/badging/VerificationInfoSheet';
 import ProfileMenu from '../../features/profile/ProfileMenu';
 import EditProfileSheet from '../../features/profile/EditProfileSheet';
+import SubscriptionOptionsSheet from '../../features/profile/SubscriptionOptionsSheet';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import ChatService from '../../../services/ChatService';
 import { FollowIcon, MutualHeartIcon, ProfileEditIcon, InboxIcon, BellFilledIcon} from '../../ui/Icon';
@@ -54,6 +55,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const [showBetaInfo, setShowBetaInfo] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showEditSheet, setShowEditSheet] = useState(false);
+  const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
   const [canMessage, setCanMessage] = useState<boolean | null>(null);
   
   const [extractedDefaultColors, setExtractedDefaultColors] = useState<{
@@ -268,7 +270,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               color={isSubscribed ? profileColors.backgroundColor : profileColors.textColor} 
             />
           ),
-          onPress: toggleSubscription,
+          onPress: () => setShowSubscriptionSheet(true),
           active: isSubscribed, // Track subscription state for glass effect inversion
         } as HeaderAction);
       }
@@ -284,7 +286,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         },
       ];
     }
-}, [profileData, isOwnProfile, isCurrentUserProfile, handleFollowUnfollow, openEditSheet, handleMenuPress, profileColors.textColor, profileColors.backgroundColor, isSubscribed, toggleSubscription, isBlocked]);
+}, [profileData, isOwnProfile, isCurrentUserProfile, handleFollowUnfollow, openEditSheet, handleMenuPress, profileColors.textColor, profileColors.backgroundColor, isSubscribed, isBlocked]);
 
   // Create header content with custom description component
   const headerContent = useMemo((): HeaderContent => {
@@ -423,6 +425,12 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         onSwitchAccount={onSwitchAccount}
         canMessage={canMessage}
         onMessagePress={handleMessagePress}
+      />
+
+      <SubscriptionOptionsSheet
+        visible={showSubscriptionSheet}
+        onDismiss={() => setShowSubscriptionSheet(false)}
+        did={profileData?.did}
       />
     </>
   );

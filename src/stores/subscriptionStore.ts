@@ -6,9 +6,14 @@ import { create } from 'zustand';
 import AtprotoService from '../services/api/AtprotoService';
 import { logger } from '../utils/logger';
 
+interface SubscriptionPreferences {
+  post: boolean;
+  reply: boolean;
+}
+
 interface SubscriptionState {
-  // Map of DID -> subscription status
-  subscriptions: Map<string, boolean>;
+  // Map of DID -> subscription preferences
+  subscriptions: Map<string, SubscriptionPreferences>;
   
   // Initialize subscriptions from API
   initialize: () => Promise<void>;
@@ -16,14 +21,20 @@ interface SubscriptionState {
   // Check if subscribed to a specific user
   isSubscribed: (did: string) => boolean;
   
+  // Get preferences for a specific user
+  getPreferences: (did: string) => SubscriptionPreferences | null;
+  
   // Subscribe to a user's activity
-  subscribe: (did: string) => Promise<boolean>;
+  subscribe: (did: string, preferences?: SubscriptionPreferences) => Promise<boolean>;
   
   // Unsubscribe from a user's activity
   unsubscribe: (did: string) => Promise<boolean>;
   
   // Toggle subscription status
   toggleSubscription: (did: string) => Promise<boolean>;
+  
+  // Update subscription preferences
+  updatePreferences: (did: string, preferences: SubscriptionPreferences) => Promise<boolean>;
   
   // Clear all subscriptions
   clear: () => void;
@@ -36,10 +47,16 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     try {
       const { subscriptions } = await AtprotoService.listActivitySubscriptions();
       
-      const subscriptionMap = new Map<string, boolean>();
+      const subscriptionMap = new Map<string, SubscriptionPreferences>();
       subscriptions.forEach((sub: any) => {
-        if (sub.did) {
-          subscriptionMap.set(sub.did, true);
+        if (sub.did && sub.viewer?.activitySubscription) {
+          const prefs = sub.viewer.activitySubscription;
+          const post = typeof prefs.post === 'boolean' ? prefs.post : false;
+          const reply = typeof prefs.reply === 'boolean' ? prefs.reply : false;
+          
+          if (post || reply) {
+            subscriptionMap.set(sub.did, { post, reply });
+          }
         }
       });
       
@@ -51,47 +68,61 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
   },
   
   isSubscribed: (did: string) => {
-    return get().subscriptions.get(did) ?? false;
+    const prefs = get().subscriptions.get(did);
+    return prefs ? (prefs.post || prefs.reply) : false;
   },
   
-  subscribe: async (did: string) => {
+  getPreferences: (did: string) => {
+    return get().subscriptions.get(did) || null;
+  },
+  
+  subscribe: async (did: string, preferences?: SubscriptionPreferences) => {
+    const prefs = preferences || { post: true, reply: true };
+    return await get().updatePreferences(did, prefs);
+  },
+  
+  updatePreferences: async (did: string, preferences: SubscriptionPreferences) => {
     const { subscriptions } = get();
     
-    // Optimistic update - set subscription immediately
+    if (!preferences.post && !preferences.reply) {
+      return await get().unsubscribe(did);
+    }
+    
+    const originalPrefs = subscriptions.get(did);
     const newSubscriptions = new Map(subscriptions);
-    newSubscriptions.set(did, true);
+    newSubscriptions.set(did, preferences);
     set({ subscriptions: newSubscriptions });
     
-    // Update ProfileCache optimistically
     const ProfileCache = (await import('../services/cache/ProfileCache')).default;
     await ProfileCache.updateSubscriptionStatus(did, true);
     
     try {
-      await AtprotoService.putActivitySubscription(did);
-      logger.info('Subscribed to activity', { did, component: 'subscriptionStore' });
+      await AtprotoService.putActivitySubscription(did, preferences);
+      logger.info('Updated subscription preferences', { did, preferences, component: 'subscriptionStore' });
       return true;
     } catch (error) {
-      logger.error('Failed to subscribe to activity', error, { component: 'subscriptionStore', did });
+      logger.error('Failed to update subscription preferences', error, { component: 'subscriptionStore', did });
       
-      // Revert optimistic update on error
       const revertedSubscriptions = new Map(get().subscriptions);
-      revertedSubscriptions.set(did, false);
+      if (originalPrefs) {
+        revertedSubscriptions.set(did, originalPrefs);
+      } else {
+        revertedSubscriptions.delete(did);
+        await ProfileCache.updateSubscriptionStatus(did, false);
+      }
       set({ subscriptions: revertedSubscriptions });
-      await ProfileCache.updateSubscriptionStatus(did, false);
-      
       return false;
     }
   },
   
   unsubscribe: async (did: string) => {
     const { subscriptions } = get();
+    const originalPrefs = subscriptions.get(did);
     
-    // Optimistic update - remove subscription immediately
     const newSubscriptions = new Map(subscriptions);
-    newSubscriptions.set(did, false);
+    newSubscriptions.delete(did);
     set({ subscriptions: newSubscriptions });
     
-    // Update ProfileCache optimistically
     const ProfileCache = (await import('../services/cache/ProfileCache')).default;
     await ProfileCache.updateSubscriptionStatus(did, false);
     
@@ -102,12 +133,12 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     } catch (error) {
       logger.error('Failed to unsubscribe from activity', error, { component: 'subscriptionStore', did });
       
-      // Revert optimistic update on error
-      const revertedSubscriptions = new Map(get().subscriptions);
-      revertedSubscriptions.set(did, true);
-      set({ subscriptions: revertedSubscriptions });
-      await ProfileCache.updateSubscriptionStatus(did, true);
-      
+      if (originalPrefs) {
+        const revertedSubscriptions = new Map(get().subscriptions);
+        revertedSubscriptions.set(did, originalPrefs);
+        set({ subscriptions: revertedSubscriptions });
+        await ProfileCache.updateSubscriptionStatus(did, true);
+      }
       return true;
     }
   },

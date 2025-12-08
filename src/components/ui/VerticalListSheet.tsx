@@ -24,6 +24,10 @@ interface VerticalListSheetProps {
   showCancelButton?: boolean;
   cancelButtonText?: string;
   /**
+   * Description text displayed below the title
+   */
+  description?: string;
+  /**
    * Custom header button to replace the close button
    */
   customHeaderButton?: React.ReactNode;
@@ -57,6 +61,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   snapPoints = ['auto'],
   showCancelButton = true,
   cancelButtonText = 'Cancel',
+  description,
   customHeaderButton,
   scrollRef,
   enableGlass = true,
@@ -147,6 +152,13 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
           )}
         </View>
         
+        {/* Description */}
+        {description && (
+          <View style={styles.descriptionContainer}>
+            <Text style={styles.descriptionText}>{description}</Text>
+          </View>
+        )}
+        
         {/* Content */}
         <View style={styles.contentContainer}>
           {children}
@@ -170,10 +182,10 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 0,
     paddingHorizontal: 15,
     paddingTop: 15,
-    paddingBottom: 15,
+    paddingBottom: 12,
   },
   headerTitle: {
     color: Colors.white,
@@ -188,6 +200,18 @@ const styles = StyleSheet.create({
     height: 30,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  descriptionContainer: {
+    marginTop: 4,
+    marginBottom: 16,
+    paddingHorizontal: 15,
+  },
+  descriptionText: {
+    color: Colors.lightGray,
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'left',
+    fontFamily: 'Firma-Regular',
   },
   contentContainer: {
     flex: 1,
@@ -248,6 +272,45 @@ const styles = StyleSheet.create({
   listButtonTextDanger: {
     color: Colors.black,
   },
+  checkboxButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.LARGE,
+  },
+  checkboxButtonContent: {
+    flex: 1,
+    marginRight: 16,
+  },
+  checkboxButtonLabel: {
+    color: Colors.lightGray,
+    fontSize: 18,
+    fontFamily: 'Firma-SemiBold',
+  },
+  checkboxButtonDescription: {
+    color: Colors.lightGray,
+    fontSize: 14,
+    fontFamily: 'Firma-Regular',
+    marginTop: 4,
+  },
+  checkboxButtonCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: BORDER_RADIUS.SMALL,
+    borderWidth: 2,
+    borderColor: Colors.lightGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxButtonCheckboxSelected: {
+    backgroundColor: Colors.white,
+    borderColor: Colors.white,
+  },
 });
 
 export default VerticalListSheet;
@@ -277,6 +340,40 @@ export const VerticalListButton: React.FC<{
         <Text style={[styles.listButtonText, danger && styles.listButtonTextDanger, textStyle]}>
           {label}
         </Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// Checkbox button for vertical list sheets (like in video post screen)
+export const VerticalListCheckboxButton: React.FC<{
+  label: string;
+  description?: string;
+  checked: boolean;
+  onPress: () => void;
+  disabled?: boolean;
+  style?: any;
+}> = ({ label, description, checked, onPress, disabled, style }) => {
+  return (
+    <TouchableOpacity
+      style={[styles.checkboxButtonRow, style]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.7}
+    >
+      <View style={styles.checkboxButtonContent}>
+        <Text style={styles.checkboxButtonLabel}>{label}</Text>
+        {description && (
+          <Text style={styles.checkboxButtonDescription}>{description}</Text>
+        )}
+      </View>
+      <View style={[
+        styles.checkboxButtonCheckbox,
+        checked && styles.checkboxButtonCheckboxSelected
+      ]}>
+        {checked && (
+          <Icon name="checkmark" size={16} color={Colors.black} />
+        )}
       </View>
     </TouchableOpacity>
   );
