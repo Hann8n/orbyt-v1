@@ -25,10 +25,43 @@ const ConversationDivider = () => (
   <View style={styles.divider} />
 );
 
+// Helper function to check if a post is a video post
+const isVideoPost = (post: any): boolean => {
+  const embed = post?.embed;
+  if (!embed) return false;
+  
+  if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
+    return true;
+  } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
+    return embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view';
+  }
+  return false;
+};
+
 export default function ConversationList({ onConversationPress, bottomNavBarHeight = 0 }: ConversationListProps) {
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
   const { updateFromConversations } = useChatStore();
+  
+  // Helper to get message text, checking cached post data for video
+  const getMessageText = useCallback((item: Conversation): string => {
+    if (item.lastMessageText) return item.lastMessageText;
+    
+    const lastMessage = item.lastMessage as any;
+    const hasEmbed = !!(lastMessage && 'embed' in lastMessage && lastMessage.embed);
+    
+    if (hasEmbed && lastMessage.embed?.record?.uri) {
+      // Check if post is already cached in React Query
+      const cachedPost = queryClient.getQueryData(['embedded-post', lastMessage.embed.record.uri]);
+      if (cachedPost && isVideoPost(cachedPost)) {
+        return 'sent a video';
+      }
+      // If not cached, default to "sent a post" (will update when post loads)
+      return 'sent a post';
+    }
+    
+    return 'No messages yet';
+  }, [queryClient]);
   
   // Use existing hook from user store
   const { currentUser } = useCurrentUser();
@@ -73,7 +106,7 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
 
   const renderConversation = useCallback(({ item }: { item: Conversation }) => {
     const otherMember = item.members.find(member => member.did !== currentUserDid) || item.members[0];
-    const hasEmbed = !!(item.lastMessage && 'embed' in item.lastMessage && (item.lastMessage as any).embed);
+    const messageText = getMessageText(item);
     
     return (
       <TouchableOpacity
@@ -116,13 +149,13 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
               ]}
               numberOfLines={1}
             >
-              {hasEmbed && !item.lastMessageText ? 'sent a post' : (item.lastMessageText || 'No messages yet')}
+              {messageText}
             </Text>
           </View>
         </View>
       </TouchableOpacity>
     );
-  }, [currentUserDid, handleConversationPress]);
+  }, [currentUserDid, handleConversationPress, getMessageText]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>

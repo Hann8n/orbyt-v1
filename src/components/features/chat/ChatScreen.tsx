@@ -197,6 +197,11 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     }
   }, [conversationId, isUserReady, currentUserId, messagesData?.messages, isLoading, getGiftedChatMessages, currentUser?.avatar, otherUser]);
 
+  // Memoize messages with embeds for video playlist
+  const messagesWithEmbeds = useMemo(() => {
+    return messages.filter(m => m.embed?.record).map(m => ({ embed: m.embed }));
+  }, [messages]);
+
   // Mark conversation as read when user views the chat screen
   useEffect(() => {
     if (conversationId && isUserReady && messagesData?.messages?.length > 0) {
@@ -449,6 +454,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                 handleReactionPress(String(message._id), emoji, isCurrentUserReacted)
               }
               onLongPress={() => setSelectedMessageId(String(message._id))}
+              conversationMessages={messagesWithEmbeds}
             />
           </View>
           {/* Anchored popover reaction picker below embedded content */}

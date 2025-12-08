@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Pressable, Linking, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 
 import { BORDER_RADIUS } from '../../../utils/constants';
@@ -30,6 +30,8 @@ interface EmbeddedPostCardProps {
   messageId?: string;
   onReactionPress?: (emoji: string, isCurrentUserReacted: boolean) => void;
   onLongPress?: () => void;
+  // Optional: all messages from conversation to build video playlist
+  conversationMessages?: Array<{ embed?: { record?: { uri?: string; cid?: string } } }>;
 }
 
 export default function EmbeddedPostCard({ 
@@ -42,8 +44,10 @@ export default function EmbeddedPostCard({
   messageId,
   onReactionPress,
   onLongPress,
+  conversationMessages,
 }: EmbeddedPostCardProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [userChoseToView, setUserChoseToView] = useState(false);
 
   // Fetch post data
@@ -193,13 +197,94 @@ export default function EmbeddedPostCard({
     // For video posts, open in Orbyt app using the existing feed modal
     if (isVideo) {
       try {
-        // Fetch the post data
+        // If we have conversation messages, build a playlist of all video posts
+        if (conversationMessages && conversationMessages.length > 0) {
+          // Get all embed URIs from messages
+          const embedUris = conversationMessages
+            .map(msg => msg.embed?.record?.uri)
+            .filter((uri): uri is string => !!uri);
+
+          // Use cached data first, only fetch missing posts
+          const videoPosts = await Promise.all(
+            embedUris.map(async (embedUri) => {
+              // Try to get from cache first
+              const cachedPost = queryClient.getQueryData(['embedded-post', embedUri]) as any;
+              
+              let postData = cachedPost;
+              
+              // Only fetch if not in cache
+              if (!postData) {
+                try {
+                  postData = await AtprotoService.getPost(embedUri);
+                  // Cache it for future use
+                  if (postData) {
+                    queryClient.setQueryData(['embedded-post', embedUri], postData);
+                  }
+                } catch {
+                  return null;
+                }
+              }
+              
+              if (!postData) return null;
+              
+              // Check if it's actually a video post
+              const embed = postData.embed;
+              const isVideoEmbed = embed?.$type === 'app.bsky.embed.video' || 
+                                 embed?.$type === 'app.bsky.embed.video#view' ||
+                                 (embed?.$type === 'app.bsky.embed.recordWithMedia#view' && 
+                                  (embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view'));
+              
+              if (!isVideoEmbed) return null;
+              
+              return {
+                post: {
+                  uri: postData.uri,
+                  cid: postData.cid,
+                  author: postData.author,
+                  record: postData.record,
+                  embed: postData.embed,
+                  replyCount: postData.replyCount,
+                  repostCount: postData.repostCount,
+                  likeCount: postData.likeCount,
+                  indexedAt: postData.indexedAt,
+                },
+                uniqueKey: postData.uri,
+                moderationDecision: postData.moderationDecision,
+              };
+            })
+          );
+
+          // Filter out nulls and reverse to match chat direction (oldest to newest)
+          const validVideoPosts = videoPosts.filter((item): item is NonNullable<typeof item> => item !== null).reverse();
+          const currentIndex = validVideoPosts.findIndex(item => item.post.uri === post.uri);
+          
+          // If we found videos, use the playlist; otherwise fall back to single post
+          if (validVideoPosts.length > 0) {
+            feedService.setCurrentFeed(validVideoPosts);
+            
+            router.push({
+              pathname: '/(modals)/feed',
+              params: {
+                feedOption: 'search',
+                userDid: undefined,
+                backgroundColor: 'transparent',
+                secondaryColor: Colors.white,
+                searchQuery: '',
+                hasNextPage: 'false',
+                isFetchingNextPage: 'false',
+                initialIndex: currentIndex >= 0 ? String(currentIndex) : '0',
+              }
+            });
+            return;
+          }
+        }
+        
+        // Fallback: single post (original behavior)
         const postData = await AtprotoService.getPost(post.uri);
         if (!postData) {
           return;
         }
         
-        // Create a feed item with the post data
         const feedItem = {
           post: {
             uri: postData.uri,
@@ -216,10 +301,8 @@ export default function EmbeddedPostCard({
           moderationDecision: post.moderationDecision,
         };
         
-        // Set the current feed with just this post
         feedService.setCurrentFeed([feedItem]);
         
-        // Navigate to feed modal
         router.push({
           pathname: '/(modals)/feed',
           params: {
@@ -238,7 +321,7 @@ export default function EmbeddedPostCard({
       // For non-video posts, open in Bluesky app
       await openPostInBluesky(post.uri);
     }
-  }, [post?.uri, isVideo, post?.moderationDecision, router]);
+  }, [post?.uri, isVideo, post?.moderationDecision, router, conversationMessages]);
 
   // Format relative time
   const formatRelativeTime = (timestamp: string): string => {
