@@ -780,6 +780,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 12,
     fontWeight: 'bold',
+    fontFamily: 'Firma-Bold',
   },
   repliesContainer: {
     // Remove marginLeft, borderLeft, and paddingLeft for cleaner nesting
@@ -832,10 +833,12 @@ const styles = StyleSheet.create({
   commentText: {
     color: Colors.white,
     fontSize: 15,
+    fontFamily: 'Firma-Regular',
   },
   commentTextNested: {
     color: Colors.white,
     fontSize: 14,
+    fontFamily: 'Firma-Regular',
   },
   commentMetaContainer: {
     flexDirection: 'row',
@@ -845,6 +848,7 @@ const styles = StyleSheet.create({
   commentTimestamp: {
     fontSize: 12,
     color: Colors.gray,
+    fontFamily: 'Firma-Regular',
     marginRight: 12,
   },
   replyButton: {
@@ -969,6 +973,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: Colors.gray,
     fontWeight: 'bold',
+    fontFamily: 'Firma-Bold',
   },
 });
 

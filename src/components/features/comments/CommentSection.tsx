@@ -822,6 +822,7 @@ const styles = StyleSheet.create({
   dateText: {
     color: Colors.gray,
     fontSize: 15,
+    fontFamily: 'Firma-Regular',
     marginRight: 0,
   },
   actionButton: {
@@ -962,6 +963,7 @@ const styles = StyleSheet.create({
   altText: {
     color: Colors.white,
     fontSize: 15,
+    fontFamily: 'Firma-Regular',
     marginTop: 16,
     textAlign: 'center',
     maxWidth: '90%',

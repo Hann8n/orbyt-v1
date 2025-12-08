@@ -1140,6 +1140,7 @@ const ExploreScreen: React.FC = () => {
       fontSize: indicatorBaseFontSize,
       marginRight: 8,
       fontWeight: 'bold' as const,
+      fontFamily: 'Firma-Black',
       opacity,
     };
   }, [activeTab, pages, indicatorScrollProgress, activeIndex]);
