@@ -141,6 +141,8 @@ export function useFeed(
   });
 
   // Flatten the pages for a single data array
+  // React Query's placeholderData keeps previous data during refetch
+  // This ensures FlashList maintains scroll position when feed updates
   const feedPages = query.data?.pages ?? [];
 
   // Deduplicate feed items and create stable array

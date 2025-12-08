@@ -190,9 +190,9 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   // Track previous visibility to detect return to feed
   const wasVisibleRef = useRef(isVisible);
 
-  const visibleFeed = useMemo(() => {
-    return isRefreshing ? [] : feed;
-  }, [feed, isRefreshing]);
+  // Always show feed - don't clear on refresh to maintain scroll position
+  // FlashList's maintainVisibleContentPosition will handle position preservation
+  const visibleFeed = useMemo(() => feed, [feed]);
 
   // List data with end card
   const listData = useMemo(() => {
@@ -368,52 +368,47 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }, 0);
   }, [isVisible, isFeedActive, viewMode, listData, activeItemUri, onViewableItemsChanged]);
 
-  // FlashList v2: Restore scroll position when returning to feed
-  // Uses stored activeItemUri/activeItemIndex from visibility store to maintain video position
-  // Prefers URI-based matching for better reliability when feed data updates
+  // FlashList v2: Restore scroll position only when returning to feed (visibility change)
+  // For data updates/refreshes, FlashList's maintainVisibleContentPosition handles position automatically
   useEffect(() => {
-    // Track visibility changes
     const wasVisible = wasVisibleRef.current;
     wasVisibleRef.current = isVisible;
 
-    // Only restore on transition from not visible to visible
-    if (!wasVisible && isVisible && !hasRestoredPositionRef.current) {
-      if (flashListRef.current && listData.length > 0) {
-        // Reset the restored flag when we start restoration
-        hasRestoredPositionRef.current = true;
-        
-        // Try to find the item by URI first (more reliable when feed data updates)
-        let targetIndex = -1;
-        if (activeItemUri) {
-          targetIndex = listData.findIndex(
-            item => !item.endCard && item.post?.uri === activeItemUri
-          );
-        }
-        
-        // Fall back to index-based restoration if URI not found
-        if (targetIndex < 0 && activeItemIndex >= 0 && activeItemIndex < listData.length) {
-          targetIndex = activeItemIndex;
-        }
-        
-        // Only restore if we found a valid target
-        if (targetIndex >= 0) {
-          // Small delay to ensure FlashList is ready
-          requestAnimationFrame(() => {
-            try {
-              flashListRef.current?.scrollToIndex({
-                index: targetIndex,
-                animated: false,
-                viewPosition: 0.5,
-              });
-            } catch (error) {
-              // Handle scroll errors gracefully - FlashList v2 is more resilient
-            }
-          });
-        }
+    // Only restore on transition from not visible to visible (e.g., tab switch)
+    // NOT on data updates - FlashList handles those automatically
+    // The visibility check (!wasVisible && isVisible) prevents runs on data-only updates
+    if (!wasVisible && isVisible && !hasRestoredPositionRef.current && flashListRef.current && listData.length > 0) {
+      hasRestoredPositionRef.current = true;
+      
+      // Find item by URI (most reliable)
+      let targetIndex = -1;
+      if (activeItemUri) {
+        targetIndex = listData.findIndex(
+          item => !item.endCard && item.post?.uri === activeItemUri
+        );
+      }
+      
+      // Fall back to index if URI not found
+      if (targetIndex < 0 && activeItemIndex >= 0 && activeItemIndex < listData.length) {
+        targetIndex = activeItemIndex;
+      }
+      
+      if (targetIndex >= 0) {
+        requestAnimationFrame(() => {
+          try {
+            flashListRef.current?.scrollToIndex({
+              index: targetIndex,
+              animated: false,
+              viewPosition: 0.5,
+            });
+          } catch {
+            // FlashList handles errors gracefully
+          }
+        });
       }
     }
 
-    // Reset restoration flag when visibility is lost so next return will restore
+    // Reset flag when visibility lost
     if (wasVisible && !isVisible) {
       hasRestoredPositionRef.current = false;
     }

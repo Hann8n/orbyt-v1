@@ -675,8 +675,11 @@ class FeedService {
       staleTime: queryOptions.staleTime ?? FEED_CONFIG.staleTime,
       gcTime: queryOptions.cacheTime ?? FEED_CONFIG.cacheTime,
       refetchOnWindowFocus: queryOptions.refetchOnWindowFocus ?? false,
-      refetchOnMount: queryOptions.refetchOnMount ?? false, // Changed from true to false to prevent unnecessary refreshes
+      refetchOnMount: queryOptions.refetchOnMount ?? false,
       refetchOnReconnect: queryOptions.refetchOnReconnect ?? true,
+      // Use placeholderData to maintain previous data during refetch
+      // This prevents the feed from clearing and losing scroll position
+      placeholderData: (previousData) => previousData,
       ...queryOptions
     });
   }
