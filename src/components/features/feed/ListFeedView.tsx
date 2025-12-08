@@ -227,7 +227,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     try {
       flashListRef.current.scrollToIndex({ 
         index: targetIndex, 
-        animated: true,
+        animated: false,
         viewPosition: 0.5
       });
     } catch (error) {
