@@ -771,19 +771,35 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
 
   if (isLoading || isLoadingConversation || isLoadingOtherUser || !isUserReady) {
     return (
-      <View style={styles.loadingContainer}>
-        <Loading3FillIcon size={48} color={Colors.white} />
-        <Text style={styles.loadingText}>Loading conversation...</Text>
+      <View style={styles.container}>
+        <SafeAreaView style={styles.safeAreaTop} edges={['top']}>
+          <View />
+        </SafeAreaView>
+        <View style={styles.loadingContainer}>
+          <Loading3FillIcon size={48} color={Colors.white} />
+          <Text style={styles.loadingText}>Loading conversation...</Text>
+        </View>
+        <SafeAreaView style={styles.safeAreaBottom} edges={['bottom']}>
+          <View />
+        </SafeAreaView>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
-        <Icon name="alert-circle" size={48} color={Colors.lightRed} />
-        <Text style={styles.errorTitle}>Unable to load messages</Text>
-        <Text style={styles.errorSubtitle}>Please check your connection and try again</Text>
+      <View style={styles.container}>
+        <SafeAreaView style={styles.safeAreaTop} edges={['top']}>
+          <View />
+        </SafeAreaView>
+        <View style={styles.errorContainer}>
+          <Icon name="alert-circle" size={48} color={Colors.lightRed} />
+          <Text style={styles.errorTitle}>Unable to load messages</Text>
+          <Text style={styles.errorSubtitle}>Please check your connection and try again</Text>
+        </View>
+        <SafeAreaView style={styles.safeAreaBottom} edges={['bottom']}>
+          <View />
+        </SafeAreaView>
       </View>
     );
   }
@@ -792,7 +808,10 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   const headerHeight = 60; // Approximate header height
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeAreaTop} edges={['top']}>
+        <View />
+      </SafeAreaView>
       <KeyboardAvoidingView 
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -801,7 +820,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       >
         {/* Chat Header */}
         <View style={styles.chatHeader}>
-        <View style={styles.headerContent}>
+          <View style={styles.headerContent}>
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => {
@@ -856,10 +875,9 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
               </View>
             </View>
           )}
+          </View>
         </View>
-      </View>
-      
-      <GiftedChat
+        <GiftedChat
         messages={messages}
         onSend={onSend}
         user={giftedChatUser}
@@ -887,24 +905,32 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
           // Dismiss emoji bar when tapping avatar
           setSelectedMessageId(null);
         }}
-      />
-      
-      {/* Chat Actions Sheet */}
-      <ChatActionsSheet
-        visible={showActionsSheet}
-        onDismiss={() => setShowActionsSheet(false)}
-        conversationId={conversationId}
-        otherUserDid={otherUserDid}
-      />
-      
+        />
+        
+        {/* Chat Actions Sheet */}
+        <ChatActionsSheet
+          visible={showActionsSheet}
+          onDismiss={() => setShowActionsSheet(false)}
+          conversationId={conversationId}
+          otherUserDid={otherUserDid}
+        />
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      <SafeAreaView style={styles.safeAreaBottom} edges={['bottom']}>
+        <View />
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.black,
+  },
+  safeAreaTop: {
+    backgroundColor: Colors.black,
+  },
+  safeAreaBottom: {
     backgroundColor: Colors.black,
   },
   keyboardContainer: {
