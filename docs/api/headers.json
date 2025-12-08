@@ -39,27 +39,11 @@
   },
   "headers": [
     {
-      "id": "header-3.2",
-      "imageUrl": "banners/andromeda-23596_512.gif",
-      "destinationUrl": null,
-      "title": "orbyt",
-      "subtitle": "video community",
-      "titleColor": "fff",
-      "subtitleColor": "#fff",
-      "titleFontFamily": "Firma-Black",
-      "titleFontSize": 32,
-      "subtitleFontFamily": "Firma-SemiBold",
-      "subtitleFontSize": 18,
-      "titleOpacity": 1,
-      "subtitleOpacity": 0.8,
-      "textOrder": "title-first"
-    },
-    {
       "id": "discord-header",
       "imageUrl": "banners/3053370.png",
       "destinationUrl": "https://discord.gg/8gNQPFygnF",
       "title": null,
-      "subtitle": "join the orbyt discord",
+      "subtitle": "join the discord",
       "titleColor": "#000000",
       "subtitleColor": "#ffffff",
       "titleFontFamily": "Firma-Black",
