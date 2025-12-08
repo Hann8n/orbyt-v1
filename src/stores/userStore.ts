@@ -23,7 +23,6 @@ import { logger } from '../utils/logger';
 import { ModerationService } from '../services/ModerationService';
 import { isOrbytChannel } from '../utils/orbytChannels';
 import { queryClient } from '../utils/queryClient';
-import { clearThumbnailColorCache } from '../utils/helpers/video';
 import { usePostInteractionStore } from './postInteractionStore';
 
 // Lazy import feedService to avoid circular dependency
@@ -1009,9 +1008,6 @@ export const useUserStore = create<UserState>()(
           
           // Clear search results state
           getFeedService().clearCurrentFeed();
-          
-          // Clear thumbnail color cache
-          clearThumbnailColorCache();
           
           // Clear post interaction cache
           usePostInteractionStore.getState().clearInteractions();

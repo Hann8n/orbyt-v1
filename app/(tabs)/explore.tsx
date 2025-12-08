@@ -42,6 +42,7 @@ import { feedService } from '../../src/services/FeedService';
 import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import { extractVideoThumbnail } from '../../src/utils/helpers/video';
 import { formatNumber, formatHandle } from '../../src/utils/helpers';
+import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnailBackground';
 import { HeaderService, useHeaders } from '../../src/services/APIService';
 import { useFeed } from '../../src/hooks/useFeed';
 import { ModerationService } from '../../src/services/ModerationService';
@@ -1934,7 +1935,6 @@ const ExploreScreen: React.FC = () => {
                   renderItem={({ item: video }) => {
                     const videoData = video.post || video;
                     const thumbnailUrl = extractVideoThumbnail(videoData?.embed);
-                    const thumbnailColor = Colors.darkGray;
                     const shouldBlur = !!video.moderationDecision?.blur;
                     
                     return (
@@ -1972,12 +1972,13 @@ const ExploreScreen: React.FC = () => {
                         }
                       }}
                     >
-                      <View style={[styles.spotlightVideoThumbnailContainer, { backgroundColor: thumbnailColor }]}>
+                      <View style={styles.spotlightVideoThumbnailContainer}>
+                        <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
                         {thumbnailUrl ? (
                           <Image
                             source={{ uri: thumbnailUrl }}
                             style={styles.spotlightVideoThumbnail}
-                            resizeMode="cover"
+                            resizeMode="contain"
                           />
                         ) : (
                           <View style={styles.spotlightVideoThumbnailPlaceholder}>
@@ -2529,6 +2530,8 @@ const styles = StyleSheet.create({
     height: 160, // 9:16 aspect ratio (90 * 16/9)
     borderRadius: 8,
     overflow: 'hidden' as const,
+    position: 'relative',
+    zIndex: 1,
   },
   spotlightVideoThumbnailPlaceholder: {
     width: 90,

@@ -28,7 +28,6 @@ import { useChannelColors } from '../../src/services/cache/ChannelCache';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileCache from '../../src/services/cache/ProfileCache';
 import ChannelCache from '../../src/services/cache/ChannelCache';
-import { clearThumbnailColorCache } from '../../src/utils/helpers/video';
  
 
 
@@ -183,9 +182,6 @@ const SettingsScreen: React.FC = () => {
                 ProfileCache.clearCache(),
                 ChannelCache.clearCache(),
               ]);
-              
-              // Clear thumbnail color cache
-              clearThumbnailColorCache();
               
               // Clear React Query cache
               queryClient.clear();

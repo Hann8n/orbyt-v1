@@ -29,6 +29,7 @@ import { BlurView } from 'expo-blur';
 import { Image } from 'react-native';
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
+import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 import { extractVideoUrl, extractVideoThumbnail, createVideoSource } from '../../../utils/helpers/video';
 import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
@@ -631,17 +632,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     return (
       <View style={[styles.container, { height: cardHeight }]}>
         {/* Blurred thumbnail background */}
-        {!!posterUrl && (
-          <View style={styles.blurredBackgroundContainer}>
-            <Image
-              source={{ uri: posterUrl }}
-              style={styles.blurredBackground}
-              resizeMode="cover"
-            />
-            <BlurView intensity={100} tint="systemChromeMaterialDark" style={styles.blurredBackgroundBlur} />
-            <View style={styles.blurredBackgroundOverlay} />
-          </View>
-        )}
+        <BlurredThumbnailBackground thumbnailUrl={posterUrl} />
         {/* Unified Video and Overlay Container */}
         <Pressable 
           onPress={handleVideoTap} 
@@ -765,25 +756,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     backgroundColor: '#000000', // Fallback background color
-  },
-  blurredBackgroundContainer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
-    overflow: 'hidden',
-  },
-  blurredBackground: {
-    width: '200%',
-    height: '200%',
-    position: 'absolute',
-    top: '-50%',
-    left: '-50%',
-  },
-  blurredBackgroundBlur: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  blurredBackgroundOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   videoContainerPressable: {
     width: '100%',

@@ -104,8 +104,3 @@ export function extractVideoEmbedAndUrl(post: any): { videoEmbed: any; videoUrl:
   const videoUrl = extractVideoUrl(videoEmbed);
   return { videoEmbed, videoUrl };
 }
-
-// Cache management
-export function clearThumbnailColorCache(): void {
-  thumbnailColorCache.clear();
-}

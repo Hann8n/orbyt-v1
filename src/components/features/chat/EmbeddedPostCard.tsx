@@ -10,6 +10,7 @@ import { Colors } from '../../ui/UI';
 import { Avatar } from '../../ui/UI';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import Icon from '../../ui/Icon';
+import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 import { AtprotoService } from '../../../services/api/AtprotoService';
 import { ModerationDecision } from '../../../services/ModerationTypes';
 import { feedService } from '../../../services/FeedService';
@@ -335,10 +336,13 @@ export default function EmbeddedPostCard({
         
         {showImage && thumbnailUrl && (
           <View style={styles.cleanImageContainer}>
+            {/* Blurred thumbnail background */}
+            <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
+            {/* Main image */}
             <Image 
               source={{ uri: thumbnailUrl }}
               style={styles.cleanImage}
-              resizeMode="cover"
+              resizeMode="contain"
             />
             {isBlurred && (
               <BlurView intensity={80} tint="dark" style={styles.cleanBlurOverlay} />
@@ -381,10 +385,13 @@ export default function EmbeddedPostCard({
     if (isVideo) {
       return (
         <View style={styles.videoThumbnailContainer}>
+          {/* Blurred thumbnail background */}
+          <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
+          {/* Main thumbnail */}
           <Image 
             source={{ uri: thumbnailUrl }}
             style={styles.videoThumbnail}
-            resizeMode="cover"
+            resizeMode="contain"
           />
           
           {/* Black gradient from bottom */}
@@ -516,6 +523,8 @@ const styles = StyleSheet.create({
   videoThumbnail: {
     width: '100%',
     height: '100%',
+    position: 'relative',
+    zIndex: 1,
   },
   videoGradient: {
     position: 'absolute',
@@ -663,6 +672,8 @@ const styles = StyleSheet.create({
   cleanImage: {
     width: '100%',
     height: 160,
+    position: 'relative',
+    zIndex: 1,
   },
   cleanBlurOverlay: {
     ...StyleSheet.absoluteFillObject,

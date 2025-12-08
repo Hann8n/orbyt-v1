@@ -17,6 +17,7 @@ import Svg, { Path, Rect, G } from 'react-native-svg';
 import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
 import { feedService } from '../../../services/FeedService';
 import { Colors } from '../../ui/UI';
+import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 
 // Custom Warning Icon Component
 const WarningIcon = ({ size = 24, color = Colors.white }: { size?: number; color?: string }) => (
@@ -45,17 +46,22 @@ export const VideoGridItem: React.FC<{
   
   const handlePress = useCallback(() => onPress(index), [onPress, index]);
   
+  const validThumbnailUrl = thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== '' ? thumbnailUrl : null;
+  
   return (
     <TouchableOpacity
       style={[styles.gridItem, style, itemStyle]}
       activeOpacity={0.7}
       onPress={handlePress}
     >
-      <Image
-        source={{ uri: thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== '' ? thumbnailUrl : undefined }}
-        style={[styles.thumbnail, thumbnailStyle]}
-        resizeMode="cover"
-      />
+      <BlurredThumbnailBackground thumbnailUrl={validThumbnailUrl} />
+      {validThumbnailUrl && (
+        <Image
+          source={{ uri: validThumbnailUrl }}
+          style={[styles.thumbnail, thumbnailStyle]}
+          resizeMode="contain"
+        />
+      )}
       {shouldBlur && (
         <BlurView intensity={80} tint="dark" style={styles.warningOverlay} />
       )}
@@ -180,6 +186,8 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: Colors.darkGray,
     borderRadius: BORDER_RADIUS.MEDIUM,
+    position: 'relative',
+    zIndex: 1,
   },
   warningOverlay: {
     position: 'absolute',
