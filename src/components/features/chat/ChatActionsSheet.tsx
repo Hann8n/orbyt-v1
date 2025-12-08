@@ -35,7 +35,6 @@ export default function ChatActionsSheet({
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-
   // Accept conversation mutation
   const acceptConversationMutation = useMutation({
     mutationFn: () => ChatService.acceptConversation(conversationId),
@@ -94,13 +93,7 @@ export default function ChatActionsSheet({
   // Get the recipient's name for the title
   const getRecipientName = () => {
     if (!conversation?.members?.length) return 'User';
-    
-    // Find the recipient using the otherUserDid prop (which should be the recipient's DID)
-    const recipient = conversation.members.find(member => 
-      member.did === otherUserDid
-    );
-    
-    // Use handle, fallback to 'User'
+    const recipient = conversation.members.find(member => member.did === otherUserDid);
     return formatHandle(recipient?.handle) || 'User';
   };
 
@@ -158,17 +151,16 @@ export default function ChatActionsSheet({
 
   // Filter actions based on conversation status
   const chatActions = allActions.filter(action => {
-    // Only show accept conversation if the conversation status indicates it needs acceptance
+    // Only show accept conversation if the conversation status is not "accepted" (using API status directly)
     if (action.id === 'accept-conversation') {
-      return conversation?.status === 'pending' || conversation?.status === 'request';
+      return conversation?.status !== 'accepted';
     }
     return true;
   });
 
   const renderActionItem = (action: ChatAction) => {
     const isActionLoading = isLoading === action.id;
-    
-    // Use custom rendering to match settings destructive styling
+
     if (action.destructive) {
       return (
         <View key={action.id} style={styles.destructiveActionContainer}>
@@ -190,7 +182,7 @@ export default function ChatActionsSheet({
         </View>
       );
     }
-    
+
     return (
       <VerticalListButton
         key={action.id}

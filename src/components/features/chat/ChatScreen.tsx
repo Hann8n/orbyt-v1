@@ -182,6 +182,32 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     return null;
   }, [conversationData, currentUserId]);
 
+  // Check if current user initiated the conversation by checking if they sent the first message
+  const currentUserInitiated = useMemo(() => {
+    // Check messages array first
+    if (messagesData?.messages && messagesData.messages.length > 0) {
+      // Get the oldest message (last in the array since messages are sorted by date desc)
+      const oldestMessage = messagesData.messages[messagesData.messages.length - 1];
+      return oldestMessage?.senderDid === currentUserId;
+    }
+    
+    // If no messages in array, check lastMessage from conversation data
+    if (conversationData?.lastMessage) {
+      const lastMessage = conversationData.lastMessage;
+      // Check if lastMessage is a deleted message view
+      if ('deleted' in lastMessage && lastMessage.deleted) {
+        return false; // Can't determine from deleted message
+      }
+      // Check sender of last message
+      if ('sender' in lastMessage && lastMessage.sender) {
+        return lastMessage.sender.did === currentUserId;
+      }
+    }
+    
+    // If no messages at all, assume user is starting a new conversation (they initiated)
+    return true;
+  }, [messagesData?.messages, conversationData?.lastMessage, currentUserId]);
+
   // Fetch profile information for the other user
   const {
     data: otherUserProfile,
@@ -191,8 +217,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     queryFn: () => AtprotoService.getProfile(otherUserDid!),
     enabled: !!otherUserDid && !conversationData?.members?.find(m => m.did === otherUserDid)?.displayName,
   });
-
-
 
   // Convert API messages to GiftedChat format
   const convertToGiftedChatMessages = useCallback((apiMessages: Message[]): ChatMessage[] => {
@@ -374,8 +398,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     }
   }, [addReactionMutation, removeReactionMutation, messages, currentUserId, currentUser, queryClient, conversationId]);
 
-
-
   // Format date for day separator
   const formatDate = (date: Date) => {
     const now = new Date();
@@ -458,11 +480,12 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     );
   }, [currentUserId, currentUser, sendMessageMutation.isPending]);
 
-
   const renderInputToolbar = useCallback((props: any) => {
-    const isPending = conversationData?.status === 'pending' || conversationData?.status === 'request';
+    // Only show accept/reject buttons if conversation status is not "accepted" (using API status directly)
+    // AND the current user is the recipient (didn't initiate the conversation)
+    const showAcceptReject = conversationData?.status !== 'accepted' && !currentUserInitiated;
     
-    if (isPending) {
+    if (showAcceptReject) {
       return (
         <View style={styles.inputToolbar}>
           <View style={styles.actionButtonsContainer}>
@@ -507,10 +530,9 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         </View>
       </View>
     );
-  }, [conversationData?.status, rejectConversationMutation, acceptConversationMutation]);
+  }, [conversationData?.status, currentUserInitiated, rejectConversationMutation, acceptConversationMutation]);
 
   const renderAvatar = useCallback(() => null, []);
-
 
   // Get the other user (not the current user) from the conversation
   const otherUser = useMemo(() => {
@@ -768,7 +790,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
 
   // Calculate header height for keyboard offset
   const headerHeight = 60; // Approximate header height
-  
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <KeyboardAvoidingView 
