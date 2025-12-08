@@ -441,7 +441,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
                 return (
                   <>
-                    {!isFollowing && !showFollowConfirmation && !isCurrentUserProfile && (
+                    {cachedProfile && !isFollowing && !showFollowConfirmation && !isCurrentUserProfile && (
                       <TouchableOpacity
                         onPress={() => {
                           if (!post.author?.handle) return;
