@@ -19,8 +19,8 @@ interface TabNavigationProps {
   backgroundColor?: string;
   accentColor?: string; // Add accent color for vibrant tab styling
   style?: any;
-  viewMode?: 'list' | 'grid' | 'horizontal';
-  onViewModeChange?: (mode: 'list' | 'grid' | 'horizontal') => void;
+  viewMode?: 'list' | 'grid';
+  onViewModeChange?: (mode: 'list' | 'grid') => void;
   showViewToggle?: boolean;
   variant?: 'header' | 'comments'; // New prop to distinguish between header and comments styles
   dropdown?: boolean; // New prop to show as dropdown instead of tabs

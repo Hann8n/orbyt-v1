@@ -419,10 +419,10 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
   }, [isVisible, activeItemIndex, activeItemUri, listData]);
 
-  // Unified item press handler for grid and horizontal feeds
+  // Unified item press handler for grid feeds
   // Uses FlashList's native scrollToIndex when switching to list view
   const handleGridItemPress = useCallback((index: number) => {
-    if ((viewMode === 'grid' || viewMode === 'horizontal') && onViewModeChange && index >= 0 && index < feed.length) {
+    if (viewMode === 'grid' && onViewModeChange && index >= 0 && index < feed.length) {
       onViewModeChange('list');
       
       setTimeout(() => {

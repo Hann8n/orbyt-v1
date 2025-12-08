@@ -29,8 +29,44 @@ import { QUERY_CONSTANTS } from '../../../utils/constants';
 import { FeedItem } from '../../../types';
 import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers';
 import EmptyFeed from './EmptyFeed';
-import { VideoGridItem } from './HorizontalVideoList';
+import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 
+// Memoized shared video item component
+const VideoGridItem: React.FC<{
+  item: FeedItem;
+  index: number;
+  onPress: (index: number) => void;
+  style?: any;
+  itemStyle?: any;
+  thumbnailStyle?: any;
+}> = React.memo(({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
+  const thumbnailUrl = extractVideoThumbnail(item.post.embed);
+  const shouldBlur = !!item.moderationDecision?.blur;
+  
+  const handlePress = useCallback(() => onPress(index), [onPress, index]);
+  
+  const validThumbnailUrl = thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== '' ? thumbnailUrl : null;
+  
+  return (
+    <TouchableOpacity
+      style={[styles.gridItem, style, itemStyle]}
+      activeOpacity={0.7}
+      onPress={handlePress}
+    >
+      <BlurredThumbnailBackground thumbnailUrl={validThumbnailUrl} />
+      {validThumbnailUrl && (
+        <Image
+          source={{ uri: validThumbnailUrl }}
+          style={[styles.thumbnail, thumbnailStyle]}
+          resizeMode="contain"
+        />
+      )}
+      {shouldBlur && (
+        <BlurView intensity={80} tint="dark" style={styles.warningOverlay} />
+      )}
+    </TouchableOpacity>
+  );
+});
 
 const ITEM_MARGIN = 1; // Set divider thickness to 1 for both directions
 

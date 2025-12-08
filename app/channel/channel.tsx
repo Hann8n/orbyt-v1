@@ -65,7 +65,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   const colorsMutation = useChannelColorsMutation();
 
   // View mode state
-  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'horizontal'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   // Check if this is a category channel (hashtag feed) - postable Orbyt channels
   const isCategoryChannel = useMemo(() => {

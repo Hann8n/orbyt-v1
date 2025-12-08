@@ -41,8 +41,8 @@ interface ChannelHeaderProps {
   children?: React.ReactNode;
   applySafeArea?: boolean;
   headerStyle?: any;
-  viewMode?: 'list' | 'grid' | 'horizontal';
-  onViewModeChange?: (mode: 'list' | 'grid' | 'horizontal') => void;
+  viewMode?: 'list' | 'grid';
+  onViewModeChange?: (mode: 'list' | 'grid') => void;
   showViewToggle?: boolean;
 }
 
@@ -55,8 +55,8 @@ const SubscribeButton: React.FC<{
   backgroundColor: string;
   accentColor: string;
   channelColor?: string;
-  viewMode?: 'list' | 'grid' | 'horizontal';
-  onViewModeChange?: (mode: 'list' | 'grid' | 'horizontal') => void;
+  viewMode?: 'list' | 'grid';
+  onViewModeChange?: (mode: 'list' | 'grid') => void;
   showViewToggle?: boolean;
   containerStyle?: any;
 }> = ({ channel, textColor, backgroundColor, accentColor, channelColor, viewMode = 'list', onViewModeChange, showViewToggle = false, containerStyle }) => {

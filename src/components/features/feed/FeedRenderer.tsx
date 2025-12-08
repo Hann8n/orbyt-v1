@@ -11,7 +11,6 @@ import { useRouter } from 'expo-router';
 import ListFeedView from './ListFeedView';
 import GridFeedView from './GridFeedView';
 import EmptyFeed from './EmptyFeed';
-import HorizontalVideoList from './HorizontalVideoList';
 import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import { Colors } from '../../ui/UI';
@@ -54,8 +53,8 @@ interface FeedRendererProps {
   isModal?: boolean;
   
   // View mode
-  viewMode?: 'list' | 'grid' | 'horizontal';
-  onViewModeChange?: (mode: 'list' | 'grid' | 'horizontal') => void;
+  viewMode?: 'list' | 'grid';
+  onViewModeChange?: (mode: 'list' | 'grid') => void;
   
   // Callbacks
   onRetryFeed?: () => void;
@@ -321,7 +320,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
   const navigation = useRouter();
   
   const handleItemPress = useCallback((index: number) => {
-    if ((viewMode === 'grid' || viewMode === 'horizontal') && index >= 0 && index < feed.length) {
+    if (viewMode === 'grid' && index >= 0 && index < feed.length) {
       // Set the current feed so the modal can use it
       feedService.setCurrentFeed(feed);
       
@@ -346,17 +345,6 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
         <GridFeedView
           {...commonProps}
           onGridItemPress={handleItemPress}
-          isError={isSearchFeed ? false : errorState.finalIsError}
-          error={isSearchFeed ? null : errorState.finalError}
-        />
-      );
-    }
-    
-    if (viewMode === 'horizontal') {
-      return (
-        <HorizontalVideoList
-          {...commonProps}
-          onVideoItemPress={handleItemPress}
           isError={isSearchFeed ? false : errorState.finalIsError}
           error={isSearchFeed ? null : errorState.finalError}
         />
