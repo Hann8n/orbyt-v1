@@ -1137,7 +1137,7 @@ const ExploreScreen: React.FC = () => {
     const indicatorBaseFontSize = 20;
     
     return {
-      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.6)',
+      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.75)',
       fontSize: indicatorBaseFontSize,
       marginRight: 8,
       fontWeight: 'bold' as const,

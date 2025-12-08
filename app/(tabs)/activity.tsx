@@ -209,7 +209,7 @@ const ActivityScreen: React.FC = () => {
     const indicatorBaseFontSize = 22;
     
     return {
-      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.8)',
+      color: isActive ? Colors.white : 'rgba(255, 255, 255, 0.75)',
       fontSize: indicatorBaseFontSize,
       marginRight: 8,
       fontWeight: 'bold' as const,

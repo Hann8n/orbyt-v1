@@ -187,7 +187,7 @@ export default function TabsLayout() {
             zIndex: 10,
           },
           tabBarActiveTintColor: '#fff',
-          tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
+          tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.75)',
           tabBarIcon: ({ color, focused }) => {
             switch (route.name) {
               case 'index':
