@@ -5,6 +5,9 @@ import VerticalListSheet, { VerticalListCheckboxButton } from '../../ui/Vertical
 import { Colors } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { useSubscriptionStore } from '../../../stores/subscriptionStore';
+import { shallow } from 'zustand/shallow';
+
+const DEFAULT_PREFERENCES = { post: false, reply: false };
 
 interface SubscriptionOptionsSheetProps {
   visible: boolean;
@@ -20,9 +23,17 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
   const insets = useSafeAreaInsets();
   const updatePreferences = useSubscriptionStore((state) => state.updatePreferences);
   const unsubscribe = useSubscriptionStore((state) => state.unsubscribe);
-  const getPreferences = useSubscriptionStore((state) => state.getPreferences);
-  
-  const preferences = did ? (getPreferences(did) || { post: false, reply: false }) : { post: false, reply: false };
+  const preferences = useSubscriptionStore(
+    useCallback(
+      (state) => {
+        if (!did) return DEFAULT_PREFERENCES;
+        const prefs = state.subscriptions.get(did);
+        return prefs ?? DEFAULT_PREFERENCES;
+      },
+      [did],
+    ),
+    shallow,
+  );
 
   const handleTogglePreference = useCallback(async (key: 'post' | 'reply') => {
     if (!did) return;
