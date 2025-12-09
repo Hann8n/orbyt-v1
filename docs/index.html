@@ -1,834 +1,263 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orbyt - A New Social App for Bluesky</title>
-    
-    <!-- Favicon setup -->
+    <meta name="google-site-verification" content="4xaimUg28uLCqKwsPNIz6QeG_tfnLlAdHgS5bC_90JU"/>
+    <meta charset="utf-8">
+    <title>orbyt - video communities</title>
+    <meta name="description" content="a new video app for bluesky">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta property="og:title" content="orbyt - video communities"/>
+    <meta property="og:description" content="a new video app for bluesky"/>
+    <meta property="og:type" content="website"/>
+    <meta property="og:url" content="https://getorbyt.com/"/>
+    <meta property="og:image" content="https://getorbyt.com/orbyt-banner.png"/>
+
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,500,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/skeleton/2.0.4/skeleton.min.css">
+
+    <link rel="icon" type="image/png" href="favicon_io/favicon.png">
     <link rel="apple-touch-icon" sizes="180x180" href="favicon_io/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon_io/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon_io/favicon-16x16.png">
     <link rel="icon" href="favicon_io/favicon.ico">
     <link rel="manifest" href="favicon_io/site.webmanifest">
-    
-    <!-- Theme colors for mobile browsers -->
-    <meta name="theme-color" content="#ffffff">
-    <meta name="msapplication-TileColor" content="#ffffff">
-    <style>
-        @font-face {
-            font-family: 'Firma-Black';
-            src: url('../src/assets/fonts/Firma-Black.otf') format('opentype');
-        }
-        
-        @font-face {
-            font-family: 'Firma-Regular';
-            src: url('../src/assets/fonts/Firma-Regular.otf') format('opentype');
-        }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+    <style>
+    @font-face {
+        font-family: 'Firma-Regular';
+        src: url('../src/assets/fonts/Firma-Regular.otf') format('opentype');
+    }
+
+    @font-face {
+        font-family: 'Firma-Medium';
+        src: url('../src/assets/fonts/Firma-Medium.otf') format('opentype');
+    }
+
+    a:hover {
+        color: #fff;
+    }
+
+    html, body {
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        background: #000 url(/orbyt-banner.png);
+        background-repeat: no-repeat;
+        background-size: 100%;
+        font-family: 'Montserrat', sans-serif;
+        position: relative;
+    }
+
+    .container {
+        position: relative;
+    }
+
+    .download-button {
+        background: #551DEF;
+        border: 2px solid #000000;
+        border-radius: 30px;
+        height: 60px;
+        font-weight: bold;
+        font-size: 23px;
+        line-height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        text-decoration: none;
+        color: #E0EBFF;
+        max-width: 500px;
+        margin: 0 auto 10px auto;
+    }
+
+    .row.first {
+        margin-top: 30%;
+    }
+
+    .row.buttons {
+        text-align: center;
+    }
+
+    .logo {
+        text-align: center;
+    }
+
+    .logo img {
+        width: 250px;
+        height: auto;
+    }
+
+    .motto {
+        margin-bottom: 10px;
+    }
+
+    .motto div {
+        text-align: center;
+    }
+
+    .motto img {
+        width: 80%;
+        max-width: 200px;
+        margin: 40px 0;
+        height: auto;
+    }
+
+    .separator {
+        height: 20px;
+        margin-top: 80px;
+        margin-bottom: 40px;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .separator svg {
+        width: 100%;
+        min-width: 200px;
+        height: 20px;
+        overflow: visible;
+    }
+
+    .footer {
+        text-align: left;
+        white-space: nowrap;
+        display: block;
+        margin-bottom: 40px;
+    }
+
+    .footer a {
+        margin: 0 20px 0 0;
+        display: inline-block;
+        font-style: normal;
+        font-weight: bold;
+        font-size: 13px;
+        text-align: left;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        text-decoration: none;
+        color: #ccc;
+    }
+
+    .footer a:hover {
+        color: #fff;
+    }
+
+    @media (max-width: 500px) {
+        .row.first {
+            margin-top: 80%;
         }
 
         body {
-            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #000000;
-            min-height: 100vh;
-            color: white;
-            position: relative;
-            overflow-x: hidden;
-            overflow-y: auto;
+            background: #000 url(/orbyt-banner.png);
+            background-repeat: no-repeat;
+            background-size: 180%, 180%, cover;
+            background-position-x: 50%;
+            background-position-y: -10%;
         }
 
-        /* Star container for dynamic positioning */
-        .stars-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            pointer-events: none;
-            opacity: 0;
-            animation: fadeInStars 2s ease-out forwards;
+        .motto {
+            margin-bottom: 10px;
         }
 
-        @keyframes fadeInStars {
-            0% {
-                opacity: 0;
-            }
-            100% {
-                opacity: 1;
-            }
+        .motto h1 {
+            font-size: 22px !important;
+            margin: 20px 0 !important;
         }
 
-        .star {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: radial-gradient(1px 1px at center, #fff 0%, rgba(255, 255, 255, 0.8) 30%, rgba(255, 255, 255, 0.4) 60%, transparent 100%);
-            border-radius: 50%;
-            box-shadow: 
-                0 0 2px rgba(255, 255, 255, 0.8),
-                0 0 4px rgba(255, 255, 255, 0.4),
-                0 0 6px rgba(255, 255, 255, 0.2);
-            transform-origin: center;
-            transform: scale(var(--final-scale, 1)) rotate(var(--rotation, 0deg));
-            opacity: 0;
-            animation: unifiedStarAnimation var(--total-duration) ease-in-out infinite;
-            animation-delay: var(--animation-delay);
-        }
-
-        .star::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 6px;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
-            transform: translate(-50%, -50%);
-            animation: unifiedFlareAnimation var(--total-duration) ease-in-out infinite;
-            animation-delay: var(--animation-delay);
-        }
-
-        .star::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 1px;
-            height: 6px;
-            background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.6), transparent);
-            transform: translate(-50%, -50%);
-            animation: unifiedFlareAnimation var(--total-duration) ease-in-out infinite;
-            animation-delay: var(--animation-delay);
-        }
-
-        .star.dim {
-            background: radial-gradient(1px 1px at center, #ddd 0%, rgba(221, 221, 221, 0.8) 30%, rgba(221, 221, 221, 0.4) 60%, transparent 100%);
-            box-shadow: 
-                0 0 1px rgba(221, 221, 221, 0.6),
-                0 0 2px rgba(221, 221, 221, 0.3);
-        }
-
-        .star.dim::before,
-        .star.dim::after {
-            background: linear-gradient(90deg, transparent, rgba(221, 221, 221, 0.4), transparent);
-        }
-
-        .star.bright {
-            background: radial-gradient(1px 1px at center, #fff 0%, rgba(255, 255, 255, 0.9) 40%, rgba(255, 255, 255, 0.6) 70%, transparent 100%);
-            box-shadow: 
-                0 0 3px rgba(255, 255, 255, 0.9),
-                0 0 6px rgba(255, 255, 255, 0.6),
-                0 0 9px rgba(255, 255, 255, 0.3);
-        }
-
-        .star.bright::before {
-            width: 8px;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
-        }
-
-        .star.bright::after {
-            height: 8px;
-            background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.8), transparent);
-        }
-
-        /* Special star types for variety */
-        .star.special::before {
-            width: 10px;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
-        }
-
-        .star.special::after {
-            height: 10px;
-            background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.9), transparent);
-        }
-
-        .star.special {
-            box-shadow: 
-                0 0 4px rgba(255, 255, 255, 0.9),
-                0 0 8px rgba(255, 255, 255, 0.6),
-                0 0 12px rgba(255, 255, 255, 0.3);
-        }
-
-        @keyframes unifiedStarAnimation {
-            0% {
-                opacity: 0;
-                transform: scale(calc(var(--final-scale, 1) * 0.8)) rotate(var(--rotation, 0deg));
-                filter: blur(4px);
-            }
-            15% {
-                opacity: 0.5;
-                transform: scale(var(--final-scale, 1)) rotate(var(--rotation, 0deg));
-                filter: blur(2px);
-            }
-            30% {
-                opacity: 1;
-                transform: scale(var(--final-scale, 1)) rotate(var(--rotation, 0deg));
-                filter: blur(0px);
-            }
-            50% {
-                opacity: 1;
-                transform: scale(calc(var(--final-scale, 1) * 1.2)) rotate(var(--rotation, 0deg));
-                filter: blur(0px);
-            }
-            100% {
-                opacity: 0.3;
-                transform: scale(calc(var(--final-scale, 1) * 0.8)) rotate(var(--rotation, 0deg));
-                filter: blur(0px);
-            }
-        }
-
-        @keyframes unifiedFlareAnimation {
-            0% {
-                opacity: 0.1;
-                transform: translate(-50%, -50%) scale(0.6);
-            }
-            15% {
-                opacity: 0.3;
-                transform: translate(-50%, -50%) scale(0.8);
-            }
-            30% {
-                opacity: 0.5;
-                transform: translate(-50%, -50%) scale(1);
-            }
-            50% {
-                opacity: 0.8;
-                transform: translate(-50%, -50%) scale(1.1);
-            }
-            100% {
-                opacity: 0.2;
-                transform: translate(-50%, -50%) scale(0.8);
-            }
-        }
-
-        .container {
-            text-align: center;
-            padding: 2rem;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .desktop-layout {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            max-width: 1200px;
-            width: 100%;
-            gap: 4rem;
-        }
-
-        .left-side {
-            flex: 1;
-            text-align: left;
-            max-width: 400px;
-        }
-
-        .right-side {
-            flex: 1;
-            max-width: 500px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-        }
-
-        .container > * {
-            text-align: center;
-        }
-
-        .feed-container {
-            text-align: left;
-        }
-
-        .follow-button {
-            margin-top: 2rem;
-            text-align: center;
-        }
-
-        .follow-button {
-            margin-top: 1.5rem;
-            text-align: left;
-        }
-
-        .follow-button a {
-            display: inline-flex;
-            background: #FFFFFF;
-            color: #000000;
-            text-decoration: none;
-            padding: 12px 16px;
-            border-radius: 12px;
-            font-family: 'Firma-SemiBold', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            border: 1px solid #FFFFFF;
-            align-items: center;
-            justify-content: center;
-            min-width: 120px;
-        }
-
-        .follow-button a:hover {
-            background: #F8F8F8;
-            border-color: #E8E8E8;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        }
-
-        .outlink-icon {
-            width: 16px;
-            height: 16px;
-            margin-left: 6px;
-            opacity: 1;
-            vertical-align: baseline;
-            fill: currentColor;
-            transition: all 0.3s ease;
-        }
-
-
-
-        .logo {
-            width: 200px;
+        .logo img {
+            width: 180px;
             height: auto;
-            margin-bottom: 2rem;
         }
 
-        .title-container {
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
+        .download-button {
+            height: 50px;
+            font-size: 20px;
+            margin-bottom: 15px;
         }
 
-        h1 {
-            font-family: 'Firma-Black', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 4rem;
-            font-weight: 900;
-            color: white;
-            margin: 0;
-        }
-
-        .tv-icon {
-            width: 60px;
-            height: auto;
-            opacity: 0.9;
-        }
-
-
-
-        p {
-            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 1.5rem;
-            color: #cfd6e8;
-            opacity: 0.9;
-        }
-
-        .feed-container {
-            margin-top: 4rem;
-            max-width: 500px;
-            margin-left: auto;
-            margin-right: auto;
-            background: rgba(28, 28, 30, 0.8);
-            backdrop-filter: blur(20px);
-            border-radius: 12px;
-            padding: 2rem;
-            border: 1px solid rgba(51, 51, 51, 0.6);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            position: relative;
-            overflow: hidden;
-            display: none; /* Start hidden */
-        }
-
-        .feed-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-        }
-
-        .feed-container::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-        }
-
-        /* Custom styling for the bsky-embed component to match Orbyt app design */
-        .feed-container bsky-embed {
-            --bsky-background: transparent !important;
-            --bsky-text-color: #FFFFFF !important;
-            --bsky-link-color: #3797F0 !important;
-            --bsky-border-color: #333333 !important;
-            --bsky-hover-background: rgba(255, 255, 255, 0.05) !important;
-        }
-
-        .feed-container bsky-embed * {
-            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif !important;
-        }
-
-        .feed-container bsky-embed a {
-            color: #3797F0 !important;
-            text-decoration: none !important;
-            transition: color 0.3s ease !important;
-        }
-
-        .feed-container bsky-embed a:hover {
-            color: #2A7CD6 !important;
-        }
-
-        .feed-container bsky-embed img {
-            border-radius: 12px !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-        }
-
-        .feed-container bsky-embed video {
-            border-radius: 12px !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-        }
-
-        .feed-container bsky-embed .post {
-            background: rgba(28, 28, 30, 0.6) !important;
-            backdrop-filter: blur(10px) !important;
-            border-radius: 12px !important;
-            border: 1px solid rgba(51, 51, 51, 0.4) !important;
-            margin-bottom: 1rem !important;
-            padding: 16px !important;
-            transition: all 0.3s ease !important;
-        }
-
-        .feed-container bsky-embed .post:hover {
-            background: rgba(42, 42, 42, 0.8) !important;
-            border-color: rgba(68, 68, 68, 0.6) !important;
-            transform: translateY(-2px) !important;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
-        }
-
-        .feed-container bsky-embed .author {
-            color: #FFFFFF !important;
-            font-family: 'Firma-SemiBold', -apple-system, BlinkMacSystemFont, sans-serif !important;
-            font-weight: 600 !important;
-            margin-bottom: 2px !important;
-        }
-
-        .feed-container bsky-embed .content {
-            color: #FFFFFF !important;
-            line-height: 1.6 !important;
-            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif !important;
-            text-align: left !important;
-        }
-
-        .feed-container bsky-embed .content * {
-            text-align: left !important;
-        }
-
-        .feed-container bsky-embed .content p {
-            text-align: left !important;
-        }
-
-        .feed-container bsky-embed .content div {
-            text-align: left !important;
-        }
-
-        .feed-container bsky-embed .content span {
-            text-align: left !important;
-        }
-
-        .feed-container bsky-embed .timestamp {
-            color: #848895 !important;
-            font-size: 14px !important;
-            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif !important;
-        }
-
-        .feed-container bsky-embed .handle {
-            color: #848895 !important;
-            font-size: 12px !important;
-            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif !important;
-        }
-
-        .feed-container bsky-embed .stats {
-            color: #848895 !important;
-            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif !important;
-        }
-
-        .feed-container bsky-embed .stats span {
-            margin-right: 1rem !important;
-            font-size: 14px !important;
-        }
-
-        .feed-container bsky-embed .stats svg {
-            width: 16px !important;
-            height: 16px !important;
-            margin-right: 4px !important;
-        }
-
-        /* Avatar styling to match Orbyt app */
-        .feed-container bsky-embed .avatar {
-            border-radius: 50% !important;
-            border: 2px solid #333333 !important;
-            width: 40px !important;
-            height: 40px !important;
-            margin-right: 12px !important;
-        }
-
-        /* Author row styling to match AuthorItem component */
-        .feed-container bsky-embed .author-row {
-            display: flex !important;
-            align-items: center !important;
-            margin-bottom: 8px !important;
-        }
-
-        .feed-container bsky-embed .author-info {
-            flex: 1 !important;
-            display: flex !important;
-            flex-direction: column !important;
-        }
-
-        .feed-header {
-            text-align: center;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid #333333;
-        }
-
-        .feed-header h3 {
-            font-family: 'Firma-Black', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 1.5rem;
-            color: #FFFFFF;
-            margin-bottom: 0.5rem;
-            font-weight: 900;
-        }
-
-        .feed-header p {
-            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 1rem;
-            color: #848895;
-            margin: 0;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        @media (max-width: 925px) {
-            .desktop-layout {
-                flex-direction: column;
-                gap: 2rem;
-            }
-
-            .left-side {
-                text-align: left;
-                max-width: none;
-                order: 2;
-            }
-
-            .title-container {
-                justify-content: flex-start;
-            }
-
-            .follow-button {
-                text-align: left;
-            }
-
-            .right-side {
-                max-width: none;
-                order: 1;
-            }
-
-
-
-            .feed-container {
-                max-width: 100%;
-                margin: 0;
-                padding: 1.5rem;
-            }
-
-            h1 {
-                font-size: 3rem;
-            }
-            
-            p {
-                font-size: 1.25rem;
-            }
-            
-            .logo {
-                width: 150px;
-            }
+        .separator {
+            margin-top: 80px;
+            margin-bottom: 40px;
         }
 
         .footer {
+            white-space: normal;
+            margin-bottom: 40px;
             text-align: center;
-            margin-top: 3rem;
-            padding: 2rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .footerColumns {
-            display: inline-block;
-            margin: 0 1rem;
+        .footer a {
+            display: block;
+            margin: 8px 0 8px 0;
+            text-align: center;
         }
+    }
 
-        .footerColumns a {
-            color: #cfd6e8;
-            text-decoration: none;
-            font-family: 'Firma-Regular', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 1rem;
-            transition: color 0.3s ease;
+    @media (min-width: 1500px) {
+        body {
+            background-position-y: -100px;
         }
+    }
 
-        .footerColumns a:hover {
-            color: #ffffff;
+    @media (min-width: 1800px) {
+        body {
+            background-position-y: -200px;
         }
-
-        @media (max-width: 480px) {
-            .container {
-                padding: 1rem;
-            }
-
-            .desktop-layout {
-                gap: 1.5rem;
-            }
-
-            .feed-container {
-                padding: 1rem;
-                margin: 0;
-            }
-
-            .feed-header {
-                display: none;
-            }
-
-            h1 {
-                font-size: 2.5rem;
-            }
-            
-            p {
-                font-size: 1rem;
-            }
-            
-            .logo {
-                width: 120px;
-            }
-
-            .footer {
-                padding: 1rem;
-            }
-
-            .footerColumns {
-                display: block;
-                margin: 0.5rem 0;
-            }
-        }
-
-
+    }
     </style>
 </head>
+
 <body>
-
-    <!-- Dynamic stars container -->
-    <div class="stars-container" id="starsContainer"></div>
-
     <div class="container">
-        <div class="desktop-layout">
-            <div class="left-side">
-                <div class="title-container">
-                    <h1>orbyt</h1>
-                </div>
-                <p>a new video app for bluesky</p>
-                
-                <div class="follow-button">
-                    <a href="https://getorbyt.com/beta" target="_blank" rel="noopener noreferrer">
-                        join the beta <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="outlink-icon" style="display: inline-block; vertical-align: baseline; margin-left: 6px;"><path fill="currentColor" d="m15.06 5.283l5.657 5.657a1.5 1.5 0 0 1 0 2.12l-5.656 5.658a1.5 1.5 0 0 1-2.122-2.122l3.096-3.096H4.5a1.5 1.5 0 0 1 0-3h11.535L12.94 7.404a1.5 1.5 0 0 1 2.122-2.121Z"/></svg>
-                    </a>
-                </div>
-            </div>
-            
-            <div class="right-side">
-                <div class="feed-container">
-                    <div class="feed-header">
-                        <h3>what's new</h3>
-                        <p>follow us on bluesky for updates</p>
-                    </div>
-                    <bsky-embed
-                        username="orbytapp.bsky.social"
-                        mode="dark"
-                        limit="3"
-                        link-target="_blank"
-                        disable-images="false"
-                        disable-videos="false"
-                    >
-                    </bsky-embed>
-                </div>
+        <div class="row first">
+            <div class="logo twelve columns">
+                <img src="orbyt-logo-wordmark.png" alt="orbyt logo"/>
             </div>
         </div>
-    </div>
-    
-    <div class="footer">
-        <div class="footerColumns">
-            <a href="terms.html">Terms of Use</a>
+        <div class="row motto">
+            <div class="twelve columns">
+                <h1 style="color: #01f5b3; font-family: 'Firma-Medium', sans-serif; font-weight: 500; font-size: 26px; text-align: center; margin: 20px 0;">video communities</h1>
+            </div>
         </div>
-        <div class="footerColumns">
-            <a href="privacy.html">Privacy Policy</a>
+        <div class="row buttons">
+            <a href="https://getorbyt.com/beta" class="download-button">join the waitlist</a>
         </div>
+
+        <div class="separator">
+            <svg viewBox="0 0 200 20" preserveAspectRatio="none">
+                <path d="M0,10 Q2.5,4 5,10 T10,10 T15,10 T20,10 T25,10 T30,10 T35,10 T40,10 T45,10 T50,10 T55,10 T60,10 T65,10 T70,10 T75,10 T80,10 T85,10 T90,10 T95,10 T100,10 T105,10 T110,10 T115,10 T120,10 T125,10 T130,10 T135,10 T140,10 T145,10 T150,10 T155,10 T160,10 T165,10 T170,10 T175,10 T180,10 T185,10 T190,10 T195,10 T200,10" 
+                      stroke="#551DEF" 
+                      stroke-width="2.5" 
+                      fill="none" 
+                      stroke-linecap="round"
+                      vector-effect="non-scaling-stroke"/>
+            </svg>
+        </div>
+
+        <div class="footer">
+            <a href="https://bsky.app/profile/getorbyt.com">bluesky</a>
+            <a href="https://discord.gg/8gNQPFygnF">discord</a>
+            <a href="/terms.html">terms</a>
+            <a href="/privacy.html">privacy</a>
+        </div>
+
+        <!-- Global site tag (gtag.js) - Google Analytics -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+        <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+        gtag('js', new Date());
+        gtag('config', 'G-XXXXXXXXXX');
+        </script>
     </div>
-    
-    <script type="module" src="https://cdn.jsdelivr.net/npm/bsky-embed/dist/bsky-embed.es.js" async></script>
-    
-    <script>
-        // Mathematical star generation and twinkling system
-        class StarField {
-            constructor() {
-                this.container = document.getElementById('starsContainer');
-                this.starCount = 200; // Increased number of stars
-                this.seed = Date.now(); // Random seed for consistent positioning
-                this.init();
-            }
 
-            // Mathematical formula for pseudo-random number generation (Linear Congruential Generator)
-            random(seed) {
-                return (seed * 9301 + 49297) % 233280;
-            }
-
-            // Generate random position using mathematical distribution
-            generatePosition(index, seed) {
-                // Use different mathematical distributions for more natural star placement
-                const xSeed = this.random(seed + index * 3);
-                const ySeed = this.random(seed + index * 7);
-                
-                // Apply golden ratio distribution for more natural spacing
-                const goldenRatio = 1.618033988749895;
-                const x = (xSeed / 233280) * window.innerWidth;
-                const y = (ySeed / 233280) * window.innerHeight;
-                
-                // Apply spiral distribution for more realistic star field
-                const angle = (index * goldenRatio) % (2 * Math.PI);
-                const radius = Math.sqrt(index) * 50;
-                const spiralX = x + Math.cos(angle) * radius;
-                const spiralY = y + Math.sin(angle) * radius;
-                
-                return {
-                    x: (spiralX + window.innerWidth) % window.innerWidth,
-                    y: (spiralY + window.innerHeight) % window.innerHeight
-                };
-            }
-
-            // Generate unified animation parameters using mathematical formulas
-            generateAnimationParams(index, seed) {
-                const durationSeed = this.random(seed + index * 11);
-                const delaySeed = this.random(seed + index * 13);
-                
-                // Create varied animation durations (3-10 seconds)
-                const totalDuration = 3 + (durationSeed / 233280) * 7;
-                
-                // Create varied delays (0-5 seconds)
-                const animationDelay = (delaySeed / 233280) * 5;
-                
-                // Determine star brightness using mathematical distribution
-                const brightnessSeed = this.random(seed + index * 17);
-                const brightness = brightnessSeed / 233280;
-                
-                return { totalDuration, animationDelay, brightness };
-            }
-
-            // Create individual star element
-            createStar(index) {
-                const seed = this.seed + index;
-                const position = this.generatePosition(index, seed);
-                const animationParams = this.generateAnimationParams(index, seed);
-                
-                const star = document.createElement('div');
-                star.className = 'star';
-                star.style.left = position.x + 'px';
-                star.style.top = position.y + 'px';
-                star.style.setProperty('--total-duration', animationParams.totalDuration + 's');
-                star.style.setProperty('--animation-delay', animationParams.animationDelay + 's');
-                
-                // Add size variation based on brightness
-                const sizeSeed = this.random(seed + index * 19);
-                const sizeVariation = 0.5 + (sizeSeed / 233280) * 0.85; // 0.5x to 1.35x size
-                star.style.setProperty('--final-scale', sizeVariation);
-                
-                // Apply brightness class based on mathematical distribution
-                if (animationParams.brightness > 0.85) {
-                    star.classList.add('special');
-                } else if (animationParams.brightness > 0.7) {
-                    star.classList.add('bright');
-                } else if (animationParams.brightness < 0.3) {
-                    star.classList.add('dim');
-                }
-                
-                // Add slight rotation for more natural appearance
-                const rotationSeed = this.random(seed + index * 23);
-                const rotation = (rotationSeed / 233280) * 360;
-                star.style.setProperty('--rotation', rotation + 'deg');
-                
-                return star;
-            }
-
-            // Initialize star field
-            init() {
-                // Clear existing stars
-                this.container.innerHTML = '';
-                
-                // Generate stars using mathematical formulas
-                for (let i = 0; i < this.starCount; i++) {
-                    const star = this.createStar(i);
-                    this.container.appendChild(star);
-                }
-            }
-
-            // Regenerate stars (useful for window resize)
-            regenerate() {
-                this.seed = Date.now();
-                this.init();
-            }
-        }
-
-        // Initialize star field when page loads
-        let starField;
-        document.addEventListener('DOMContentLoaded', () => {
-            starField = new StarField();
-        });
-
-        // Regenerate stars on window resize for responsive behavior
-        window.addEventListener('resize', () => {
-            if (starField) {
-                starField.regenerate();
-            }
-        });
-
-        // Function to check if the embed has content and show if it does
-        function checkEmbedContent() {
-            const embedElement = document.querySelector('bsky-embed');
-            const feedContainer = document.querySelector('.feed-container');
-            
-            if (!embedElement || !feedContainer) return;
-            
-            // Check if there are any post elements inside the embed
-            const posts = embedElement.querySelectorAll('.post');
-            const hasContent = posts.length > 0;
-            
-            // If content exists, show the feed container
-            if (hasContent) {
-                feedContainer.style.display = 'block';
-            }
-        }
-        
-        // Check content after embed loads
-        setTimeout(checkEmbedContent, 2000);
-        setTimeout(checkEmbedContent, 4000);
-    </script>
 </body>
-</html> 
+</html>

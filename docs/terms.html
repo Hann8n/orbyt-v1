@@ -51,9 +51,8 @@
 
         .header {
             text-align: left;
-            margin-bottom: 3rem;
+            margin-bottom: 1.5rem;
             padding-bottom: 2rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .back-link {
@@ -149,22 +148,46 @@
             color: #2A7CD6;
         }
 
+        .separator {
+            height: 20px;
+            margin-top: 80px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .separator svg {
+            width: 100%;
+            min-width: 200px;
+            height: 20px;
+            overflow: visible;
+        }
+
         .footer {
-            text-align: center;
-            margin-top: 3rem;
-            padding-top: 2rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: left;
+            white-space: nowrap;
+            display: block;
+            margin-bottom: 40px;
         }
 
         .footer a {
-            color: #cfd6e8;
+            margin: 0 20px 0 0;
+            display: inline-block;
+            font-style: normal;
+            font-weight: bold;
+            font-size: 13px;
+            text-align: left;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
             text-decoration: none;
-            margin: 0 1rem;
-            transition: color 0.3s ease;
+            color: #ccc;
         }
 
         .footer a:hover {
-            color: #ffffff;
+            color: #fff;
         }
 
         @media (max-width: 768px) {
@@ -176,16 +199,29 @@
                 font-size: 2.5rem;
             }
 
-            .content {
-                padding: 1.5rem;
-            }
-
             .content h2 {
                 font-size: 1.5rem;
             }
 
             .content h3 {
                 font-size: 1.2rem;
+            }
+
+            .separator {
+                margin-top: 80px;
+                margin-bottom: 40px;
+            }
+
+            .footer {
+                white-space: normal;
+                margin-bottom: 40px;
+                text-align: center;
+            }
+
+            .footer a {
+                display: block;
+                margin: 8px 0 8px 0;
+                text-align: center;
             }
         }
     </style>
@@ -195,10 +231,6 @@
 
     <div class="container">
         <div class="header">
-            <a href="index.html" class="back-link">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><g fill="none"><path d="M24 0v24H0V0zM12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.019-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/><path fill="#fff" d="M3.283 10.94a1.5 1.5 0 0 0 0 2.12l5.656 5.658a1.5 1.5 0 1 0 2.122-2.122L7.965 13.5H19.5a1.5 1.5 0 0 0 0-3H7.965l3.096-3.096a1.5 1.5 0 1 0-2.122-2.121z"/></g></svg>
-                Back to Home
-            </a>
             <h1>Terms of Use</h1>
             <p class="subtitle">Last Updated: August 24, 2025</p>
         </div>
@@ -228,7 +260,7 @@
             <p>To use Orbyt, you must be at least 13 years old and legally permitted to use Orbyt based on the laws in your country. If you are not yet an adult according to the laws of your country, your parent or legal guardian must read these Terms on your behalf. If you're a parent or legal guardian, and you allow your child (who meets the minimum age for your country) to use the services, then these terms also apply to you, and you're responsible for your child's activity on the services.</p>
 
             <h3>Accounts</h3>
-            <p>To use Orbyt, you must create an account ("Account"). Don't share your Account with others, because you're responsible for all activities under your Account, whether or not you know about them. If you're using Orbyt on behalf of a company or organization, you confirm that you have the authority to represent your company or organization. If you believe your Account created through Orbyt has been compromised, report it to us at support@getorbyt.com</p>
+            <p>To use Orbyt, you must create an account ("Account"). Don't share your Account with others, because you're responsible for all activities under your Account, whether or not you know about them. If you're using Orbyt on behalf of a company or organization, you confirm that you have the authority to represent your company or organization. If you believe your Account created through Orbyt has been compromised, report it to us at <a href="mailto:support@getorbyt.com">support@getorbyt.com</a></p>
 
             <h2>User Content</h2>
             
@@ -274,7 +306,7 @@
             </ul>
 
             <h2>Appeals</h2>
-            <p>You can appeal any enforcement decision from these Terms, including suspension or termination, by emailing support@getorbyt.com.</p>
+            <p>You can appeal any enforcement decision from these Terms, including suspension or termination, by emailing <a href="mailto:support@getorbyt.com">support@getorbyt.com</a>.</p>
 
             <h2>Updates</h2>
             <p>We update our terms from time to time, and will either post the updated Terms or send other communications to let you know about any changes. If you keep using Orbyt, you agree to the updated Terms. If you don't agree, you must stop using Orbyt.</p>
@@ -292,13 +324,25 @@
 
             <h2>Contact Information</h2>
             <p>If you have any questions about these Terms or Orbyt, please contact us:</p>
-            <p>By email: support@getorbyt.com</p>
+            <p>Email: <a href="mailto:support@getorbyt.com">support@getorbyt.com</a></p>
+        </div>
+
+        <div class="separator">
+            <svg viewBox="0 0 200 20" preserveAspectRatio="none">
+                <path d="M0,10 Q2.5,4 5,10 T10,10 T15,10 T20,10 T25,10 T30,10 T35,10 T40,10 T45,10 T50,10 T55,10 T60,10 T65,10 T70,10 T75,10 T80,10 T85,10 T90,10 T95,10 T100,10 T105,10 T110,10 T115,10 T120,10 T125,10 T130,10 T135,10 T140,10 T145,10 T150,10 T155,10 T160,10 T165,10 T170,10 T175,10 T180,10 T185,10 T190,10 T195,10 T200,10" 
+                      stroke="#551DEF" 
+                      stroke-width="2.5" 
+                      fill="none" 
+                      stroke-linecap="round"
+                      vector-effect="non-scaling-stroke"/>
+            </svg>
         </div>
 
         <div class="footer">
-            <a href="index.html">Home</a>
-            <a href="privacy.html">Privacy Policy</a>
-            <a href="terms.html">Terms of Use</a>
+            <a href="https://bsky.app/profile/getorbyt.com">bluesky</a>
+            <a href="https://discord.gg/8gNQPFygnF">discord</a>
+            <a href="/terms.html">terms</a>
+            <a href="/privacy.html">privacy</a>
         </div>
     </div>
 
