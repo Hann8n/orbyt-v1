@@ -1811,7 +1811,7 @@ const ExploreScreen: React.FC = () => {
             style={[
               styles.searchTabsContainer,
               {
-                top: insets.top + 65, // Position closer to search bar
+                top: insets.top + 60, // Position closer to search bar
                 zIndex: 20,
               },
             ]}
@@ -1834,7 +1834,7 @@ const ExploreScreen: React.FC = () => {
 
           {/* Tab Content */}
           <SearchSwipePager
-            topOffset={insets.top + 65 + 36}
+            topOffset={insets.top + 60 + 36}
             bottomOffset={getBottomNavBarHeight(insets)}
             activeTab={activeTab}
             onActiveTabChange={setActiveTab}
@@ -2599,7 +2599,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: 0,
   },
   indicatorItem: {

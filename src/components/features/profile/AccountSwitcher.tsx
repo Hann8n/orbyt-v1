@@ -453,6 +453,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         title="Switch Account"
         customHeaderButton={customHeaderButton}
         name="account-switcher"
+        detents={['auto']}
       >
         
         {loading ? (
@@ -466,6 +467,9 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             keyExtractor={keyExtractor}
             contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom }]}
             showsVerticalScrollIndicator={false}
+            bounces={false}
+            overScrollMode="never"
+            alwaysBounceVertical={false}
           />
         )}
       </VerticalListSheet>

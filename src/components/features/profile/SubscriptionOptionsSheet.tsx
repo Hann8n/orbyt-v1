@@ -1,11 +1,7 @@
-import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useCallback, useMemo } from 'react';
+import { View, StyleSheet } from 'react-native';
 import VerticalListSheet, { VerticalListCheckboxButton } from '../../ui/VerticalListSheet';
-import { Colors } from '../../ui/UI';
-import { BORDER_RADIUS } from '../../../utils/constants';
 import { useSubscriptionStore } from '../../../stores/subscriptionStore';
-import { shallow } from 'zustand/shallow';
 
 const DEFAULT_PREFERENCES = { post: false, reply: false };
 
@@ -20,20 +16,15 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
   onDismiss,
   did,
 }) => {
-  const insets = useSafeAreaInsets();
   const updatePreferences = useSubscriptionStore((state) => state.updatePreferences);
   const unsubscribe = useSubscriptionStore((state) => state.unsubscribe);
-  const preferences = useSubscriptionStore(
-    useCallback(
-      (state) => {
-        if (!did) return DEFAULT_PREFERENCES;
-        const prefs = state.subscriptions.get(did);
-        return prefs ?? DEFAULT_PREFERENCES;
-      },
-      [did],
-    ),
-    shallow,
-  );
+  const subscriptions = useSubscriptionStore((state) => state.subscriptions);
+  
+  const preferences = useMemo(() => {
+    if (!did) return DEFAULT_PREFERENCES;
+    const prefs = subscriptions.get(did);
+    return prefs ?? DEFAULT_PREFERENCES;
+  }, [did, subscriptions]);
 
   const handleTogglePreference = useCallback(async (key: 'post' | 'reply') => {
     if (!did) return;
@@ -56,7 +47,10 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
       onDismiss={onDismiss}
       title="keep me posted"
       description="Get notified of this account's activity"
-      showCancelButton={false}
+      showCancelButton={true}
+      cancelButtonText="Done"
+      name="subscription-options-sheet"
+      footerTopPadding={24}
     >
       <View style={styles.content}>
         <VerticalListCheckboxButton
@@ -70,16 +64,6 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
           checked={preferences.reply}
           onPress={() => handleTogglePreference('reply')}
         />
-
-        <View style={[styles.saveButtonContainer, { paddingBottom: insets.bottom }]}>
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={onDismiss}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.saveButtonText}>Done</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     </VerticalListSheet>
   );
@@ -88,30 +72,6 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
 const styles = StyleSheet.create({
   content: {
     paddingTop: 8,
-  },
-  saveButtonContainer: {
-    paddingTop: 24,
-    paddingHorizontal: 3,
-    alignItems: 'center',
-  },
-  saveButton: {
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    minHeight: 44,
-    borderWidth: 0,
-    borderColor: 'transparent',
-  },
-  saveButtonText: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
   },
 });
 

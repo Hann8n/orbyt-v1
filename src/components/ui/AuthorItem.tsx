@@ -11,6 +11,7 @@ import UI from './UI';
 
 import { useProfile, useProfileColors, useFollowMutation } from '../../services/cache/ProfileCache';
 import { useCurrentUser } from '../../stores/userStore';
+import { formatHandle } from '../../utils/helpers';
  
 
 interface AuthorItemProps {
@@ -92,7 +93,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   };
 
   const config = sizeConfig[size];
-  const actualDisplayName = displayName || handle || 'Unknown';
+  const actualDisplayName = formatHandle(handle) || 'Unknown';
   const actualAvatar = avatar || undefined;
 
   // Get following status from ProfileCache using the hook
@@ -165,18 +166,6 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
               />
             )}
           </View>
-          {!hideHandleLine && (
-            <Text style={[ 
-              styles.accountHandle,
-              { 
-                color: handleColor || Colors.lightGray,
-                fontSize: config.handleFontSize,
-                fontFamily: handleFontWeight,
-              }
-            ]} numberOfLines={1}>
-              {showDate && date ? date : handle}
-            </Text>
-          )}
         </View>
         {showFollowButton ? (
           <TouchableOpacity

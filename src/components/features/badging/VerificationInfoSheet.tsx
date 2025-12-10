@@ -25,8 +25,8 @@ import VerificationBadge from './VerificationBadge';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 
-// Lazy import to break circular dependency
-const AuthorItem = React.lazy(() => import('../../ui/AuthorItem'));
+// Import AuthorItem directly - preload to avoid size calculation issues
+import AuthorItem from '../../ui/AuthorItem';
  
 
 interface VerificationInfoSheetProps {
@@ -84,8 +84,10 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
   
-  // Calculate footer height for content padding (button height + padding + safe area)
-  const footerHeight = 44 + 20 + insets.bottom;
+  // Calculate footer height for content padding
+  // Footer: button (44px) + top padding (20px) = 64px
+  // Content needs padding to avoid being hidden behind footer
+  const footerHeight = 64;
 
   const shouldUseGlass = useMemo(() => {
     return false; // Disabled for consistent black background
@@ -115,6 +117,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   });
 
   // Get verification details with proper typing
+  // Preload this data to get verifierDid early for issuer profile preloading
   const { data: verification, isLoading } = useQuery<VerificationData | null, Error>({
     queryKey: ['verification-details', handle],
     queryFn: async () => {
@@ -125,7 +128,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         return null;
       }
     },
-    enabled: visible && !!handle,
+    enabled: !!handle, // Preload when handle is available, not just when visible
     staleTime: 60000, // 1 minute
     refetchOnWindowFocus: false
   });
@@ -135,6 +138,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   const verifierDid = validVerification?.issuer || verification?.verifiedBy;
   
   // Fetch issuer profile using cached data if available
+  // Preload this data even when sheet is not visible to avoid size calculation issues
   const { data: issuerProfile, isLoading: isIssuerLoading } = useQuery({
     queryKey: ['issuer-profile', verifierDid],
     queryFn: async () => {
@@ -155,7 +159,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         return null;
       }
     },
-    enabled: visible && !!verifierDid,
+    enabled: !!verifierDid, // Preload when verifierDid is available, not just when visible
     staleTime: 60000,
     refetchOnWindowFocus: false
   });
@@ -185,17 +189,19 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
       onDidDismiss={onDismiss}
       grabber={false}
       footer={
-        <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
-          <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}> 
-            <TouchableOpacity 
-              style={styles.cancelButton} 
-              onPress={onDismiss}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAwareFooter>
+        <View style={{ backgroundColor: Colors.black }}>
+          <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
+            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}> 
+              <TouchableOpacity 
+                style={styles.cancelButton} 
+                onPress={onDismiss}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAwareFooter>
+        </View>
       }
     >
       <View style={[styles.content, { paddingBottom: footerHeight }]}>
@@ -286,24 +292,41 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         </View>
 
         {/* Verified By: Issuer Profile Card */}
-        {(actualIssuerHandle || issuerProfile || verifierDid) && (
-          <>
-            <Text style={styles.verifiedByLabel}>verified by:</Text>
-            {isIssuerLoading ? (
-              <VerifiedByShimmer />
-            ) : (
-              <React.Suspense fallback={<VerifiedByShimmer />}>
+        {/* Only show if we have valid data - if loading fails, just don't show this section */}
+        {(() => {
+          // Determine if we should show the author item
+          const hasValidData = !isIssuerLoading && (issuerProfile || actualIssuerHandle);
+          const shouldShow = hasValidData || (isIssuerLoading && verifierDid); // Show shimmer only while loading with valid verifierDid
+          
+          if (!shouldShow) {
+            return null; // Don't show anything if we don't have data and loading failed
+          }
+          
+          const authorHandle = issuerProfile?.handle || actualIssuerHandle || verifierDid || '';
+          const authorDisplayName = issuerProfile?.displayName || 
+            actualIssuerHandle || 
+            (isOfficialVerification ? 'bluesky' : 
+              (verifierDid ? `verifier (${verifierDid.slice(0, 8)}...)` : 'verifier'));
+          
+          // Only render if we have a valid handle
+          if (!authorHandle && !isIssuerLoading) {
+            return null;
+          }
+          
+          return (
+            <>
+              <Text style={styles.verifiedByLabel}>verified by:</Text>
+              {isIssuerLoading ? (
+                <VerifiedByShimmer />
+              ) : (
                 <AuthorItem
-                  handle={issuerProfile?.handle || actualIssuerHandle || verifierDid || ''}
-                  displayName={issuerProfile?.displayName || 
-                    actualIssuerHandle || 
-                    (isOfficialVerification ? 'bluesky' : 
-                      (verifierDid ? `verifier (${verifierDid.slice(0, 8)}...)` : 'verifier'))}
+                  handle={authorHandle}
+                  displayName={authorDisplayName}
                   avatar={issuerProfile?.avatar}
                   size="large"
                   showArrow={true}
                   onPress={() => {
-                    const target = (issuerProfile?.handle || actualIssuerHandle || verifierDid || '').trim();
+                    const target = authorHandle.trim();
                     if (!target) return;
                     
                     // Navigate to the verifier's profile, not the current profile
@@ -316,10 +339,10 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
                   }}
                   style={styles.verifierItem}
                 />
-              </React.Suspense>
-            )}
-          </>
-        )}
+              )}
+            </>
+          );
+        })()}
 
 
       </>

@@ -1,20 +1,16 @@
-import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Platform,
-
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../utils/truesheet/trueSheetUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import { Colors } from './UI';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import KeyboardAwareFooter from '../../utils/truesheet/KeyboardAwareFooter';
 
 interface VerticalListSheetProps {
@@ -35,10 +31,6 @@ interface VerticalListSheetProps {
    */
   customHeaderButton?: React.ReactNode;
   /**
-   * Enable iOS 26 Liquid Glass background when available
-   */
-  enableGlass?: boolean;
-  /**
    * Name for global TrueSheet methods
    */
   name?: string;
@@ -50,6 +42,10 @@ interface VerticalListSheetProps {
    * Hide the close button in the header
    */
   hideCloseButton?: boolean;
+  /**
+   * Custom top padding for the footer
+   */
+  footerTopPadding?: number;
 }
 
 const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
@@ -62,37 +58,60 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   cancelButtonText = 'Cancel',
   description,
   customHeaderButton,
-  enableGlass = true,
   name,
   titleSize,
   hideCloseButton = false,
+  footerTopPadding,
 }) => {
-  // Bottom sheet ref and snap points
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
-  // Calculate footer height for layout; keep the actual control height + safe area
-  const footerHeight = showCancelButton ? 44 + insets.bottom : 0;
 
-  // Simplified content padding: we only need a modest gap above the footer
-  // so content doesn't butt up against it. Use 12px plus the safe area inset
-  // when footer is present so interactive content isn't hidden behind the footer.
-  const contentPaddingBottom = showCancelButton ? 12 + insets.bottom : 12;
-
-  const shouldUseGlass = useMemo(() => {
-    return enableGlass && Platform.OS === 'ios' && isLiquidGlassAvailable();
-  }, [enableGlass]);
+  // Content padding accounts for footer height to prevent content from being hidden
+  // Footer consists of: footerTopPadding + button height + safe area bottom
+  // We add a small gap (12px) plus account for the footer top padding
+  const footerTopPaddingValue = footerTopPadding ?? 8;
+  const contentPaddingBottom = showCancelButton 
+    ? 12 + footerTopPaddingValue + insets.bottom 
+    : 12;
 
   // Handle bottom sheet visibility
-  React.useEffect(() => {
+  useEffect(() => {
     if (visible) {
-      if (name) safePresent(name);
-      else bottomSheetRef.current?.present();
+      if (name) {
+        safePresent(name);
+      } else {
+        bottomSheetRef.current?.present();
+      }
     } else {
-      if (name) safeDismiss(name);
-      else bottomSheetRef.current?.dismiss();
+      if (name) {
+        safeDismiss(name);
+      } else {
+        bottomSheetRef.current?.dismiss();
+      }
     }
   }, [visible, name]);
 
+  // Header component for TrueSheet header prop
+  const headerComponent = (
+    <View style={styles.headerContainer}>
+      <Text style={[styles.headerTitle, titleSize && { fontSize: titleSize }]} numberOfLines={1}>
+        {title}
+      </Text>
+      {hideCloseButton ? (
+        <View style={styles.closeButton} />
+      ) : customHeaderButton ? (
+        customHeaderButton
+      ) : (
+        <TouchableOpacity 
+          style={styles.closeButton} 
+          onPress={onDismiss}
+          activeOpacity={0.7}
+        >
+          <Icon name="close" size={20} color={Colors.white} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   return (
     <TrueSheet
@@ -104,10 +123,11 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       grabber={false}
       keyboardMode="pan"
       scrollable
+      header={headerComponent}
       footer={
         showCancelButton ? (
           <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
-            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
+            <View style={[styles.cancelContainer, { backgroundColor: Colors.black, paddingTop: footerTopPadding ?? 8 }]}>
               <TouchableOpacity 
                 style={styles.cancelButton} 
                 onPress={onDismiss} 
@@ -121,26 +141,6 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       }
     >
       <View style={styles.content}>
-        {/* Header with title and close button */}
-        <View style={styles.headerContainer}>
-          <Text style={[styles.headerTitle, titleSize && { fontSize: titleSize }]} numberOfLines={1}>
-            {title}
-          </Text>
-          {hideCloseButton ? (
-            <View style={styles.closeButton} />
-          ) : customHeaderButton ? (
-            customHeaderButton
-          ) : (
-            <TouchableOpacity 
-              style={styles.closeButton} 
-              onPress={onDismiss}
-              activeOpacity={0.7}
-            >
-              <Icon name="close" size={20} color={Colors.white} />
-            </TouchableOpacity>
-          )}
-        </View>
-        
         {/* Description */}
         {description && (
           <View style={styles.descriptionContainer}>
@@ -158,23 +158,17 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
 };
 
 const styles = StyleSheet.create({
-  bottomSheetBackground: {
-    backgroundColor: Colors.black,
-    // Square top corners - no border radius
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-  },
   content: {
-    paddingHorizontal: 12,
-    paddingTop: 0,
+    flex: 1,
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 0,
+    justifyContent: 'space-between',
     paddingHorizontal: 15,
     paddingTop: 15,
-    paddingBottom: 12,
+    paddingBottom: 15,
+    marginBottom: 8,
   },
   headerTitle: {
     color: Colors.white,
