@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 42,
     fontWeight: 'bold',
-    fontFamily: 'Firma-Black',
+    fontFamily: 'CriteriaCF-ExtraBold',
     textAlign: 'center',
   },
   formContainer: {

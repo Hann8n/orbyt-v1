@@ -96,77 +96,52 @@ export default function TabsLayout() {
     );
   };
 
-  const ProfileTabButton = ({ children }: { children?: React.ReactNode }) => {
-    const { presentAccountSwitcher } = useGlobalAccountSwitcher();
-
-    const handlePress = () => {
-      // Navigate to profile screen
-      router.push('/profile');
-    };
-
-    const handleLongPress = () => {
-      // Open account switcher
-      presentAccountSwitcher();
-    };
-
-    return (
-      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <TouchableOpacity
-          onPress={handlePress}
-          onLongPress={handleLongPress}
-          activeOpacity={0.7}
-          style={{
-            width: tabIconSize,
-            height: tabIconSize,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {children}
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
   const ProfileTabIcon = ({ color, focused }: { color: string; focused: boolean }) => {
     const currentUserHandle = useUserStore((state) => state.currentUser?.handle);
     const { data: profileData } = useProfile(currentUserHandle);
+    const { presentAccountSwitcher } = useGlobalAccountSwitcher();
 
     return (
-      <View style={{ position: 'relative' }}>
-        <Avatar
-          uri={profileData?.avatar}
-          type="profile"
-          size={tabIconSize}
-          showRing={true}
-          profileColors={profileData?.profileColors ? {
-            backgroundColor: profileData.profileColors.backgroundColor,
-            textColor: profileData.profileColors.foregroundColor || color,
-            foregroundColor: profileData.profileColors.foregroundColor || color,
-          } : undefined}
-          ringColor={profileData?.profileColors?.foregroundColor || color}
-        />
-        {!focused && (
-          <View
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              borderRadius: tabIconSize / 2,
-              backgroundColor: 'rgba(128, 128, 128, 0.5)',
-            }}
+      <TouchableOpacity
+        onPress={() => router.push('/profile')}
+        onLongPress={presentAccountSwitcher}
+        activeOpacity={0.7}
+      >
+        <View style={{ position: 'relative' }}>
+          <Avatar
+            uri={profileData?.avatar}
+            type="profile"
+            size={tabIconSize}
+            showRing={true}
+            profileColors={profileData?.profileColors ? {
+              backgroundColor: profileData.profileColors.backgroundColor,
+              textColor: profileData.profileColors.foregroundColor || color,
+              foregroundColor: profileData.profileColors.foregroundColor || color,
+            } : undefined}
+            ringColor={profileData?.profileColors?.foregroundColor || color}
           />
-        )}
-      </View>
+          {!focused && (
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                borderRadius: tabIconSize / 2,
+                backgroundColor: 'rgba(128, 128, 128, 0.5)',
+              }}
+            />
+          )}
+        </View>
+      </TouchableOpacity>
     );
   };
 
-  const bottomNavBarHeight = getBottomNavBarHeight(insets);
+  const tabBarHeight = isSmallDevice ? 50 : 60;
 
   return (
-    <View style={styles.container}>
+    <>
       <Tabs
         screenOptions={({ route }) => ({
           headerShown: false,
@@ -176,16 +151,17 @@ export default function TabsLayout() {
             display: 'none',
           } : {
             backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent',
-            height: bottomNavBarHeight,
-            paddingBottom: Math.max(insets.bottom, 4),
+            height: tabBarHeight,
             paddingTop: isSmallDevice ? 2 : 6,
             shadowOpacity: 0,
             borderTopWidth: 0,
             elevation: 0,
             position: 'absolute',
-            bottom: 0,
-            zIndex: 10,
+            borderColor: 'transparent',
           },
+          tabBarBackground: () => (
+            <View style={{ flex: 1, backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent' }} />
+          ),
           tabBarActiveTintColor: '#fff',
           tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.75)',
           tabBarIcon: ({ color, focused }) => {
@@ -227,7 +203,6 @@ export default function TabsLayout() {
           name="profile" 
           options={{ 
             title: 'Profile',
-            tabBarButton: (props) => <ProfileTabButton {...props} />,
           }} 
         />
       </Tabs>
@@ -238,22 +213,18 @@ export default function TabsLayout() {
           style={[
             styles.gradient,
             {
-              bottom: 0,
-              height: bottomNavBarHeight + 15,
+              bottom: insets.bottom,
+              height: tabBarHeight + 15,
             }
           ]}
           pointerEvents="none"
         />
       )}
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.black,
-  },
   gradient: {
     position: 'absolute',
     left: 0,

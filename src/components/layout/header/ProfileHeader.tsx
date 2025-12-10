@@ -14,7 +14,6 @@ import BetaInfoSheet from '../../features/badging/BetaInfoSheet';
 import VerificationInfoSheet from '../../features/badging/VerificationInfoSheet';
 import ProfileMenu from '../../features/profile/ProfileMenu';
 import EditProfileSheet from '../../features/profile/EditProfileSheet';
-import SubscriptionOptionsSheet from '../../features/profile/SubscriptionOptionsSheet';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import ChatService from '../../../services/ChatService';
 import { FollowIcon, MutualHeartIcon, ProfileEditIcon, InboxIcon, BellFilledIcon} from '../../ui/Icon';
@@ -55,7 +54,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const [showBetaInfo, setShowBetaInfo] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showEditSheet, setShowEditSheet] = useState(false);
-  const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
   const [canMessage, setCanMessage] = useState<boolean | null>(null);
   
   const [extractedDefaultColors, setExtractedDefaultColors] = useState<{
@@ -209,7 +207,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           type: 'button',
           menuIcon: {
             onPress: handleMenuPress,
-            size: 28,
           },
           buttons: [
             {
@@ -250,15 +247,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
       const buttons: HeaderAction[] = [];
       
-      // Add follow button
-      buttons.push({
-        id: 'follow',
-        label,
-        icon,
-        customIcon,
-        onPress: handleFollowUnfollow,
-      } as HeaderAction);
-      
       // Add subscription button (only if following)
       if (isFollowing && !isBlocked) {
         buttons.push({
@@ -270,23 +258,31 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               color={isSubscribed ? profileColors.backgroundColor : profileColors.textColor} 
             />
           ),
-          onPress: () => setShowSubscriptionSheet(true),
+          onPress: toggleSubscription,
           active: isSubscribed, // Track subscription state for glass effect inversion
         } as HeaderAction);
       }
+      
+      // Add follow button
+      buttons.push({
+        id: 'follow',
+        label,
+        icon,
+        customIcon,
+        onPress: handleFollowUnfollow,
+      } as HeaderAction);
 
       return [
         {
           type: 'button',
           menuIcon: {
             onPress: handleMenuPress,
-            size: 28,
           },
           buttons,
         },
       ];
     }
-}, [profileData, isOwnProfile, isCurrentUserProfile, handleFollowUnfollow, openEditSheet, handleMenuPress, profileColors.textColor, profileColors.backgroundColor, isSubscribed, isBlocked]);
+}, [profileData, isOwnProfile, isCurrentUserProfile, handleFollowUnfollow, openEditSheet, handleMenuPress, profileColors.textColor, profileColors.backgroundColor, isSubscribed, toggleSubscription, isBlocked]);
 
   // Create header content with custom description component
   const headerContent = useMemo((): HeaderContent => {
@@ -425,12 +421,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         onSwitchAccount={onSwitchAccount}
         canMessage={canMessage}
         onMessagePress={handleMessagePress}
-      />
-
-      <SubscriptionOptionsSheet
-        visible={showSubscriptionSheet}
-        onDismiss={() => setShowSubscriptionSheet(false)}
-        did={profileData?.did}
       />
     </>
   );

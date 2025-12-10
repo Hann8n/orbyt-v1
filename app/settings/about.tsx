@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 32,
     fontWeight: '700',
-    fontFamily: 'Firma-Black',
+    fontFamily: 'CriteriaCF-ExtraBold',
     marginBottom: 8,
   },
   appTagline: {

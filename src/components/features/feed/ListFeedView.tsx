@@ -377,7 +377,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     // Only restore on transition from not visible to visible (e.g., tab switch)
     // NOT on data updates - FlashList handles those automatically
     // The visibility check (!wasVisible && isVisible) prevents runs on data-only updates
-    if (!wasVisible && isVisible && !hasRestoredPositionRef.current && flashListRef.current && listData.length > 0) {
+    const hasSavedPosition = lastScrollOffset.current > 0;
+    if (!wasVisible && isVisible && hasSavedPosition && !hasRestoredPositionRef.current && flashListRef.current && listData.length > 0) {
       hasRestoredPositionRef.current = true;
       
       // Find item by URI (most reliable)

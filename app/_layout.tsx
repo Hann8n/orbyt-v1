@@ -132,6 +132,7 @@ export default function RootLayout() {
           'Firma-Bold': require('../src/assets/fonts/Firma-Bold.otf'),
           'Firma-BoldItalic': require('../src/assets/fonts/Firma-BoldItalic.otf'),
           'Firma-Black': require('../src/assets/fonts/Firma-Black.otf'),
+          'CriteriaCF-ExtraBold': require('../src/assets/fonts/CriteriaCF-ExtraBold.otf'),
         }),
         initializeUserState(),
       ]);
