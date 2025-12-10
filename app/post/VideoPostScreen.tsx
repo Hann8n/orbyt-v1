@@ -982,7 +982,8 @@ const VideoPostScreen: React.FC = () => {
           visible={showContentWarningsSheet}
           onDismiss={() => setShowContentWarningsSheet(false)}
           title="Content"
-          snapPoints={['auto']}
+          name="post-content-warnings-sheet"
+          detents={['auto']}
           showCancelButton={true}
           cancelButtonText="Close"
         >
@@ -1042,7 +1043,8 @@ const VideoPostScreen: React.FC = () => {
           visible={showCommentSettingsSheet}
           onDismiss={() => setShowCommentSettingsSheet(false)}
           title="Comments"
-          snapPoints={['auto']}
+          name="post-comment-settings-sheet"
+          detents={['auto']}
           showCancelButton={true}
           cancelButtonText="Close"
         >
@@ -1067,7 +1069,8 @@ const VideoPostScreen: React.FC = () => {
           visible={showChannelSelectionSheet}
           onDismiss={() => setShowChannelSelectionSheet(false)}
           title="Pick a channel"
-          snapPoints={['auto']}
+          name="post-channel-selection-sheet"
+          detents={['auto']}
           showCancelButton={true}
           cancelButtonText="Cancel"
           titleSize={28}
@@ -1550,7 +1553,8 @@ const VideoPostScreen: React.FC = () => {
         visible={showContentWarningsSheet}
         onDismiss={() => setShowContentWarningsSheet(false)}
         title="Content"
-        snapPoints={['auto']}
+        name="post-content-warnings-sheet"
+        detents={['auto']}
         showCancelButton={true}
         cancelButtonText="Close"
       >
@@ -1609,7 +1613,8 @@ const VideoPostScreen: React.FC = () => {
         visible={showCommentSettingsSheet}
         onDismiss={() => setShowCommentSettingsSheet(false)}
         title="Comments"
-        snapPoints={['auto']}
+        name="post-comment-settings-sheet"
+        detents={['auto']}
         showCancelButton={true}
         cancelButtonText="Close"
       >
@@ -1633,7 +1638,8 @@ const VideoPostScreen: React.FC = () => {
         visible={showChannelSelectionSheet}
         onDismiss={() => setShowChannelSelectionSheet(false)}
         title="Pick a channel"
-        snapPoints={['auto']}
+        name="post-channel-selection-sheet"
+        detents={['auto']}
         showCancelButton={true}
         cancelButtonText="Close"
         titleSize={26}

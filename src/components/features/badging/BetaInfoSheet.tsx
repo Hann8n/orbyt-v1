@@ -2,11 +2,13 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
 import { Colors } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import Icon from '../../ui/Icon';
 import BetaBadge from './BetaBadge';
+import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
 
 interface BetaInfoSheetProps {
   visible: boolean;
@@ -17,12 +19,18 @@ interface BetaInfoSheetProps {
 
 const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate, onDismiss }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
-  const snapPoints = useMemo(() => ['auto'] as any, []);
+  const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
+  
+  // Calculate footer height for content padding (button height + padding + safe area)
+  const footerHeight = 44 + 20 + insets.bottom;
 
   useEffect(() => {
-    if (visible) bottomSheetRef.current?.present();
-    else bottomSheetRef.current?.dismiss();
+    if (visible) {
+      safePresent('beta-info-sheet');
+    } else {
+      safeDismiss('beta-info-sheet');
+    }
   }, [visible]);
 
   const formattedDate = useMemo(() => {
@@ -38,19 +46,22 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
   return (
     <TrueSheet
       ref={bottomSheetRef}
-      sizes={snapPoints as any}
+      name="beta-info-sheet"
+      detents={sheetDetents}
       backgroundColor={Colors.black}
-      onDismiss={onDismiss}
+      onDidDismiss={onDismiss}
       grabber={false}
-      FooterComponent={
-        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 
-          <TouchableOpacity style={styles.cancelButton} onPress={onDismiss} activeOpacity={0.7}>
-            <Text style={styles.cancelButtonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
+      footer={
+        <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
+          <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}> 
+            <TouchableOpacity style={styles.cancelButton} onPress={onDismiss} activeOpacity={0.7}>
+              <Text style={styles.cancelButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAwareFooter>
       }
     >
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingBottom: footerHeight }]}>
         {/* Header with title, badge and close button */}
         <View style={styles.headerContainer}>
           <View style={styles.headerLeft}>

@@ -27,11 +27,13 @@ import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-quer
 import { createQueryKeys } from '../../../services/FeedService';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
+import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
 import Icon, { HeartFillIcon, MoreFillIcon, CloseFillIcon, Loading3FillIcon } from '../../ui/Icon';
 import ProfileCache, { useProfile } from '../../../services/cache/ProfileCache';
 import { VerificationBadge } from '../badging';
 import RelativeDate from '../../ui/RelativeDate';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
 import { useFocusEffect } from '@react-navigation/native';
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { formatNumber, formatHandle } from '../../../utils/helpers';
@@ -216,6 +218,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
 
   const { height: keyboardHeight } = useKeyboardState();
+  const footerHeight = 44 + 16 + Math.max(insets.bottom, 8);
 
   const [replyContext, setReplyContext] = useState<{
     authorName: string;
@@ -488,9 +491,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
     const hasText = newCommentText.trim().length > 0;
     const isSendDisabled = isPosting || !hasText || charCount > MAX_COMMENT_LENGTH;
+    
+    // When keyboard is open, don't add safe area inset since keyboard takes that space
+    const isKeyboardOpen = keyboardHeight > 0;
+    const bottomPadding = isKeyboardOpen ? 8 : Math.max(8, insets.bottom);
 
     const footerContent = (
-      <View style={[styles.inputContainer, { paddingBottom: Math.max(5, insets.bottom) }]}>
+      <KeyboardAwareFooter hideOnKeyboard={false} bottomPadding={Math.max(8, insets.bottom)} style={styles.footerBlurContainer}>
+        <View style={[styles.inputContainer]}>
         <View style={styles.inputRow}>
           <View style={styles.avatarContainer}>
             <UI.Avatar
@@ -566,7 +574,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           </View>
         </View>
         <UserSearchModal {...userSearchModalProps} />
-      </View>
+        </View>
+      </KeyboardAwareFooter>
     );
 
     return footerContent;
@@ -581,15 +590,16 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     handleSendComment, 
     userSearchModalProps, 
     currentUserProfile, 
-    insets.bottom
+    insets.bottom,
+    keyboardHeight
   ]);
 
   // Handle TrueSheet visibility
   useEffect(() => {
     if (visible) {
-      sheetRef.current?.present();
+      safePresent('comment-section');
     } else {
-      sheetRef.current?.dismiss();
+      safeDismiss('comment-section');
     }
   }, [visible]);
 
@@ -746,13 +756,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       <TrueSheet
         ref={sheetRef}
         name="comment-section"
-        sizes={scrollToCommentUri ? ['100%'] : ['medium', 'large']}
+        detents={scrollToCommentUri ? [1] : [0.5, 1]}
         backgroundColor={Colors.black}
-        onDismiss={handleClose}
-        scrollRef={currentScrollRef}
-        keyboardMode="pan"
+        onDidDismiss={handleClose}
+        scrollable
+        keyboardMode="resize"
         grabber={false}
-        FooterComponent={activeTab === 'comments' ? FooterComponent : undefined}
+        footer={activeTab === 'comments' ? FooterComponent : undefined}
 
 
       >

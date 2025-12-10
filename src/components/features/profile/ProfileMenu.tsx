@@ -17,12 +17,14 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 
 import Icon, { ShareIcon } from '../../ui/Icon';
+import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
 import AtprotoService from '../../../services/api/AtprotoService';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
 import { useAuth, useAccountManagement } from '../../../stores/userStore';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useProfileFlags } from '../../../stores/profileInteractionStore';
@@ -62,6 +64,9 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   
   // TrueSheet refs for proper stacking
   const submenuSheetRef = useRef<TrueSheet>(null);
+  
+  // Calculate footer height for submenu content padding (button height + padding + safe area)
+  const submenuFooterHeight = 44 + 20 + insets.bottom;
 
   // Get profile data to determine if it's the current user
   const { data: profile } = useQuery({
@@ -108,14 +113,14 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       
       if (isBlocked) {
         // Ensure submenu is closed
-        submenuSheetRef.current?.dismiss();
+        safeDismiss('profile-menu-submenu');
         await AtprotoService.unblockUser(profile.did);
         queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(profile.did) });
         setFlags({ isBlocked: false });
         onDismiss();
       } else {
         // Ensure submenu is closed before showing confirmation alert
-        submenuSheetRef.current?.dismiss();
+        safeDismiss('profile-menu-submenu');
         Alert.alert(
           'block user',
           'are you sure you want to block this user? they will not be able to see your posts or interact with you.',
@@ -251,9 +256,9 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     }
   }, [profile?.did, onDismiss]);
 
-  // Report or Block handler - now presents submenu sheet
+  // Report or Block handler - now presents submenu sheet using global API
   const handleReportOrBlock = useCallback(() => {
-    submenuSheetRef.current?.present();
+    safePresent('profile-menu-submenu');
   }, []);
 
   // Share handler
@@ -403,6 +408,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       showCancelButton={true}
       cancelButtonText="Cancel"
       enableGlass={false}
+      name="profile-menu"
     >
       {/* Main menu options */}
       <View style={styles.optionsContainer}>
@@ -420,23 +426,26 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       {/* Submenu sheet for Report or Block - defined within parent sheet */}
       <TrueSheet
         ref={submenuSheetRef}
-        sizes={['auto']}
+        name="profile-menu-submenu"
+        detents={['auto']}
         backgroundColor={Colors.black}
-        onDismiss={() => submenuSheetRef.current?.dismiss()}
+        onDidDismiss={() => { /* no-op */ }}
         grabber={false}
-        FooterComponent={
-          <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}>
+        footer={
+          <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
+            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
             <TouchableOpacity 
               style={styles.cancelButton} 
-              onPress={() => submenuSheetRef.current?.dismiss()} 
+              onPress={() => safeDismiss('profile-menu-submenu')} 
               activeOpacity={0.7}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
-          </View>
+            </View>
+          </KeyboardAwareFooter>
         }
       >
-        <View style={styles.submenuContent}>
+        <View style={[styles.submenuContent, { paddingBottom: submenuFooterHeight }]}>
           {/* Header with title and close button */}
           <View style={styles.headerContainer}>
             <Text style={styles.headerTitle} numberOfLines={1}>
@@ -444,7 +453,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             </Text>
             <TouchableOpacity 
               style={styles.closeButton} 
-              onPress={() => submenuSheetRef.current?.dismiss()}
+              onPress={() => safeDismiss('profile-menu-submenu')}
               activeOpacity={0.7}
             >
               <Icon name="close" size={20} color={Colors.white} />
@@ -456,7 +465,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             <VerticalListButton
               label="Report Account"
               onPress={() => {
-                submenuSheetRef.current?.dismiss();
+                safeDismiss('profile-menu-submenu');
                 handleReport();
               }}
               disabled={isSubmitting}
@@ -464,7 +473,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             <VerticalListButton
               label={isBlocked ? 'Unblock Account' : 'Block Account'}
               onPress={() => {
-                submenuSheetRef.current?.dismiss();
+                safeDismiss('profile-menu-submenu');
                 handleBlockToggle();
               }}
               disabled={isSubmitting}

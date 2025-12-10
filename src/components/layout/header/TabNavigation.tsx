@@ -112,6 +112,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           visible={dropdownVisible}
           onDismiss={() => setDropdownVisible(false)}
           title="Sort by"
+          name="tab-dropdown-sheet"
           showCancelButton={true}
           cancelButtonText="Cancel"
           enableGlass={false}

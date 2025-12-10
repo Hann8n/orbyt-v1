@@ -6,21 +6,24 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
-  Keyboard,
+
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { safeDismiss, safePresent } from '../../utils/truesheet/trueSheetUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import { Colors } from './UI';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { hexToRGBA } from '../../utils/formatting/colorUtils';
+import KeyboardAwareFooter from '../../utils/truesheet/KeyboardAwareFooter';
 
 interface VerticalListSheetProps {
   visible: boolean;
   onDismiss: () => void;
   title: string;
   children: React.ReactNode;
-  snapPoints?: string[];
+  /** Detent values for TrueSheet v3: use 'auto', or fractional values (0-1) */
+  detents?: ('auto' | number)[];
   showCancelButton?: boolean;
   cancelButtonText?: string;
   /**
@@ -31,10 +34,6 @@ interface VerticalListSheetProps {
    * Custom header button to replace the close button
    */
   customHeaderButton?: React.ReactNode;
-  /**
-   * Pass the scrollable ref (e.g., FlashList/ScrollView) for better scroll interop with the sheet
-   */
-  scrollRef?: React.RefObject<any>;
   /**
    * Enable iOS 26 Liquid Glass background when available
    */
@@ -58,12 +57,11 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   onDismiss,
   title,
   children,
-  snapPoints = ['auto'],
+  detents = ['auto'],
   showCancelButton = true,
   cancelButtonText = 'Cancel',
   description,
   customHeaderButton,
-  scrollRef,
   enableGlass = true,
   name,
   titleSize,
@@ -72,7 +70,13 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   // Bottom sheet ref and snap points
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  // Calculate footer height for layout; keep the actual control height + safe area
+  const footerHeight = showCancelButton ? 44 + insets.bottom : 0;
+
+  // Simplified content padding: we only need a modest gap above the footer
+  // so content doesn't butt up against it. Use 12px plus the safe area inset
+  // when footer is present so interactive content isn't hidden behind the footer.
+  const contentPaddingBottom = showCancelButton ? 12 + insets.bottom : 12;
 
   const shouldUseGlass = useMemo(() => {
     return enableGlass && Platform.OS === 'ios' && isLiquidGlassAvailable();
@@ -81,53 +85,38 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   // Handle bottom sheet visibility
   React.useEffect(() => {
     if (visible) {
-      bottomSheetRef.current?.present();
+      if (name) safePresent(name);
+      else bottomSheetRef.current?.present();
     } else {
-      bottomSheetRef.current?.dismiss();
+      if (name) safeDismiss(name);
+      else bottomSheetRef.current?.dismiss();
     }
-  }, [visible]);
+  }, [visible, name]);
 
-  // Handle keyboard visibility
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => setIsKeyboardVisible(true)
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setIsKeyboardVisible(false)
-    );
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
-
-  // Backdrop component - TrueSheet handles backdrop automatically
-  const renderBackdrop = useCallback(() => null, []);
 
   return (
     <TrueSheet
       ref={bottomSheetRef}
       name={name}
-      sizes={snapPoints as any}
+      detents={detents}
       backgroundColor={Colors.black}
-      onDismiss={onDismiss}
+      onDidDismiss={onDismiss}
       grabber={false}
       keyboardMode="pan"
-      scrollRef={scrollRef}
-      FooterComponent={
-        showCancelButton && !isKeyboardVisible ? (
-          <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 
-            <TouchableOpacity 
-              style={styles.cancelButton} 
-              onPress={onDismiss} 
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelButtonText}>{cancelButtonText}</Text>
-            </TouchableOpacity>
-          </View>
+      scrollable
+      footer={
+        showCancelButton ? (
+          <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
+            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
+              <TouchableOpacity 
+                style={styles.cancelButton} 
+                onPress={onDismiss} 
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelButtonText}>{cancelButtonText}</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAwareFooter>
         ) : undefined
       }
     >
@@ -160,7 +149,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
         )}
         
         {/* Content */}
-        <View style={styles.contentContainer}>
+        <View style={[styles.contentContainer, { paddingBottom: contentPaddingBottom }]}> 
           {children}
         </View>
       </View>
@@ -215,7 +204,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingBottom: 8,
   },
   cancelContainer: {
     alignItems: 'center',

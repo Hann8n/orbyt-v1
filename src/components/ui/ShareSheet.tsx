@@ -17,6 +17,8 @@ import {
   TextInput,
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { safeDismiss, safePresent } from '../../utils/truesheet/trueSheetUtils';
+import KeyboardAwareFooter from '../../utils/truesheet/KeyboardAwareFooter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { Loading3FillIcon } from './Icon';
 import AtprotoService from '../../services/api/AtprotoService';
@@ -63,10 +65,21 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
   const searchInputRef = useRef<TextInput | null>(null);
+  const sheetRef = useRef<TrueSheet>(null);
 
-  // TrueSheet sizes
-  const snapPoints = useMemo(() => ['auto'] as any, []);
+  // TrueSheet detents - v3 uses 'auto' or fractional numbers (0-1)
+  const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
+  
+  // Calculate footer height for content padding
+  const footerHeight = 44 + 20 + insets.bottom; // button height + padding + safe area
+
+  // Present sheet when data arrives
+  useEffect(() => {
+    if (data) {
+      safePresent('share-sheet');
+    }
+  }, [data]);
 
   // Check if the current user is the author
   useEffect(() => {
@@ -111,7 +124,8 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
 
   // Programmatic dismiss function for buttons
   const dismissSheet = useCallback(() => {
-    TrueSheet.dismiss('share-sheet');
+    // Dismiss the global sheet name if mounted; ignore if it's not present.
+    safeDismiss('share-sheet');
     // onDismiss (handleDismiss) will handle the overlay clearing
   }, []);
 
@@ -506,10 +520,11 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   if (!data) {
     return (
       <TrueSheet
+        ref={sheetRef}
         name="share-sheet"
-        sizes={snapPoints}
+        detents={sheetDetents}
         backgroundColor={Colors.black}
-        onDismiss={handleDismiss}
+        onDidDismiss={handleDismiss}
         grabber={false}
       >
         <View style={styles.content}>
@@ -523,25 +538,28 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
 
   return (
     <TrueSheet
+      ref={sheetRef}
       name="share-sheet"
-      sizes={snapPoints}
+      detents={sheetDetents}
       backgroundColor={Colors.black}
-      onDismiss={handleDismiss}
+      onDidDismiss={handleDismiss}
       grabber={false}
-      FooterComponent={
+      footer={
         showConversationPicker
           ? null
           : (
-            <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}> 
-              <TouchableOpacity 
-                style={styles.cancelButton} 
-                onPress={dismissSheet} 
-                activeOpacity={0.7}
-                disabled={isSubmitting}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
+            <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
+              <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}> 
+                <TouchableOpacity 
+                  style={styles.cancelButton} 
+                  onPress={dismissSheet} 
+                  activeOpacity={0.7}
+                  disabled={isSubmitting}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </KeyboardAwareFooter>
           )
       }
     >
@@ -644,7 +662,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
           </View>
         ) : (
           /* Options */
-          <View style={styles.contentContainer}>
+          <View style={[styles.contentContainer, { paddingBottom: footerHeight }]}>
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
@@ -708,7 +726,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingBottom: 20,
     // Extend options row to sheet edges while preserving overall content padding
     marginLeft: -12,
     marginRight: -12,

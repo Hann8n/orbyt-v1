@@ -25,6 +25,7 @@ import { useAccountManagement, useAuth } from '../../../stores/userStore';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { PDSDiscoveryService } from '../../../services/PDSDiscoveryService';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import CustomPDSInputSheet from '../../ui/CustomPDSInputSheet';
@@ -273,7 +274,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const handleBlueskyAddAccount = useCallback(async () => {
     // Use TrueSheet global method to dismiss the main sheet first
     try {
-      await TrueSheet.dismiss('account-switcher');
+      await safeDismiss('account-switcher');
       // Wait for dismissal to complete before proceeding with OAuth
       await new Promise(resolve => setTimeout(resolve, 200));
       await handleBlueskyLogin();
@@ -284,12 +285,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const handleCustomPDSAddAccount = useCallback(async () => {
     // Use TrueSheet global method to dismiss the main sheet first, then present the custom PDS input
     try {
-      await TrueSheet.dismiss('account-switcher'); // Dismiss the parent sheet first
+      await safeDismiss('account-switcher'); // Dismiss the parent sheet first
       // Wait a bit for the dismissal to complete before showing the custom PDS input
       await new Promise(resolve => setTimeout(resolve, 200));
       setShowUsernameInput(true); // Set state to true first
       // Then use TrueSheet global method to present the custom PDS input sheet
-      await TrueSheet.present('custom-pds-input');
+      await safePresent('custom-pds-input');
     } catch (error) {
     }
   }, []);

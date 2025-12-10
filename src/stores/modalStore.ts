@@ -5,6 +5,7 @@
  */
 import { create } from 'zustand';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { safeDismiss } from '../utils/truesheet/trueSheetUtils';
 
 // Types
 export interface CommentSectionData {
@@ -54,11 +55,7 @@ export const useModalStore = create<ModalState>((set, get) => ({
   },
   
   dismissAccountSwitcher: () => {
-    try {
-      TrueSheet.dismiss('account-switcher');
-    } catch (e) {
-      // no-op
-    }
+    safeDismiss('account-switcher');
     set({ accountSwitcherVisible: false });
   },
   
@@ -70,7 +67,7 @@ export const useModalStore = create<ModalState>((set, get) => ({
   },
   
   dismissCommentSection: () => {
-    TrueSheet.dismiss('comment-section');
+    safeDismiss('comment-section');
     set({ commentSectionData: null });
   },
   
@@ -83,7 +80,7 @@ export const useModalStore = create<ModalState>((set, get) => ({
   
   dismissShareSheet: (skipDismiss = false) => {
     if (!skipDismiss) {
-      TrueSheet.dismiss('share-sheet');
+      safeDismiss('share-sheet');
     }
     set({ shareSheetData: null });
   },

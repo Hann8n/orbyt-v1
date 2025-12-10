@@ -1,5 +1,5 @@
 // filepath: /Users/jack/Orbyt/components/VerificationInfoSheet.tsx
-import React, { useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -16,9 +16,11 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import { useRouter } from 'expo-router';
 import { Avatar } from '../../ui/UI';
 import Icon, { Loading3FillIcon } from '../../ui/Icon';
+import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
 import VerificationBadge from './VerificationBadge';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
@@ -79,8 +81,11 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
   const navigation = useRouter();
-  const snapPoints = useMemo(() => ['auto'] as any, []);
+  const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
+  
+  // Calculate footer height for content padding (button height + padding + safe area)
+  const footerHeight = 44 + 20 + insets.bottom;
 
   const shouldUseGlass = useMemo(() => {
     return false; // Disabled for consistent black background
@@ -165,35 +170,35 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   // Handle bottom sheet visibility
   useEffect(() => {
     if (visible) {
-      bottomSheetRef.current?.present();
+      safePresent('verification-info-sheet');
     } else {
-      bottomSheetRef.current?.dismiss();
+      safeDismiss('verification-info-sheet');
     }
   }, [visible]);
-
-  // Backdrop component - TrueSheet handles backdrop automatically
-  const renderBackdrop = useCallback(() => null, []);
 
   return (
     <TrueSheet
       ref={bottomSheetRef}
-      sizes={snapPoints as any}
+      name="verification-info-sheet"
+      detents={sheetDetents}
       backgroundColor={Colors.black}
-      onDismiss={onDismiss}
+      onDidDismiss={onDismiss}
       grabber={false}
-      FooterComponent={
-        <View style={[styles.cancelContainer, { paddingBottom: insets.bottom, backgroundColor: Colors.black }]}>
-          <TouchableOpacity 
-            style={styles.cancelButton} 
-            onPress={onDismiss}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.cancelButtonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
+      footer={
+        <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
+          <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}> 
+            <TouchableOpacity 
+              style={styles.cancelButton} 
+              onPress={onDismiss}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAwareFooter>
       }
     >
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingBottom: footerHeight }]}>
         {/* Header with title, badge and close button */}
         <View style={styles.headerContainer}>
           <View style={styles.headerLeft}>

@@ -145,17 +145,19 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
         </View>
         <View style={styles.accountInfoContainer}>
           <View style={styles.nameRow}>
-            <Text style={[ 
-              styles.accountHandle,
-              { 
-                color: textColor || Colors.white,
-                fontSize: customFontSize || config.nameFontSize,
-                fontFamily: nameFontWeight,
-              }
-            ]} numberOfLines={1}>
-              {handle}
-            </Text>
-            {handle && (
+            {!hideDisplayName && (
+              <Text style={[ 
+                styles.accountDisplayName,
+                { 
+                  color: textColor || Colors.white,
+                  fontSize: customFontSize || config.nameFontSize,
+                  fontFamily: nameFontWeight,
+                }
+              ]} numberOfLines={1}>
+                {actualDisplayName}
+              </Text>
+            )}
+            {handle && !hideDisplayName && (
               <VerificationBadge
                 handle={handle}
                 textSize={config.badgeTextSize}
@@ -163,6 +165,18 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
               />
             )}
           </View>
+          {!hideHandleLine && (
+            <Text style={[ 
+              styles.accountHandle,
+              { 
+                color: handleColor || Colors.lightGray,
+                fontSize: config.handleFontSize,
+                fontFamily: handleFontWeight,
+              }
+            ]} numberOfLines={1}>
+              {showDate && date ? date : handle}
+            </Text>
+          )}
         </View>
         {showFollowButton ? (
           <TouchableOpacity

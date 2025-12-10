@@ -199,7 +199,7 @@ export default function ChatActionsSheet({
       visible={visible}
       onDismiss={onDismiss}
       title={`Chat with ${getRecipientName()}`}
-      snapPoints={['auto']}
+      detents={['auto']}
       showCancelButton={true}
     >
       <View style={styles.content}>
