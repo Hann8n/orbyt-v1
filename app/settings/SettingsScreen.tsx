@@ -210,7 +210,8 @@ const SettingsScreen: React.FC = () => {
           icon: 'user',
           onPress: () => {
             navigation.back();
-            setTimeout(() => presentAccountSwitcher(), 100);
+            // Ensure modal close animation completes before presenting account switcher
+            setTimeout(() => presentAccountSwitcher(), 350);
           },
           showChevron: true
         },

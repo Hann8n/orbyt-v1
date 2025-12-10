@@ -54,6 +54,11 @@ export const useModalStore = create<ModalState>((set, get) => ({
   },
   
   dismissAccountSwitcher: () => {
+    try {
+      TrueSheet.dismiss('account-switcher');
+    } catch (e) {
+      // no-op
+    }
     set({ accountSwitcherVisible: false });
   },
   
@@ -62,7 +67,6 @@ export const useModalStore = create<ModalState>((set, get) => ({
   
   presentCommentSection: (data: CommentSectionData) => {
     set({ commentSectionData: data });
-    TrueSheet.present('comment-section');
   },
   
   dismissCommentSection: () => {
@@ -75,10 +79,6 @@ export const useModalStore = create<ModalState>((set, get) => ({
   
   presentShareSheet: (data: ShareSheetData) => {
     set({ shareSheetData: data });
-    // Defer present to the next frame to allow React to commit the new UI
-    requestAnimationFrame(() => {
-      TrueSheet.present('share-sheet');
-    });
   },
   
   dismissShareSheet: (skipDismiss = false) => {
