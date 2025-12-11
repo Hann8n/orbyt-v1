@@ -72,11 +72,9 @@ const KeyboardAwareFooter: React.FC<KeyboardAwareFooterProps> = ({
     };
   }, [keyboardWillShow, keyboardWillHide, hideOnKeyboard, translateY, insets.bottom]);
 
-  const bottomInset = keyboardHeightVal > 0 ? Math.max(8, bottomPadding) : Math.max(insets.bottom, bottomPadding);
-
   return (
     <Animated.View
-      style={[{ transform: [{ translateY }] }, { paddingBottom: bottomInset }, style] as any}
+      style={[{ transform: [{ translateY }] }, { paddingBottom: bottomPadding }, style] as any}
     >
       {children}
     </Animated.View>

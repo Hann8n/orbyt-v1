@@ -55,7 +55,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   return (
     <KeyboardAwareFooter 
       hideOnKeyboard={false} 
-      bottomPadding={Math.max(8, insets.bottom)} 
+      bottomPadding={insets.bottom}
       style={styles.footerBlurContainer}
     >
       <View style={styles.inputContainer}>
@@ -97,9 +97,20 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                   styles.sendButton,
                   !hasText && styles.cancelReplyButton
                 ]}
-                onPress={hasText ? onSubmit : onCancelReply}
-                disabled={hasText && isSendDisabled}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => {
+                  if (hasText && !isSendDisabled) {
+                    onSubmit();
+                  } else if (!hasText) {
+                    onCancelReply?.();
+                  }
+                }}
+                disabled={hasText ? isSendDisabled : false}
+                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                activeOpacity={0.7}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel={hasText ? "Send comment" : "Cancel reply"}
+                delayPressIn={0}
               >
                 <Icon 
                   name={hasText ? "arrow-up-fill" : "close"}
@@ -108,23 +119,26 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
                 />
               </TouchableOpacity>
             ) : (
-              hasText && (
-                <TouchableOpacity
-                  style={[
-                    styles.sendButton,
-                    isSendDisabled && styles.sendButtonDisabled
-                  ]}
-                  onPress={onSubmit}
-                  disabled={isSendDisabled}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Icon 
-                    name="arrow-up-fill" 
-                    size={22} 
-                    color={Colors.black}
-                  />
-                </TouchableOpacity>
-              )
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  (!hasText || isSendDisabled) && styles.sendButtonDisabled
+                ]}
+                onPress={onSubmit}
+                disabled={isSendDisabled}
+                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                activeOpacity={0.7}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Send comment"
+                delayPressIn={0}
+              >
+                <Icon 
+                  name="arrow-up-fill" 
+                  size={22} 
+                  color={hasText && !isSendDisabled ? Colors.black : Colors.lightGray}
+                />
+              </TouchableOpacity>
             )}
             {showCharCount && (
               <Text style={[
@@ -137,8 +151,12 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
             )}
           </View>
         </View>
-        {userSearchModalProps && <UserSearchModal {...userSearchModalProps} />}
       </View>
+      {userSearchModalProps && (
+        <View style={styles.userSearchContainer} pointerEvents="box-none">
+          <UserSearchModal {...userSearchModalProps} />
+        </View>
+      )}
     </KeyboardAwareFooter>
   );
 };
@@ -198,6 +216,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
+    zIndex: 10,
+    elevation: 10,
   },
   sendButton: {
     paddingHorizontal: 8,
@@ -211,6 +231,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 8,
     marginTop: 0,
+    zIndex: 11,
+    elevation: 11,
   },
   sendButtonDisabled: {
     opacity: 0.5,
@@ -235,6 +257,13 @@ const styles = StyleSheet.create({
   },
   charCountTextError: {
     color: Colors.lightRed,
+  },
+  userSearchContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'box-none',
   },
 });
 

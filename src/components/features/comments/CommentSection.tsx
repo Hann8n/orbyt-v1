@@ -22,7 +22,6 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { FlashList } from '@shopify/flash-list';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { createQueryKeys } from '../../../services/FeedService';
@@ -133,12 +132,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }, 300);
   }, [post, presentShareSheet, onOpenShareSheet, onDismiss]);
   
-  const insets = useSafeAreaInsets();
-  
-  // Calculate footer height dynamically
-  // Footer structure: inputContainer paddingTop (16) + inputRow height (42) + inputContainer paddingBottom (8) + KeyboardAwareFooter bottomPadding (Math.max(8, insets.bottom))
-  const footerHeight = 16 + 42 + 8 + Math.max(8, insets.bottom);
-  const listBottomPadding = footerHeight + 10;
+  // Simple fixed padding for list bottom
+  const listBottomPadding = 100;
   
   // Local like state fallback for header like button when no external handler is provided
   const [headerIsLiked, setHeaderIsLiked] = useState<boolean>(!!isLiked);
@@ -447,7 +442,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const MAX_COMMENT_LENGTH = 300;
   
   const handleSendComment = useCallback(async () => {
-    if (!newCommentText.trim() || isPosting || !post?.uri) return;
+    if (!newCommentText.trim() || isPosting || !post?.uri) {
+      return;
+    }
     
     setIsPosting(true);
     const commentText = newCommentText.trim();

@@ -154,14 +154,11 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     // Use useLayoutState from FlashList to properly handle layout changes
     const [repliesVisible, setRepliesVisible] = useLayoutState(false);
     
-    // #region agent log
     const handleToggleReplies = useCallback(() => {
-      fetch('http://127.0.0.1:7242/ingest/4c8c8c65-5f23-4341-939a-b078efcb0f64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CommentItem.tsx:693',message:'Toggle replies',data:{commentUri:properUri,currentState:repliesVisible,newState:!repliesVisible},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
       // Notify parent to prepare FlashList for layout animation
       onLayoutChange?.();
       setRepliesVisible(v => !v);
-    }, [repliesVisible, properUri, setRepliesVisible, onLayoutChange]);
-    // #endregion
+    }, [repliesVisible, setRepliesVisible, onLayoutChange]);
 
     // Animation values for heart interaction
     const heartScale = useSharedValue(1);
@@ -609,9 +606,6 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       if (!repliesVisible || !comment?.replies || !Array.isArray(comment.replies)) {
         return null;
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4c8c8c65-5f23-4341-939a-b078efcb0f64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CommentItem.tsx:605',message:'Rendering replies',data:{commentUri:properUri,replyCount:comment.replies.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       return (
         <View style={[styles.repliesContainer, { marginLeft: 0, paddingLeft: 0, borderLeftWidth: 0 }]}>
           {comment.replies
