@@ -64,16 +64,18 @@ export const formatRelativeDate = (dateString?: string, showTime: boolean = fals
     return `${diffDays}d`;
   }
   
-  // After 1 week, use Month Day (Mar 7) for current year, Month Day, Year (Mar 7, 2023) if before January of current year
+  // After 1 week, use Month Day (Mar 7) for current year, MM/DD/YYYY (03/07/2023) if from previous year
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const month = months[date.getMonth()];
   const day = date.getDate();
   const year = date.getFullYear();
   const currentYear = now.getFullYear();
 
-  // If before January of current year, show year
+  // If from previous year, use MM/DD/YYYY format
   if (year < currentYear) {
-    return `${month} ${day}, ${year}`;
+    const monthNum = String(date.getMonth() + 1).padStart(2, '0');
+    const dayNum = String(date.getDate()).padStart(2, '0');
+    return `${monthNum}/${dayNum}/${year}`;
   } else {
     return `${month} ${day}`;
   }

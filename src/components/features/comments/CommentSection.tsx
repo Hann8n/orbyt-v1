@@ -134,6 +134,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, [post, presentShareSheet, onOpenShareSheet, onDismiss]);
   
   const insets = useSafeAreaInsets();
+  
+  // Calculate footer height dynamically
+  // Footer structure: inputContainer paddingTop (16) + inputRow height (42) + inputContainer paddingBottom (8) + KeyboardAwareFooter bottomPadding (Math.max(8, insets.bottom))
+  const footerHeight = 16 + 42 + 8 + Math.max(8, insets.bottom);
+  const listBottomPadding = footerHeight + 10;
+  
   // Local like state fallback for header like button when no external handler is provided
   const [headerIsLiked, setHeaderIsLiked] = useState<boolean>(!!isLiked);
   const [headerLikeUri, setHeaderLikeUri] = useState<string | undefined>(undefined);
@@ -591,7 +597,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               </View>
             )}
             keyExtractor={() => 'empty'}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: listBottomPadding }]}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
             scrollEventThrottle={16}
@@ -613,7 +619,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               </View>
             </View>
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: listBottomPadding }]}
           keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
@@ -640,7 +646,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               </View>
             )}
             keyExtractor={() => 'empty'}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: listBottomPadding }]}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
             scrollEventThrottle={16}
@@ -662,7 +668,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               </View>
             </View>
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: listBottomPadding }]}
           keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
@@ -785,7 +791,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
   },
   listContent: {
-    paddingBottom: 80,
     backgroundColor: Colors.black,
     paddingHorizontal: 12,
   },

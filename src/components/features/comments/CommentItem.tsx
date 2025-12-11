@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { useLayoutState } from '@shopify/flash-list';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -127,10 +128,11 @@ interface CommentItemProps {
   level?: number;
   onImagePress?: (uri: string) => void;
   highlightUri?: string;
+  onLayoutChange?: () => void;
 }
 
 const CommentItem: React.FC<CommentItemProps> = React.memo(
-  ({ comment, onDismiss, onReplyPress, rootUri, rootCid, level = 0, onImagePress, highlightUri }) => {
+  ({ comment, onDismiss, onReplyPress, rootUri, rootCid, level = 0, onImagePress, highlightUri, onLayoutChange }) => {
     const viewer = comment?.viewer || comment?.post?.viewer || {};
     const stats = comment?.post || comment;
     const [isLiked, setIsLiked] = useState<boolean>(!!viewer.like);
@@ -144,16 +146,27 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       setIsLiked(!!viewer.like);
     }, [viewer.like]);
     const queryClient = useQueryClient();
-    const [repliesVisible, setRepliesVisible] = useState(false);
+    
+    // Define the proper URI and CID for the comment (needed early for callbacks)
+    const properUri = comment?.uri || comment?.post?.uri;
+    const properCid = comment?.cid || comment?.post?.cid;
+    
+    // Use useLayoutState from FlashList to properly handle layout changes
+    const [repliesVisible, setRepliesVisible] = useLayoutState(false);
+    
+    // #region agent log
+    const handleToggleReplies = useCallback(() => {
+      fetch('http://127.0.0.1:7242/ingest/4c8c8c65-5f23-4341-939a-b078efcb0f64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CommentItem.tsx:693',message:'Toggle replies',data:{commentUri:properUri,currentState:repliesVisible,newState:!repliesVisible},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
+      // Notify parent to prepare FlashList for layout animation
+      onLayoutChange?.();
+      setRepliesVisible(v => !v);
+    }, [repliesVisible, properUri, setRepliesVisible, onLayoutChange]);
+    // #endregion
 
     // Animation values for heart interaction
     const heartScale = useSharedValue(1);
     const heartOpacity = useSharedValue(1);
     const isAnimating = useRef(false);
-
-    // Define the proper URI and CID for the comment
-    const properUri = comment?.uri || comment?.post?.uri;
-    const properCid = comment?.cid || comment?.post?.cid;
 
     // Highlight animation for target comment
     const shouldHighlight = highlightUri && properUri === highlightUri;
@@ -596,6 +609,9 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       if (!repliesVisible || !comment?.replies || !Array.isArray(comment.replies)) {
         return null;
       }
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4c8c8c65-5f23-4341-939a-b078efcb0f64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CommentItem.tsx:605',message:'Rendering replies',data:{commentUri:properUri,replyCount:comment.replies.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       return (
         <View style={[styles.repliesContainer, { marginLeft: 0, paddingLeft: 0, borderLeftWidth: 0 }]}>
           {comment.replies
@@ -610,6 +626,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                 rootCid={rootCid}
                 level={level + 1}
                 highlightUri={highlightUri}
+                onLayoutChange={onLayoutChange}
               />
             ))}
         </View>
@@ -690,7 +707,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
               {replyCount > 0 && (
                 <TouchableOpacity
                   style={[styles.repliesToggleContainer, { paddingLeft: level > 0 ? 8 : 0 }]}
-                  onPress={() => setRepliesVisible(v => !v)}
+                  onPress={handleToggleReplies}
                   activeOpacity={0.7}
                 >
                   <View style={styles.repliesToggleLine} />
@@ -741,7 +758,8 @@ function areEqualCommentItem(prevProps: CommentItemProps, nextProps: CommentItem
     prevProps.rootCid === nextProps.rootCid &&
     prevProps.level === nextProps.level &&
     prevProps.onImagePress === nextProps.onImagePress &&
-    prevProps.highlightUri === nextProps.highlightUri
+    prevProps.highlightUri === nextProps.highlightUri &&
+    prevProps.onLayoutChange === nextProps.onLayoutChange
   );
 }
 
