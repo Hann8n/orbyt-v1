@@ -82,24 +82,41 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
 
   // Content padding accounts for footer height to prevent content from being hidden
   // Dynamically calculated based on measured footer height
+  // Ensure content never sits under the bottom bar; add safe-area padding even without a footer
   const contentPaddingBottom = showCancelButton && footerHeight > 0
     ? footerHeight + insets.bottom
-    : 0;
+    : insets.bottom + 12;
 
   // Handle bottom sheet visibility
   useEffect(() => {
+    const presentSheet = async () => {
+      try {
+        if (name) {
+          await safePresent(name);
+        } else {
+          await bottomSheetRef.current?.present();
+        }
+      } catch {
+        // Safely ignore race conditions when the sheet unmounts
+      }
+    };
+
+    const dismissSheet = async () => {
+      try {
+        if (name) {
+          await safeDismiss(name);
+        } else {
+          await bottomSheetRef.current?.dismiss();
+        }
+      } catch {
+        // Safely ignore race conditions when the sheet unmounts
+      }
+    };
+
     if (visible) {
-      if (name) {
-        safePresent(name);
-      } else {
-        bottomSheetRef.current?.present();
-      }
+      presentSheet();
     } else {
-      if (name) {
-        safeDismiss(name);
-      } else {
-        bottomSheetRef.current?.dismiss();
-      }
+      dismissSheet();
     }
   }, [visible, name]);
 
