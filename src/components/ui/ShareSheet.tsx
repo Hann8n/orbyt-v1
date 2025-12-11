@@ -72,7 +72,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   const insets = useSafeAreaInsets();
   
   // Calculate footer height for content padding
-  const footerHeight = 44 + 20 + insets.bottom; // button height + padding + safe area
+  const footerHeight = 44 + 8 + insets.bottom; // button height + padding + safe area
 
   // Present sheet when data arrives
   useEffect(() => {
