@@ -9,8 +9,6 @@ import {
   Platform,
   TextInput,
 } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import { SavedAccount } from '../../../stores/userStore';
 import { analyzeOAuthError } from '../../../utils/oauthErrorHandler';
@@ -59,7 +57,6 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [showUsernameInput, setShowUsernameInput] = useState(false);
   const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
   
   // Glass effect support - disabled for consistent black background
   const shouldUseGlass = false;
@@ -88,12 +85,13 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
   const customColors = activeProfile?.profileColors;
 
   const loadAccounts = useCallback(async () => {
+    // Set accounts immediately with basic data to prevent sheet expansion
+    const savedAccountsData = savedAccounts;
+    setAccounts(savedAccountsData.map(account => ({ ...account })));
+    
     setLoading(true);
     try {
-      // Get fresh savedAccounts from the user store to ensure we have the latest state
-      const savedAccountsData = savedAccounts;
-      
-      // Enhance accounts with cached profile data
+      // Enhance accounts with cached profile data asynchronously
       const accountsWithProfiles = await Promise.all(
         savedAccountsData.map(async (account) => {
           try {
@@ -126,13 +124,19 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     }
   }, [savedAccounts]);
 
-  // Load accounts when modal opens or savedAccounts change
+  // Preload accounts when savedAccounts change (proactive loading)
+  useEffect(() => {
+    if (savedAccounts.length > 0) {
+      loadAccounts();
+    }
+  }, [savedAccounts, loadAccounts]);
+
+  // Reset edit mode when modal opens
   useEffect(() => {
     if (visible) {
-      loadAccounts();
-      setEditMode(false); // Reset edit mode when modal opens
+      setEditMode(false);
     }
-  }, [visible, loadAccounts]);
+  }, [visible]);
 
   const handleSwitchAccount = useCallback(async (account: AccountWithProfile) => {
     if (account.did === activeAccountDid) {
@@ -454,6 +458,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         customHeaderButton={customHeaderButton}
         name="account-switcher"
         detents={['auto']}
+        scrollable={false}
       >
         
         {loading ? (
@@ -461,16 +466,13 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
             <Loading3FillIcon size={48} color={Colors.lightGray} />
           </View>
         ) : (
-          <FlashList
-            data={listData}
-            renderItem={renderAccountItem}
-            keyExtractor={keyExtractor}
-            contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom }]}
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-            overScrollMode="never"
-            alwaysBounceVertical={false}
-          />
+          <View style={styles.listContent}>
+            {listData.map((item) => (
+              <React.Fragment key={keyExtractor(item)}>
+                {renderAccountItem({ item })}
+              </React.Fragment>
+            ))}
+          </View>
         )}
       </VerticalListSheet>
       

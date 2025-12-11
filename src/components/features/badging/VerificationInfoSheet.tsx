@@ -358,10 +358,9 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 15,
-    paddingTop: 15,
-    paddingBottom: 15,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   headerLeft: {
     flexDirection: 'row',

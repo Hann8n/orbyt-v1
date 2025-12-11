@@ -738,9 +738,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 6,
+    paddingBottom: 12,
   },
   tabContainer: {
     flex: 1,
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 80,
     backgroundColor: Colors.black,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
   loadingContainer: {
     flex: 1,

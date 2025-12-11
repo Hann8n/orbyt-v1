@@ -431,6 +431,20 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         backgroundColor={Colors.black}
         onDidDismiss={() => { /* no-op */ }}
         grabber={false}
+        header={
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              Report or Block
+            </Text>
+            <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={() => safeDismiss('profile-menu-submenu')}
+              activeOpacity={0.7}
+            >
+              <Icon name="close" size={20} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
+        }
         footer={
           <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
             <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
@@ -446,19 +460,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         }
       >
         <View style={[styles.submenuContent, { paddingBottom: submenuFooterHeight }]}>
-          {/* Header with title and close button */}
-          <View style={styles.headerContainer}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              Report or Block
-            </Text>
-            <TouchableOpacity 
-              style={styles.closeButton} 
-              onPress={() => safeDismiss('profile-menu-submenu')}
-              activeOpacity={0.7}
-            >
-              <Icon name="close" size={20} color={Colors.white} />
-            </TouchableOpacity>
-          </View>
           
           {/* Submenu options */}
           <View style={styles.optionsContainer}>
@@ -516,16 +517,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkRed,
   },
   submenuContent: {
-    paddingHorizontal: 4,
-    paddingTop: 4,
+    paddingHorizontal: 12,
+    paddingTop: 8,
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 15,
-    paddingTop: 15,
-    paddingBottom: 15,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   headerTitle: {
     color: Colors.white,
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
   },
   cancelContainer: {
     alignItems: 'center',
-    paddingTop: 20,
+    paddingTop: 8,
   },
   cancelButton: {
     backgroundColor: Colors.darkGray,

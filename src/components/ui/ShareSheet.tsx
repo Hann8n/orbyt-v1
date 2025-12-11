@@ -516,6 +516,22 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   // Use fixed spacing instead of dynamic calculation
   const fixedSpacing = 12;
 
+  // Header component for TrueSheet header prop
+  const headerComponent = (authorName || authorHandle) && !showConversationPicker ? (
+    <View style={styles.headerContainer}>
+      <Text style={styles.headerTitle} numberOfLines={1}>
+        post by {authorHandle ? formatHandle(authorHandle) : authorName}
+      </Text>
+      <TouchableOpacity 
+        style={styles.closeButton} 
+        onPress={dismissSheet}
+        activeOpacity={0.7}
+      >
+        <Icon name="close" size={20} color={Colors.white} />
+      </TouchableOpacity>
+    </View>
+  ) : undefined;
+
   // Don't render content if no data
   if (!data) {
     return (
@@ -544,6 +560,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       backgroundColor={Colors.black}
       onDidDismiss={handleDismiss}
       grabber={false}
+      header={headerComponent}
       footer={
         showConversationPicker
           ? null
@@ -564,21 +581,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       }
     >
       <View style={styles.content}>
-        {/* Author name and close button */}
-        {(authorName || authorHandle) && !showConversationPicker && (
-          <View style={styles.headerContainer}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              post by {authorHandle ? formatHandle(authorHandle) : authorName}
-            </Text>
-            <TouchableOpacity 
-              style={styles.closeButton} 
-              onPress={dismissSheet}
-              activeOpacity={0.7}
-            >
-              <Icon name="close" size={20} color={Colors.white} />
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* Conversation picker */}
         {showConversationPicker ? (
@@ -711,10 +713,9 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 15,
-    paddingTop: 15,
-    paddingBottom: 15,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   headerTitle: {
     color: Colors.white,
@@ -780,7 +781,7 @@ const styles = StyleSheet.create({
   },
   cancelContainer: {
     alignItems: 'center',
-    paddingTop: 20,
+    paddingTop: 8,
   },
   cancelButton: {
     backgroundColor: hexToRGBA(Colors.gray, 0.12),

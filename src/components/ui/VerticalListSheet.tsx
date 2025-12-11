@@ -46,6 +46,10 @@ interface VerticalListSheetProps {
    * Custom top padding for the footer
    */
   footerTopPadding?: number;
+  /**
+   * Enable scrollable content (default: true)
+   */
+  scrollable?: boolean;
 }
 
 const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
@@ -62,6 +66,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   titleSize,
   hideCloseButton = false,
   footerTopPadding,
+  scrollable = true,
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
@@ -122,7 +127,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       onDidDismiss={onDismiss}
       grabber={false}
       keyboardMode="pan"
-      scrollable
+      scrollable={scrollable}
       header={headerComponent}
       footer={
         showCancelButton ? (
@@ -165,10 +170,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingTop: 15,
-    paddingBottom: 15,
-    marginBottom: 8,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   headerTitle: {
     color: Colors.white,

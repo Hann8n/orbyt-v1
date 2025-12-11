@@ -22,8 +22,8 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
   
-  // Calculate footer height for content padding (button height + padding + safe area)
-  const footerHeight = 44 + 20 + insets.bottom;
+  // Calculate footer height for content padding (gap + top padding + safe area)
+  const footerHeight = 12 + 8 + insets.bottom;
 
   useEffect(() => {
     if (visible) {
@@ -43,6 +43,25 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
     }
   }, [joinDate]);
 
+  // Header component for TrueSheet header prop
+  const headerComponent = (
+    <View style={styles.headerContainer}>
+      <View style={styles.headerLeft}>
+        <BetaBadge textSize={20} color={Colors.white} opacity={0.7} customMargin={0} />
+        <Text style={[styles.headerTitle, { marginLeft: 4 }]} numberOfLines={1}>
+          Beta User
+        </Text>
+      </View>
+      <TouchableOpacity 
+        style={styles.closeButton} 
+        onPress={onDismiss}
+        activeOpacity={0.7}
+      >
+        <Icon name="close" size={20} color={Colors.white} />
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <TrueSheet
       ref={bottomSheetRef}
@@ -51,6 +70,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
       backgroundColor={Colors.black}
       onDidDismiss={onDismiss}
       grabber={false}
+      header={headerComponent}
       footer={
         <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
           <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}> 
@@ -62,22 +82,6 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
       }
     >
       <View style={[styles.content, { paddingBottom: footerHeight }]}>
-        {/* Header with title, badge and close button */}
-        <View style={styles.headerContainer}>
-          <View style={styles.headerLeft}>
-            <BetaBadge textSize={20} color={Colors.white} opacity={0.7} customMargin={0} />
-            <Text style={[styles.headerTitle, { marginLeft: 4 }]} numberOfLines={1}>
-              Beta User
-            </Text>
-          </View>
-          <TouchableOpacity 
-            style={styles.closeButton} 
-            onPress={onDismiss}
-            activeOpacity={0.7}
-          >
-            <Icon name="close" size={20} color={Colors.white} />
-          </TouchableOpacity>
-        </View>
         {/* Info Container */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
@@ -106,10 +110,9 @@ const styles = StyleSheet.create({
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 15,
-    paddingTop: 15,
-    paddingBottom: 15,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -158,7 +161,7 @@ const styles = StyleSheet.create({
   },
   cancelContainer: {
     alignItems: 'center',
-    paddingTop: 20,
+    paddingTop: 8,
   },
   cancelButton: {
     backgroundColor: hexToRGBA(Colors.gray, 0.12),
