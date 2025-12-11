@@ -669,6 +669,11 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
+              showsVerticalScrollIndicator={false}
+              scrollEnabled={true}
+              alwaysBounceHorizontal={true}
+              alwaysBounceVertical={false}
+              bounces={false}
               contentContainerStyle={[styles.optionsContainer, { gap: fixedSpacing, paddingLeft: 20, paddingRight: 20 }]}
             >
               {menuOptions.map((option) => (
@@ -727,7 +732,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    flex: 1,
     // Extend options row to sheet edges while preserving overall content padding
     marginLeft: -12,
     marginRight: -12,
@@ -750,6 +754,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginTop: 0,
     paddingHorizontal: 0,
+    flexWrap: 'nowrap',
   },
   optionWrapper: {
     alignItems: 'center',

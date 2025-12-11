@@ -11,7 +11,6 @@ import { safeDismiss, safePresent } from '../../utils/truesheet/trueSheetUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import { Colors } from './UI';
-import KeyboardAwareFooter from '../../utils/truesheet/KeyboardAwareFooter';
 
 interface VerticalListSheetProps {
   visible: boolean;
@@ -139,7 +138,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       header={headerComponent}
       footer={
         showCancelButton ? (
-          <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
+          <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
             <View 
               ref={footerRef}
               onLayout={handleFooterLayout}
@@ -153,7 +152,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
                 <Text style={styles.cancelButtonText}>{cancelButtonText}</Text>
               </TouchableOpacity>
             </View>
-          </KeyboardAwareFooter>
+          </View>
         ) : undefined
       }
     >
