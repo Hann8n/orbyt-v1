@@ -182,10 +182,11 @@ const SubscribeButton: React.FC<{
             styles.subscribeButton,
             { flex: 1 },
             useGlass
-              ? { backgroundColor: 'transparent', borderColor: 'transparent' }
+              ? { backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0 }
               : {
                   backgroundColor: isSubscribed ? subscribeColor : 'rgba(255, 255, 255, 0.2)',
-                  borderColor: isSubscribed ? subscribeColor : 'rgba(255, 255, 255, 0.4)',
+                  borderColor: 'transparent',
+                  borderWidth: 0,
                 },
           ]}
         >

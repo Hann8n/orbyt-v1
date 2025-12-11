@@ -734,7 +734,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               activeOpacity={0.8}
               disabled={profileUpdateMutation.isPending}
             >
-              {isLiquidGlassAvailable ? (
+              {isLiquidGlassAvailable() ? (
                 <GlassView 
                   style={styles.saveButtonGlass}
                   glassEffectStyle="clear"
@@ -811,7 +811,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                     showRing={true}
                   />
                   <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.8}>
-                    {isLiquidGlassAvailable ? (
+                    {isLiquidGlassAvailable() ? (
                       <GlassView 
                         style={styles.uploadButton}
                         glassEffectStyle="clear"
@@ -822,7 +822,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                         </Text>
                       </GlassView>
                     ) : (
-                      <View style={[styles.uploadButton, styles.uploadButtonFallback, { borderColor: currentColors.textColor }]}> 
+                      <View style={[styles.uploadButton, styles.uploadButtonFallback]}> 
                         <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
                           Upload
                         </Text>
@@ -974,7 +974,6 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   uploadButtonFallback: {
-    borderWidth: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   uploadButtonText: {

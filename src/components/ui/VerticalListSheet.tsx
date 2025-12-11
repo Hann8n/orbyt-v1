@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import {
   View,
@@ -69,15 +69,23 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   scrollable = true,
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
+  const footerRef = useRef<View>(null);
   const insets = useSafeAreaInsets();
+  const [footerHeight, setFooterHeight] = useState(0);
+
+  // Measure footer height dynamically
+  const handleFooterLayout = (event: any) => {
+    const { height } = event.nativeEvent.layout;
+    if (height > 0) {
+      setFooterHeight(height);
+    }
+  };
 
   // Content padding accounts for footer height to prevent content from being hidden
-  // Footer consists of: footerTopPadding + button height + safe area bottom
-  // We add a small gap (12px) plus account for the footer top padding
-  const footerTopPaddingValue = footerTopPadding ?? 8;
-  const contentPaddingBottom = showCancelButton 
-    ? 12 + footerTopPaddingValue + insets.bottom 
-    : 12;
+  // Dynamically calculated based on measured footer height
+  const contentPaddingBottom = showCancelButton && footerHeight > 0
+    ? footerHeight + insets.bottom
+    : 0;
 
   // Handle bottom sheet visibility
   useEffect(() => {
@@ -132,7 +140,11 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       footer={
         showCancelButton ? (
           <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
-            <View style={[styles.cancelContainer, { backgroundColor: Colors.black, paddingTop: footerTopPadding ?? 8 }]}>
+            <View 
+              ref={footerRef}
+              onLayout={handleFooterLayout}
+              style={[styles.cancelContainer, { backgroundColor: Colors.black, paddingTop: footerTopPadding ?? 8 }]}
+            >
               <TouchableOpacity 
                 style={styles.cancelButton} 
                 onPress={onDismiss} 

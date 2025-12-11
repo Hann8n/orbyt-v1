@@ -173,7 +173,8 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
               styles.followButton,
               {
                 backgroundColor: textColor || Colors.white,
-                borderColor: textColor || Colors.white,
+                borderWidth: 0,
+                borderColor: 'transparent',
               }
             ]}
             onPress={handleFollowPress}
@@ -256,7 +257,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   followButton: {
-    borderWidth: 1,
+    borderWidth: 0,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: BORDER_RADIUS.FULL,

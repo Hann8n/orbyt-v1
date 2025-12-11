@@ -106,16 +106,22 @@ const ActionButton = memo<{
     const isIconOnlyFollowingState = (action.id === 'follow' && !action.label); // Icon-only Following/Mutuals
     const isSaveButton = action.id === 'save';
     const isActiveSubscription = action.id === 'subscription' && action.active;
+    const label = (action.label || '').toLowerCase();
+    const isEdit = action.id === 'edit' || label.includes('edit');
+    const isFollowButton = action.id === 'follow' || label === 'follow' || label === 'following' || label === 'mutuals';
+    const isSubscribeButton = action.id === 'subscription';
     
     const baseStyle = shouldUseGlass
       ? {
           // With glass, make inner touchable transparent and let GlassView render visuals
           backgroundColor: 'transparent',
           borderColor: 'transparent',
+          ...((isEdit || isFollowButton || isSubscribeButton) && { borderWidth: 0 }),
         }
       : {
           backgroundColor: (isFollowingState || isIconOnlyFollowingState || isSaveButton || isActiveSubscription) ? textColor : hexToRGBA(textColor, 0.2),
           borderColor: (isFollowingState || isIconOnlyFollowingState || isSaveButton || isActiveSubscription) ? textColor : hexToRGBA(textColor, 0.3),
+          ...((isEdit || isFollowButton || isSubscribeButton) && { borderWidth: 0 }),
         };
 
     switch (action.variant) {
