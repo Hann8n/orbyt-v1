@@ -27,11 +27,20 @@ import {
   QUERY_CONSTANTS,
   FEED_TYPES 
 } from '../../../utils/constants';
+import { FEED_CONFIG } from '../../../hooks/useFeed';
 import type { FeedItem, ListFeedViewProps, ViewMode } from '../../../types';
 import { useFeedVisibility } from '../../../hooks';
 import { useVisibilityCoreStore } from '../../../core/visibility';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Constants
+const CONSTANTS = {
+  ITEM_MARGIN: 6, // 3px top + 3px bottom
+  HEADER_HEIGHT_TABS: 280,
+  SNAP_THRESHOLD: 0.5,
+  VISIBILITY_JITTER_THRESHOLD: 0.05,
+} as const;
 
 const ListFeedView: React.FC<ListFeedViewProps> = ({
   feed,
@@ -60,6 +69,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   ListComponent,
   visibilityKey,
   targetScrollIndex,
+  dataUpdatedAt = 0,
 }) => {
   // Hooks
   const insets = useSafeAreaInsets();
@@ -136,15 +146,15 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
     const clamped = Math.max(0, Math.min(1, visiblePercent));
     const previous = lastHeaderVisibilityRef.current;
-    const previousBlocking = previous >= 0.5;
-    const nextBlocking = clamped >= 0.5;
+    const previousBlocking = previous >= CONSTANTS.SNAP_THRESHOLD;
+    const nextBlocking = clamped >= CONSTANTS.SNAP_THRESHOLD;
     const delta = Math.abs(previous - clamped);
 
     // Ignore jitter when we are clearly on the same side of the threshold
-    if (!previousBlocking && !nextBlocking && delta < 0.05) {
+    if (!previousBlocking && !nextBlocking && delta < CONSTANTS.VISIBILITY_JITTER_THRESHOLD) {
       return;
     }
-    if (previousBlocking && nextBlocking && delta < 0.05) {
+    if (previousBlocking && nextBlocking && delta < CONSTANTS.VISIBILITY_JITTER_THRESHOLD) {
       return;
     }
 
@@ -189,6 +199,17 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   const hasRestoredPositionRef = useRef(false);
   // Track previous visibility to detect return to feed
   const wasVisibleRef = useRef(isVisible);
+  // Track when user last interacted with the feed (scrolled or viewed)
+  // Used to detect if data was refetched after timing out while user was away
+  const lastFeedInteractionRef = useRef<number>(0);
+
+  // Memoize profileColors to prevent recreation on every render
+  const profileColors = useMemo(() => 
+    secondaryColor ? { 
+      backgroundColor: backgroundColor || '#000', 
+      textColor: secondaryColor 
+    } : undefined
+  , [backgroundColor, secondaryColor]);
 
   // Always show feed - don't clear on refresh to maintain scroll position
   // FlashList's maintainVisibleContentPosition will handle position preservation
@@ -247,9 +268,12 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     onScroll?.(e);
   }, [onScroll, isHeaderFeed, headerHeight, updateHeaderVisibility]);
 
-  // Momentum scroll end - save position only
+  // Momentum scroll end - save position and track interaction
   const onMomentumScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetY = e.nativeEvent.contentOffset.y;
+    
+    // Update interaction timestamp when user scrolls
+    lastFeedInteractionRef.current = Date.now();
     
     // Debounce position saving
     if (positionSaveTimeout.current) {
@@ -270,10 +294,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         <EmptyFeed
           type="end"
           secondaryColor={secondaryColor}
-          profileColors={secondaryColor ? { 
-            backgroundColor: backgroundColor || '#000', 
-            textColor: secondaryColor 
-          } : undefined}
+          profileColors={profileColors}
           viewableAreaHeight={cardHeight}
           feedOption={feedOption}
         />
@@ -299,14 +320,13 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     );
   }, [
     cardHeight,
-    activeItemUri,
     feedOption,
     canPlay,
-    isFeedActive,
-    backgroundColor,
-    secondaryColor,
     handleVideoStatus,
     isModal,
+    isVideoVisibleHelper,
+    secondaryColor,
+    profileColors,
   ]);
 
   // Item type for FlashList recycling optimization
@@ -322,8 +342,13 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     return item.endCard ? 'end-card' : `${item.post.uri}:${item.post.cid}`;
   }, []);
 
+  // Comprehensive cleanup for all timeout refs to prevent memory leaks
   useEffect(() => {
     return () => {
+      if (positionSaveTimeout.current) {
+        clearTimeout(positionSaveTimeout.current);
+        positionSaveTimeout.current = null;
+      }
       if (initialVisibilityTimeout.current) {
         clearTimeout(initialVisibilityTimeout.current);
         initialVisibilityTimeout.current = null;
@@ -368,52 +393,88 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }, 0);
   }, [isVisible, isFeedActive, viewMode, listData, activeItemUri, onViewableItemsChanged]);
 
+  // Track feed visibility to update interaction timestamp
+  useEffect(() => {
+    // Update interaction timestamp when feed becomes visible
+    if (isVisible && listData.length > 0) {
+      // Only update if not already set or if this is the first time becoming visible
+      if (lastFeedInteractionRef.current === 0) {
+        lastFeedInteractionRef.current = Date.now();
+      }
+    }
+  }, [isVisible, listData.length]);
+
+  // Track manual refresh to update interaction timestamp
+  useEffect(() => {
+    if (isRefreshing && isVisible) {
+      // User manually refreshed, update interaction timestamp
+      lastFeedInteractionRef.current = Date.now();
+    }
+  }, [isRefreshing, isVisible]);
+
+  // Helper function to find target index for scroll restoration
+  const findTargetIndex = useCallback((uri: string | null, index: number, data: FeedItem[]) => {
+    if (uri) {
+      const found = data.findIndex(item => !item.endCard && item.post?.uri === uri);
+      if (found >= 0) return found;
+    }
+    return index >= 0 && index < data.length ? index : -1;
+  }, []);
+
   // FlashList v2: Restore scroll position only when returning to feed (visibility change)
   // For data updates/refreshes, FlashList's maintainVisibleContentPosition handles position automatically
+  // If feed data was refetched after timing out (stale), reset to top instead of restoring
   useEffect(() => {
     const wasVisible = wasVisibleRef.current;
     wasVisibleRef.current = isVisible;
 
-    // Only restore on transition from not visible to visible (e.g., tab switch)
-    // NOT on data updates - FlashList handles those automatically
-    // The visibility check (!wasVisible && isVisible) prevents runs on data-only updates
-    const hasSavedPosition = lastScrollOffset.current > 0;
-    if (!wasVisible && isVisible && hasSavedPosition && !hasRestoredPositionRef.current && flashListRef.current && listData.length > 0) {
-      hasRestoredPositionRef.current = true;
-      
-      // Find item by URI (most reliable)
-      let targetIndex = -1;
-      if (activeItemUri) {
-        targetIndex = listData.findIndex(
-          item => !item.endCard && item.post?.uri === activeItemUri
-        );
-      }
-      
-      // Fall back to index if URI not found
-      if (targetIndex < 0 && activeItemIndex >= 0 && activeItemIndex < listData.length) {
-        targetIndex = activeItemIndex;
-      }
-      
-      if (targetIndex >= 0) {
-        requestAnimationFrame(() => {
-          try {
-            flashListRef.current?.scrollToIndex({
-              index: targetIndex,
-              animated: false,
-              viewPosition: 0.5,
-            });
-          } catch {
-            // FlashList handles errors gracefully
-          }
-        });
-      }
-    }
+    // Early returns for clarity
+    if (wasVisible || !isVisible) return;
+    if (!flashListRef.current || listData.length === 0) return;
+    if (hasRestoredPositionRef.current) return;
+    if (lastScrollOffset.current === 0) return;
 
-    // Reset flag when visibility lost
-    if (wasVisible && !isVisible) {
+    const now = Date.now();
+    const lastInteraction = lastFeedInteractionRef.current;
+    const isStale = dataUpdatedAt > 0 && 
+                    lastInteraction > 0 && 
+                    (dataUpdatedAt - lastInteraction) > FEED_CONFIG.STALE_TIME;
+    
+    hasRestoredPositionRef.current = true;
+    
+    if (isStale) {
+      // Reset to top for stale data
+      lastScrollOffset.current = 0;
+      lastFeedInteractionRef.current = now;
+      requestAnimationFrame(() => {
+        flashListRef.current?.scrollToIndex({ index: 0, animated: false, viewPosition: 0 });
+      });
+      return;
+    }
+    
+    // Restore previous position
+    const targetIndex = findTargetIndex(activeItemUri, activeItemIndex, listData);
+    if (targetIndex >= 0) {
+      requestAnimationFrame(() => {
+        flashListRef.current?.scrollToIndex({
+          index: targetIndex,
+          animated: false,
+          viewPosition: 0.5,
+        });
+      });
+    }
+    
+    if (lastInteraction === 0) {
+      lastFeedInteractionRef.current = now;
+    }
+  }, [isVisible, activeItemIndex, activeItemUri, listData, dataUpdatedAt, findTargetIndex]);
+
+  // Reset flag when visibility lost
+  useEffect(() => {
+    if (!isVisible) {
       hasRestoredPositionRef.current = false;
     }
-  }, [isVisible, activeItemIndex, activeItemUri, listData]);
+  }, [isVisible]);
 
   // Unified item press handler for grid feeds
   // Uses FlashList's native scrollToIndex when switching to list view
@@ -438,38 +499,29 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   }, [targetScrollIndex, viewMode, listData.length, scrollToIndex]);
 
   // Orientation change handling
-  useEffect(() => {
-    const handleOrientationChange = ({ window }: { window: ScaledSize }) => {
-      setTimeout(() => {
-        if (flashListRef.current && visibleFeed.length > 0 && activeItemUri) {
-          const currentIndex = visibleFeed.findIndex(item => item.post.uri === activeItemUri);
-          if (currentIndex >= 0) {
-            try {
-              flashListRef.current.scrollToIndex({
-                index: currentIndex,
-                animated: false,
-                viewPosition: 0.5,
-              });
-            } catch (error) {
-              // Handle scroll errors gracefully
-            }
+  const handleOrientationChange = useCallback(({ window }: { window: ScaledSize }) => {
+    setTimeout(() => {
+      if (flashListRef.current && visibleFeed.length > 0 && activeItemUri) {
+        const currentIndex = visibleFeed.findIndex(item => item.post.uri === activeItemUri);
+        if (currentIndex >= 0) {
+          try {
+            flashListRef.current.scrollToIndex({
+              index: currentIndex,
+              animated: false,
+              viewPosition: 0.5,
+            });
+          } catch (error) {
+            // Handle scroll errors gracefully
           }
         }
-      }, APP_CONSTANTS.ORIENTATION_CHANGE_DELAY);
-    };
-
-    const subscription = Dimensions.addEventListener('change', handleOrientationChange);
-    return () => subscription?.remove();
+      }
+    }, APP_CONSTANTS.ORIENTATION_CHANGE_DELAY);
   }, [activeItemUri, visibleFeed]);
 
-  // Cleanup timeouts
   useEffect(() => {
-    return () => {
-      if (positionSaveTimeout.current) {
-        clearTimeout(positionSaveTimeout.current);
-      }
-    };
-  }, []);
+    const subscription = Dimensions.addEventListener('change', handleOrientationChange);
+    return () => subscription?.remove();
+  }, [handleOrientationChange]);
 
   // Grid view rendering
   if (viewMode === 'grid') {
@@ -497,11 +549,11 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   }
 
   const viewableAreaHeight = viewportDimensions.height;
-  const headerHeightForTabs = useMemo(() => (ListComponent ? 280 : 0), [ListComponent]);
+  const headerHeightForTabs = useMemo(() => (ListComponent ? CONSTANTS.HEADER_HEIGHT_TABS : 0), [ListComponent]);
   const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
 
   // Snapping configuration
-  const snapToIntervalValue = cardHeight + 6; // Account for 6px total margin (3px top + 3px bottom)
+  const snapToIntervalValue = cardHeight + CONSTANTS.ITEM_MARGIN;
 
   // Custom snap offsets for header feeds
   const snapToOffsets = useMemo(() => {
@@ -509,8 +561,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     const offsets: number[] = [];
     // Allow resting at the very top (header fully visible)
     offsets.push(0);
-    // Base offset that centers the first item - account for 8px total margin
-    const itemHeightWithMargin = cardHeight + 6;
+    // Base offset that centers the first item
+    const itemHeightWithMargin = cardHeight + CONSTANTS.ITEM_MARGIN;
     const centerCorrection = Math.max(0, Math.round((listHeight - itemHeightWithMargin) / 2));
     const base = Math.max(0, headerHeight - centerCorrection);
     const itemCount = listData.length;
@@ -547,8 +599,8 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         // FlashList performance optimizations
         removeClippedSubviews={true}
         overrideItemLayout={(layout, item, index) => {
-          // Account for 8px total margin (4px top + 4px bottom) added to VideoCard
-          layout.span = cardHeight + 6;
+          // Account for item margin added to VideoCard
+          layout.span = cardHeight + CONSTANTS.ITEM_MARGIN;
         }}
         
         // Snapping configuration
@@ -591,50 +643,41 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
         alwaysBounceHorizontal={false}
         
         // Empty state components
-        ListEmptyComponent={
-          isLoading ? (
-            <View style={[styles.centeredLoadingContainer, { backgroundColor: backgroundColor || Colors.black }]}>
-              <Loading3FillIcon size={48} color={secondaryColor || Colors.white} />
-            </View>
-          ) : effectiveIsError ? (
-            <EmptyFeed 
-              type="error"
-              secondaryColor={secondaryColor} 
-              profileColors={secondaryColor ? { 
-                backgroundColor: backgroundColor || '#000', 
-                textColor: secondaryColor 
-              } : undefined}
-              onRetry={onRetry}
-              isProfileFeed={isHeaderFeed}
-              viewableAreaHeight={emptyComponentHeight}
-              feedOption={feedOption}
-            />
-          ) : feedOption === 'following' ? (
-            <EmptyFeed 
-              type="no-following"
-              secondaryColor={secondaryColor} 
-              profileColors={secondaryColor ? { 
-                backgroundColor: backgroundColor || '#000', 
-                textColor: secondaryColor 
-              } : undefined}
-              isProfileFeed={isHeaderFeed}
-              viewableAreaHeight={emptyComponentHeight}
-              feedOption={feedOption}
-            />
-          ) : (
-            <EmptyFeed 
-              type="no-videos"
-              secondaryColor={secondaryColor} 
-              profileColors={secondaryColor ? { 
-                backgroundColor: backgroundColor || '#000', 
-                textColor: secondaryColor 
-              } : undefined}
-              isProfileFeed={isHeaderFeed}
-              viewableAreaHeight={emptyComponentHeight}
-              feedOption={feedOption}
-            />
-          )
-        }
+        ListEmptyComponent={useMemo(() => {
+          if (isLoading) {
+            return (
+              <View style={[styles.centeredLoadingContainer, { backgroundColor: backgroundColor || Colors.black }]}>
+                <Loading3FillIcon size={48} color={secondaryColor || Colors.white} />
+              </View>
+            );
+          }
+
+          const commonProps = {
+            secondaryColor,
+            profileColors,
+            isProfileFeed: isHeaderFeed,
+            viewableAreaHeight: emptyComponentHeight,
+            feedOption,
+          };
+
+          if (effectiveIsError) {
+            return <EmptyFeed type="error" onRetry={onRetry} {...commonProps} />;
+          }
+          if (feedOption === 'following') {
+            return <EmptyFeed type="no-following" {...commonProps} />;
+          }
+          return <EmptyFeed type="no-videos" {...commonProps} />;
+        }, [
+          isLoading,
+          effectiveIsError,
+          feedOption,
+          secondaryColor,
+          profileColors,
+          isHeaderFeed,
+          emptyComponentHeight,
+          backgroundColor,
+          onRetry,
+        ])}
         
         // Content container styling
         contentContainerStyle={{

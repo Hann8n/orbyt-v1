@@ -164,6 +164,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     refetch: isSearchFeed ? (() => {}) : feedQuery.refetch,
     isPaused: isSearchFeed ? false : feedQuery.isPaused,
     isProfileFeed: isSearchFeed ? false : feedQuery.isProfileFeed,
+    dataUpdatedAt: isSearchFeed ? 0 : feedQuery.dataUpdatedAt,
     // Removed onScroll - using FlashList's onEndReached
   }), [
     isSearchFeed,
@@ -182,6 +183,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     feedQuery.refetch,
     feedQuery.isPaused,
     feedQuery.isProfileFeed,
+    feedQuery.dataUpdatedAt,
     // Removed onScroll dependency
   ]);
 
@@ -197,6 +199,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     refetch,
     isPaused,
     isProfileFeed,
+    dataUpdatedAt,
     // Removed onScroll - using FlashList's onEndReached
   } = feedData;
 
@@ -285,6 +288,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     isRefreshing,
     isModal,
     onScrubbingChange,
+    dataUpdatedAt,
     // Removed onScroll
     ListComponent,
     visibilityKey: resolvedVisibilityKey,
@@ -310,6 +314,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     isRefreshing,
     isModal,
     onScrubbingChange,
+    dataUpdatedAt,
     // Removed onScroll
     ListComponent,
     resolvedVisibilityKey,

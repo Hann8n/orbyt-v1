@@ -32,23 +32,36 @@ const KeyboardAwareFooter: React.FC<KeyboardAwareFooterProps> = ({
 
       // Move the footer up by keyboard height minus the safe-area inset
       const effective = Math.max(0, keyboardHeight - insets.bottom);
-      const toValue = effective;
-      const duration = e?.duration ?? 160;
+      const toValue = -effective;
+      const duration = e?.duration ?? 250;
+      
+      // Match keyboard animation curve for perfect sync
+      // iOS keyboard uses cubic-bezier(0.36, 0.66, 0.04, 1) which is close to ease-out-cubic
+      const keyboardEasing = Platform.OS === 'ios' 
+        ? Easing.out(Easing.cubic)
+        : Easing.ease;
+      
       Animated.timing(translateY, {
-        toValue: -toValue,
+        toValue,
         duration,
-        easing: Easing.out(Easing.quad),
+        easing: keyboardEasing,
         useNativeDriver: true,
       }).start();
     });
 
     const hideListener = Keyboard.addListener(keyboardWillHide, (e: any) => {
       setKeyboardHeightVal(0);
-      const duration = e?.duration ?? 160;
+      const duration = e?.duration ?? 250;
+      
+      // Match keyboard animation curve for perfect sync
+      const keyboardEasing = Platform.OS === 'ios' 
+        ? Easing.out(Easing.cubic)
+        : Easing.ease;
+      
       Animated.timing(translateY, {
         toValue: 0,
         duration,
-        easing: Easing.out(Easing.quad),
+        easing: keyboardEasing,
         useNativeDriver: true,
       }).start();
     });

@@ -110,6 +110,7 @@ export interface ListFeedViewProps {
   ListComponent?: any;
   visibilityKey?: string;
   targetScrollIndex?: number | null;
+  dataUpdatedAt?: number;
 }
 
 // Screen Ref Types

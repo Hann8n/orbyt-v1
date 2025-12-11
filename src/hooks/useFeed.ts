@@ -45,6 +45,7 @@ interface UseFeedReturn {
   hasNextPage: boolean;
   isProfileFeed: boolean;
   isPaused: boolean;
+  dataUpdatedAt: number;
   
   // Actions
   fetchNextPage: () => void;
@@ -204,6 +205,7 @@ export function useFeed(
     hasNextPage: query.hasNextPage ?? false,
     isProfileFeed,
     isPaused: query.isPaused ?? false,
+    dataUpdatedAt: query.dataUpdatedAt ?? 0,
     
     // Actions
     fetchNextPage: query.fetchNextPage,

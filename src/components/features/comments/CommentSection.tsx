@@ -13,6 +13,7 @@ import {
   Modal,
   Pressable,
   TextInput,
+  Keyboard,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -27,7 +28,6 @@ import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-quer
 import { createQueryKeys } from '../../../services/FeedService';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
-import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
 import Icon, { HeartFillIcon, MoreFillIcon, CloseFillIcon, Loading3FillIcon } from '../../ui/Icon';
 import ProfileCache, { useProfile } from '../../../services/cache/ProfileCache';
 import { VerificationBadge } from '../badging';
@@ -38,7 +38,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
 import { formatNumber, formatHandle } from '../../../utils/helpers';
 import { useUserSearchTrigger, UserSearchModal } from '../../ui/usersearch';
-import { useKeyboardState } from 'react-native-keyboard-controller';
 import CommentItem, { Comment, Like } from './CommentItem';
 import { useUserStore } from '../../../stores/userStore';
 import { useGlobalCommentSection, useGlobalShareSheet } from '../../../hooks/useGlobalModals';
@@ -46,6 +45,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { BlurView } from 'expo-blur';
 import AuthorItem from '../../ui/AuthorItem';
 import { useRouter } from 'expo-router';
+import CommentInputFooter from './CommentInputFooter';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -217,9 +217,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
 
-  const { height: keyboardHeight } = useKeyboardState();
-  const footerHeight = 44 + 16 + Math.max(insets.bottom, 8);
-
   const [replyContext, setReplyContext] = useState<{
     authorName: string;
     parentUri: string;
@@ -233,6 +230,38 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const { currentUser } = useUserStore();
   const currentUserHandle = currentUser?.handle || null;
   const { data: currentUserProfile } = useProfile(currentUserHandle);
+
+  // Expand sheet to full height when keyboard opens
+  useEffect(() => {
+    const keyboardWillShow = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const keyboardWillHide = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showListener = Keyboard.addListener(keyboardWillShow, () => {
+      // Expand to full height when keyboard opens
+      // If detents are [0.5, 1], index 1 is full height
+      // If detents are [1] (scrollToCommentUri), index 0 is full height
+      const fullHeightIndex = scrollToCommentUri ? 0 : 1;
+      
+      // Try ref method first, fallback to static method
+      if (sheetRef.current?.resize) {
+        sheetRef.current.resize(fullHeightIndex);
+      } else {
+        TrueSheet.resize('comment-section', fullHeightIndex).catch(() => {
+          // Silently fail if sheet isn't ready
+        });
+      }
+    });
+
+    const hideListener = Keyboard.addListener(keyboardWillHide, () => {
+      // Optionally return to previous detent when keyboard closes
+      // For now, we'll leave it at full height for better UX
+    });
+
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, [scrollToCommentUri]);
 
   const handleReplyPress = useCallback((comment: Comment) => {
     const properUri = comment?.uri || comment?.post?.uri;
@@ -386,6 +415,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     onDismiss?.();
   }, [onDismiss]);
 
+  // Dismiss keyboard when user starts scrolling
+  const handleScrollBeginDrag = useCallback(() => {
+    Keyboard.dismiss();
+    if (inputRef.current?.blur) {
+      inputRef.current.blur();
+    }
+  }, []);
+
   const LikeItem: React.FC<{ like: Like }> = React.memo(({ like }) => {
     const navigation = useRouter();
     
@@ -434,8 +471,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const queryClient = useQueryClient();
   const [isPosting, setIsPosting] = useState(false);
   const MAX_COMMENT_LENGTH = 300;
-  const charCount = newCommentText.length;
-  const showCharCount = charCount >= 150;
   
   const handleSendComment = useCallback(async () => {
     if (!newCommentText.trim() || isPosting || !post?.uri) return;
@@ -483,115 +518,40 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   }, [newCommentText, post, replyContext, isPosting, queryClient]);
 
-  // Simple footer component
+  // Footer component - extracted to separate component for better performance and maintainability
   const FooterComponent = useMemo(() => {
     const placeholder = replyContext 
       ? `Replying to ${replyContext.authorName}`
       : 'Say something nice...';
 
-    const hasText = newCommentText.trim().length > 0;
-    const isSendDisabled = isPosting || !hasText || charCount > MAX_COMMENT_LENGTH;
-    
-    // When keyboard is open, don't add safe area inset since keyboard takes that space
-    const isKeyboardOpen = keyboardHeight > 0;
-    const bottomPadding = isKeyboardOpen ? 8 : Math.max(8, insets.bottom);
-
-    const footerContent = (
-      <KeyboardAwareFooter hideOnKeyboard={false} bottomPadding={Math.max(8, insets.bottom)} style={styles.footerBlurContainer}>
-        <View style={[styles.inputContainer]}>
-        <View style={styles.inputRow}>
-          <View style={styles.avatarContainer}>
-            <UI.Avatar
-              uri={currentUserProfile?.avatar}
-              type="profile"
-              size={42}
-              style={styles.avatar}
-            />
-          </View>
-          <View style={styles.inputWrapper}>
-            <TextInput
-              {...mentionInputProps}
-              style={styles.textInput}
-              placeholder={placeholder}
-              placeholderTextColor={Colors.lightGray}
-              multiline
-              editable={!isPosting}
-              ref={inputRef}
-              maxLength={MAX_COMMENT_LENGTH + 25}
-              keyboardType="default"
-              returnKeyType="default"
-              blurOnSubmit={false}
-              autoCorrect={true}
-              autoCapitalize="sentences"
-              textAlignVertical="top"
-            />
-          </View>
-          <View style={styles.sendColumn}>
-            {replyContext ? (
-              <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  !hasText && styles.cancelReplyButton
-                ]}
-                onPress={hasText ? handleSendComment : handleCancelReply}
-                disabled={hasText && isSendDisabled}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Icon 
-                  name={hasText ? "arrow-up-fill" : "close"}
-                  size={hasText ? 22 : 18}
-                  color={hasText ? Colors.black : Colors.lightGray}
-                />
-              </TouchableOpacity>
-            ) : (
-              hasText && (
-                <TouchableOpacity
-                  style={[
-                    styles.sendButton,
-                    isSendDisabled && styles.sendButtonDisabled
-                  ]}
-                  onPress={handleSendComment}
-                  disabled={isSendDisabled}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Icon 
-                    name="arrow-up-fill" 
-                    size={22} 
-                    color={Colors.black}
-                  />
-                </TouchableOpacity>
-              )
-            )}
-            {showCharCount && (
-              <Text style={[
-                styles.charCountText,
-                styles.charCountBelow,
-                charCount > MAX_COMMENT_LENGTH && styles.charCountTextError
-              ]}>
-                {MAX_COMMENT_LENGTH - charCount}
-              </Text>
-            )}
-          </View>
-        </View>
-        <UserSearchModal {...userSearchModalProps} />
-        </View>
-      </KeyboardAwareFooter>
+    return (
+      <CommentInputFooter
+        value={newCommentText}
+        onChangeText={setNewCommentText}
+        inputSelection={inputSelection}
+        onSelectionChange={(e) => setInputSelection(e.nativeEvent.selection)}
+        placeholder={placeholder}
+        onSubmit={handleSendComment}
+        onCancelReply={handleCancelReply}
+        replyContext={replyContext}
+        isPosting={isPosting}
+        maxLength={MAX_COMMENT_LENGTH}
+        inputRef={inputRef}
+        currentUserAvatar={currentUserProfile?.avatar}
+        userSearchModalProps={userSearchModalProps}
+        mentionInputProps={mentionInputProps}
+      />
     );
-
-    return footerContent;
   }, [
-    mentionInputProps, 
-    replyContext, 
-    newCommentText, 
-    isPosting, 
-    charCount, 
-    showCharCount, 
-    handleCancelReply, 
-    handleSendComment, 
-    userSearchModalProps, 
-    currentUserProfile, 
-    insets.bottom,
-    keyboardHeight
+    replyContext,
+    newCommentText,
+    inputSelection,
+    isPosting,
+    handleSendComment,
+    handleCancelReply,
+    currentUserProfile?.avatar,
+    userSearchModalProps,
+    mentionInputProps,
   ]);
 
   // Handle TrueSheet visibility
@@ -606,8 +566,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
 
 
-    // Render header component for lists
-  const renderHeader = () => (
+    // Render header component for TrueSheet header prop
+  const headerComponent = (
     <View style={styles.header}>
       <View style={styles.tabContainer}>
         <TabNavigation
@@ -655,7 +615,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         return (
           <FlashList
             ref={commentsListRef}
-            ListHeaderComponent={renderHeader}
             data={[]}
             renderItem={() => null}
             ListEmptyComponent={() => (
@@ -668,6 +627,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
             scrollEventThrottle={16}
+            onScrollBeginDrag={handleScrollBeginDrag}
           />
         );
       }
@@ -675,7 +635,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       return (
         <FlashList
           ref={commentsListRef}
-          ListHeaderComponent={renderHeader}
           data={post ? comments : []}
           keyExtractor={commentKeyExtractor}
           renderItem={renderCommentItem}
@@ -691,6 +650,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
           scrollEventThrottle={16}
+          onScrollBeginDrag={handleScrollBeginDrag}
           onEndReached={() => {
             if (hasNextCommentsPage && !isFetchingNextCommentsPage) {
               fetchNextCommentsPage();
@@ -704,7 +664,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         return (
           <FlashList
             ref={likesListRef}
-            ListHeaderComponent={renderHeader}
             data={[]}
             renderItem={() => null}
             ListEmptyComponent={() => (
@@ -717,6 +676,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
             scrollEventThrottle={16}
+            onScrollBeginDrag={handleScrollBeginDrag}
           />
         );
       }
@@ -724,7 +684,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       return (
         <FlashList
           ref={likesListRef}
-          ListHeaderComponent={renderHeader}
           data={post ? likes : []}
           keyExtractor={likeKeyExtractor}
           renderItem={renderLikeItem}
@@ -740,6 +699,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
           scrollEventThrottle={16}
+          onScrollBeginDrag={handleScrollBeginDrag}
           onEndReached={() => {
             if (hasNextLikesPage && !isFetchingNextLikesPage) {
               fetchNextLikesPage();
@@ -762,9 +722,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         scrollable
         keyboardMode="resize"
         grabber={false}
+        header={headerComponent}
         footer={activeTab === 'comments' ? FooterComponent : undefined}
-
-
       >
         <View style={styles.container}>
           {renderContent()}
@@ -811,7 +770,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 0,
+    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 6,
   },
@@ -869,95 +828,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     minHeight: 200,
   },
-  inputContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    backgroundColor: Colors.black,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    width: '100%',
-  },
-  sendColumn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  avatarContainer: {
-    marginRight: 12,
-    marginTop: 0,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: BORDER_RADIUS.FULL,
-    borderWidth: 0,
-  },
-  inputWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    borderRadius: BORDER_RADIUS.LARGE,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    position: 'relative',
-  },
-  textInput: {
-    backgroundColor: 'transparent',
-    color: Colors.white,
-    borderColor: 'transparent',
-    flex: 1,
-    minHeight: 42,
-    maxHeight: 120,
-    paddingRight: 0,
-    paddingTop: 9,
-    paddingBottom: 9,
-    paddingLeft: 0,
-    textAlignVertical: 'top',
-    fontFamily: 'Firma-Regular',
-    fontSize: 18,
-    lineHeight: 24,
-  },
-  sendButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    alignSelf: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.gray,
-    borderRadius: BORDER_RADIUS.FULL,
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    marginLeft: 8,
-    marginTop: 0,
-  },
-    charCountBelow: {
-      marginTop: 6,
-      color: Colors.lightGray,
-      fontSize: 11,
-      textAlign: 'center',
-      fontFamily: 'Firma-Medium',
-      width: 42,
-      alignSelf: 'center',
-    },
-    charCountText: {
-      color: Colors.lightGray,
-      fontSize: 11,
-      textAlign: 'center',
-      fontFamily: 'Firma-Medium',
-    },
-    charCountTextError: {
-      color: Colors.lightRed,
-    },
-    sendButtonDisabled: {
-      opacity: 0.5,
-    },
-    cancelReplyButton: {
-      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.95)',
@@ -991,9 +861,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     marginBottom: 2,
     alignItems: 'flex-start',
-  },
-  footerBlurContainer: {
-    backgroundColor: Colors.black,
   },
 });
 
