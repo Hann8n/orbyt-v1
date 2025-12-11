@@ -8,8 +8,10 @@ import { create } from 'zustand';
 interface PostInteraction {
   likeUri?: string;
   repostUri?: string;
+  bookmarkUri?: string;
   isLiked: boolean;
   isReposted: boolean;
+  isBookmarked: boolean;
   likeCount: number;
   repostCount: number;
 }
@@ -33,6 +35,7 @@ export const usePostInteractionStore = create<PostInteractionState>((set, get) =
       const current = newInteractions.get(postUri) || {
         isLiked: false,
         isReposted: false,
+        isBookmarked: false,
         likeCount: 0,
         repostCount: 0,
       };

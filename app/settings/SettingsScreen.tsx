@@ -255,6 +255,16 @@ const SettingsScreen: React.FC = () => {
               setTimeout(() => navigation.push('/settings/channels'), 100);
             },
           showChevron: true
+        },
+        {
+          id: 'saves',
+          label: 'Your Saves',
+          icon: 'bookmark',
+          onPress: () => {
+            navigation.back();
+            setTimeout(() => navigation.push('/settings/saves'), 100);
+          },
+          showChevron: true
         }
       ]
     },

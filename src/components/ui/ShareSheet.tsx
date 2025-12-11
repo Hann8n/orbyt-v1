@@ -29,6 +29,7 @@ import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
 import ChatService, { Conversation, RecordEmbed } from '../../services/ChatService';
 import { formatHandle } from '../../utils/helpers';
+import { useBookmarkStore } from '../../stores/bookmarkStore';
 
 // No props needed for global ShareSheet
 interface ShareSheetProps {}
@@ -64,8 +65,14 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   const [currentUserDid, setCurrentUserDid] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
+  const [isBookmarkPending, setIsBookmarkPending] = useState<boolean>(false);
   const searchInputRef = useRef<TextInput | null>(null);
   const sheetRef = useRef<TrueSheet>(null);
+  
+  // Bookmark store
+  const isBookmarked = useBookmarkStore((state) => postUri ? state.isBookmarked(postUri) : false);
+  const addBookmark = useBookmarkStore((state) => state.addBookmark);
+  const removeBookmark = useBookmarkStore((state) => state.removeBookmark);
 
   // TrueSheet detents - v3 uses 'auto' or fractional numbers (0-1)
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
@@ -163,7 +170,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                   } else {
                     Alert.alert('error', 'failed to mute comments. please try again.');
                   }
-                  dismissSheet();
                 } catch (error) {
                   Alert.alert('error', 'failed to mute comments. please try again.');
                 }
@@ -195,7 +201,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                 await AtprotoService.blockUser(authorDid);
                 queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(authorDid) });
                 setIsBlocked(true);
-                dismissSheet();
               }
             }
           ]
@@ -208,39 +213,39 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     }
   }, [authorDid, isBlocked, dismissSheet, queryClient, isCurrentUser, postUri]);
 
-  // Save/download handler
-  const handleSave = useCallback(async () => {
-    try {
-      setIsSubmitting(true);
-      // Fetch post to get video URL
-      const post = await AtprotoService.getPost(postUri);
-      const videoEmbed = post?.embed;
-      
-      if (!videoEmbed || !videoEmbed.playlist) {
-        Alert.alert('error', 'video not available for download.');
-        return;
-      }
-      
-      // Get video URL from playlist
-      const videoUrl = Array.isArray(videoEmbed.playlist) 
-        ? videoEmbed.playlist[0] 
-        : videoEmbed.playlist;
-      
-      if (!videoUrl) {
-        Alert.alert('error', 'video not available for download.');
-        return;
-      }
-      
-      // For now, show a message - actual download implementation would require
-      // additional native modules or expo-file-system
-      Alert.alert('coming soon', 'video download will be available in a future update.');
-      dismissSheet();
-    } catch (error) {
-      Alert.alert('error', 'failed to save video. please try again.');
-    } finally {
-      setIsSubmitting(false);
+
+  // Bookmark handler - optimistic update
+  const handleBookmark = useCallback(async () => {
+    if (!postUri || !postCid || isBookmarkPending) return;
+    
+    const newIsBookmarked = !isBookmarked;
+    setIsBookmarkPending(true);
+    
+    // Optimistic update - update UI immediately
+    if (newIsBookmarked) {
+      addBookmark(postUri, { uri: postUri, cid: postCid });
+    } else {
+      removeBookmark(postUri);
     }
-  }, [postUri, dismissSheet]);
+    
+    try {
+      if (newIsBookmarked) {
+        await AtprotoService.createBookmark(postUri, postCid);
+      } else {
+        await AtprotoService.deleteBookmark(postUri);
+      }
+    } catch (error) {
+      // Revert optimistic update on error
+      if (newIsBookmarked) {
+        removeBookmark(postUri);
+      } else {
+        addBookmark(postUri, { uri: postUri, cid: postCid });
+      }
+      Alert.alert('error', 'failed to update bookmark. please try again.');
+    } finally {
+      setIsBookmarkPending(false);
+    }
+  }, [postUri, postCid, isBookmarked, isBookmarkPending, addBookmark, removeBookmark]);
 
   // Report or delete post handler
   const handleReportOrDelete = useCallback(() => {
@@ -326,7 +331,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       const success = await AtprotoService.reportContent(postUri, reasonType);
       if (success) {
         Alert.alert('thank you', 'this content has been reported for review.');
-        dismissSheet();
       } else {
         Alert.alert('error', 'failed to submit report. please try again.');
       }
@@ -348,9 +352,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         url: Platform.OS === 'ios' ? shareUrl : '',
         title: 'check out this post on bluesky',
       });
-      
-      // Close the sheet after successful share
-      dismissSheet();
     } catch (error) {
     }
   }, [postUri, dismissSheet]);
@@ -491,12 +492,12 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         buttonColor: Colors.darkGreen
       },
       {
-        id: 'save',
-        label: 'Save',
-        icon: 'download',
-        onPress: handleSave,
-        color: Colors.bluesky,
-        buttonColor: Colors.notInterestedDark
+        id: 'bookmark',
+        label: isBookmarked ? 'Saved' : 'Save',
+        icon: 'bookmark-fill',
+        onPress: handleBookmark,
+        color: isBookmarked ? Colors.darkYellow : Colors.yellow,
+        buttonColor: isBookmarked ? Colors.yellow : Colors.darkYellow
       },
       {
         id: 'report',
@@ -679,7 +680,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                     ]}
                     onPress={option.onPress}
                     activeOpacity={0.7}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || (option.id === 'bookmark' && isBookmarkPending)}
                   >
                     <Icon name={option.icon} size={45} color={option.color} />
                   </TouchableOpacity>

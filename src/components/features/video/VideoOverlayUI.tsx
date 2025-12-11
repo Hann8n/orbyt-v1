@@ -226,7 +226,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       ] as any,
     };
   });
-  
+
   const renderRepostIcon = useCallback(() => (
     <Animated.View style={repostAnimatedStyle}>
       <RefreshFillIcon 

@@ -13,6 +13,7 @@ import { setVideoCacheSizeAsync } from 'expo-video';
 import { Colors } from '../src/components/ui/UI';
 import { useAppStore } from '../src/stores/appStore';
 import { useAuth, useAccountManagement, useUserStore } from '../src/stores/userStore';
+import { useBookmarkStore } from '../src/stores/bookmarkStore';
 import { CommonErrorHandlers } from '../src/utils/errorHandler';
 import { feedService, createQueryKeys } from '../src/services/FeedService';
 import ShareSheet from '../src/components/ui/ShareSheet';
@@ -116,6 +117,8 @@ export default function RootLayout() {
   const signOut = useUserStore(state => state.signOut);
   const switchAccount = useUserStore(state => state.switchAccount);
   const initializeUserState = useUserStore(state => state.initializeUserState);
+  const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
+  const clearBookmarks = useBookmarkStore(state => state.clearBookmarks);
   
   const [isInitializing, setIsInitializing] = useState(true);
   const [appIsReady, setAppIsReady] = useState(false);
@@ -168,6 +171,17 @@ export default function RootLayout() {
 
     initializeVideoCache();
   }, [appIsReady]);
+
+  // Load bookmarks when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && appIsReady) {
+      loadBookmarks().catch(err => {
+        console.warn('Failed to load bookmarks:', err);
+      });
+    } else if (!isAuthenticated) {
+      clearBookmarks();
+    }
+  }, [isAuthenticated, appIsReady, loadBookmarks, clearBookmarks]);
 
   // Prefetch feed in background after app is fully ready
   useEffect(() => {

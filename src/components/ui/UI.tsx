@@ -65,7 +65,7 @@ export const Colors = {
   
   // Yellow/Orange Shades
   lightYellow: '#FFEB3B', // Bright yellow
-  darkYellow: '#FF9800', // Orange-yellow
+  darkYellow: '#2A2000', // Dark yellow (matches hue of other dark colors)
 
   // Additional vibrant colors
   neonPink: '#FF0080', // Hot pink

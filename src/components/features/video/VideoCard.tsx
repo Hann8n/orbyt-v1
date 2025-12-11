@@ -102,6 +102,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       likeCount: post.likeCount || 0,
       repostCount: post.repostCount || 0,
       isReposted: !!post.viewer?.repost,
+      isBookmarked: false, // Bookmarks are now handled in share sheet
       likeUri: post.viewer?.like,
       repostUri: post.viewer?.repost,
     });

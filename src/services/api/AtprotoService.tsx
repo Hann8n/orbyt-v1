@@ -706,6 +706,182 @@ class AtprotoService {
   }
 
   /**
+   * Create a bookmark for a post
+   * @param uri - Post URI
+   * @param cid - Post CID
+   * @returns The post URI (bookmark URI not needed since deleteBookmark uses post URI)
+   */
+  static async createBookmark(uri: string, cid: string): Promise<string> {
+    await this.ensureSession();
+    const { api } = await this.getApiClient();
+    
+    try {
+      console.log('[AtprotoService] createBookmark request:', {
+        uri,
+        cid,
+      });
+      
+      const response = await api.app.bsky.bookmark.createBookmark({
+        uri,
+        cid,
+      });
+      
+      console.log('[AtprotoService] createBookmark raw response:', JSON.stringify(response, null, 2));
+      console.log('[AtprotoService] createBookmark response.data:', JSON.stringify(response.data, null, 2));
+      
+      // The bookmark is successfully created. We don't need the bookmark URI
+      // since deleteBookmark uses the post URI. Return the post URI for consistency.
+      return uri;
+    } catch (error: unknown) {
+      console.error('[AtprotoService] createBookmark error:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        console.error('[AtprotoService] Error message:', error.message);
+        console.error('[AtprotoService] Error details:', JSON.stringify(error, null, 2));
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a bookmark
+   * @param bookmarkUri - The URI of the bookmark to delete
+   */
+  static async deleteBookmark(postUri: string): Promise<void> {
+    await this.ensureSession();
+    const { api } = await this.getApiClient();
+    
+    try {
+      console.log('[AtprotoService] deleteBookmark request:', {
+        postUri,
+      });
+      
+      // The deleteBookmark API expects the post URI (same as createBookmark)
+      const response = await api.app.bsky.bookmark.deleteBookmark({
+        uri: postUri,
+      });
+      
+      console.log('[AtprotoService] deleteBookmark raw response:', JSON.stringify(response, null, 2));
+      console.log('[AtprotoService] deleteBookmark response.data:', JSON.stringify(response.data, null, 2));
+    } catch (error: unknown) {
+      console.error('[AtprotoService] deleteBookmark error:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        console.error('[AtprotoService] Error message:', error.message);
+        console.error('[AtprotoService] Error details:', JSON.stringify(error, null, 2));
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get bookmarks for the current user
+   * @param cursor - Pagination cursor
+   * @param limit - Number of bookmarks to fetch
+   * @returns Object with bookmarks array and cursor
+   */
+  static async getBookmarks(cursor?: string, limit: number = 50): Promise<{ bookmarks: any[], cursor: string | null }> {
+    await this.ensureSession();
+    const { api } = await this.getApiClient();
+    
+    try {
+      console.log('[AtprotoService] getBookmarks request:', {
+        cursor,
+        limit,
+      });
+      
+      const response = await api.app.bsky.bookmark.getBookmarks({
+        limit,
+        cursor,
+      });
+      
+      // Log raw API response for debugging
+      console.log('[AtprotoService] getBookmarks raw response:', JSON.stringify(response, null, 2));
+      console.log('[AtprotoService] getBookmarks response.data:', JSON.stringify(response.data, null, 2));
+      
+      // The API returns bookmarks with the post data in bookmark.item
+      // bookmark.subject is just a reference (RepoStrongRef with uri and cid)
+      const allBookmarks = response.data?.bookmarks || [];
+      console.log('[AtprotoService] Total bookmarks from API:', allBookmarks.length);
+      
+      if (allBookmarks.length > 0) {
+        console.log('[AtprotoService] First bookmark structure:', JSON.stringify(allBookmarks[0], null, 2));
+      }
+      
+      const bookmarks = allBookmarks.filter((bookmark: any) => {
+        // Log each bookmark for debugging
+        console.log('[AtprotoService] Processing bookmark:', {
+          hasItem: !!bookmark.item,
+          hasSubject: !!bookmark.subject,
+          itemType: bookmark.item?.$type,
+          subjectUri: bookmark.subject?.uri,
+          itemUri: bookmark.item?.uri,
+        });
+        
+        // Check if it's a valid post bookmark
+        // bookmark.item should contain the post view
+        // bookmark.subject is the reference to the original post
+        const subjectUri = bookmark.subject?.uri;
+        const itemUri = bookmark.item?.uri;
+        const uri = subjectUri || itemUri;
+        
+        // Check if it's a post (not blocked or not found)
+        const isBlocked = bookmark.item?.$type === 'app.bsky.feed.defs#blockedPost';
+        const isNotFound = bookmark.item?.$type === 'app.bsky.feed.defs#notFoundPost';
+        const isPost = bookmark.item?.$type === 'app.bsky.feed.defs#postView' || 
+                      (!!bookmark.item && !isBlocked && !isNotFound);
+        
+        const isValid = uri && uri.includes('app.bsky.feed.post') && isPost;
+        
+        if (!isValid) {
+          console.log('[AtprotoService] Filtered out bookmark:', {
+            reason: !uri ? 'no uri' : !uri.includes('app.bsky.feed.post') ? 'not a post uri' : !isPost ? 'not a post view' : 'unknown',
+            uri,
+            itemType: bookmark.item?.$type,
+          });
+        }
+        
+        return isValid;
+      });
+      
+      console.log('[AtprotoService] Filtered bookmarks count:', bookmarks.length);
+      
+      // Transform bookmarks: use bookmark.item for the post data
+      // bookmark.subject is just the reference, bookmark.item has the full post
+      const transformedBookmarks = bookmarks.map((bookmark: any) => {
+        // bookmark.item contains the full post view
+        // bookmark.subject is the reference (uri, cid) to the original post
+        const post = bookmark.item;
+        
+        if (!post) {
+          console.warn('[AtprotoService] Bookmark missing item:', bookmark);
+          return null;
+        }
+        
+        // Return the post data - we don't need bookmarkUri since delete uses post URI
+        // But we can include it for reference if needed
+        return {
+          ...post,
+          // Include bookmark reference for potential future use
+          bookmarkSubject: bookmark.subject,
+        };
+      }).filter((b: any) => b !== null); // Remove any null entries
+      
+      console.log('[AtprotoService] Final bookmarks count:', transformedBookmarks.length);
+      
+      return {
+        bookmarks: transformedBookmarks,
+        cursor: response.data?.cursor || null,
+      };
+    } catch (error: unknown) {
+      console.error('[AtprotoService] getBookmarks error:', error);
+      if (error && typeof error === 'object' && 'message' in error) {
+        console.error('[AtprotoService] Error message:', error.message);
+        console.error('[AtprotoService] Error details:', JSON.stringify(error, null, 2));
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Post a comment on a post or reply to another comment
    * @param text - The comment text
    * @param rootUri - The URI of the root post

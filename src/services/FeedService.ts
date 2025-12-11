@@ -279,6 +279,16 @@ class FeedService {
         return { feed: [], cursor: null };
       } else if (feedOptionForAPI === 'reposts' && !userDid) {
         return { feed: [], cursor: null };
+      } else if (feedOptionForAPI === 'bookmarks' && userDid) {
+        const bookmarksResponse = await AtprotoService.getBookmarks(cursor || undefined, limit);
+        // Transform bookmarks to feed items
+        const feed = bookmarksResponse.bookmarks.map((bookmark: any) => ({
+          post: bookmark,
+          uniqueKey: bookmark.uri,
+        }));
+        return { feed, cursor: bookmarksResponse.cursor };
+      } else if (feedOptionForAPI === 'bookmarks' && !userDid) {
+        return { feed: [], cursor: null };
       } else if (feedOptionForAPI === 'following') {
         const feedLink = this.getFeedLink(feedOptionForAPI);
         if (!feedLink) {
