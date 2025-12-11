@@ -231,38 +231,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const currentUserHandle = currentUser?.handle || null;
   const { data: currentUserProfile } = useProfile(currentUserHandle);
 
-  // Expand sheet to full height when keyboard opens
-  useEffect(() => {
-    const keyboardWillShow = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const keyboardWillHide = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showListener = Keyboard.addListener(keyboardWillShow, () => {
-      // Expand to full height when keyboard opens
-      // If detents are [0.5, 1], index 1 is full height
-      // If detents are [1] (scrollToCommentUri), index 0 is full height
-      const fullHeightIndex = scrollToCommentUri ? 0 : 1;
-      
-      // Try ref method first, fallback to static method
-      if (sheetRef.current?.resize) {
-        sheetRef.current.resize(fullHeightIndex);
-      } else {
-        TrueSheet.resize('comment-section', fullHeightIndex).catch(() => {
-          // Silently fail if sheet isn't ready
-        });
-      }
-    });
-
-    const hideListener = Keyboard.addListener(keyboardWillHide, () => {
-      // Optionally return to previous detent when keyboard closes
-      // For now, we'll leave it at full height for better UX
-    });
-
-    return () => {
-      showListener.remove();
-      hideListener.remove();
-    };
-  }, [scrollToCommentUri]);
-
   const handleReplyPress = useCallback((comment: Comment) => {
     const properUri = comment?.uri || comment?.post?.uri;
     const properCid = comment?.cid || comment?.post?.cid;
@@ -720,7 +688,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         backgroundColor={Colors.black}
         onDidDismiss={handleClose}
         scrollable
-        keyboardMode="resize"
+        keyboardMode="pan"
         grabber={false}
         header={headerComponent}
         footer={activeTab === 'comments' ? FooterComponent : undefined}
