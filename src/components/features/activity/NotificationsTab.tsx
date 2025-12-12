@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -8,8 +8,8 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { LinearGradient } from 'expo-linear-gradient';
+import { FlashList, FlashListRef } from '@shopify/flash-list';
+import type { ScrollToTopRef } from '../../../utils/tabRefs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -50,386 +50,243 @@ const NotificationDivider = () => (
   <View style={styles.divider} />
 );
 
-// Helper function to extract thumbnail from post embed
-const getPostThumbnail = (post: any): string | null => {
-  if (!post) return null;
+// Post kind type
+type PostKind = 'video' | 'image' | 'external' | 'record' | 'text';
+
+// Helper to get embed from post data (handles different structures)
+const getEmbed = (postData: any) => postData?.embed || postData?.record?.embed;
+
+// Determine post kind from embed
+const getPostKind = (embed: any): PostKind => {
+  if (!embed) return 'text';
   
-  // Check for embed (singular) or embeds (plural) array
-  const embed = post?.embed || (post?.embeds && post.embeds[0]) || null;
-  if (!embed) return null;
+  const type = embed.$type;
   
-  // Video posts
+  if (type === 'app.bsky.embed.video' || type === 'app.bsky.embed.video#view') {
+    return 'video';
+  }
+  
+  if (type === 'app.bsky.embed.recordWithMedia#view') {
+    const mediaType = embed.media?.$type;
+    if (mediaType === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video#view') {
+      return 'video';
+    }
+    if (mediaType === 'app.bsky.embed.images' || mediaType === 'app.bsky.embed.images#view') {
+      return 'image';
+    }
+  }
+  
+  if (type === 'app.bsky.embed.images' || type === 'app.bsky.embed.images#view') {
+    return 'image';
+  }
+  
+  if (type === 'app.bsky.embed.external' || type === 'app.bsky.embed.external#view') {
+    return 'external';
+  }
+  
+  if (type === 'app.bsky.embed.record' || type === 'app.bsky.embed.record#view') {
+    return 'record';
+  }
+  
+  return 'text';
+};
+
+// Get thumbnail based on post kind (only for videos)
+const getThumbnailByKind = (embed: any, kind: PostKind): string | null => {
+  if (!embed || kind !== 'video') return null;
+  
   if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
-    return embed.thumbnail || null;
-  } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-    if (embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view') {
-      return embed.media?.thumbnail || null;
-    }
+    return embed.thumbnail || extractVideoThumbnail(embed) || null;
+  }
+  if (embed.$type === 'app.bsky.embed.recordWithMedia#view' && embed.media) {
+    return embed.media.thumbnail || extractVideoThumbnail(embed) || null;
   }
   
-  // Image posts - get first image
-  if (embed.$type === 'app.bsky.embed.images' || embed.$type === 'app.bsky.embed.images#view') {
-    return embed.images?.[0]?.fullsize || embed.images?.[0]?.thumb || null;
-  } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-    if (embed.media?.$type === 'app.bsky.embed.images' || embed.media?.$type === 'app.bsky.embed.images#view') {
-      return embed.media?.images?.[0]?.fullsize || embed.media?.images?.[0]?.thumb || null;
-    }
-  }
-  
-  // External link posts
-  if (embed.$type === 'app.bsky.embed.external' || embed.$type === 'app.bsky.embed.external#view') {
-    return embed.thumb || null;
-  }
-  
-  // Quoted posts - check if the quoted post has a thumbnail
-  if (embed.$type === 'app.bsky.embed.record' || embed.$type === 'app.bsky.embed.record#view') {
-    if (embed.record?.embeds?.[0]) {
-      return getPostThumbnail({ embed: embed.record.embeds[0] });
-    }
-    // Also check if record has a value with embeds
-    if (embed.record?.value?.embed) {
-      return getPostThumbnail({ embed: embed.record.value.embed });
+  // For record embeds, check if it's a nested video
+  if (kind === 'record') {
+    const nestedEmbed = embed.record?.embeds?.[0] || embed.record?.value?.embed;
+    if (nestedEmbed) {
+      const nestedKind = getPostKind(nestedEmbed);
+      if (nestedKind === 'video') {
+        return getThumbnailByKind(nestedEmbed, nestedKind);
+      }
     }
   }
   
   return null;
 };
 
-// Notification item component that can use hooks
+// Get post URI from notification
+// Based on API structure:
+// - subscribed-post: uri is the post URI
+// - reply: record.reply.root.uri is the root post (reasonSubject is parent, not root)
+// - like/repost/quote/mention: post.uri exists with full post data
+const getPostUri = (notification: any): string | null => {
+  const { reason, uri, post, record } = notification;
+  
+  if (reason === 'subscribed-post') return uri;
+  if (reason === 'reply') return record?.reply?.root?.uri || null;
+  return post?.uri || null;
+};
+
+// Extract post data from notification
+// Based on API structure:
+// - subscribed-post: record contains post data, use it directly or fetched version
+// - reply: post field doesn't exist, must fetch root post from postDataMap
+// - like/repost/quote/mention: post field contains full post data, use it directly
+const getPostDataFromNotification = (notification: any, postDataMap: Map<string, any>) => {
+  const { reason, uri, record, post } = notification;
+  const postUri = getPostUri(notification);
+  if (!postUri) return null;
+  
+  const fetchedPost = postDataMap.get(postUri);
+  
+  if (reason === 'subscribed-post' && record) {
+    return fetchedPost || {
+      uri,
+      cid: notification.cid,
+      author: notification.author,
+      record,
+      embed: record.embed,
+      indexedAt: notification.indexedAt,
+    };
+  }
+  
+  // For reply notifications, post field doesn't exist - must use fetched root post
+  if (reason === 'reply') return fetchedPost;
+  
+  // For other notifications, post field contains full post data
+  return post || fetchedPost;
+};
+
+// Notification item component
 const NotificationItem: React.FC<{ 
   item: any; 
   navigation: any; 
   queryClient: any;
   postDataMap: Map<string, any>;
 }> = ({ item, navigation, queryClient, postDataMap }) => {
-  const { reason, author, post, reasonSubject, indexedAt, uri, record } = item;
+  const { reason, author, indexedAt, uri } = item;
   const { presentCommentSection } = useGlobalCommentSection();
   
-  // Debug: Log raw notification structure for subscribed-post and other post notifications
-  useEffect(() => {
-    if (__DEV__ && (reason === 'subscribed-post' || reason === 'post' || !['like', 'repost', 'follow', 'mention', 'reply', 'quote', 'starterpack-joined', 'verified', 'unverified'].includes(reason))) {
-      console.log('[NotificationItem] Raw notification structure:', JSON.stringify(item, null, 2));
-      console.log('[NotificationItem] Reason:', reason);
-      console.log('[NotificationItem] Author:', author);
-      console.log('[NotificationItem] Post:', post);
-      console.log('[NotificationItem] URI:', uri);
-      console.log('[NotificationItem] Record:', record);
-      console.log('[NotificationItem] Record.embed:', record?.embed);
-      if (record?.embed) {
-        console.log('[NotificationItem] Embed type:', record.embed.$type);
-        console.log('[NotificationItem] Embed full:', JSON.stringify(record.embed, null, 2));
-      }
-    }
-  }, [item, reason, uri, record]);
-  
-  // Determine if this is a post-related notification
   const isPostAction = ['like', 'repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'].includes(reason);
+  const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : null;
+  const embed = postData ? getEmbed(postData) : null;
+  const postKind = embed ? getPostKind(embed) : 'text';
+  const thumbnail = embed ? getThumbnailByKind(embed, postKind) : null;
+  const isVideo = postKind === 'video';
+  const postTypeLabel = isVideo ? 'video' : 'post';
   
-  // For subscribed-post notifications, the structure is different:
-  // - uri is at top level (post URI)
-  // - record contains the post record (with embed, text, etc.)
-  // - author is at top level
-  // For other notifications, use post?.uri or reasonSubject
-  const postUri = reason === 'subscribed-post' ? uri : (post?.uri || reasonSubject);
+  const actionText = useMemo(() => {
+    const actions: Record<string, string> = {
+      like: `liked your ${postTypeLabel}`,
+      repost: `reshared your ${postTypeLabel}`,
+      follow: 'followed you',
+      mention: 'mentioned you',
+      reply: 'left a comment',
+      quote: 'quoted your post',
+      post: `created a ${postTypeLabel}`,
+      'subscribed-post': `created a ${postTypeLabel}`,
+      'starterpack-joined': 'joined your starter pack',
+      verified: 'verified you',
+      unverified: 'unverified you',
+    };
+    return actions[reason] || `performed action: ${reason}`;
+  }, [reason, postTypeLabel]);
   
-  // Get post data from the batch-fetched map (passed from parent)
-  const fetchedPost = postUri ? postDataMap.get(postUri) : undefined;
+  // Navigate to profile
+  const navigateToProfile = useCallback((handle: string) => {
+    const trimmed = handle.trim();
+    if (!trimmed) return;
+    queryClient.prefetchQuery({
+      queryKey: profileKeys.detail(trimmed),
+      queryFn: () => ProfileCache.getProfile(trimmed),
+      staleTime: ProfileCache.cacheExpiry
+    }).finally(() => navigation.push(`/profile/${trimmed}`));
+  }, [navigation, queryClient]);
   
-  // For subscribed-post, construct post data from record + uri + author
-  // Use fetchedPost if available (for video posts to get thumbnail)
-  // For other notifications, use post or fetchedPost
-  let postData;
-  if (reason === 'subscribed-post' && record) {
-    // If we fetched the full post (for thumbnails), use that, otherwise construct from record
-    if (fetchedPost) {
-      postData = fetchedPost;
-    } else {
-      // Construct post structure from subscribed-post notification
-      postData = {
-        uri: uri,
-        cid: item.cid,
-        author: author,
-        record: record,
-        embed: record.embed,
-        indexedAt: indexedAt || item.indexedAt,
-      };
-    }
-  } else {
-    postData = post || fetchedPost;
-  }
-  
-  // Try to get thumbnail from post data and determine post type
-  let thumbnail: string | null = null;
-  let isVideoThumbnail = false;
-  if (isPostAction && postData) {
-    // Get embed from postData - for subscribed-post it's in record.embed, for others it's in embed
-    const embed = postData?.embed || postData?.record?.embed;
-    
-    if (embed) {
-      // Check if this is a video post
-      if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
-        isVideoThumbnail = true;
-        // Get video thumbnail - from fetched post or embed
-        thumbnail = embed.thumbnail || extractVideoThumbnail(embed) || null;
-      } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-        if (embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view') {
-          isVideoThumbnail = true;
-          thumbnail = embed.media?.thumbnail || extractVideoThumbnail(embed) || null;
-        }
+  // Navigate to video post in feed
+  const navigateToVideoPost = useCallback((postData: any) => {
+    const embed = getEmbed(postData);
+    feedService.setCurrentFeed([{
+      post: {
+        uri: postData.uri || item.uri,
+        cid: postData.cid || item.cid,
+        author: postData.author || author,
+        record: postData.record || item.record,
+        embed,
+        replyCount: postData.replyCount || 0,
+        repostCount: postData.repostCount || 0,
+        likeCount: postData.likeCount || 0,
+        indexedAt: postData.indexedAt || indexedAt || item.indexedAt,
+      },
+      uniqueKey: postData.uri || item.uri,
+      moderationDecision: postData.moderationDecision,
+    }]);
+    navigation.push({
+      pathname: '/(modals)/feed',
+      params: {
+        feedOption: 'search',
+        userDid: undefined,
+        backgroundColor: 'transparent',
+        secondaryColor: Colors.white,
+        searchQuery: '',
+        hasNextPage: 'false',
+        isFetchingNextPage: 'false',
       }
-      
-      // If not a video or no video thumbnail found, try general thumbnail extraction
-      if (!thumbnail) {
-        thumbnail = getPostThumbnail(postData);
-      }
-    } else {
-      // Fallback to general thumbnail extraction
-      thumbnail = getPostThumbnail(postData);
-    }
-  }
-  
-  // Determine the post type label (video vs post)
-  const postTypeLabel = isVideoThumbnail ? 'video' : 'post';
-  
-  let actionText = '';
-  switch (reason) {
-    case 'like':
-      actionText = `liked your ${postTypeLabel}`;
-      break;
-    case 'repost':
-      actionText = `reshared your ${postTypeLabel}`;
-      break;
-    case 'follow':
-      actionText = 'followed you';
-      break;
-    case 'mention':
-      actionText = 'mentioned you';
-      break;
-    case 'reply':
-      actionText = 'left a comment';
-      break;
-    case 'quote':
-      actionText = 'quoted your post';
-      break;
-    case 'post':
-      actionText = `posted a ${postTypeLabel}`;
-      break;
-    case 'subscribed-post':
-      actionText = `posted a ${postTypeLabel}`;
-      break;
-    case 'starterpack-joined':
-      actionText = 'joined your starter pack';
-      break;
-    case 'verified':
-      actionText = 'verified you';
-      break;
-    case 'unverified':
-      actionText = 'unverified you';
-      break;
-    default:
-      actionText = `performed action: ${reason}`;
-  }
+    });
+  }, [navigation, author, indexedAt, item]);
 
   const handlePress = async () => {
-    // For reply notifications, navigate to post then open comment section
-    if (reason === 'reply' && reasonSubject && uri) {
-      try {
-        const parentPost = await AtprotoService.getPost(reasonSubject);
-        if (!parentPost) {
-          // Fallback to profile if post fetch fails
-          if (author?.handle) {
-            const handle = author.handle.trim();
-            if (handle) {
-              navigation.push(`/profile/${handle}`);
-            }
-          }
-          return;
-        }
+    if (!isPostAction) {
+      if (author?.handle) navigateToProfile(author.handle);
+      return;
+    }
 
-        // Check if this is a video post
-        const embed = parentPost?.embed || parentPost?.record?.embed;
-        const isVideo = embed && (
-          embed.$type === 'app.bsky.embed.video' || 
-          embed.$type === 'app.bsky.embed.video#view' ||
-          (embed.$type === 'app.bsky.embed.recordWithMedia#view' && 
-           (embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view'))
-        );
+    const postUri = getPostUri(item);
+    if (!postUri) {
+      if (author?.handle) navigateToProfile(author.handle);
+      return;
+    }
 
-        if (isVideo) {
-          // For video posts, navigate to feed modal first
-          const feedItem = {
-            post: {
-              uri: parentPost.uri,
-              cid: parentPost.cid,
-              author: parentPost.author,
-              record: parentPost.record,
-              embed: embed,
-              replyCount: parentPost.replyCount || 0,
-              repostCount: parentPost.repostCount || 0,
-              likeCount: parentPost.likeCount || 0,
-              indexedAt: parentPost.indexedAt,
-            },
-            uniqueKey: parentPost.uri,
-            moderationDecision: parentPost.moderationDecision,
-          };
-          
-          feedService.setCurrentFeed([feedItem]);
-          
-          navigation.push({
-            pathname: '/(modals)/feed',
-            params: {
-              feedOption: 'search',
-              userDid: undefined,
-              backgroundColor: 'transparent',
-              secondaryColor: Colors.white,
-              searchQuery: '',
-              hasNextPage: 'false',
-              isFetchingNextPage: 'false',
-            }
-          });
-
-          // Open comment section after navigation with a delay
+    try {
+      let finalPostData = postData;
+      if (!finalPostData && reason !== 'subscribed-post') {
+        finalPostData = await AtprotoService.getPost(postUri);
+      }
+      
+      if (!finalPostData) {
+        if (author?.handle) navigateToProfile(author.handle);
+        return;
+      }
+      
+      const finalEmbed = getEmbed(finalPostData);
+      const finalKind = finalEmbed ? getPostKind(finalEmbed) : 'text';
+      
+      // For reply notifications, open comment section with scrollToCommentUri
+      if (reason === 'reply' && uri) {
+        if (finalKind === 'video') {
+          navigateToVideoPost(finalPostData);
           setTimeout(() => {
-            presentCommentSection({
-              post: parentPost,
-              scrollToCommentUri: uri,
-            });
+            presentCommentSection({ post: finalPostData, scrollToCommentUri: uri });
           }, 500);
         } else {
-          // For non-video posts, open in Bluesky app
-          const { openPostInBluesky } = await import('../../../utils/blueskyLinks');
-          await openPostInBluesky(reasonSubject);
+          presentCommentSection({ post: finalPostData, scrollToCommentUri: uri });
         }
-        return;
-      } catch (error) {
-        // Fallback to regular post handling
+      } else if (finalKind === 'video') {
+        navigateToVideoPost(finalPostData);
+      } else {
+        const { openPostInBluesky } = await import('../../../utils/blueskyLinks');
+        await openPostInBluesky(postUri);
       }
-    }
-
-    // For post-related actions, check if it's a video post
-    if (isPostAction && postUri) {
-      try {
-        // For subscribed-post, we already have the post data in record
-        // For other notifications, use fetched post or fetch it again
-        let finalPostData = postData;
-        if (!finalPostData && reason !== 'subscribed-post') {
-          finalPostData = await AtprotoService.getPost(postUri);
-        }
-        
-        if (!finalPostData) {
-          // Fallback to profile if post fetch fails
-          if (author?.handle) {
-            const handle = author.handle.trim();
-            if (handle) {
-              navigation.push(`/profile/${handle}`);
-            }
-          }
-          return;
-        }
-        
-        // Check if this is a video post
-        const isVideoPost = () => {
-          const embed = finalPostData?.embed || finalPostData?.record?.embed;
-          if (!embed) return false;
-          
-          if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
-            return true;
-          } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-            return embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view';
-          }
-          return false;
-        };
-        
-        // For video posts, open in feed modal
-        if (isVideoPost()) {
-          // Ensure we have the embed - for subscribed-post it's in record.embed
-          const postEmbed = finalPostData.embed || finalPostData.record?.embed || record?.embed;
-          
-          // Create a feed item with the post data
-          const feedItem = {
-            post: {
-              uri: finalPostData.uri || postUri,
-              cid: finalPostData.cid || item.cid,
-              author: finalPostData.author || author,
-              record: finalPostData.record || record,
-              embed: postEmbed,
-              replyCount: finalPostData.replyCount || 0,
-              repostCount: finalPostData.repostCount || 0,
-              likeCount: finalPostData.likeCount || 0,
-              indexedAt: finalPostData.indexedAt || indexedAt || item.indexedAt,
-            },
-            uniqueKey: finalPostData.uri || postUri,
-            moderationDecision: finalPostData.moderationDecision,
-          };
-          
-          // Set the current feed with just this post
-          feedService.setCurrentFeed([feedItem]);
-          
-          // Navigate to feed modal
-          navigation.push({
-            pathname: '/(modals)/feed',
-            params: {
-              feedOption: 'search',
-              userDid: undefined,
-              backgroundColor: 'transparent',
-              secondaryColor: Colors.white,
-              searchQuery: '',
-              hasNextPage: 'false',
-              isFetchingNextPage: 'false',
-            }
-          });
-        } else {
-          // For non-video posts (text, images, links), open in Bluesky app
-          const { openPostInBluesky } = await import('../../../utils/blueskyLinks');
-          await openPostInBluesky(postUri);
-        }
-      } catch (error) {
-        // Fallback to profile on error
-        if (author?.handle) {
-          const handle = author.handle.trim();
-          if (handle) {
-            navigation.push(`/profile/${handle}`);
-          }
-        }
-      }
-    } else {
-      // For profile-related actions, navigate to profile
-      if (author?.handle) {
-        const handle = author.handle.trim();
-        // Prefetch profile using React Query before navigation
-        queryClient.prefetchQuery({
-          queryKey: profileKeys.detail(handle),
-          queryFn: () => ProfileCache.getProfile(handle),
-          staleTime: ProfileCache.cacheExpiry
-        }).finally(() => {
-          // Navigate regardless of prefetch success
-          const target = handle.trim();
-          if (target) { 
-            navigation.push(`/profile/${target}`); 
-          }
-        });
-      }
+    } catch (error) {
+      if (author?.handle) navigateToProfile(author.handle);
     }
   };
 
-  // Separate handler for profile navigation
-  const handleProfilePress = () => {
-    if (author?.handle) {
-      const handle = author.handle.trim();
-      // Prefetch profile using React Query before navigation
-      queryClient.prefetchQuery({
-        queryKey: profileKeys.detail(handle),
-        queryFn: () => ProfileCache.getProfile(handle),
-        staleTime: ProfileCache.cacheExpiry
-      }).finally(() => {
-        // Navigate regardless of prefetch success
-        const target = handle.trim();
-        if (target) { 
-          navigation.push(`/profile/${target}`); 
-        }
-      });
-    }
-  };
+  const handleProfilePress = useCallback(() => {
+    if (author?.handle) navigateToProfile(author.handle);
+  }, [author?.handle, navigateToProfile]);
 
   return (
     <View style={styles.notificationItem}>
@@ -470,26 +327,38 @@ const NotificationItem: React.FC<{
           </View>
         </TouchableOpacity>
       </View>
-      {thumbnail && (
+      {isPostAction && isVideo && (
         <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
-          <Image
-            source={{ uri: thumbnail }}
-            style={isVideoThumbnail ? styles.thumbnailVideo : styles.thumbnailPhoto}
-            resizeMode="cover"
-            onError={() => {
-              // Silently fail - image just won't display
-              if (__DEV__) {
-                console.log('Thumbnail failed to load:', thumbnail);
-              }
-            }}
-          />
+          {thumbnail ? (
+            <Image
+              source={{ uri: thumbnail }}
+              style={styles.thumbnailVideo}
+              resizeMode="cover"
+              onError={() => {
+                // Silently fail - image just won't display
+                if (__DEV__) {
+                  console.log('Thumbnail failed to load:', thumbnail);
+                }
+              }}
+            />
+          ) : (
+            <View style={styles.thumbnailVideo} />
+          )}
         </TouchableOpacity>
       )}
     </View>
   );
 };
 
-const NotificationsTab: React.FC = () => {
+const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
+  const flashListRef = useRef<FlashListRef<any>>(null);
+
+  // Expose scrollToTop method
+  useImperativeHandle(ref, () => ({
+    scrollToTop: () => {
+      flashListRef.current?.scrollToTop({ animated: true });
+    },
+  }), []);
   const navigation = useRouter();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -565,44 +434,49 @@ const NotificationsTab: React.FC = () => {
   }, [notifications]);
 
   // Extract unique post URIs that need to be fetched
-  // Only fetch posts that need thumbnails (video posts without thumbnails) or missing post data
+  // Only fetch video posts (for thumbnails)
+  // Based on API structure:
+  // - reply: fetch to check if root post is a video (can't determine from notification data)
+  // - subscribed-post: fetch only if video without thumbnail (record has post data)
+  // - like/repost/quote/mention: fetch only if video without thumbnail (post field exists)
   const postUrisToFetch = useMemo(() => {
     const uris = new Set<string>();
     for (const notification of notifications) {
       const isPostAction = ['like', 'repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'].includes(notification.reason);
       if (!isPostAction) continue;
       
-      // Get post URI and embed based on notification type
-      let postUri: string | undefined;
-      let embed: any;
-      
-      if (notification.reason === 'subscribed-post') {
-        postUri = notification.uri;
-        embed = notification.record?.embed;
-      } else {
-        postUri = notification.post?.uri || notification.reasonSubject;
-        embed = notification.post?.embed;
-      }
-      
+      const postUri = getPostUri(notification);
       if (!postUri) continue;
       
-      // Check if it's a video post that needs thumbnail
-      const isVideoPost = embed && (
-        embed.$type === 'app.bsky.embed.video' || 
-        embed.$type === 'app.bsky.embed.video#view' ||
-        (embed.$type === 'app.bsky.embed.recordWithMedia#view' && 
-         (embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view'))
-      );
+      // Reply notifications: fetch to check if root post is a video
+      // (We need the post data to determine if it's a video since notification has no post field)
+      if (notification.reason === 'reply') {
+        uris.add(postUri);
+        continue;
+      }
       
-      // For subscribed-post: fetch if video post without thumbnail
-      // For other notifications: fetch if missing post data OR video post without thumbnail
+      // Subscribed-post: fetch only if video without thumbnail
       if (notification.reason === 'subscribed-post') {
-        if (isVideoPost && !embed.thumbnail && !embed.media?.thumbnail) {
-          uris.add(postUri);
+        const embed = notification.record?.embed;
+        const kind = embed ? getPostKind(embed) : 'text';
+        if (kind === 'video') {
+          const thumbnail = embed ? getThumbnailByKind(embed, kind) : null;
+          if (!thumbnail) {
+            uris.add(postUri);
+          }
         }
-      } else {
-        if (!notification.post || (isVideoPost && !embed.thumbnail && !embed.media?.thumbnail)) {
-          uris.add(postUri);
+        continue;
+      }
+      
+      // Other notifications: fetch only if video without thumbnail (post field exists)
+      if (notification.post) {
+        const embed = notification.post?.embed;
+        const kind = embed ? getPostKind(embed) : 'text';
+        if (kind === 'video') {
+          const thumbnail = embed ? getThumbnailByKind(embed, kind) : null;
+          if (!thumbnail) {
+            uris.add(postUri);
+          }
         }
       }
     }
@@ -659,6 +533,7 @@ const NotificationsTab: React.FC = () => {
 
   return (
     <FlashList
+      ref={flashListRef}
       style={styles.listContainer}
       contentContainerStyle={{
         paddingHorizontal: 15,
@@ -697,7 +572,7 @@ const NotificationsTab: React.FC = () => {
       ) : null}
     />
   );
-};
+});
 
 export default NotificationsTab;
 
@@ -730,12 +605,6 @@ const styles = StyleSheet.create({
   thumbnailVideo: {
     width: 45,
     height: 80, // 9:16 aspect ratio (45/80 = 0.5625)
-    borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: Colors.darkGray,
-  },
-  thumbnailPhoto: {
-    width: 60,
-    height: 60, // 1:1 aspect ratio for photo posts
     borderRadius: BORDER_RADIUS.SMALL,
     backgroundColor: Colors.darkGray,
   },
@@ -801,4 +670,5 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Medium',
   },
 });
+
 

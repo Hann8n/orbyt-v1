@@ -1,5 +1,5 @@
 declare let window: any;
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -28,7 +28,7 @@ import {
   FEED_TYPES 
 } from '../../../utils/constants';
 import { FEED_CONFIG } from '../../../hooks/useFeed';
-import type { FeedItem, ListFeedViewProps, ViewMode } from '../../../types';
+import type { FeedItem, ListFeedViewProps, ViewMode, ListFeedViewRef } from '../../../types';
 import { useFeedVisibility } from '../../../hooks';
 import { useVisibilityCoreStore } from '../../../core/visibility';
 
@@ -42,7 +42,7 @@ const CONSTANTS = {
   VISIBILITY_JITTER_THRESHOLD: 0.05,
 } as const;
 
-const ListFeedView: React.FC<ListFeedViewProps> = ({
+const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
   feed,
   headerComponent,
   refreshControl,
@@ -70,7 +70,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   visibilityKey,
   targetScrollIndex,
   dataUpdatedAt = 0,
-}) => {
+}, ref) => {
   // Hooks
   const insets = useSafeAreaInsets();
   
@@ -80,6 +80,13 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
   
   // Refs
   const flashListRef = useRef<FlashListRef<FeedItem>>(null);
+
+  // Expose scrollToTop method
+  useImperativeHandle(ref, () => ({
+    scrollToTop: () => {
+      flashListRef.current?.scrollToTop({ animated: true });
+    },
+  }), []);
   const lastScrollOffset = useRef(0);
   const positionSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastHeaderVisibilityRef = useRef(0);
@@ -195,13 +202,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
 
   const initialVisibilityTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasPrimedVisibleItemRef = useRef(false);
-  // Track if we've restored scroll position for this visibility session
-  const hasRestoredPositionRef = useRef(false);
-  // Track previous visibility to detect return to feed
-  const wasVisibleRef = useRef(isVisible);
-  // Track when user last interacted with the feed (scrolled or viewed)
-  // Used to detect if data was refetched after timing out while user was away
-  const lastFeedInteractionRef = useRef<number>(0);
 
   // Memoize profileColors to prevent recreation on every render
   const profileColors = useMemo(() => 
@@ -268,12 +268,9 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     onScroll?.(e);
   }, [onScroll, isHeaderFeed, headerHeight, updateHeaderVisibility]);
 
-  // Momentum scroll end - save position and track interaction
+  // Momentum scroll end - save position
   const onMomentumScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetY = e.nativeEvent.contentOffset.y;
-    
-    // Update interaction timestamp when user scrolls
-    lastFeedInteractionRef.current = Date.now();
     
     // Debounce position saving
     if (positionSaveTimeout.current) {
@@ -393,88 +390,6 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }, 0);
   }, [isVisible, isFeedActive, viewMode, listData, activeItemUri, onViewableItemsChanged]);
 
-  // Track feed visibility to update interaction timestamp
-  useEffect(() => {
-    // Update interaction timestamp when feed becomes visible
-    if (isVisible && listData.length > 0) {
-      // Only update if not already set or if this is the first time becoming visible
-      if (lastFeedInteractionRef.current === 0) {
-        lastFeedInteractionRef.current = Date.now();
-      }
-    }
-  }, [isVisible, listData.length]);
-
-  // Track manual refresh to update interaction timestamp
-  useEffect(() => {
-    if (isRefreshing && isVisible) {
-      // User manually refreshed, update interaction timestamp
-      lastFeedInteractionRef.current = Date.now();
-    }
-  }, [isRefreshing, isVisible]);
-
-  // Helper function to find target index for scroll restoration
-  const findTargetIndex = useCallback((uri: string | null, index: number, data: FeedItem[]) => {
-    if (uri) {
-      const found = data.findIndex(item => !item.endCard && item.post?.uri === uri);
-      if (found >= 0) return found;
-    }
-    return index >= 0 && index < data.length ? index : -1;
-  }, []);
-
-  // FlashList v2: Restore scroll position only when returning to feed (visibility change)
-  // For data updates/refreshes, FlashList's maintainVisibleContentPosition handles position automatically
-  // If feed data was refetched after timing out (stale), reset to top instead of restoring
-  useEffect(() => {
-    const wasVisible = wasVisibleRef.current;
-    wasVisibleRef.current = isVisible;
-
-    // Early returns for clarity
-    if (wasVisible || !isVisible) return;
-    if (!flashListRef.current || listData.length === 0) return;
-    if (hasRestoredPositionRef.current) return;
-    if (lastScrollOffset.current === 0) return;
-
-    const now = Date.now();
-    const lastInteraction = lastFeedInteractionRef.current;
-    const isStale = dataUpdatedAt > 0 && 
-                    lastInteraction > 0 && 
-                    (dataUpdatedAt - lastInteraction) > FEED_CONFIG.STALE_TIME;
-    
-    hasRestoredPositionRef.current = true;
-    
-    if (isStale) {
-      // Reset to top for stale data
-      lastScrollOffset.current = 0;
-      lastFeedInteractionRef.current = now;
-      requestAnimationFrame(() => {
-        flashListRef.current?.scrollToIndex({ index: 0, animated: false, viewPosition: 0 });
-      });
-      return;
-    }
-    
-    // Restore previous position
-    const targetIndex = findTargetIndex(activeItemUri, activeItemIndex, listData);
-    if (targetIndex >= 0) {
-      requestAnimationFrame(() => {
-        flashListRef.current?.scrollToIndex({
-          index: targetIndex,
-          animated: false,
-          viewPosition: 0.5,
-        });
-      });
-    }
-    
-    if (lastInteraction === 0) {
-      lastFeedInteractionRef.current = now;
-    }
-  }, [isVisible, activeItemIndex, activeItemUri, listData, dataUpdatedAt, findTargetIndex]);
-
-  // Reset flag when visibility lost
-  useEffect(() => {
-    if (!isVisible) {
-      hasRestoredPositionRef.current = false;
-    }
-  }, [isVisible]);
 
   // Unified item press handler for grid feeds
   // Uses FlashList's native scrollToIndex when switching to list view
@@ -488,15 +403,28 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
     }
   }, [feed.length, viewMode, onViewModeChange, scrollToIndex]);
 
-  // Handle targetScrollIndex prop - scrolls to target when switching to list view
+  // Handle targetScrollIndex prop - scrolls to target on initial mount only
+  const hasScrolledToTargetRef = useRef(false);
   useEffect(() => {
-    if (targetScrollIndex !== null && targetScrollIndex !== undefined && viewMode === 'list' && listData.length > 0) {
+    if (
+      targetScrollIndex !== null && 
+      targetScrollIndex !== undefined && 
+      viewMode === 'list' && 
+      listData.length > 0 &&
+      !hasScrolledToTargetRef.current &&
+      flashListRef.current
+    ) {
       const targetIndex = Math.max(0, Math.min(targetScrollIndex, listData.length - 1));
       setTimeout(() => {
-        scrollToIndex(targetIndex);
+        flashListRef.current?.scrollToIndex({ 
+          index: targetIndex, 
+          animated: false,
+          viewPosition: 0.5
+        });
+        hasScrolledToTargetRef.current = true;
       }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
     }
-  }, [targetScrollIndex, viewMode, listData.length, scrollToIndex]);
+  }, [targetScrollIndex, viewMode, listData.length]);
 
   // Orientation change handling
   const handleOrientationChange = useCallback(({ window }: { window: ScaledSize }) => {
@@ -689,7 +617,7 @@ const ListFeedView: React.FC<ListFeedViewProps> = ({
       
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

@@ -1835,6 +1835,8 @@ class AtprotoService {
             console.log('[AtprotoService] Sample embed structure:', JSON.stringify(subscribedPostNotifications[0].record.embed, null, 2));
           }
         }
+        
+        
         // Log all unique reasons
         const uniqueReasons = [...new Set(response.data.notifications.map((n: any) => n.reason))];
         console.log('[AtprotoService] All notification reasons from API:', uniqueReasons);

@@ -25,13 +25,14 @@ interface HeaderBannerProps {
   headers: Header[];
   onHeaderPress?: (header: Header) => void;
   height?: number; // Optional override for banner height
+  backgroundColor?: string; // Optional background color for the header container
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const HEADER_HEIGHT = screenHeight * 0.30; // Top 30% of the display height
 const HEADER_WIDTH = screenWidth; // Full width
 
-const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, height }) => {
+const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, height, backgroundColor = Colors.black }) => {
   const AnimatedFlatList = useMemo(
     () => Animated.createAnimatedComponent(FlatList) as unknown as React.ComponentType<any>,
     []
@@ -244,7 +245,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
   if (!isCarousel) {
     const header = headers[0];
     return (
-      <View style={[styles.container, height ? { height } : null]}>
+      <View style={[styles.container, height ? { height } : null, { backgroundColor }]}>
         <View style={styles.headersContainer}>
           <TouchableOpacity
             key={header.id}
@@ -316,7 +317,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
   }
 
   return (
-    <View style={[styles.container, height ? { height } : null]}>
+    <View style={[styles.container, height ? { height } : null, { backgroundColor }]}>
       <AnimatedFlatList
         ref={listRef as any}
         data={loopedData}

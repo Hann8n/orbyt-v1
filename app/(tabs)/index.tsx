@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useImperativeHandle, forwardRef, memo } from 'react';
+import React, { useState, useCallback, useImperativeHandle, forwardRef, memo, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -8,6 +8,8 @@ import { SwipeableFeedContainer } from '../../src/components';
 import { HomeScreenRef, FeedOption } from '../../src/types';
 import { useVisibilityRouteTracker } from '../../src/hooks';
 import { Colors } from '../../src/components/ui/UI';
+import { tabRefs } from '../../src/utils/tabRefs';
+import type { ScrollToTopRef } from '../../src/utils/tabRefs';
 
 interface HomeScreenProps {}
 
@@ -55,6 +57,9 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
   return (
     <View style={styles.container}>
       <SwipeableFeedContainer
+        ref={(r) => {
+          tabRefs.home = r;
+        }}
         initialFeed={currentFeed}
         onFeedChange={handleFeedChange}
         isRefreshing={isRefreshing}

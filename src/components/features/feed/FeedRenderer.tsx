@@ -4,7 +4,7 @@
  * Enhanced with React.memo, useCallback, useMemo for performance
  */
 
-import React, { useCallback, useEffect, useState, useMemo, memo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, memo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -16,6 +16,7 @@ import type { ModerationDecision } from '../../../services/ModerationTypes';
 import { Colors } from '../../ui/UI';
 import { feedService } from '../../../services/FeedService';
 import { APP_CONSTANTS } from '../../../utils/constants';
+import type { ListFeedViewRef } from '../../../types';
 
 // Types
 export interface Post {
@@ -86,7 +87,7 @@ interface FeedRendererProps {
 }
 
 // Memoized Feed Renderer Component with Performance Optimizations
-const FeedRenderer: React.FC<FeedRendererProps> = memo(({
+const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
   feedOption,
   userDid,
   headerComponent,
@@ -113,7 +114,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
   visibilityKey,
   shouldPrefetch = false,
   targetScrollIndex: propTargetScrollIndex,
-}) => {
+}, ref) => {
   // Resolve visibility key for feed tracking
   const resolvedVisibilityKey = visibilityKey || (userDid ? `${feedOption}:${userDid}` : feedOption);
   // Memoized feed type detection
@@ -343,11 +344,27 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     }
   }, [viewMode, feed.length, feed, feedOption, userDid, backgroundColor, secondaryColor, navigation]);
 
+  // Refs for forwarding to ListFeedView and GridFeedView
+  const listFeedViewRef = useRef<ListFeedViewRef>(null);
+  const gridFeedViewRef = useRef<ListFeedViewRef>(null);
+
+  // Forward ref methods
+  useImperativeHandle(ref, () => ({
+    scrollToTop: () => {
+      if (viewMode === 'list') {
+        listFeedViewRef.current?.scrollToTop();
+      } else if (viewMode === 'grid') {
+        gridFeedViewRef.current?.scrollToTop();
+      }
+    },
+  }), [viewMode]);
+
   // Memoized view selection to prevent unnecessary re-renders
   const feedView = useMemo(() => {
     if (viewMode === 'grid') {
       return (
         <GridFeedView
+          ref={gridFeedViewRef}
           {...commonProps}
           onGridItemPress={handleItemPress}
           isError={isSearchFeed ? false : errorState.finalIsError}
@@ -358,6 +375,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
     
     return (
       <ListFeedView
+        ref={listFeedViewRef}
         {...commonProps}
         isLoading={isSearchFeed ? false : shouldShowLoader}
         isError={isSearchFeed ? false : errorState.finalIsError}
@@ -384,7 +402,7 @@ const FeedRenderer: React.FC<FeedRendererProps> = memo(({
       {feedView}
     </View>
   );
-});
+}));
 
 // Optimized StyleSheet creation outside component to prevent recreation
 const styles = StyleSheet.create({
@@ -420,4 +438,6 @@ const areEqual = (prevProps: FeedRendererProps, nextProps: FeedRendererProps) =>
   return true;
 };
 
-export default memo(FeedRenderer, areEqual);
+// Note: forwardRef components need special memo handling
+const MemoizedFeedRenderer = memo(FeedRenderer, areEqual);
+export default MemoizedFeedRenderer;

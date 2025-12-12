@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, memo } from 'react';
+import React, { useState, useCallback, useMemo, memo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -13,7 +13,8 @@ import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, FlashListRef } from '@shopify/flash-list';
+import type { ListFeedViewRef } from '../../../types';
 import { useQuery } from '@tanstack/react-query';
 import { Colors, Avatar } from '../../ui/UI';
 import Icon from '../../ui/Icon';
@@ -90,7 +91,7 @@ interface GridFeedViewProps {
   ListComponent?: any; // Optional custom list component
 }
 
-const GridFeedView: React.FC<GridFeedViewProps> = ({
+const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
   feed,
   headerComponent,
   refreshControl,
@@ -108,7 +109,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   error,
   onRetry,
   ListComponent,
-}) => {
+}, ref) => {
   // Safe area removed for grid feed view
   const navigation = useRouter();
 
@@ -123,6 +124,23 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
   // Initialize infinite scroll hook with cursor-based loading
   // Infinite scroll functionality removed - should be handled by parent component
   const onScroll = () => {};
+
+  // Refs for scrolling
+  const scrollViewRef = useRef<ScrollView>(null);
+  const flashListRef = useRef<FlashListRef<FeedItem>>(null);
+
+  // Expose scrollToTop method
+  useImperativeHandle(ref, () => ({
+    scrollToTop: () => {
+      if (feed.length === 0 && scrollViewRef.current) {
+        // Empty state uses ScrollView
+        scrollViewRef.current.scrollTo({ y: 0, animated: true });
+      } else if (flashListRef.current) {
+        // Grid content uses FlashList
+        flashListRef.current.scrollToOffset({ offset: 0, animated: true });
+      }
+    },
+  }), [feed.length]);
 
   // Responsive grid columns and item size
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -222,6 +240,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
       {feed.length === 0 ? (
         // Empty state: Use ScrollView for proper pull-to-refresh support
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
@@ -258,8 +277,11 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
         // Grid content: Use FlashList with header inside
         (() => {
           const ListEl: any = ListComponent || FlashList;
+          // Only attach ref if using FlashList (not custom ListComponent)
+          const listProps = ListComponent ? {} : { ref: flashListRef };
           return (
             <ListEl
+              {...listProps}
               key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
               data={feed}
               renderItem={renderGridItem}
@@ -289,7 +311,7 @@ const GridFeedView: React.FC<GridFeedViewProps> = ({
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

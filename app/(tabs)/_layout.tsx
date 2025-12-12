@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Tabs, router, useSegments } from 'expo-router';
 import { View, TouchableOpacity, Platform, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { useUnreadCount } from '../../src/hooks/useUnreadCount';
 import { NotificationIndicator } from '../../src/components/ui/NotificationIndicator';
 import { useUserStore } from '../../src/stores/userStore';
 import { useProfile } from '../../src/services/cache/ProfileCache';
+import { tabRefs } from '../../src/utils/tabRefs';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
@@ -21,6 +22,15 @@ export default function TabsLayout() {
   const { hasUnread } = useUnreadCount();
   const segments = useSegments();
   const isCreateScreen = segments.includes('create');
+  
+  const isTabActive = (routeName: string) => {
+    const lastSegment = segments[segments.length - 1];
+    if (routeName === 'index') {
+      // Index is active if we're at the tabs root (last segment is 'index' or we're in (tabs) without other tab segments)
+      return lastSegment === 'index' || (!segments.includes('explore') && !segments.includes('activity') && !segments.includes('profile') && !segments.includes('create'));
+    }
+    return lastSegment === routeName;
+  };
 
   const tabIconSize = Math.round(Math.max(26, Math.min(36, width * 0.085)));
   const captureSize = Math.round(tabIconSize * 1.15);
@@ -60,9 +70,19 @@ export default function TabsLayout() {
       return <UserIcon size={tabIconSize} color={color as string} />;
     }
 
+    const handleProfileTabPress = (e: any) => {
+      if (focused) {
+        // Tab is already active - scroll to top
+        handleDoubleTap('profile');
+      } else {
+        // Tab is not active - navigate to profile
+        router.push('/profile');
+      }
+    };
+
     return (
       <TouchableOpacity
-        onPress={() => router.push('/profile')}
+        onPress={handleProfileTabPress}
         onLongPress={presentAccountSwitcher}
         activeOpacity={0.7}
       >
@@ -97,6 +117,27 @@ export default function TabsLayout() {
     );
   };
 
+  const handleDoubleTap = (routeName: string) => {
+    switch (routeName) {
+      case 'index':
+        // Home: Scroll to top
+        tabRefs.home?.scrollToTop();
+        break;
+      case 'explore':
+        // Explore: Scroll to top
+        tabRefs.explore?.scrollToTop();
+        break;
+      case 'activity':
+        // Activity: Scroll to top
+        tabRefs.activity?.scrollToTop();
+        break;
+      case 'profile':
+        // Profile: Scroll to top
+        tabRefs.profile?.scrollToTop();
+        break;
+    }
+  };
+
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -118,34 +159,70 @@ export default function TabsLayout() {
         tabBarBackground: () => (
           <View style={{ flex: 1, backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent' }} />
         ),
-          tabBarActiveTintColor: '#fff',
-          tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.75)',
-          tabBarIcon: ({ color, focused }) => {
-            switch (route.name) {
-              case 'index':
-                return <HomeIcon size={tabIconSize} color={color as string} />;
-              case 'explore':
-                return <ExploreIcon size={tabIconSize} color={color as string} style={{ transform: [{ scaleX: -1 }] }} />;
-              case 'activity':
-                return (
-                  <View style={{ position: 'relative' }}>
-                    <NotificationIcon size={tabIconSize} color={color as string} />
-                    <NotificationIndicator 
-                      hasUnread={hasUnread} 
-                      size="small" 
-                      position="top-right" 
-                    />
-                  </View>
-                );
-              case 'create':
-                return <CaptureIcon color={color as string} focused={focused} />;
-              case 'profile':
-                return <ProfileTabIcon color={color as string} focused={focused} />;
-              default:
-                return <Icon name="home" size={tabIconSize} color={color as string} />;
-            }
-          },
-        })}
+        tabBarActiveTintColor: '#fff',
+        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.75)',
+        tabBarButton: (props: any) => {
+          // Only handle scroll-to-top for tabs that have scroll/focus functionality
+          if (route.name === 'create') {
+            // Create tab doesn't have scroll-to-top behavior, use default
+            return <TouchableOpacity {...props} />;
+          }
+
+          const isActive = isTabActive(route.name);
+
+          return (
+            <TouchableOpacity
+              {...props}
+              onPress={(e: any) => {
+                if (isActive) {
+                  // Tab is already active
+                  if (route.name === 'explore' && tabRefs.explore?.isSearchActive()) {
+                    // If search is active, dismiss it
+                    tabRefs.explore?.dismissSearch();
+                  } else {
+                    // Otherwise scroll to top
+                    handleDoubleTap(route.name);
+                  }
+                } else {
+                  // Tab is not active - use default navigation
+                  props.onPress?.(e);
+                }
+              }}
+              onLongPress={() => {
+                // Long press on explore tab focuses search
+                if (route.name === 'explore') {
+                  tabRefs.explore?.focusSearch();
+                }
+              }}
+            />
+          );
+        },
+        tabBarIcon: ({ color, focused }) => {
+          switch (route.name) {
+            case 'index':
+              return <HomeIcon size={tabIconSize} color={color as string} />;
+            case 'explore':
+              return <ExploreIcon size={tabIconSize} color={color as string} style={{ transform: [{ scaleX: -1 }] }} />;
+            case 'activity':
+              return (
+                <View style={{ position: 'relative' }}>
+                  <NotificationIcon size={tabIconSize} color={color as string} />
+                  <NotificationIndicator 
+                    hasUnread={hasUnread} 
+                    size="small" 
+                    position="top-right" 
+                  />
+                </View>
+              );
+            case 'create':
+              return <CaptureIcon color={color as string} focused={focused} />;
+            case 'profile':
+              return <ProfileTabIcon color={color as string} focused={focused} />;
+            default:
+              return <Icon name="home" size={tabIconSize} color={color as string} />;
+          }
+        },
+      })}
       >
         <Tabs.Screen name="index" options={{ title: 'Home' }} />
         <Tabs.Screen name="explore" options={{ title: 'Explore' }} />

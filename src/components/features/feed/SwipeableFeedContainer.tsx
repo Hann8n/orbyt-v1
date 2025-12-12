@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useState, useMemo, useLayoutEffect, memo } from 'react';
+import React, { useRef, useCallback, useEffect, useState, useMemo, useLayoutEffect, memo, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,6 +15,8 @@ import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
 import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVisibilityTabIsActive } from '../../../core/visibility';
+import type { ListFeedViewRef } from '../../../types';
+import type { ScrollToTopRef } from '../../../utils/tabRefs';
 
 // Define the feed options type
 export type FeedOption = string;
@@ -35,15 +37,17 @@ interface SwipeableFeedContainerProps {
   indicatorFontSize?: number;
 }
 
-const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
+const SwipeableFeedContainer = memo(forwardRef<ScrollToTopRef, SwipeableFeedContainerProps>(({
   initialFeed = 'following',
   onFeedChange,
   isRefreshing = false,
   forceError = false, // Add debug flag to force error responses
   applySafeArea = false,
   indicatorFontSize,
-}) => {
+}, ref) => {
   const pagerViewRef = useRef<PagerView>(null);
+  // Refs to FeedRenderer instances, keyed by feedOption
+  const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
   const { subscribedChannels } = useSubscribedChannels();
   const insets = useSafeAreaInsets();
   const isTabActive = useVisibilityTabIsActive('index');
@@ -278,6 +282,9 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     
     return (
       <FeedRenderer
+        ref={(r) => {
+          feedRendererRefs.current[feedOption] = r;
+        }}
         feedOption={String(feedOption)}
         onRetryFeed={handleRetryFeed}
         queryOptions={baseQueryOptions}
@@ -298,6 +305,17 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
     forceError,
   ]);
 
+
+  // Expose scrollToTop method
+  useImperativeHandle(ref, () => ({
+    scrollToTop: () => {
+      // Get current active feed option
+      const activePageIndex = currentPageRef.current;
+      const currentFeedOption = feedOptions[activePageIndex] || feedOptions[0] || 'following';
+      // Scroll the current active feed to top
+      feedRendererRefs.current[currentFeedOption]?.scrollToTop();
+    },
+  }), [feedOptions]);
 
   // Get indicator style using PagerView's scroll progress directly from SDK
   const getIndicatorStyle = useCallback((feedOption: FeedOption) => {
@@ -381,7 +399,7 @@ const SwipeableFeedContainer: React.FC<SwipeableFeedContainerProps> = memo(({
       </PagerView>
     </GestureHandlerRootView>
   );
-});
+}));
 
 const styles = StyleSheet.create({
   container: {
@@ -431,4 +449,5 @@ const areEqual = (prevProps: SwipeableFeedContainerProps, nextProps: SwipeableFe
   return true;
 };
 
-export default memo(SwipeableFeedContainer, areEqual); 
+const MemoizedSwipeableFeedContainer = memo(SwipeableFeedContainer, areEqual);
+export default MemoizedSwipeableFeedContainer; 

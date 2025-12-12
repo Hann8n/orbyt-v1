@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
+import { tabRefs } from '../../src/utils/tabRefs';
+import type { ScrollToTopRef } from '../../src/utils/tabRefs';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
@@ -180,7 +182,7 @@ const ActivityScreen: React.FC = () => {
   // Tab content renderer
   const renderTabContent = useCallback((tabId: 'notifications' | 'messages') => {
     if (tabId === 'notifications') {
-      return <NotificationsTab />;
+      return <NotificationsTab ref={(r) => { tabRefs.activity = r; }} />;
     } else if (tabId === 'messages') {
       return <MessagesTab />;
     }

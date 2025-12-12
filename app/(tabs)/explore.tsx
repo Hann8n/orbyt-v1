@@ -51,6 +51,8 @@ import { isCurrentUser } from '../../src/stores/profileInteractionStore';
 import { useFollowStore } from '../../src/stores/followStore';
 import { Colors as UIColors } from '../../src/components/ui/UI';
 import { getAllChannels, isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash, extractFeedSlug } from '../../src/utils/orbytChannels';
+import { tabRefs } from '../../src/utils/tabRefs';
+import type { ExploreRef } from '../../src/utils/tabRefs';
 
 // Custom Warning Icon Component
 const WarningIcon = ({ size = 20, color = Colors.white }: { size?: number; color?: string }) => (
@@ -1078,6 +1080,8 @@ const ExploreScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'recently-visited' | 'profiles' | 'channels'>('recently-visited');
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
   const hasAppliedInitialIndexRef = useRef(false);
+  const flashListRef = useRef<FlashList<any> | null>(null);
+  const searchInputRef = useRef<TextInput | null>(null);
   const [visitHistory, setVisitHistory] = useState<Array<{
     type: 'profile' | 'channel';
     data: Profile | Channel;
@@ -1531,6 +1535,26 @@ const ExploreScreen: React.FC = () => {
     loadVisitHistory();
   }, [loadVisitHistory]);
 
+  // Set up tabRefs for double tap scroll to top and long press focus search
+  useLayoutEffect(() => {
+    tabRefs.explore = {
+      scrollToTop: () => {
+        flashListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      },
+      focusSearch: () => {
+        searchInputRef.current?.focus();
+      },
+      dismissSearch: handleClearSearch,
+      isSearchActive: () => {
+        return isSearchFocused || debouncedQuery.length > 0;
+      },
+    } as ExploreRef;
+
+    return () => {
+      tabRefs.explore = null;
+    };
+  }, [handleClearSearch, isSearchFocused, debouncedQuery]);
+
   // Handle profile navigation with visit tracking
   const handleProfileNavigation = useCallback((profile: Profile) => {
     saveToVisitHistory('profile', profile);
@@ -1781,6 +1805,7 @@ const ExploreScreen: React.FC = () => {
         )}
         <SearchIcon size={24} color={Colors.black} style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }} />
         <TextInput
+          ref={searchInputRef}
           style={styles.searchInput}
           placeholder="search"
           placeholderTextColor={Colors.gray}
@@ -1811,7 +1836,7 @@ const ExploreScreen: React.FC = () => {
             style={[
               styles.searchTabsContainer,
               {
-                top: insets.top + 60, // Position closer to search bar
+                top: insets.top + 65, // Position closer to search bar
                 zIndex: 20,
               },
             ]}
@@ -1834,7 +1859,7 @@ const ExploreScreen: React.FC = () => {
 
           {/* Tab Content */}
           <SearchSwipePager
-            topOffset={insets.top + 60 + 36}
+            topOffset={insets.top + 65 + 36}
             bottomOffset={getBottomNavBarHeight(insets)}
             activeTab={activeTab}
             onActiveTabChange={setActiveTab}
@@ -1861,6 +1886,7 @@ const ExploreScreen: React.FC = () => {
       
       {!isSearching && (
         <FlashList
+          ref={flashListRef}
           ListHeaderComponent={
             isHeaderVisible ? (
               <HeaderBanner headers={headers} height={computedHeaderHeight} />
@@ -2599,7 +2625,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 4,
+    paddingTop: 8,
     paddingBottom: 0,
   },
   indicatorItem: {

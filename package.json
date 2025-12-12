@@ -20,6 +20,7 @@
     "@atproto/oauth-client": "^0.5.3",
     "@atproto/oauth-client-expo": "0.0.2",
     "@babel/runtime": "^7.28.2",
+    "@codeherence/react-native-header": "^1.0.0",
     "@expo/metro-runtime": "~6.1.2",
     "@expo/ui": "~0.2.0-beta.6",
     "@expo/vector-icons": "^15.0.3",

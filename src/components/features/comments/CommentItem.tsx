@@ -154,6 +154,30 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     // Use useLayoutState from FlashList to properly handle layout changes
     const [repliesVisible, setRepliesVisible] = useLayoutState(false);
     
+    // Auto-expand replies if a nested reply should be highlighted
+    React.useEffect(() => {
+      if (!highlightUri || !comment?.replies || comment.replies.length === 0) return;
+      
+      // Recursively check if any reply (at any depth) matches highlightUri
+      const checkReplies = (replies: Comment[]): boolean => {
+        return replies.some((reply: Comment) => {
+          const replyUri = reply?.uri || reply?.post?.uri;
+          if (replyUri === highlightUri) return true;
+          if (reply?.replies && reply.replies.length > 0) {
+            return checkReplies(reply.replies);
+          }
+          return false;
+        });
+      };
+      
+      const hasMatchingReply = checkReplies(comment.replies);
+      
+      if (hasMatchingReply && !repliesVisible) {
+        onLayoutChange?.();
+        setRepliesVisible(true);
+      }
+    }, [highlightUri, comment?.replies, repliesVisible, onLayoutChange, setRepliesVisible]);
+    
     const handleToggleReplies = useCallback(() => {
       // Notify parent to prepare FlashList for layout animation
       onLayoutChange?.();

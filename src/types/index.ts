@@ -119,6 +119,10 @@ export interface HomeScreenRef {
   isRefreshing: boolean;
 }
 
+export interface ListFeedViewRef {
+  scrollToTop: () => void;
+}
+
 // Error Types
 export interface AppError {
   message: string;

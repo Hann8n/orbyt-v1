@@ -1,4 +1,6 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo, memo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import { tabRefs } from '../../src/utils/tabRefs';
+import type { ScrollToTopRef } from '../../src/utils/tabRefs';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
 import AtprotoService from '../../src/services/api/AtprotoService';
@@ -252,6 +254,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         renderErrorScreen
       ) : (
             <FeedRenderer
+              ref={(r) => { tabRefs.profile = r; }}
               feedOption={
                 activeTab === 'profile' ? 'profile' :
                 activeTab === 'reposts' ? 'reposts' : 'likes'

@@ -301,7 +301,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     const findCommentIndex = (commentList: Comment[], targetUri: string): number => {
       for (let i = 0; i < commentList.length; i++) {
         const comment = commentList[i];
-        if (comment.uri === targetUri) return i;
+        const commentUri = comment.uri || comment.post?.uri;
+        if (commentUri === targetUri) return i;
         // Check nested replies
         if (comment.replies && comment.replies.length > 0) {
           const nestedIndex = findCommentIndex(comment.replies, targetUri);
@@ -313,7 +314,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
     const targetIndex = findCommentIndex(comments, scrollToCommentUri);
     if (targetIndex >= 0 && targetIndex < comments.length) {
-      // Delay to ensure FlashList is ready and rendered
+      // Delay to ensure FlashList is ready, replies are expanded, and rendered
       setTimeout(() => {
         try {
           commentsListRef.current?.scrollToIndex({
@@ -324,7 +325,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         } catch (error) {
           // Silently handle scroll errors (index out of bounds, etc.)
         }
-      }, 300);
+      }, 600); // Increased delay to allow reply expansion
     }
   }, [scrollToCommentUri, comments, commentsLoading]);
 
