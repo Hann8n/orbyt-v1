@@ -2127,7 +2127,7 @@ const ExploreScreen: React.FC = () => {
           }
         ]}
         showsVerticalScrollIndicator={false}
-        bounces={false}
+        bounces={true}
         scrollEventThrottle={16}
         onEndReached={() => {
           if (isSearching && hasSearchNextPage && !isSearchFetchingNextPage) {

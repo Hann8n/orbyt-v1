@@ -317,10 +317,15 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   const gradientColors = useMemo(() => {
     if (hasLongText && isOverlayCollapsed) {
-      return ['transparent', 'transparent', 'transparent', 'transparent'] as const;
+      // Add shading when collapsed to improve text readability
+      return ['rgba(0, 0, 0, 0.6)', 'rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 0.1)', 'transparent'] as const;
     }
     if (hasLongText) {
       return ['rgba(0, 0, 0, 0.95)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.3)', 'transparent'] as const;
+    }
+    // Add subtle shading when collapsed even without long text
+    if (isOverlayCollapsed) {
+      return ['rgba(0, 0, 0, 0.5)', 'rgba(0, 0, 0, 0.2)', 'rgba(0, 0, 0, 0.05)', 'transparent'] as const;
     }
     return ['transparent', 'transparent', 'transparent', 'transparent'] as const;
   }, [hasLongText, isOverlayCollapsed]);
