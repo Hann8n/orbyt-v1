@@ -1,5 +1,12 @@
-import React, { useEffect, useRef, useMemo, useState } from 'react';
-import { Animated, Keyboard, Platform, ViewStyle, Easing } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  Keyboard,
+  Platform,
+  StyleSheet,
+  ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface KeyboardAwareFooterProps {
@@ -17,68 +24,82 @@ const KeyboardAwareFooter: React.FC<KeyboardAwareFooterProps> = ({
   hideOnKeyboard = false,
   bottomPadding = 0,
 }) => {
-  const translateY = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
+  const translateY = useRef(new Animated.Value(0)).current;
 
-  const keyboardWillShow = useMemo(() => (Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'), []);
-  const keyboardWillHide = useMemo(() => (Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'), []);
+  const keyboardShowEvent = useMemo(
+    () => (Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'),
+    []
+  );
+  const keyboardHideEvent = useMemo(
+    () => (Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'),
+    []
+  );
 
-  const [keyboardHeightVal, setKeyboardHeightVal] = useState(0);
-
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   useEffect(() => {
-    const showListener = Keyboard.addListener(keyboardWillShow, (e: any) => {
-      const keyboardHeight = e?.endCoordinates?.height || 0;
-      setKeyboardHeightVal(keyboardHeight);
+    const handleShow = (event: any) => {
+      const keyboardHeight = event?.endCoordinates?.height ?? 0;
+      const effectiveHeight = Math.max(0, keyboardHeight - insets.bottom);
+      setKeyboardVisible(true);
 
-      // Move the footer up by keyboard height minus the safe-area inset
-      const effective = Math.max(0, keyboardHeight - insets.bottom);
-      const toValue = -effective;
-      const duration = e?.duration ?? 250;
-      
-      // Match keyboard animation curve for perfect sync
-      // iOS keyboard uses cubic-bezier(0.36, 0.66, 0.04, 1) which is close to ease-out-cubic
-      const keyboardEasing = Platform.OS === 'ios' 
-        ? Easing.out(Easing.cubic)
-        : Easing.ease;
-      
       Animated.timing(translateY, {
-        toValue,
-        duration,
-        easing: keyboardEasing,
+        toValue: -effectiveHeight,
+        duration: event?.duration ?? 250,
+        easing: Platform.OS === 'ios' ? Easing.out(Easing.cubic) : Easing.ease,
         useNativeDriver: true,
       }).start();
-    });
+    };
 
-    const hideListener = Keyboard.addListener(keyboardWillHide, (e: any) => {
-      setKeyboardHeightVal(0);
-      const duration = e?.duration ?? 250;
-      
-      // Match keyboard animation curve for perfect sync
-      const keyboardEasing = Platform.OS === 'ios' 
-        ? Easing.out(Easing.cubic)
-        : Easing.ease;
-      
+    const handleHide = (event: any) => {
+      setKeyboardVisible(false);
+
       Animated.timing(translateY, {
         toValue: 0,
-        duration,
-        easing: keyboardEasing,
+        duration: event?.duration ?? 250,
+        easing: Platform.OS === 'ios' ? Easing.out(Easing.cubic) : Easing.ease,
         useNativeDriver: true,
       }).start();
-    });
+    };
+
+    const showListener = Keyboard.addListener(keyboardShowEvent, handleShow);
+    const hideListener = Keyboard.addListener(keyboardHideEvent, handleHide);
 
     return () => {
       showListener.remove();
       hideListener.remove();
     };
-  }, [keyboardWillShow, keyboardWillHide, hideOnKeyboard, translateY, insets.bottom]);
+  }, [keyboardShowEvent, keyboardHideEvent, insets.bottom, translateY]);
+
+  if (hideOnKeyboard && keyboardVisible) {
+    return null;
+  }
+
+  const flattenedStyles: ViewStyle[] = Array.isArray(style)
+    ? (style.filter(Boolean) as ViewStyle[])
+    : style
+    ? [style]
+    : [];
 
   return (
     <Animated.View
-      style={[{ transform: [{ translateY }] }, { paddingBottom: bottomPadding }, style] as any}
+      style={[
+        styles.container,
+        { paddingBottom: bottomPadding },
+        { transform: [{ translateY }] },
+        ...flattenedStyles,
+      ]}
     >
       {children}
     </Animated.View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+});
 
 export default KeyboardAwareFooter;

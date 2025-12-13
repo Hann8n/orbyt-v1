@@ -115,7 +115,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           name="tab-dropdown-sheet"
           showCancelButton={true}
           cancelButtonText="Cancel"
-          enableGlass={false}
         >
           <View style={styles.optionsContainer}>
             {tabs.map((tab) => (

@@ -67,7 +67,6 @@ export const useModalStore = create<ModalState>((set, get) => ({
   },
   
   dismissCommentSection: () => {
-    safeDismiss('comment-section');
     set({ commentSectionData: null });
   },
   

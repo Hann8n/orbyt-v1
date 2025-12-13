@@ -304,7 +304,6 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onPositionChange={handlePositionChange}
-            initialPosition={undefined}
             queryOptions={queryOptions}
             isVisible={isRouteFocused}
             visibilityKey={uri ? `channel:${uri}:${isCategoryChannel ? (activeTab === 0 ? 'top' : 'latest') : ''}` : undefined}
@@ -328,7 +327,6 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onPositionChange={handlePositionChange}
-            initialPosition={undefined}
             queryOptions={{ enabled: false }}
             isVisible={isRouteFocused}
             visibilityKey={uri ? `channel:${uri}` : undefined}

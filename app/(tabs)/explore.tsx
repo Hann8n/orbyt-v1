@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, FlashListRef } from '@shopify/flash-list';
 
 import AtprotoService from '../../src/services/api/AtprotoService';
 
@@ -1080,7 +1080,7 @@ const ExploreScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'recently-visited' | 'profiles' | 'channels'>('recently-visited');
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
   const hasAppliedInitialIndexRef = useRef(false);
-  const flashListRef = useRef<FlashList<any> | null>(null);
+  const flashListRef = useRef<FlashListRef<any> | null>(null);
   const searchInputRef = useRef<TextInput | null>(null);
   const [visitHistory, setVisitHistory] = useState<Array<{
     type: 'profile' | 'channel';

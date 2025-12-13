@@ -8,3 +8,4 @@ export * from './followStore';
 export * from './profileInteractionStore';
 export * from './subscriptionStore';
 export * from './chatStore';
+export * from './commentStore';

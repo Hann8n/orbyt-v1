@@ -1,5 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { useLayoutState } from '@shopify/flash-list';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -18,7 +17,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
-  runOnJS,
   Easing,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
@@ -34,44 +32,11 @@ import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useCommentStore } from '../../../stores/commentStore';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-interface Post {
-  uri: string;
-  cid?: string;
-  likeCount?: number;
-  indexedAt?: string;
-  comments?: Comment[];
-  likes?: Like[];
-}
-
-interface UserProfile {
-  did: string;
-  avatar?: string;
-  displayName?: string;
-}
-
-interface CommentRecord {
-  text: string;
-  facets?: Array<{
-    index: { byteStart: number; byteEnd: number };
-    features: Array<{
-      $type: string;
-      uri?: string;
-      tag?: string;
-    }>;
-  }>;
-  embed?: {
-    $type: string;
-    images?: {
-      image: any;
-      alt: string;
-    }[];
-  };
 }
 
 export interface Comment {
@@ -84,7 +49,24 @@ export interface Comment {
     avatar?: string;
   };
   post?: Comment;
-  record?: CommentRecord;
+  record?: {
+    text: string;
+    facets?: Array<{
+      index: { byteStart: number; byteEnd: number };
+      features: Array<{
+        $type: string;
+        uri?: string;
+        tag?: string;
+      }>;
+    }>;
+    embed?: {
+      $type: string;
+      images?: {
+        image: any;
+        alt: string;
+      }[];
+    };
+  };
   indexedAt?: string;
   viewer?: {
     like?: string;
@@ -102,9 +84,10 @@ export interface Comment {
       aspectRatio?: { width: number; height: number };
     }[];
   };
+  parent?: Comment; // Parent comment for threading context
 }
 
-interface Like {
+export interface Like {
   actor: {
     did: string;
     handle: string;
@@ -114,10 +97,6 @@ interface Like {
   createdAt: string;
   uri: string;
 }
-
-type RootStackParamList = {
-  AuthorProfile: { handle: string };
-};
 
 interface CommentItemProps {
   comment: Comment;
@@ -131,66 +110,106 @@ interface CommentItemProps {
   onLayoutChange?: () => void;
 }
 
+// Helper functions
+function getCommentUri(c: Comment) {
+  return c?.uri || c?.post?.uri;
+}
+function getCommentCid(c: Comment) {
+  return c?.cid || c?.post?.cid;
+}
+function getCommentViewerLike(c: Comment) {
+  return c?.viewer?.like || c?.post?.viewer?.like;
+}
+function getCommentLikeCount(c: Comment) {
+  return (c?.post?.likeCount ?? c?.likeCount ?? 0) as number;
+}
+function getCommentText(c: Comment) {
+  return c?.post?.record?.text || c?.record?.text || '';
+}
+function getCommentFacets(c: Comment) {
+  return c?.post?.record?.facets || c?.record?.facets;
+}
+function getCommentEmbed(c: Comment) {
+  return c?.post?.record?.embed || c?.record?.embed || c?.embed || c?.post?.embed;
+}
+
 const CommentItem: React.FC<CommentItemProps> = React.memo(
   ({ comment, onDismiss, onReplyPress, rootUri, rootCid, level = 0, onImagePress, highlightUri, onLayoutChange }) => {
     const viewer = comment?.viewer || comment?.post?.viewer || {};
     const stats = comment?.post || comment;
-    const [isLiked, setIsLiked] = useState<boolean>(!!viewer.like);
-    const [likeCount, setLikeCount] = useState<number>(stats?.likeCount || 0);
-    const [likeUri, setLikeUri] = useState<string | undefined>(viewer.like);
+    
+    const uri = getCommentUri(comment);
+    const cid = getCommentCid(comment);
+    const viewerLike = getCommentViewerLike(comment);
+    
+    const { updateCommentInteraction, getCommentInteraction } = useCommentStore();
+    
+    // Get persisted interaction state from store, with API data as fallback
+    // Only use store if we have a valid URI (prevents undefined keys causing shared state)
+    const initialLikeCount = getCommentLikeCount(comment);
+    const persistedInteraction = uri 
+      ? getCommentInteraction(uri, {
+          isLiked: !!viewerLike,
+          likeCount: initialLikeCount,
+          likeUri: viewerLike,
+        })
+      : {
+          isLiked: !!viewerLike,
+          likeCount: initialLikeCount,
+          likeUri: viewerLike,
+        };
+
+    const [isLiked, setIsLiked] = useState<boolean>(persistedInteraction.isLiked);
+    const [likeCount, setLikeCount] = useState<number>(persistedInteraction.likeCount);
+    const [likeUri, setLikeUri] = useState<string | undefined>(persistedInteraction.likeUri);
     const [isLiking, setIsLiking] = useState(false);
 
-    // Keep local likeUri in sync if upstream props change
-    React.useEffect(() => {
-      setLikeUri(viewer.like);
-      setIsLiked(!!viewer.like);
-    }, [viewer.like]);
+    useEffect(() => {
+      // Sync with store when viewerLike changes from API (fresh data from server)
+      // Skip store operations if URI is undefined (prevents undefined keys causing shared state)
+      if (viewerLike !== undefined && uri) {
+        const apiLikeCount = getCommentLikeCount(comment);
+        const storeState = getCommentInteraction(uri, {
+          isLiked: !!viewerLike,
+          likeCount: apiLikeCount,
+          likeUri: viewerLike,
+        });
+        
+        // Update local state and store if API data differs (preserves optimistic updates when they match)
+        if (storeState.likeUri !== viewerLike) {
+          setIsLiked(!!viewerLike);
+          setLikeUri(viewerLike);
+          updateCommentInteraction(uri, {
+            isLiked: !!viewerLike,
+            likeUri: viewerLike,
+            likeCount: apiLikeCount,
+          });
+        }
+        // Always sync like count from API
+        if (storeState.likeCount !== apiLikeCount) {
+          setLikeCount(apiLikeCount);
+          updateCommentInteraction(uri, {
+            likeCount: apiLikeCount,
+          });
+        }
+      } else if (viewerLike !== undefined && !uri) {
+        // Update local state even without URI (for display purposes)
+        const apiLikeCount = getCommentLikeCount(comment);
+        setIsLiked(!!viewerLike);
+        setLikeUri(viewerLike);
+        setLikeCount(apiLikeCount);
+      }
+    }, [viewerLike, uri, updateCommentInteraction, getCommentInteraction, comment]);
+
     const queryClient = useQueryClient();
     
-    // Define the proper URI and CID for the comment (needed early for callbacks)
-    const properUri = comment?.uri || comment?.post?.uri;
-    const properCid = comment?.cid || comment?.post?.cid;
-    
-    // Use useLayoutState from FlashList to properly handle layout changes
-    const [repliesVisible, setRepliesVisible] = useLayoutState(false);
-    
-    // Auto-expand replies if a nested reply should be highlighted
-    React.useEffect(() => {
-      if (!highlightUri || !comment?.replies || comment.replies.length === 0) return;
-      
-      // Recursively check if any reply (at any depth) matches highlightUri
-      const checkReplies = (replies: Comment[]): boolean => {
-        return replies.some((reply: Comment) => {
-          const replyUri = reply?.uri || reply?.post?.uri;
-          if (replyUri === highlightUri) return true;
-          if (reply?.replies && reply.replies.length > 0) {
-            return checkReplies(reply.replies);
-          }
-          return false;
-        });
-      };
-      
-      const hasMatchingReply = checkReplies(comment.replies);
-      
-      if (hasMatchingReply && !repliesVisible) {
-        onLayoutChange?.();
-        setRepliesVisible(true);
-      }
-    }, [highlightUri, comment?.replies, repliesVisible, onLayoutChange, setRepliesVisible]);
-    
-    const handleToggleReplies = useCallback(() => {
-      // Notify parent to prepare FlashList for layout animation
-      onLayoutChange?.();
-      setRepliesVisible(v => !v);
-    }, [repliesVisible, setRepliesVisible, onLayoutChange]);
-
     // Animation values for heart interaction
     const heartScale = useSharedValue(1);
     const heartOpacity = useSharedValue(1);
     const isAnimating = useRef(false);
 
     // Highlight animation for target comment
-    const shouldHighlight = highlightUri && properUri === highlightUri;
+    const shouldHighlight = highlightUri && uri === highlightUri;
     const highlightOpacity = useSharedValue(0);
     
     React.useEffect(() => {
@@ -216,7 +235,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     }, [shouldHighlight, highlightOpacity]);
     
     const highlightStyle = useAnimatedStyle(() => ({
-      backgroundColor: `rgba(129, 136, 150, ${highlightOpacity.value * 0.12})`, // Colors.grey with subtle opacity
+      backgroundColor: `rgba(129, 136, 150, ${highlightOpacity.value * 0.12})`,
     }));
 
     const authorName = useMemo(
@@ -248,17 +267,20 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     );
     
     const commentText = useMemo(
-      () => comment?.post?.record?.text || comment?.record?.text || '',
-      [comment?.post?.record?.text, comment?.record?.text]
+      () => getCommentText(comment),
+      [comment]
     );
 
-    const hasReplies = useMemo(() => {
-      return Array.isArray(comment?.replies) && comment.replies.length > 0;
-    }, [comment?.replies]);
+    const facets = useMemo(
+      () => getCommentFacets(comment),
+      [comment]
+    );
 
-    const replyCount = useMemo(() => {
-      return comment?.replyCount || (comment?.replies ? comment.replies.length : 0);
-    }, [comment?.replies, comment?.replyCount]);
+    const parent = comment?.parent;
+    const parentAuthorName = useMemo(() => {
+      if (!parent) return null;
+      return formatHandle(parent?.post?.author?.handle || parent?.author?.handle || '') || 'Unknown';
+    }, [parent]);
 
     // Animated styles for heart
     const heartAnimatedStyle = useAnimatedStyle(() => ({
@@ -285,6 +307,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
 
     const handleLikeComment = useCallback(async () => {
       if (isLiking) return;
+      if (!uri || !cid) return;
+
       setIsLiking(true);
       // Optimistic update - change state immediately
       const newIsLiked = !isLiked;
@@ -300,42 +324,47 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       
       try {
         if (newIsLiked) {
-          if (!properUri || !properCid) {
-            // Revert on error
-            setIsLiked(isLiked);
-            setLikeCount(likeCount);
-            setIsLiking(false);
-            return;
-          }
-          const likeURI: string = await AtprotoService.likePost(properUri, properCid);
-          if (comment) {
-            comment.viewer = comment.viewer || {};
-            comment.viewer.like = likeURI;
-          }
+          const likeURI: string = await AtprotoService.likePost(uri, cid);
           setLikeUri(likeURI);
-        } else {
-          if (!likeUri) {
-            // Revert on error
-            setIsLiked(isLiked);
-            setLikeCount(likeCount);
-            setIsLiking(false);
-            return;
+          // Persist to store only if URI is valid
+          if (uri) {
+            updateCommentInteraction(uri, {
+              isLiked: true,
+              likeCount: newLikeCount,
+              likeUri: likeURI,
+            });
           }
-          await AtprotoService.deleteLike(likeUri);
-          setLikeUri(undefined);
-          if (comment && comment.viewer) {
-            comment.viewer.like = undefined as any;
+        } else {
+          if (likeUri) {
+            await AtprotoService.deleteLike(likeUri);
+            setLikeUri(undefined);
+            // Persist to store only if URI is valid
+            if (uri) {
+              updateCommentInteraction(uri, {
+                isLiked: false,
+                likeCount: newLikeCount,
+                likeUri: undefined,
+              });
+            }
           }
         }
       } catch (error) {
         // Revert optimistic update on error
         setIsLiked(isLiked);
         setLikeCount(likeCount);
+        // Persist to store only if URI is valid
+        if (uri) {
+          updateCommentInteraction(uri, {
+            isLiked: isLiked,
+            likeCount: likeCount,
+            likeUri: likeUri,
+          });
+        }
         Alert.alert('Error', 'Failed to like comment. Please try again.');
       } finally {
         setIsLiking(false);
       }
-    }, [isLiked, likeCount, comment, likeUri, properUri, properCid, animateHeart, isLiking]);
+    }, [isLiked, likeCount, likeUri, uri, cid, animateHeart, isLiking, updateCommentInteraction]);
 
     const navigation = useRouter();
 
@@ -385,16 +414,15 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       
       if (handle && typeof handle === 'string' && handle.trim() !== '') {
         navigateToAuthorProfile(handle);
-      } else {
       }
     }, [comment?.post?.author, comment?.author, navigateToAuthorProfile]);
 
     const handleReplyPress = useCallback(() => {
-      if (comment?.author?.handle && properUri && properCid) {
+      if (authorName && uri && cid) {
         queryClient.setQueryData(['replyContext'], {
           authorName,
-          parentUri: properUri,
-          parentCid: properCid,
+          parentUri: uri,
+          parentCid: cid,
           level: level + 1
         });
         
@@ -406,7 +434,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           }
         });
       }
-    }, [authorName, properUri, properCid, level, queryClient, onReplyPress, comment]);
+    }, [authorName, uri, cid, level, queryClient, onReplyPress, comment]);
 
     const BLUESKY_CDN = 'https://cdn.bsky.app/img/feed_thumbnail/plain/';
 
@@ -494,6 +522,11 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                 {external.title}
               </Text>
             )}
+            {external.description && (
+              <Text numberOfLines={2} style={styles.linkPreviewDescription}>
+                {external.description}
+              </Text>
+            )}
             <Text numberOfLines={1} style={styles.linkPreviewUrl}>
               {external.uri.replace(/^https?:\/\//, '').replace(/^www\./, '')}
             </Text>
@@ -506,11 +539,10 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     });
 
     const renderImages = (hasText: boolean) => {
-      const record = comment?.record || comment?.post?.record;
-      const embed = record?.embed || comment?.embed || comment?.post?.embed;
+      const embed = getCommentEmbed(comment);
       
       const isExternalEmbed = (e: any): e is { $type: string; external: { uri: string; thumb?: any; description?: string; title?: string } } => {
-        return e && typeof e === 'object' && e.$type === 'app.bsky.embed.external' && !!e.external;
+        return e && typeof e === 'object' && (e.$type === 'app.bsky.embed.external' || e.$type === 'app.bsky.embed.external#view') && !!e.external;
       };
       
       let external: { uri: string; thumb?: any; description?: string; title?: string } | undefined = undefined;
@@ -533,7 +565,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             maxHeight,
             marginTop: hasText ? 2 : 0,
             aspectRatio: aspectRatio ? getClampedAspectRatio(aspectRatio) : 1.5,
-            borderRadius: BORDER_RADIUS.LARGE,
+            borderRadius: BORDER_RADIUS.MEDIUM,
           };
           return (
             <View style={styles.commentImagesContainer}>
@@ -565,7 +597,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       }
       
       let embedImages: { alt: string; thumb: string; fullsize: string; aspectRatio?: { width: number; height: number } }[] = [];
-      if (embed && Array.isArray((embed as any).images)) {
+      const isImagesEmbed = embed?.$type === 'app.bsky.embed.images' || embed?.$type === 'app.bsky.embed.images#view';
+      if (isImagesEmbed && Array.isArray((embed as any).images)) {
         embedImages = ((embed as any).images).filter((img: any) => img && (img.thumb || img.fullsize));
       }
       if (!embedImages || embedImages.length === 0) {
@@ -600,7 +633,9 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
               ]}
               activeOpacity={0.8}
               onPress={() => {
-                // Future enhancement: open image in fullscreen viewer
+                if (onImagePress && img.fullsize) {
+                  onImagePress(img.fullsize);
+                }
               }}
             >
               <ShimmerImage
@@ -626,38 +661,11 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       );
     };
 
-    function renderReplies(): React.ReactNode {
-      if (!repliesVisible || !comment?.replies || !Array.isArray(comment.replies)) {
-        return null;
-      }
-      return (
-        <View style={[styles.repliesContainer, { marginLeft: 0, paddingLeft: 0, borderLeftWidth: 0 }]}>
-          {comment.replies
-            .filter(reply => typeof reply === 'object' && reply !== null)
-            .map((reply, index) => (
-              <CommentItem
-                key={`${reply.uri || reply.cid || index}-${index}`}
-                comment={reply}
-                onDismiss={onDismiss}
-                onReplyPress={onReplyPress}
-                rootUri={rootUri}
-                rootCid={rootCid}
-                level={level + 1}
-                highlightUri={highlightUri}
-                onLayoutChange={onLayoutChange}
-              />
-            ))}
-        </View>
-      );
-    }
-
-    const INDENT_PER_LEVEL = 14;
-
     return (
       <View style={[
         styles.commentThreadContainer,
         { marginLeft: 0, paddingLeft: 0 },
-        level > 0 && { marginLeft: INDENT_PER_LEVEL * level },
+        level > 0 && { marginLeft: 14 * level },
       ]}>
         <Animated.View style={[
           styles.commentItemContainer,
@@ -689,7 +697,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
               />
             </TouchableOpacity>
             <View style={{ flex: 1, justifyContent: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
                 <Text style={{ color: Colors.white, fontSize: 16, marginBottom: 2, fontFamily: 'Firma-Bold' }}>
                   {authorName}
                 </Text>
@@ -701,6 +709,16 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                     autoPosition={true}
                   />
                 )}
+                {/* Parent context chyron: Author Name → Parent Author Name */}
+                {/* Only show if parent is itself a reply (not a direct reply to top-level comment) */}
+                {parent && parentAuthorName && level > 0 && parent.parent && (
+                  <View style={styles.parentChyronContainer}>
+                    <Text style={styles.parentChyronArrow}>→</Text>
+                    <Text style={styles.parentChyronText} numberOfLines={1}>
+                      {parentAuthorName}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {commentText ? (
@@ -709,7 +727,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   style={{ color: Colors.lightGray, fontSize: 15, marginTop: 2, fontFamily: 'Firma-Regular' }}
                   onAuthorPress={handleAuthorPress}
                   onHashtagPress={handleHashtagPress}
-                  facets={comment?.post?.record?.facets || comment?.record?.facets}
+                  facets={facets}
                 />
               ) : null}
               {renderImages(!!commentText)}
@@ -722,46 +740,20 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   <Text style={styles.replyButtonText}>Reply</Text>
                 </TouchableOpacity>
               </View>
-              {replyCount > 0 && (
-                <TouchableOpacity
-                  style={[styles.repliesToggleContainer, { paddingLeft: level > 0 ? 8 : 0 }]}
-                  onPress={handleToggleReplies}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.repliesToggleLine} />
-                  <Text style={styles.repliesToggleText}>
-                    {repliesVisible
-                      ? `hide replies`
-                      : `view ${formatNumber(replyCount)} ${replyCount === 1 ? 'reply' : 'replies'}`}
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
           </View>
           <View style={styles.commentActionsContainer}>
-            <TouchableOpacity onPress={handleLikeComment} style={styles.likeButton}>
+            <TouchableOpacity onPress={handleLikeComment} style={styles.likeButton} disabled={isLiking}>
               <Animated.View style={heartAnimatedStyle}>
                 <HeartFillIcon
                   size={20}
-                  color={isLiked ? Colors.lightRed : Colors.gray}
+                  color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.gray}
                 />
               </Animated.View>
             </TouchableOpacity>
             {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
           </View>
-          {/* Full-width highlight overlay */}
-          {shouldHighlight && (
-            <Animated.View 
-              style={[
-                styles.highlightOverlay,
-                highlightStyle,
-              ]}
-              pointerEvents="none"
-            />
-          )}
         </Animated.View>
-
-        {renderReplies()}
       </View>
     );
   }
@@ -818,9 +810,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
   },
-  repliesContainer: {
-    // Remove marginLeft, borderLeft, and paddingLeft for cleaner nesting
-  },
   commentThreadContainer: {
     marginBottom: 2,
     backgroundColor: 'transparent',
@@ -841,40 +830,26 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: -1,
   },
-  commentContentContainer: {
-    flex: 1,
+  parentChyronContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'transparent',
+    alignItems: 'center',
+    marginLeft: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: BORDER_RADIUS.SMALL,
   },
-  commentAvatarNested: {
-    width: 32,
-    height: 32,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-  },
-  commentTextContainer: {
-    marginLeft: 12,
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  commentAuthorName: {
-    fontFamily: 'Firma-Bold',
-    color: Colors.white,
-  },
-  commentAuthorNameNested: {
-    fontFamily: 'Firma-Bold',
-    color: Colors.white,
-    fontSize: 14,
-  },
-  commentText: {
-    color: Colors.white,
-    fontSize: 15,
+  parentChyronArrow: {
+    color: Colors.gray,
+    fontSize: 12,
     fontFamily: 'Firma-Regular',
+    marginRight: 4,
   },
-  commentTextNested: {
-    color: Colors.white,
-    fontSize: 14,
-    fontFamily: 'Firma-Regular',
+  parentChyronText: {
+    color: Colors.gray,
+    fontSize: 12,
+    fontFamily: 'Firma-Medium',
+    maxWidth: 120,
   },
   commentMetaContainer: {
     flexDirection: 'row',
@@ -893,7 +868,7 @@ const styles = StyleSheet.create({
   },
   replyButtonText: {
     fontSize: 12,
-    color: UI.Colors.lightGray,
+    color: Colors.lightGray,
     fontFamily: 'Firma-Bold',
   },
   commentActionsContainer: {
@@ -908,15 +883,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   },
-  likeIcon: {
-    width: 18,
-    height: 18,
-    marginRight: 0,
-  },
-  likeIconNested: {
-    width: 16,
-    height: 16,
-  },
   likeCount: {
     color: Colors.lightGray,
     fontSize: 12.5,
@@ -927,58 +893,34 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  repliesToggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: 'transparent',
-  },
-  repliesToggleLine: {
-    width: 16,
-    height: 1,
-    backgroundColor: Colors.gray,
-    marginRight: 8,
-  },
-  repliesToggleText: {
-    color: Colors.gray,
-    fontSize: 12,
-    fontFamily: 'Firma-SemiBold',
-    fontWeight: '600',
-    letterSpacing: 0.1,
-  },
-  replyButtonNested: {
-    marginLeft: 20,
-  },
-  // Link Preview Styles
   linkPreviewContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.LARGE,
+    borderWidth: 1,
+    borderColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.MEDIUM,
     marginTop: 8,
     marginBottom: 4,
     overflow: 'hidden',
   },
   linkPreviewContent: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     minWidth: 0,
   },
   linkPreviewTitle: {
     color: Colors.white,
-    fontFamily: 'Firma-Bold',
-    fontSize: 15,
+    fontFamily: 'Firma-SemiBold',
+    fontSize: 13,
     marginBottom: 4,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   linkPreviewDescription: {
     color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
     marginBottom: 4,
   },
   linkPreviewUrl: {
@@ -986,17 +928,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Regular',
     fontSize: 12,
     lineHeight: 16,
-  },
-  linkPreviewPlaceholderText: {
-    fontSize: 20,
-    color: Colors.lightGray,
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.FULL,
-    width: 32,
-    height: 32,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    lineHeight: 32,
   },
   linkPreviewIconContainer: {
     justifyContent: 'center',
@@ -1015,4 +946,5 @@ const styles = StyleSheet.create({
 
 export default MemoizedCommentItem;
 export { CommentItem };
-export type { CommentItemProps, Like };
+export type { CommentItemProps };
+

@@ -407,7 +407,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       title={handle}
       showCancelButton={true}
       cancelButtonText="Cancel"
-      enableGlass={false}
       name="profile-menu"
     >
       {/* Main menu options */}

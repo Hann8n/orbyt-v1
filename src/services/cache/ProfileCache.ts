@@ -1528,7 +1528,7 @@ export function useProfileByDid(did: string | null | undefined): UseQueryResult<
           isFollowedBy: followState.isFollowedBy ?? queryResult.data.isFollowedBy,
         }
       : queryResult.data,
-  };
+  } as UseQueryResult<CachedProfile | null, Error>;
 }
 
 /**
@@ -1636,7 +1636,7 @@ export function useProfile(handle: string | null | undefined): UseQueryResult<Ca
           isFollowedBy: followState.isFollowedBy ?? queryResult.data.isFollowedBy,
         }
       : queryResult.data,
-  };
+  } as UseQueryResult<CachedProfile | null, Error>;
 }
 
 /**

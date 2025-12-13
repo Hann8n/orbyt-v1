@@ -93,14 +93,7 @@ const getPostKind = (embed: any): PostKind => {
 
 // Get thumbnail based on post kind (only for videos)
 const getThumbnailByKind = (embed: any, kind: PostKind): string | null => {
-  if (!embed || kind !== 'video') return null;
-  
-  if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
-    return embed.thumbnail || extractVideoThumbnail(embed) || null;
-  }
-  if (embed.$type === 'app.bsky.embed.recordWithMedia#view' && embed.media) {
-    return embed.media.thumbnail || extractVideoThumbnail(embed) || null;
-  }
+  if (!embed) return null;
   
   // For record embeds, check if it's a nested video
   if (kind === 'record') {
@@ -111,6 +104,16 @@ const getThumbnailByKind = (embed: any, kind: PostKind): string | null => {
         return getThumbnailByKind(nestedEmbed, nestedKind);
       }
     }
+    return null;
+  }
+  
+  if (kind !== 'video') return null;
+  
+  if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
+    return embed.thumbnail || extractVideoThumbnail(embed) || null;
+  }
+  if (embed.$type === 'app.bsky.embed.recordWithMedia#view' && embed.media) {
+    return embed.media.thumbnail || extractVideoThumbnail(embed) || null;
   }
   
   return null;

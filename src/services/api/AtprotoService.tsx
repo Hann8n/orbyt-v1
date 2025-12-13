@@ -1174,18 +1174,42 @@ class AtprotoService {
   static async getComments(postUri: string, cursor: string | null = null, limit: number = 25): Promise<{ comments: any[], cursor: string | null }> {
     await this.ensureSession();
     try {
+      // Use Bluesky threading parameters
+      // depth: how many levels of replies to fetch (6 is standard for full threading)
+      // parentHeight: how many parent levels to include (0 = only direct replies to root post)
       const params: any = { 
         uri: postUri,
-        depth: 6,
-        parentHeight: 0
+        depth: 6, // Fetch up to 6 levels of nested replies (Bluesky standard)
+        parentHeight: 0 // Only get direct replies to the root post
       };
       if (cursor) params.cursor = cursor;
       
       const { api } = await this.getApiClient();
+      
+      // Use getPostThread (V2 may not be available in all SDK versions)
+      // The threading structure is preserved through parent/replies relationships
       const response = await api.app.bsky.feed.getPostThread(params);
       
+      // Log raw API response for debugging reply structure
+      // This shows the actual API response structure before processing
+      logger.debug('Raw API response for comments', {
+        component: 'AtprotoService',
+        action: 'getComments',
+        postUri,
+        rawResponse: JSON.stringify(response.data, null, 2),
+      });
+      
+      // Also log to console for easy copy-paste debugging
+      if (__DEV__) {
+        console.log('\n=== RAW API RESPONSE FOR COMMENTS ===');
+        console.log('Post URI:', postUri);
+        console.log(JSON.stringify(response.data, null, 2));
+        console.log('=== END RAW API RESPONSE ===\n');
+      }
+      
       // Function to recursively process thread posts with proper typing
-      const processThreadViewPost = (post: ThreadPost): any => {
+      // Preserves Bluesky's threading structure with parent/child relationships
+      const processThreadViewPost = (post: ThreadPost, parent: any = null): any => {
         if (!post || post.$type !== 'app.bsky.feed.defs#threadViewPost') {
           return null;
         }
@@ -1199,13 +1223,14 @@ class AtprotoService {
           viewer: post.post.viewer,
           likeCount: post.post.likeCount,
           replyCount: post.post.replyCount,
-          replies: [] as any[]
+          replies: [] as any[],
+          parent: parent || null // Preserve parent reference for threading
         };
 
-        // Process replies if they exist
+        // Process replies if they exist, passing current post as parent
         if (post.replies && Array.isArray(post.replies)) {
           result.replies = post.replies
-            .map((reply: ThreadPost) => processThreadViewPost(reply))
+            .map((reply: ThreadPost) => processThreadViewPost(reply, result))
             .filter(Boolean);
         }
 
@@ -1216,10 +1241,10 @@ class AtprotoService {
       const thread = response.data.thread as ThreadPost;
       let comments: any[] = [];
       
-      // Process replies at the root level
+      // Process replies at the root level (top-level comments have no parent)
       if (thread && thread.$type === 'app.bsky.feed.defs#threadViewPost' && thread.replies) {
         comments = thread.replies
-          .map((reply: ThreadPost) => processThreadViewPost(reply))
+          .map((reply: ThreadPost) => processThreadViewPost(reply, null))
           .filter(Boolean);
       }
 
