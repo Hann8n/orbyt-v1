@@ -105,14 +105,6 @@ const LIKE_ITEM_ESTIMATE = 72;
 const END_REACHED_THRESHOLD = 0.45;
 const MAX_COMMENT_LENGTH = 300;
 
-/**
- * Small helpers
- */
-
-/**
- * Main component
- */
-
 const CommentSection: React.FC<CommentSectionProps> = ({
   post: propPost,
   onDismiss: propOnDismiss,
@@ -125,7 +117,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   onToggleLike: propOnToggleLike,
   isLikePending: propIsLikePending,
 }) => {
-  // Global modal data (your existing pattern)
   const { getCurrentData, dismissCommentSection } = useGlobalCommentSection();
   const globalData = getCurrentData();
 
@@ -143,7 +134,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const isLikePending = globalData?.isLikePending ?? propIsLikePending;
   const scrollToCommentUri = globalData?.scrollToCommentUri;
 
-  // Safe area padding for list/footer
   const insets = useSafeAreaInsets();
   const listBottomPadding = 96 + insets.bottom;
   const listContentStyle = useMemo(
@@ -151,17 +141,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [listBottomPadding]
   );
 
-  // Sheet refs
   const sheetRef = useRef<TrueSheet>(null);
   const commentsListRef = useRef<FlashListRef<Comment> | null>(null);
   const likesListRef = useRef<FlashListRef<Like> | null>(null);
 
-  // UI state
   const [activeTab, setActiveTab] = useState<'comments' | 'likes'>('comments');
   const [likesQueryEnabled, setLikesQueryEnabled] = useState(false);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
 
-  // Composer state
   const [newCommentText, setNewCommentText] = useState('');
   const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
   const inputRef = useRef<TextInput>(null);
@@ -188,12 +175,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     setTimeout(() => inputRef.current?.focus?.(), 150);
   }, []);
 
-  // Current user avatar for composer
   const { currentUser } = useUserStore();
   const currentUserHandle = currentUser?.handle || null;
   const { data: currentUserProfile } = useProfile(currentUserHandle);
 
-  // Mention trigger plumbing
   const { inputProps: mentionInputProps, userSearchModalProps } = useUserSearchTrigger({
     value: newCommentText,
     selection: inputSelection,
@@ -201,14 +186,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     onSelectionChange: (e) => setInputSelection(e.nativeEvent.selection),
   });
 
-  // Post interaction store (only used when onToggleLike is not provided)
   const { updatePostInteraction, getPostInteraction } = usePostInteractionStore();
-  
-  // Comment store for tracking deleted comments - access the Set directly for reactivity
   const deletedComments = useCommentStore((state) => state.deletedComments);
   
-  // Header like state (supports external handler or local fallback)
-  // Use function initializer to get fresh store state only on mount
   const [headerIsLiked, setHeaderIsLiked] = useState<boolean>(() => {
     if (!post?.uri || onToggleLike) {
       return !!isLiked;
@@ -253,16 +233,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }).isLiked;
   });
 
-  // Sync with API data and store when isLiked prop changes
   useEffect(() => {
     if (onToggleLike) {
-      // External handler - just sync visual state
       setHeaderIsLiked(!!isLiked);
       setHeaderVisualLiked(!!isLiked);
       return;
     }
 
-    // Internal handler - sync with store and API
     if (post?.uri && isLiked !== undefined) {
       const storeState = getPostInteraction(post.uri, {
         isLiked: !!isLiked,
@@ -273,7 +250,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         repostCount: 0,
       });
 
-      // Update local state and store if API data differs (preserves optimistic updates when they match)
       if (storeState.isLiked !== !!isLiked) {
         setHeaderIsLiked(!!isLiked);
         setHeaderVisualLiked(!!isLiked);
@@ -282,7 +258,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           likeCount: totalLikes,
         });
       }
-      // Always sync like count from API
       if (storeState.likeCount !== totalLikes) {
         updatePostInteraction(post.uri, {
           likeCount: totalLikes,
@@ -299,7 +274,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const handleHeaderToggleLikeInternal = useCallback(async () => {
     if (!post?.uri || headerIsPending) return;
 
-    // Get current like count from store (fresh value)
     const storeState = getPostInteraction(post.uri, {
       isLiked: !!isLiked,
       likeCount: totalLikes,
@@ -312,7 +286,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     const newIsLiked = !headerIsLiked;
     const newLikeCount = newIsLiked ? currentLikeCount + 1 : Math.max(0, currentLikeCount - 1);
 
-    // Optimistic update
     setHeaderIsPending(true);
     setHeaderIsLiked(newIsLiked);
     setHeaderVisualLiked(newIsLiked);
@@ -324,7 +297,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         });
         const likeURI = await AtprotoService.likePost(post.uri, post.cid || '');
         setHeaderLikeUri(likeURI);
-        // Persist to store
         updatePostInteraction(post.uri, {
           isLiked: true,
           likeCount: newLikeCount,
@@ -334,17 +306,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         if (headerLikeUri) {
           await AtprotoService.deleteLike(headerLikeUri);
           setHeaderLikeUri(undefined);
-          // Persist to store
           updatePostInteraction(post.uri, {
             isLiked: false,
             likeCount: newLikeCount,
             likeUri: undefined,
           });
         } else {
-          // If we don't know the like uri, revert (best effort)
           setHeaderIsLiked(true);
           setHeaderVisualLiked(true);
-          // Revert store state
           updatePostInteraction(post.uri, {
             isLiked: true,
             likeCount: currentLikeCount,
@@ -352,10 +321,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         }
       }
     } catch {
-      // Revert optimistic update on error
       setHeaderIsLiked(headerIsLiked);
       setHeaderVisualLiked(headerIsLiked);
-      // Revert store state
       updatePostInteraction(post.uri, {
         isLiked: headerIsLiked,
         likeCount: currentLikeCount,
@@ -401,7 +368,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }, 300);
   }, [onDismiss, post, presentShareSheet, propOnOpenShareSheet]);
 
-  // Queries
   const queryClient = useQueryClient();
 
   const {
@@ -424,29 +390,23 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [commentsPages]
   );
 
-  // Flatten all nested replies to the same level (linear view)
-  // Preserves parent references for chyron display
-  // Filters out deleted comments from the store
   const flattenedComments = useMemo<Comment[]>(() => {
     const flat: Comment[] = [];
     const addComments = (commentList: Comment[], parentComment?: Comment) => {
       commentList.forEach((c: Comment) => {
         if (c && typeof c === 'object') {
           const commentUri = c?.uri || c?.post?.uri;
-          // Skip deleted comments
           if (commentUri && deletedComments.has(commentUri)) {
             return;
           }
-          // Keep parent reference but remove nested replies structure to prevent recursion
           const flatComment: Comment = {
             ...c,
             parent: parentComment,
             replies: undefined,
           };
           flat.push(flatComment);
-          // Recursively add nested replies at the same level
           if (c.replies && Array.isArray(c.replies)) {
-            addComments(c.replies, c); // Pass current comment as parent
+            addComments(c.replies, c);
           }
         }
       });
@@ -476,7 +436,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [likesPages]
   );
 
-  // Scroll-to-comment (find in flattened list)
   useEffect(() => {
     if (!scrollToCommentUri || !flattenedComments.length || commentsLoading || !commentsListRef.current) return;
 
@@ -496,7 +455,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   }, [scrollToCommentUri, flattenedComments, commentsLoading]);
 
-  // Posting
   const [isPosting, setIsPosting] = useState(false);
 
   const handleSendComment = useCallback(async () => {
@@ -529,7 +487,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   }, [post, newCommentText, replyContext, isPosting, queryClient]);
 
-  // Tab options
   const tabOptions: TabOption[] = useMemo(
     () => [
       { id: 'comments', label: totalComments > 0 ? `${formatNumber(totalComments)} Comments` : 'Comments' },
@@ -544,7 +501,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     if (next === 'likes') setLikesQueryEnabled(true);
   }, []);
 
-  // Sheet lifecycle
   const handleClose = useCallback(() => {
     setNewCommentText('');
     setActiveTab('comments');
@@ -560,10 +516,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     if (visible && post) safePresent('comment-section');
     else safeDismiss('comment-section');
   }, [visible, post]);
-
-  /**
-   * Row components (kept in-file, memoized, small surfaces)
-   */
 
   const router = useRouter();
 
@@ -589,13 +541,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     );
   });
 
-  /**
-   * FlashList renderers
-   */
-
   const renderCommentItem = useCallback<ListRenderItem<Comment>>(
     ({ item }) => {
-      // Determine level based on whether item has a parent
       const level = item.parent ? 1 : 0;
       return (
         <CommentItem
@@ -616,8 +563,37 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const commentKeyExtractor = useCallback((item: Comment) => item?.uri || item?.post?.uri || item?.cid || Math.random().toString(36), []);
   const likeKeyExtractor = useCallback((item: Like) => item.uri || `${item.actor.did}-${item.createdAt}`, []);
 
-  const getCommentItemType = useCallback(() => 'comment', []);
-  const getLikeItemType = useCallback(() => 'like', []);
+  const CommentsEmptyComponent = useMemo(
+    () =>
+      commentsLoading ? (
+        <View style={styles.loadingContainer}>
+          <Loading3FillIcon size={24} color={Colors.lightGray} />
+        </View>
+      ) : (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyContent}>
+            <Text style={styles.emptyText}>start the conversation</Text>
+          </View>
+        </View>
+      ),
+    [commentsLoading]
+  );
+
+  const LikesEmptyComponent = useMemo(
+    () =>
+      likesLoading ? (
+        <View style={styles.loadingContainer}>
+          <Loading3FillIcon size={24} color={Colors.lightGray} />
+        </View>
+      ) : (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyContent}>
+            <Text style={styles.emptyText}>be the first like</Text>
+          </View>
+        </View>
+      ),
+    [likesLoading]
+  );
 
   const onEndReachedComments = useCallback(() => {
     if (hasNextCommentsPage && !isFetchingNextCommentsPage) fetchNextCommentsPage();
@@ -634,10 +610,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const onScrollBeginDragLikes = useCallback(() => {
     Keyboard.dismiss();
   }, []);
-
-  /**
-   * Footer (composer) – using CommentInputFooter component
-   */
 
   const placeholder = replyContext ? `Replying to ${replyContext.authorName}` : 'Say something nice...';
 
@@ -678,10 +650,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     userSearchModalProps,
     mentionInputProps,
   ]);
-
-  /**
-   * Header (sheet header prop)
-   */
 
   const headerComponent = useMemo(
     () => (
@@ -744,10 +712,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     ]
   );
 
-  /**
-   * Render
-   */
-
   return (
     <>
       <TrueSheet
@@ -781,21 +745,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               overrideItemLayout={(layout) => {
                 layout.span = COMMENT_ITEM_ESTIMATE;
               }}
-              getItemType={getCommentItemType}
-              removeClippedSubviews
-              ListEmptyComponent={() =>
-                commentsLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <Loading3FillIcon size={24} color={Colors.lightGray} />
-                  </View>
-                ) : (
-                  <View style={styles.emptyContainer}>
-                    <View style={styles.emptyContent}>
-                      <Text style={styles.emptyText}>start the conversation</Text>
-                    </View>
-                  </View>
-                )
-              }
+              removeClippedSubviews={true}
+              drawDistance={250}
+              ListEmptyComponent={CommentsEmptyComponent}
             />
           ) : (
             <FlashList
@@ -815,21 +767,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               overrideItemLayout={(layout) => {
                 layout.span = LIKE_ITEM_ESTIMATE;
               }}
-              getItemType={getLikeItemType}
-              removeClippedSubviews
-              ListEmptyComponent={() =>
-                likesLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <Loading3FillIcon size={24} color={Colors.lightGray} />
-                  </View>
-                ) : (
-                  <View style={styles.emptyContainer}>
-                    <View style={styles.emptyContent}>
-                      <Text style={styles.emptyText}>be the first like</Text>
-                    </View>
-                  </View>
-                )
-              }
+              removeClippedSubviews={true}
+              drawDistance={250}
+              ListEmptyComponent={LikesEmptyComponent}
             />
           )}
         </View>
@@ -862,7 +802,6 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -894,7 +833,6 @@ const styles = StyleSheet.create({
     padding: 0,
   },
 
-  // List
   listContent: {
     backgroundColor: Colors.black,
     paddingHorizontal: 20,
@@ -925,11 +863,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
   },
 
-  // Comment row (styles moved to CommentItem component)
-
-  // Embed styles moved to CommentItem component
-
-  // Likes
   likeItem: {
     paddingVertical: 6,
     paddingHorizontal: 0,
@@ -937,7 +870,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
 
-  // Fullscreen image
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.95)',
