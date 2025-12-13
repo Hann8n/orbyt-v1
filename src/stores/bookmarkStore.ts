@@ -44,12 +44,10 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     
     // Don't reload if recently fetched
     if (state.lastFetched && Date.now() - state.lastFetched < CACHE_DURATION && state.bookmarkedPostUris.size > 0) {
-      logger.debug('[BookmarkStore] Using cached bookmarks');
       return;
     }
     
     if (state.isLoading) {
-      logger.debug('[BookmarkStore] Already loading bookmarks');
       return;
     }
     
@@ -62,8 +60,6 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
       let hasMore = true;
       let pageCount = 0;
       const maxPages = 20; // Safety limit
-      
-      logger.info('[BookmarkStore] Loading bookmarks...');
       
       while (hasMore && pageCount < maxPages) {
         const response = await AtprotoService.getBookmarks(cursor || undefined, 100);
@@ -87,8 +83,6 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
         cursor = response.cursor;
         hasMore = !!cursor && response.bookmarks.length > 0;
         pageCount++;
-        
-        logger.debug(`[BookmarkStore] Loaded page ${pageCount}, total bookmarks: ${bookmarkedUris.size}`);
       }
       
       set({
@@ -97,8 +91,6 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
         isLoading: false,
         lastFetched: Date.now(),
       });
-      
-      logger.info(`[BookmarkStore] Loaded ${bookmarkedUris.size} bookmarks`);
     } catch (error) {
       logger.error('[BookmarkStore] Error loading bookmarks', error);
       set({ isLoading: false });
@@ -169,6 +161,7 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     await get().loadBookmarks();
   },
 }));
+
 
 
 

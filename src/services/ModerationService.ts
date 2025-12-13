@@ -67,12 +67,6 @@ export class ModerationService {
       const settings = this.convertPreferencesToSettings(preferences);
       this.currentSettings = settings;
       
-      logger.debug('Moderation settings loaded from API', { 
-        component: 'ModerationService',
-        adultContentEnabled: settings.adultContentEnabled,
-        labelCount: Object.keys(settings.labels).length
-      });
-      
       return settings;
     } catch (error) {
       // Fail-safe: return strict defaults if API call fails
@@ -111,8 +105,6 @@ export class ModerationService {
       
       // Clear moderation decisions cache so posts are re-evaluated with new settings
       this.clearModerationCache();
-      
-      logger.debug('Moderation settings saved successfully', { component: 'ModerationService' });
     } catch (error) {
       logger.error('Failed to save moderation settings', error, { component: 'ModerationService' });
       throw error;
@@ -136,8 +128,6 @@ export class ModerationService {
       
       // Clear cache when settings are synced
       this.clearModerationCache();
-      
-      logger.debug('Moderation settings synced from API', { component: 'ModerationService' });
     } catch (error) {
       logger.error('Failed to sync moderation settings', error, { component: 'ModerationService' });
       throw error;

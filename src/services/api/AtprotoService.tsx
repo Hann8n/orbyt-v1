@@ -716,28 +716,15 @@ class AtprotoService {
     const { api } = await this.getApiClient();
     
     try {
-      console.log('[AtprotoService] createBookmark request:', {
-        uri,
-        cid,
-      });
-      
       const response = await api.app.bsky.bookmark.createBookmark({
         uri,
         cid,
       });
       
-      console.log('[AtprotoService] createBookmark raw response:', JSON.stringify(response, null, 2));
-      console.log('[AtprotoService] createBookmark response.data:', JSON.stringify(response.data, null, 2));
-      
       // The bookmark is successfully created. We don't need the bookmark URI
       // since deleteBookmark uses the post URI. Return the post URI for consistency.
       return uri;
     } catch (error: unknown) {
-      console.error('[AtprotoService] createBookmark error:', error);
-      if (error && typeof error === 'object' && 'message' in error) {
-        console.error('[AtprotoService] Error message:', error.message);
-        console.error('[AtprotoService] Error details:', JSON.stringify(error, null, 2));
-      }
       throw error;
     }
   }
@@ -751,23 +738,11 @@ class AtprotoService {
     const { api } = await this.getApiClient();
     
     try {
-      console.log('[AtprotoService] deleteBookmark request:', {
-        postUri,
-      });
-      
       // The deleteBookmark API expects the post URI (same as createBookmark)
-      const response = await api.app.bsky.bookmark.deleteBookmark({
+      await api.app.bsky.bookmark.deleteBookmark({
         uri: postUri,
       });
-      
-      console.log('[AtprotoService] deleteBookmark raw response:', JSON.stringify(response, null, 2));
-      console.log('[AtprotoService] deleteBookmark response.data:', JSON.stringify(response.data, null, 2));
     } catch (error: unknown) {
-      console.error('[AtprotoService] deleteBookmark error:', error);
-      if (error && typeof error === 'object' && 'message' in error) {
-        console.error('[AtprotoService] Error message:', error.message);
-        console.error('[AtprotoService] Error details:', JSON.stringify(error, null, 2));
-      }
       throw error;
     }
   }
@@ -783,39 +758,16 @@ class AtprotoService {
     const { api } = await this.getApiClient();
     
     try {
-      console.log('[AtprotoService] getBookmarks request:', {
-        cursor,
-        limit,
-      });
-      
       const response = await api.app.bsky.bookmark.getBookmarks({
         limit,
         cursor,
       });
       
-      // Log raw API response for debugging
-      console.log('[AtprotoService] getBookmarks raw response:', JSON.stringify(response, null, 2));
-      console.log('[AtprotoService] getBookmarks response.data:', JSON.stringify(response.data, null, 2));
-      
       // The API returns bookmarks with the post data in bookmark.item
       // bookmark.subject is just a reference (RepoStrongRef with uri and cid)
       const allBookmarks = response.data?.bookmarks || [];
-      console.log('[AtprotoService] Total bookmarks from API:', allBookmarks.length);
-      
-      if (allBookmarks.length > 0) {
-        console.log('[AtprotoService] First bookmark structure:', JSON.stringify(allBookmarks[0], null, 2));
-      }
       
       const bookmarks = allBookmarks.filter((bookmark: any) => {
-        // Log each bookmark for debugging
-        console.log('[AtprotoService] Processing bookmark:', {
-          hasItem: !!bookmark.item,
-          hasSubject: !!bookmark.subject,
-          itemType: bookmark.item?.$type,
-          subjectUri: bookmark.subject?.uri,
-          itemUri: bookmark.item?.uri,
-        });
-        
         // Check if it's a valid post bookmark
         // bookmark.item should contain the post view
         // bookmark.subject is the reference to the original post
@@ -831,18 +783,8 @@ class AtprotoService {
         
         const isValid = uri && uri.includes('app.bsky.feed.post') && isPost;
         
-        if (!isValid) {
-          console.log('[AtprotoService] Filtered out bookmark:', {
-            reason: !uri ? 'no uri' : !uri.includes('app.bsky.feed.post') ? 'not a post uri' : !isPost ? 'not a post view' : 'unknown',
-            uri,
-            itemType: bookmark.item?.$type,
-          });
-        }
-        
         return isValid;
       });
-      
-      console.log('[AtprotoService] Filtered bookmarks count:', bookmarks.length);
       
       // Transform bookmarks: use bookmark.item for the post data
       // bookmark.subject is just the reference, bookmark.item has the full post
@@ -852,7 +794,6 @@ class AtprotoService {
         const post = bookmark.item;
         
         if (!post) {
-          console.warn('[AtprotoService] Bookmark missing item:', bookmark);
           return null;
         }
         
@@ -864,8 +805,6 @@ class AtprotoService {
           bookmarkSubject: bookmark.subject,
         };
       }).filter((b: any) => b !== null); // Remove any null entries
-      
-      console.log('[AtprotoService] Final bookmarks count:', transformedBookmarks.length);
       
       return {
         bookmarks: transformedBookmarks,
@@ -1199,13 +1138,6 @@ class AtprotoService {
         rawResponse: JSON.stringify(response.data, null, 2),
       });
       
-      // Also log to console for easy copy-paste debugging
-      if (__DEV__) {
-        console.log('\n=== RAW API RESPONSE FOR COMMENTS ===');
-        console.log('Post URI:', postUri);
-        console.log(JSON.stringify(response.data, null, 2));
-        console.log('=== END RAW API RESPONSE ===\n');
-      }
       
       // Function to recursively process thread posts with proper typing
       // Preserves Bluesky's threading structure with parent/child relationships
@@ -1679,13 +1611,7 @@ class AtprotoService {
         }
       }
 
-      if (__DEV__) {
-        console.log(`[AtprotoService] Batch fetched ${result.size}/${uris.length} posts`);
-      }
     } catch (error: unknown) {
-      if (__DEV__) {
-        console.log('[AtprotoService] Batch getPosts error:', error);
-      }
     }
 
     return result;
@@ -1849,23 +1775,6 @@ class AtprotoService {
       const { api } = await this.getApiClient();
       const response = await api.app.bsky.notification.listNotifications(params);
       
-      // Debug: Log raw API response structure
-      if (__DEV__ && response.data?.notifications) {
-        console.log('[AtprotoService] Raw API response - total notifications:', response.data.notifications.length);
-        const subscribedPostNotifications = response.data.notifications.filter((n: any) => n.reason === 'subscribed-post');
-        if (subscribedPostNotifications.length > 0) {
-          console.log('[AtprotoService] Subscribed-post notifications found:', subscribedPostNotifications.length);
-          console.log('[AtprotoService] Sample subscribed-post notification:', JSON.stringify(subscribedPostNotifications[0], null, 2));
-          if (subscribedPostNotifications[0]?.record?.embed) {
-            console.log('[AtprotoService] Sample embed structure:', JSON.stringify(subscribedPostNotifications[0].record.embed, null, 2));
-          }
-        }
-        
-        
-        // Log all unique reasons
-        const uniqueReasons = [...new Set(response.data.notifications.map((n: any) => n.reason))];
-        console.log('[AtprotoService] All notification reasons from API:', uniqueReasons);
-      }
       
       return { 
         notifications: response.data.notifications || [], 

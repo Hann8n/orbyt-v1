@@ -605,14 +605,6 @@ class FeedService {
           } else {
             const moderatedFeed = await ModerationService.batchModeratePosts(response.feed, 'contentList', agent);
             response.feed = moderatedFeed.filteredPosts;
-            
-            logger.debug('Moderation applied to feed', {
-              component: 'FeedService',
-              total: moderatedFeed.stats.total,
-              filtered: moderatedFeed.stats.filtered,
-              blurred: moderatedFeed.stats.blurred,
-              allowed: moderatedFeed.stats.allowed
-            });
           }
         } catch (error) {
           // Fail-safe: if moderation fails, apply basic label-based filtering

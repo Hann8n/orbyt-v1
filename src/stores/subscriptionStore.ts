@@ -61,7 +61,6 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       });
       
       set({ subscriptions: subscriptionMap });
-      logger.info('Initialized activity subscriptions', { count: subscriptionMap.size, component: 'subscriptionStore' });
     } catch (error) {
       logger.error('Failed to initialize activity subscriptions', error, { component: 'subscriptionStore' });
     }
@@ -98,7 +97,6 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     
     try {
       await AtprotoService.putActivitySubscription(did);
-      logger.info('Updated subscription preferences', { did, preferences, component: 'subscriptionStore' });
       return true;
     } catch (error) {
       logger.error('Failed to update subscription preferences', error, { component: 'subscriptionStore', did });
@@ -128,7 +126,6 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     
     try {
       await AtprotoService.deleteActivitySubscription(did);
-      logger.info('Unsubscribed from activity', { did, component: 'subscriptionStore' });
       return false;
     } catch (error) {
       logger.error('Failed to unsubscribe from activity', error, { component: 'subscriptionStore', did });
