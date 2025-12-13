@@ -264,6 +264,11 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       [comment?.post?.author?.handle, comment?.author?.handle]
     );
     
+    const authorDid = useMemo(
+      () => comment?.post?.author?.did || comment?.author?.did || null,
+      [comment?.post?.author?.did, comment?.author?.did]
+    );
+    
     const authorAvatar = useMemo(
       () => comment?.post?.author?.avatar || comment?.author?.avatar || 'https://via.placeholder.com/40',
       [comment?.post?.author?.avatar, comment?.author?.avatar]
@@ -283,6 +288,16 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const parentAuthorName = useMemo(() => {
       if (!parent) return null;
       return formatHandle(parent?.post?.author?.handle || parent?.author?.handle || '') || 'Unknown';
+    }, [parent]);
+    
+    const parentAuthorHandle = useMemo(() => {
+      if (!parent) return null;
+      return formatHandle(parent?.post?.author?.handle || parent?.author?.handle || '');
+    }, [parent]);
+    
+    const parentAuthorDid = useMemo(() => {
+      if (!parent) return null;
+      return parent?.post?.author?.did || parent?.author?.did || null;
     }, [parent]);
 
     // Animated styles for heart
@@ -372,22 +387,32 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const navigation = useRouter();
 
     // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
-    const navigateToAuthorProfile = useCallback((rawHandle?: string | null) => {
+    const navigateToAuthorProfile = useCallback((rawHandle?: string | null, rawDid?: string | null) => {
       const cleanHandle = (rawHandle || '').trim();
-      if (!cleanHandle) {
+      const cleanDid = (rawDid || '').trim();
+      
+      if (!cleanHandle && !cleanDid) {
         return;
       }
 
       // Always dismiss the sheet first if provided
       onDismiss?.();
 
-      // Navigate to profile using Expo Router
-      navigation.push(`/profile/${cleanHandle}`);
+      // Navigate to profile using Expo Router - prefer DID if available, otherwise use handle
+      if (cleanDid) {
+        // Use DID in path and handle as query param if available
+        const url = cleanHandle 
+          ? `/profile/${cleanDid}?handle=${encodeURIComponent(cleanHandle)}`
+          : `/profile/${cleanDid}`;
+        navigation.push(url);
+      } else if (cleanHandle) {
+        navigation.push(`/profile/${cleanHandle}`);
+      }
     }, [navigation, onDismiss]);
 
     const handleAuthorPress = useCallback(
-      (handle: string) => {
-        navigateToAuthorProfile(handle);
+      (handle: string, did?: string | null) => {
+        navigateToAuthorProfile(handle, did);
       },
       [navigateToAuthorProfile]
     );
@@ -923,9 +948,14 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             </TouchableOpacity>
             <View style={{ flex: 1, justifyContent: 'center' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-                <Text style={{ color: Colors.white, fontSize: 16, marginBottom: 2, fontFamily: 'Firma-Bold' }}>
-                  {authorName}
-                </Text>
+                <TouchableOpacity
+                  onPress={() => (authorHandle || authorDid) && handleAuthorPress(authorHandle, authorDid)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: Colors.white, fontSize: 16, marginBottom: 2, fontFamily: 'Firma-Bold' }}>
+                    {authorName}
+                  </Text>
+                </TouchableOpacity>
                 {authorHandle && (
                   <VerificationBadge
                     handle={authorHandle}
@@ -939,9 +969,14 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                 {parent && parentAuthorName && level > 0 && parent.parent && (
                   <View style={styles.parentChyronContainer}>
                     <Text style={styles.parentChyronArrow}>→</Text>
-                    <Text style={styles.parentChyronText} numberOfLines={1}>
-                      {parentAuthorName}
-                    </Text>
+                    <TouchableOpacity
+                      onPress={() => (parentAuthorHandle || parentAuthorDid) && handleAuthorPress(parentAuthorHandle, parentAuthorDid)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.parentChyronText} numberOfLines={1}>
+                        {parentAuthorName}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
