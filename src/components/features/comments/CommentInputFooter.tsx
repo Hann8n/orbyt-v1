@@ -77,7 +77,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               onSelectionChange={onSelectionChange}
               style={styles.textInput}
               placeholder={placeholder}
-              placeholderTextColor={Colors.lightGray}
+              placeholderTextColor={Colors.gray}
               multiline
               editable={!isPosting}
               ref={inputRef}
@@ -92,53 +92,64 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
           </View>
           <View style={styles.sendColumn}>
             {replyContext ? (
-              <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  !hasText && styles.cancelReplyButton
-                ]}
-                onPress={() => {
-                  if (hasText && !isSendDisabled) {
-                    onSubmit();
-                  } else if (!hasText) {
-                    onCancelReply?.();
-                  }
-                }}
-                disabled={hasText ? isSendDisabled : false}
-                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                activeOpacity={0.7}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel={hasText ? "Send comment" : "Cancel reply"}
-                delayPressIn={0}
-              >
-                <Icon 
-                  name={hasText ? "arrow-up-fill" : "close"}
-                  size={hasText ? 22 : 18}
-                  color={hasText ? Colors.black : Colors.lightGray}
-                />
-              </TouchableOpacity>
+              <>
+                {hasText && !isSendDisabled ? (
+                  <TouchableOpacity
+                    style={styles.sendButton}
+                    onPress={onSubmit}
+                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                    activeOpacity={0.7}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel="Send comment"
+                    delayPressIn={0}
+                  >
+                    <Icon 
+                      name="arrow-up-fill"
+                      size={22}
+                      color={Colors.black}
+                    />
+                  </TouchableOpacity>
+                ) : !hasText ? (
+                  <TouchableOpacity
+                    style={[styles.sendButton, styles.cancelReplyButton]}
+                    onPress={onCancelReply}
+                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                    activeOpacity={0.7}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel reply"
+                    delayPressIn={0}
+                  >
+                    <Icon 
+                      name="close"
+                      size={18}
+                      color={Colors.lightGray}
+                    />
+                  </TouchableOpacity>
+                ) : null}
+              </>
             ) : (
-              <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  (!hasText || isSendDisabled) && styles.sendButtonDisabled
-                ]}
-                onPress={onSubmit}
-                disabled={isSendDisabled}
-                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                activeOpacity={0.7}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel="Send comment"
-                delayPressIn={0}
-              >
-                <Icon 
-                  name="arrow-up-fill" 
-                  size={22} 
-                  color={hasText && !isSendDisabled ? Colors.black : Colors.lightGray}
-                />
-              </TouchableOpacity>
+              <>
+                {hasText && !isSendDisabled && (
+                  <TouchableOpacity
+                    style={styles.sendButton}
+                    onPress={onSubmit}
+                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                    activeOpacity={0.7}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel="Send comment"
+                    delayPressIn={0}
+                  >
+                    <Icon 
+                      name="arrow-up-fill" 
+                      size={22} 
+                      color={Colors.black}
+                    />
+                  </TouchableOpacity>
+                )}
+              </>
             )}
             {showCharCount && (
               <Text style={[
@@ -224,7 +235,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignSelf: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.gray,
+    backgroundColor: Colors.lightGray,
     borderRadius: BORDER_RADIUS.FULL,
     width: 42,
     height: 42,
@@ -233,9 +244,6 @@ const styles = StyleSheet.create({
     marginTop: 0,
     zIndex: 11,
     elevation: 11,
-  },
-  sendButtonDisabled: {
-    opacity: 0.5,
   },
   cancelReplyButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
