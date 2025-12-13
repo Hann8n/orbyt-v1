@@ -149,7 +149,7 @@ export default function TabsLayout() {
         } : {
           backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent',
           paddingTop: isSmallDevice ? 2 : 6,
-          paddingBottom: insets.bottom,
+          paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
           shadowOpacity: 0,
           borderTopWidth: 0,
           elevation: 0,

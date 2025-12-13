@@ -11,3 +11,25 @@ index 889d3e8..2c3b86f 100644
  
    s.dependency "React-Core"
  
+diff --git a/node_modules/ffmpeg-kit-react-native/android/build.gradle b/node_modules/ffmpeg-kit-react-native/android/build.gradle
+index 2909280..022dd47 100644
+--- a/node_modules/ffmpeg-kit-react-native/android/build.gradle
++++ b/node_modules/ffmpeg-kit-react-native/android/build.gradle
+@@ -1,6 +1,9 @@
+ buildscript {
+   repositories {
+     google()
++  flatDir {
++    dirs "$rootDir/libs"
++  }
+     mavenCentral()
+   }
+ 
+@@ -125,5 +128,6 @@ repositories {
+ 
+ dependencies {
+   api 'com.facebook.react:react-native:+'
+-  implementation 'com.arthenica:ffmpeg-kit-' + safePackageName(safeExtGet('ffmpegKitPackage', 'https')) + ':' + safePackageVersion(safeExtGet('ffmpegKitPackage', 'https'))
++  implementation(name: 'ffmpeg-kit-full-gpl', ext: 'aar')
++  implementation 'com.arthenica:smart-exception-java:0.2.1'
+ }

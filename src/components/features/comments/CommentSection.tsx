@@ -135,7 +135,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const scrollToCommentUri = globalData?.scrollToCommentUri;
 
   const insets = useSafeAreaInsets();
-  const listBottomPadding = 96 + insets.bottom;
+  const listBottomPadding = 96 + (typeof insets?.bottom === 'number' ? insets.bottom : 0);
   const listContentStyle = useMemo(
     () => [styles.listContent, { paddingBottom: listBottomPadding }],
     [listBottomPadding]

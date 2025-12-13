@@ -1168,7 +1168,6 @@ export const useUserStore = create<UserState>()(
       // Initialization actions
       initializeUserState: async () => {
         try {
-          
           // Load saved accounts
           await get().loadSavedAccounts();
           
@@ -1227,7 +1226,6 @@ export const useUserStore = create<UserState>()(
           }
           
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
           logger.error('Error initializing user state', error, { component: 'userStore' });
           
           // Clear state to be safe
@@ -1244,6 +1242,7 @@ export const useUserStore = create<UserState>()(
       loadSavedAccounts: async () => {
         try {
           const accountsStr = await SecureStore.getItemAsync(STORAGE_KEYS.ACCOUNTS);
+          
           if (!accountsStr) {
             set({ savedAccounts: [] });
             return;

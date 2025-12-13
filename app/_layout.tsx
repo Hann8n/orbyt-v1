@@ -127,7 +127,7 @@ export default function RootLayout() {
   useEffect(() => {
     const initializeApp = async () => {
       // Run font loading and user initialization in parallel
-      const [fontsResult] = await Promise.allSettled([
+      const [fontsResult, userStateResult] = await Promise.allSettled([
         Font.loadAsync({
           'Firma-Regular': require('../src/assets/fonts/Firma-Regular.otf'),
           'Firma-Medium': require('../src/assets/fonts/Firma-Medium.otf'),
@@ -142,7 +142,7 @@ export default function RootLayout() {
 
       // Set fonts loaded regardless of success
       setFontsLoaded(true);
-      if (fontsResult.status === 'rejected') {
+      if (fontsResult.status === 'rejected' && fontsResult.reason != null) {
         CommonErrorHandlers.cache(fontsResult.reason);
       }
 

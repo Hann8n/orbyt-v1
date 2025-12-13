@@ -517,12 +517,14 @@ const VideoEditorScreen: React.FC = () => {
   useEffect(() => {
     if (!player) return;
     if (videoUri) {
-      try {
-        player.replace({ uri: videoUri });
-        setVideoError(null);
-      } catch (e) {
-        setVideoError('Failed to load video');
-      }
+      (async () => {
+        try {
+          await player.replaceAsync({ uri: videoUri });
+          setVideoError(null);
+        } catch (e) {
+          setVideoError('Failed to load video');
+        }
+      })();
     }
   }, [player, videoUri]);
 

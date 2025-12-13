@@ -31,4 +31,4 @@ import * as WebBrowser from 'expo-web-browser';
 WebBrowser.maybeCompleteAuthSession();
 
 // Import expo-router entry point LAST
-import 'expo-router/entry'; 
+import 'expo-router/entry';

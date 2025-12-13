@@ -43,7 +43,38 @@ class Logger {
    * Error level logging - always shown
    */
   error(message: string, error?: any, context?: LogContext): void {
-    console.error(`[ERROR]${this.formatContext(context)} ${message}`, error || '');
+    // Safely stringify error to prevent "Cannot convert undefined value to object" errors
+    let errorDisplay: any = '';
+    try {
+      if (error == null) {
+        errorDisplay = '';
+      } else if (error instanceof Error) {
+        errorDisplay = error;
+      } else if (typeof error === 'object') {
+        // Safely get property names - Object.getOwnPropertyNames can throw on some objects
+        try {
+          const keys = Object.getOwnPropertyNames(error);
+          errorDisplay = JSON.stringify(error, keys);
+        } catch (e) {
+          // Fallback to simple string conversion if property enumeration fails
+          try {
+            errorDisplay = JSON.stringify(error);
+          } catch (e2) {
+            errorDisplay = String(error);
+          }
+        }
+      } else {
+        errorDisplay = String(error);
+      }
+    } catch (e) {
+      // Ultimate fallback
+      try {
+        errorDisplay = String(error);
+      } catch {
+        errorDisplay = '[Error object could not be stringified]';
+      }
+    }
+    console.error(`[ERROR]${this.formatContext(context)} ${message}`, errorDisplay);
   }
 
   /**

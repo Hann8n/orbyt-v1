@@ -79,7 +79,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   const insets = useSafeAreaInsets();
   
   // Calculate footer height for content padding
-  const footerHeight = 44 + 8 + insets.bottom; // button height + padding + safe area
+  const footerHeight = 44 + 8 + (typeof insets?.bottom === 'number' ? insets.bottom : 0); // button height + padding + safe area
 
   // Present sheet when data arrives
   useEffect(() => {
@@ -566,7 +566,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         showConversationPicker
           ? null
           : (
-            <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
+            <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={typeof insets?.bottom === 'number' ? insets.bottom : 0} style={{ backgroundColor: Colors.black }}>
               <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}> 
                 <TouchableOpacity 
                   style={styles.cancelButton} 

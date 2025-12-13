@@ -468,13 +468,15 @@ const VideoPostScreen: React.FC = () => {
   useEffect(() => {
     if (!player) return;
     if (videoUri) {
-      try {
-        player.replace({ uri: videoUri });
-        // Clear previous errors when replacing source
-        setVideoError(null);
-      } catch (e) {
-        setVideoError('Failed to load video');
-      }
+      (async () => {
+        try {
+          await player.replaceAsync({ uri: videoUri });
+          // Clear previous errors when replacing source
+          setVideoError(null);
+        } catch (e) {
+          setVideoError('Failed to load video');
+        }
+      })();
     }
   }, [player, videoUri]);
 

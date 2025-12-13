@@ -18,7 +18,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, PlusIcon, AtLineIcon, Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import { 
-  AnimatedStarsBackground, 
   AnimatedTV, 
   CustomPDSInputSheet
 } from '../src/components/ui';
@@ -321,7 +320,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   );
 
   const renderLoginButtons = () => (
-    <View style={[styles.loginButtonsContainer, { paddingBottom: Math.max(20, insets.bottom) }]}>
+    <View style={[styles.loginButtonsContainer, { paddingBottom: Math.max(20, typeof insets?.bottom === 'number' ? insets.bottom : 0) }]}>
       {/* Sign in button */}
       <TouchableOpacity
         style={styles.liquidGlassButton}
@@ -393,8 +392,8 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={[styles.container, { 
-        paddingTop: insets.top,
-        paddingBottom: insets.bottom 
+        paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
+        paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0
       }]}
     >
       {/* Logo and App Name */}
@@ -436,11 +435,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     </KeyboardAvoidingView>
   );
 
-  return hasSavedAccounts ? renderContent() : (
-    <AnimatedStarsBackground>
-      {renderContent()}
-    </AnimatedStarsBackground>
-  );
+  return renderContent();
 }
 
 const styles = StyleSheet.create({

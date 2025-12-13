@@ -75,7 +75,7 @@ const FeedScreen: React.FC = memo(() => {
           handleClose();
         }}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        style={[styles.backButton, { top: insets.top + 15 }]}
+        style={[styles.backButton, { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 }]}
         activeOpacity={0.7}
       >
         <BackArrowIcon size={30} color={Colors.white} />
@@ -101,7 +101,7 @@ const FeedScreen: React.FC = memo(() => {
       
       {/* Show hashtag header if this is a hashtag feed (but not for orbyt channels) */}
       {isHashtagFeed && hashtag && !isOrbytChannelHashtag && (
-        <Text style={[styles.hashtagHeader, { top: insets.top + 15 }]}>
+        <Text style={[styles.hashtagHeader, { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 }]}>
           #{hashtag}
         </Text>
       )}

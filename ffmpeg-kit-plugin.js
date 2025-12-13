@@ -96,12 +96,39 @@ end
   ]);
 };
 
-const withFfmpegKitAndroid = (config, { androidUrl }) => {
-  // First, patch the ffmpeg-kit-react-native build.gradle
+const copyAndroidAar = (platformProjectRoot, projectRoot, androidLocalPath) => {
+  const source = path.resolve(
+    projectRoot,
+    androidLocalPath || 'patches/ffmpeg-kit-full-gpl.aar',
+  );
+  const destDir = path.join(platformProjectRoot, 'libs');
+  const dest = path.join(destDir, 'ffmpeg-kit-full-gpl.aar');
+
+  if (!fs.existsSync(source)) {
+    throw new Error(
+      `[ffmpeg-kit-plugin] Missing AAR at ${source}. Please place ffmpeg-kit-full-gpl.aar in the patches folder or configure androidLocalPath.`,
+    );
+  }
+
+  fs.mkdirSync(destDir, { recursive: true });
+  fs.copyFileSync(source, dest);
+  console.log(`[ffmpeg-kit-plugin] Copied ffmpeg-kit-full-gpl.aar to ${dest}`);
+};
+
+const removeDownloadBlock = (contents) => {
+  const downloadRegex =
+    /\/\/ Download AAR[\s\S]*?preBuild\.dependsOn\("downloadAar"\)\s*\}\s*/;
+  return contents.replace(downloadRegex, '\n');
+};
+
+const withFfmpegKitAndroid = (config, { androidLocalPath }) => {
+  // First, copy the local AAR and patch the ffmpeg-kit-react-native build.gradle
   config = withDangerousMod(config, [
     'android',
     async (cfg) => {
-      const { platformProjectRoot } = cfg.modRequest;
+      const { platformProjectRoot, projectRoot } = cfg.modRequest;
+      copyAndroidAar(platformProjectRoot, projectRoot, androidLocalPath);
+
       const ffmpegKitBuildGradlePath = path.join(
         platformProjectRoot,
         '..',
@@ -113,6 +140,16 @@ const withFfmpegKitAndroid = (config, { androidUrl }) => {
 
       if (fs.existsSync(ffmpegKitBuildGradlePath)) {
         let buildGradle = fs.readFileSync(ffmpegKitBuildGradlePath, 'utf-8');
+        
+        // Add flatDir repository if not present
+        const flatDirRepo = `flatDir {\n    dirs "$rootDir/libs"\n  }`;
+        const repositoriesRegex = /repositories\s*\{[\s\S]*?mavenCentral\(\)[\s\S]*?google\(\)/;
+        if (!buildGradle.includes('flatDir') && buildGradle.match(repositoriesRegex)) {
+          buildGradle = buildGradle.replace(
+            /(google\(\))/,
+            `$1\n  ${flatDirRepo}`
+          );
+        }
         
         // Replace the Maven dependency with local AAR
         const originalDependency = /implementation 'com\.arthenica:ffmpeg-kit-'.*/;
@@ -140,18 +177,6 @@ const withFfmpegKitAndroid = (config, { androidUrl }) => {
 
   config = withAppBuildGradle(config, (cfg) => {
     let buildGradle = cfg.modResults.contents;
-
-    const importUrl = 'import java.net.URL';
-    if (!buildGradle.includes(importUrl)) {
-      buildGradle = mergeContents({
-        tag: 'ffmpeg-kit-import-url',
-        src: buildGradle,
-        newSrc: importUrl,
-        anchor: /^/,
-        offset: 0,
-        comment: '//',
-      }).contents;
-    }
 
     const appFlatDirLibsPath = '\\${projectDir}/../libs';
     const appFlatDirRepo = `
@@ -195,51 +220,7 @@ const withFfmpegKitAndroid = (config, { androidUrl }) => {
       }).contents;
     }
 
-    const downloadBlock = `
-// Download AAR
-def aarUrl = '${androidUrl}'
-def aarFile = file("\${projectDir}/../libs/ffmpeg-kit-full-gpl.aar")
-
-// Ensure directory exists
-if (!aarFile.parentFile.exists()) {
-   aarFile.parentFile.mkdirs()
-}
-
-// Download during configuration if not present
-if (!aarFile.exists()) {
-   println "[ffmpeg-kit] Downloading AAR from \$aarUrl..."
-   try {
-       new URL(aarUrl).withInputStream { i ->
-           aarFile.withOutputStream { it << i }
-       }
-       println "[ffmpeg-kit] AAR downloaded successfully"
-   } catch (Exception e) {
-       println "[ffmpeg-kit] Failed to download AAR during configuration: \${e.message}"
-   }
-}
-
-afterEvaluate {
-   tasks.register("downloadAar") {
-       description = "Downloads ffmpeg-kit AAR file"
-       group = "ffmpeg-kit"
-       outputs.file(aarFile)
-       doLast {
-           if (!aarFile.exists()) {
-               println "[ffmpeg-kit] Downloading AAR from \$aarUrl..."
-               new URL(aarUrl).withInputStream { i ->
-                   aarFile.withOutputStream { it << i }
-               }
-               println "[ffmpeg-kit] AAR downloaded successfully"
-           }
-       }
-   }
-
-   preBuild.dependsOn("downloadAar")
-}`;
-
-    if (!buildGradle.includes('def aarUrl =')) {
-      buildGradle = buildGradle + '\n' + downloadBlock;
-    }
+    buildGradle = removeDownloadBlock(buildGradle);
 
     cfg.modResults.contents = buildGradle;
     return cfg;
@@ -284,7 +265,7 @@ afterEvaluate {
 };
 
 module.exports = (config, options = {}) => {
-  const { iosUrl, androidUrl } = options;
+  const { iosUrl, androidLocalPath } = options;
 
   if (!iosUrl) {
     throw new Error(
@@ -292,15 +273,9 @@ module.exports = (config, options = {}) => {
     );
   }
 
-  if (!androidUrl) {
-    throw new Error(
-      'FFmpeg Kit plugin requires "androidUrl" option. Please provide the Android AAR download URL in your app.config.ts',
-    );
-  }
-
   return withPlugins(config, [
     (config) => withFfmpegKitIos(config, { iosUrl }),
-    (config) => withFfmpegKitAndroid(config, { androidUrl }),
+    (config) => withFfmpegKitAndroid(config, { androidLocalPath }),
   ]);
 };
 
