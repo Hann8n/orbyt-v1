@@ -34,6 +34,7 @@ import { createQueryKeys } from '../../../services/FeedService';
 import { useProfile } from '../../../services/cache/ProfileCache';
 import { useUserStore } from '../../../stores/userStore';
 import { usePostInteractionStore } from '../../../stores/postInteractionStore';
+import { useCommentStore } from '../../../stores/commentStore';
 import { useGlobalCommentSection, useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
@@ -202,6 +203,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   // Post interaction store (only used when onToggleLike is not provided)
   const { updatePostInteraction, getPostInteraction } = usePostInteractionStore();
+  
+  // Comment store for tracking deleted comments - access the Set directly for reactivity
+  const deletedComments = useCommentStore((state) => state.deletedComments);
   
   // Header like state (supports external handler or local fallback)
   // Use function initializer to get fresh store state only on mount
@@ -412,6 +416,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
     initialPageParam: null,
     enabled: !!post?.uri,
+    structuralSharing: false, // Disable structural sharing to avoid circular reference issues with nested comment structures
   });
 
   const comments = useMemo(
@@ -421,11 +426,17 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   // Flatten all nested replies to the same level (linear view)
   // Preserves parent references for chyron display
+  // Filters out deleted comments from the store
   const flattenedComments = useMemo<Comment[]>(() => {
     const flat: Comment[] = [];
     const addComments = (commentList: Comment[], parentComment?: Comment) => {
       commentList.forEach((c: Comment) => {
         if (c && typeof c === 'object') {
+          const commentUri = c?.uri || c?.post?.uri;
+          // Skip deleted comments
+          if (commentUri && deletedComments.has(commentUri)) {
+            return;
+          }
           // Keep parent reference but remove nested replies structure to prevent recursion
           const flatComment: Comment = {
             ...c,
@@ -444,7 +455,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       addComments(comments);
     }
     return flat;
-  }, [comments]);
+  }, [comments, deletedComments]);
 
   const {
     data: likesPages,

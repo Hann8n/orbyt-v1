@@ -23,6 +23,7 @@ import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
  
 import AtprotoService from '../../../services/api/AtprotoService';
+import { createQueryKeys } from '../../../services/FeedService';
 import { formatNumber, formatHandle } from '../../../utils/helpers';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
@@ -33,6 +34,7 @@ import RelativeDate from '../../ui/RelativeDate';
 import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCommentStore } from '../../../stores/commentStore';
+import { useUserStore } from '../../../stores/userStore';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -142,7 +144,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const cid = getCommentCid(comment);
     const viewerLike = getCommentViewerLike(comment);
     
-    const { updateCommentInteraction, getCommentInteraction } = useCommentStore();
+    const { updateCommentInteraction, getCommentInteraction, markCommentAsDeleted } = useCommentStore();
+    const { currentUser } = useUserStore();
     
     // Get persisted interaction state from store, with API data as fallback
     // Only use store if we have a valid URI (prevents undefined keys causing shared state)
@@ -436,6 +439,224 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       }
     }, [authorName, uri, cid, level, queryClient, onReplyPress, comment]);
 
+    // Check if comment belongs to current user
+    const commentAuthorDid = comment?.post?.author?.did || comment?.author?.did;
+    const isCurrentUserComment = currentUser?.did && commentAuthorDid === currentUser.did;
+
+    // Handle long press to show post actions
+    const handleLongPress = useCallback(() => {
+      if (!uri || !cid) return;
+
+      // Determine if it's a comment or reply
+      const isReply = level > 0 || !!comment?.parent;
+      const displayAuthor = isCurrentUserComment ? 'you' : authorName;
+      const actionTitle = isReply ? `reply by ${displayAuthor}` : `comment by ${displayAuthor}`;
+      const postType = isReply ? 'reply' : 'comment';
+
+      if (isCurrentUserComment) {
+        // Current user's post: Pin to profile, Repost, Delete
+        Alert.alert(
+          actionTitle,
+          'Choose an action:',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Pin to Profile',
+              onPress: async () => {
+                try {
+                  // Note: Pin to profile functionality may not be available in ATProto API
+                  Alert.alert('Info', 'Pin to profile feature is not yet available.');
+                } catch (error) {
+                  Alert.alert('Error', `Failed to pin ${postType}. Please try again.`);
+                }
+              },
+            },
+            {
+              text: 'Repost',
+              onPress: async () => {
+                try {
+                  await AtprotoService.repostPost(uri, cid);
+                  Alert.alert('Success', `${postType.charAt(0).toUpperCase() + postType.slice(1)} reposted successfully.`);
+                  queryClient.invalidateQueries({ queryKey: createQueryKeys.comments.byPost(rootUri || '') });
+                } catch (error) {
+                  Alert.alert('Error', `Failed to repost ${postType}. Please try again.`);
+                }
+              },
+            },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                const capitalizedPostType = postType.charAt(0).toUpperCase() + postType.slice(1);
+                Alert.alert(
+                  `Delete ${capitalizedPostType}`,
+                  `Are you sure you want to delete this ${postType}? This action cannot be undone.`,
+                  [
+                    {
+                      text: 'Cancel',
+                      style: 'cancel',
+                    },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          const success = await AtprotoService.deletePost(uri);
+                          if (success) {
+                            // Mark as deleted in store for immediate UI update
+                            markCommentAsDeleted(uri);
+                            Alert.alert('Success', `${capitalizedPostType} deleted successfully.`);
+                            queryClient.invalidateQueries({ queryKey: createQueryKeys.comments.byPost(rootUri || '') });
+                            queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
+                          } else {
+                            Alert.alert('Error', `Failed to delete ${postType}. Please try again.`);
+                          }
+                        } catch (error) {
+                          Alert.alert('Error', `Failed to delete ${postType}. Please try again.`);
+                        }
+                      },
+                    },
+                  ]
+                );
+              },
+            },
+          ]
+        );
+      } else {
+        // Other user's post: Repost, Report Post
+        Alert.alert(
+          actionTitle,
+          'Choose an action:',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Repost',
+              onPress: async () => {
+                try {
+                  await AtprotoService.repostPost(uri, cid);
+                  Alert.alert('Success', `${postType.charAt(0).toUpperCase() + postType.slice(1)} reposted successfully.`);
+                  queryClient.invalidateQueries({ queryKey: createQueryKeys.comments.byPost(rootUri || '') });
+                } catch (error) {
+                  Alert.alert('Error', `Failed to repost ${postType}. Please try again.`);
+                }
+              },
+            },
+            {
+              text: `Report ${postType.charAt(0).toUpperCase() + postType.slice(1)}`,
+              onPress: () => {
+                Alert.alert(
+                  'Report Content',
+                  `Please select a reason for reporting this ${postType}:`,
+                  [
+                    {
+                      text: 'Cancel',
+                      style: 'cancel',
+                    },
+                    {
+                      text: 'Spam',
+                      onPress: async () => {
+                        try {
+                          const success = await AtprotoService.reportContent(uri, 'spam');
+                          if (success) {
+                            Alert.alert('Thank you', 'This content has been reported for review.');
+                          } else {
+                            Alert.alert('Error', 'Failed to submit report. Please try again.');
+                          }
+                        } catch (error) {
+                          Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        }
+                      },
+                    },
+                    {
+                      text: 'Harmful Content',
+                      onPress: async () => {
+                        try {
+                          const success = await AtprotoService.reportContent(uri, 'violation');
+                          if (success) {
+                            Alert.alert('Thank you', 'This content has been reported for review.');
+                          } else {
+                            Alert.alert('Error', 'Failed to submit report. Please try again.');
+                          }
+                        } catch (error) {
+                          Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        }
+                      },
+                    },
+                    {
+                      text: 'Misleading',
+                      onPress: async () => {
+                        try {
+                          const success = await AtprotoService.reportContent(uri, 'misleading');
+                          if (success) {
+                            Alert.alert('Thank you', 'This content has been reported for review.');
+                          } else {
+                            Alert.alert('Error', 'Failed to submit report. Please try again.');
+                          }
+                        } catch (error) {
+                          Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        }
+                      },
+                    },
+                    {
+                      text: 'Sexual Content',
+                      onPress: async () => {
+                        try {
+                          const success = await AtprotoService.reportContent(uri, 'sexual');
+                          if (success) {
+                            Alert.alert('Thank you', 'This content has been reported for review.');
+                          } else {
+                            Alert.alert('Error', 'Failed to submit report. Please try again.');
+                          }
+                        } catch (error) {
+                          Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        }
+                      },
+                    },
+                    {
+                      text: 'Rude/Offensive',
+                      onPress: async () => {
+                        try {
+                          const success = await AtprotoService.reportContent(uri, 'rude');
+                          if (success) {
+                            Alert.alert('Thank you', 'This content has been reported for review.');
+                          } else {
+                            Alert.alert('Error', 'Failed to submit report. Please try again.');
+                          }
+                        } catch (error) {
+                          Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        }
+                      },
+                    },
+                    {
+                      text: 'Other',
+                      onPress: async () => {
+                        try {
+                          const success = await AtprotoService.reportContent(uri, 'other');
+                          if (success) {
+                            Alert.alert('Thank you', 'This content has been reported for review.');
+                          } else {
+                            Alert.alert('Error', 'Failed to submit report. Please try again.');
+                          }
+                        } catch (error) {
+                          Alert.alert('Error', 'Failed to submit report. Please try again.');
+                        }
+                      },
+                    },
+                  ]
+                );
+              },
+            },
+          ]
+        );
+      }
+    }, [uri, cid, isCurrentUserComment, rootUri, queryClient, level, comment?.parent, authorName]);
+
     const BLUESKY_CDN = 'https://cdn.bsky.app/img/feed_thumbnail/plain/';
 
     // Shimmer Image Component
@@ -667,10 +888,14 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
         { marginLeft: 0, paddingLeft: 0 },
         level > 0 && { marginLeft: 14 * level },
       ]}>
-        <Animated.View style={[
-          styles.commentItemContainer,
-          { zIndex: 1, paddingVertical: 6, paddingHorizontal: 0, alignItems: 'center' },
-        ]}>
+        <Pressable
+          onLongPress={handleLongPress}
+          delayLongPress={400}
+        >
+          <Animated.View style={[
+            styles.commentItemContainer,
+            { zIndex: 1, paddingVertical: 6, paddingHorizontal: 0, alignItems: 'center' },
+          ]}>
           {/* Full-width highlight overlay */}
           {shouldHighlight && (
             <Animated.View 
@@ -754,6 +979,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
           </View>
         </Animated.View>
+        </Pressable>
       </View>
     );
   }

@@ -14,16 +14,22 @@ interface CommentInteraction {
 interface CommentStoreState {
   // Map of comment URIs to their interaction state
   interactions: Map<string, CommentInteraction>;
+  // Set of deleted comment URIs
+  deletedComments: Set<string>;
   
   // Actions
   updateCommentInteraction: (commentUri: string, update: Partial<CommentInteraction>) => void;
   getCommentInteraction: (commentUri: string, defaultState: CommentInteraction) => CommentInteraction;
   clearInteractions: () => void;
   clearCommentInteraction: (commentUri: string) => void;
+  markCommentAsDeleted: (commentUri: string) => void;
+  isCommentDeleted: (commentUri: string) => boolean;
+  clearDeletedComment: (commentUri: string) => void;
 }
 
 export const useCommentStore = create<CommentStoreState>((set, get) => ({
   interactions: new Map(),
+  deletedComments: new Set(),
   
   updateCommentInteraction: (commentUri: string, update: Partial<CommentInteraction>) => {
     set((state) => {
@@ -50,6 +56,26 @@ export const useCommentStore = create<CommentStoreState>((set, get) => ({
       const newInteractions = new Map(state.interactions);
       newInteractions.delete(commentUri);
       return { interactions: newInteractions };
+    });
+  },
+  
+  markCommentAsDeleted: (commentUri: string) => {
+    set((state) => {
+      const newDeletedComments = new Set(state.deletedComments);
+      newDeletedComments.add(commentUri);
+      return { deletedComments: newDeletedComments };
+    });
+  },
+  
+  isCommentDeleted: (commentUri: string) => {
+    return get().deletedComments.has(commentUri);
+  },
+  
+  clearDeletedComment: (commentUri: string) => {
+    set((state) => {
+      const newDeletedComments = new Set(state.deletedComments);
+      newDeletedComments.delete(commentUri);
+      return { deletedComments: newDeletedComments };
     });
   },
 }));
