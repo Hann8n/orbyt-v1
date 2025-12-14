@@ -230,11 +230,6 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
     finalIsError: forceError || isError,
   }), [forceError, error, isError]);
 
-  // Memoized loading state calculation
-  const shouldShowLoader = useMemo(() => 
-    isLoading,
-    [isLoading]
-  );
 
   // Memoized callback for retry - prevents recreation on every render
   const handleRetry = useCallback(() => {
@@ -427,7 +422,7 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
       <ListFeedView
         ref={listFeedViewRef}
         {...commonProps}
-        isLoading={isSearchFeed ? false : shouldShowLoader}
+        isLoading={isSearchFeed ? false : isLoading}
         isError={isSearchFeed ? false : errorState.finalIsError}
         error={isSearchFeed ? null : errorState.finalError}
         visibilityKey={resolvedVisibilityKey}
@@ -440,7 +435,6 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
     isSearchFeed,
     errorState.finalIsError,
     errorState.finalError,
-    shouldShowLoader,
     feed,
     resolvedVisibilityKey,
     handleItemPress,

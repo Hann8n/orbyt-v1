@@ -3,17 +3,15 @@
  * Updated for unified snapping system
  */
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
-import { useRecyclingState } from '@shopify/flash-list';
 
 import VideoCard, { VideoCardRef } from '../video/VideoCard';
 import { extractVideoEmbedAndUrl } from '../../../utils/helpers/video';
-import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import { Colors } from '../../ui/UI';
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Types
 export interface Post {
@@ -36,7 +34,6 @@ export interface FeedItem {
 export interface VideoItemProps {
   post: Post;
   feedItem?: FeedItem;
-  handleVideoStatus?: (uri: string, status: string) => void;
   height?: number;
   feedOption?: string;
   isVisible?: boolean;
@@ -49,7 +46,6 @@ export interface VideoItemProps {
 const VideoItem: React.FC<VideoItemProps> = ({
   post,
   feedItem,
-  handleVideoStatus,
   height,
   feedOption,
   isVisible = false,
@@ -65,17 +61,6 @@ const VideoItem: React.FC<VideoItemProps> = ({
   const { videoEmbed, videoUrl } = extractVideoEmbedAndUrl(post);
   const hasVideo = !!videoUrl;
 
-  // Reset state when post changes
-  useEffect(() => {
-    if (videoRef.current?.seek) {
-      try {
-        videoRef.current.seek(0);
-      } catch (e) {
-        // Silently handle seek errors
-      }
-    }
-  }, [post.uri]);
-
   // Simplified styles - no memoization needed for simple style objects
   const containerStyle = [styles.videoContainer, { height: itemHeight, marginVertical: 3 }];
 
@@ -84,40 +69,8 @@ const VideoItem: React.FC<VideoItemProps> = ({
     return null;
   }
 
-  // Simple video status handler - uses post URI for tracking
-  const handleVideoStatusChange = (uri: string, status: string) => {
-    requestAnimationFrame(() => {
-      handleVideoStatus?.(uri, status);
-    });
-  };
-
-  // Enhanced cleanup on unmount for better memory management
-  useEffect(() => {
-    return () => {
-      if (videoRef.current) {
-        // Ensure video is paused
-        try {
-          videoRef.current.pause?.();
-        } catch (e) {
-          // Silently handle pause errors
-        }
-        
-        // Reset position to beginning
-        try {
-          videoRef.current.seek?.(0);
-        } catch (e) {
-          // Silently handle seek errors
-        }
-        
-        // Unload video resources
-        try {
-          videoRef.current.unload?.();
-        } catch (e) {
-          // Silently handle unload errors
-        }
-      }
-    };
-  }, []);
+  // expo-video's useVideoPlayer automatically handles cleanup on unmount
+  // The VideoCard component manages video state via useRecyclingState for FlashList optimization
 
   return (
     <View style={containerStyle}>
@@ -126,7 +79,6 @@ const VideoItem: React.FC<VideoItemProps> = ({
         post={{ ...post, embed: videoEmbed }}
         isVisible={isVisible}
         shouldDisablePlayback={!allowPlayback}
-        onVideoStatus={handleVideoStatusChange}
         height={itemHeight}
         moderationDecision={moderationDecision}
         showOverlay={true}

@@ -1,6 +1,5 @@
 declare let window: any;
 import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Dimensions,
@@ -27,12 +26,11 @@ import {
   QUERY_CONSTANTS,
   FEED_TYPES 
 } from '../../../utils/constants';
-import { FEED_CONFIG } from '../../../hooks/useFeed';
 import type { FeedItem, ListFeedViewProps, ViewMode, ListFeedViewRef } from '../../../types';
 import { useFeedVisibility } from '../../../hooks';
 import { useVisibilityCoreStore } from '../../../core/visibility';
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Constants
 const CONSTANTS = {
@@ -211,13 +209,10 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
     } : undefined
   , [backgroundColor, secondaryColor]);
 
-  // Always show feed - don't clear on refresh to maintain scroll position
-  // FlashList's maintainVisibleContentPosition will handle position preservation
-  const visibleFeed = useMemo(() => feed, [feed]);
-
   // List data with end card
+  // FlashList's maintainVisibleContentPosition will handle position preservation
   const listData = useMemo(() => {
-    const base = visibleFeed;
+    const base = feed;
     const shouldAppendEndCard = !isLoading && !isError && !isFetchingNextPage && !hasNextPage && base.length > 0;
     
     if (shouldAppendEndCard) {
@@ -230,16 +225,11 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
       ];
     }
     return base;
-  }, [visibleFeed, isLoading, isError, isFetchingNextPage, hasNextPage]);
+  }, [feed, isLoading, isError, isFetchingNextPage, hasNextPage]);
 
   // Error handling
   const effectiveError = forceError ? new Error('Forced error for testing') : error;
   const effectiveIsError = forceError || isError;
-
-  // Callbacks
-  const handleVideoStatus = useCallback((uri: string, status: string) => {
-    // Simple status handling - no complex logging needed
-  }, []);
 
   // Scroll to index function
   const scrollToIndex = useCallback((targetIndex: number) => {
@@ -305,7 +295,6 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
         key={`${item.post.uri}_${index}`}
         post={item.post}
         feedItem={item}
-        handleVideoStatus={handleVideoStatus}
         height={cardHeight}
         feedOption={feedOption as 'following' | 'discover'}
         isVisible={isVideoVisible}
@@ -319,7 +308,6 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
     cardHeight,
     feedOption,
     canPlay,
-    handleVideoStatus,
     isModal,
     isVideoVisibleHelper,
     secondaryColor,
@@ -429,8 +417,8 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
   // Orientation change handling
   const handleOrientationChange = useCallback(({ window }: { window: ScaledSize }) => {
     setTimeout(() => {
-      if (flashListRef.current && visibleFeed.length > 0 && activeItemUri) {
-        const currentIndex = visibleFeed.findIndex(item => item.post.uri === activeItemUri);
+      if (flashListRef.current && feed.length > 0 && activeItemUri) {
+        const currentIndex = feed.findIndex(item => item.post.uri === activeItemUri);
         if (currentIndex >= 0) {
           try {
             flashListRef.current.scrollToIndex({
@@ -444,7 +432,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
         }
       }
     }, APP_CONSTANTS.ORIENTATION_CHANGE_DELAY);
-  }, [activeItemUri, visibleFeed]);
+  }, [activeItemUri, feed]);
 
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', handleOrientationChange);
@@ -611,7 +599,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
         contentContainerStyle={{
           // Force black between items so margins render as black
           backgroundColor: Colors.black,
-          paddingBottom: visibleFeed.length === 0 ? 0 : viewportDimensions.bottomNavBarHeight,
+          paddingBottom: feed.length === 0 ? 0 : viewportDimensions.bottomNavBarHeight,
         }}
       />
       
@@ -628,28 +616,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: SCREEN_HEIGHT,
-  },
-  clearViewExitButton: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    width: 44,
-    height: 44,
-    borderRadius: BORDER_RADIUS.SMALL,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
 });
 
