@@ -274,7 +274,12 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
     lastScrollOffset.current = offsetY;
   }, [onPositionChange]);
 
-  // Render item function - simplified visibility logic
+  // Render item function - optimized to use stable helper function
+  // Note: activeItemUri and canPlay will cause renderItem to recreate when visibility changes,
+  // but this is necessary for VideoItem to update correctly. The key optimizations are:
+  // 1. overrideItemLayout is memoized (prevents FlashList internal re-renders)
+  // 2. ListHeaderComponent is memoized
+  // 3. Other props are stable
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<FeedItem>) => {
     if (item.endCard) {
       return (
@@ -288,6 +293,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
       );
     }
 
+    // Check visibility using the helper function (stable reference from useFeedVisibility)
     const isVideoVisible = isVideoVisibleHelper(item.post.uri) && canPlay;
     
     return (
@@ -468,8 +474,27 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
   const headerHeightForTabs = useMemo(() => (ListComponent ? CONSTANTS.HEADER_HEIGHT_TABS : 0), [ListComponent]);
   const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
 
-  // Snapping configuration
-  const snapToIntervalValue = cardHeight + CONSTANTS.ITEM_MARGIN;
+  // Snapping configuration - memoize to prevent recreation
+  const snapToIntervalValue = useMemo(() => cardHeight + CONSTANTS.ITEM_MARGIN, [cardHeight]);
+
+  // Memoize overrideItemLayout to prevent FlashList re-renders
+  const overrideItemLayout = useCallback((layout: any, item: FeedItem, index: number) => {
+    // Account for item margin added to VideoCard
+    layout.span = cardHeight + CONSTANTS.ITEM_MARGIN;
+  }, [cardHeight]);
+
+  // Memoize ListHeaderComponent to prevent recreation
+  const memoizedListHeaderComponent = useMemo(() => {
+    if (!headerComponent) return null;
+    return (
+      <View onLayout={(e) => {
+        const h = Math.round(e.nativeEvent.layout.height);
+        if (h > 0 && h !== headerHeight) setHeaderHeight(h);
+      }}>
+        {headerComponent}
+      </View>
+    );
+  }, [headerComponent, headerHeight]);
 
   // Custom snap offsets for header feeds
   const snapToOffsets = useMemo(() => {
@@ -503,21 +528,11 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         getItemType={getItemType}
-        ListHeaderComponent={headerComponent ? (
-          <View onLayout={(e) => {
-            const h = Math.round(e.nativeEvent.layout.height);
-            if (h > 0 && h !== headerHeight) setHeaderHeight(h);
-          }}>
-            {headerComponent}
-          </View>
-        ) : null}
+        ListHeaderComponent={memoizedListHeaderComponent}
         
         // FlashList performance optimizations
         removeClippedSubviews={true}
-        overrideItemLayout={(layout, item, index) => {
-          // Account for item margin added to VideoCard
-          layout.span = cardHeight + CONSTANTS.ITEM_MARGIN;
-        }}
+        overrideItemLayout={overrideItemLayout}
         
         // Snapping configuration
         pagingEnabled={false}

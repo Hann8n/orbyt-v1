@@ -21,6 +21,7 @@ import { useEventListener } from 'expo';
 import { type VideoPlayer } from 'expo-video';
 import { formatTime } from '../../../utils/helpers';
 import { Colors } from '../../ui/UI';
+import { useUIStore } from '../../../stores/uiStore';
 
 interface VideoScrubberProps {
   active: boolean;
@@ -39,6 +40,7 @@ export function VideoScrubber({
 }: VideoScrubberProps) {
   const { width: screenWidth } = useSafeAreaFrame();
   const insets = useSafeAreaInsets();
+  const setScrubbingState = useUIStore((state) => state.setVisibility);
   const currentTimeSV = useSharedValue(0);
   const durationSV = useSharedValue(0);
   const [currentSeekTime, setCurrentSeekTime] = useState(0);
@@ -59,6 +61,16 @@ export function VideoScrubber({
       playerRef.current = player;
     }
   }, [player, optimisticTimeSV]);
+
+  // Sync seekingAnimationSV to UI store using same threshold as overlay (0.2)
+  useAnimatedReaction(
+    () => seekingAnimationSV.value,
+    (seekingValue) => {
+      'worklet';
+      const isScrubbing = seekingValue >= 0.2;
+      runOnJS(setScrubbingState)('videoScrubbing', isScrubbing);
+    },
+  );
 
   // Reset optimistic time when component becomes inactive
   useEffect(() => {

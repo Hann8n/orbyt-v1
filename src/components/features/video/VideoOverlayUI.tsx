@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence } from 'react-native-reanimated';
-import { useMappingHelper } from '@shopify/flash-list';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -104,9 +103,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const { presentShareSheet } = useGlobalShareSheet();
   const { presentCommentSection } = useGlobalCommentSection();
   const navigation = useRouter();
-  
-  // Get mapping helper for optimized rendering of nested components
-  const { getMappingKey } = useMappingHelper();
   
   // Overlay state
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
@@ -264,8 +260,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const isFollowingProfile = cachedProfile?.isFollowing ?? false;
   const isFollowing = isFollowingProfile;
   const followMutation = useFollowMutation();
-  const currentUser = useUserStore(state => state.currentUser);
-  const isCurrentUserProfile = isCurrentUser(post.author?.did, post.author?.handle, currentUser);
+  // Use specific selector to only subscribe to currentUser, not the entire store
+  const currentUserDid = useUserStore(state => state.currentUser?.did);
+  const currentUserHandle = useUserStore(state => state.currentUser?.handle);
+  const isCurrentUserProfile = isCurrentUser(post.author?.did, post.author?.handle, { did: currentUserDid, handle: currentUserHandle } as any);
 
   // Show confirmation badge when follow succeeds
   useEffect(() => {
