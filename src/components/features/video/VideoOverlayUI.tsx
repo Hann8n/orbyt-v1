@@ -10,7 +10,6 @@ import {
   Dimensions,
   useWindowDimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../ui/UI';
 import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers';
@@ -316,38 +315,29 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     isModal ? { bottom: 0 } : (isSmallScreenDevice || isTabletDevice) ? { bottom: bottomNavBarHeight} : {},
   ], [contentPadding, isModal, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight]);
 
-  const gradientColors = useMemo(() => {
-    if (hasLongText && isOverlayCollapsed) {
-      // Add shading when collapsed to improve text readability
-      return ['rgba(0, 0, 0, 0.6)', 'rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 0.1)', 'transparent'] as const;
-    }
-    if (hasLongText) {
-      return ['rgba(0, 0, 0, 0.95)', 'rgba(0, 0, 0, 0.7)', 'rgba(0, 0, 0, 0.3)', 'transparent'] as const;
-    }
-    // Add subtle shading when collapsed even without long text
-    if (isOverlayCollapsed) {
-      return ['rgba(0, 0, 0, 0.5)', 'rgba(0, 0, 0, 0.2)', 'rgba(0, 0, 0, 0.05)', 'transparent'] as const;
-    }
-    return ['transparent', 'transparent', 'transparent', 'transparent'] as const;
-  }, [hasLongText, isOverlayCollapsed]);
+  // Gradient moved to VideoCard to prevent flashing - no longer needed here
 
-  if (!isVisible) return null;
+  // Use animated opacity instead of conditional rendering to prevent unmounting
+  // This reduces jank when switching between videos
+  const overlayOpacityShared = useSharedValue(isVisible ? 1 : 0);
+  
+  // Update opacity when visibility changes
+  useEffect(() => {
+    overlayOpacityShared.value = withTiming(isVisible ? 1 : 0, { duration: 150 });
+  }, [isVisible, overlayOpacityShared]);
+  
+  const overlayAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: overlayOpacityShared.value,
+  }));
+  
+  const overlayPointerEvents = useMemo(() => (isVisible ? 'box-none' as const : 'none' as const), [isVisible]);
 
   return (
     <>
-      <View style={styles.overlayContainer} pointerEvents="box-none">
-      {/* Gradient overlay with hardware acceleration */}
-      <View style={[styles.uiOverlay, { height: height * 0.8 }]} pointerEvents="none">
-        <LinearGradient
-          colors={gradientColors}
-          locations={[0, 0.4, 0.6, 1]}
-          style={{ flex: 1 }}
-          pointerEvents="none"
-          start={{ x: 0, y: 1 }}
-          end={{ x: 0, y: 0 }}
-        />
-      </View>
-      
+      <Animated.View 
+        style={[styles.overlayContainer, overlayAnimatedStyle]} 
+        pointerEvents={overlayPointerEvents}
+      >
       <View 
         style={overlayContentStyle} 
         pointerEvents="box-none"
@@ -642,7 +632,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </Animated.View>
     </>
   );
 };
@@ -657,14 +647,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'flex-end',
     zIndex: 5,
-  },
-  uiOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: SCREEN_HEIGHT * 0.8,
-    zIndex: 1,
   },
   overlayContentContainer: {
     position: 'absolute',
@@ -891,5 +873,33 @@ const styles = StyleSheet.create({
   },
 });
 
-export default React.memo(VideoOverlayUI);
+// Custom comparison function to prevent unnecessary re-renders
+// Only re-render if critical props change
+const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUIProps) => {
+  // Always re-render if visibility changes (needed for opacity transition)
+  if (prevProps.isVisible !== nextProps.isVisible) return false;
+  
+  // Compare post URI (most important identifier)
+  if (prevProps.post?.uri !== nextProps.post?.uri) return false;
+  
+  // Compare interaction states
+  if (prevProps.isLiked !== nextProps.isLiked) return false;
+  if (prevProps.isReposted !== nextProps.isReposted) return false;
+  if (prevProps.likeCount !== nextProps.likeCount) return false;
+  if (prevProps.repostCount !== nextProps.repostCount) return false;
+  if (prevProps.isLikePending !== nextProps.isLikePending) return false;
+  if (prevProps.isRepostPending !== nextProps.isRepostPending) return false;
+  
+  // Compare modal state
+  if (prevProps.isModal !== nextProps.isModal) return false;
+  
+  // Compare feed options
+  if (prevProps.feedOption !== nextProps.feedOption) return false;
+  if (prevProps.sourceFeed !== nextProps.sourceFeed) return false;
+  
+  // If all critical props are the same, skip re-render
+  return true;
+};
+
+export default React.memo(VideoOverlayUI, arePropsEqual);
 

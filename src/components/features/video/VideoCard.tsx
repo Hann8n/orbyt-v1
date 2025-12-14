@@ -23,11 +23,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
-  Animated,
+  Animated as RNAnimated,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
@@ -119,15 +121,15 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const playerRef = useRef<any>(null);
     const videoId = post.uri;
     
-    // Animated value for smooth dimming transition
-    const dimmingOpacity = useRef(new Animated.Value(isVisible ? 0 : 1)).current;
-    const [shouldShowDimming, setShouldShowDimming] = useState(!isVisible);
+    // Use Reanimated for better performance - runs on UI thread
+    // Faster animation (80ms) for snappier feel during scrolling
+    const dimmingOpacity = useSharedValue(isVisible ? 0 : 1);
     
     // Double tap to like state
     const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
     const singleTapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const heartScale = useRef(new Animated.Value(0)).current;
-    const heartOpacity = useRef(new Animated.Value(0)).current;
+    const heartScale = useRef(new RNAnimated.Value(0)).current;
+    const heartOpacity = useRef(new RNAnimated.Value(0)).current;
     const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
     const [showHeart, setShowHeart] = useState(false);
 
@@ -136,7 +138,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const posterUrl = extractVideoThumbnail(post.embed);
     
     // Track dimensions
-    const { width } = Dimensions.get('window');
+    const { width, height: screenHeight } = Dimensions.get('window');
     // Use provided height or calculate based on 9:16 aspect ratio if post has aspectRatio
     const postAspectRatio = post.embed?.aspectRatio;
     const defaultAspectRatio = postAspectRatio ? postAspectRatio.width / postAspectRatio.height : 16/9;
@@ -178,32 +180,20 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       // No need to reset videoState - handled automatically by useRecyclingState
     }, [post?.uri]);
 
-    // Optimized dimming animation - only when visibility actually changes
+    // Optimized dimming animation using Reanimated - faster and smoother
+    // Runs on UI thread for better scroll performance
     useEffect(() => {
-      const targetOpacity = isVisible ? 0 : 1;
-      
-      if (targetOpacity === 0) {
-        // Fading out - start animation then remove from render tree
-        Animated.timing(dimmingOpacity, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }).start(() => {
-          setShouldShowDimming(false);
-        });
-      } else {
-        // Fading in - add to render tree then animate
-        setShouldShowDimming(true);
-        // Use requestAnimationFrame to ensure DOM update before animation
-        requestAnimationFrame(() => {
-          Animated.timing(dimmingOpacity, {
-            toValue: 1,
-            duration: 150,
-            useNativeDriver: true,
-          }).start();
-        });
-      }
+      // Faster animation (60ms) with ease-out for snappier feel during scrolling
+      dimmingOpacity.value = withTiming(isVisible ? 0 : 1, {
+        duration: 60, // Reduced from 150ms for much faster response
+        easing: Easing.out(Easing.ease), // Smooth ease-out curve
+      });
     }, [isVisible, dimmingOpacity]);
+    
+    // Animated style for dimming overlay
+    const dimmingAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: dimmingOpacity.value,
+    }));
 
     // Isolated video playback logic - only depends on this video's state
     const shouldPlayVideo = !shouldDisablePlayback && 
@@ -469,24 +459,24 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       heartScale.setValue(0);
       heartOpacity.setValue(1);
       
-      Animated.parallel([
-        Animated.sequence([
-          Animated.spring(heartScale, {
+      RNAnimated.parallel([
+        RNAnimated.sequence([
+          RNAnimated.spring(heartScale, {
             toValue: 1.2,
             tension: 100,
             friction: 7,
             useNativeDriver: true,
           }),
-          Animated.spring(heartScale, {
+          RNAnimated.spring(heartScale, {
             toValue: 1,
             tension: 100,
             friction: 7,
             useNativeDriver: true,
           }),
         ]),
-        Animated.sequence([
-          Animated.delay(200),
-          Animated.timing(heartOpacity, {
+        RNAnimated.sequence([
+          RNAnimated.delay(200),
+          RNAnimated.timing(heartOpacity, {
             toValue: 0,
             duration: 300,
             useNativeDriver: true,
@@ -680,15 +670,26 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
               </View>
             )}
 
-            {/* Optimized dimming overlay - only render when needed */}
-            {shouldShowDimming && (
-              <Animated.View 
-                style={[
-                  styles.dimmingOverlay, 
-                  { opacity: dimmingOpacity }
-                ]} 
+            {/* Static shadow gradient - always rendered to prevent flashing */}
+            <View style={[styles.shadowGradient, { height: screenHeight * 0.8 }]} pointerEvents="none">
+              <LinearGradient
+                colors={['rgba(0, 0, 0, 0.5)', 'rgba(0, 0, 0, 0.2)', 'rgba(0, 0, 0, 0.05)', 'transparent']}
+                locations={[0, 0.4, 0.6, 1]}
+                style={{ flex: 1 }}
+                pointerEvents="none"
+                start={{ x: 0, y: 1 }}
+                end={{ x: 0, y: 0 }}
               />
-            )}
+            </View>
+
+            {/* Optimized dimming overlay - always mounted for smooth transitions */}
+            <Animated.View 
+              style={[
+                styles.dimmingOverlay, 
+                dimmingAnimatedStyle
+              ]} 
+              pointerEvents="none"
+            />
 
             {/* Double tap heart animation */}
             {showHeart && (
@@ -709,7 +710,8 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
             )}
 
             {/* Integrated Overlay System using VideoOverlayUI */}
-            {showOverlay && isVisible && (
+            {/* Keep overlay mounted to prevent jank when switching videos */}
+            {showOverlay && (
               <VideoOverlayUI
                 post={post}
                 isVisible={isVisible}
@@ -841,6 +843,13 @@ const styles = StyleSheet.create({
   viewButtonText: {
     color: '#000',
     fontWeight: 'bold',
+  },
+  shadowGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 3,
   },
   dimmingOverlay: {
     ...StyleSheet.absoluteFillObject,
