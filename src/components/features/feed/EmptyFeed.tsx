@@ -470,4 +470,4 @@ const styles = StyleSheet.create({
 
 });
 
-export default EmptyFeed;
+export default React.memo(EmptyFeed);

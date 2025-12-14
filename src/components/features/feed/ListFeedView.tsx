@@ -7,6 +7,7 @@ import React, {
   useMemo,
   forwardRef,
   useImperativeHandle,
+  memo,
 } from "react";
 import {
   View,
@@ -17,6 +18,7 @@ import {
   NativeScrollEvent,
   ScaledSize,
   ViewToken,
+  InteractionManager,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -62,6 +64,83 @@ const CONSTANTS = {
   VISIBILITY_JITTER_THRESHOLD: 0.05,
 } as const;
 
+// Memoized empty component to prevent recreation on every render
+interface ListEmptyComponentProps {
+  isLoading: boolean;
+  effectiveIsError: boolean;
+  feedOption: string;
+  secondaryColor?: string;
+  profileColors?: { backgroundColor: string; textColor: string };
+  isHeaderFeed: boolean;
+  emptyComponentHeight: number;
+  backgroundColor?: string;
+  onRetry?: () => void;
+}
+
+const ListEmptyComponent = memo<ListEmptyComponentProps>(
+  ({
+    isLoading,
+    effectiveIsError,
+    feedOption,
+    secondaryColor,
+    profileColors,
+    isHeaderFeed,
+    emptyComponentHeight,
+    backgroundColor,
+    onRetry,
+  }) => {
+    if (isLoading) {
+      return (
+        <View
+          style={[
+            styles.centeredLoadingContainer,
+            { backgroundColor: backgroundColor || Colors.black },
+          ]}
+        >
+          <Loading3FillIcon
+            size={48}
+            color={secondaryColor || Colors.white}
+          />
+        </View>
+      );
+    }
+
+    const commonProps = {
+      secondaryColor,
+      profileColors,
+      isProfileFeed: isHeaderFeed,
+      viewableAreaHeight: emptyComponentHeight,
+      feedOption,
+    };
+
+    if (effectiveIsError) {
+      return (
+        <EmptyFeed type="error" onRetry={onRetry} {...commonProps} />
+      );
+    }
+    if (feedOption === "following") {
+      return <EmptyFeed type="no-following" {...commonProps} />;
+    }
+    return <EmptyFeed type="no-videos" {...commonProps} />;
+  },
+  (prevProps, nextProps) => {
+    // Custom comparison to prevent unnecessary rerenders
+    return (
+      prevProps.isLoading === nextProps.isLoading &&
+      prevProps.effectiveIsError === nextProps.effectiveIsError &&
+      prevProps.feedOption === nextProps.feedOption &&
+      prevProps.secondaryColor === nextProps.secondaryColor &&
+      prevProps.profileColors === nextProps.profileColors &&
+      prevProps.isHeaderFeed === nextProps.isHeaderFeed &&
+      prevProps.emptyComponentHeight === nextProps.emptyComponentHeight &&
+      prevProps.backgroundColor === nextProps.backgroundColor &&
+      prevProps.onRetry === nextProps.onRetry
+    );
+  },
+);
+
+ListEmptyComponent.displayName = "ListEmptyComponent";
+
 const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
   (
     {
@@ -100,7 +179,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
 
     // Layout state
     const [headerHeight, setHeaderHeight] = useState(0);
-    const [listHeight, setListHeight] = useState<number>(0);
+    const listHeightRef = useRef<number>(0);
 
     // Refs
     const flashListRef = useRef<FlashListRef<FeedItem>>(null);
@@ -120,6 +199,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       null,
     );
     const lastHeaderVisibilityRef = useRef(0);
+    const headerVisibilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Device detection
     const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
@@ -213,7 +293,14 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         }
 
         lastHeaderVisibilityRef.current = clamped;
-        setFeedHeaderVisibility(scopedVisibilityKey, clamped);
+        
+        // Debounce header visibility updates to reduce state changes during scroll
+        if (headerVisibilityTimeoutRef.current) {
+          clearTimeout(headerVisibilityTimeoutRef.current);
+        }
+        headerVisibilityTimeoutRef.current = setTimeout(() => {
+          setFeedHeaderVisibility(scopedVisibilityKey, clamped);
+        }, 50); // Debounce to reduce state updates
       },
       [scopedVisibilityKey, isHeaderFeed, setFeedHeaderVisibility],
     );
@@ -329,46 +416,54 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [listData.length],
     );
 
-    // Scroll handling
+    // Scroll handling - optimized to reduce work on scroll thread
     const onScrollNative = useCallback(
       (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        // Only calculate header visibility if needed
         if (isHeaderFeed && headerHeight > 0) {
-          const offsetY = Math.max(0, e.nativeEvent.contentOffset.y);
-          const clampedOffset = Math.min(headerHeight, offsetY);
-          const visibleHeight = Math.max(0, headerHeight - clampedOffset);
-          const visibilityRatio =
-            headerHeight > 0 ? visibleHeight / headerHeight : 0;
-          updateHeaderVisibility(visibilityRatio);
+          const offsetY = e.nativeEvent.contentOffset.y;
+          // Use refs to avoid closure dependencies - calculate on next frame
+          requestAnimationFrame(() => {
+            const clampedOffset = Math.min(headerHeight, Math.max(0, offsetY));
+            const visibleHeight = Math.max(0, headerHeight - clampedOffset);
+            const visibilityRatio = headerHeight > 0 ? visibleHeight / headerHeight : 0;
+            updateHeaderVisibility(visibilityRatio);
+          });
         }
-        onScroll?.(e);
+        // Call external onScroll if provided (but don't block scroll thread)
+        if (onScroll) {
+          onScroll(e);
+        }
       },
       [onScroll, isHeaderFeed, headerHeight, updateHeaderVisibility],
     );
 
-    // Momentum scroll end - save position
+    // Momentum scroll end - save position (moved to background thread)
     const onMomentumScrollEnd = useCallback(
       (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         const offsetY = e.nativeEvent.contentOffset.y;
+        lastScrollOffset.current = offsetY;
 
-        // Debounce position saving
+        // Move position saving to background thread to avoid blocking scroll
         if (positionSaveTimeout.current) {
           clearTimeout(positionSaveTimeout.current);
         }
         positionSaveTimeout.current = setTimeout(() => {
-          if (
-            onPositionChange &&
-            Math.abs(offsetY - lastScrollOffset.current) >
-              SCROLL_CONSTANTS.POSITION_CHANGE_THRESHOLD
-          ) {
-            onPositionChange(offsetY);
-          }
+          InteractionManager.runAfterInteractions(() => {
+            if (
+              onPositionChange &&
+              Math.abs(offsetY - lastScrollOffset.current) >
+                SCROLL_CONSTANTS.POSITION_CHANGE_THRESHOLD
+            ) {
+              onPositionChange(offsetY);
+            }
+          });
         }, APP_CONSTANTS.POSITION_SAVE_DELAY);
-        lastScrollOffset.current = offsetY;
       },
       [onPositionChange],
     );
 
-    // Render item function - simplified visibility logic
+    // Render item function - optimized to reduce dependencies and rerenders
     const renderItem = useCallback(
       ({ item, index }: ListRenderItemInfo<FeedItem>) => {
         if (item.endCard) {
@@ -383,11 +478,11 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           );
         }
 
-        const isVideoVisible = isVideoVisibleHelper(item.post.uri) && canPlay;
+        // Check visibility inline - no function call needed
+        const isVideoVisible = activeItemUri === item.post.uri && canPlay;
 
         return (
           <VideoItem
-            key={`${item.post.uri}_${index}`}
             post={item.post}
             feedItem={item}
             height={cardHeight}
@@ -405,7 +500,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         feedOption,
         canPlay,
         isModal,
-        isVideoVisibleHelper,
+        activeItemUri,
         secondaryColor,
         profileColors,
       ],
@@ -425,6 +520,16 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       return item.endCard ? "end-card" : `${item.post.uri}:${item.post.cid}`;
     }, []);
 
+    // Stable overrideItemLayout callback to prevent recreation
+    const itemHeightWithMargin = cardHeight + CONSTANTS.ITEM_MARGIN;
+    const overrideItemLayout = useCallback(
+      (layout: any) => {
+        // Account for item margin added to VideoCard
+        layout.span = itemHeightWithMargin;
+      },
+      [itemHeightWithMargin],
+    );
+
     // Comprehensive cleanup for all timeout refs to prevent memory leaks
     useEffect(() => {
       return () => {
@@ -435,6 +540,10 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         if (initialVisibilityTimeout.current) {
           clearTimeout(initialVisibilityTimeout.current);
           initialVisibilityTimeout.current = null;
+        }
+        if (headerVisibilityTimeoutRef.current) {
+          clearTimeout(headerVisibilityTimeoutRef.current);
+          headerVisibilityTimeoutRef.current = null;
         }
         hasPrimedVisibleItemRef.current = false;
       };
@@ -499,9 +608,12 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         ) {
           onViewModeChange("list");
 
-          setTimeout(() => {
-            scrollToIndex(index);
-          }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
+          // Move to background thread
+          InteractionManager.runAfterInteractions(() => {
+            setTimeout(() => {
+              scrollToIndex(index);
+            }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
+          });
         }
       },
       [feed.length, viewMode, onViewModeChange, scrollToIndex],
@@ -522,38 +634,44 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           0,
           Math.min(targetScrollIndex, listData.length - 1),
         );
-        setTimeout(() => {
-          flashListRef.current?.scrollToIndex({
-            index: targetIndex,
-            animated: false,
-            viewPosition: 0.5,
-          });
-          hasScrolledToTargetRef.current = true;
-        }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
+        // Move to background thread
+        InteractionManager.runAfterInteractions(() => {
+          setTimeout(() => {
+            flashListRef.current?.scrollToIndex({
+              index: targetIndex,
+              animated: false,
+              viewPosition: 0.5,
+            });
+            hasScrolledToTargetRef.current = true;
+          }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
+        });
       }
     }, [targetScrollIndex, viewMode, listData.length]);
 
-    // Orientation change handling
+    // Orientation change handling - moved to background thread
     const handleOrientationChange = useCallback(
       ({ window }: { window: ScaledSize }) => {
-        setTimeout(() => {
-          if (flashListRef.current && feed.length > 0 && activeItemUri) {
-            const currentIndex = feed.findIndex(
-              (item) => item.post.uri === activeItemUri,
-            );
-            if (currentIndex >= 0) {
-              try {
-                flashListRef.current.scrollToIndex({
-                  index: currentIndex,
-                  animated: false,
-                  viewPosition: 0.5,
-                });
-              } catch (error) {
-                // Handle scroll errors gracefully
+        // Move to background thread to avoid blocking UI
+        InteractionManager.runAfterInteractions(() => {
+          setTimeout(() => {
+            if (flashListRef.current && feed.length > 0 && activeItemUri) {
+              const currentIndex = feed.findIndex(
+                (item) => item.post.uri === activeItemUri,
+              );
+              if (currentIndex >= 0) {
+                try {
+                  flashListRef.current.scrollToIndex({
+                    index: currentIndex,
+                    animated: false,
+                    viewPosition: 0.5,
+                  });
+                } catch (error) {
+                  // Handle scroll errors gracefully
+                }
               }
             }
-          }
-        }, APP_CONSTANTS.ORIENTATION_CHANGE_DELAY);
+          }, APP_CONSTANTS.ORIENTATION_CHANGE_DELAY);
+        });
       },
       [activeItemUri, feed],
     );
@@ -596,15 +714,19 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       () => (ListComponent ? CONSTANTS.HEADER_HEIGHT_TABS : 0),
       [ListComponent],
     );
-    const emptyComponentHeight = Math.max(
-      0,
-      viewableAreaHeight - headerHeightForTabs,
+    const emptyComponentHeight = useMemo(
+      () => Math.max(0, viewableAreaHeight - headerHeightForTabs),
+      [viewableAreaHeight, headerHeightForTabs],
     );
 
-    // Snapping configuration
-    const snapToIntervalValue = cardHeight + CONSTANTS.ITEM_MARGIN;
+    // Snapping configuration - memoized to prevent recalculation
+    const snapToIntervalValue = useMemo(
+      () => cardHeight + CONSTANTS.ITEM_MARGIN,
+      [cardHeight],
+    );
 
     // Custom snap offsets for header feeds and non-header feeds
+    // Memoized with stable dependencies to prevent recalculation on every render
     const snapToOffsets = useMemo(() => {
       const itemHeightWithMargin = cardHeight + CONSTANTS.ITEM_MARGIN;
 
@@ -616,7 +738,6 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         // For feeds with headers, align first video item between status and bottom bars
         // after scrolling past the header
         const topInset = viewportDimensions.effectiveInsets.top;
-        const bottomBarHeight = viewportDimensions.bottomNavBarHeight;
         const base = Math.max(0, headerHeight - topInset);
 
         const itemCount = listData.length;
@@ -644,11 +765,31 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       headerComponent,
       headerHeight,
       cardHeight,
-      listHeight,
       listData.length,
-      viewportDimensions,
+      viewportDimensions.effectiveInsets.top,
+      viewportDimensions.bottomNavBarHeight,
       isSmallDevice,
     ]);
+
+    // Stable layout callbacks to prevent recreation
+    // Use ref instead of state to avoid rerenders
+    const handleListLayout = useCallback((e: any) => {
+      const h = Math.round(e.nativeEvent.layout.height);
+      if (h > 0 && h !== listHeightRef.current) {
+        listHeightRef.current = h;
+        // No state update needed - just track for comparison
+      }
+    }, []);
+
+    const handleHeaderLayout = useCallback((e: any) => {
+      const h = Math.round(e.nativeEvent.layout.height);
+      if (h > 0 && h !== headerHeight) {
+        // Use requestAnimationFrame to avoid blocking layout
+        requestAnimationFrame(() => {
+          setHeaderHeight(h);
+        });
+      }
+    }, [headerHeight]);
 
     // Main render
     return (
@@ -657,10 +798,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           styles.container,
           { backgroundColor: backgroundColor || Colors.black },
         ]}
-        onLayout={(e) => {
-          const h = Math.round(e.nativeEvent.layout.height);
-          if (h > 0 && h !== listHeight) setListHeight(h);
-        }}
+        onLayout={handleListLayout}
       >
         <FlashList
           ref={flashListRef}
@@ -670,22 +808,14 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           getItemType={getItemType}
           ListHeaderComponent={
             headerComponent ? (
-              <View
-                onLayout={(e) => {
-                  const h = Math.round(e.nativeEvent.layout.height);
-                  if (h > 0 && h !== headerHeight) setHeaderHeight(h);
-                }}
-              >
+              <View onLayout={handleHeaderLayout}>
                 {headerComponent}
               </View>
             ) : null
           }
           // FlashList performance optimizations
           removeClippedSubviews={true}
-          overrideItemLayout={(layout, item, index) => {
-            // Account for item margin added to VideoCard
-            layout.span = cardHeight + CONSTANTS.ITEM_MARGIN;
-          }}
+          overrideItemLayout={overrideItemLayout}
           // Snapping configuration
           pagingEnabled={false}
           {...(snapToOffsets
@@ -725,52 +855,20 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           // Prevent horizontal interference
           alwaysBounceVertical={false}
           alwaysBounceHorizontal={false}
-          // Empty state components
-          ListEmptyComponent={useMemo(() => {
-            if (isLoading) {
-              return (
-                <View
-                  style={[
-                    styles.centeredLoadingContainer,
-                    { backgroundColor: backgroundColor || Colors.black },
-                  ]}
-                >
-                  <Loading3FillIcon
-                    size={48}
-                    color={secondaryColor || Colors.white}
-                  />
-                </View>
-              );
-            }
-
-            const commonProps = {
-              secondaryColor,
-              profileColors,
-              isProfileFeed: isHeaderFeed,
-              viewableAreaHeight: emptyComponentHeight,
-              feedOption,
-            };
-
-            if (effectiveIsError) {
-              return (
-                <EmptyFeed type="error" onRetry={onRetry} {...commonProps} />
-              );
-            }
-            if (feedOption === "following") {
-              return <EmptyFeed type="no-following" {...commonProps} />;
-            }
-            return <EmptyFeed type="no-videos" {...commonProps} />;
-          }, [
-            isLoading,
-            effectiveIsError,
-            feedOption,
-            secondaryColor,
-            profileColors,
-            isHeaderFeed,
-            emptyComponentHeight,
-            backgroundColor,
-            onRetry,
-          ])}
+          // Empty state components - extracted to memoized component
+          ListEmptyComponent={
+            <ListEmptyComponent
+              isLoading={isLoading}
+              effectiveIsError={effectiveIsError}
+              feedOption={feedOption}
+              secondaryColor={secondaryColor}
+              profileColors={profileColors}
+              isHeaderFeed={isHeaderFeed}
+              emptyComponentHeight={emptyComponentHeight}
+              backgroundColor={backgroundColor}
+              onRetry={onRetry}
+            />
+          }
           // Content container styling
           contentContainerStyle={{
             // Force black between items so margins render as black

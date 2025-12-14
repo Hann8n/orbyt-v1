@@ -17,6 +17,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 export interface Post {
   embed?: any;
   uri: string;
+  cid?: string;
   author?: {
     avatar?: string;
     displayName?: string;
@@ -102,5 +103,42 @@ const styles = StyleSheet.create({
   }
 });
 
-export default React.memo(VideoItem);
+// Custom comparison function for better memoization
+// Only rerender if props that actually affect rendering change
+const areEqual = (prevProps: VideoItemProps, nextProps: VideoItemProps) => {
+  // Compare primitive values
+  if (
+    prevProps.height !== nextProps.height ||
+    prevProps.feedOption !== nextProps.feedOption ||
+    prevProps.isVisible !== nextProps.isVisible ||
+    prevProps.isModal !== nextProps.isModal ||
+    prevProps.allowPlayback !== nextProps.allowPlayback ||
+    prevProps.index !== nextProps.index
+  ) {
+    return false;
+  }
+
+  // Compare post URI and CID (stable identifiers)
+  if (
+    prevProps.post?.uri !== nextProps.post?.uri ||
+    prevProps.post?.cid !== nextProps.post?.cid
+  ) {
+    return false;
+  }
+
+  // Compare moderation decision
+  if (prevProps.moderationDecision !== nextProps.moderationDecision) {
+    return false;
+  }
+
+  // Compare feedItem sourceFeed
+  if (prevProps.feedItem?.sourceFeed !== nextProps.feedItem?.sourceFeed) {
+    return false;
+  }
+
+  // If all checks pass, props are equal - skip rerender
+  return true;
+};
+
+export default React.memo(VideoItem, areEqual);
 export { VideoItem };

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { useMappingHelper } from '@shopify/flash-list';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
@@ -315,22 +315,23 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     isModal ? { bottom: 0 } : (isSmallScreenDevice || isTabletDevice) ? { bottom: bottomNavBarHeight} : {},
   ], [contentPadding, isModal, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight]);
 
-  // Gradient moved to VideoCard to prevent flashing - no longer needed here
-
   // Use animated opacity instead of conditional rendering to prevent unmounting
   // This reduces jank when switching between videos
   const overlayOpacityShared = useSharedValue(isVisible ? 1 : 0);
   
-  // Update opacity when visibility changes
+  // Update opacity when visibility changes - faster animation for snappier scroll response
   useEffect(() => {
-    overlayOpacityShared.value = withTiming(isVisible ? 1 : 0, { duration: 150 });
+    overlayOpacityShared.value = withTiming(isVisible ? 1 : 0, {
+      duration: 60,
+      easing: Easing.out(Easing.ease),
+    });
   }, [isVisible, overlayOpacityShared]);
   
   const overlayAnimatedStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacityShared.value,
   }));
   
-  const overlayPointerEvents = useMemo(() => (isVisible ? 'box-none' as const : 'none' as const), [isVisible]);
+  const overlayPointerEvents = isVisible ? 'box-none' as const : 'none' as const;
 
   return (
     <>
