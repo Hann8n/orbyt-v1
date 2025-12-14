@@ -151,7 +151,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const player = useVideoPlayer(videoSource, (player) => {
       player.loop = true;
       player.muted = false;
-      player.timeUpdateEventInterval = 0.25; // Update every 250ms for smooth progress bar
+      player.timeUpdateEventInterval = 0; // Explicit: no progress updates (overlay has no progress bar)
     });
     
     // Listen to player status changes using expo's useEvent hook
@@ -727,7 +727,6 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 repostCount={overlayState.repostCount}
                 isLikePending={overlayState.isLikePending}
                 isRepostPending={overlayState.isRepostPending}
-                player={player}
               />
             )}
           </View>
