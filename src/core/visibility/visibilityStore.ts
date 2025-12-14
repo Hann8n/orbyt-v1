@@ -118,7 +118,9 @@ export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
     if (!key) return;
     const clamped = Math.max(0, Math.min(1, visiblePercent));
     const current = get().feeds[key] ?? createDefaultFeedScope();
-    if (Math.abs(current.headerVisiblePercent - clamped) < 0.02) return;
+    // Reduced threshold from 0.02 to 0.01 for more responsive updates
+    // This ensures threshold crossings (0.5) are always detected
+    if (Math.abs(current.headerVisiblePercent - clamped) < 0.01) return;
     set((state) => ({
       feeds: {
         ...state.feeds,

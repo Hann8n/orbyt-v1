@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withSequence, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, useAnimatedReaction, withSpring, withTiming, withSequence, Easing } from 'react-native-reanimated';
 import { useMappingHelper } from '@shopify/flash-list';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
@@ -184,9 +184,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Memoize UI calculations to prevent recalculation on every render
   const likeScale = useSharedValue(1);
-  const likeAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: likeScale.value }],
-  }));
+  const likeAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ scale: likeScale.value }],
+    };
+  });
   
   const uiCalculations = useMemo(() => {
     return {
@@ -318,18 +321,34 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // Use animated opacity instead of conditional rendering to prevent unmounting
   // This reduces jank when switching between videos
   const overlayOpacityShared = useSharedValue(isVisible ? 1 : 0);
+  const isVisibleShared = useSharedValue(isVisible);
   
-  // Update opacity when visibility changes - faster animation for snappier scroll response
+  // Update shared value when prop changes (runs on JS thread but minimal work)
   useEffect(() => {
-    overlayOpacityShared.value = withTiming(isVisible ? 1 : 0, {
-      duration: 60,
-      easing: Easing.out(Easing.ease),
-    });
-  }, [isVisible, overlayOpacityShared]);
+    isVisibleShared.value = isVisible;
+  }, [isVisible, isVisibleShared]);
   
-  const overlayAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: overlayOpacityShared.value,
-  }));
+  // Use useAnimatedReaction to update opacity on UI thread when visibility changes
+  // This moves the animation scheduling to UI thread for better scroll performance
+  useAnimatedReaction(
+    () => isVisibleShared.value,
+    (visible) => {
+      'worklet';
+      overlayOpacityShared.value = withTiming(visible ? 1 : 0, {
+        duration: 60,
+        easing: Easing.out(Easing.ease),
+      });
+    },
+    [overlayOpacityShared]
+  );
+  
+  // Explicit worklet directive ensures this runs on UI thread for optimal performance
+  const overlayAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: overlayOpacityShared.value,
+    };
+  });
   
   const overlayPointerEvents = isVisible ? 'box-none' as const : 'none' as const;
 

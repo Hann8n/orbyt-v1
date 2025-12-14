@@ -276,31 +276,49 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         const nextBlocking = clamped >= CONSTANTS.SNAP_THRESHOLD;
         const delta = Math.abs(previous - clamped);
 
-        // Ignore jitter when we are clearly on the same side of the threshold
-        if (
-          !previousBlocking &&
-          !nextBlocking &&
-          delta < CONSTANTS.VISIBILITY_JITTER_THRESHOLD
-        ) {
-          return;
-        }
-        if (
-          previousBlocking &&
-          nextBlocking &&
-          delta < CONSTANTS.VISIBILITY_JITTER_THRESHOLD
-        ) {
-          return;
+        // If crossing the blocking threshold, update immediately (no debounce)
+        const isThresholdCrossing = previousBlocking !== nextBlocking;
+
+        // For non-threshold-crossing updates, apply jitter filtering
+        if (!isThresholdCrossing) {
+          // Ignore jitter when we are clearly on the same side of the threshold
+          if (
+            !previousBlocking &&
+            !nextBlocking &&
+            delta < CONSTANTS.VISIBILITY_JITTER_THRESHOLD
+          ) {
+            return;
+          }
+          if (
+            previousBlocking &&
+            nextBlocking &&
+            delta < CONSTANTS.VISIBILITY_JITTER_THRESHOLD
+          ) {
+            return;
+          }
         }
 
         lastHeaderVisibilityRef.current = clamped;
         
-        // Debounce header visibility updates to reduce state changes during scroll
-        if (headerVisibilityTimeoutRef.current) {
-          clearTimeout(headerVisibilityTimeoutRef.current);
-        }
-        headerVisibilityTimeoutRef.current = setTimeout(() => {
+        // Immediate update for threshold crossings, debounced for smooth scrolling
+        if (isThresholdCrossing) {
+          // Clear any pending debounced update
+          if (headerVisibilityTimeoutRef.current) {
+            clearTimeout(headerVisibilityTimeoutRef.current);
+            headerVisibilityTimeoutRef.current = null;
+          }
+          // Update immediately for threshold crossings
           setFeedHeaderVisibility(scopedVisibilityKey, clamped);
-        }, 50); // Debounce to reduce state updates
+        } else {
+          // Debounce non-critical updates to reduce state changes during scroll
+          if (headerVisibilityTimeoutRef.current) {
+            clearTimeout(headerVisibilityTimeoutRef.current);
+          }
+          headerVisibilityTimeoutRef.current = setTimeout(() => {
+            setFeedHeaderVisibility(scopedVisibilityKey, clamped);
+            headerVisibilityTimeoutRef.current = null;
+          }, 16); // One frame debounce for smooth scrolling
+        }
       },
       [scopedVisibilityKey, isHeaderFeed, setFeedHeaderVisibility],
     );
@@ -420,15 +438,13 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const onScrollNative = useCallback(
       (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         // Only calculate header visibility if needed
+        // Calculate directly without requestAnimationFrame for immediate updates
         if (isHeaderFeed && headerHeight > 0) {
           const offsetY = e.nativeEvent.contentOffset.y;
-          // Use refs to avoid closure dependencies - calculate on next frame
-          requestAnimationFrame(() => {
-            const clampedOffset = Math.min(headerHeight, Math.max(0, offsetY));
-            const visibleHeight = Math.max(0, headerHeight - clampedOffset);
-            const visibilityRatio = headerHeight > 0 ? visibleHeight / headerHeight : 0;
-            updateHeaderVisibility(visibilityRatio);
-          });
+          const clampedOffset = Math.min(headerHeight, Math.max(0, offsetY));
+          const visibleHeight = Math.max(0, headerHeight - clampedOffset);
+          const visibilityRatio = headerHeight > 0 ? visibleHeight / headerHeight : 0;
+          updateHeaderVisibility(visibilityRatio);
         }
         // Call external onScroll if provided (but don't block scroll thread)
         if (onScroll) {
