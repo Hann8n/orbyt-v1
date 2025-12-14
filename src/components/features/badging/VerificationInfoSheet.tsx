@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import { format, parseISO, isValid } from 'date-fns';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
 import AtprotoService from '../../../services/api/AtprotoService';
@@ -256,13 +257,16 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         </View>
           
         {/* Verification Date */}
-        {verification?.verifications?.[0]?.createdAt && (
-          <View style={styles.statusDateContainer}>
-            <Text style={styles.statusText}>
-              Since {new Date(verification.verifications[0].createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-            </Text>
-          </View>
-        )}
+        {verification?.verifications?.[0]?.createdAt && (() => {
+          const date = parseISO(verification.verifications[0].createdAt);
+          return isValid(date) ? (
+            <View style={styles.statusDateContainer}>
+              <Text style={styles.statusText}>
+                Since {format(date, 'MMM d, yyyy')}
+              </Text>
+            </View>
+          ) : null;
+        })()}
       </>
     );
   }

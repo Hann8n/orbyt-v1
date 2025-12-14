@@ -281,7 +281,13 @@ function getBestColor(result: ImageColorsResult): { backgroundColor: string, for
  * Extract colors from image - ONLY for use in edit screen as suggestions
  * This should not be used for automatic profile color setting
  */
-export async function extractColorsFromImage(imageUrl: string) {
+export async function extractColorsFromImage(imageUrl: string): Promise<{
+  backgroundColor: string;
+  foregroundColor: string;
+  textColor: string;
+  accentColor: string;
+  statusBarStyle: 'light' | 'dark';
+}> {
   try {
     // Check if the image URL is a local file
     const isLocalFile = imageUrl.startsWith('file://') || imageUrl.startsWith('/');
@@ -318,4 +324,80 @@ export async function extractColorsFromImage(imageUrl: string) {
       statusBarStyle: 'light' as const,
     };
   }
+}
+
+/**
+ * Batch extract colors from multiple images
+ * Uses InteractionManager to defer operations until after interactions complete
+ * @param imageUrls Array of image URLs to extract colors from
+ * @returns Promise that resolves to array of color results
+ */
+export async function batchExtractColorsFromImages(
+  imageUrls: string[]
+): Promise<Array<{
+  backgroundColor: string;
+  foregroundColor: string;
+  textColor: string;
+  accentColor: string;
+  statusBarStyle: 'light' | 'dark';
+}>> {
+  if (!imageUrls || imageUrls.length === 0) {
+    return [];
+  }
+
+  // Import InteractionManager dynamically to avoid issues if not available
+  const { InteractionManager } = require('react-native');
+  
+  return new Promise((resolve) => {
+    // Defer batch color extraction until after interactions complete
+    InteractionManager.runAfterInteractions(async () => {
+      try {
+        // Process images in smaller batches to avoid overwhelming the system
+        const batchSize = 3;
+        const results: Array<{
+          backgroundColor: string;
+          foregroundColor: string;
+          textColor: string;
+          accentColor: string;
+          statusBarStyle: 'light' | 'dark';
+        }> = [];
+
+        for (let i = 0; i < imageUrls.length; i += batchSize) {
+          const batch = imageUrls.slice(i, i + batchSize);
+          const batchResults = await Promise.allSettled(
+            batch.map(url => extractColorsFromImage(url))
+          );
+
+          // Collect successful results
+          batchResults.forEach((result) => {
+            if (result.status === 'fulfilled') {
+              results.push(result.value);
+            } else {
+              // Add fallback color for failed extractions
+              results.push({
+                backgroundColor: Colors.darkGray,
+                foregroundColor: Colors.white,
+                textColor: Colors.white,
+                accentColor: '#FFFFFF',
+                statusBarStyle: 'light' as const,
+              });
+            }
+          });
+        }
+
+        resolve(results);
+      } catch (error) {
+        // Return fallback colors for all images on error
+        resolve(
+          imageUrls.map(() => ({
+            backgroundColor: Colors.darkGray,
+            foregroundColor: Colors.white,
+            textColor: Colors.white,
+            accentColor: '#FFFFFF',
+            statusBarStyle: 'light' as const,
+          }))
+        );
+      }
+    });
+  });
 }

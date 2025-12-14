@@ -10,6 +10,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 // Note: Using individual selectors instead of shallow comparison for better performance
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import { InteractionManager } from 'react-native';
 import { Agent } from '@atproto/api';
 import { ExpoOAuthClient } from '@atproto/oauth-client-expo';
 import { AtProtoOAuthService, OAuthSession } from '../services/auth';
@@ -1210,17 +1211,19 @@ export const useUserStore = create<UserState>()(
               });
             } else {
               // Defer developer access check - not critical for startup
-              get().refreshDeveloperAccess().catch(() => {});
+              InteractionManager.runAfterInteractions(() => {
+                get().refreshDeveloperAccess().catch(() => {});
+              });
               
-              // Initialize subscription store in background
-              setTimeout(async () => {
+              // Initialize subscription store in background after interactions complete
+              InteractionManager.runAfterInteractions(async () => {
                 try {
                   const { useSubscriptionStore } = await import('./subscriptionStore');
                   await useSubscriptionStore.getState().initialize();
                 } catch (err) {
                   // Silent failure - subscriptions are not critical
                 }
-              }, 1000);
+              });
             }
           } else {
           }

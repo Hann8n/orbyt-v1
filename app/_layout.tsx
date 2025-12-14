@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, StatusBar, Appearance, AppState } from 'react-native';
+import { View, StyleSheet, StatusBar, Appearance, AppState, InteractionManager } from 'react-native';
 import { Stack, Redirect, usePathname, useSegments } from 'expo-router';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -152,24 +152,24 @@ export default function RootLayout() {
     initializeApp();
   }, [initializeUserState, setFontsLoaded]);
 
-  // Initialize video cache after app is ready and videos are rendering
+  // Initialize video cache after app is ready and interactions complete
   // This prevents view hierarchy conflicts when videos are already active
   useEffect(() => {
     if (!appIsReady) return;
 
-    const initializeVideoCache = async () => {
-      // Delay video cache initialization to ensure app layout is settled
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+    // Defer video cache initialization until after interactions complete
+    const interactionHandle = InteractionManager.runAfterInteractions(async () => {
       try {
         await setVideoCacheSizeAsync(500 * 1024 * 1024);
       } catch (error) {
         console.warn('Failed to set video cache size:', error);
         // Non-critical error - app will continue to work with default cache settings
       }
-    };
+    });
 
-    initializeVideoCache();
+    return () => {
+      interactionHandle.cancel();
+    };
   }, [appIsReady]);
 
   // Load bookmarks when user is authenticated
@@ -183,19 +183,26 @@ export default function RootLayout() {
     }
   }, [isAuthenticated, appIsReady, loadBookmarks, clearBookmarks]);
 
-  // Prefetch feed in background after app is fully ready
+  // Prefetch feed in background after app is fully ready and interactions complete
   useEffect(() => {
     if (!appIsReady) return;
 
     const currentUser = useUserStore.getState().currentUser;
     if (currentUser?.did) {
-      // Prefetch feed in background (non-blocking)
-      queryClient.prefetchInfiniteQuery({
-        queryKey: createQueryKeys.feed.infinite('following', currentUser.did),
-        queryFn: ({ pageParam }) => feedService.fetchFeed('following', currentUser.did, pageParam as string),
-        initialPageParam: null,
-        getNextPageParam: (lastPage) => lastPage.cursor,
-      }).catch(() => {});
+      // Defer feed prefetching until after interactions complete
+      const interactionHandle = InteractionManager.runAfterInteractions(() => {
+        // Prefetch feed in background (non-blocking)
+        queryClient.prefetchInfiniteQuery({
+          queryKey: createQueryKeys.feed.infinite('following', currentUser.did),
+          queryFn: ({ pageParam }) => feedService.fetchFeed('following', currentUser.did, pageParam as string),
+          initialPageParam: null,
+          getNextPageParam: (lastPage) => lastPage.cursor,
+        }).catch(() => {});
+      });
+
+      return () => {
+        interactionHandle.cancel();
+      };
     }
   }, [appIsReady]);
 
@@ -287,7 +294,6 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(modals)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
-          <Stack.Screen name="insights" options={{ headerShown: false }} />
           <Stack.Screen name="video-editor" options={{ headerShown: false }} />
           <Stack.Screen name="video-processing" options={{ headerShown: false }} />
           <Stack.Screen name="post/[id]" options={{ headerShown: false }} />

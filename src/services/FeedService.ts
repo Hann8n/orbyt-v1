@@ -645,28 +645,32 @@ class FeedService {
           )
         );
 
-        // Batch prefetch all author profiles in background
+        // Batch prefetch all author profiles in background after interactions complete
         // Fire and forget - don't await, let it populate cache
         if (authorHandles.length > 0) {
-          // Import ProfileCache dynamically to avoid circular dependency
-          import('./cache/ProfileCache').then(({ default: ProfileCache, profileKeys }) => {
-            ProfileCache.batchGetProfiles(authorHandles)
-              .then(profiles => {
-                // Prepopulate individual profile query keys for instant cache hits
-                profiles.forEach(profile => {
-                  if (profile?.handle) {
-                    queryClient.setQueryData(
-                      profileKeys.detail(profile.handle),
-                      profile
-                    );
-                  }
+          // Defer prefetching until after interactions complete
+          const { InteractionManager } = require('react-native');
+          InteractionManager.runAfterInteractions(() => {
+            // Import ProfileCache dynamically to avoid circular dependency
+            import('./cache/ProfileCache').then(({ default: ProfileCache, profileKeys }) => {
+              ProfileCache.batchGetProfiles(authorHandles)
+                .then(profiles => {
+                  // Prepopulate individual profile query keys for instant cache hits
+                  profiles.forEach(profile => {
+                    if (profile?.handle) {
+                      queryClient.setQueryData(
+                        profileKeys.detail(profile.handle),
+                        profile
+                      );
+                    }
+                  });
+                })
+                .catch(() => {
+                  // Silently fail - feed still renders, individual fetches will work as fallback
                 });
-              })
-              .catch(() => {
-                // Silently fail - feed still renders, individual fetches will work as fallback
-              });
-          }).catch(() => {
-            // Failed to load ProfileCache, skip prefetch
+            }).catch(() => {
+              // Failed to load ProfileCache, skip prefetch
+            });
           });
         }
 

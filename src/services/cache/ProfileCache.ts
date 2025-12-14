@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { InteractionManager } from 'react-native';
 import AtprotoService from '../api/AtprotoService';
 import { isColorDark, getStatusBarStyle, DEFAULT_PROFILE_COLORS } from '@/utils/formatting/colorUtils';
 import { AtpAgent } from '@atproto/api';
@@ -454,20 +455,14 @@ class ProfileCache {
   static async refreshProfileByDid(did: string): Promise<CachedProfile | null> {
     if (!did) return null;
     
-    return new Promise((resolve) => {
-      // Move refresh to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const freshProfile = await this.fetchAndCacheProfileByDid(did);
-            this.notifyProfileUpdated(did);
-            resolve(freshProfile);
-          } catch (error) {
-            resolve(null);
-          }
-        }, 0);
-      });
-    });
+    // Async operations already run off the main thread - no delay needed
+    try {
+      const freshProfile = await this.fetchAndCacheProfileByDid(did);
+      this.notifyProfileUpdated(did);
+      return freshProfile;
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -477,23 +472,15 @@ class ProfileCache {
   static async refreshProfile(handle: string): Promise<CachedProfile | null> {
     if (!handle) return null;
     
-    return new Promise((resolve) => {
-      // Move refresh to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-
-            
-            const normalizedHandle = handle.toLowerCase();
-            const freshProfile = await this.fetchAndCacheProfile(normalizedHandle);
-            this.notifyProfileUpdated(normalizedHandle);
-            resolve(freshProfile);
-          } catch (error) {
-            resolve(null);
-          }
-        }, 0);
-      });
-    });
+    // Async operations already run off the main thread - no delay needed
+    try {
+      const normalizedHandle = handle.toLowerCase();
+      const freshProfile = await this.fetchAndCacheProfile(normalizedHandle);
+      this.notifyProfileUpdated(normalizedHandle);
+      return freshProfile;
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -503,17 +490,15 @@ class ProfileCache {
   static async cacheProfiles(profiles: any[]): Promise<void> {
     if (!profiles || profiles.length === 0) return;
 
-    return new Promise((resolve) => {
-      // Move batch operations to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            // Process profiles with controlled concurrency in smaller batches
-            const batchSize = 3;
-            for (let i = 0; i < profiles.length; i += batchSize) {
-              const batch = profiles.slice(i, i + batchSize);
-              
-              await Promise.all(batch.map(async (profile) => {
+    // Use InteractionManager to defer batch operations until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
+        // Process profiles with controlled concurrency in smaller batches
+        const batchSize = 3;
+        for (let i = 0; i < profiles.length; i += batchSize) {
+          const batch = profiles.slice(i, i + batchSize);
+          
+          await Promise.all(batch.map(async (profile) => {
                 const handle = profile.handle;
                 if (!handle) return;
                 
@@ -606,13 +591,10 @@ class ProfileCache {
                 this.notifyProfileUpdated(normalizedHandle);
               }));
             }
-            resolve();
           } catch (error) {
-            resolve();
+            // Silently handle errors during batch caching
           }
-        }, 0);
-      });
-    });
+        });
   }
 
   /**
@@ -626,44 +608,39 @@ class ProfileCache {
   ): Promise<void> {
     if (!handle) return;
     
-    return new Promise((resolve) => {
-      // Move updates to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const normalizedHandle = handle.toLowerCase();
-            
-            // Check memory cache first
-            let cachedProfile = this.memoryCache.get(normalizedHandle);
-            
-            // If not in memory, check storage
-            if (!cachedProfile) {
-              cachedProfile = (await this.getProfileFromCache(normalizedHandle)) || undefined;
-            }
-            
-            if (cachedProfile) {
-              cachedProfile.isFollowing = isFollowing;
-              
-              // Only update isFollowedBy if provided
-              if (isFollowedBy !== undefined) {
-                cachedProfile.isFollowedBy = isFollowedBy;
-              }
-              
-              cachedProfile.lastUpdated = Date.now();
-              
-              // Update both memory and storage
-              this.memoryCache.set(normalizedHandle, cachedProfile);
-              await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
-              
-              // Notify subscribers of a profile update
-              this.notifyProfileUpdated(normalizedHandle);
-            }
-            resolve();
-          } catch (error) {
-            resolve();
+    // Use InteractionManager to defer updates until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
+        const normalizedHandle = handle.toLowerCase();
+        
+        // Check memory cache first
+        let cachedProfile = this.memoryCache.get(normalizedHandle);
+        
+        // If not in memory, check storage
+        if (!cachedProfile) {
+          cachedProfile = (await this.getProfileFromCache(normalizedHandle)) || undefined;
+        }
+        
+        if (cachedProfile) {
+          cachedProfile.isFollowing = isFollowing;
+          
+          // Only update isFollowedBy if provided
+          if (isFollowedBy !== undefined) {
+            cachedProfile.isFollowedBy = isFollowedBy;
           }
-        }, 0);
-      });
+          
+          cachedProfile.lastUpdated = Date.now();
+          
+          // Update both memory and storage
+          this.memoryCache.set(normalizedHandle, cachedProfile);
+          await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
+          
+          // Notify subscribers of a profile update
+          this.notifyProfileUpdated(normalizedHandle);
+        }
+      } catch (error) {
+        // Silently handle errors
+      }
     });
   }
   
@@ -677,50 +654,45 @@ class ProfileCache {
   ): Promise<void> {
     if (!did) return;
     
-    return new Promise((resolve) => {
-      // Move updates to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            // Find profile by DID in memory cache
-            let cachedProfile: CachedProfile | undefined;
-            let cacheKey: string | undefined;
-            
-            for (const [key, profile] of this.memoryCache.entries()) {
-              if (profile.did === did) {
-                cachedProfile = profile;
-                cacheKey = key;
-                break;
-              }
-            }
-            
-            // If not in memory, search storage
-            if (!cachedProfile) {
-              // Try to get from cache by DID directly
-              const profileByDid = await this.getProfileFromCacheByDid(did);
-              if (profileByDid) {
-                cachedProfile = profileByDid;
-                cacheKey = this.getCacheKey(profileByDid.handle.toLowerCase());
-              }
-            }
-            
-            if (cachedProfile && cacheKey) {
-              cachedProfile.isSubscribed = isSubscribed;
-              cachedProfile.lastUpdated = Date.now();
-              
-              // Update both memory and storage
-              this.memoryCache.set(cacheKey.replace('profile_', ''), cachedProfile);
-              await AsyncStorage.setItem(cacheKey, JSON.stringify(cachedProfile));
-              
-              // Notify subscribers of a profile update
-              this.notifyProfileUpdated(cachedProfile.handle);
-            }
-            resolve();
-          } catch (error) {
-            resolve();
+    // Use InteractionManager to defer updates until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
+        // Find profile by DID in memory cache
+        let cachedProfile: CachedProfile | undefined;
+        let cacheKey: string | undefined;
+        
+        for (const [key, profile] of this.memoryCache.entries()) {
+          if (profile.did === did) {
+            cachedProfile = profile;
+            cacheKey = key;
+            break;
           }
-        }, 0);
-      });
+        }
+        
+        // If not in memory, search storage
+        if (!cachedProfile) {
+          // Try to get from cache by DID directly
+          const profileByDid = await this.getProfileFromCacheByDid(did);
+          if (profileByDid) {
+            cachedProfile = profileByDid;
+            cacheKey = this.getCacheKey(profileByDid.handle.toLowerCase());
+          }
+        }
+        
+        if (cachedProfile && cacheKey) {
+          cachedProfile.isSubscribed = isSubscribed;
+          cachedProfile.lastUpdated = Date.now();
+          
+          // Update both memory and storage
+          this.memoryCache.set(cacheKey.replace('profile_', ''), cachedProfile);
+          await AsyncStorage.setItem(cacheKey, JSON.stringify(cachedProfile));
+          
+          // Notify subscribers of a profile update
+          this.notifyProfileUpdated(cachedProfile.handle);
+        }
+      } catch (error) {
+        // Silently handle errors
+      }
     });
   }
   
@@ -739,62 +711,56 @@ class ProfileCache {
   ): Promise<void> {
     if (!handle) return;
     
-    return new Promise((resolve) => {
-      // Move color updates to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const normalizedHandle = handle.toLowerCase();
-            
-            // Check memory cache first
-            let cachedProfile = this.memoryCache.get(normalizedHandle);
-            
-            // If not in memory, check storage
-            if (!cachedProfile) {
-              cachedProfile = (await this.getProfileFromCache(normalizedHandle)) || undefined;
+    // Use InteractionManager to defer updates until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
+        const normalizedHandle = handle.toLowerCase();
+        
+        // Check memory cache first
+        let cachedProfile = this.memoryCache.get(normalizedHandle);
+        
+        // If not in memory, check storage
+        if (!cachedProfile) {
+          cachedProfile = (await this.getProfileFromCache(normalizedHandle)) || undefined;
+        }
+        
+        // Skip update if colors are the same and already custom
+        if (cachedProfile?.hasCustomColors && 
+            cachedProfile?.profileColors?.backgroundColor === backgroundColor && 
+            cachedProfile?.profileColors?.foregroundColor === foregroundColor) {
+          return;
+        }
+        
+        if (cachedProfile) {
+          // Create a new colors object to avoid direct reference mutation
+          cachedProfile.profileColors = {
+            backgroundColor,
+            foregroundColor,
+            statusBarStyle: getStatusBarStyle(backgroundColor)
+          };
+          
+          // Persist to unified orbyt profile record
+          if (saveToRemote) {
+            try {
+              await AtprotoService.updateOrbytProfileColors(backgroundColor, foregroundColor);
+              cachedProfile.hasCustomColors = true;
+            } catch (error) {
+              // Continue even if PDS save fails
             }
-            
-            // Skip update if colors are the same and already custom
-            if (cachedProfile?.hasCustomColors && 
-                cachedProfile?.profileColors?.backgroundColor === backgroundColor && 
-                cachedProfile?.profileColors?.foregroundColor === foregroundColor) {
-              resolve();
-              return;
-            }
-            
-            if (cachedProfile) {
-              // Create a new colors object to avoid direct reference mutation
-              cachedProfile.profileColors = {
-                backgroundColor,
-                foregroundColor,
-                statusBarStyle: getStatusBarStyle(backgroundColor)
-              };
-              
-              // Persist to unified orbyt profile record
-              if (saveToRemote) {
-                try {
-                  await AtprotoService.updateOrbytProfileColors(backgroundColor, foregroundColor);
-                  cachedProfile.hasCustomColors = true;
-                } catch (error) {
-                  // Continue even if PDS save fails
-                }
-              }
-              
-              cachedProfile.lastUpdated = Date.now();
-              
-              // Update both memory and storage
-              this.memoryCache.set(normalizedHandle, {...cachedProfile});
-              await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
-              
-              // Notify subscribers of a profile update
-              this.notifyProfileUpdated(normalizedHandle);
-            }
-            resolve();
-          } catch (error) {
-            resolve();
           }
-        }, 0);
-      });
+          
+          cachedProfile.lastUpdated = Date.now();
+          
+          // Update both memory and storage
+          this.memoryCache.set(normalizedHandle, {...cachedProfile});
+          await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
+          
+          // Notify subscribers of a profile update
+          this.notifyProfileUpdated(normalizedHandle);
+        }
+      } catch (error) {
+        // Silently handle errors
+      }
     });
   }
 
@@ -823,38 +789,33 @@ class ProfileCache {
   ): Promise<void> {
     if (!handle) return;
     
-    return new Promise((resolve) => {
-      // Move verification updates to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const normalizedHandle = handle.toLowerCase();
-            
-            // Check memory cache first
-            let cachedProfile = this.memoryCache.get(normalizedHandle);
-            
-            // If not in memory, check storage
-            if (!cachedProfile) {
-              cachedProfile = (await this.getProfileFromCache(normalizedHandle)) || undefined;
-            }
-            
-            if (cachedProfile) {
-              cachedProfile.verification = verification;
-              cachedProfile.lastUpdated = Date.now();
-              
-              // Update both memory and storage
-              this.memoryCache.set(normalizedHandle, cachedProfile);
-              await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
-              
-              // Notify subscribers of a profile update
-              this.notifyProfileUpdated(normalizedHandle);
-            }
-            resolve();
-          } catch (error) {
-            resolve();
-          }
-        }, 0);
-      });
+    // Use InteractionManager to defer updates until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
+        const normalizedHandle = handle.toLowerCase();
+        
+        // Check memory cache first
+        let cachedProfile = this.memoryCache.get(normalizedHandle);
+        
+        // If not in memory, check storage
+        if (!cachedProfile) {
+          cachedProfile = (await this.getProfileFromCache(normalizedHandle)) || undefined;
+        }
+        
+        if (cachedProfile) {
+          cachedProfile.verification = verification;
+          cachedProfile.lastUpdated = Date.now();
+          
+          // Update both memory and storage
+          this.memoryCache.set(normalizedHandle, cachedProfile);
+          await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
+          
+          // Notify subscribers of a profile update
+          this.notifyProfileUpdated(normalizedHandle);
+        }
+      } catch (error) {
+        // Silently handle errors
+      }
     });
   }
 
@@ -865,40 +826,36 @@ class ProfileCache {
   static async applyServerProfile(handle: string, serverProfile: any): Promise<void> {
     if (!handle || !serverProfile) return;
 
-    return new Promise((resolve) => {
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const normalizedHandle = (serverProfile.handle || handle).toLowerCase();
+    // Use InteractionManager to defer updates until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
+        const normalizedHandle = (serverProfile.handle || handle).toLowerCase();
 
-            // Start from existing cached profile to preserve derived fields like colors/verification if absent
-            let cachedProfile = this.memoryCache.get(normalizedHandle) || await this.getProfileFromCache(normalizedHandle);
+        // Start from existing cached profile to preserve derived fields like colors/verification if absent
+        let cachedProfile = this.memoryCache.get(normalizedHandle) || await this.getProfileFromCache(normalizedHandle);
 
-            const isFollowing = serverProfile.viewer ? !!serverProfile.viewer.following : cachedProfile?.isFollowing;
-            const isFollowedBy = serverProfile.viewer ? !!serverProfile.viewer.followedBy : cachedProfile?.isFollowedBy;
+        const isFollowing = serverProfile.viewer ? !!serverProfile.viewer.following : cachedProfile?.isFollowing;
+        const isFollowedBy = serverProfile.viewer ? !!serverProfile.viewer.followedBy : cachedProfile?.isFollowedBy;
 
-            const merged: CachedProfile = {
-              did: serverProfile.did || cachedProfile?.did || '',
-              handle: serverProfile.handle || cachedProfile?.handle || normalizedHandle,
-              displayName: serverProfile.displayName ?? cachedProfile?.displayName,
-              avatar: serverProfile.avatar ?? cachedProfile?.avatar,
-              description: serverProfile.description ?? cachedProfile?.description,
-              isFollowing,
-              isFollowedBy,
-              profileColors: cachedProfile?.profileColors, // keep existing colors
-              verification: cachedProfile?.verification,   // verification already extracted during fetch
-              lastUpdated: Date.now(),
-            };
+        const merged: CachedProfile = {
+          did: serverProfile.did || cachedProfile?.did || '',
+          handle: serverProfile.handle || cachedProfile?.handle || normalizedHandle,
+          displayName: serverProfile.displayName ?? cachedProfile?.displayName,
+          avatar: serverProfile.avatar ?? cachedProfile?.avatar,
+          description: serverProfile.description ?? cachedProfile?.description,
+          isFollowing,
+          isFollowedBy,
+          profileColors: cachedProfile?.profileColors, // keep existing colors
+          verification: cachedProfile?.verification,   // verification already extracted during fetch
+          lastUpdated: Date.now(),
+        };
 
-            this.memoryCache.set(normalizedHandle, merged);
-            await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(merged));
-            this.notifyProfileUpdated(normalizedHandle);
-          } catch (error) {
-          } finally {
-            resolve();
-          }
-        }, 0);
-      });
+        this.memoryCache.set(normalizedHandle, merged);
+        await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(merged));
+        this.notifyProfileUpdated(normalizedHandle);
+      } catch (error) {
+        // Silently handle errors
+      }
     });
   }
 
@@ -909,26 +866,19 @@ class ProfileCache {
   static async checkVerification(handle: string): Promise<boolean> {
     if (!handle) return false;
     
-    return new Promise((resolve) => {
-      // Move verification check to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            // Get profile from cache or API
-            const profile = await this.getProfile(handle);
-            if (!profile) {
-              resolve(false);
-              return;
-            }
-            
-            // Return verification status from cached profile data
-            resolve(profile.verification?.isVerified || false);
-          } catch (error) {
-            resolve(false);
-          }
-        }, 0);
-      });
-    });
+    // Async operations already run off the main thread - no delay needed
+    try {
+      // Get profile from cache or API
+      const profile = await this.getProfile(handle);
+      if (!profile) {
+        return false;
+      }
+      
+      // Return verification status from cached profile data
+      return profile.verification?.isVerified || false;
+    } catch (error) {
+      return false;
+    }
   }
   
   /**
@@ -938,26 +888,19 @@ class ProfileCache {
   static async getVerificationDetails(handle: string): Promise<any | null> {
     if (!handle) return null;
     
-    return new Promise((resolve) => {
-      // Move verification details to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            // Get profile from cache
-            const profile = await this.getProfile(handle);
-            if (!profile) {
-              resolve(null);
-              return;
-            }
-            
-            // Return verification data from cached profile
-            resolve(profile.verification || null);
-          } catch (error) {
-            resolve(null);
-          }
-        }, 0);
-      });
-    });
+    // Async operations already run off the main thread - no delay needed
+    try {
+      // Get profile from cache
+      const profile = await this.getProfile(handle);
+      if (!profile) {
+        return null;
+      }
+      
+      // Return verification data from cached profile
+      return profile.verification || null;
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -1010,11 +953,8 @@ class ProfileCache {
   private static async fetchAndCacheProfileByDid(did: string): Promise<CachedProfile | null> {
     if (!did) return null;
     
-    return new Promise((resolve) => {
-      // Move fetching to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
+    // Async operations already run off the main thread - no delay needed
+    try {
             const profile = await AtprotoService.getProfileByDid(did);
             if (!profile) {
               resolve(null);
@@ -1097,29 +1037,23 @@ class ProfileCache {
               cacheObject.verification = { isVerified: false };
             }
 
-            // Update caches in background
+            // Update caches
             this.memoryCache.set(did, cacheObject);
             
-            requestAnimationFrame(() => {
-              setTimeout(() => {
-                AsyncStorage.setItem(
-                  this.getCacheKeyByDid(did),
-                  JSON.stringify(cacheObject)
-                ).catch(error => {
-                });
-                
-                this.notifyProfileUpdated(did);
-              }, 0);
+            // AsyncStorage operations are already async - no delay needed
+            await AsyncStorage.setItem(
+              this.getCacheKeyByDid(did),
+              JSON.stringify(cacheObject)
+            ).catch(() => {
+              // Silently handle errors
             });
-
-            resolve(cacheObject);
+            
+            this.notifyProfileUpdated(did);
+            return cacheObject;
           } catch (error) {
-            // console.warn(`ProfileCache: Error fetching and caching profile for ${did}:`, error);
-            resolve(null);
+            // Silently handle errors
+            return null;
           }
-        }, 0);
-      });
-    });
   }
 
   /**
@@ -1128,17 +1062,13 @@ class ProfileCache {
   private static async fetchAndCacheProfile(handle: string): Promise<CachedProfile | null> {
     if (!handle) return null;
     
-    return new Promise((resolve) => {
-      // Move fetching to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const normalizedHandle = handle.toLowerCase();
-            const profile = await AtprotoService.getProfile(handle);
-            if (!profile) {
-              resolve(null);
-              return;
-            }
+    // Async operations already run off the main thread - no delay needed
+    try {
+      const normalizedHandle = handle.toLowerCase();
+      const profile = await AtprotoService.getProfile(handle);
+      if (!profile) {
+        return null;
+      }
 
             // Fetch colors from PDS
             let profileColors = undefined;
@@ -1204,29 +1134,23 @@ class ProfileCache {
               cacheObject.verification = { isVerified: false };
             }
 
-            // Update caches in background
+            // Update caches
             this.memoryCache.set(normalizedHandle, cacheObject);
             
-            requestAnimationFrame(() => {
-              setTimeout(() => {
-                AsyncStorage.setItem(
-                  this.getCacheKey(normalizedHandle),
-                  JSON.stringify(cacheObject)
-                ).catch(error => {
-                });
-                
-                this.notifyProfileUpdated(normalizedHandle);
-              }, 0);
+            // AsyncStorage operations are already async - no delay needed
+            await AsyncStorage.setItem(
+              this.getCacheKey(normalizedHandle),
+              JSON.stringify(cacheObject)
+            ).catch(() => {
+              // Silently handle errors
             });
-
-            resolve(cacheObject);
+            
+            this.notifyProfileUpdated(normalizedHandle);
+            return cacheObject;
           } catch (error) {
-            // console.warn(`ProfileCache: Error fetching and caching profile for ${handle}:`, error);
-            resolve(null);
+            // Silently handle errors
+            return null;
           }
-        }, 0);
-      });
-    });
   }
 
   /**
@@ -1235,24 +1159,17 @@ class ProfileCache {
   private static async getProfileFromCacheByDid(did: string): Promise<CachedProfile | null> {
     if (!did) return null;
     
-    return new Promise((resolve) => {
-      // Move cache retrieval to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const cached = await AsyncStorage.getItem(this.getCacheKeyByDid(did));
-            if (cached) {
-              const parsed = JSON.parse(cached) as CachedProfile;
-              resolve(parsed);
-            } else {
-              resolve(null);
-            }
-          } catch (error) {
-            resolve(null);
-          }
-        }, 0);
-      });
-    });
+    // Async operations already run off the main thread - no delay needed
+    try {
+      const cached = await AsyncStorage.getItem(this.getCacheKeyByDid(did));
+      if (cached) {
+        const parsed = JSON.parse(cached) as CachedProfile;
+        return parsed;
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -1261,25 +1178,18 @@ class ProfileCache {
   private static async getProfileFromCache(handle: string): Promise<CachedProfile | null> {
     if (!handle) return null;
     
-    return new Promise((resolve) => {
-      // Move cache retrieval to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const normalizedHandle = handle.toLowerCase();
-            const cached = await AsyncStorage.getItem(this.getCacheKey(normalizedHandle));
-            if (cached) {
-              const parsed = JSON.parse(cached) as CachedProfile;
-              resolve(parsed);
-            } else {
-              resolve(null);
-            }
-          } catch (error) {
-            resolve(null);
-          }
-        }, 0);
-      });
-    });
+    // Async operations already run off the main thread - no delay needed
+    try {
+      const normalizedHandle = handle.toLowerCase();
+      const cached = await AsyncStorage.getItem(this.getCacheKey(normalizedHandle));
+      if (cached) {
+        const parsed = JSON.parse(cached) as CachedProfile;
+        return parsed;
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -1312,23 +1222,18 @@ class ProfileCache {
   static async invalidateProfile(handle: string): Promise<void> {
     if (!handle) return;
     
-    return new Promise((resolve) => {
-      // Move invalidation to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const normalizedHandle = handle.toLowerCase();
-            this.memoryCache.delete(normalizedHandle);
-            await AsyncStorage.removeItem(this.getCacheKey(normalizedHandle));
-            
-            // Notify subscribers of a profile update
-            this.notifyProfileUpdated(normalizedHandle);
-            resolve();
-          } catch (error) {
-            resolve();
-          }
-        }, 0);
-      });
+    // Use InteractionManager to defer updates until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
+        const normalizedHandle = handle.toLowerCase();
+        this.memoryCache.delete(normalizedHandle);
+        await AsyncStorage.removeItem(this.getCacheKey(normalizedHandle));
+        
+        // Notify subscribers of a profile update
+        this.notifyProfileUpdated(normalizedHandle);
+      } catch (error) {
+        // Silently handle errors
+      }
     });
   }
 
@@ -1336,31 +1241,26 @@ class ProfileCache {
    * Clear all cached profiles
    */
   static async clearCache(): Promise<void> {
-    return new Promise((resolve) => {
-      // Move cache clearing to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            // Clear memory cache
-            this.memoryCache.clear();
-            
-            // Clear AsyncStorage cache
-            const keys = await AsyncStorage.getAllKeys();
-            const profileKeys = keys.filter(key => key.startsWith(this.CACHE_KEY_PREFIX));
-            if (profileKeys.length > 0) {
-              await AsyncStorage.multiRemove(profileKeys);
-            }
-            
-            // Notify all subscribers
-            for (const handle of this.cacheUpdateCallbacks.keys()) {
-              this.notifyProfileUpdated(handle);
-            }
-            resolve();
-          } catch (error) {
-            resolve();
-          }
-        }, 0);
-      });
+    // Use InteractionManager to defer cache clearing until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
+        // Clear memory cache
+        this.memoryCache.clear();
+        
+        // Clear AsyncStorage cache
+        const keys = await AsyncStorage.getAllKeys();
+        const profileKeys = keys.filter(key => key.startsWith(this.CACHE_KEY_PREFIX));
+        if (profileKeys.length > 0) {
+          await AsyncStorage.multiRemove(profileKeys);
+        }
+        
+        // Notify all subscribers
+        for (const handle of this.cacheUpdateCallbacks.keys()) {
+          this.notifyProfileUpdated(handle);
+        }
+      } catch (error) {
+        // Silently handle errors
+      }
     });
   }
 
@@ -1393,11 +1293,9 @@ class ProfileCache {
   static async batchPrefetchFromFeed(feedItems: any[]): Promise<void> {
     if (!feedItems || feedItems.length === 0) return;
 
-    return new Promise((resolve) => {
-      // Move batch operations to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
+    // Use InteractionManager to defer batch operations until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
             // Extract all unique handles from feed items
             const uniqueHandles = new Set<string>();
             
@@ -1461,14 +1359,10 @@ class ProfileCache {
                 }
               }));
             }
-            
-            resolve();
           } catch (error) {
-            resolve();
+            // Silently handle errors during batch prefetch
           }
-        }, 0);
-      });
-    });
+        });
   }
 
   /**

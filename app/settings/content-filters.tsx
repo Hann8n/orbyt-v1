@@ -82,8 +82,9 @@ const ContentFiltersScreen: React.FC = () => {
       preference: cached.labels[option.id] || option.preference
     })));
 
-    // Then refresh from API without blocking UI
-    (async () => {
+    // Then refresh from API after interactions complete to avoid blocking UI
+    const { InteractionManager } = require('react-native');
+    const interactionHandle = InteractionManager.runAfterInteractions(async () => {
       try {
         setLoading(true);
         const currentSettings = await ModerationService.getModerationSettings(agent);
@@ -98,8 +99,12 @@ const ContentFiltersScreen: React.FC = () => {
       } finally {
         setLoading(false);
       }
-    })();
-  }, []);
+    });
+
+    return () => {
+      interactionHandle.cancel();
+    };
+  }, [agent]);
 
   const updateContentPreference = async (contentId: string, preference: LabelPreference) => {
     

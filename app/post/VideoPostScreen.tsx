@@ -194,22 +194,25 @@ const VideoPostScreen: React.FC = () => {
   }, [currentUser?.did]);
 
   // Automatically check upload limits and compress video if needed on component mount
+  // Defer compression until after interactions complete to avoid blocking UI
   useEffect(() => {
-    const checkAndCompressVideo = async () => {
-      if (videoPath) {
-        try {
-          setIsCompressing(true);
-          setCompressionProgress(0);
-          
-          // Automatically check upload limits and compress if needed
-          // This uses WhatsApp-like automatic compression in the background
-          const result = await VideoProcessingService.checkAndCompressVideoForUpload(
-            videoPath,
-            undefined, // assetId not available here, path is already standardized
-            (progress) => {
-              setCompressionProgress(progress);
-            }
-          );
+    if (!videoPath) return;
+
+    const { InteractionManager } = require('react-native');
+    const interactionHandle = InteractionManager.runAfterInteractions(async () => {
+      try {
+        setIsCompressing(true);
+        setCompressionProgress(0);
+        
+        // Automatically check upload limits and compress if needed
+        // This uses WhatsApp-like automatic compression in the background
+        const result = await VideoProcessingService.checkAndCompressVideoForUpload(
+          videoPath,
+          undefined, // assetId not available here, path is already standardized
+          (progress) => {
+            setCompressionProgress(progress);
+          }
+        );
 
           // Update state based on compression result
           if (result.wasCompressed) {
@@ -255,10 +258,11 @@ const VideoPostScreen: React.FC = () => {
           setIsCompressing(false);
           setCompressionProgress(0);
         }
-      }
-    };
+      });
 
-    checkAndCompressVideo();
+    return () => {
+      interactionHandle.cancel();
+    };
   }, [videoPath]);
 
   // Manual compress video (fallback if automatic compression didn't work)

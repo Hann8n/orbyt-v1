@@ -6,6 +6,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Animated as RNAnimated } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { format, isToday, isYesterday, parseISO } from 'date-fns';
 
 import { Colors, Avatar } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
@@ -242,20 +243,12 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
 
   // Format date for day separator
   const formatDate = (date: Date) => {
-    const now = new Date();
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (date.toDateString() === now.toDateString()) {
+    if (isToday(date)) {
       return 'Today';
-    } else if (date.toDateString() === yesterday.toDateString()) {
+    } else if (isYesterday(date)) {
       return 'Yesterday';
     } else {
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        month: 'short', 
-        day: 'numeric' 
-      });
+      return format(date, 'EEEE, MMM d');
     }
   };
 

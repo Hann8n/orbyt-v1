@@ -215,17 +215,6 @@ const SettingsScreen: React.FC = () => {
           },
           showChevron: true
         },
-        // Only show insights for developers
-        ...(isDeveloper ? [{
-          id: 'insights',
-          label: 'Insights',
-          icon: 'insights',
-          onPress: () => {
-            navigation.back();
-            setTimeout(() => navigation.push('/insights'), 100);
-          },
-          showChevron: true
-        }] : []),
         {
           id: 'followers',
           label: 'Your followers',
@@ -346,17 +335,6 @@ const SettingsScreen: React.FC = () => {
     {
       title: 'App',
       items: [
-        // Only show color palette for developers
-        ...(isDeveloper ? [{
-          id: 'color-palette',
-          label: 'Color palette',
-          icon: 'color-picker-fill',
-          onPress: () => {
-            navigation.back();
-            setTimeout(() => navigation.push('/settings/color-palette'), 100);
-          },
-          showChevron: true
-        }] : []),
         {
           id: 'clear-cache',
           label: 'Clear app cache',

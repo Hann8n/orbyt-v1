@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { format, parseISO, isValid } from 'date-fns';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
 import { Colors } from '../../ui/UI';
@@ -35,12 +36,8 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
 
   const formattedDate = useMemo(() => {
     if (!joinDate) return null;
-    try {
-      const d = new Date(joinDate);
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch {
-      return null;
-    }
+    const date = parseISO(joinDate);
+    return isValid(date) ? format(date, 'MMM d, yyyy') : null;
   }, [joinDate]);
 
   // Header component for TrueSheet header prop

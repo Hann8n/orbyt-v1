@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { InteractionManager } from 'react-native';
 import AtprotoService from '../api/AtprotoService';
 import { extractColorsFromImage, isColorDark, darkenColor } from '../../utils/formatting/colorUtils';
 import ImageColors from 'react-native-image-colors';
@@ -246,16 +247,13 @@ class ChannelCache {
       return null;
     }
     
-    return new Promise((resolve) => {
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const normalizedUri = uri.toLowerCase();
-            const channel = await AtprotoService.getFeedGenerator(uri);
-            if (!channel) {
-              resolve(null);
-              return;
-            }
+    // Async operations already run off the main thread - no delay needed
+    try {
+      const normalizedUri = uri.toLowerCase();
+      const channel = await AtprotoService.getFeedGenerator(uri);
+      if (!channel) {
+        return null;
+      }
 
 
 
@@ -341,28 +339,22 @@ class ChannelCache {
               lastUpdated: Date.now()
             };
 
-            // Update caches in background
-            this.memoryCache.set(normalizedUri, cacheObject);
-            
-            requestAnimationFrame(() => {
-              setTimeout(() => {
-                AsyncStorage.setItem(
-                  this.getCacheKey(normalizedUri),
-                  JSON.stringify(cacheObject)
-                ).catch(error => {
-                });
-                
-                this.notifyChannelUpdated(normalizedUri);
-              }, 0);
-            });
-
-            resolve(cacheObject);
-          } catch (error) {
-            resolve(null);
-          }
-        }, 0);
+      // Update caches
+      this.memoryCache.set(normalizedUri, cacheObject);
+      
+      // AsyncStorage operations are already async - no delay needed
+      await AsyncStorage.setItem(
+        this.getCacheKey(normalizedUri),
+        JSON.stringify(cacheObject)
+      ).catch(() => {
+        // Silently handle errors
       });
-    });
+      
+      this.notifyChannelUpdated(normalizedUri);
+      return cacheObject;
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -376,44 +368,40 @@ class ChannelCache {
   ): Promise<void> {
     if (!uri) return;
     
-    return new Promise((resolve) => {
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
-            const normalizedUri = uri.toLowerCase();
-            
-            // Check memory cache first
-            let cachedChannel = this.memoryCache.get(normalizedUri);
-            
-            // If not in memory, check storage
-            if (!cachedChannel) {
-              cachedChannel = (await this.getChannelFromCache(normalizedUri)) || undefined;
-            }
-            
-            if (cachedChannel) {
-              // Create a new colors object to avoid direct reference mutation
-              cachedChannel.channelColors = {
-                backgroundColor,
-                foregroundColor: '#FFFFFF', // Always use white text for channels
-                accentColor: accentColor || cachedChannel.channelColors?.accentColor || '#00D4FF',
-                statusBarStyle: 'light' // Always use light status bar for channels
-              };
-              
-              cachedChannel.lastUpdated = Date.now();
-              
-              // Update both memory and storage
-              this.memoryCache.set(normalizedUri, {...cachedChannel});
-              await AsyncStorage.setItem(this.getCacheKey(normalizedUri), JSON.stringify(cachedChannel));
-              
-              // Notify subscribers of a channel update
-              this.notifyChannelUpdated(normalizedUri);
-            }
-            resolve();
-          } catch (error) {
-            resolve();
-          }
-        }, 0);
-      });
+    // Use InteractionManager to defer updates until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
+        const normalizedUri = uri.toLowerCase();
+        
+        // Check memory cache first
+        let cachedChannel = this.memoryCache.get(normalizedUri);
+        
+        // If not in memory, check storage
+        if (!cachedChannel) {
+          cachedChannel = (await this.getChannelFromCache(normalizedUri)) || undefined;
+        }
+        
+        if (cachedChannel) {
+          // Create a new colors object to avoid direct reference mutation
+          cachedChannel.channelColors = {
+            backgroundColor,
+            foregroundColor: '#FFFFFF', // Always use white text for channels
+            accentColor: accentColor || cachedChannel.channelColors?.accentColor || '#00D4FF',
+            statusBarStyle: 'light' // Always use light status bar for channels
+          };
+          
+          cachedChannel.lastUpdated = Date.now();
+          
+          // Update both memory and storage
+          this.memoryCache.set(normalizedUri, {...cachedChannel});
+          await AsyncStorage.setItem(this.getCacheKey(normalizedUri), JSON.stringify(cachedChannel));
+          
+          // Notify subscribers of a channel update
+          this.notifyChannelUpdated(normalizedUri);
+        }
+      } catch (error) {
+        // Silently handle errors
+      }
     });
   }
 
@@ -424,11 +412,9 @@ class ChannelCache {
   static async cacheChannels(channels: any[]): Promise<void> {
     if (!channels || channels.length === 0) return;
 
-    return new Promise((resolve) => {
-      // Move batch operations to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
+    // Use InteractionManager to defer batch operations until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
             // Process channels with controlled concurrency in smaller batches
             const batchSize = 3;
             for (let i = 0; i < channels.length; i += batchSize) {
@@ -495,13 +481,10 @@ class ChannelCache {
                 this.notifyChannelUpdated(normalizedUri);
               }));
             }
-            resolve();
           } catch (error) {
-            resolve();
+            // Silently handle errors during batch caching
           }
-        }, 0);
-      });
-    });
+        });
   }
 
   /**
@@ -513,11 +496,9 @@ class ChannelCache {
   static async batchPrefetchFromFeed(feedItems: any[]): Promise<void> {
     if (!feedItems || feedItems.length === 0) return;
 
-    return new Promise((resolve) => {
-      // Move batch operations to background
-      requestAnimationFrame(() => {
-        setTimeout(async () => {
-          try {
+    // Use InteractionManager to defer batch operations until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
             // Extract all unique URIs from feed items
             const uniqueUris = new Set<string>();
             
@@ -573,14 +554,10 @@ class ChannelCache {
                 }
               }));
             }
-            
-            resolve();
           } catch (error) {
-            resolve();
+            // Silently handle errors during batch prefetch
           }
-        }, 0);
-      });
-    });
+        });
   }
 
   /**
@@ -714,18 +691,15 @@ class ChannelCache {
     // Cache in memory and storage
     this.memoryCache.set(normalizedUri, cacheObject);
     
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        AsyncStorage.setItem(
-          this.getCacheKey(normalizedUri),
-          JSON.stringify(cacheObject)
-        ).catch(error => {
-          // Silent fail
-        });
-        
-        this.notifyChannelUpdated(normalizedUri);
-      }, 0);
+    // AsyncStorage operations are already async - no delay needed
+    AsyncStorage.setItem(
+      this.getCacheKey(normalizedUri),
+      JSON.stringify(cacheObject)
+    ).catch(() => {
+      // Silently handle errors
     });
+    
+    this.notifyChannelUpdated(normalizedUri);
 
     return cacheObject;
   }

@@ -1,5 +1,14 @@
 import React from 'react';
 import { Text, StyleSheet } from 'react-native';
+import { 
+  differenceInMinutes, 
+  differenceInHours, 
+  differenceInDays, 
+  format, 
+  getYear,
+  isValid,
+  parseISO
+} from 'date-fns';
 import { Colors } from '../ui/UI';
 
 interface RelativeDateProps {
@@ -27,22 +36,17 @@ const RelativeDate: React.FC<RelativeDateProps> = ({ dateString, style, showTime
  * For dates older than 7 days, returns a formatted date string
  *
  * @param dateString - ISO date string to format
- * @param showTime - Whether to show the time for older dates
+ * @param showTime - Whether to show the time for older dates (currently unused, kept for API compatibility)
  * @returns Formatted relative date string
  */
 export const formatRelativeDate = (dateString?: string, showTime: boolean = false): string => {
   if (!dateString) return '';
   
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return '';
+  const date = parseISO(dateString);
+  if (!isValid(date)) return '';
   
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  const diffMins = Math.floor(diffSecs / 60);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMins = differenceInMinutes(now, date);
   
   // Less than a minute
   if (diffMins < 1) {
@@ -54,10 +58,14 @@ export const formatRelativeDate = (dateString?: string, showTime: boolean = fals
     return `${diffMins}m`;
   }
   
+  const diffHours = differenceInHours(now, date);
+  
   // Less than a day
   if (diffHours < 24) {
     return `${diffHours}h`;
   }
+  
+  const diffDays = differenceInDays(now, date);
   
   // Less than a week
   if (diffDays < 7) {
@@ -65,19 +73,14 @@ export const formatRelativeDate = (dateString?: string, showTime: boolean = fals
   }
   
   // After 1 week, use Month Day (Mar 7) for current year, MM/DD/YYYY (03/07/2023) if from previous year
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = months[date.getMonth()];
-  const day = date.getDate();
-  const year = date.getFullYear();
-  const currentYear = now.getFullYear();
+  const year = getYear(date);
+  const currentYear = getYear(now);
 
   // If from previous year, use MM/DD/YYYY format
   if (year < currentYear) {
-    const monthNum = String(date.getMonth() + 1).padStart(2, '0');
-    const dayNum = String(date.getDate()).padStart(2, '0');
-    return `${monthNum}/${dayNum}/${year}`;
+    return format(date, 'MM/dd/yyyy');
   } else {
-    return `${month} ${day}`;
+    return format(date, 'MMM d');
   }
 };
 
@@ -89,22 +92,20 @@ export const formatRelativeDate = (dateString?: string, showTime: boolean = fals
  */
 export const formatPostDate = (dateString?: string): string => {
   if (!dateString) return '';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return '';
+  
+  const date = parseISO(dateString);
+  if (!isValid(date)) return '';
   
   const now = new Date();
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = months[date.getMonth()];
-  const day = date.getDate();
-  const year = date.getFullYear();
-  const currentYear = now.getFullYear();
+  const year = getYear(date);
+  const currentYear = getYear(now);
   
   // If the post is from a different year, include the year
   if (year !== currentYear) {
-    return `${month} ${day}, ${year}`;
+    return format(date, 'MMM d, yyyy');
   }
   
-  return `${month} ${day}`;
+  return format(date, 'MMM d');
 };
 
 const styles = StyleSheet.create({
