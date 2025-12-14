@@ -14,6 +14,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -334,6 +335,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, [post?.uri, post?.cid, headerIsPending, headerIsLiked, headerLikeUri, headerHeartScale, isLiked, totalLikes, getPostInteraction, updatePostInteraction]);
 
   const handleHeaderToggleLike = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (onToggleLike) {
       const next = !headerVisualLiked;
       setHeaderVisualLiked(next);

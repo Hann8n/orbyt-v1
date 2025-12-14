@@ -11,6 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { Colors } from '../../ui/UI';
 import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers';
 import Icon, { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon, TvIcon, AddCircleLineIcon, CheckCircleFillIcon } from '../../ui/Icon';
@@ -562,6 +563,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               isRepostPending && styles.actionButtonDisabled
             ]} 
             onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               // Different animation than heart: wiggle (tilt) + slight scale
               if (!isReposted) {
                 repostScale.value = withSequence(
@@ -620,6 +622,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               isLikePending && styles.actionButtonDisabled
             ]} 
             onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               // Animate only on like; if unliking mid-animation, reset scale
               if (!isLiked) {
                 likeScale.value = withSpring(1.2, { damping: 12, stiffness: 220 }, () => {

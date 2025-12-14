@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Animated as RNAnimated } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 import { Colors, Avatar } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
@@ -425,7 +426,10 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
           {message.text && (
             <TouchableOpacity
               activeOpacity={1}
-              onLongPress={() => setSelectedMessageId(String(message._id))}
+              onLongPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setSelectedMessageId(String(message._id));
+              }}
               onPress={() => setSelectedMessageId(null)}
               style={[
                 styles.messageBubble,
@@ -453,7 +457,10 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
               onReactionPress={(emoji, isCurrentUserReacted) =>
                 handleReactionPress(String(message._id), emoji, isCurrentUserReacted)
               }
-              onLongPress={() => setSelectedMessageId(String(message._id))}
+              onLongPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setSelectedMessageId(String(message._id));
+              }}
               conversationMessages={messagesWithEmbeds}
             />
           </View>
@@ -516,6 +523,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
           isCurrentUser ? styles.messageContainerRight : styles.messageContainerLeft
         ]}
         onLongPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           setSelectedMessageId(String(message._id));
         }}
         onPress={() => {

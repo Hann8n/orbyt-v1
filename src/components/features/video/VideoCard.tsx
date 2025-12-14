@@ -11,6 +11,7 @@ import { useRecyclingState } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import * as Haptics from 'expo-haptics';
 
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { AtprotoService } from '../../../services/api/AtprotoService';
@@ -373,6 +374,8 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const handleLike = useCallback(async () => {
       if (overlayState.isLikePending) return;
       
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
       const newIsLiked = !overlayState.isLiked;
       const newLikeCount = newIsLiked ? overlayState.likeCount + 1 : overlayState.likeCount - 1;
       
@@ -422,6 +425,8 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const handleLikeOnly = useCallback(async () => {
       // Only like if not already liked and not pending
       if (overlayState.isLiked || overlayState.isLikePending) return;
+      
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       
       const newLikeCount = overlayState.likeCount + 1;
       
@@ -565,6 +570,8 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
 
     const handleRepost = useCallback(async () => {
       if (overlayState.isRepostPending) return;
+      
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       
       const newIsReposted = !overlayState.isReposted;
       const newRepostCount = newIsReposted ? overlayState.repostCount + 1 : overlayState.repostCount - 1;

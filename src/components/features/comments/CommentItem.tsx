@@ -12,6 +12,7 @@ import {
   UIManager,
 } from 'react-native';
 import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -326,6 +327,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const handleLikeComment = useCallback(async () => {
       if (isLiking) return;
       if (!uri || !cid) return;
+
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
       setIsLiking(true);
       // Optimistic update - change state immediately
