@@ -1,5 +1,13 @@
 declare let window: any;
-import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import {
   View,
   Dimensions,
@@ -9,28 +17,42 @@ import {
   NativeScrollEvent,
   ScaledSize,
   ViewToken,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FlashList, FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  FlashList,
+  FlashListRef,
+  type ListRenderItemInfo,
+} from "@shopify/flash-list";
 
-import EmptyFeed from './EmptyFeed';
-import { VideoItem } from './VideoItem';
-import GridFeedView from './GridFeedView';
-import { isSmallScreen, isTablet, getVideoCardHeight, getBottomNavBarHeight } from '../../../utils/helpers';
-import type { ModerationDecision } from '../../../services/ModerationTypes';
-import { Colors } from '../../ui/UI';
-import { Loading3FillIcon } from '../../ui/Icon';
-import { 
-  APP_CONSTANTS, 
-  SCROLL_CONSTANTS, 
+import EmptyFeed from "./EmptyFeed";
+import { VideoItem } from "./VideoItem";
+import GridFeedView from "./GridFeedView";
+import {
+  isSmallScreen,
+  isTablet,
+  getVideoCardHeight,
+  getBottomNavBarHeight,
+} from "../../../utils/helpers";
+import type { ModerationDecision } from "../../../services/ModerationTypes";
+import { Colors } from "../../ui/UI";
+import { Loading3FillIcon } from "../../ui/Icon";
+import {
+  APP_CONSTANTS,
+  SCROLL_CONSTANTS,
   QUERY_CONSTANTS,
-  FEED_TYPES 
-} from '../../../utils/constants';
-import type { FeedItem, ListFeedViewProps, ViewMode, ListFeedViewRef } from '../../../types';
-import { useFeedVisibility } from '../../../hooks';
-import { useVisibilityCoreStore } from '../../../core/visibility';
+  FEED_TYPES,
+} from "../../../utils/constants";
+import type {
+  FeedItem,
+  ListFeedViewProps,
+  ViewMode,
+  ListFeedViewRef,
+} from "../../../types";
+import { useFeedVisibility } from "../../../hooks";
+import { useVisibilityCoreStore } from "../../../core/visibility";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // Constants
 const CONSTANTS = {
@@ -40,572 +62,727 @@ const CONSTANTS = {
   VISIBILITY_JITTER_THRESHOLD: 0.05,
 } as const;
 
-const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(({
-  feed,
-  headerComponent,
-  refreshControl,
-  backgroundColor,
-  secondaryColor,
-  feedOption,
-  userDid,
-  onLoadMore,
-  isFetchingNextPage,
-  hasNextPage,
-  isLoading,
-  isError,
-  error,
-  onRetry,
-  onPositionChange,
-  isVisible = true,
-  viewMode,
-  onViewModeChange,
-  isModal = false,
-  isRefreshing = false,
-  isProfileLoading = false,
-  onScroll,
-  forceError = false,
-  ListComponent,
-  visibilityKey,
-  targetScrollIndex,
-  dataUpdatedAt = 0,
-}, ref) => {
-  // Hooks
-  const insets = useSafeAreaInsets();
-  
-  // Layout state
-  const [headerHeight, setHeaderHeight] = useState(0);
-  const [listHeight, setListHeight] = useState<number>(0);
-  
-  // Refs
-  const flashListRef = useRef<FlashListRef<FeedItem>>(null);
-
-  // Expose scrollToTop method
-  useImperativeHandle(ref, () => ({
-    scrollToTop: () => {
-      flashListRef.current?.scrollToTop({ animated: true });
+const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
+  (
+    {
+      feed,
+      headerComponent,
+      refreshControl,
+      backgroundColor,
+      secondaryColor,
+      feedOption,
+      userDid,
+      onLoadMore,
+      isFetchingNextPage,
+      hasNextPage,
+      isLoading,
+      isError,
+      error,
+      onRetry,
+      onPositionChange,
+      isVisible = true,
+      viewMode,
+      onViewModeChange,
+      isModal = false,
+      isRefreshing = false,
+      isProfileLoading = false,
+      onScroll,
+      forceError = false,
+      ListComponent,
+      visibilityKey,
+      targetScrollIndex,
+      dataUpdatedAt = 0,
     },
-  }), []);
-  const lastScrollOffset = useRef(0);
-  const positionSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastHeaderVisibilityRef = useRef(0);
-  
-  // Device detection
-  const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
-  const isHeaderFeed = useMemo(() => (
-    feedOption === FEED_TYPES.PROFILE ||
-    feedOption === FEED_TYPES.LIKES ||
-    feedOption === FEED_TYPES.REPOSTS ||
-    (feedOption && feedOption.startsWith('at://')) ||
-    (feedOption && feedOption.startsWith('hashtag:orbyt-channel-')) ||
-    Boolean(headerComponent)
-  ), [feedOption, headerComponent]);
+    ref,
+  ) => {
+    // Hooks
+    const insets = useSafeAreaInsets();
 
-  // Viewport calculations
-  const viewportDimensions = useMemo(() => {
-    const { width, height } = Dimensions.get('window');
-    const bottomNavBarHeight = getBottomNavBarHeight(insets);
-    
-    const viewportHeight = isSmallDevice 
-      ? height 
-      : height - bottomNavBarHeight - insets.top;
-    
-    return {
-      width,
-      height: viewportHeight,
-      effectiveInsets: insets,
-      bottomNavBarHeight,
-      isFullScreen: isSmallDevice,
-    };
-  }, [isSmallDevice, insets]);
+    // Layout state
+    const [headerHeight, setHeaderHeight] = useState(0);
+    const [listHeight, setListHeight] = useState<number>(0);
 
-  // Card height calculation
-  const cardHeight = useMemo(() => {
-    if (isSmallDevice) {
-      return viewportDimensions.height;
-    }
-    return getVideoCardHeight(viewportDimensions.effectiveInsets);
-  }, [viewportDimensions.height, viewportDimensions.effectiveInsets, isSmallDevice]);
+    // Refs
+    const flashListRef = useRef<FlashListRef<FeedItem>>(null);
 
-  const scopedVisibilityKey = visibilityKey ?? feedOption;
+    // Expose scrollToTop method
+    useImperativeHandle(
+      ref,
+      () => ({
+        scrollToTop: () => {
+          flashListRef.current?.scrollToTop({ animated: true });
+        },
+      }),
+      [],
+    );
+    const lastScrollOffset = useRef(0);
+    const positionSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+      null,
+    );
+    const lastHeaderVisibilityRef = useRef(0);
 
-  const {
-    onViewableItemsChanged,
-    viewabilityConfig,
-    activeItemUri,
-    activeItemIndex,
-    canPlay,
-    isFeedActive,
-    isVideoVisible: isVideoVisibleHelper,
-  } = useFeedVisibility({
-    scopeKey: scopedVisibilityKey,
-    isActive: Boolean(isVisible),
-    resetOnActivate: false,
-    resetOnDeactivate: false,
-  });
-  const setFeedHeaderVisibility = useVisibilityCoreStore((state) => state.setFeedHeaderVisibility);
+    // Device detection
+    const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
+    const isHeaderFeed = useMemo(
+      () =>
+        feedOption === FEED_TYPES.PROFILE ||
+        feedOption === FEED_TYPES.LIKES ||
+        feedOption === FEED_TYPES.REPOSTS ||
+        (feedOption && feedOption.startsWith("at://")) ||
+        (feedOption && feedOption.startsWith("hashtag:orbyt-channel-")) ||
+        Boolean(headerComponent),
+      [feedOption, headerComponent],
+    );
 
-  const updateHeaderVisibility = useCallback((visiblePercent: number) => {
-    if (!scopedVisibilityKey || !isHeaderFeed) {
-      return;
-    }
+    // Viewport calculations
+    const viewportDimensions = useMemo(() => {
+      const { width, height } = Dimensions.get("window");
+      const bottomNavBarHeight = getBottomNavBarHeight(insets);
 
-    const clamped = Math.max(0, Math.min(1, visiblePercent));
-    const previous = lastHeaderVisibilityRef.current;
-    const previousBlocking = previous >= CONSTANTS.SNAP_THRESHOLD;
-    const nextBlocking = clamped >= CONSTANTS.SNAP_THRESHOLD;
-    const delta = Math.abs(previous - clamped);
+      const viewportHeight = isSmallDevice
+        ? height
+        : height - bottomNavBarHeight - insets.top;
 
-    // Ignore jitter when we are clearly on the same side of the threshold
-    if (!previousBlocking && !nextBlocking && delta < CONSTANTS.VISIBILITY_JITTER_THRESHOLD) {
-      return;
-    }
-    if (previousBlocking && nextBlocking && delta < CONSTANTS.VISIBILITY_JITTER_THRESHOLD) {
-      return;
-    }
+      return {
+        width,
+        height: viewportHeight,
+        effectiveInsets: insets,
+        bottomNavBarHeight,
+        isFullScreen: isSmallDevice,
+      };
+    }, [isSmallDevice, insets]);
 
-    lastHeaderVisibilityRef.current = clamped;
-    setFeedHeaderVisibility(scopedVisibilityKey, clamped);
-  }, [scopedVisibilityKey, isHeaderFeed, setFeedHeaderVisibility]);
+    // Card height calculation
+    const cardHeight = useMemo(() => {
+      if (isSmallDevice) {
+        return viewportDimensions.height;
+      }
+      return getVideoCardHeight(viewportDimensions.effectiveInsets);
+    }, [
+      viewportDimensions.height,
+      viewportDimensions.effectiveInsets,
+      isSmallDevice,
+    ]);
 
-  useEffect(() => {
-    if (!scopedVisibilityKey) {
-      return;
-    }
+    const scopedVisibilityKey = visibilityKey ?? feedOption;
 
-    if (!isHeaderFeed) {
-      if (lastHeaderVisibilityRef.current !== 0) {
+    const {
+      onViewableItemsChanged,
+      viewabilityConfig,
+      activeItemUri,
+      activeItemIndex,
+      canPlay,
+      isFeedActive,
+      isVideoVisible: isVideoVisibleHelper,
+    } = useFeedVisibility({
+      scopeKey: scopedVisibilityKey,
+      isActive: Boolean(isVisible),
+      resetOnActivate: false,
+      resetOnDeactivate: false,
+    });
+    const setFeedHeaderVisibility = useVisibilityCoreStore(
+      (state) => state.setFeedHeaderVisibility,
+    );
+
+    const updateHeaderVisibility = useCallback(
+      (visiblePercent: number) => {
+        if (!scopedVisibilityKey || !isHeaderFeed) {
+          return;
+        }
+
+        const clamped = Math.max(0, Math.min(1, visiblePercent));
+        const previous = lastHeaderVisibilityRef.current;
+        const previousBlocking = previous >= CONSTANTS.SNAP_THRESHOLD;
+        const nextBlocking = clamped >= CONSTANTS.SNAP_THRESHOLD;
+        const delta = Math.abs(previous - clamped);
+
+        // Ignore jitter when we are clearly on the same side of the threshold
+        if (
+          !previousBlocking &&
+          !nextBlocking &&
+          delta < CONSTANTS.VISIBILITY_JITTER_THRESHOLD
+        ) {
+          return;
+        }
+        if (
+          previousBlocking &&
+          nextBlocking &&
+          delta < CONSTANTS.VISIBILITY_JITTER_THRESHOLD
+        ) {
+          return;
+        }
+
+        lastHeaderVisibilityRef.current = clamped;
+        setFeedHeaderVisibility(scopedVisibilityKey, clamped);
+      },
+      [scopedVisibilityKey, isHeaderFeed, setFeedHeaderVisibility],
+    );
+
+    useEffect(() => {
+      if (!scopedVisibilityKey) {
+        return;
+      }
+
+      if (!isHeaderFeed) {
+        if (lastHeaderVisibilityRef.current !== 0) {
+          lastHeaderVisibilityRef.current = 0;
+          setFeedHeaderVisibility(scopedVisibilityKey, 0);
+        }
+        return;
+      }
+
+      if (!isVisible || viewMode !== "list") {
+        updateHeaderVisibility(0);
+        return;
+      }
+
+      if (headerHeight > 0 && lastHeaderVisibilityRef.current === 0) {
+        updateHeaderVisibility(1);
+      }
+    }, [
+      scopedVisibilityKey,
+      isHeaderFeed,
+      isVisible,
+      viewMode,
+      headerHeight,
+      updateHeaderVisibility,
+      setFeedHeaderVisibility,
+    ]);
+
+    useEffect(
+      () => () => {
+        if (!scopedVisibilityKey) {
+          return;
+        }
         lastHeaderVisibilityRef.current = 0;
         setFeedHeaderVisibility(scopedVisibilityKey, 0);
+      },
+      [scopedVisibilityKey, setFeedHeaderVisibility],
+    );
+
+    const initialVisibilityTimeout = useRef<ReturnType<
+      typeof setTimeout
+    > | null>(null);
+    const hasPrimedVisibleItemRef = useRef(false);
+
+    // Memoize profileColors to prevent recreation on every render
+    const profileColors = useMemo(
+      () =>
+        secondaryColor
+          ? {
+              backgroundColor: backgroundColor || "#000",
+              textColor: secondaryColor,
+            }
+          : undefined,
+      [backgroundColor, secondaryColor],
+    );
+
+    // List data with end card
+    // FlashList's maintainVisibleContentPosition will handle position preservation
+    const listData = useMemo(() => {
+      const base = feed;
+      const shouldAppendEndCard =
+        !isLoading &&
+        !isError &&
+        !isFetchingNextPage &&
+        !hasNextPage &&
+        base.length > 0;
+
+      if (shouldAppendEndCard) {
+        return [
+          ...base,
+          {
+            post: { uri: "end-card", cid: "end-card" } as any,
+            endCard: true,
+          } as FeedItem,
+        ];
       }
-      return;
-    }
+      return base;
+    }, [feed, isLoading, isError, isFetchingNextPage, hasNextPage]);
 
-    if (!isVisible || viewMode !== 'list') {
-      updateHeaderVisibility(0);
-      return;
-    }
+    // Error handling
+    const effectiveError = forceError
+      ? new Error("Forced error for testing")
+      : error;
+    const effectiveIsError = forceError || isError;
 
-    if (headerHeight > 0 && lastHeaderVisibilityRef.current === 0) {
-      updateHeaderVisibility(1);
-    }
-  }, [scopedVisibilityKey, isHeaderFeed, isVisible, viewMode, headerHeight, updateHeaderVisibility, setFeedHeaderVisibility]);
+    // Scroll to index function
+    const scrollToIndex = useCallback(
+      (targetIndex: number) => {
+        if (
+          !flashListRef.current ||
+          targetIndex < 0 ||
+          targetIndex >= listData.length
+        )
+          return;
 
-  useEffect(() => () => {
-    if (!scopedVisibilityKey) {
-      return;
-    }
-    lastHeaderVisibilityRef.current = 0;
-    setFeedHeaderVisibility(scopedVisibilityKey, 0);
-  }, [scopedVisibilityKey, setFeedHeaderVisibility]);
+        try {
+          flashListRef.current.scrollToIndex({
+            index: targetIndex,
+            animated: false,
+            viewPosition: 0.5,
+          });
+        } catch (error) {
+          // Handle scroll errors gracefully
+        }
+      },
+      [listData.length],
+    );
 
-  const initialVisibilityTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasPrimedVisibleItemRef = useRef(false);
+    // Scroll handling
+    const onScrollNative = useCallback(
+      (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        if (isHeaderFeed && headerHeight > 0) {
+          const offsetY = Math.max(0, e.nativeEvent.contentOffset.y);
+          const clampedOffset = Math.min(headerHeight, offsetY);
+          const visibleHeight = Math.max(0, headerHeight - clampedOffset);
+          const visibilityRatio =
+            headerHeight > 0 ? visibleHeight / headerHeight : 0;
+          updateHeaderVisibility(visibilityRatio);
+        }
+        onScroll?.(e);
+      },
+      [onScroll, isHeaderFeed, headerHeight, updateHeaderVisibility],
+    );
 
-  // Memoize profileColors to prevent recreation on every render
-  const profileColors = useMemo(() => 
-    secondaryColor ? { 
-      backgroundColor: backgroundColor || '#000', 
-      textColor: secondaryColor 
-    } : undefined
-  , [backgroundColor, secondaryColor]);
+    // Momentum scroll end - save position
+    const onMomentumScrollEnd = useCallback(
+      (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const offsetY = e.nativeEvent.contentOffset.y;
 
-  // List data with end card
-  // FlashList's maintainVisibleContentPosition will handle position preservation
-  const listData = useMemo(() => {
-    const base = feed;
-    const shouldAppendEndCard = !isLoading && !isError && !isFetchingNextPage && !hasNextPage && base.length > 0;
-    
-    if (shouldAppendEndCard) {
-      return [
-        ...base,
-        {
-          post: { uri: 'end-card', cid: 'end-card' } as any,
-          endCard: true,
-        } as FeedItem,
-      ];
-    }
-    return base;
-  }, [feed, isLoading, isError, isFetchingNextPage, hasNextPage]);
+        // Debounce position saving
+        if (positionSaveTimeout.current) {
+          clearTimeout(positionSaveTimeout.current);
+        }
+        positionSaveTimeout.current = setTimeout(() => {
+          if (
+            onPositionChange &&
+            Math.abs(offsetY - lastScrollOffset.current) >
+              SCROLL_CONSTANTS.POSITION_CHANGE_THRESHOLD
+          ) {
+            onPositionChange(offsetY);
+          }
+        }, APP_CONSTANTS.POSITION_SAVE_DELAY);
+        lastScrollOffset.current = offsetY;
+      },
+      [onPositionChange],
+    );
 
-  // Error handling
-  const effectiveError = forceError ? new Error('Forced error for testing') : error;
-  const effectiveIsError = forceError || isError;
+    // Render item function - simplified visibility logic
+    const renderItem = useCallback(
+      ({ item, index }: ListRenderItemInfo<FeedItem>) => {
+        if (item.endCard) {
+          return (
+            <EmptyFeed
+              type="end"
+              secondaryColor={secondaryColor}
+              profileColors={profileColors}
+              viewableAreaHeight={cardHeight}
+              feedOption={feedOption}
+            />
+          );
+        }
 
-  // Scroll to index function
-  const scrollToIndex = useCallback((targetIndex: number) => {
-    if (!flashListRef.current || targetIndex < 0 || targetIndex >= listData.length) return;
-    
-    try {
-      flashListRef.current.scrollToIndex({ 
-        index: targetIndex, 
-        animated: false,
-        viewPosition: 0.5
-      });
-    } catch (error) {
-      // Handle scroll errors gracefully
-    }
-  }, [listData.length]);
+        const isVideoVisible = isVideoVisibleHelper(item.post.uri) && canPlay;
 
-  // Scroll handling
-  const onScrollNative = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (isHeaderFeed && headerHeight > 0) {
-      const offsetY = Math.max(0, e.nativeEvent.contentOffset.y);
-      const clampedOffset = Math.min(headerHeight, offsetY);
-      const visibleHeight = Math.max(0, headerHeight - clampedOffset);
-      const visibilityRatio = headerHeight > 0 ? visibleHeight / headerHeight : 0;
-      updateHeaderVisibility(visibilityRatio);
-    }
-    onScroll?.(e);
-  }, [onScroll, isHeaderFeed, headerHeight, updateHeaderVisibility]);
+        return (
+          <VideoItem
+            key={`${item.post.uri}_${index}`}
+            post={item.post}
+            feedItem={item}
+            height={cardHeight}
+            feedOption={feedOption as "following" | "discover"}
+            isVisible={isVideoVisible}
+            allowPlayback={canPlay}
+            moderationDecision={item.moderationDecision}
+            isModal={isModal}
+            index={index}
+          />
+        );
+      },
+      [
+        cardHeight,
+        feedOption,
+        canPlay,
+        isModal,
+        isVideoVisibleHelper,
+        secondaryColor,
+        profileColors,
+      ],
+    );
 
-  // Momentum scroll end - save position
-  const onMomentumScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetY = e.nativeEvent.contentOffset.y;
-    
-    // Debounce position saving
-    if (positionSaveTimeout.current) {
-      clearTimeout(positionSaveTimeout.current);
-    }
-    positionSaveTimeout.current = setTimeout(() => {
-      if (onPositionChange && Math.abs(offsetY - lastScrollOffset.current) > SCROLL_CONSTANTS.POSITION_CHANGE_THRESHOLD) {
-        onPositionChange(offsetY);
+    // Item type for FlashList recycling optimization
+    const getItemType = useCallback((item: FeedItem) => {
+      if (item.endCard) return "endCard";
+      if (item.post?.embed?.$type === "app.bsky.embed.record#view")
+        return "video";
+      return "default";
+    }, []);
+
+    // Key extractor with stable keys (no index) for FlashList v2 maintainVisibleContentPosition
+    // Index-based keys cause issues when new items are added because existing items get new keys
+    const keyExtractor = useCallback((item: FeedItem, _index: number) => {
+      return item.endCard ? "end-card" : `${item.post.uri}:${item.post.cid}`;
+    }, []);
+
+    // Comprehensive cleanup for all timeout refs to prevent memory leaks
+    useEffect(() => {
+      return () => {
+        if (positionSaveTimeout.current) {
+          clearTimeout(positionSaveTimeout.current);
+          positionSaveTimeout.current = null;
+        }
+        if (initialVisibilityTimeout.current) {
+          clearTimeout(initialVisibilityTimeout.current);
+          initialVisibilityTimeout.current = null;
+        }
+        hasPrimedVisibleItemRef.current = false;
+      };
+    }, []);
+
+    useEffect(() => {
+      if (activeItemUri) {
+        hasPrimedVisibleItemRef.current = true;
       }
-    }, APP_CONSTANTS.POSITION_SAVE_DELAY);
-    lastScrollOffset.current = offsetY;
-  }, [onPositionChange]);
+    }, [activeItemUri]);
 
-  // Render item function - simplified visibility logic
-  const renderItem = useCallback(({ item, index }: ListRenderItemInfo<FeedItem>) => {
-    if (item.endCard) {
+    // Prime initial visible item only on first mount when feed is visible
+    useEffect(() => {
+      if (!isVisible || !isFeedActive) return;
+      if (viewMode !== "list") return;
+      if (listData.length === 0) return;
+      if (activeItemUri) return;
+      if (hasPrimedVisibleItemRef.current) return;
+
+      const firstPlayableIndex = listData.findIndex(
+        (item) => !item.endCard && item?.post?.uri,
+      );
+      if (firstPlayableIndex < 0) return;
+
+      const candidate = listData[firstPlayableIndex];
+      const viewToken: ViewToken = {
+        item: candidate,
+        key: candidate.endCard
+          ? `end-card-${firstPlayableIndex}`
+          : candidate.post.uri,
+        index: firstPlayableIndex,
+        isViewable: true,
+        section: undefined,
+      };
+
+      if (initialVisibilityTimeout.current) {
+        clearTimeout(initialVisibilityTimeout.current);
+      }
+
+      initialVisibilityTimeout.current = setTimeout(() => {
+        onViewableItemsChanged({ viewableItems: [viewToken] });
+        hasPrimedVisibleItemRef.current = true;
+      }, 0);
+    }, [
+      isVisible,
+      isFeedActive,
+      viewMode,
+      listData,
+      activeItemUri,
+      onViewableItemsChanged,
+    ]);
+
+    // Unified item press handler for grid feeds
+    // Uses FlashList's native scrollToIndex when switching to list view
+    const handleGridItemPress = useCallback(
+      (index: number) => {
+        if (
+          viewMode === "grid" &&
+          onViewModeChange &&
+          index >= 0 &&
+          index < feed.length
+        ) {
+          onViewModeChange("list");
+
+          setTimeout(() => {
+            scrollToIndex(index);
+          }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
+        }
+      },
+      [feed.length, viewMode, onViewModeChange, scrollToIndex],
+    );
+
+    // Handle targetScrollIndex prop - scrolls to target on initial mount only
+    const hasScrolledToTargetRef = useRef(false);
+    useEffect(() => {
+      if (
+        targetScrollIndex !== null &&
+        targetScrollIndex !== undefined &&
+        viewMode === "list" &&
+        listData.length > 0 &&
+        !hasScrolledToTargetRef.current &&
+        flashListRef.current
+      ) {
+        const targetIndex = Math.max(
+          0,
+          Math.min(targetScrollIndex, listData.length - 1),
+        );
+        setTimeout(() => {
+          flashListRef.current?.scrollToIndex({
+            index: targetIndex,
+            animated: false,
+            viewPosition: 0.5,
+          });
+          hasScrolledToTargetRef.current = true;
+        }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
+      }
+    }, [targetScrollIndex, viewMode, listData.length]);
+
+    // Orientation change handling
+    const handleOrientationChange = useCallback(
+      ({ window }: { window: ScaledSize }) => {
+        setTimeout(() => {
+          if (flashListRef.current && feed.length > 0 && activeItemUri) {
+            const currentIndex = feed.findIndex(
+              (item) => item.post.uri === activeItemUri,
+            );
+            if (currentIndex >= 0) {
+              try {
+                flashListRef.current.scrollToIndex({
+                  index: currentIndex,
+                  animated: false,
+                  viewPosition: 0.5,
+                });
+              } catch (error) {
+                // Handle scroll errors gracefully
+              }
+            }
+          }
+        }, APP_CONSTANTS.ORIENTATION_CHANGE_DELAY);
+      },
+      [activeItemUri, feed],
+    );
+
+    useEffect(() => {
+      const subscription = Dimensions.addEventListener(
+        "change",
+        handleOrientationChange,
+      );
+      return () => subscription?.remove();
+    }, [handleOrientationChange]);
+
+    // Grid view rendering
+    if (viewMode === "grid") {
       return (
-        <EmptyFeed
-          type="end"
+        <GridFeedView
+          feed={feed}
+          headerComponent={headerComponent}
+          refreshControl={refreshControl}
+          backgroundColor={backgroundColor}
           secondaryColor={secondaryColor}
-          profileColors={profileColors}
-          viewableAreaHeight={cardHeight}
+          isProfileLoading={isProfileLoading}
+          isProfileFeed={isHeaderFeed}
           feedOption={feedOption}
+          userDid={userDid}
+          onLoadMore={onLoadMore}
+          isFetchingNextPage={isFetchingNextPage}
+          hasNextPage={hasNextPage}
+          onGridItemPress={handleGridItemPress}
+          isError={effectiveIsError}
+          error={effectiveError}
+          onRetry={onRetry}
+          ListComponent={ListComponent}
         />
       );
     }
 
-    const isVideoVisible = isVideoVisibleHelper(item.post.uri) && canPlay;
-    
-    return (
-      <VideoItem
-        key={`${item.post.uri}_${index}`}
-        post={item.post}
-        feedItem={item}
-        height={cardHeight}
-        feedOption={feedOption as 'following' | 'discover'}
-        isVisible={isVideoVisible}
-        allowPlayback={canPlay}
-        moderationDecision={item.moderationDecision}
-        isModal={isModal}
-        index={index}
-      />
+    const viewableAreaHeight = viewportDimensions.height;
+    const headerHeightForTabs = useMemo(
+      () => (ListComponent ? CONSTANTS.HEADER_HEIGHT_TABS : 0),
+      [ListComponent],
     );
-  }, [
-    cardHeight,
-    feedOption,
-    canPlay,
-    isModal,
-    isVideoVisibleHelper,
-    secondaryColor,
-    profileColors,
-  ]);
+    const emptyComponentHeight = Math.max(
+      0,
+      viewableAreaHeight - headerHeightForTabs,
+    );
 
-  // Item type for FlashList recycling optimization
-  const getItemType = useCallback((item: FeedItem) => {
-    if (item.endCard) return 'endCard';
-    if (item.post?.embed?.$type === 'app.bsky.embed.record#view') return 'video';
-    return 'default';
-  }, []);
+    // Snapping configuration
+    const snapToIntervalValue = cardHeight + CONSTANTS.ITEM_MARGIN;
 
-  // Key extractor with stable keys (no index) for FlashList v2 maintainVisibleContentPosition
-  // Index-based keys cause issues when new items are added because existing items get new keys
-  const keyExtractor = useCallback((item: FeedItem, _index: number) => {
-    return item.endCard ? 'end-card' : `${item.post.uri}:${item.post.cid}`;
-  }, []);
+    // Custom snap offsets for header feeds and non-header feeds
+    const snapToOffsets = useMemo(() => {
+      const itemHeightWithMargin = cardHeight + CONSTANTS.ITEM_MARGIN;
 
-  // Comprehensive cleanup for all timeout refs to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      if (positionSaveTimeout.current) {
-        clearTimeout(positionSaveTimeout.current);
-        positionSaveTimeout.current = null;
-      }
-      if (initialVisibilityTimeout.current) {
-        clearTimeout(initialVisibilityTimeout.current);
-        initialVisibilityTimeout.current = null;
-      }
-      hasPrimedVisibleItemRef.current = false;
-    };
-  }, []);
+      if (headerComponent && headerHeight > 0 && cardHeight > 0) {
+        // Header feeds: snap at top (header visible) and then align items between bars
+        const offsets: number[] = [];
+        offsets.push(0); // Allow resting at the very top (header fully visible)
 
-  useEffect(() => {
-    if (activeItemUri) {
-      hasPrimedVisibleItemRef.current = true;
-    }
-  }, [activeItemUri]);
+        // For feeds with headers, align first video item between status and bottom bars
+        // after scrolling past the header
+        const topInset = viewportDimensions.effectiveInsets.top;
+        const bottomBarHeight = viewportDimensions.bottomNavBarHeight;
+        const base = Math.max(0, headerHeight - topInset);
 
-  // Prime initial visible item only on first mount when feed is visible
-  useEffect(() => {
-    if (!isVisible || !isFeedActive) return;
-    if (viewMode !== 'list') return;
-    if (listData.length === 0) return;
-    if (activeItemUri) return;
-    if (hasPrimedVisibleItemRef.current) return;
-
-    const firstPlayableIndex = listData.findIndex((item) => !item.endCard && item?.post?.uri);
-    if (firstPlayableIndex < 0) return;
-
-    const candidate = listData[firstPlayableIndex];
-    const viewToken: ViewToken = {
-      item: candidate,
-      key: candidate.endCard ? `end-card-${firstPlayableIndex}` : candidate.post.uri,
-      index: firstPlayableIndex,
-      isViewable: true,
-      section: undefined,
-    };
-
-    if (initialVisibilityTimeout.current) {
-      clearTimeout(initialVisibilityTimeout.current);
-    }
-
-    initialVisibilityTimeout.current = setTimeout(() => {
-      onViewableItemsChanged({ viewableItems: [viewToken] });
-      hasPrimedVisibleItemRef.current = true;
-    }, 0);
-  }, [isVisible, isFeedActive, viewMode, listData, activeItemUri, onViewableItemsChanged]);
-
-
-  // Unified item press handler for grid feeds
-  // Uses FlashList's native scrollToIndex when switching to list view
-  const handleGridItemPress = useCallback((index: number) => {
-    if (viewMode === 'grid' && onViewModeChange && index >= 0 && index < feed.length) {
-      onViewModeChange('list');
-      
-      setTimeout(() => {
-        scrollToIndex(index);
-      }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
-    }
-  }, [feed.length, viewMode, onViewModeChange, scrollToIndex]);
-
-  // Handle targetScrollIndex prop - scrolls to target on initial mount only
-  const hasScrolledToTargetRef = useRef(false);
-  useEffect(() => {
-    if (
-      targetScrollIndex !== null && 
-      targetScrollIndex !== undefined && 
-      viewMode === 'list' && 
-      listData.length > 0 &&
-      !hasScrolledToTargetRef.current &&
-      flashListRef.current
-    ) {
-      const targetIndex = Math.max(0, Math.min(targetScrollIndex, listData.length - 1));
-      setTimeout(() => {
-        flashListRef.current?.scrollToIndex({ 
-          index: targetIndex, 
-          animated: false,
-          viewPosition: 0.5
-        });
-        hasScrolledToTargetRef.current = true;
-      }, APP_CONSTANTS.GRID_TO_LIST_DELAY);
-    }
-  }, [targetScrollIndex, viewMode, listData.length]);
-
-  // Orientation change handling
-  const handleOrientationChange = useCallback(({ window }: { window: ScaledSize }) => {
-    setTimeout(() => {
-      if (flashListRef.current && feed.length > 0 && activeItemUri) {
-        const currentIndex = feed.findIndex(item => item.post.uri === activeItemUri);
-        if (currentIndex >= 0) {
-          try {
-            flashListRef.current.scrollToIndex({
-              index: currentIndex,
-              animated: false,
-              viewPosition: 0.5,
-            });
-          } catch (error) {
-            // Handle scroll errors gracefully
-          }
+        const itemCount = listData.length;
+        for (let i = 0; i < itemCount; i++) {
+          offsets.push(base + i * itemHeightWithMargin);
         }
+        return offsets;
       }
-    }, APP_CONSTANTS.ORIENTATION_CHANGE_DELAY);
-  }, [activeItemUri, feed]);
 
-  useEffect(() => {
-    const subscription = Dimensions.addEventListener('change', handleOrientationChange);
-    return () => subscription?.remove();
-  }, [handleOrientationChange]);
+      // Non-header feeds: align videos between status bar and bottom bar
+      if (!isSmallDevice) {
+        const offsets: number[] = [];
+        const topInset = viewportDimensions.effectiveInsets.top;
+        const itemCount = listData.length;
 
-  // Grid view rendering
-  if (viewMode === 'grid') {
+        for (let i = 0; i < itemCount; i++) {
+          // Start offset accounts for status bar
+          offsets.push(i * itemHeightWithMargin - topInset);
+        }
+        return offsets;
+      }
+
+      return null;
+    }, [
+      headerComponent,
+      headerHeight,
+      cardHeight,
+      listHeight,
+      listData.length,
+      viewportDimensions,
+      isSmallDevice,
+    ]);
+
+    // Main render
     return (
-      <GridFeedView
-        feed={feed}
-        headerComponent={headerComponent}
-        refreshControl={refreshControl}
-        backgroundColor={backgroundColor}
-        secondaryColor={secondaryColor}
-        isProfileLoading={isProfileLoading}
-        isProfileFeed={isHeaderFeed}
-        feedOption={feedOption}
-        userDid={userDid}
-        onLoadMore={onLoadMore}
-        isFetchingNextPage={isFetchingNextPage}
-        hasNextPage={hasNextPage}
-        onGridItemPress={handleGridItemPress}
-        isError={effectiveIsError}
-        error={effectiveError}
-        onRetry={onRetry}
-        ListComponent={ListComponent}
-      />
-    );
-  }
-
-  const viewableAreaHeight = viewportDimensions.height;
-  const headerHeightForTabs = useMemo(() => (ListComponent ? CONSTANTS.HEADER_HEIGHT_TABS : 0), [ListComponent]);
-  const emptyComponentHeight = Math.max(0, viewableAreaHeight - headerHeightForTabs);
-
-  // Snapping configuration
-  const snapToIntervalValue = cardHeight + CONSTANTS.ITEM_MARGIN;
-
-  // Custom snap offsets for header feeds
-  const snapToOffsets = useMemo(() => {
-    if (!headerComponent || headerHeight <= 0 || cardHeight <= 0) return null;
-    const offsets: number[] = [];
-    // Allow resting at the very top (header fully visible)
-    offsets.push(0);
-    // Base offset that centers the first item
-    const itemHeightWithMargin = cardHeight + CONSTANTS.ITEM_MARGIN;
-    const centerCorrection = Math.max(0, Math.round((listHeight - itemHeightWithMargin) / 2));
-    const base = Math.max(0, headerHeight - centerCorrection);
-    const itemCount = listData.length;
-    for (let i = 0; i < itemCount; i++) {
-      offsets.push(base + i * itemHeightWithMargin);
-    }
-    return offsets;
-  }, [headerComponent, headerHeight, cardHeight, listHeight, listData.length]);
-
-  // Main render
-  return (
-    <View 
-      style={[styles.container, { backgroundColor: backgroundColor || Colors.black }]} 
-      onLayout={(e) => {
-        const h = Math.round(e.nativeEvent.layout.height);
-        if (h > 0 && h !== listHeight) setListHeight(h);
-      }}
-    > 
-      <FlashList
-        ref={flashListRef}
-        data={listData}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        getItemType={getItemType}
-        ListHeaderComponent={headerComponent ? (
-          <View onLayout={(e) => {
-            const h = Math.round(e.nativeEvent.layout.height);
-            if (h > 0 && h !== headerHeight) setHeaderHeight(h);
-          }}>
-            {headerComponent}
-          </View>
-        ) : null}
-        
-        // FlashList performance optimizations
-        removeClippedSubviews={true}
-        overrideItemLayout={(layout, item, index) => {
-          // Account for item margin added to VideoCard
-          layout.span = cardHeight + CONSTANTS.ITEM_MARGIN;
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: backgroundColor || Colors.black },
+        ]}
+        onLayout={(e) => {
+          const h = Math.round(e.nativeEvent.layout.height);
+          if (h > 0 && h !== listHeight) setListHeight(h);
         }}
-        
-        // Snapping configuration
-        pagingEnabled={false}
-        {...(snapToOffsets
-          ? { snapToOffsets }
-          : { snapToInterval: snapToIntervalValue, snapToAlignment: 'center' as const }
-        )}
-        decelerationRate={Platform.OS === 'ios' ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID}
-        scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
-        
-        // Event handlers
-        onScroll={onScrollNative}
-        onMomentumScrollEnd={onMomentumScrollEnd}
-        onEndReached={onLoadMore}
-        onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        
-        // Scroll behavior
-        scrollEnabled={true}
-        showsVerticalScrollIndicator={false}
-        bounces={true}
-        directionalLockEnabled={true}
-        
-        // FlashList v2: Maintain scroll position when content changes
-        // New videos are added to subsequent pages without disrupting current view
-        // disabled: false (default) ensures scroll position is preserved
-        // autoscrollToTopThreshold: undefined prevents auto-scrolling when new items are added at top
-        maintainVisibleContentPosition={{
-          disabled: false,
-          autoscrollToTopThreshold: undefined,
-        }}
-        
-        // Pull to refresh
-        refreshControl={refreshControl as any}
-        
-        // Prevent horizontal interference
-        alwaysBounceVertical={false}
-        alwaysBounceHorizontal={false}
-        
-        // Empty state components
-        ListEmptyComponent={useMemo(() => {
-          if (isLoading) {
-            return (
-              <View style={[styles.centeredLoadingContainer, { backgroundColor: backgroundColor || Colors.black }]}>
-                <Loading3FillIcon size={48} color={secondaryColor || Colors.white} />
+      >
+        <FlashList
+          ref={flashListRef}
+          data={listData}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          getItemType={getItemType}
+          ListHeaderComponent={
+            headerComponent ? (
+              <View
+                onLayout={(e) => {
+                  const h = Math.round(e.nativeEvent.layout.height);
+                  if (h > 0 && h !== headerHeight) setHeaderHeight(h);
+                }}
+              >
+                {headerComponent}
               </View>
-            );
+            ) : null
           }
+          // FlashList performance optimizations
+          removeClippedSubviews={true}
+          overrideItemLayout={(layout, item, index) => {
+            // Account for item margin added to VideoCard
+            layout.span = cardHeight + CONSTANTS.ITEM_MARGIN;
+          }}
+          // Snapping configuration
+          pagingEnabled={false}
+          {...(snapToOffsets
+            ? { snapToOffsets }
+            : {
+                snapToInterval: snapToIntervalValue,
+                snapToAlignment: "center" as const,
+              })}
+          decelerationRate={
+            Platform.OS === "ios"
+              ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
+              : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
+          }
+          scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
+          // Event handlers
+          onScroll={onScrollNative}
+          onMomentumScrollEnd={onMomentumScrollEnd}
+          onEndReached={onLoadMore}
+          onEndReachedThreshold={QUERY_CONSTANTS.END_REACHED_THRESHOLD}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          // Scroll behavior
+          scrollEnabled={true}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+          directionalLockEnabled={true}
+          // FlashList v2: Maintain scroll position when content changes
+          // New videos are added to subsequent pages without disrupting current view
+          // disabled: false (default) ensures scroll position is preserved
+          // autoscrollToTopThreshold: undefined prevents auto-scrolling when new items are added at top
+          maintainVisibleContentPosition={{
+            disabled: false,
+            autoscrollToTopThreshold: undefined,
+          }}
+          // Pull to refresh
+          refreshControl={refreshControl as any}
+          // Prevent horizontal interference
+          alwaysBounceVertical={false}
+          alwaysBounceHorizontal={false}
+          // Empty state components
+          ListEmptyComponent={useMemo(() => {
+            if (isLoading) {
+              return (
+                <View
+                  style={[
+                    styles.centeredLoadingContainer,
+                    { backgroundColor: backgroundColor || Colors.black },
+                  ]}
+                >
+                  <Loading3FillIcon
+                    size={48}
+                    color={secondaryColor || Colors.white}
+                  />
+                </View>
+              );
+            }
 
-          const commonProps = {
+            const commonProps = {
+              secondaryColor,
+              profileColors,
+              isProfileFeed: isHeaderFeed,
+              viewableAreaHeight: emptyComponentHeight,
+              feedOption,
+            };
+
+            if (effectiveIsError) {
+              return (
+                <EmptyFeed type="error" onRetry={onRetry} {...commonProps} />
+              );
+            }
+            if (feedOption === "following") {
+              return <EmptyFeed type="no-following" {...commonProps} />;
+            }
+            return <EmptyFeed type="no-videos" {...commonProps} />;
+          }, [
+            isLoading,
+            effectiveIsError,
+            feedOption,
             secondaryColor,
             profileColors,
-            isProfileFeed: isHeaderFeed,
-            viewableAreaHeight: emptyComponentHeight,
-            feedOption,
-          };
-
-          if (effectiveIsError) {
-            return <EmptyFeed type="error" onRetry={onRetry} {...commonProps} />;
-          }
-          if (feedOption === 'following') {
-            return <EmptyFeed type="no-following" {...commonProps} />;
-          }
-          return <EmptyFeed type="no-videos" {...commonProps} />;
-        }, [
-          isLoading,
-          effectiveIsError,
-          feedOption,
-          secondaryColor,
-          profileColors,
-          isHeaderFeed,
-          emptyComponentHeight,
-          backgroundColor,
-          onRetry,
-        ])}
-        
-        // Content container styling
-        contentContainerStyle={{
-          // Force black between items so margins render as black
-          backgroundColor: Colors.black,
-          paddingBottom: feed.length === 0 ? 0 : viewportDimensions.bottomNavBarHeight,
-        }}
-      />
-      
-    </View>
-  );
-});
+            isHeaderFeed,
+            emptyComponentHeight,
+            backgroundColor,
+            onRetry,
+          ])}
+          // Content container styling
+          contentContainerStyle={{
+            // Force black between items so margins render as black
+            backgroundColor: Colors.black,
+            paddingBottom:
+              feed.length === 0 ? 0 : viewportDimensions.bottomNavBarHeight,
+          }}
+        />
+      </View>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   container: {
@@ -613,8 +790,8 @@ const styles = StyleSheet.create({
   },
   centeredLoadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     minHeight: SCREEN_HEIGHT,
   },
 });
