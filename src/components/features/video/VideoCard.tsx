@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 
-import { Image } from 'react-native';
+import { Image } from 'expo-image';
 import { Colors } from '../../ui/UI';
 import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
@@ -646,7 +646,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
             {!!posterUrl && !videoState.isReady && (
               <Image
                 source={{ uri: posterUrl }}
-                resizeMode="contain"
+                contentFit="contain"
                 style={styles.poster}
               />
             )}

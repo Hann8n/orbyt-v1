@@ -2,7 +2,8 @@ declare let window: any;
 
 import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, TouchableOpacity, Text, Image, TextInput, Platform, ImageBackground } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, TextInput, Platform } from 'react-native';
+import { Image, ImageBackground } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -610,8 +611,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
             source={imageSource}
             style={styles.backgroundImage}
             imageStyle={styles.backgroundImageStyle}
-            resizeMode="cover"
-            fadeDuration={0}
+            contentFit="cover"
+            transition={0}
           />
         </View>
         {/* Dark overlay for text readability - fully black at bottom, lighter in center, fades to 10% at top */}
@@ -1061,7 +1062,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   backgroundImageStyle: {
-    resizeMode: 'cover',
+    // contentFit is set as a prop on ImageBackground, not in style
   },
   backgroundOverlay: {
     position: 'absolute',

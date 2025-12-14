@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Image,
   Pressable,
   Linking,
   Platform,
   UIManager,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -725,7 +725,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           <Image
             source={{ uri }}
             style={[style, { opacity: isLoading && !imageLoaded ? 0 : 1 }]}
-            resizeMode="cover"
+            contentFit="cover"
             accessible={true}
             accessibilityLabel={accessibilityLabel}
             onLoadStart={() => {

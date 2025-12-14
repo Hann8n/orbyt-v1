@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   TextInput,
-  Image,
   TouchableOpacity,
   StatusBar,
   Platform,
@@ -15,6 +14,7 @@ import {
   Animated,
   useWindowDimensions,
 } from 'react-native';
+import { Image } from 'expo-image';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
@@ -446,7 +446,7 @@ const GridChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel:
           <Image
             source={{ uri: avatarUri }}
             style={styles.gridChannelImage}
-            resizeMode="cover"
+            contentFit="cover"
           />
         ) : (
           <View style={[styles.gridChannelImage, { backgroundColor: Colors.darkGray, justifyContent: 'center', alignItems: 'center' }]}>
@@ -520,7 +520,7 @@ const HorizontalChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { ch
                 marginRight: -50, // Push further right
               }
             ]}
-            resizeMode="cover"
+            contentFit="cover"
           />
         ) : (
           <Avatar
@@ -2011,7 +2011,7 @@ const ExploreScreen: React.FC = () => {
                           <Image
                             source={{ uri: thumbnailUrl }}
                             style={styles.spotlightVideoThumbnail}
-                            resizeMode="contain"
+                            contentFit="contain"
                           />
                         ) : (
                           <View style={styles.spotlightVideoThumbnailPlaceholder}>

@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, TouchableOpacity, Text, Alert, StatusBar, Image, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Alert, StatusBar, useWindowDimensions } from 'react-native';
+import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import UniversalHeader, { HeaderContent, CustomActionLayout } from './UniversalHeader';
@@ -432,9 +433,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     // Get Orbyt channel config to check for channelGIF
     const orbytChannel = getChannelByUri(channel.uri);
     if (orbytChannel?.channelGIF) {
-      // Convert require() result to URI using Image.resolveAssetSource
-      const resolvedAsset = Image.resolveAssetSource(orbytChannel.channelGIF);
-      return resolvedAsset?.uri;
+      // Convert require() result to URI using Asset.resolveAsync or direct require
+      // expo-image can handle require() directly, but for URI we use Asset
+      const { Asset } = require('expo-asset');
+      const resolvedAsset = Asset.fromModule(orbytChannel.channelGIF);
+      const uri = resolvedAsset.localUri || resolvedAsset.uri;
+      return uri;
     }
     
     // Fallback to regular avatar if no channelGIF

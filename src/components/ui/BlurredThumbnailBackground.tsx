@@ -1,12 +1,14 @@
 import React from 'react';
-import { View, Image, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 
 interface BlurredThumbnailBackgroundProps {
   thumbnailUrl: string | null;
+  recyclingKey?: string;
 }
 
-export default function BlurredThumbnailBackground({ thumbnailUrl }: BlurredThumbnailBackgroundProps) {
+export default function BlurredThumbnailBackground({ thumbnailUrl, recyclingKey }: BlurredThumbnailBackgroundProps) {
   if (!thumbnailUrl) return null;
 
   return (
@@ -14,7 +16,10 @@ export default function BlurredThumbnailBackground({ thumbnailUrl }: BlurredThum
       <Image
         source={{ uri: thumbnailUrl }}
         style={styles.background}
-        resizeMode="cover"
+        contentFit="cover"
+        recyclingKey={recyclingKey}
+        cachePolicy="disk"
+        transition={200}
       />
       <BlurView intensity={100} tint="systemChromeMaterialDark" style={styles.blur} />
       <View style={styles.overlay} />

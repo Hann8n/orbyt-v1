@@ -6,9 +6,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  Image,
   ScrollView,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -48,18 +48,24 @@ const VideoGridItem: React.FC<{
   
   const validThumbnailUrl = thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim() !== '' ? thumbnailUrl : null;
   
+  // Use post URI or CID as unique recycling key to prevent image flashing during scroll
+  const recyclingKey = item.post?.uri || item.post?.cid || `item-${index}`;
+  
   return (
     <TouchableOpacity
       style={[styles.gridItem, style, itemStyle]}
       activeOpacity={0.7}
       onPress={handlePress}
     >
-      <BlurredThumbnailBackground thumbnailUrl={validThumbnailUrl} />
+      <BlurredThumbnailBackground thumbnailUrl={validThumbnailUrl} recyclingKey={recyclingKey} />
       {validThumbnailUrl && (
         <Image
           source={{ uri: validThumbnailUrl }}
           style={[styles.thumbnail, thumbnailStyle]}
-          resizeMode="contain"
+          contentFit="contain"
+          recyclingKey={recyclingKey}
+          cachePolicy="disk"
+          transition={200}
         />
       )}
       {shouldBlur && (
@@ -285,7 +291,13 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
               key={`grid-${feedOption}-${userDid || 'default'}-cols-${numColumns}`}
               data={feed}
               renderItem={renderGridItem}
-              keyExtractor={(item: FeedItem) => item.post?.cid ? `${item.post.uri}:${item.post.cid}` : item.post.uri}
+              keyExtractor={(item: FeedItem) => {
+                // Use URI and CID for stable keys to prevent recycling issues
+                if (item.post?.cid && item.post?.uri) {
+                  return `${item.post.uri}:${item.post.cid}`;
+                }
+                return item.post?.uri || `item-${item.post?.index || Math.random()}`;
+              }}
               numColumns={numColumns}
               contentContainerStyle={[
                 styles.listContent,

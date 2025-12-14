@@ -9,8 +9,8 @@ import {
   RefreshControl,
   Dimensions,
   Alert,
-  Image,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -1051,7 +1051,7 @@ const InsightsScreen: React.FC<InsightsScreenProps> = ({ onLogout }) => {
         <Image
           source={{ uri: post.thumbnailUrl && typeof post.thumbnailUrl === 'string' && post.thumbnailUrl.trim() !== '' ? post.thumbnailUrl : undefined }}
           style={styles.topVideoPostThumbnail}
-          resizeMode="contain"
+          contentFit="contain"
           key={`insights-thumbnail-${post.uri}`}
         />
       </View>

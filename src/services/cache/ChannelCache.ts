@@ -13,7 +13,7 @@ import {
 import { useCallback } from 'react';
 import { Colors } from '../../components/ui/UI';
 import { isOrbytChannel, getChannelByUri, getChannelBySlug, extractFeedSlug, hashtagToChannelSlug } from '../../utils/orbytChannels';
-import { Image } from 'react-native';
+// Image.resolveAssetSource replaced with expo-asset
 
 export interface CachedChannel {
   uri: string;
@@ -649,8 +649,9 @@ class ChannelCache {
     let avatarUrl: string | undefined = undefined;
     if (orbytChannel.channelGIF) {
       try {
-        const resolvedAsset = Image.resolveAssetSource(orbytChannel.channelGIF);
-        avatarUrl = resolvedAsset?.uri;
+        const { Asset } = require('expo-asset');
+        const asset = Asset.fromModule(orbytChannel.channelGIF);
+        avatarUrl = asset.localUri || asset.uri;
       } catch (e) {
         // Fallback if image resolution fails
       }

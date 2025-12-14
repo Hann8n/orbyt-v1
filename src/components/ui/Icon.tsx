@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SvgXml } from 'react-native-svg';
-import { StyleProp, ViewStyle, View, Image, Animated, Easing } from 'react-native';
+import { StyleProp, ViewStyle, View, Animated, Easing } from 'react-native';
+import { Image } from 'expo-image';
 import { logger } from '../../utils/logger';
 
 // Simple colors object to avoid circular dependency
@@ -372,7 +373,7 @@ export const ProfileIcon: React.FC<{ size: number; color: string }> = ({ size, c
             height: size - 4, // Account for border width
             borderRadius: (size - 4) / 2
           }}
-          resizeMode="cover"
+          contentFit="cover"
         />
       </View>
     );

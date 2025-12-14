@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Pressable, Linking, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Pressable, Linking, Alert } from 'react-native';
+import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -425,7 +426,7 @@ export default function EmbeddedPostCard({
             <Image 
               source={{ uri: thumbnailUrl }}
               style={styles.cleanImage}
-              resizeMode="contain"
+              contentFit="contain"
             />
             {isBlurred && (
               <BlurView intensity={80} tint="dark" style={styles.cleanBlurOverlay} />
@@ -474,7 +475,7 @@ export default function EmbeddedPostCard({
           <Image 
             source={{ uri: thumbnailUrl }}
             style={styles.videoThumbnail}
-            resizeMode="contain"
+            contentFit="contain"
           />
           
           {/* Black gradient from bottom */}

@@ -33,7 +33,7 @@ const RadarGif = require('../../../assets/radar.gif');
 const EmptyNotifications = () => (
   <View style={styles.emptyContainer}>
     <View style={styles.emptyContent}>
-      <Image source={RadarGif} style={styles.radarGif} />
+      <Image source={RadarGif} style={styles.radarGif} contentFit="contain" />
        <Text style={styles.emptyText}>no recent notifications</Text>
     </View>
   </View>
@@ -336,7 +336,7 @@ const NotificationItem: React.FC<{
             <Image
               source={{ uri: thumbnail }}
               style={styles.thumbnailVideo}
-              resizeMode="cover"
+              contentFit="cover"
               onError={() => {
                 // Silently fail - image just won't display
                 if (__DEV__) {
@@ -663,7 +663,6 @@ const styles = StyleSheet.create({
   radarGif: {
     width: 120,
     height: 120,
-    resizeMode: 'contain',
     marginBottom: 16,
   },
   emptyText: {

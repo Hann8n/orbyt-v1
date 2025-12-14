@@ -3,7 +3,7 @@
  * Add new channels here to make them available for posting
  */
 
-import { Image } from 'react-native';
+// Image.resolveAssetSource replaced with expo-asset
 import { extractColorsFromImage } from './formatting/colorUtils';
 
 /**
@@ -138,9 +138,11 @@ function colorDistance(color1: string, color2: string): number {
  */
 export async function generateChannelColorFromGIF(channelGIF: any): Promise<string> {
   try {
-    // Resolve the GIF asset to get its URI
-    const resolvedAsset = Image.resolveAssetSource(channelGIF);
-    if (!resolvedAsset?.uri) {
+    // Resolve the GIF asset to get its URI using expo-asset
+    const { Asset } = require('expo-asset');
+    const asset = Asset.fromModule(channelGIF);
+    const uri = asset.localUri || asset.uri;
+    if (!uri) {
       return '#6366F1'; // Default purple-blue fallback
     }
 
@@ -451,8 +453,9 @@ export function getChannelAvatarUri(uri: string, fallbackAvatar?: string): strin
   
   const orbytChannel = getChannelByUri(uri);
   if (orbytChannel?.channelGIF) {
-    const resolvedAsset = Image.resolveAssetSource(orbytChannel.channelGIF);
-    return resolvedAsset?.uri;
+    const { Asset } = require('expo-asset');
+    const asset = Asset.fromModule(orbytChannel.channelGIF);
+    return asset.localUri || asset.uri;
   }
   
   return fallbackAvatar;

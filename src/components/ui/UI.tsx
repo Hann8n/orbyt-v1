@@ -12,9 +12,9 @@ import {
   TextInput,
   Alert,
   StyleProp,
-  Image,
   ImageStyle,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Modal as RNModal } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -375,7 +375,7 @@ export const Avatar: React.FC<AvatarProps> = ({
         <Image
           source={{ uri }}
           style={imageStyle}
-          resizeMode="cover"
+          contentFit="cover"
           blurRadius={blurRadius || 0}
         />
       </View>
@@ -415,7 +415,7 @@ export const Avatar: React.FC<AvatarProps> = ({
       <Image
         source={require('../../assets/Default-avatar.png')}
         style={imageStyle}
-        resizeMode="cover"
+        contentFit="cover"
       />
     </View>
   );

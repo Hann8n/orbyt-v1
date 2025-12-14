@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList, Image } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList } from 'react-native';
+import { Image } from 'expo-image';
 import Icon from '../../ui/Icon';
 import { Colors } from '../../ui/UI';
 import { useQuery } from '@tanstack/react-query';
@@ -214,7 +215,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       >
         <View style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}>
           <View style={styles.iconContainer}>
-            <Image source={TVStaticGif} style={styles.ufoGif} />
+            <Image source={TVStaticGif} style={styles.ufoGif} contentFit="contain" />
           </View>
           {displayMessage && (
             <Text style={[styles.emptyText, { color: textColor }]}>
@@ -252,7 +253,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
         >
           <View style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}>
             <View style={styles.iconContainer}>
-              <Image source={TVStaticGif} style={styles.ufoGif} />
+              <Image source={TVStaticGif} style={styles.ufoGif} contentFit="contain" />
             </View>
             {displayMessage && (
               <Text style={[styles.emptyText, { color: textColor }]}> 
@@ -287,7 +288,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       >
         <View style={[styles.contentContainer, { justifyContent: 'center' }]}>
           <View style={styles.iconContainer}>
-            <Image source={LivingGif} style={styles.ufoGif} />
+            <Image source={LivingGif} style={styles.ufoGif} contentFit="contain" />
           </View>
           <Text style={[styles.emptyText, { color: textColor }]}> 
             {displayMessage}
@@ -307,9 +308,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       <View style={[styles.contentContainer, shouldOffsetTop && { paddingTop: topThirdOffset }]}>
           <View style={styles.iconContainer}>
             {(isProfileFeed || (feedOption && feedOption.startsWith('hashtag:'))) && type === 'no-videos' ? (
-              <Image source={UFOGif} style={styles.ufoGif} />
+              <Image source={UFOGif} style={styles.ufoGif} contentFit="contain" />
             ) : isYourMixFeed && type === 'no-videos' ? (
-              <Image source={TVStaticGif} style={styles.ufoGif} />
+              <Image source={TVStaticGif} style={styles.ufoGif} contentFit="contain" />
             ) : (
               <Icon 
                 name={icon} 
@@ -375,7 +376,6 @@ const styles = StyleSheet.create({
   ufoGif: {
     width: 80,
     height: 80,
-    resizeMode: 'contain',
   },
   retryButton: {
     borderWidth: 1,

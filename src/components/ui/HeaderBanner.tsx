@@ -5,12 +5,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Dimensions,
   Linking,
   Platform,
   FlatList,
 } from 'react-native';
+import { Image } from 'expo-image';
 import type { FlatListProps } from 'react-native';
 import { Colors } from '../ui/UI';
 import { Header, useHeaders } from '../../services/APIService';
@@ -182,8 +182,8 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
           <Image
             source={{ uri: header.imageUrl }}
             style={styles.headerImage}
-            resizeMode="cover"
-            fadeDuration={Platform.OS === 'android' ? 0 : undefined}
+            contentFit="cover"
+            transition={Platform.OS === 'android' ? 0 : undefined}
             onError={() => {
             }}
           />
@@ -256,8 +256,8 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
             <Image
               source={{ uri: header.imageUrl }}
               style={styles.headerImage}
-              resizeMode="cover"
-              fadeDuration={Platform.OS === 'android' ? 0 : undefined}
+              contentFit="cover"
+              transition={Platform.OS === 'android' ? 0 : undefined}
               onError={() => {
               }}
             />

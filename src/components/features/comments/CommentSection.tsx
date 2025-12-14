@@ -7,13 +7,13 @@ import {
   UIManager,
   StyleSheet,
   Alert,
-  Image,
   Modal,
   Pressable,
   TextInput,
   Linking,
   Keyboard,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -783,7 +783,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       >
         <Pressable style={styles.modalOverlay} onPress={() => setFullscreenImageUri(null)}>
           {fullscreenImageUri && (
-            <Image source={{ uri: fullscreenImageUri }} style={styles.fullscreenImage} />
+            <Image source={{ uri: fullscreenImageUri }} style={styles.fullscreenImage} contentFit="contain" />
           )}
           <Pressable style={styles.closeButton} onPress={() => setFullscreenImageUri(null)}>
             <CloseFillIcon size={28} color={Colors.white} />
@@ -879,7 +879,6 @@ const styles = StyleSheet.create({
   fullscreenImage: {
     width: '95%',
     height: '80%',
-    resizeMode: 'contain',
     borderRadius: BORDER_RADIUS.MEDIUM,
   },
   closeButton: {
