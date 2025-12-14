@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, InteractionManager } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import { File, Directory, Paths } from 'expo-file-system';
@@ -759,10 +759,12 @@ class VideoProcessingService {
           let mediaInfo: any = null;
           
           if (typeof FFprobeKit.getMediaInformation === 'function') {
+            // FFprobe operations are already async and run in background threads
             mediaInfo = await FFprobeKit.getMediaInformation(normalizedPath);
           } else if (typeof FFprobeKit.execute === 'function') {
             // Alternative: use FFprobe execute with JSON output
             const probeCommand = `-v error -select_streams v:0 -show_entries stream=width,height,codec_name,r_frame_rate,duration -show_entries format=duration -of json "${normalizedPath}"`;
+            // FFprobe operations are already async and run in background threads
             const session = await FFprobeKit.execute(probeCommand);
             const returnCode = await session.getReturnCode();
             
@@ -919,6 +921,8 @@ class VideoProcessingService {
       const scaleFilter = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2`;
       const ffmpegCommand = `-i "${normalizedInput}" -vf "${scaleFilter}" -r ${targetFrameRate} -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -movflags +faststart "${normalizedOutput}"`;
 
+      // FFmpeg operations are already async and run in background threads
+      // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(ffmpegCommand);
       const returnCode = await session.getReturnCode();
 
@@ -1208,6 +1212,8 @@ class VideoProcessingService {
         audioLabels: audioLabels.join(','),
       });
 
+      // FFmpeg operations are already async and run in background threads
+      // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(cmd);
       const returnCode = await session.getReturnCode();
 
@@ -1465,6 +1471,80 @@ class VideoProcessingService {
         compressionRatio: 0,
         sizeReduction: 'Unknown',
       };
+    }
+  }
+
+  /**
+   * Extracts the first frame from a video as a thumbnail image
+   * @param videoPath - Path to the video file (should already be standardized)
+   * @param assetId - Optional asset ID for MediaLibrary lookup (iCloud videos) - only needed if videoPath is not standardized
+   * @returns Path to the extracted thumbnail image
+   */
+  static async extractFirstFrame(videoPath: string, assetId?: string | null): Promise<string> {
+    try {
+      // If videoPath is already standardized (from sandbox), use it directly
+      // Otherwise, get local URI from MediaLibrary if we have assetId (for iCloud videos)
+      let localVideoPath: string;
+      if (videoPath.includes('video_sandbox') || videoPath.includes('Library/Caches')) {
+        // Already standardized, use as-is
+        localVideoPath = videoPath;
+      } else {
+        // Need to get local path (handles iCloud videos)
+        localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
+      }
+      
+      // Strip fragment identifier and normalize path for FFmpeg
+      let normalizedPath = this.stripFragment(localVideoPath.replace('file://', ''));
+      if (Platform.OS === 'ios' && !normalizedPath.startsWith('/')) {
+        normalizedPath = '/' + normalizedPath;
+      }
+
+      // Create temp directory for thumbnail
+      const tempDir = new Directory(Paths.cache, `thumbnails_${Date.now()}`);
+      tempDir.create({ intermediates: true });
+      const thumbnailFile = new File(tempDir, `thumbnail_${Date.now()}.jpg`);
+      let thumbnailPath = thumbnailFile.uri.replace('file://', '');
+      
+      if (Platform.OS === 'ios' && !thumbnailPath.startsWith('/')) {
+        thumbnailPath = '/' + thumbnailPath;
+      }
+
+      if (!FFmpegKit || !ReturnCode) {
+        throw new Error('FFmpegKit is not available');
+      }
+
+      // Extract first frame at 0.1 seconds (to avoid black frames)
+      // -ss 0.1: seek to 0.1 seconds
+      // -vframes 1: extract only 1 frame
+      // -update 1: update the output file (required for single image output)
+      // -q:v 2: high quality JPEG
+      const cmd = `-i "${normalizedPath}" -ss 0.1 -vframes 1 -update 1 -q:v 2 "${thumbnailPath}"`;
+
+      const session = await FFmpegKit.execute(cmd);
+      const returnCode = await session.getReturnCode();
+
+      if (ReturnCode.isSuccess(returnCode)) {
+        // Verify thumbnail file exists
+        const thumbnail = new File(thumbnailPath);
+        if (!thumbnail.exists) {
+          throw new Error('Thumbnail file was not created');
+        }
+
+        return this.ensureFileProtocol(thumbnailFile.uri);
+      } else {
+        const failStackTrace = await session.getFailStackTrace();
+        const output = await session.getOutput();
+        logger.error('Thumbnail extraction failed', {
+          component: 'VideoProcessingService',
+          returnCode,
+          failStackTrace,
+          output,
+        });
+        throw new Error(`Thumbnail extraction failed: ${failStackTrace || output || 'Unknown error'}`);
+      }
+    } catch (error) {
+      logger.error('Error extracting first frame', error, { component: 'VideoProcessingService' });
+      throw error;
     }
   }
 }

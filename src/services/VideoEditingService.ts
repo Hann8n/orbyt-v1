@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, InteractionManager } from 'react-native';
 import { logger } from '../utils/logger';
 
 // Lazy import FFmpegKit to avoid errors when native module isn't linked yet
@@ -147,6 +147,8 @@ class VideoEditingService {
         normalizedOutput,
       });
 
+      // FFmpeg operations are already async and run in background threads
+      // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(cmd);
       const returnCode = await session.getReturnCode();
 
@@ -231,6 +233,8 @@ class VideoEditingService {
         musicVolume,
       });
 
+      // FFmpeg operations are already async and run in background threads
+      // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(cmd);
       const returnCode = await session.getReturnCode();
 
@@ -295,6 +299,8 @@ class VideoEditingService {
         volume: clampedVolume,
       });
 
+      // FFmpeg operations are already async and run in background threads
+      // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(cmd);
       const returnCode = await session.getReturnCode();
 
@@ -362,6 +368,8 @@ class VideoEditingService {
         duration,
       });
 
+      // FFmpeg operations are already async and run in background threads
+      // No need for InteractionManager wrapper - FFmpegKit handles threading internally
       const session = await FFmpegKit.execute(cmd);
       const returnCode = await session.getReturnCode();
 

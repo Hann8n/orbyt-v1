@@ -75,7 +75,17 @@ const VideoPostScreen: React.FC = () => {
   const params = useLocalSearchParams();
   
   // Video path is already standardized when it arrives from create.tsx or video-processing.tsx
+  // OR segments are provided for background merging
   const videoPath = params.videoPath as string;
+  const segmentsParam = params.segments as string | undefined;
+  const thumbnailPath = params.thumbnailPath as string | undefined;
+  
+  // Debug: Log thumbnail path
+  useEffect(() => {
+    if (thumbnailPath) {
+      logger.info('VideoPostScreen received thumbnailPath', { component: 'VideoPostScreen', thumbnailPath });
+    }
+  }, [thumbnailPath]);
   
   const textOverlays = (params.textOverlays as any) || [];
   const navigation = useRouter();
@@ -85,6 +95,12 @@ const VideoPostScreen: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const playerRef = useRef<VideoPlayer | null>(null);
+  
+  // Background merging state
+  const [isMerging, setIsMerging] = useState(false);
+  const [mergingProgress, setMergingProgress] = useState(0);
+  const [mergedVideoPath, setMergedVideoPath] = useState<string | null>(null);
+  const [mergingError, setMergingError] = useState<string | null>(null);
 
   // Content warning state
   const [selectedContentWarnings, setSelectedContentWarnings] = useState<string[]>([]);
@@ -193,10 +209,75 @@ const VideoPostScreen: React.FC = () => {
     }
   }, [currentUser?.did]);
 
+  // Handle background merging if segments are provided
+  useEffect(() => {
+    if (!segmentsParam || mergedVideoPath) return; // Already merged or no segments
+    
+    const mergeSegments = async () => {
+      try {
+        setIsMerging(true);
+        setMergingError(null);
+        setMergingProgress(0);
+        
+        // Parse segments from params
+        const segments = JSON.parse(segmentsParam);
+        
+        if (!segments || segments.length === 0) {
+          throw new Error('No video segments provided');
+        }
+        
+        // Convert to ProcessingVideoSegment format
+        const processingSegments = segments.map((segment: any) => ({
+          startTime: segment.startTime,
+          duration: segment.duration,
+          video: segment.video,
+          sourceType: segment.sourceType,
+        }));
+        
+        // Merge segments in background using InteractionManager
+        const { InteractionManager } = require('react-native');
+        await InteractionManager.runAfterInteractions(async () => {
+          setMergingProgress(25);
+          
+          const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
+          
+          setMergingProgress(100);
+          setMergedVideoPath(mergedVideo.path);
+          setIsMerging(false);
+          
+          logger.info('Background merging completed', {
+            component: 'VideoPostScreen',
+            mergedPath: mergedVideo.path,
+          });
+        });
+      } catch (error: any) {
+        logger.error('Background merging failed', error, { component: 'VideoPostScreen' });
+        setMergingError(error.message || 'Failed to merge video segments');
+        setIsMerging(false);
+        Alert.alert(
+          'Merging Failed',
+          error.message || 'Failed to merge video segments. Please try again.',
+          [
+            {
+              text: 'Go Back',
+              onPress: () => navigation.back(),
+            }
+          ]
+        );
+      }
+    };
+    
+    mergeSegments();
+  }, [segmentsParam, mergedVideoPath, navigation]);
+
+  // Determine the active video path (merged > provided > null)
+  const activeVideoPath = mergedVideoPath || videoPath;
+
   // Automatically check upload limits and compress video if needed on component mount
   // Defer compression until after interactions complete to avoid blocking UI
   useEffect(() => {
-    if (!videoPath) return;
+    // Use merged video path if available, otherwise use provided videoPath
+    if (!activeVideoPath) return;
 
     const { InteractionManager } = require('react-native');
     const interactionHandle = InteractionManager.runAfterInteractions(async () => {
@@ -207,7 +288,7 @@ const VideoPostScreen: React.FC = () => {
         // Automatically check upload limits and compress if needed
         // This uses WhatsApp-like automatic compression in the background
         const result = await VideoProcessingService.checkAndCompressVideoForUpload(
-          videoPath,
+          activeVideoPath,
           undefined, // assetId not available here, path is already standardized
           (progress) => {
             setCompressionProgress(progress);
@@ -221,7 +302,7 @@ const VideoPostScreen: React.FC = () => {
             
             // Get compression statistics
             const stats = await VideoProcessingService.getCompressionStats(
-              videoPath,
+              activeVideoPath,
               result.processedVideo.path
             );
             setCompressionStats(stats);
@@ -238,18 +319,18 @@ const VideoPostScreen: React.FC = () => {
             });
           } else {
             // Video didn't need compression, just check size info
-            const sizeInfo = await VideoProcessingService.checkVideoSize(videoPath);
+            const sizeInfo = await VideoProcessingService.checkVideoSize(activeVideoPath);
             setVideoSizeInfo(sizeInfo);
             
             // Get comprehensive video information
-            const compressionInfo = await VideoProcessingService.getCompressionInfo(videoPath);
+            const compressionInfo = await VideoProcessingService.getCompressionInfo(activeVideoPath);
             setVideoInfo(compressionInfo);
           }
         } catch (error) {
           console.error('Error checking and compressing video:', error);
           // Fallback: just check video size without compression
           try {
-            const sizeInfo = await VideoProcessingService.checkVideoSize(videoPath);
+            const sizeInfo = await VideoProcessingService.checkVideoSize(activeVideoPath);
             setVideoSizeInfo(sizeInfo);
           } catch (fallbackError) {
             console.error('Error in fallback video size check:', fallbackError);
@@ -267,14 +348,14 @@ const VideoPostScreen: React.FC = () => {
 
   // Manual compress video (fallback if automatic compression didn't work)
   const compressVideo = async () => {
-    if (!videoPath || isCompressing) return;
+    if (!activeVideoPath || isCompressing || isMerging) return;
     
     setIsCompressing(true);
     setCompressionProgress(0);
     try {
       // Use automatic compression (WhatsApp-like) with progress callback
       const compressedVideo = await VideoProcessingService.compressVideoAuto(
-        videoPath,
+        activeVideoPath,
         undefined,
         (progress) => {
           setCompressionProgress(progress);
@@ -284,7 +365,7 @@ const VideoPostScreen: React.FC = () => {
       setWasAutoCompressed(true);
       
       // Get compression statistics
-      const stats = await VideoProcessingService.getCompressionStats(videoPath, compressedVideo.path);
+      const stats = await VideoProcessingService.getCompressionStats(activeVideoPath, compressedVideo.path);
       setCompressionStats(stats);
       
       // Update video size info
@@ -346,15 +427,20 @@ const VideoPostScreen: React.FC = () => {
   };
 
   const handlePost = async () => {
-    if (isPosting || isCompressing) return;
+    if (isPosting || isCompressing || isMerging) {
+      if (isMerging) {
+        Alert.alert('Please wait', 'Video is still being merged. Please wait for it to complete.');
+      }
+      return;
+    }
     
-    if (!videoPath) {
+    if (!activeVideoPath) {
       Alert.alert('error', 'no video selected');
       return;
     }
 
     // Path is already standardized and validated - trust it
-    const videoPathToUse = compressedVideoPath || videoPath;
+    const videoPathToUse = compressedVideoPath || activeVideoPath;
 
     // Description is optional for video posts
 
@@ -486,23 +572,27 @@ const VideoPostScreen: React.FC = () => {
   // Resolved video path info
   const [videoPathInfo, setVideoPathInfo] = useState<VideoPathInfo | null>(null);
   
-  // Resolve video path on mount or when videoPath changes
+  // Resolve video path on mount or when activeVideoPath changes
   useEffect(() => {
     const resolveVideo = async () => {
-      if (!videoPath) {
-        setVideoError('No video path provided');
+      // Wait for merging to complete if in progress
+      if (isMerging || !activeVideoPath) {
+        if (isMerging) {
+          setVideoLoading(true);
+          setVideoError(null);
+        }
         return;
       }
 
       // Debug the incoming path
-      debugVideoPath('VideoPostScreen received', videoPath);
+      debugVideoPath('VideoPostScreen received', activeVideoPath);
       
       try {
         setVideoLoading(true);
         setVideoError(null);
         
         // Use the utility to resolve the path (handles iCloud, normalization, validation)
-        const pathInfo = await resolveVideoPath(videoPath);
+        const pathInfo = await resolveVideoPath(activeVideoPath);
         
         setVideoPathInfo(pathInfo);
         
@@ -512,11 +602,13 @@ const VideoPostScreen: React.FC = () => {
       } catch (error) {
         console.error('[VideoPostScreen] Error resolving video path:', error);
         setVideoError('Unable to access video file');
+      } finally {
+        setVideoLoading(false);
       }
     };
 
     resolveVideo();
-  }, [videoPath]);
+  }, [activeVideoPath, isMerging]);
 
   // Final video URI for playback
   const videoUri = videoPathInfo?.uri || '';
@@ -912,9 +1004,9 @@ const VideoPostScreen: React.FC = () => {
             <View style={styles.previewSection}>
               <View style={[styles.videoContainer, { width: '100%', aspectRatio: ASPECT_RATIO, maxHeight: '90%' }]}> 
                 {/* Blurred thumbnail background */}
-                {videoUri && <BlurredThumbnailBackground thumbnailUrl={videoUri} />}
-                {videoLoading && (
-                  <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: Colors.darkGray }]}> 
+                {(thumbnailPath || videoUri) && <BlurredThumbnailBackground thumbnailUrl={thumbnailPath || videoUri} />}
+                {(videoLoading || isMerging) && (
+                  <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: 'transparent' }]}> 
                     <Loading3FillIcon size={48} color={Colors.white} />
                   </View>
                 )}
@@ -926,20 +1018,14 @@ const VideoPostScreen: React.FC = () => {
                         contentFit="contain"
                         nativeControls={false}
                       />
-                  ) : (
-                    <View style={{ justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-                      <Text style={{ color: Colors.lightGray, fontSize: 16, textAlign: 'center' }}>
-                        No video source available
-                      </Text>
-                    </View>
-                  )}
+                  ) : null}
                 </View>
                 {videoError && (
                   <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 3, backgroundColor: Colors.darkGray }]}> 
                     <Text style={{ color: Colors.lightGray, fontSize: 16 }}>{videoError && videoError.toLowerCase()}</Text>
                   </View>
                 )}
-                {!videoLoading && !videoError && textOverlays && textOverlays.length > 0 && textOverlays.map((overlay: TextOverlay) => (
+                {!videoLoading && !isMerging && !videoError && textOverlays && textOverlays.length > 0 && textOverlays.map((overlay: TextOverlay) => (
                   <View
                     key={overlay.id}
                     style={[
@@ -1267,10 +1353,10 @@ const VideoPostScreen: React.FC = () => {
           <View style={styles.previewSection}>
             <View style={[styles.videoContainer, { width: containerWidth, height: containerHeight }]}>
               {/* Blurred thumbnail background */}
-              {videoUri && <BlurredThumbnailBackground thumbnailUrl={videoUri} />}
+              {(thumbnailPath || videoUri) && <BlurredThumbnailBackground thumbnailUrl={thumbnailPath || videoUri} />}
               {/* Show loading indicator while video is loading */}
-              {videoLoading && (
-                <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: Colors.darkGray }]}> 
+              {(videoLoading || isMerging) && (
+                <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: 'transparent' }]}>
                   <Loading3FillIcon size={48} color={Colors.white} />
                 </View>
               )}
@@ -1282,13 +1368,7 @@ const VideoPostScreen: React.FC = () => {
                     contentFit="contain"
                     nativeControls={false}
                   />
-                ) : (
-                  <View style={{ justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-                    <Text style={{ color: Colors.lightGray, fontSize: 16, textAlign: 'center' }}>
-                      No video source available
-                    </Text>
-                  </View>
-                )}
+                ) : null}
               </View>
               {/* Error message if video fails to load */}
               {videoError && (
@@ -1297,7 +1377,7 @@ const VideoPostScreen: React.FC = () => {
                 </View>
               )}
               {/* Text Overlays - only show if they exist */}
-              {!videoLoading && !videoError && textOverlays && textOverlays.length > 0 && textOverlays.map((overlay: TextOverlay) => (
+              {!videoLoading && !isMerging && !videoError && textOverlays && textOverlays.length > 0 && textOverlays.map((overlay: TextOverlay) => (
                 <View
                   key={overlay.id}
                   style={[

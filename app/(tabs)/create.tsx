@@ -12,6 +12,7 @@ import {
   StatusBar,
   Linking,
   PanResponder,
+  InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -38,6 +39,7 @@ import VideoProcessingService from '../../src/services/VideoProcessingService';
 import { debugVideoPath } from '../../src/utils/videoPath';
 import { Colors } from '../../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { logger } from '../../src/utils/logger';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16;
@@ -521,6 +523,16 @@ const CreateScreen: React.FC = () => {
         // Debug: Log the final path being sent
         debugVideoPath('create.tsx -> VideoPostScreen', finalVideoPath);
         
+        // Extract first frame as thumbnail (FFmpeg runs in background thread, won't block UI)
+        // Use standardized path which is already copied to sandbox and accessible
+        let thumbnailPath: string | undefined;
+        try {
+          thumbnailPath = await VideoProcessingService.extractFirstFrame(finalVideoPath);
+          logger.info('Thumbnail extracted', { component: 'create.tsx', thumbnailPath });
+        } catch (error) {
+          logger.warn('Failed to extract thumbnail, continuing without it', { component: 'create.tsx', error });
+        }
+        
         // Only navigate if component is still mounted
         if (isMountedRef.current) {
           // Navigate directly to post screen with processed video
@@ -528,19 +540,41 @@ const CreateScreen: React.FC = () => {
             pathname: '/post/[id]',
             params: {
               id: 'new',
-              videoPath: finalVideoPath
+              videoPath: finalVideoPath,
+              ...(thumbnailPath ? { thumbnailPath } : {})
             }
           });
         }
       } else {
-        // Multiple segments need merging - go to processing screen
-        console.log('[create.tsx] Multiple segments, going to processing screen');
+        // Multiple segments need merging - merge in background and go directly to post screen
+        console.log('[create.tsx] Multiple segments, merging in background');
+        
+        // Extract thumbnail from first segment (FFmpeg runs in background thread, won't block UI)
+        // Standardize the first segment's path first to ensure it's accessible
+        let thumbnailPath: string | undefined;
+        const firstSegment = currentSegments[0];
+        const firstAsset = 'assetId' in firstSegment.video ? firstSegment.video as ImagePicker.ImagePickerAsset : undefined;
+        const firstVideoPath = firstSegment.video.uri;
+        
+        try {
+          if (firstVideoPath) {
+            // Standardize path first (handles iCloud downloads and copies to sandbox)
+            const standardizedFirstPath = await VideoProcessingService.standardizeVideoPath(firstVideoPath, firstAsset);
+            thumbnailPath = await VideoProcessingService.extractFirstFrame(standardizedFirstPath);
+            logger.info('Thumbnail extracted from first segment', { component: 'create.tsx', thumbnailPath });
+          }
+        } catch (error) {
+          logger.warn('Failed to extract thumbnail, continuing without it', { component: 'create.tsx', error });
+        }
+        
         // Only navigate if component is still mounted
         if (isMountedRef.current) {
           navigation.push({
-            pathname: '/video-processing',
-            params: { 
-              segments: JSON.stringify(currentSegments)
+            pathname: '/post/[id]',
+            params: {
+              id: 'new',
+              segments: JSON.stringify(currentSegments), // Pass segments for background merging
+              ...(thumbnailPath ? { thumbnailPath } : {})
             }
           });
         }
