@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     padding: 10,
-    zIndex: 2,
+    zIndex: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',

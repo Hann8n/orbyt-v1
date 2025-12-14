@@ -123,12 +123,15 @@ const getThumbnailByKind = (embed: any, kind: PostKind): string | null => {
 // Based on API structure:
 // - subscribed-post: uri is the post URI
 // - reply: record.reply.root.uri is the root post (reasonSubject is parent, not root)
-// - like/repost/quote/mention: post.uri exists with full post data
+// - like/repost: record.subject.uri is the post URI (record is the like/repost record)
+// - quote/mention: post.uri exists with full post data
 const getPostUri = (notification: any): string | null => {
   const { reason, uri, post, record } = notification;
   
   if (reason === 'subscribed-post') return uri;
   if (reason === 'reply') return record?.reply?.root?.uri || null;
+  // For like/repost notifications, post field doesn't exist - must use record.subject.uri
+  if (reason === 'like' || reason === 'repost') return record?.subject?.uri || null;
   return post?.uri || null;
 };
 
@@ -136,7 +139,8 @@ const getPostUri = (notification: any): string | null => {
 // Based on API structure:
 // - subscribed-post: record contains post data, use it directly or fetched version
 // - reply: post field doesn't exist, must fetch root post from postDataMap
-// - like/repost/quote/mention: post field contains full post data, use it directly
+// - like/repost: post field doesn't exist - must use fetched post from postDataMap
+// - quote/mention: post field contains full post data, use it directly
 const getPostDataFromNotification = (notification: any, postDataMap: Map<string, any>) => {
   const { reason, uri, record, post } = notification;
   const postUri = getPostUri(notification);
@@ -145,7 +149,9 @@ const getPostDataFromNotification = (notification: any, postDataMap: Map<string,
   const fetchedPost = postDataMap.get(postUri);
   
   if (reason === 'subscribed-post' && record) {
-    return fetchedPost || {
+    // Use fetched post if available, otherwise construct from notification record
+    // Always ensure embed is set from record.embed even if fetched post exists
+    const postData = fetchedPost || {
       uri,
       cid: notification.cid,
       author: notification.author,
@@ -153,12 +159,22 @@ const getPostDataFromNotification = (notification: any, postDataMap: Map<string,
       embed: record.embed,
       indexedAt: notification.indexedAt,
     };
+    // Ensure embed is always set from record.embed (fetched post might be incomplete)
+    if (record.embed && postData) {
+      postData.embed = record.embed;
+    }
+    return postData;
   }
   
   // For reply notifications, post field doesn't exist - must use fetched root post
   if (reason === 'reply') return fetchedPost;
   
-  // For other notifications, post field contains full post data
+  // For like/repost notifications, post field doesn't exist - must use fetched post
+  if (reason === 'like' || reason === 'repost') {
+    return fetchedPost;
+  }
+  
+  // For other notifications (quote/mention), post field contains full post data
   return post || fetchedPost;
 };
 
@@ -440,8 +456,9 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
   // Only fetch video posts (for thumbnails)
   // Based on API structure:
   // - reply: fetch to check if root post is a video (can't determine from notification data)
+  // - like/repost: fetch to check if post is a video (post field doesn't exist)
   // - subscribed-post: fetch only if video without thumbnail (record has post data)
-  // - like/repost/quote/mention: fetch only if video without thumbnail (post field exists)
+  // - quote/mention: fetch only if video without thumbnail (post field exists)
   const postUrisToFetch = useMemo(() => {
     const uris = new Set<string>();
     for (const notification of notifications) {
@@ -454,6 +471,13 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
       // Reply notifications: fetch to check if root post is a video
       // (We need the post data to determine if it's a video since notification has no post field)
       if (notification.reason === 'reply') {
+        uris.add(postUri);
+        continue;
+      }
+      
+      // Like/repost notifications: fetch to check if post is a video
+      // (post field doesn't exist, so we need to fetch to determine if it's a video)
+      if (notification.reason === 'like' || notification.reason === 'repost') {
         uris.add(postUri);
         continue;
       }
@@ -471,7 +495,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
         continue;
       }
       
-      // Other notifications: fetch only if video without thumbnail (post field exists)
+      // Other notifications (quote/mention): fetch only if video without thumbnail (post field exists)
       if (notification.post) {
         const embed = notification.post?.embed;
         const kind = embed ? getPostKind(embed) : 'text';
