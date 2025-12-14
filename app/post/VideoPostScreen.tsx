@@ -43,6 +43,7 @@ import { useProfile, useProfileColors } from '../../src/services/cache/ProfileCa
 import ProfileCache from '../../src/services/cache/ProfileCache';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import VideoProcessingService from '../../src/services/VideoProcessingService';
+import { logger } from '../../src/utils/logger';
 import { SavedAccount } from '../../src/stores/userStore';
 import { getPostableChannels, shouldShowChannelSlash, OrbytChannel, extractFeedSlug, getChannelAvatarUri } from '../../src/utils/orbytChannels';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
@@ -149,6 +150,8 @@ const VideoPostScreen: React.FC = () => {
   } | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressedVideoPath, setCompressedVideoPath] = useState<string | null>(null);
+  const [compressionProgress, setCompressionProgress] = useState(0);
+  const [wasAutoCompressed, setWasAutoCompressed] = useState(false);
 
   // User store hooks
   const { currentUser } = useCurrentUser();
@@ -189,36 +192,91 @@ const VideoPostScreen: React.FC = () => {
     }
   }, [currentUser?.did]);
 
-  // Check video size on component mount
+  // Automatically check upload limits and compress video if needed on component mount
   useEffect(() => {
-    const checkVideoSize = async () => {
+    const checkAndCompressVideo = async () => {
       if (videoPath) {
         try {
-          // Path is already standardized, no need for assetId
-          const sizeInfo = await VideoProcessingService.checkVideoSize(videoPath);
-          setVideoSizeInfo(sizeInfo);
+          setIsCompressing(true);
+          setCompressionProgress(0);
           
-          // Get comprehensive video information
-          const compressionInfo = await VideoProcessingService.getCompressionInfo(videoPath);
-          setVideoInfo(compressionInfo);
+          // Automatically check upload limits and compress if needed
+          // This uses WhatsApp-like automatic compression in the background
+          const result = await VideoProcessingService.checkAndCompressVideoForUpload(
+            videoPath,
+            undefined, // assetId not available here, path is already standardized
+            (progress) => {
+              setCompressionProgress(progress);
+            }
+          );
+
+          // Update state based on compression result
+          if (result.wasCompressed) {
+            setCompressedVideoPath(result.processedVideo.path);
+            setWasAutoCompressed(true);
+            
+            // Get compression statistics
+            const stats = await VideoProcessingService.getCompressionStats(
+              videoPath,
+              result.processedVideo.path
+            );
+            setCompressionStats(stats);
+            
+            // Update video size info
+            const newSizeInfo = await VideoProcessingService.checkVideoSize(result.processedVideo.path);
+            setVideoSizeInfo(newSizeInfo);
+            
+            logger.info('Video automatically compressed', {
+              component: 'VideoPostScreen',
+              originalSize: result.originalSize,
+              compressedSize: result.compressedSize,
+              reduction: `${((1 - result.compressedSize / result.originalSize) * 100).toFixed(1)}%`,
+            });
+          } else {
+            // Video didn't need compression, just check size info
+            const sizeInfo = await VideoProcessingService.checkVideoSize(videoPath);
+            setVideoSizeInfo(sizeInfo);
+            
+            // Get comprehensive video information
+            const compressionInfo = await VideoProcessingService.getCompressionInfo(videoPath);
+            setVideoInfo(compressionInfo);
+          }
         } catch (error) {
-          console.error('Error checking video size:', error);
+          console.error('Error checking and compressing video:', error);
+          // Fallback: just check video size without compression
+          try {
+            const sizeInfo = await VideoProcessingService.checkVideoSize(videoPath);
+            setVideoSizeInfo(sizeInfo);
+          } catch (fallbackError) {
+            console.error('Error in fallback video size check:', fallbackError);
+          }
+        } finally {
+          setIsCompressing(false);
+          setCompressionProgress(0);
         }
       }
     };
 
-    checkVideoSize();
+    checkAndCompressVideo();
   }, [videoPath]);
 
-  // Compress video if needed
+  // Manual compress video (fallback if automatic compression didn't work)
   const compressVideo = async () => {
     if (!videoPath || isCompressing) return;
     
     setIsCompressing(true);
+    setCompressionProgress(0);
     try {
-      // Compress the video (path is already standardized)
-      const compressedVideo = await VideoProcessingService.compressVideoWithSizeLimit(videoPath);
+      // Use automatic compression (WhatsApp-like) with progress callback
+      const compressedVideo = await VideoProcessingService.compressVideoAuto(
+        videoPath,
+        undefined,
+        (progress) => {
+          setCompressionProgress(progress);
+        }
+      );
       setCompressedVideoPath(compressedVideo.path);
+      setWasAutoCompressed(true);
       
       // Get compression statistics
       const stats = await VideoProcessingService.getCompressionStats(videoPath, compressedVideo.path);
@@ -232,6 +290,7 @@ const VideoPostScreen: React.FC = () => {
         Alert.alert('compression error', 'failed to compress video. please try again.');
     } finally {
       setIsCompressing(false);
+      setCompressionProgress(0);
     }
   };
 
@@ -282,7 +341,7 @@ const VideoPostScreen: React.FC = () => {
   };
 
   const handlePost = async () => {
-    if (isPosting) return;
+    if (isPosting || isCompressing) return;
     
     if (!videoPath) {
       Alert.alert('error', 'no video selected');
@@ -755,7 +814,7 @@ const VideoPostScreen: React.FC = () => {
                   <Host style={{ width: SCREEN_WIDTH * 0.6, height: 60 }}>
                     <Button
                       onPress={handlePost}
-                      disabled={isPosting}
+                      disabled={isPosting || isCompressing}
                       modifiers={[
                         frame({ width: SCREEN_WIDTH * 0.6, height: 60 }),
                         cornerRadius(BORDER_RADIUS.FULL),
@@ -773,6 +832,10 @@ const VideoPostScreen: React.FC = () => {
                            uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
                            'Creating post...'}
                         </SwiftUIText>
+                      ) : isCompressing ? (
+                        <SwiftUIText size={18} weight="black" color={Colors.black}>
+                          Getting ready...
+                        </SwiftUIText>
                       ) : (
                         <SwiftUIText size={18} weight="black" color={Colors.black}>
                           POST
@@ -782,9 +845,9 @@ const VideoPostScreen: React.FC = () => {
                   </Host>
                 ) : (
                   <TouchableOpacity 
-                    style={[styles.landscapePostButtonHost, { width: SCREEN_WIDTH * 0.6 }]}
+                    style={[styles.landscapePostButtonHost, { width: SCREEN_WIDTH * 0.6 }, (isPosting || isCompressing) && styles.landscapePostButtonDisabled]}
                     onPress={handlePost}
-                    disabled={isPosting}
+                    disabled={isPosting || isCompressing}
                     activeOpacity={0.8}
                   >
                     <View style={styles.buttonContent}>
@@ -795,6 +858,13 @@ const VideoPostScreen: React.FC = () => {
                             {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
                              uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
                              'Creating post...'}
+                          </Text>
+                        </View>
+                      ) : isCompressing ? (
+                        <View style={styles.loadingContainer}>
+                          <Loading3FillIcon size={24} color={Colors.black} />
+                          <Text style={styles.postButtonText}>
+                            Getting ready...
                           </Text>
                         </View>
                       ) : (
@@ -1375,7 +1445,7 @@ const VideoPostScreen: React.FC = () => {
             <Host style={{ width: SCREEN_WIDTH * 0.6, height: 60 }}>
               <Button
                 onPress={handlePost}
-                disabled={isPosting}
+                disabled={isPosting || isCompressing}
                 modifiers={[
                   frame({ width: SCREEN_WIDTH * 0.6, height: 60 }),
                   cornerRadius(BORDER_RADIUS.FULL),
@@ -1393,6 +1463,10 @@ const VideoPostScreen: React.FC = () => {
                      uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
                      'Creating post...'}
                   </SwiftUIText>
+                ) : isCompressing ? (
+                  <SwiftUIText size={18} weight="black" color={Colors.black}>
+                    Getting ready...
+                  </SwiftUIText>
                 ) : (
                   <SwiftUIText size={18} weight="black" color={Colors.black}>
                     POST
@@ -1402,9 +1476,9 @@ const VideoPostScreen: React.FC = () => {
             </Host>
           ) : (
             <TouchableOpacity 
-              style={[styles.floatingPostButtonHost, { width: SCREEN_WIDTH * 0.6 }]}
+              style={[styles.floatingPostButtonHost, { width: SCREEN_WIDTH * 0.6 }, (isPosting || isCompressing) && styles.floatingPostButtonDisabled]}
               onPress={handlePost}
-              disabled={isPosting}
+              disabled={isPosting || isCompressing}
               activeOpacity={0.8}
             >
               <View style={styles.buttonContent}>
@@ -1415,6 +1489,13 @@ const VideoPostScreen: React.FC = () => {
                       {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
                        uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
                        'Creating post...'}
+                    </Text>
+                  </View>
+                ) : isCompressing ? (
+                  <View style={styles.loadingContainer}>
+                    <Loading3FillIcon size={24} color={Colors.black} />
+                    <Text style={styles.postButtonText}>
+                      Getting ready...
                     </Text>
                   </View>
                 ) : (
@@ -2015,7 +2096,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Black',
   },
   floatingPostButtonDisabled: {
-    opacity: 1,
+    opacity: 0.5,
+  },
+  landscapePostButtonDisabled: {
+    opacity: 0.5,
   },
   floatingButtonLoadingText: {
     color: Colors.lightGray,

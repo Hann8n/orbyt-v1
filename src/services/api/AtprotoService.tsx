@@ -1022,6 +1022,42 @@ class AtprotoService {
   }
 
   /**
+   * Get video upload limits for the authenticated user
+   * @returns Upload limits including remainingDailyVideos, remainingDailyBytes, and canUpload flag
+   */
+  static async getUploadLimits(): Promise<{
+    canUpload: boolean;
+    remainingDailyVideos?: number;
+    remainingDailyBytes?: number;
+    message?: string;
+    error?: string;
+  }> {
+    try {
+      await this.ensureSession();
+      const { api } = await this.getApiClient();
+      
+      const response = await api.app.bsky.video.getUploadLimits();
+      
+      return {
+        canUpload: response.data.canUpload ?? true,
+        remainingDailyVideos: response.data.remainingDailyVideos,
+        remainingDailyBytes: response.data.remainingDailyBytes,
+        message: response.data.message,
+        error: response.data.error,
+      };
+    } catch (error: unknown) {
+      logger.error('Error getting upload limits', error, { component: 'AtprotoService' });
+      // Return default values if API call fails
+      return {
+        canUpload: true,
+        remainingDailyVideos: undefined,
+        remainingDailyBytes: undefined,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
    * Upload a video file to Bluesky
    * @param videoPath - Path to the video file
    * @returns Blob reference for the uploaded video

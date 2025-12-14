@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import { File, Directory, Paths } from 'expo-file-system';
-import Compressor from 'react-native-compressor';
+import { Video as VideoCompressor } from 'react-native-compressor';
 import { resolveVideoPath } from '../utils/videoPath';
 import { logger } from '../utils/logger';
 
@@ -108,32 +108,26 @@ class VideoProcessingService {
   ): Promise<VideoInfo> {
     try {
       // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
-      let localUri = videoPath;
+      const localUri = await this.getLocalVideoPath(videoPath, asset?.assetId);
       let fileSize = asset?.fileSize || 0;
       
-      if (asset?.assetId && Platform.OS === 'ios') {
+      // Use fileSize from MediaLibrary if available
+      if (!fileSize && asset?.assetId && Platform.OS === 'ios') {
         try {
           const assetInfo = await MediaLibrary.getAssetInfoAsync(asset.assetId, {
             shouldDownloadFromNetwork: true,
           });
           if (assetInfo.localUri) {
-            localUri = assetInfo.localUri;
-            // Use fileSize from MediaLibrary if available
-            if (!fileSize && assetInfo.localUri) {
-              const file = new File(assetInfo.localUri);
-              fileSize = file.size || 0;
-            }
+            const file = new File(assetInfo.localUri);
+            fileSize = file.size || 0;
           }
         } catch (mediaError) {
-          logger.warn('Failed to get asset from MediaLibrary, using provided path', { component: 'VideoProcessingService' });
+          // Ignore error, use provided fileSize
         }
       }
       
       // Verify file exists
-      const file = new File(localUri);
-      if (!file.exists) {
-        throw new Error('Video file does not exist');
-      }
+      const file = await this.validateVideoFileExists(localUri);
 
       // Use fileSize from MediaLibrary/FileSystem if not from ImagePickerAsset
       const size = fileSize || file.size || 0;
@@ -448,7 +442,65 @@ class VideoProcessingService {
   }
 
   /**
-   * Compresses video with variable quality to meet file size requirements
+   * Compresses video automatically using WhatsApp-like compression (react-native-compressor auto mode)
+   * This uses the same compression algorithm as WhatsApp for optimal quality/size balance
+   */
+  static async compressVideoAuto(
+    videoPath: string,
+    assetId?: string | null,
+    onProgress?: (progress: number) => void
+  ): Promise<ProcessedVideo> {
+    try {
+      // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
+      const localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
+      
+      // Validate file exists
+      await this.validateVideoFileExists(localVideoPath);
+
+      // Activate background task for compression (allows compression when app is in background)
+      await VideoCompressor.activateBackgroundTask();
+
+      try {
+        // Use automatic compression (WhatsApp-like) with progress callback
+        const compressedPath = await VideoCompressor.compress(
+          localVideoPath,
+          {
+            compressionMethod: 'auto', // WhatsApp-like automatic compression
+          },
+          onProgress || (() => {}) // Progress callback
+        );
+
+        // Get video info from compressed file
+        const compressedFile = new File(compressedPath);
+        if (!compressedFile.exists) {
+          throw new Error('Compressed video file was not created');
+        }
+
+        // Get video metadata from original to preserve dimensions
+        const originalInfo = await this.getVideoInfo(localVideoPath);
+        
+        // Ensure file:// prefix for local file
+        const finalPath = this.ensureFileProtocol(compressedPath);
+        
+        return {
+          path: finalPath,
+          duration: originalInfo.duration,
+          width: originalInfo.width,
+          height: originalInfo.height,
+        };
+      } finally {
+        // Deactivate background task after compression
+        await VideoCompressor.deactivateBackgroundTask();
+      }
+    } catch (error) {
+      logger.error('Error in automatic video compression', error, { component: 'VideoProcessingService' });
+      throw error;
+    }
+  }
+
+  /**
+   * Compresses video with variable quality to meet file size requirements (manual mode)
+   * Falls back to automatic compression if manual compression fails
    */
   static async compressVideoWithSizeLimit(
     videoPath: string,
@@ -457,26 +509,10 @@ class VideoProcessingService {
   ): Promise<ProcessedVideo> {
     try {
       // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
-      let localVideoPath = videoPath;
-      if (assetId && Platform.OS === 'ios') {
-        try {
-          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
-            shouldDownloadFromNetwork: true,
-          });
-          if (assetInfo.localUri) {
-            localVideoPath = assetInfo.localUri;
-          }
-        } catch (mediaError) {
-          logger.warn('Failed to get asset from MediaLibrary, using provided path', { component: 'VideoProcessingService' });
-        }
-      }
+      const localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
       
-      // Get original video info
-      const file = new File(localVideoPath);
-      if (!file.exists) {
-        throw new Error('Video file does not exist');
-      }
-
+      // Validate file exists and get size
+      const file = await this.validateVideoFileExists(localVideoPath);
       const originalSize = file.size || 0;
 
       // If original is already under limit, return as-is
@@ -489,6 +525,29 @@ class VideoProcessingService {
         };
       }
 
+      // Try automatic compression first (WhatsApp-like)
+      try {
+        const autoCompressed = await this.compressVideoAuto(localVideoPath, assetId);
+        const compressedFile = new File(autoCompressed.path.replace('file://', ''));
+        const compressedSize = compressedFile.exists ? (compressedFile.size || 0) : 0;
+        
+        if (compressedSize <= maxSizeBytes) {
+          return autoCompressed;
+        }
+        
+        // If auto compression still exceeds limit, try manual compression
+        logger.info('Auto compression exceeded size limit, trying manual compression', {
+          component: 'VideoProcessingService',
+          compressedSize,
+          maxSizeBytes,
+        });
+      } catch (autoError) {
+        logger.warn('Automatic compression failed, falling back to manual', {
+          component: 'VideoProcessingService',
+          error: autoError,
+        });
+      }
+
       // Create temp directory for processing
       const tempDir = new Directory(Paths.cache, `video_compress_${Date.now()}`);
       tempDir.create({ intermediates: true });
@@ -499,8 +558,9 @@ class VideoProcessingService {
         const outputFile = new File(tempDir, `compressed_${level.name}.mp4`);
         
         try {
-          // Compress with current level
-          const compressedPath = await Compressor.Video.compress(localVideoPath, {
+          // Compress with current level using manual mode
+          const compressedPath = await VideoCompressor.compress(localVideoPath, {
+            compressionMethod: 'manual',
             bitrate: level.bitrate,
           });
 
@@ -516,7 +576,7 @@ class VideoProcessingService {
             this.cleanupTempFiles(tempDir);
             
             // Ensure file:// prefix for local file
-            const finalPath = outputFile.uri.startsWith('file://') ? outputFile.uri : `file://${outputFile.uri}`;
+            const finalPath = this.ensureFileProtocol(outputFile.uri);
             return {
               path: finalPath,
               duration: 10, // Default duration
@@ -534,7 +594,8 @@ class VideoProcessingService {
       const minimalFile = new File(tempDir, 'compressed_minimal.mp4');
       
       try {
-        const compressedPath = await Compressor.Video.compress(localVideoPath, {
+        const compressedPath = await VideoCompressor.compress(localVideoPath, {
+          compressionMethod: 'manual',
           bitrate: COMPRESSION_LEVELS[3].bitrate,
         });
 
@@ -545,7 +606,7 @@ class VideoProcessingService {
         // Clean up temp directory
         this.cleanupTempFiles(tempDir);
         
-        const finalPath = minimalFile.uri.startsWith('file://') ? minimalFile.uri : `file://${minimalFile.uri}`;
+        const finalPath = this.ensureFileProtocol(minimalFile.uri);
         return {
           path: finalPath,
           duration: 10,
@@ -561,6 +622,52 @@ class VideoProcessingService {
       logger.error('Error in variable compression', error, { component: 'VideoProcessingService' });
       throw error;
     }
+  }
+
+  /**
+   * Gets local video path from MediaLibrary if assetId is provided (for iCloud videos on iOS)
+   * Falls back to provided videoPath if MediaLibrary lookup fails
+   */
+  private static async getLocalVideoPath(
+    videoPath: string,
+    assetId?: string | null
+  ): Promise<string> {
+    let localVideoPath = videoPath;
+    
+    if (assetId && Platform.OS === 'ios') {
+      try {
+        const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
+          shouldDownloadFromNetwork: true,
+        });
+        if (assetInfo.localUri) {
+          localVideoPath = assetInfo.localUri;
+        }
+      } catch (mediaError) {
+        logger.warn('Failed to get asset from MediaLibrary, using provided path', { 
+          component: 'VideoProcessingService' 
+        });
+      }
+    }
+    
+    return localVideoPath;
+  }
+
+  /**
+   * Validates that a video file exists and returns the File object
+   */
+  private static async validateVideoFileExists(videoPath: string): Promise<File> {
+    const file = new File(videoPath);
+    if (!file.exists) {
+      throw new Error('Video file does not exist');
+    }
+    return file;
+  }
+
+  /**
+   * Ensures file path has file:// prefix
+   */
+  private static ensureFileProtocol(path: string): string {
+    return path.startsWith('file://') ? path : `file://${path}`;
   }
 
   /**
@@ -822,7 +929,7 @@ class VideoProcessingService {
           throw new Error('Normalization completed but output file not found');
         }
 
-        return normalizedOutput.startsWith('file://') ? normalizedOutput : `file://${normalizedOutput}`;
+        return this.ensureFileProtocol(normalizedOutput);
       } else {
         const failStackTrace = await session.getFailStackTrace();
         const output = await session.getOutput();
@@ -853,22 +960,8 @@ class VideoProcessingService {
     const videoPath = this.getVideoPath(video);
     
     // Handle iCloud videos on iOS
-    let localVideoPath = videoPath;
     const assetId = 'assetId' in video ? video.assetId : null;
-    if (assetId && Platform.OS === 'ios') {
-      try {
-        const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
-          shouldDownloadFromNetwork: true,
-        });
-        if (assetInfo.localUri) {
-          localVideoPath = assetInfo.localUri;
-        }
-      } catch (mediaError) {
-        logger.warn('Failed to get asset from MediaLibrary, using provided path', { 
-          component: 'VideoProcessingService' 
-        });
-      }
-    }
+    const localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
     
     // Strip fragment identifier from path (iOS asset URIs may include #...)
     localVideoPath = this.stripFragment(localVideoPath);
@@ -892,7 +985,7 @@ class VideoProcessingService {
       MERGE_TARGET_FPS
     );
     
-    const finalPath = normalizedPath.startsWith('file://') ? normalizedPath : `file://${normalizedPath}`;
+    const finalPath = this.ensureFileProtocol(normalizedPath);
     
     // Verify normalized file exists
     const normalizedFile = new File(finalPath.replace('file://', ''));
@@ -968,7 +1061,7 @@ class VideoProcessingService {
       }
 
       // Ensure file:// prefix for local file
-      const mergedPath = mergedVideoPath.startsWith('file://') ? mergedVideoPath : `file://${mergedVideoPath}`;
+      const mergedPath = this.ensureFileProtocol(mergedVideoPath);
       return {
         path: mergedPath,
         duration: totalDuration,
@@ -1057,24 +1150,11 @@ class VideoProcessingService {
 
       for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
-        let videoPath = this.getVideoPath(segment.video);
+        const originalVideoPath = this.getVideoPath(segment.video);
 
         // Handle iCloud videos on iOS
         const assetId = 'assetId' in segment.video ? segment.video.assetId : null;
-        if (assetId && Platform.OS === 'ios') {
-          try {
-            const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
-              shouldDownloadFromNetwork: true,
-            });
-            if (assetInfo.localUri) {
-              videoPath = assetInfo.localUri;
-            }
-          } catch (mediaError) {
-            logger.warn('Failed to get asset from MediaLibrary, using provided path', { 
-              component: 'VideoProcessingService' 
-            });
-          }
-        }
+        const videoPath = await this.getLocalVideoPath(originalVideoPath, assetId);
 
         // Normalize path for FFmpeg
         // Remove fragment identifier (#...) that iOS gallery URIs may contain
@@ -1142,7 +1222,7 @@ class VideoProcessingService {
           component: 'VideoProcessingService' 
         });
 
-        return normalizedOutput.startsWith('file://') ? normalizedOutput : `file://${normalizedOutput}`;
+        return this.ensureFileProtocol(normalizedOutput);
       } else {
         const failStackTrace = await session.getFailStackTrace();
         const output = await session.getOutput();
@@ -1175,6 +1255,83 @@ class VideoProcessingService {
   }
 
   /**
+   * Checks video size and compresses automatically if over 50MB
+   * Uses automatic WhatsApp-like compression in the background
+   * @param videoPath - Path to the video file
+   * @param assetId - Optional asset ID for MediaLibrary lookup
+   * @param onProgress - Optional progress callback
+   * @returns Processed video (compressed if needed)
+   */
+  static async checkAndCompressVideoForUpload(
+    videoPath: string,
+    assetId?: string | null,
+    onProgress?: (progress: number) => void
+  ): Promise<{
+    processedVideo: ProcessedVideo;
+    wasCompressed: boolean;
+    originalSize: number;
+    compressedSize: number;
+  }> {
+    try {
+      // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
+      const localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
+
+      // Validate file exists and get size
+      const file = await this.validateVideoFileExists(localVideoPath);
+      const originalSize = file.size || 0;
+
+      // Check if video exceeds 50MB limit
+      const needsCompression = originalSize > MAX_FILE_SIZE;
+
+      // If compression is needed, use automatic WhatsApp-like compression
+      if (needsCompression) {
+        logger.info('Video exceeds 50MB limit, starting automatic compression', {
+          component: 'VideoProcessingService',
+          originalSize,
+          maxFileSize: MAX_FILE_SIZE,
+        });
+
+        const compressedVideo = await this.compressVideoAuto(localVideoPath, assetId, onProgress);
+        
+        // Get compressed file size
+        const compressedFile = new File(compressedVideo.path.replace('file://', ''));
+        const compressedSize = compressedFile.exists ? (compressedFile.size || 0) : 0;
+
+        logger.info('Video compression completed', {
+          component: 'VideoProcessingService',
+          originalSize,
+          compressedSize,
+          reduction: `${((1 - compressedSize / originalSize) * 100).toFixed(1)}%`,
+        });
+
+        return {
+          processedVideo: compressedVideo,
+          wasCompressed: true,
+          originalSize,
+          compressedSize,
+        };
+      }
+
+      // Video is within limits, return as-is
+      const videoInfo = await this.getVideoInfo(localVideoPath);
+      return {
+        processedVideo: {
+          path: localVideoPath,
+          duration: videoInfo.duration,
+          width: videoInfo.width,
+          height: videoInfo.height,
+        },
+        wasCompressed: false,
+        originalSize,
+        compressedSize: originalSize,
+      };
+    } catch (error) {
+      logger.error('Error checking and compressing video for upload', error, { component: 'VideoProcessingService' });
+      throw error;
+    }
+  }
+
+  /**
    * Optimizes a single video for posting with size limit enforcement
    */
   static async optimizeVideoForPosting(videoPath: string, assetId?: string | null): Promise<ProcessedVideo> {
@@ -1199,22 +1356,8 @@ class VideoProcessingService {
    */
   static async validateVideoFile(videoPath: string, assetId?: string | null): Promise<boolean> {
     try {
-      // Try MediaLibrary first if we have assetId (for iCloud videos)
-      if (assetId && Platform.OS === 'ios') {
-        try {
-          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
-            shouldDownloadFromNetwork: true,
-          });
-          if (assetInfo.localUri) {
-            const file = new File(assetInfo.localUri);
-            return file.exists;
-          }
-        } catch (mediaError) {
-          // Fall through to FileSystem
-        }
-      }
-      
-      const file = new File(videoPath);
+      const localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
+      const file = new File(localVideoPath);
       return file.exists;
     } catch (error) {
       logger.error('Error validating video file', error, { component: 'VideoProcessingService' });
@@ -1235,39 +1378,20 @@ class VideoProcessingService {
     needsCompression: boolean;
   }> {
     try {
-      let sizeBytes = 0;
-      let localPath = videoPath;
-      
       // Get local URI from MediaLibrary if we have assetId (for iCloud videos)
-      if (assetId && Platform.OS === 'ios') {
-        try {
-          const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, {
-            shouldDownloadFromNetwork: true,
-          });
-          if (assetInfo.localUri) {
-            localPath = assetInfo.localUri;
-            const file = new File(localPath);
-            if (file.exists) {
-              sizeBytes = file.size || 0;
-            }
-          }
-        } catch (mediaError) {
-          // Fall through to FileSystem
-        }
+      const localPath = await this.getLocalVideoPath(videoPath, assetId);
+      const file = new File(localPath);
+      
+      if (!file.exists) {
+        return {
+          isValid: false,
+          sizeMB: 0,
+          maxSizeMB: MAX_FILE_SIZE / 1024 / 1024,
+          needsCompression: false,
+        };
       }
       
-      if (sizeBytes === 0) {
-        const file = new File(localPath);
-        if (!file.exists) {
-          return {
-            isValid: false,
-            sizeMB: 0,
-            maxSizeMB: MAX_FILE_SIZE / 1024 / 1024,
-            needsCompression: false,
-          };
-        }
-        sizeBytes = file.size || 0;
-      }
+      const sizeBytes = file.size || 0;
       const sizeMB = sizeBytes / 1024 / 1024;
       const maxSizeMB = MAX_FILE_SIZE / 1024 / 1024;
       const isValid = sizeBytes <= MAX_FILE_SIZE;
