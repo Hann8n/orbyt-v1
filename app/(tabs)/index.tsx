@@ -23,18 +23,20 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
   useVisibilityRouteTracker('home', 'index');
 
   const triggerRefresh = useCallback(() => {
-    setIsRefreshing(true);
-
     // Smart refresh: only invalidate current feed, preserve other feeds and video cache
+    // React Query's invalidateQueries automatically triggers refetch
+    // We can use React Query's isFetching state instead of manual state management
     queryClient.invalidateQueries({ 
       queryKey: createQueryKeys.feed.infinite(currentFeed),
       exact: false // Invalidate all related queries for this feed
     });
-
-    // Don't force remount - preserve video states and scroll positions
-    // Only refresh the data, not the entire component tree
-
-    // Reset refreshing state after a short delay
+    
+    // Note: We still set isRefreshing for the RefreshControl spinner
+    // but React Query's isFetching is the source of truth for actual fetch state
+    setIsRefreshing(true);
+    
+    // Reset refreshing state after a short delay to show refresh animation
+    // In the future, we could use React Query's isFetching directly instead
     setTimeout(() => {
       setIsRefreshing(false);
     }, APP_CONSTANTS.REFRESH_DELAY);

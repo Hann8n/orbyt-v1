@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { tabRefs } from '../../src/utils/tabRefs';
 import type { ScrollToTopRef } from '../../src/utils/tabRefs';
 import { BORDER_RADIUS } from '../../src/utils/constants';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import AtprotoService from '../../src/services/api/AtprotoService';
 // Use plain FlashList via FeedRenderer; no adapter/converter
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
@@ -134,6 +134,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Profile fetching is handled by React Query hooks
 
+  // Handle refresh - refreshes both profile metadata and feed
+  // FeedRenderer will handle feed refresh automatically when isRefreshing is true
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     setProfileError(null);
@@ -143,26 +145,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
         const userDid = profileData?.did;
         if (userDid) {
+          // Invalidate feed queries - FeedRenderer's useEffect will refetch when isRefreshing is true
           queryClient.invalidateQueries({ queryKey: ['feed', 'profile', userDid] });
           queryClient.invalidateQueries({ queryKey: ['feed', 'reposts', userDid] });
           queryClient.invalidateQueries({ queryKey: ['feed', 'likes', userDid] });
         }
 
         await refetchProfile();
-
-        if (!providedHandle && profileData) {
-          // Profile data managed by userStore and ProfileCache
-        }
-      } else if (!providedHandle && !providedDid) {
-        // handled by hooks
       }
     } catch (error) {
       setProfileError("Failed to refresh profile.");
     } finally {
-      setRefreshing(false);
-
+      // Reset refreshing state after a delay to show the refresh animation
+      setTimeout(() => {
+        setRefreshing(false);
+      }, 2000);
     }
-  }, [colorsHandle, invalidateProfile, refetchProfile, queryClient, profileData, providedHandle, providedDid]);
+  }, [colorsHandle, invalidateProfile, refetchProfile, queryClient, profileData]);
 
   const handleLogout = async (clearAllAccounts: boolean = false) => {
     try {
@@ -287,16 +286,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                   </ProfileHeader>
                 </View>
               )}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  tintColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
-                />
-              }
               backgroundColor={dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor}
               secondaryColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
               isProfileLoading={isProfileLoading && !profileData}
+              isRefreshing={refreshing}
+              onRefresh={onRefresh}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               isVisible={isRouteFocused}

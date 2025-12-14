@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback, useEffect, useState, useMemo, memo, forwardRef, useImperativeHandle, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import ListFeedView from './ListFeedView';
@@ -49,7 +49,7 @@ interface FeedRendererProps {
   
   // Feed state
   isProfileLoading?: boolean;
-  isRefreshing?: boolean;
+  isRefreshing?: boolean; // Optional - if not provided, FeedRenderer manages refresh state internally
   isVisible?: boolean;
   isModal?: boolean;
   
@@ -59,6 +59,7 @@ interface FeedRendererProps {
   
   // Callbacks
   onRetryFeed?: () => void;
+  onRefresh?: () => void | Promise<void>; // Called when user pulls to refresh
   onPositionChange?: (position: number) => void;
   onVerticalScroll?: (scrollY: number) => void;
   onScrubbingChange?: (isScrubbing: boolean) => void;
@@ -95,6 +96,7 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
   backgroundColor = '#000',
   secondaryColor,
   onRetryFeed,
+  onRefresh: onRefreshCallback,
   queryOptions = {},
   isProfileLoading,
   onPositionChange,
@@ -102,7 +104,7 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
   viewMode = 'list',
   onViewModeChange,
   onVerticalScroll,
-  isRefreshing = false,
+  isRefreshing, // No default - undefined means FeedRenderer manages state internally
   isModal = false,
   onScrubbingChange,
   // Search props
@@ -138,12 +140,27 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
   // Regular feed hook with memoized options
   const feedQuery = useFeed(feedOption, userDid, memoizedQueryOptions);
 
-  // Optimized refetch effect with proper dependencies
-  useEffect(() => {
-    if (isRefreshing && !isSearchFeed) {
-      feedQuery.refetch();
+  // Unified refresh handler - leverages React Query's built-in refetch
+  // This is called when user pulls to refresh
+  const handleRefresh = useCallback(async () => {
+    if (isSearchFeed) return;
+    
+    // Call parent's onRefresh callback first (e.g., to refresh channel/profile metadata)
+    // This may also invalidate queries, which will automatically trigger refetch
+    if (onRefreshCallback) {
+      await onRefreshCallback();
     }
-  }, [isRefreshing, isSearchFeed, feedQuery.refetch]);
+    
+    // If parent is managing isRefreshing, the parent's onRefresh callback should handle
+    // query invalidation (which automatically triggers refetch via React Query).
+    // If no parent callback, directly refetch the feed.
+    if (isRefreshing === undefined && !onRefreshCallback) {
+      // No parent managing state - directly refetch
+      // React Query's isFetching state will automatically track this
+      await refetch();
+    }
+    // If parent manages isRefreshing, query invalidation in onRefreshCallback handles refetch
+  }, [isSearchFeed, isRefreshing, refetch, onRefreshCallback]);
 
   // Memoized search feed hook with visibility control
   const searchFeedQuery = useSearchFeed(
@@ -159,6 +176,7 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
     isLoading: isSearchFeed ? false : feedQuery.isLoading,
     isError: isSearchFeed ? false : feedQuery.isError,
     error: isSearchFeed ? null : feedQuery.error,
+    isFetching: isSearchFeed ? false : feedQuery.isFetching, // React Query's fetching state
     isFetchingNextPage: isSearchFeed ? searchFeedQuery.isFetchingNextPage : feedQuery.isFetchingNextPage,
     hasNextPage: isSearchFeed ? searchFeedQuery.hasNextPage : feedQuery.hasNextPage,
     fetchNextPage: isSearchFeed ? searchFeedQuery.fetchNextPage : feedQuery.fetchNextPage,
@@ -178,6 +196,7 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
     feedQuery.isLoading,
     feedQuery.isError,
     feedQuery.error,
+    feedQuery.isFetching,
     feedQuery.isFetchingNextPage,
     feedQuery.hasNextPage,
     feedQuery.fetchNextPage,
@@ -194,6 +213,7 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
     isLoading,
     isError,
     error,
+    isFetching, // React Query's fetching state (includes refetching)
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
@@ -266,11 +286,41 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
     onPositionChange?.(position);
   }, [onPositionChange]);
 
+  // Determine effective refreshing state
+  // Priority: 1) Parent-provided isRefreshing, 2) React Query's isFetching (most accurate)
+  // React Query's isFetching automatically tracks all fetch operations including refetches
+  const effectiveRefreshing = isRefreshing !== undefined ? isRefreshing : isFetching;
+
+  // Create RefreshControl automatically if not provided
+  // This centralizes refresh logic and removes redundancy
+  const effectiveRefreshControl = useMemo(() => {
+    // If refreshControl is explicitly provided, use it (for backward compatibility)
+    if (refreshControl) {
+      return refreshControl;
+    }
+
+    // Otherwise, create RefreshControl automatically
+    // Only create if we have a refetch function (not for search feeds)
+    if (isSearchFeed || !refetch) {
+      return undefined;
+    }
+
+    return (
+      <RefreshControl
+        refreshing={effectiveRefreshing}
+        onRefresh={handleRefresh}
+        tintColor={secondaryColor || Colors.white}
+        colors={secondaryColor ? [secondaryColor] : [Colors.white]}
+        progressBackgroundColor="transparent"
+      />
+    );
+  }, [refreshControl, effectiveRefreshing, handleRefresh, secondaryColor, isSearchFeed, refetch]);
+
   // Memoized common props to prevent recreation on every render
   const commonProps = useMemo(() => ({
     feed,
     headerComponent,
-    refreshControl,
+    refreshControl: effectiveRefreshControl,
     backgroundColor,
     secondaryColor,
     feedOption,
@@ -286,7 +336,7 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
     viewMode,
     onViewModeChange,
     onVerticalScroll,
-    isRefreshing,
+    isRefreshing: effectiveRefreshing,
     isModal,
     onScrubbingChange,
     dataUpdatedAt,
@@ -296,7 +346,7 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
   }), [
     feed,
     headerComponent,
-    refreshControl,
+    effectiveRefreshControl,
     backgroundColor,
     secondaryColor,
     feedOption,
@@ -312,7 +362,7 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
     viewMode,
     onViewModeChange,
     onVerticalScroll,
-    isRefreshing,
+    effectiveRefreshing,
     isModal,
     onScrubbingChange,
     dataUpdatedAt,

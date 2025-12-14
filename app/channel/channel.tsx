@@ -3,7 +3,6 @@ import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
   StyleSheet,
-  RefreshControl,
   Dimensions,
   TouchableOpacity,
   Text,
@@ -189,15 +188,21 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
     navigation.back();
   }, [navigation]);
 
-  // Handle refresh
+  // Handle refresh - refreshes both channel metadata and feed
+  // FeedRenderer will handle feed refresh automatically when isRefreshing is true
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
+      // Refresh channel metadata first
       await refetchChannel();
+      // Feed refresh is handled by FeedRenderer's useEffect when isRefreshing is true
     } catch (error) {
       console.error('Error during refresh:', error);
     } finally {
-      setRefreshing(false);
+      // Reset refreshing state after a delay to show the refresh animation
+      setTimeout(() => {
+        setRefreshing(false);
+      }, 2000);
     }
   }, [refetchChannel]);
 
@@ -290,17 +295,11 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
             feedOption={feedOption}
             userDid={channelDataForFeed?.did}
             headerComponent={headerComponent}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={channelColors.textColor}
-              />
-            }
             backgroundColor={Colors.black}
             secondaryColor={channelColors.textColor}
             isProfileLoading={isLoadingChannel && !channelDataForFeed}
             isRefreshing={refreshing}
+            onRefresh={onRefresh}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onPositionChange={handlePositionChange}
@@ -313,17 +312,11 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
             feedOption=""
             userDid={undefined}
             headerComponent={headerComponent}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={channelColors.textColor}
-              />
-            }
             backgroundColor={Colors.black}
             secondaryColor={channelColors.textColor}
             isProfileLoading={isLoadingChannel && !channelDataForFeed}
             isRefreshing={refreshing}
+            onRefresh={onRefresh}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onPositionChange={handlePositionChange}
