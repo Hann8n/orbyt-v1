@@ -647,6 +647,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
       )}
       contentContainerStyle={styles.listContainer}
       showsVerticalScrollIndicator={false}
+      onScrollBeginDrag={() => Keyboard.dismiss()}
       ListEmptyComponent={() => (
         <View style={styles.emptyTabContent}>
           <Text style={styles.emptyTabText}>No people found</Text>
@@ -713,6 +714,7 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPr
       )}
       contentContainerStyle={styles.listContainer}
       showsVerticalScrollIndicator={false}
+      onScrollBeginDrag={() => Keyboard.dismiss()}
       ListEmptyComponent={() => (
         <View style={styles.emptyTabContent}>
           <Text style={styles.emptyTabText}>No feeds found</Text>
@@ -873,6 +875,7 @@ const VisitHistoryList = React.memo(({
       }}
       contentContainerStyle={styles.listContainer}
       showsVerticalScrollIndicator={false}
+      onScrollBeginDrag={() => Keyboard.dismiss()}
       ListEmptyComponent={() => (
         <View style={styles.emptyTabContent}>
           <Text style={styles.emptyTabText}>No recent visits</Text>
