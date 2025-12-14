@@ -31,6 +31,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Avatar } from '../../src/components/ui/UI';
 import { VerificationBadge } from '../../src/components/features/badging';
 import Icon, { BackArrowIcon, ChevronDownIcon, Loading3FillIcon, DownSmallFillIcon } from '../../src/components/ui/Icon';
+import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnailBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/videoPath';
@@ -92,7 +93,7 @@ const VideoPostScreen: React.FC = () => {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   
   // Comment filtering state
-  const [commentFilter, setCommentFilter] = useState('all');
+  const [commentFilter, setCommentFilter] = useState<string | null>(null);
 
   // Channel selection state
   const [selectedChannel, setSelectedChannel] = useState<OrbytChannel | null>(null);
@@ -321,8 +322,8 @@ const VideoPostScreen: React.FC = () => {
   };
 
   const getSelectedCommentFilterLabel = () => {
+    if (!commentFilter) return 'Choose who can comment';
     const filter = COMMENT_FILTERS.find(f => f.id === commentFilter);
-    if (commentFilter === 'all') return 'Choose who can comment';
     return filter?.label.toLowerCase() || 'Choose who can comment';
   };
 
@@ -388,7 +389,7 @@ const VideoPostScreen: React.FC = () => {
         description,
         videoPathToUpload,
         allContentWarnings.length > 0 ? allContentWarnings : undefined,
-        commentFilter as 'all' | 'followers' | 'mentioned' | 'none',
+        (commentFilter || 'all') as 'all' | 'followers' | 'mentioned' | 'none',
         channelSlug // Pass channel slug for tagging (extracted from URI)
       );
       
@@ -658,7 +659,7 @@ const VideoPostScreen: React.FC = () => {
         <View style={styles.landscapeContainer}>
           {/* Left: Info Side */}
           <View style={styles.landscapeInfoSide}>
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 0 }]}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 40 }]}>
               <View style={styles.header}>
                 <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
                   <BackArrowIcon size={32} color={Colors.white} />
@@ -737,7 +738,7 @@ const VideoPostScreen: React.FC = () => {
           </View>
               {/* Channel Selection */}
               <View style={styles.section}>
-                <Text style={styles.sectionHeaderTitle}>Channel</Text>
+                <Text style={styles.sectionHeaderTitle}>Channel (optional)</Text>
                 <TouchableOpacity 
                   style={styles.channelSelectorContainer}
                   onPress={() => setShowChannelSelectionSheet(true)}
@@ -763,7 +764,7 @@ const VideoPostScreen: React.FC = () => {
                   {!selectedChannel ? (
                     <View style={styles.channelSelectorPlaceholderContainer}>
                       <Text style={styles.channelSelectorPlaceholderText}>Pick a channel</Text>
-                      <DownSmallFillIcon size={20} color={Colors.lightGray} />
+                      <DownSmallFillIcon size={20} color={Colors.gray} />
                     </View>
                   ) : (
                     <View style={styles.channelSelectorNameContainer}>
@@ -788,24 +789,50 @@ const VideoPostScreen: React.FC = () => {
               <View style={styles.section}>
                 <Text style={styles.sectionHeaderTitle}>Comments</Text>
                 <TouchableOpacity 
-                  style={styles.sectionSelector}
+                  style={styles.channelSelectorContainer}
                   onPress={() => setShowCommentSettingsSheet(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.sectionSelectorText}>{getSelectedCommentFilterLabel()}</Text>
-                  <ChevronDownIcon size={20} color={Colors.lightGray} />
+                  <View style={styles.channelSelectorBox}>
+                    <Icon name="chat-3-line" size={32} color={Colors.lightGray} />
+                  </View>
+                  {!commentFilter ? (
+                    <View style={styles.channelSelectorPlaceholderContainer}>
+                      <Text style={styles.channelSelectorPlaceholderText}>{getSelectedCommentFilterLabel()}</Text>
+                      <DownSmallFillIcon size={20} color={Colors.gray} />
+                    </View>
+                  ) : (
+                    <View style={styles.channelSelectorNameContainer}>
+                      <Text style={styles.channelSelectorName}>
+                        {getSelectedCommentFilterLabel()}
+                      </Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               </View>
               {/* Content Warnings */}
               <View style={styles.section}>
                 <Text style={styles.sectionHeaderTitle}>Warnings</Text>
                 <TouchableOpacity 
-                  style={styles.sectionSelector}
+                  style={styles.channelSelectorContainer}
                   onPress={() => setShowContentWarningsSheet(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.sectionSelectorText}>{getSelectedContentWarningsLabel()}</Text>
-                  <ChevronDownIcon size={20} color={Colors.lightGray} />
+                  <View style={styles.channelSelectorBox}>
+                    <Icon name="warning-line" size={32} color={Colors.lightGray} />
+                  </View>
+                  {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
+                    <View style={styles.channelSelectorPlaceholderContainer}>
+                      <Text style={styles.channelSelectorPlaceholderText}>{getSelectedContentWarningsLabel()}</Text>
+                      <DownSmallFillIcon size={20} color={Colors.gray} />
+                    </View>
+                  ) : (
+                    <View style={styles.channelSelectorNameContainer}>
+                      <Text style={styles.channelSelectorName}>
+                        {getSelectedContentWarningsLabel()}
+                      </Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               </View>
               {/* Post Button */}
@@ -880,12 +907,14 @@ const VideoPostScreen: React.FC = () => {
           <View style={styles.landscapeVideoSide}>
             <View style={styles.previewSection}>
               <View style={[styles.videoContainer, { width: '100%', aspectRatio: ASPECT_RATIO, maxHeight: '90%' }]}> 
+                {/* Blurred thumbnail background */}
+                {videoUri && <BlurredThumbnailBackground thumbnailUrl={videoUri} />}
                 {videoLoading && (
                   <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: Colors.darkGray }]}> 
                     <Loading3FillIcon size={48} color={Colors.white} />
                   </View>
                 )}
-                <View style={{ width: '100%', aspectRatio: ASPECT_RATIO, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
+                <View style={{ width: '100%', aspectRatio: ASPECT_RATIO, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 1 }}>
                   {videoUri && player ? (
                       <VideoView
                         player={player}
@@ -1053,7 +1082,7 @@ const VideoPostScreen: React.FC = () => {
         <VerticalListSheet
           visible={showContentWarningsSheet}
           onDismiss={() => setShowContentWarningsSheet(false)}
-          title="Content"
+          title={getSelectedContentWarningsLabel()}
           name="post-content-warnings-sheet"
           detents={['auto']}
           showCancelButton={true}
@@ -1114,7 +1143,7 @@ const VideoPostScreen: React.FC = () => {
         <VerticalListSheet
           visible={showCommentSettingsSheet}
           onDismiss={() => setShowCommentSettingsSheet(false)}
-          title="Comments"
+          title={getSelectedCommentFilterLabel()}
           name="post-comment-settings-sheet"
           detents={['auto']}
           showCancelButton={true}
@@ -1148,7 +1177,12 @@ const VideoPostScreen: React.FC = () => {
           titleSize={28}
           hideCloseButton={true}
         >
-          <View style={styles.sheetContent}>
+          <ScrollView 
+            style={styles.sheetContent}
+            contentContainerStyle={[styles.sheetContentContainer, { paddingBottom: 80 + insets.bottom }]}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled={true}
+          >
             <VerticalListButton
               label="none"
               onPress={() => {
@@ -1190,7 +1224,7 @@ const VideoPostScreen: React.FC = () => {
                 </View>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </VerticalListSheet>
 
       </SafeAreaView>
@@ -1216,7 +1250,7 @@ const VideoPostScreen: React.FC = () => {
           style={styles.scrollView} 
           contentContainerStyle={[
             styles.scrollViewContentContainer,
-            { paddingBottom: 60 + Math.max(insets.bottom, 20) + 20 }
+            { paddingBottom: 60 + Math.max(insets.bottom, 20) + 80 }
           ]}
         >
           {/* Header */}
@@ -1228,13 +1262,15 @@ const VideoPostScreen: React.FC = () => {
           {/* Video Preview Section */}
           <View style={styles.previewSection}>
             <View style={[styles.videoContainer, { width: containerWidth, height: containerHeight }]}>
+              {/* Blurred thumbnail background */}
+              {videoUri && <BlurredThumbnailBackground thumbnailUrl={videoUri} />}
               {/* Show loading indicator while video is loading */}
               {videoLoading && (
                 <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: Colors.darkGray }]}> 
                   <Loading3FillIcon size={48} color={Colors.white} />
                 </View>
               )}
-              <View style={{ width: containerWidth, height: containerHeight, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
+              <View style={{ width: containerWidth, height: containerHeight, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 1 }}>
                 {videoUri && player ? (
                   <VideoView
                     player={player}
@@ -1359,7 +1395,7 @@ const VideoPostScreen: React.FC = () => {
           
           {/* Channel Selection */}
           <View style={styles.section}>
-            <Text style={styles.sectionHeaderTitle}>Channel</Text>
+            <Text style={styles.sectionHeaderTitle}>Channel (optional)</Text>
             <TouchableOpacity 
               style={styles.channelSelectorContainer}
               onPress={() => setShowChannelSelectionSheet(true)}
@@ -1387,7 +1423,7 @@ const VideoPostScreen: React.FC = () => {
               {!selectedChannel ? (
                 <View style={styles.channelSelectorPlaceholderContainer}>
                   <Text style={styles.channelSelectorPlaceholderText}>Pick a channel</Text>
-                  <DownSmallFillIcon size={20} color={Colors.lightGray} />
+                  <DownSmallFillIcon size={20} color={Colors.gray} />
                 </View>
               ) : (
                 <View style={styles.channelSelectorNameContainer}>
@@ -1413,12 +1449,25 @@ const VideoPostScreen: React.FC = () => {
           <View style={styles.section}>
             <Text style={styles.sectionHeaderTitle}>Comments</Text>
             <TouchableOpacity 
-              style={styles.sectionSelector}
+              style={styles.channelSelectorContainer}
               onPress={() => setShowCommentSettingsSheet(true)}
               activeOpacity={0.7}
             >
-              <Text style={styles.sectionSelectorText}>{getSelectedCommentFilterLabel()}</Text>
-              <ChevronDownIcon size={20} color={Colors.lightGray} />
+              <View style={styles.channelSelectorBox}>
+                <Icon name="chat-3-line" size={32} color={Colors.lightGray} />
+              </View>
+              {!commentFilter ? (
+                <View style={styles.channelSelectorPlaceholderContainer}>
+                  <Text style={styles.channelSelectorPlaceholderText}>{getSelectedCommentFilterLabel()}</Text>
+                  <DownSmallFillIcon size={20} color={Colors.gray} />
+                </View>
+              ) : (
+                <View style={styles.channelSelectorNameContainer}>
+                  <Text style={styles.channelSelectorName}>
+                    {getSelectedCommentFilterLabel()}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
           
@@ -1426,12 +1475,25 @@ const VideoPostScreen: React.FC = () => {
           <View style={styles.section}>
             <Text style={styles.sectionHeaderTitle}>Warnings</Text>
             <TouchableOpacity 
-              style={styles.sectionSelector}
+              style={styles.channelSelectorContainer}
               onPress={() => setShowContentWarningsSheet(true)}
               activeOpacity={0.7}
             >
-              <Text style={styles.sectionSelectorText}>{getSelectedContentWarningsLabel()}</Text>
-              <ChevronDownIcon size={20} color={Colors.lightGray} />
+              <View style={styles.channelSelectorBox}>
+                <Icon name="warning-line" size={32} color={Colors.lightGray} />
+              </View>
+              {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
+                <View style={styles.channelSelectorPlaceholderContainer}>
+                  <Text style={styles.channelSelectorPlaceholderText}>{getSelectedContentWarningsLabel()}</Text>
+                  <DownSmallFillIcon size={20} color={Colors.gray} />
+                </View>
+              ) : (
+                <View style={styles.channelSelectorNameContainer}>
+                  <Text style={styles.channelSelectorName}>
+                    {getSelectedContentWarningsLabel()}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
           
@@ -1635,7 +1697,7 @@ const VideoPostScreen: React.FC = () => {
       <VerticalListSheet
         visible={showContentWarningsSheet}
         onDismiss={() => setShowContentWarningsSheet(false)}
-        title="Content"
+        title={getSelectedContentWarningsLabel()}
         name="post-content-warnings-sheet"
         detents={['auto']}
         showCancelButton={true}
@@ -1695,7 +1757,7 @@ const VideoPostScreen: React.FC = () => {
       <VerticalListSheet
         visible={showCommentSettingsSheet}
         onDismiss={() => setShowCommentSettingsSheet(false)}
-        title="Comments"
+        title={getSelectedCommentFilterLabel()}
         name="post-comment-settings-sheet"
         detents={['auto']}
         showCancelButton={true}
@@ -1728,7 +1790,12 @@ const VideoPostScreen: React.FC = () => {
         titleSize={26}
         hideCloseButton={true}
       >
-        <View style={styles.sheetContent}>
+        <ScrollView 
+          style={styles.sheetContent}
+          contentContainerStyle={[styles.sheetContentContainer, { paddingBottom: 80 + insets.bottom }]}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled={true}
+        >
           <VerticalListButton
             label="none"
             onPress={() => {
@@ -1767,7 +1834,7 @@ const VideoPostScreen: React.FC = () => {
               </View>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       </VerticalListSheet>
 
     </SafeAreaView>
@@ -2133,7 +2200,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   landscapeInfoScroll: {
-    paddingBottom: 40,
+    paddingBottom: 80,
   },
   landscapeVideoSide: {
     flex: 1,
@@ -2191,6 +2258,9 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   sheetContent: {
+    paddingHorizontal: 0,
+  },
+  sheetContentContainer: {
     paddingHorizontal: 0,
   },
   channelListButton: {
@@ -2385,7 +2455,7 @@ const styles = StyleSheet.create({
   channelSelectorName: {
     color: Colors.white,
     fontSize: 18,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Firma-Medium',
   },
 
 });

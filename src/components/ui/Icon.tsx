@@ -1378,6 +1378,36 @@ export const InformationLineIcon: React.FC<{ size: number; color: string; style?
   );
 };
 
+// Custom Chat 3 Line Icon component
+const CHAT_3_LINE_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>chat_3_line</title><g id="chat_3_line" fill='none' fill-rule='evenodd'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='M12 5c-4.597 0-8 3.073-8 6.5 0 2.014 1.141 3.872 3.042 5.096.738.476.939 1.403.972 2.222.753-.31 1.258-1.16 2.172-.986.582.11 1.189.168 1.814.168 4.597 0 8-3.073 8-6.5S16.597 5 12 5M2 11.5C2 6.643 6.656 3 12 3s10 3.643 10 8.5S17.344 20 12 20c-.653 0-1.292-.053-1.911-.155-.093.073-.253.205-.45.344C9.07 20.59 8.249 21 7 21a1 1 0 0 1-1-1c0-.55.143-1.234-.094-1.756C3.577 16.723 2 14.298 2 11.5'/></g></svg>`;
+
+export const Chat3LineIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = CHAT_3_LINE_ICON_SVG.replace(/#09244BFF/g, color);
+  return (
+    <SvgXml 
+      xml={svgXml} 
+      width={size} 
+      height={size} 
+      style={style} 
+    />
+  );
+};
+
+// Custom Warning Line Icon component
+const WARNING_LINE_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><title>warning_line</title><g id="warning_line" fill='none'><path d='M24 0v24H0V0zM12.593 23.258l-.011.002-.071.035-.02.004-.014-.004-.071-.035c-.01-.004-.019-.001-.024.005l-.004.01-.017.428.005.02.01.013.104.074.015.004.012-.004.104-.074.012-.016.004-.017-.017-.427c-.002-.01-.009-.017-.017-.018m.265-.113-.013.002-.185.093-.01.01-.003.011.018.43.005.012.008.007.201.093c.012.004.023 0 .029-.008l.004-.014-.034-.614c-.003-.012-.01-.02-.02-.022m-.715.002a.023.023 0 0 0-.027.006l-.006.014-.034.614c0 .012.007.02.017.024l.015-.002.201-.093.01-.008.004-.011.017-.43-.003-.012-.01-.01z'/><path fill='#09244BFF' d='M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16m0 11a1 1 0 1 1 0 2 1 1 0 0 1 0-2m0-9a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0V7a1 1 0 0 1 1-1'/></g></svg>`;
+
+export const WarningLineIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
+  const svgXml = WARNING_LINE_ICON_SVG.replace(/#09244BFF/g, color);
+  return (
+    <SvgXml 
+      xml={svgXml} 
+      width={size} 
+      height={size} 
+      style={style} 
+    />
+  );
+};
+
 interface IconProps {
   name: string;
   size?: number;
@@ -1427,6 +1457,12 @@ const Icon: React.FC<IconProps> = ({
     }
     if (name === 'information-line' || name === 'info') {
       return <InformationLineIcon size={size} color={color} style={style} />;
+    }
+    if (name === 'chat-3-line' || name === 'chat_3_line') {
+      return <Chat3LineIcon size={size} color={color} style={style} />;
+    }
+    if (name === 'warning-line' || name === 'warning_line') {
+      return <WarningLineIcon size={size} color={color} style={style} />;
     }
     if (name === 'block') {
       return <BlockIcon size={size} color={color} />;
@@ -1520,6 +1556,10 @@ const Icon: React.FC<IconProps> = ({
     if (name === 'inbox-fill' || name === 'inbox') {
       return <InboxIcon size={size} color={color} style={style} />;
     }
+    // Use warning-line for warnings icon
+    if (name === 'warning' || name === 'warnings') {
+      return <WarningLineIcon size={size} color={color} style={style} />;
+    }
     if (name === 'comment-heart' || name === 'heart-comment') {
       return <CommentHeartIcon size={size} color={color} style={style} />;
     }
@@ -1573,6 +1613,8 @@ const Icon: React.FC<IconProps> = ({
     // Common aliases routed to existing local icons
     if (name === 'heart') return <HeartFillIcon size={size} color={color} />;
     if (name === 'message') return <ChatFillIcon size={size} color={color} />;
+    // Use chat-3-line for comments icon
+    if (name === 'comment' || name === 'comments') return <Chat3LineIcon size={size} color={color} style={style} />;
     if (name === 'repeat') return <RefreshFillIcon size={size} color={color} />;
     if (name === 'edit') return <ProfileEditIcon size={size} color={color} style={style} />;
     if (name === 'article') return <PaperFillIcon size={size} color={color} style={style} />;
