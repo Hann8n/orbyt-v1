@@ -23,9 +23,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
-  Animated as RNAnimated,
 } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, withSequence, withDelay, Easing } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 
 import { Image } from 'expo-image';
@@ -125,13 +124,13 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     // Faster animation (80ms) for snappier feel during scrolling
     const dimmingOpacity = useSharedValue(isVisible ? 0 : 1);
     
-    // Double tap to like state
+    // Double tap to like state - using Reanimated for UI thread performance
     const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
     const singleTapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const heartScale = useRef(new RNAnimated.Value(0)).current;
-    const heartOpacity = useRef(new RNAnimated.Value(0)).current;
-    const [heartPosition, setHeartPosition] = useState({ x: 0, y: 0 });
-    const [showHeart, setShowHeart] = useState(false);
+    const heartScale = useSharedValue(0);
+    const heartOpacity = useSharedValue(0);
+    const heartPositionX = useSharedValue(0);
+    const heartPositionY = useSharedValue(0);
 
     // Get video URL and thumbnail using shared utilities
     const videoUrl = extractVideoUrl(post.embed);
@@ -194,6 +193,17 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const dimmingAnimatedStyle = useAnimatedStyle(() => ({
       opacity: dimmingOpacity.value,
     }));
+    
+    // Animated style for heart animation - runs on UI thread
+    const heartAnimatedStyle = useAnimatedStyle(() => {
+      'worklet';
+      return {
+        left: heartPositionX.value - 50,
+        top: heartPositionY.value - 50,
+        opacity: heartOpacity.value,
+        transform: [{ scale: heartScale.value }],
+      };
+    });
 
     // Isolated video playback logic - only depends on this video's state
     const shouldPlayVideo = !shouldDisablePlayback && 
@@ -450,42 +460,54 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       }
     }, [overlayState.isLiked, overlayState.isLikePending, overlayState.likeCount, post.uri, post.cid, setOverlayState, updatePostInteraction]);
 
-    // Double tap to like animation
+    // Double tap to like animation - runs on UI thread with Reanimated
+    // Heartbeat pattern: quick beat, slight dip, second beat, then fade out
     const animateHeart = useCallback((x: number, y: number) => {
-      heartScale.stopAnimation();
-      heartOpacity.stopAnimation();
-      setHeartPosition({ x, y });
-      setShowHeart(true);
-      heartScale.setValue(0);
-      heartOpacity.setValue(1);
+      // Cancel any ongoing animations
+      heartScale.value = 0;
+      heartOpacity.value = 0;
       
-      RNAnimated.parallel([
-        RNAnimated.sequence([
-          RNAnimated.spring(heartScale, {
-            toValue: 1.2,
-            tension: 100,
-            friction: 7,
-            useNativeDriver: true,
-          }),
-          RNAnimated.spring(heartScale, {
-            toValue: 1,
-            tension: 100,
-            friction: 7,
-            useNativeDriver: true,
-          }),
-        ]),
-        RNAnimated.sequence([
-          RNAnimated.delay(200),
-          RNAnimated.timing(heartOpacity, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]).start(() => {
-        setShowHeart(false);
-      });
-    }, [heartScale, heartOpacity]);
+      // Set position
+      heartPositionX.value = x;
+      heartPositionY.value = y;
+      
+      // Start animation sequence - heartbeat pattern
+      heartOpacity.value = 1;
+      heartScale.value = withSequence(
+        // First heartbeat beat - quick and strong
+        withTiming(1.3, {
+          duration: 100,
+          easing: Easing.out(Easing.ease),
+        }),
+        // Quick dip below 1 for heartbeat feel
+        withTiming(0.95, {
+          duration: 80,
+          easing: Easing.in(Easing.ease),
+        }),
+        // Second heartbeat beat - slightly smaller
+        withTiming(1.15, {
+          duration: 100,
+          easing: Easing.out(Easing.ease),
+        }),
+        // Return to normal size
+        withTiming(1, {
+          duration: 120,
+          easing: Easing.inOut(Easing.ease),
+        })
+      );
+      
+      // Fade out after the heartbeat sequence completes
+      heartOpacity.value = withDelay(
+        400, // Wait for heartbeat to complete (~400ms total)
+        withTiming(0, {
+          duration: 300,
+          easing: Easing.out(Easing.ease),
+        }, () => {
+          // Reset values after animation completes
+          heartScale.value = 0;
+        })
+      );
+    }, [heartScale, heartOpacity, heartPositionX, heartPositionY]);
 
     // Enhanced tap handler with double tap detection
     const handleVideoTap = useCallback((event: any) => {
@@ -525,7 +547,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
         lastTapRef.current = null;
         singleTapTimeoutRef.current = null;
       }, 400);
-    }, [togglePlayback, overlayState.isLiked, overlayState.isLikePending, handleLike, animateHeart]);
+    }, [togglePlayback, cardHeight, handleLikeOnly, animateHeart]);
 
     // Handle long press to show comments
     const handleLongPress = useCallback(() => {
@@ -691,23 +713,16 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
               pointerEvents="none"
             />
 
-            {/* Double tap heart animation */}
-            {showHeart && (
-              <Animated.View
-                style={[
-                  styles.heartAnimationContainer,
-                  {
-                    left: heartPosition.x - 50,
-                    top: heartPosition.y - 50,
-                    opacity: heartOpacity,
-                    transform: [{ scale: heartScale }],
-                  },
-                ]}
-                pointerEvents="none"
-              >
-                <HeartFillIcon size={100} color={Colors.INTERACTIVE.HEART.ACTIVE} />
-              </Animated.View>
-            )}
+            {/* Double tap heart animation - using Reanimated for UI thread */}
+            <Animated.View
+              style={[
+                styles.heartAnimationContainer,
+                heartAnimatedStyle,
+              ]}
+              pointerEvents="none"
+            >
+              <HeartFillIcon size={100} color={Colors.INTERACTIVE.HEART.ACTIVE} />
+            </Animated.View>
 
             {/* Integrated Overlay System using VideoOverlayUI */}
             {/* Keep overlay mounted to prevent jank when switching videos */}

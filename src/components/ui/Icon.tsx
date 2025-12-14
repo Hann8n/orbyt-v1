@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SvgXml } from 'react-native-svg';
-import { StyleProp, ViewStyle, View, Animated, Easing } from 'react-native';
+import { StyleProp, ViewStyle, View } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { logger } from '../../utils/logger';
 
@@ -473,28 +474,28 @@ export const ShareIcon: React.FC<{ size: number; color: string; style?: StylePro
   );
 };
 
-// Custom Loading 3 Fill Icon component (spinning)
+// Custom Loading 3 Fill Icon component (spinning) - using Reanimated for UI thread performance
 export const Loading3FillIcon: React.FC<{ size: number; color: string; style?: StyleProp<ViewStyle> }> = ({ size, color, style }) => {
-  const rotation = React.useRef(new Animated.Value(0)).current;
+  const rotation = useSharedValue(0);
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(rotation, {
-        toValue: 1,
+    // Start infinite rotation animation on UI thread
+    rotation.value = withRepeat(
+      withTiming(360, {
         duration: 1000,
         easing: Easing.linear,
-        useNativeDriver: true,
-      })
+      }),
+      -1, // Infinite repetitions
+      false // Don't reverse
     );
-    loop.start();
-    return () => {
-      rotation.stopAnimation();
-    };
   }, [rotation]);
 
-  const spin = rotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+  // Animated style for rotation - runs on UI thread
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ rotate: `${rotation.value}deg` }],
+    };
   });
 
   const xml = `
@@ -507,7 +508,7 @@ export const Loading3FillIcon: React.FC<{ size: number; color: string; style?: S
   `;
 
   return (
-    <Animated.View style={[{ transform: [{ rotate: spin }] }, style]}>
+    <Animated.View style={[animatedStyle, style]}>
       <SvgXml xml={xml} width={size} height={size} />
     </Animated.View>
   );

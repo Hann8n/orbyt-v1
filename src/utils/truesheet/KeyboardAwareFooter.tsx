@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
-  Easing,
   Keyboard,
   Platform,
   StyleSheet,
   ViewStyle,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface KeyboardAwareFooterProps {
@@ -25,7 +24,7 @@ const KeyboardAwareFooter: React.FC<KeyboardAwareFooterProps> = ({
   bottomPadding = 0,
 }) => {
   const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(0)).current;
+  const translateY = useSharedValue(0);
 
   const keyboardShowEvent = useMemo(
     () => (Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'),
@@ -37,29 +36,36 @@ const KeyboardAwareFooter: React.FC<KeyboardAwareFooterProps> = ({
   );
 
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  
+  // Animated style for translateY - runs on UI thread
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ translateY: translateY.value }],
+    };
+  });
+
   useEffect(() => {
     const handleShow = (event: any) => {
       const keyboardHeight = event?.endCoordinates?.height ?? 0;
       const effectiveHeight = Math.max(0, keyboardHeight - insets.bottom);
       setKeyboardVisible(true);
 
-      Animated.timing(translateY, {
-        toValue: -effectiveHeight,
+      // Run animation on UI thread with Reanimated
+      translateY.value = withTiming(-effectiveHeight, {
         duration: event?.duration ?? 250,
         easing: Platform.OS === 'ios' ? Easing.out(Easing.cubic) : Easing.ease,
-        useNativeDriver: true,
-      }).start();
+      });
     };
 
     const handleHide = (event: any) => {
       setKeyboardVisible(false);
 
-      Animated.timing(translateY, {
-        toValue: 0,
+      // Run animation on UI thread with Reanimated
+      translateY.value = withTiming(0, {
         duration: event?.duration ?? 250,
         easing: Platform.OS === 'ios' ? Easing.out(Easing.cubic) : Easing.ease,
-        useNativeDriver: true,
-      }).start();
+      });
     };
 
     const showListener = Keyboard.addListener(keyboardShowEvent, handleShow);
@@ -86,7 +92,7 @@ const KeyboardAwareFooter: React.FC<KeyboardAwareFooterProps> = ({
       style={[
         styles.container,
         { paddingBottom: bottomPadding },
-        { transform: [{ translateY }] },
+        animatedStyle,
         ...flattenedStyles,
       ]}
     >

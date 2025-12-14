@@ -1,14 +1,16 @@
 import React, { useRef, useCallback, useEffect, useState, useMemo, useLayoutEffect, memo, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   Dimensions,
   StatusBar,
-  Animated,
+  Animated as RNAnimated,
   TouchableOpacity,
 } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { Colors } from '../../ui/UI';
 import FeedRenderer from './FeedRenderer';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
@@ -74,9 +76,9 @@ const SwipeableFeedContainer = memo(forwardRef<ScrollToTopRef, SwipeableFeedCont
   const [currentFeedIndex, setCurrentFeedIndex] = useState(0);
   const [feedRetries, setFeedRetries] = useState<{ [key in FeedOption]?: number }>({});
 
-  // Animation values for feed bar visibility and transitions
-  const feedBarOpacity = useRef(new Animated.Value(1)).current;
-  const feedBarTranslateY = useRef(new Animated.Value(0)).current;
+  // Animation values for feed bar visibility and transitions - using Reanimated for UI thread
+  const feedBarOpacity = useSharedValue(1);
+  const feedBarTranslateY = useSharedValue(0);
   const [isFeedBarVisible, setIsFeedBarVisible] = useState(true);
 
   // Use PagerView's page tracking directly - updated via onPageSelected
@@ -133,7 +135,16 @@ const SwipeableFeedContainer = memo(forwardRef<ScrollToTopRef, SwipeableFeedCont
     return 0;
   }, [hasAppliedInitialIndexRef.current, feedOptions.length, pendingInitialIndex]);
 
-  // Animate feed bar visibility
+  // Animated style for feed bar - runs on UI thread
+  const feedBarAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: feedBarOpacity.value,
+      transform: [{ translateY: feedBarTranslateY.value }],
+    };
+  });
+
+  // Animate feed bar visibility - runs on UI thread with Reanimated
   const animateFeedBar = useCallback((visible: boolean, immediate: boolean = false) => {
     if (visible === isFeedBarVisible) return;
     
@@ -143,21 +154,17 @@ const SwipeableFeedContainer = memo(forwardRef<ScrollToTopRef, SwipeableFeedCont
     const translateYValue = visible ? 0 : -50;
     
     if (immediate) {
-      feedBarOpacity.setValue(toValue);
-      feedBarTranslateY.setValue(translateYValue);
+      feedBarOpacity.value = toValue;
+      feedBarTranslateY.value = translateYValue;
     } else {
-      Animated.parallel([
-        Animated.timing(feedBarOpacity, {
-          toValue,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(feedBarTranslateY, {
-          toValue: translateYValue,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      feedBarOpacity.value = withTiming(toValue, {
+        duration: 300,
+        easing: Easing.out(Easing.ease),
+      });
+      feedBarTranslateY.value = withTiming(translateYValue, {
+        duration: 300,
+        easing: Easing.out(Easing.ease),
+      });
     }
   }, [isFeedBarVisible, feedBarOpacity, feedBarTranslateY]);
 
@@ -352,15 +359,14 @@ const SwipeableFeedContainer = memo(forwardRef<ScrollToTopRef, SwipeableFeedCont
     <GestureHandlerRootView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
       
-      {/* Feed Indicators - animated using PagerView's scroll progress */}
-      <Animated.View 
+      {/* Feed Indicators - animated using Reanimated for UI thread performance */}
+      <Animated.View
         style={[
-          styles.feedSwitcher, 
-          { 
+          styles.feedSwitcher,
+          {
             top: applySafeArea ? 12 + insets.top : 12,
-            opacity: feedBarOpacity,
-            transform: [{ translateY: feedBarTranslateY }],
-          }
+          },
+          feedBarAnimatedStyle
         ]}
       >
         <View style={styles.indicatorContainer}>
@@ -371,9 +377,9 @@ const SwipeableFeedContainer = memo(forwardRef<ScrollToTopRef, SwipeableFeedCont
               activeOpacity={0.7}
               style={styles.indicatorItem}
             >
-              <Animated.Text style={getIndicatorStyle(feedOption)}>
+              <Text style={getIndicatorStyle(feedOption)}>
                 {FEED_LABELS[feedOption] || feedOption}
-              </Animated.Text>
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
