@@ -449,18 +449,20 @@ const SettingsScreen: React.FC = () => {
 
   return (
     <View style={[settingsLayoutStyles.container, { backgroundColor: Colors.black }]}>
+      <ListHeader 
+        mode="sheet"
+        title="Settings"
+        showCloseButton
+        onClosePress={() => navigation.back()}
+        applySafeAreaTop={Platform.OS === 'android'}
+        style={{ marginHorizontal: -5 }}
+        backgroundColor={Colors.black}
+        titleIndent={true}
+      />
       <ScrollView
         contentContainerStyle={settingsLayoutStyles.contentContainerWithPadding}
         showsVerticalScrollIndicator={false}
       >
-        <ListHeader 
-          mode="sheet"
-          title="Settings"
-          showCloseButton
-                      onClosePress={() => navigation.back()}
-          applySafeAreaTop={false}
-          style={{ marginHorizontal: -5 }}
-        />
         {listData.map((item, index) => {
           const key = `${item.kind}-${item.id}-${index}`;
           switch (item.kind) {

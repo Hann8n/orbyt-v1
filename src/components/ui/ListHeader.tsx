@@ -19,6 +19,7 @@ interface ListHeaderProps {
   right?: React.ReactNode;
   applySafeAreaTop?: boolean;
   style?: ViewStyle | ViewStyle[];
+  titleIndent?: boolean;
 }
 
 const ListHeader: React.FC<ListHeaderProps> = ({
@@ -34,6 +35,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
   right,
   applySafeAreaTop = false,
   style,
+  titleIndent = false,
 }) => {
   const insets = useSafeAreaInsets();
 
@@ -51,6 +53,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
     mode === 'root' && styles.titleRoot,
     mode === 'stacked' && styles.titleStacked,
     mode === 'sheet' && styles.titleSheet,
+    mode === 'sheet' && titleIndent && styles.titleSheetIndent,
     { color: textColor },
   ];
 
@@ -60,10 +63,10 @@ const ListHeader: React.FC<ListHeaderProps> = ({
         <View style={styles.sheetLeft}>
           {left ?? (title ? <Text style={titleStyle} numberOfLines={1}>{title}</Text> : null)}
         </View>
-        <View style={styles.rightSection}>
+        <View style={[styles.rightSection, styles.sheetRightSection]}>
           {right ?? (
             showCloseButton ? (
-              <TouchableOpacity style={styles.iconButton} onPress={onClosePress} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.sheetCloseButton} onPress={onClosePress} activeOpacity={0.7}>
                 <CloseFillIcon size={20} color={Colors.white} />
               </TouchableOpacity>
             ) : (
@@ -170,6 +173,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  sheetRightSection: {
+    width: 40,
+    height: 40,
+  },
   stackedLeftRow: {
     flex: 1,
     flexDirection: 'row',
@@ -188,6 +195,12 @@ const styles = StyleSheet.create({
   rightSpacer: {
     width: 40,
     height: 40,
+  },
+  sheetCloseButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     flex: 1,
@@ -211,6 +224,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
+    marginLeft: 5,
+  },
+  titleSheetIndent: {
+    marginLeft: 14,
   },
 });
 
