@@ -202,14 +202,19 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const { contentPadding, actionIconSize, smallIconSize, authorAvatarSize, repostAvatarSize } = uiCalculations;
 
   // Memoize icon rendering to prevent unnecessary recreations
+  // Extract icon size calculation to reduce work in render
+  const likeIconSize = useMemo(() => 
+    isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize,
+    [isTabletDevice, actionIconSize]
+  );
   const renderLikeIcon = useCallback(() => (
     <Animated.View style={likeAnimatedStyle}>
       <HeartFillIcon 
-        size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
+        size={likeIconSize} 
         color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.white} 
       />
     </Animated.View>
-  ), [likeAnimatedStyle, isTabletDevice, actionIconSize, isLiked]);
+  ), [likeAnimatedStyle, likeIconSize, isLiked]);
 
   // Repost animation: quick tilt (wiggle) + slight scale pulse
   const repostScale = useSharedValue(1);
@@ -227,43 +232,56 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     };
   });
 
+  // Extract repost icon size calculation
+  const repostIconSize = useMemo(() => 
+    isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize,
+    [isTabletDevice, actionIconSize]
+  );
   const renderRepostIcon = useCallback(() => (
     <Animated.View style={repostAnimatedStyle}>
       <RefreshFillIcon 
-        size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
+        size={repostIconSize} 
         color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE} 
       />
     </Animated.View>
-  ), [repostAnimatedStyle, isTabletDevice, actionIconSize, isReposted]);
+  ), [repostAnimatedStyle, repostIconSize, isReposted]);
 
-  // Memoize static icons to prevent recreation
+  // Memoize static icons to prevent recreation - use extracted icon sizes
   const repostIcon = useMemo(() => (
     <RefreshFillIcon 
-      size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
+      size={repostIconSize} 
       color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE} 
     />
-  ), [isTabletDevice, actionIconSize, isReposted]);
+  ), [repostIconSize, isReposted]);
 
   const commentIcon = useMemo(() => (
-    <ChatFillIcon size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} color={Colors.INTERACTIVE.COMMENT} />
-  ), [isTabletDevice, actionIconSize]);
+    <ChatFillIcon size={likeIconSize} color={Colors.INTERACTIVE.COMMENT} />
+  ), [likeIconSize]);
 
-  // Get profile colors for overlay
-  const { colors: profileColors } = useProfileColors(post.author?.handle);
+  // Memoize author handle to prevent unnecessary hook re-runs
+  const authorHandle = useMemo(() => post.author?.handle, [post.author?.handle]);
+  
+  // Get profile colors for overlay - memoize to prevent unnecessary re-renders
+  const { colors: profileColors } = useProfileColors(authorHandle);
 
   
-  // Get channel colors for source feed
-  const { colors: channelColors } = useChannelColors(sourceFeed);
+  // Get channel colors for source feed - memoize sourceFeed to prevent unnecessary re-renders
+  const memoizedSourceFeed = useMemo(() => sourceFeed, [sourceFeed]);
+  const { colors: channelColors } = useChannelColors(memoizedSourceFeed);
 
-  // Follow state and mutation
-  const { data: cachedProfile } = useProfile(post.author?.handle);
+  // Follow state and mutation - memoize to prevent unnecessary re-renders
+  const { data: cachedProfile } = useProfile(authorHandle);
   const isFollowingProfile = cachedProfile?.isFollowing ?? false;
   const isFollowing = isFollowingProfile;
   const followMutation = useFollowMutation();
   // Use specific selector to only subscribe to currentUser, not the entire store
+  // Memoize selectors to prevent unnecessary re-renders
   const currentUserDid = useUserStore(state => state.currentUser?.did);
   const currentUserHandle = useUserStore(state => state.currentUser?.handle);
-  const isCurrentUserProfile = isCurrentUser(post.author?.did, post.author?.handle, { did: currentUserDid, handle: currentUserHandle } as any);
+  const isCurrentUserProfile = useMemo(() => 
+    isCurrentUser(post.author?.did, post.author?.handle, { did: currentUserDid, handle: currentUserHandle } as any),
+    [post.author?.did, post.author?.handle, currentUserDid, currentUserHandle]
+  );
 
   // Show confirmation badge when follow succeeds
   useEffect(() => {
@@ -324,7 +342,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // This reduces jank when switching between videos
   const overlayOpacityShared = useSharedValue(isVisible ? 1 : 0);
   
-  // Shared value for scrubber seeking animation
+  // Shared value for scrubber seeking animation - stable across renders
+  // This is created once per component instance and reused
   const seekingAnimationSV = useSharedValue(0);
   
   // Update opacity when visibility changes
@@ -901,6 +920,7 @@ const styles = StyleSheet.create({
 
 // Custom comparison function to prevent unnecessary re-renders
 // Only re-render if critical props change
+// Optimized for FlashList recycling - player reference stability is important
 const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUIProps) => {
   // Always re-render if visibility changes (needed for opacity transition)
   if (prevProps.isVisible !== nextProps.isVisible) return false;
@@ -922,6 +942,10 @@ const arePropsEqual = (prevProps: VideoOverlayUIProps, nextProps: VideoOverlayUI
   // Compare feed options
   if (prevProps.feedOption !== nextProps.feedOption) return false;
   if (prevProps.sourceFeed !== nextProps.sourceFeed) return false;
+  
+  // Player reference should be stable, but check if it changed
+  // This is important for scrubber performance
+  if (prevProps.player !== nextProps.player) return false;
   
   // If all critical props are the same, skip re-render
   return true;
