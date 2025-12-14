@@ -88,56 +88,44 @@ class ProfileCache {
 
   }
 
+  // Cache agents per PDS endpoint to avoid recreating them
+  private static _pdsAgentCache = new Map<string, AtpAgent>();
+
   /**
    * Fetch profile colors directly from PDS
+   * Optimized to reuse cached PDS endpoint resolution and agent instances
    */
   private static async fetchProfileColorsFromPDS(did: string): Promise<{ backgroundColor: string; textColor: string } | null> {
     try {
-      // Resolve PDS endpoint via PLC directory
-      const didDoc = await fetch(`https://plc.directory/${did}`).then(r => r.json());
-      const service = didDoc.service?.find(
-        (s: any) => s.id === '#atproto_pds' || s.type === 'AtprotoPersonalDataServer'
-      );
-      
-      if (!service?.serviceEndpoint) {
+      // Use cached PDS endpoint resolution from AtprotoService
+      const endpoint = await AtprotoService.resolvePdsEndpointForDid(did);
+      if (!endpoint) {
         return null;
       }
 
-      const pdsAgent = new AtpAgent({ service: service.serviceEndpoint });
+      // Reuse cached agent for this PDS endpoint
+      let pdsAgent = this._pdsAgentCache.get(endpoint);
+      if (!pdsAgent) {
+        pdsAgent = new AtpAgent({ service: endpoint });
+        this._pdsAgentCache.set(endpoint, pdsAgent);
+      }
 
-      // Try unified orbyt profile record first
-      try {
-        const response = await pdsAgent.com.atproto.repo.getRecord({
-          repo: did,
-          collection: 'com.getorbyt.profile',
-          rkey: 'self',
-        });
-        const record = response?.data?.value as any;
-        if (record?.colors?.backgroundColor && record?.colors?.textColor) {
-          return {
-            backgroundColor: record.colors.backgroundColor,
-            textColor: record.colors.textColor,
-          };
-        }
-      } catch {}
-
-      // Fallback: list any profile record and read colors
-      try {
-        const response = await pdsAgent.com.atproto.repo.listRecords({
-          repo: did,
-          collection: 'com.getorbyt.profile',
-          limit: 1,
-        });
-        const value = response?.data?.records?.[0]?.value as any;
-        if (value?.colors?.backgroundColor && value?.colors?.textColor) {
-          return {
-            backgroundColor: value.colors.backgroundColor,
-            textColor: value.colors.textColor,
-          };
-        }
-      } catch {}
+      // Fetch the profile record directly (no fallback needed since we use standard rkey)
+      const response = await pdsAgent.com.atproto.repo.getRecord({
+        repo: did,
+        collection: 'com.getorbyt.profile',
+        rkey: 'self',
+      });
+      
+      const record = response?.data?.value as any;
+      if (record?.colors?.backgroundColor && record?.colors?.textColor) {
+        return {
+          backgroundColor: record.colors.backgroundColor,
+          textColor: record.colors.textColor,
+        };
+      }
     } catch {
-      // No custom colors
+      // No custom colors or record doesn't exist
     }
     return null;
   }
