@@ -26,6 +26,8 @@ import { VerificationBadge } from '../badging';
 import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useRouter } from 'expo-router';
 import { getChannelBySlug } from '../../../utils/orbytChannels';
+import { VideoScrubber } from './VideoScrubber';
+import { type VideoPlayer } from 'expo-video';
 
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -74,6 +76,7 @@ export interface VideoOverlayUIProps {
   repostCount?: number;
   isLikePending?: boolean;
   isRepostPending?: boolean;
+  player?: VideoPlayer;
 }
 
 const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
@@ -91,6 +94,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   repostCount = 0,
   isLikePending = false,
   isRepostPending = false,
+  player,
 }) => {
   const isTabletDevice = isTablet();
   const isSmallScreenDevice = isSmallScreen();
@@ -309,6 +313,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   }, [channelUri, navigation]);
 
   // Memoize dynamic styles to prevent style object recreation
+  // Original positioning - overlay content sits above the scrubber
   const overlayContentStyle = useMemo(() => [
     styles.overlayContentContainer,
     { padding: contentPadding },
@@ -321,6 +326,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   // This reduces jank when switching between videos
   const overlayOpacityShared = useSharedValue(isVisible ? 1 : 0);
   
+  // Shared value for scrubber seeking animation
+  const seekingAnimationSV = useSharedValue(0);
+  
   // Update opacity when visibility changes
   useEffect(() => {
     overlayOpacityShared.value = withTiming(isVisible ? 1 : 0, { duration: 150 });
@@ -330,6 +338,19 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     opacity: overlayOpacityShared.value,
   }));
   
+  // Hide overlay content when scrubbing - fade out faster than time appears
+  const overlayContentAnimatedStyle = useAnimatedStyle(() => {
+    const seekingValue = seekingAnimationSV.value;
+    // Fade out quickly when seeking starts (threshold at 0.2)
+    const threshold = 0.2;
+    const opacity = seekingValue < threshold
+      ? 1 - (seekingValue / threshold) // Fade out from 0 to threshold
+      : 0; // Fully hidden after threshold
+    return {
+      opacity: opacity * overlayOpacityShared.value,
+    };
+  });
+  
   const overlayPointerEvents = useMemo(() => (isVisible ? 'box-none' as const : 'none' as const), [isVisible]);
 
   return (
@@ -338,8 +359,15 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
         style={[styles.overlayContainer, overlayAnimatedStyle]} 
         pointerEvents={overlayPointerEvents}
       >
-      <View 
-        style={overlayContentStyle} 
+      {/* Video Scrubber - positioned at the bottom */}
+      <VideoScrubber
+        active={isVisible}
+        player={player}
+        seekingAnimationSV={seekingAnimationSV}
+      />
+      
+      <Animated.View 
+        style={[overlayContentStyle, overlayContentAnimatedStyle]} 
         pointerEvents="box-none"
       >
         <View style={styles.infoColumn} pointerEvents="box-none">
@@ -631,7 +659,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
             <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(likeCount)}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
     </Animated.View>
     </>
   );
