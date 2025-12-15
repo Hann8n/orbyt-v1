@@ -106,6 +106,7 @@ export interface ListFeedViewProps {
   isProfileLoading?: boolean;
   onScrubbingChange?: (isScrubbing: boolean) => void;
   onScroll?: (event: { nativeEvent: any }) => void;
+  onVerticalScroll?: (scrollY: number) => void;
   forceError?: boolean;
   ListComponent?: any;
   visibilityKey?: string;

@@ -16,7 +16,7 @@ import ProfileCache, {
   profileKeys
 } from '../../src/services/cache/ProfileCache';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
+import Icon, { BackArrowIcon, Loading3FillIcon, FollowIcon, MutualHeartIcon, BellFilledIcon, MoreFillIcon } from '../../src/components/ui/Icon';
 import { useQueryClient } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
 import { useCurrentUser, useAccountManagement, useUserStore, useProfileCacheSync } from '../../src/stores/userStore';
@@ -24,6 +24,21 @@ import { useProfileFlags } from '../../src/stores/profileInteractionStore';
 import { Colors } from '../../src/components/ui/UI';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFollowMutation } from '../../src/services/cache/ProfileCache';
+import { createQueryKeys } from '../../src/services/FeedService';
+import { useUserSubscription } from '../../src/stores/subscriptionStore';
+import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
+import EditProfileSheet from '../../src/components/features/profile/EditProfileSheet';
+import SubscriptionOptionsSheet from '../../src/components/features/profile/SubscriptionOptionsSheet';
+import ChatService from '../../src/services/ChatService';
+import { HeaderAction, HeaderActionButton } from '../../src/components/layout/header/UniversalHeader';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
  
 
 type RootParamList = {
@@ -37,6 +52,7 @@ interface ProfileScreenProps {
 
 const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { handle: providedHandle, did: providedDid } = useLocalSearchParams<{ handle?: string; did?: string }>();
   
   // User store hooks
@@ -242,6 +258,209 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   const isLoading = isProfileLoading && !cachedProfile;
 
+  // Overlay action state (moved from ProfileHeader)
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showEditSheet, setShowEditSheet] = useState(false);
+  const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
+  const [canMessage, setCanMessage] = useState<boolean | null>(null);
+  const [extractedDefaultColors, setExtractedDefaultColors] = useState<{
+    backgroundColor: string;
+    textColor: string;
+  } | null>(null);
+
+  const followMutation = useFollowMutation();
+  const { isSubscribed } = useUserSubscription(profileData?.did);
+
+  // Message availability
+  useEffect(() => {
+    const checkAvailability = async () => {
+      if (!profileData?.did || isOwnProfileView) {
+        setCanMessage(null);
+        return;
+      }
+      try {
+        const available = await ChatService.getConversationAvailability(profileData.did);
+        setCanMessage(available);
+      } catch {
+        setCanMessage(false);
+      }
+    };
+    checkAvailability();
+  }, [profileData?.did, isOwnProfileView]);
+
+  const handleMessagePress = useCallback(async () => {
+    if (!profileData?.did) return;
+
+    try {
+      const conversation = await ChatService.createConversation({
+        recipientDid: profileData.did,
+      });
+      router.push(`/chat/${conversation.id}`);
+    } catch {
+      router.push('/chat');
+    }
+  }, [profileData?.did, router]);
+
+  // Default colors for edit sheet
+  useEffect(() => {
+    if (profileData?.profileColors) {
+      setExtractedDefaultColors({
+        backgroundColor: profileData.profileColors.backgroundColor,
+        textColor: profileData.profileColors.foregroundColor,
+      });
+    } else {
+      setExtractedDefaultColors({
+        backgroundColor: '#000000',
+        textColor: '#CFD6E8',
+      });
+    }
+  }, [profileData?.profileColors]);
+
+  // Follow / unblock
+  const handleFollowUnfollow = useCallback(async () => {
+    if (!profileData?.did || !profileData?.handle) return;
+
+    try {
+      if (isBlocked) {
+        await AtprotoService.unblockUser(profileData.did);
+        queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(profileData.did) });
+        return;
+      }
+      const isCurrentlyFollowing = !!profileData.isFollowing;
+      followMutation.mutate({
+        handle: profileData.handle,
+        isFollowing: !isCurrentlyFollowing,
+      });
+    } catch {
+      // no-op
+    }
+  }, [profileData, isBlocked, followMutation, queryClient]);
+
+  const handleMenuPress = useCallback(() => {
+    if (isOwnProfileView) {
+      router.push('/settings');
+    } else {
+      setShowProfileMenu(true);
+    }
+  }, [isOwnProfileView, router]);
+
+  const handleLogoutFromMenu = useCallback(async () => {
+    if (onLogout) {
+      await onLogout();
+    }
+  }, [onLogout]);
+
+  const overlayTop = (typeof insets?.top === 'number' ? insets.top : 0) + 5;
+
+  const showBackButton = !!(providedHandle || providedDid);
+
+  // Shared scroll progress for header animation (0 = top, 1 = fully faded/dimmed)
+  const headerScrollProgress = useSharedValue(0);
+
+  const handleVerticalScroll = useCallback(
+    (scrollY: number) => {
+      // Map first 250px of scroll into 0 -> 1 progress (more gradual)
+      const clamped = Math.max(0, Math.min(1, scrollY / 250));
+      headerScrollProgress.value = clamped;
+
+      // Only toggle color when crossing the mid threshold to avoid rerendering on every frame
+      const shouldBeWhite = clamped >= 0.5;
+      setIsBackWhite((prev) => (prev !== shouldBeWhite ? shouldBeWhite : prev));
+    },
+    [headerScrollProgress],
+  );
+
+  const overlayAnimatedStyle = useAnimatedStyle(() => {
+    const progress = headerScrollProgress.value;
+    // More gradual fade: keep visible until 50% scroll, then fade to 0 over remaining 50%
+    const opacity = interpolate(progress, [0, 0.5, 1], [1, 1, 0], Extrapolate.CLAMP);
+    return { opacity };
+  }, [headerScrollProgress]);
+
+  // Back icon color: switch between header text color and pure white based on scroll threshold
+  const [isBackWhite, setIsBackWhite] = useState(false);
+
+  // Build header actions exactly as original ProfileHeader customActions
+  const headerActions: HeaderAction[] = useMemo(() => {
+    if (!profileData) return [];
+
+    // Own profile: single "Edit profile" button
+    if (isOwnProfileView) {
+      return [
+        {
+          id: 'edit',
+          label: 'Edit profile',
+          onPress: () => setShowEditSheet(true),
+        },
+      ];
+    }
+
+    const isFollowing = !!profileData.isFollowing;
+    const isFollowedBy = !!profileData.isFollowedBy;
+
+    let label = isBlocked ? 'Unblock' : 'follow';
+    let icon: string | undefined = undefined;
+    let customIcon: React.ReactNode | undefined = isBlocked ? undefined : (
+      <FollowIcon 
+        size={14} 
+        color={(dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white} 
+      />
+    );
+
+    if (!isBlocked && isFollowing && isFollowedBy) {
+      label = '';
+      icon = undefined;
+      customIcon = (
+        <MutualHeartIcon 
+          size={20} 
+          color={(dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) || Colors.black} 
+        />
+      );
+    } else if (!isBlocked && isFollowing) {
+      label = '';
+      icon = 'check';
+      customIcon = undefined;
+    }
+
+    const buttons: HeaderAction[] = [];
+
+    buttons.push({
+      id: 'follow',
+      label,
+      icon,
+      customIcon,
+      onPress: handleFollowUnfollow,
+    } as HeaderAction);
+
+    if (isFollowing && !isBlocked && profileData.did) {
+      buttons.push({
+        id: 'subscription',
+        label: '',
+        customIcon: (
+          <BellFilledIcon 
+            size={20} 
+            color={isSubscribed
+              ? (dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) || Colors.black
+              : (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white} 
+          />
+        ),
+        onPress: () => setShowSubscriptionSheet(true),
+        active: isSubscribed,
+      } as HeaderAction);
+    }
+
+    return buttons;
+  }, [
+    profileData,
+    isOwnProfileView,
+    isBlocked,
+    handleFollowUnfollow,
+    isSubscribed,
+    dynamicColors,
+    profileColors.backgroundColor,
+    profileColors.textColor,
+  ]);
+
   return (
     <View style={[
       styles.container,
@@ -249,6 +468,55 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         backgroundColor: profileColors.backgroundColor,
       }
     ]}>
+      {/* Overlay actions row (back, follow, bell, edit) */}
+      <View style={[styles.overlayRow, { top: overlayTop }]}>
+        {showBackButton ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            onPress={() => router.back()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.overlayBackButton}
+            activeOpacity={0.7}
+          >
+            <BackArrowIcon
+              size={30}
+              color={isBackWhite ? Colors.white : (profileColors.textColor || Colors.white)}
+            />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.overlayBackSpacer} />
+        )}
+
+        <Animated.View style={[styles.overlayRightSection, overlayAnimatedStyle]}>
+          {/* Menu button - same icon and sizing as UniversalHeader */}
+          <TouchableOpacity
+            onPress={handleMenuPress}
+            style={styles.overlayMenuButton}
+            activeOpacity={0.7}
+          >
+            <MoreFillIcon 
+              size={24} 
+              color={(dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white} 
+            />
+          </TouchableOpacity>
+
+          {/* Header actions rendered with the same ActionButton component as UniversalHeader */}
+          {headerActions.length > 0 && (
+            <View style={styles.overlayActionsContainer}>
+              {headerActions.map((action) => (
+                <HeaderActionButton
+                  key={action.id}
+                  action={action}
+                  textColor={(dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white}
+                  backgroundColor={(dynamicColors ? dynamicColors.backgroundColor : profileColors.backgroundColor) || Colors.black}
+                />
+              ))}
+            </View>
+          )}
+        </Animated.View>
+      </View>
+
       {showErrorScreen ? (
         renderErrorScreen
       ) : (
@@ -264,13 +532,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 <View style={styles.headerContainer} pointerEvents="box-none">
                   <ProfileHeader
                     handle={colorsHandle || undefined}
-                    showBackButton={!!(providedHandle || providedDid)}
+                    showBackButton={false}
                     isOwnProfile={isOwnProfileView}
                     onLogout={handleLogout}
                     onSwitchAccount={presentAccountSwitcher}
                     forceLoading={isProfileLoadingForced}
                     applySafeArea={true}
                     onColorsChange={setDynamicColors}
+                    headerScrollProgress={headerScrollProgress}
                   >
                     <TabNavigation
                       key={`tab-nav-${dynamicColors?.textColor || profileColors.textColor}`}
@@ -295,12 +564,40 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               onViewModeChange={setViewMode}
               isVisible={isRouteFocused}
               visibilityKey={profileVisibilityKey}
+              onVerticalScroll={handleVerticalScroll}
           />
       )}
       {isLoading && (
         <View style={styles.loadingOverlay}>
           <Loading3FillIcon size={48} color={Colors.white} />
         </View>
+      )}
+
+      {/* Sheets and menus moved from ProfileHeader so overlay buttons can control them */}
+      <EditProfileSheet
+        visible={showEditSheet}
+        onDismiss={() => setShowEditSheet(false)}
+        profileData={profileData}
+        defaultColors={extractedDefaultColors}
+      />
+
+      <ProfileMenu
+        visible={showProfileMenu}
+        onDismiss={() => setShowProfileMenu(false)}
+        handle={colorsHandle || ''}
+        isOwnProfile={isOwnProfileView}
+        onLogout={handleLogoutFromMenu}
+        onSwitchAccount={presentAccountSwitcher}
+        canMessage={canMessage}
+        onMessagePress={handleMessagePress}
+      />
+
+      {profileData?.did && (
+        <SubscriptionOptionsSheet
+          visible={showSubscriptionSheet}
+          onDismiss={() => setShowSubscriptionSheet(false)}
+          did={profileData.did}
+        />
       )}
     </View>
   );
@@ -371,6 +668,42 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: 'transparent',
     borderColor: Colors.mediumGray,
+  },
+  overlayRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  overlayBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overlayBackSpacer: {
+    width: 40,
+    height: 40,
+  },
+  overlayRightSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 8,
+  },
+  overlayMenuButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overlayActionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 8,
   },
 });
 

@@ -165,6 +165,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isRefreshing = false,
       isProfileLoading = false,
       onScroll,
+      onVerticalScroll,
       forceError = false,
       ListComponent,
       visibilityKey,
@@ -426,12 +427,16 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           const visibilityRatio = headerHeight > 0 ? visibleHeight / headerHeight : 0;
           updateHeaderVisibility(visibilityRatio);
         }
+        // Forward vertical scroll offset to parent (for header animations, etc.)
+        if (onVerticalScroll) {
+          onVerticalScroll(e.nativeEvent.contentOffset.y);
+        }
         // Call external onScroll if provided (but don't block scroll thread)
         if (onScroll) {
           onScroll(e);
         }
       },
-      [onScroll, isHeaderFeed, headerHeight, updateHeaderVisibility],
+      [onScroll, onVerticalScroll, isHeaderFeed, headerHeight, updateHeaderVisibility],
     );
 
     // Momentum scroll end - save position (moved to background thread)

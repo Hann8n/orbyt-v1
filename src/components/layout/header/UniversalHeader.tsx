@@ -5,7 +5,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, StyleSheet, TouchableOpacity, Text, TextInput, Platform } from 'react-native';
 import { Image, ImageBackground } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import Animated from 'react-native-reanimated';
+import Animated, { type SharedValue, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, MoreFillIcon, Loading3FillIcon } from '../../ui/Icon';
@@ -82,6 +82,8 @@ export interface UniversalHeaderProps {
   minHeight?: number;
   contentPosition?: 'top' | 'center' | 'bottom' | 'space-between';
   hasTabs?: boolean; // Indicates if tab navigation is present (for hashtag feeds)
+  reserveTopForOverlayButtons?: boolean; // Adds extra top padding so overlay buttons don't overlap content
+  contentScrollProgress?: SharedValue<number>; // Optional shared value to fade header content (text/avatar/tabs) on scroll
 }
 
 // Memoized action button component for performance
@@ -207,7 +209,10 @@ const ActionButton = memo<{
     const isMessageButton = action.id === 'message';
     const isSubscriptionButton = action.id === 'subscription';
     const isActiveSubscription = isSubscriptionButton && action.active;
-    const glassTint = (isFollowingState || isIconOnlyFollowingState || isActiveSubscription) ? hexToRGBA(textColor, 1) : (isMessageButton || isSubscriptionButton) ? hexToRGBA(textColor, 0.08) : hexToRGBA(textColor, 0.08);
+    // Use the text color hue for glass tint but at reduced opacity so it feels softer/less vibrant
+    const glassTint = (isFollowingState || isIconOnlyFollowingState || isActiveSubscription)
+      ? hexToRGBA(textColor, 0.45)
+      : hexToRGBA(textColor, 0.18);
     return (
       <TouchableOpacity
         style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
@@ -237,6 +242,9 @@ const ActionButton = memo<{
     </TouchableOpacity>
   );
 });
+
+// Re-exported for use in overlay layouts (e.g., profile screen) to keep visuals 1:1
+export const HeaderActionButton = ActionButton;
 
 // Memoized custom action layout component
 const CustomActionLayout = memo<{
@@ -311,8 +319,8 @@ const CustomActionLayout = memo<{
 
   return (
     <View style={containerStyle}>
-      {renderButtons()}
       {renderMenuIcon()}
+      {renderButtons()}
     </View>
   );
 });
@@ -554,6 +562,8 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   minHeight,
   contentPosition = 'top',
   hasTabs = false,
+  reserveTopForOverlayButtons = false,
+  contentScrollProgress,
 }) => {
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
@@ -567,15 +577,21 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     }
   }, [onBackPress, navigation]);
 
-  const headerStyle = useMemo(() => [
-    styles.header,
-    { 
-      backgroundColor: backgroundImage ? 'transparent' : backgroundColor,
-    },
-    applySafeArea && { paddingTop: insets.top },
-    minHeight && { minHeight },
-    style,
-  ], [backgroundColor, backgroundImage, style, applySafeArea, insets.top, minHeight]);
+  const headerStyle = useMemo(() => {
+    const baseTopPadding = 12;
+    const overlayExtraPadding = reserveTopForOverlayButtons ? 48 : 0;
+    const safeAreaTop = applySafeArea ? insets.top : 0;
+
+    return [
+      styles.header,
+      { 
+        backgroundColor: backgroundImage ? 'transparent' : backgroundColor,
+        paddingTop: safeAreaTop + baseTopPadding + overlayExtraPadding,
+      },
+      minHeight && { minHeight },
+      style,
+    ];
+  }, [backgroundColor, backgroundImage, style, applySafeArea, insets.top, minHeight, reserveTopForOverlayButtons]);
 
   // Memoize image source to prevent flickering - same approach as Avatar component
   const imageSource = useMemo(() => {
@@ -682,6 +698,14 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
     contentStyle,
   ], [contentPosition, contentStyle]);
 
+  // Optional animated style to fade out header content (text/image/tabs) with shared scroll progress
+  const contentAnimatedStyle = useAnimatedStyle(() => {
+    const progress = contentScrollProgress?.value ?? 0;
+    // More gradual fade: keep fully visible until 50% scroll, then fade to 0 over remaining 50%
+    const opacity = interpolate(progress, [0, 0.5, 1], [1, 1, 0], Extrapolate.CLAMP);
+    return { opacity };
+  }, [contentScrollProgress]);
+
   const headerContent = (
     <>
       {/* Navigation and Action Buttons - Always at top, independent of content position */}
@@ -727,7 +751,11 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
       )}
 
       {/* Content container - Positioned based on contentPosition prop */}
-      <Animated.View style={contentContainerStyle} pointerEvents="box-none" collapsable={false}>
+      <Animated.View
+        style={[contentContainerStyle, contentAnimatedStyle]}
+        pointerEvents="box-none"
+        collapsable={false}
+      >
         {/* Header Content */}
         <HeaderContentComponent
           content={content}
