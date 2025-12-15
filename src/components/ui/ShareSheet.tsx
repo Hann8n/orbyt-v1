@@ -30,6 +30,7 @@ import { useGlobalShareSheet } from '../../hooks/useGlobalModals';
 import ChatService, { Conversation, RecordEmbed } from '../../services/ChatService';
 import { formatHandle } from '../../utils/helpers';
 import { useBookmarkStore } from '../../stores/bookmarkStore';
+import { useUserStore } from '../../stores/userStore';
 
 // No props needed for global ShareSheet
 interface ShareSheetProps {}
@@ -88,29 +89,17 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     }
   }, [data]);
 
-  // Check if the current user is the author
+  // Get current user from store instead of API call
+  const currentUser = useUserStore(state => state.currentUser);
+  
+  // Check if the current user is the author - use store instead of API call
   useEffect(() => {
-    const checkCurrentUser = async () => {
-      try {
-        const cachedDid = ProfileCache.getCurrentUserDid();
-        // If we don't have the currentUserDid cached, try to get it from the service
-        if (!cachedDid) {
-          const currentUser = await AtprotoService.getCurrentUser();
-          const did = currentUser?.did || '';
-          setCurrentUserDid(did);
-          setIsCurrentUser(did === authorDid);
-        } else {
-          setCurrentUserDid(cachedDid);
-          setIsCurrentUser(cachedDid === authorDid);
-        }
-      } catch (error) {
-      }
-    };
-    
     if (authorDid) {
-      checkCurrentUser();
+      const did = currentUser?.did || '';
+      setCurrentUserDid(did);
+      setIsCurrentUser(did === authorDid);
     }
-  }, [authorDid]);
+  }, [authorDid, currentUser?.did]);
 
   const { data: blockStatus = false } = useQuery({
     queryKey: createQueryKeys.blocks.status(authorDid),

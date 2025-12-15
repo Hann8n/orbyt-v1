@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useImperativeHandle, forwardRef, memo, useRef } from 'react';
+import React, { useState, useCallback, useImperativeHandle, forwardRef, memo, useRef, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -10,6 +10,7 @@ import { useVisibilityRouteTracker } from '../../src/hooks';
 import { Colors } from '../../src/components/ui/UI';
 import { tabRefs } from '../../src/utils/tabRefs';
 import type { ScrollToTopRef } from '../../src/utils/tabRefs';
+import { useUserStore } from '../../src/stores/userStore';
 
 interface HomeScreenProps {}
 
@@ -20,48 +21,66 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
   const [currentFeed, setCurrentFeed] = useState<FeedOption>('your-mix');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const queryClient = useQueryClient();
+  const currentUser = useUserStore(state => state.currentUser);
   useVisibilityRouteTracker('home', 'index');
 
-  const triggerRefresh = useCallback(() => {
-    // Smart refresh: only invalidate current feed, preserve other feeds and video cache
-    // React Query's invalidateQueries automatically triggers refetch
-    // We can use React Query's isFetching state instead of manual state management
+  const triggerRefresh = useCallback(async () => {
+    // Refresh both feeds since home screen can show either 'following' or 'your-mix'
+    // Include userDid in query keys since 'following' and 'your-mix' are user-specific
+    const userDid = currentUser?.did;
+    
+    // Use invalidateQueries with refetchType to ensure it refetches active queries
+    // This is more reliable than refetchQueries for inactive queries
     queryClient.invalidateQueries({ 
-      queryKey: createQueryKeys.feed.infinite(currentFeed),
-      exact: false // Invalidate all related queries for this feed
+      queryKey: createQueryKeys.feed.infinite('following', userDid),
+      exact: false,
+      refetchType: 'active' // Only refetch active queries
+    });
+    queryClient.invalidateQueries({ 
+      queryKey: createQueryKeys.feed.infinite('your-mix', userDid),
+      exact: false,
+      refetchType: 'active' // Only refetch active queries
     });
     
-    // Note: We still set isRefreshing for the RefreshControl spinner
-    // but React Query's isFetching is the source of truth for actual fetch state
+    // Set refreshing state for UI feedback
     setIsRefreshing(true);
     
-    // Reset refreshing state after a short delay to show refresh animation
-    // In the future, we could use React Query's isFetching directly instead
+    // Reset refreshing state after a delay to show refresh animation
+    // The actual refetch is handled by React Query and FeedRenderer's useEffect
     setTimeout(() => {
       setIsRefreshing(false);
     }, APP_CONSTANTS.REFRESH_DELAY);
-  }, [currentFeed, queryClient]);
-
-  // Expose refresh method to parent components
-  useImperativeHandle(ref, () => ({
-    refresh: triggerRefresh,
-    isRefreshing
-  }), [isRefreshing, triggerRefresh]);
-
-  // Smart refresh logic: only refresh when explicitly requested
-  // No automatic refresh on tab focus to preserve video cache and user experience
+  }, [queryClient, currentUser?.did]);
 
   // Memoized feed change handler
   const handleFeedChange = useCallback((newFeed: FeedOption) => {
     setCurrentFeed(newFeed);
   }, []);
 
+  // Ref for SwipeableFeedContainer to forward scrollToTop
+  const swipeableFeedRef = useRef<ScrollToTopRef>(null);
+
+  // Expose refresh method to parent components
+  useImperativeHandle(ref, () => ({
+    refresh: triggerRefresh,
+    isRefreshing,
+  }), [isRefreshing, triggerRefresh]);
+
+  // Store home screen ref in tabRefs for tab navigation
+  useEffect(() => {
+    tabRefs.home = {
+      scrollToTop: () => swipeableFeedRef.current?.scrollToTop(),
+      refresh: triggerRefresh,
+    };
+    return () => {
+      tabRefs.home = null;
+    };
+  }, [triggerRefresh]);
+
   return (
     <View style={styles.container}>
       <SwipeableFeedContainer
-        ref={(r) => {
-          tabRefs.home = r;
-        }}
+        ref={swipeableFeedRef}
         initialFeed={currentFeed}
         onFeedChange={handleFeedChange}
         isRefreshing={isRefreshing}

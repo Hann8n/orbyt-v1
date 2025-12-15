@@ -3,6 +3,10 @@ export interface ScrollToTopRef {
   scrollToTop: () => void;
 }
 
+export interface HomeRef extends ScrollToTopRef {
+  refresh: () => void;
+}
+
 export interface ExploreRef {
   scrollToTop: () => void;
   focusSearch: () => void;
@@ -11,7 +15,7 @@ export interface ExploreRef {
 }
 
 export const tabRefs = {
-  home: null as ScrollToTopRef | null,
+  home: null as HomeRef | null,
   explore: null as ExploreRef | null,
   activity: null as ScrollToTopRef | null,
   profile: null as ScrollToTopRef | null,

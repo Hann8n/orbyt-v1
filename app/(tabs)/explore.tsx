@@ -13,6 +13,7 @@ import {
   FlatList,
   Animated,
   useWindowDimensions,
+  InteractionManager,
 } from 'react-native';
 import { Image } from 'expo-image';
 import PagerView from 'react-native-pager-view';
@@ -447,6 +448,9 @@ const GridChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel:
             source={{ uri: avatarUri }}
             style={styles.gridChannelImage}
             contentFit="cover"
+            cachePolicy="memory-disk"
+            priority="normal"
+            transition={200}
           />
         ) : (
           <View style={[styles.gridChannelImage, { backgroundColor: Colors.darkGray, justifyContent: 'center', alignItems: 'center' }]}>
@@ -521,6 +525,9 @@ const HorizontalChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { ch
               }
             ]}
             contentFit="cover"
+            cachePolicy="memory-disk"
+            priority="normal"
+            transition={200}
           />
         ) : (
           <Avatar
@@ -1187,26 +1194,12 @@ const ExploreScreen: React.FC = () => {
     }
   }, [followMutation]);
   
-  // Initialize current user for ProfileCache on mount
+  // Initialize current user for ProfileCache on mount - use store instead of API call
   useEffect(() => {
-    const initializeCache = async () => {
-      try {
-        const currentUser = await AtprotoService.getCurrentUser();
-        if (currentUser?.did) {
-          ProfileCache.setCurrentUserDid(currentUser.did);
-        }
-      } catch (error) {
-        // Silently handle rate limiting errors during initialization
-        if (error?.message?.includes('Rate Limit Exceeded')) {
-          console.warn('Rate limited during cache initialization, skipping...');
-        } else {
-          console.error('Error initializing profile cache:', error);
-        }
-      }
-    };
-    
-    initializeCache();
-  }, []);
+    if (currentUser?.did) {
+      ProfileCache.setCurrentUserDid(currentUser.did);
+    }
+  }, [currentUser?.did]);
 
   // Fetch headers using TanStack Query
   const {
@@ -1540,9 +1533,13 @@ const ExploreScreen: React.FC = () => {
     }
   }, [queryClient, navigation]);
 
-  // Load visit history on mount
+  // Load visit history on mount - defer to avoid blocking initial render
   useEffect(() => {
-    loadVisitHistory();
+    // Use InteractionManager to defer loading until after initial render
+    const interactionHandle = InteractionManager.runAfterInteractions(() => {
+      loadVisitHistory();
+    });
+    return () => interactionHandle.cancel();
   }, [loadVisitHistory]);
 
   // Set up tabRefs for double tap scroll to top and long press focus search
@@ -1633,7 +1630,8 @@ const ExploreScreen: React.FC = () => {
   const isLoadingResults = isSearchLoading || isSearchError;
 
   // Fetch orbyt channel details using ChannelCache
-  const orbytChannelUris = getAllChannels().map(ch => ch.uri);
+  // Memoize getAllChannels() to avoid calling it on every render
+  const orbytChannelUris = useMemo(() => getAllChannels().map(ch => ch.uri), []);
   const {
     data: orbytChannelsData,
     isLoading: isLoadingOrbytChannels,
@@ -1643,24 +1641,30 @@ const ExploreScreen: React.FC = () => {
     queryKey: ['orbytChannels', orbytChannelUris],
     queryFn: async () => {
       // Use ChannelCache which handles caching, error handling, and avatar extraction
+      // Use Promise.allSettled instead of Promise.all to prevent blocking on failures
       const channelPromises = orbytChannelUris.map(uri => ChannelCache.getChannel(uri));
-      const cachedChannels = await Promise.all(channelPromises);
+      const results = await Promise.allSettled(channelPromises);
       
-      // Convert CachedChannel to Channel format
-      return cachedChannels
-        .filter((ch): ch is CachedChannel => ch !== null)
-        .map((cachedChannel): Channel => ({
-          uri: cachedChannel.uri,
-          cid: cachedChannel.cid,
-          did: cachedChannel.did,
-          creator: cachedChannel.creator,
-          displayName: cachedChannel.displayName,
-          description: cachedChannel.description,
-          avatar: cachedChannel.avatar,
-          likeCount: cachedChannel.likeCount || 0,
-          indexedAt: cachedChannel.indexedAt,
-          isExperimental: cachedChannel.isExperimental || false,
-        }));
+      // Convert CachedChannel to Channel format, filtering out failures
+      const cachedChannels: CachedChannel[] = [];
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value !== null) {
+          cachedChannels.push(result.value);
+        }
+      }
+      
+      return cachedChannels.map((cachedChannel): Channel => ({
+        uri: cachedChannel.uri,
+        cid: cachedChannel.cid,
+        did: cachedChannel.did,
+        creator: cachedChannel.creator,
+        displayName: cachedChannel.displayName,
+        description: cachedChannel.description,
+        avatar: cachedChannel.avatar,
+        likeCount: cachedChannel.likeCount || 0,
+        indexedAt: cachedChannel.indexedAt,
+        isExperimental: cachedChannel.isExperimental || false,
+      }));
     },
     enabled: debouncedQuery.length === 0 && orbytChannelUris.length > 0,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -2015,6 +2019,9 @@ const ExploreScreen: React.FC = () => {
                             source={{ uri: thumbnailUrl }}
                             style={styles.spotlightVideoThumbnail}
                             contentFit="contain"
+                            cachePolicy="memory-disk"
+                            priority="normal"
+                            transition={200}
                           />
                         ) : (
                           <View style={styles.spotlightVideoThumbnailPlaceholder}>

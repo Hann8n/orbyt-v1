@@ -377,6 +377,9 @@ export const Avatar: React.FC<AvatarProps> = ({
           style={imageStyle}
           contentFit="cover"
           blurRadius={blurRadius || 0}
+          cachePolicy="memory-disk"
+          priority="normal"
+          transition={200}
         />
       </View>
     );
@@ -416,6 +419,8 @@ export const Avatar: React.FC<AvatarProps> = ({
         source={require('../../assets/Default-avatar.png')}
         style={imageStyle}
         contentFit="cover"
+        cachePolicy="memory"
+        priority="high"
       />
     </View>
   );

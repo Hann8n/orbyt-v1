@@ -182,7 +182,11 @@ export default function TabsLayout() {
             onPress={(e: any) => {
               if (isActive) {
                 // Tab is already active
-                if (route.name === 'explore' && tabRefs.explore?.isSearchActive()) {
+                if (route.name === 'index') {
+                  // Home tab: refresh feed and scroll to top
+                  tabRefs.home?.refresh();
+                  handleDoubleTap(route.name);
+                } else if (route.name === 'explore' && tabRefs.explore?.isSearchActive()) {
                   // If search is active, dismiss it
                   tabRefs.explore?.dismissSearch();
                 } else {

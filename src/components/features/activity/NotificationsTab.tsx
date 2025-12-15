@@ -25,6 +25,7 @@ import { feedService } from '../../../services/FeedService';
 import { formatRelativeDate } from '../../ui/RelativeDate';
 import { extractVideoThumbnail } from '../../../utils/helpers/video';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
+import { useUserStore } from '../../../stores/userStore';
 
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
@@ -383,20 +384,15 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   
-  // Initialize current user for ProfileCache on mount
+  // Get current user from store instead of API call
+  const currentUser = useUserStore(state => state.currentUser);
+  
+  // Initialize current user for ProfileCache on mount - use store instead of API call
   useEffect(() => {
-    const initializeCache = async () => {
-      try {
-        const currentUser = await AtprotoService.getCurrentUser();
-        if (currentUser?.did) {
-          ProfileCache.setCurrentUserHandle(currentUser.handle);
-        }
-      } catch (error) {
-      }
-    };
-    
-    initializeCache();
-  }, []);
+    if (currentUser?.did && currentUser?.handle) {
+      ProfileCache.setCurrentUserHandle(currentUser.handle);
+    }
+  }, [currentUser?.did, currentUser?.handle]);
 
   // Mark notifications as seen when the tab is focused
   useFocusEffect(

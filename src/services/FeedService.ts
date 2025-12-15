@@ -296,8 +296,14 @@ class FeedService {
         }
         response = await AtprotoService.getFeed(cursor, feedLink, {}, false, limit, 'custom');
       } else if (feedOptionForAPI === 'your-mix') {
+        // Parallelize imports to reduce latency
+        const [userStoreModule, orbytChannelsModule] = await Promise.all([
+          import('../stores/userStore'),
+          import('../utils/orbytChannels')
+        ]);
+        
         // Get subscribed channels and algorithmic feed provider from user store
-        const { subscribedChannels, algorithmicFeedProvider } = await import('../stores/userStore').then(m => m.useUserStore.getState());
+        const { subscribedChannels, algorithmicFeedProvider } = userStoreModule.useUserStore.getState();
         
         // If no channels subscribed AND no algorithmic feed, return empty feed
         const hasChannels = subscribedChannels && subscribedChannels.length > 0;
@@ -308,7 +314,7 @@ class FeedService {
         }
         
         // Import orbyt channel utilities
-        const { isOrbytChannel, channelToHashtag, getChannelByUri } = await import('../utils/orbytChannels');
+        const { channelToHashtag, getChannelByUri } = orbytChannelsModule;
         
         // Parse cursor state for pagination across multiple feeds
         let cursorState: { [key: string]: string | null } = {};
@@ -409,45 +415,46 @@ class FeedService {
         const algorithmicLimit = algorithmicCount > 0 ? Math.ceil(limit * 0.4) : 0; // 40% for algorithmic
         const channelLimit = channelCount > 0 ? Math.ceil((limit - algorithmicLimit) / channelCount) : 0;
         
-        // Fetch from all feed sources in parallel
+        // Fetch from all feed sources in parallel with timeout protection
+        // Use Promise.allSettled to avoid blocking on slow feeds
+        const FEED_FETCH_TIMEOUT = 10000; // 10 seconds per feed
+        
         const feedPromises = feedSources.map(async (source) => {
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Feed fetch timeout')), FEED_FETCH_TIMEOUT);
+          });
+          
           try {
             const sourceCursor = cursorState[source.uri] || null;
             const itemsPerFeed = source.type === 'algorithmic' ? algorithmicLimit : Math.max(10, channelLimit);
             
-            if (source.type === 'hashtag') {
-              // Fetch from hashtag
-              const hashtagResponse = await AtprotoService.searchHashtagVideosPaginated(
-                source.hashtag!,
-                sourceCursor,
-                itemsPerFeed,
-                source.sort || 'latest'
-              );
-              
-              return {
-                feed: hashtagResponse.videos || [],
-                cursor: hashtagResponse.cursor,
-                sourceUri: source.uri,
-                success: true,
-              };
-            } else {
-              // Fetch from feed generator (both regular and algorithmic)
-              const feedResponse = await AtprotoService.getFeed(
-                sourceCursor,
-                source.uri,
-                {},
-                true, // filter videos only
-                itemsPerFeed,
-                'custom'
-              );
-              
-              return {
-                feed: feedResponse?.feed || [],
-                cursor: feedResponse?.cursor || null,
-                sourceUri: source.uri,
-                success: true,
-              };
-            }
+            const fetchPromise = source.type === 'hashtag'
+              ? AtprotoService.searchHashtagVideosPaginated(
+                  source.hashtag!,
+                  sourceCursor,
+                  itemsPerFeed,
+                  source.sort || 'latest'
+                ).then(hashtagResponse => ({
+                  feed: hashtagResponse.videos || [],
+                  cursor: hashtagResponse.cursor,
+                  sourceUri: source.uri,
+                  success: true,
+                }))
+              : AtprotoService.getFeed(
+                  sourceCursor,
+                  source.uri,
+                  {},
+                  true, // filter videos only
+                  itemsPerFeed,
+                  'custom'
+                ).then(feedResponse => ({
+                  feed: feedResponse?.feed || [],
+                  cursor: feedResponse?.cursor || null,
+                  sourceUri: source.uri,
+                  success: true,
+                }));
+            
+            return await Promise.race([fetchPromise, timeoutPromise]);
           } catch (error) {
             logger.warn('Failed to fetch feed for your-mix', { sourceUri: source.uri, error });
             return {
@@ -459,17 +466,26 @@ class FeedService {
           }
         });
         
-        const feedResults = await Promise.all(feedPromises);
+        // Use allSettled instead of all to avoid blocking on slow feeds
+        // This allows fast feeds to return results even if some feeds are slow
+        const feedResults = await Promise.allSettled(feedPromises);
+        
+        // Extract successful results from Promise.allSettled
+        const successfulResults = feedResults
+          .filter((result): result is PromiseFulfilledResult<{ feed: any[]; cursor: string | null; sourceUri: string; success: boolean }> => 
+            result.status === 'fulfilled' && result.value.success
+          )
+          .map(result => result.value);
         
         // Update cursor state for successful feeds
-        feedResults.forEach(result => {
+        successfulResults.forEach(result => {
           if (result.success) {
             cursorState[result.sourceUri] = result.cursor;
           }
         });
         
         // Merge all feeds into single array with source tracking
-        const allPosts = feedResults.flatMap(result =>
+        const allPosts = successfulResults.flatMap(result =>
           result.feed.map(post => ({
             ...post,
             sourceFeed: result.sourceUri,

@@ -37,6 +37,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   interpolate,
+  interpolateColor,
   Extrapolate,
 } from 'react-native-reanimated';
  
@@ -368,10 +369,30 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   const overlayAnimatedStyle = useAnimatedStyle(() => {
     const progress = headerScrollProgress.value;
-    // More gradual fade: keep visible until 50% scroll, then fade to 0 over remaining 50%
-    const opacity = interpolate(progress, [0, 0.5, 1], [1, 1, 0], Extrapolate.CLAMP);
+    // Smooth fade: start fading at 30%, complete fade by 80% for smoother transition
+    const opacity = interpolate(progress, [0, 0.3, 0.8], [1, 1, 0], Extrapolate.CLAMP);
     return { opacity };
   }, [headerScrollProgress]);
+
+  // Back icon color: gradually transition from header text color to white based on scroll
+  const baseBackTextColor = useMemo(
+    () => (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white,
+    [dynamicColors, profileColors.textColor],
+  );
+
+  // Animated opacity for text-colored icon (fades out on scroll)
+  const backIconPrimaryStyle = useAnimatedStyle(() => {
+    const progress = headerScrollProgress.value;
+    const opacity = interpolate(progress, [0, 1], [1, 0], Extrapolate.CLAMP);
+    return { opacity };
+  }, []);
+
+  // Animated opacity for white icon (fades in on scroll)
+  const backIconSecondaryStyle = useAnimatedStyle(() => {
+    const progress = headerScrollProgress.value;
+    const opacity = interpolate(progress, [0, 1], [0, 1], Extrapolate.CLAMP);
+    return { opacity };
+  }, []);
 
   // Build header actions exactly as original ProfileHeader customActions
   const headerActions: HeaderAction[] = useMemo(() => {
@@ -472,10 +493,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
             style={styles.overlayBackButton}
             activeOpacity={0.7}
           >
-            <BackArrowIcon
-              size={30}
-              color={Colors.white}
-            />
+            <View style={styles.backIconContainer}>
+              <Animated.View style={[StyleSheet.absoluteFillObject, backIconPrimaryStyle]}>
+                <BackArrowIcon
+                  size={30}
+                  color={baseBackTextColor}
+                />
+              </Animated.View>
+              <Animated.View style={[StyleSheet.absoluteFillObject, backIconSecondaryStyle]}>
+                <BackArrowIcon
+                  size={30}
+                  color={Colors.white}
+                />
+              </Animated.View>
+            </View>
           </TouchableOpacity>
         ) : (
           <View style={styles.overlayBackSpacer} />
@@ -677,6 +708,12 @@ const styles = StyleSheet.create({
   overlayBackButton: {
     width: 40,
     height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backIconContainer: {
+    width: 30,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
   },

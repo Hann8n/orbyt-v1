@@ -145,22 +145,24 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
   const handleRefresh = useCallback(async () => {
     if (isSearchFeed) return;
     
-    // Call parent's onRefresh callback first (e.g., to refresh channel/profile metadata)
-    // This may also invalidate queries, which will automatically trigger refetch
+    // Always refetch the feed using React Query
+    // This ensures pull-to-refresh actually fetches fresh data
+    await feedQuery.refetch();
+    
+    // Call parent's onRefresh callback for additional side effects
+    // (e.g., to refresh channel/profile metadata)
     if (onRefreshCallback) {
       await onRefreshCallback();
     }
-    
-    // If parent is managing isRefreshing, the parent's onRefresh callback should handle
-    // query invalidation (which automatically triggers refetch via React Query).
-    // If no parent callback, directly refetch the feed.
-    if (isRefreshing === undefined && !onRefreshCallback) {
-      // No parent managing state - directly refetch
-      // React Query's isFetching state will automatically track this
-      await feedQuery.refetch();
+  }, [isSearchFeed, feedQuery, onRefreshCallback]);
+
+  // Watch for parent-initiated refresh (e.g., when tapping home tab)
+  // When isRefreshing becomes true, trigger a refetch
+  useEffect(() => {
+    if (isRefreshing === true && !isSearchFeed && refetch) {
+      refetch();
     }
-    // If parent manages isRefreshing, query invalidation in onRefreshCallback handles refetch
-  }, [isSearchFeed, isRefreshing, feedQuery, onRefreshCallback]);
+  }, [isRefreshing, isSearchFeed, refetch]);
 
   // Memoized search feed hook with visibility control
   const searchFeedQuery = useSearchFeed(
