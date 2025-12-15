@@ -706,6 +706,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           error={effectiveError}
           onRetry={onRetry}
           ListComponent={ListComponent}
+          onVerticalScroll={onVerticalScroll}
         />
       );
     }

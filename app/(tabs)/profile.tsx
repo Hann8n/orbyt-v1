@@ -301,12 +301,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     }
   }, [profileData?.did, router]);
 
-  // Default colors for edit sheet
+  // Default colors for edit sheet - always reflect current profile color state
   useEffect(() => {
-    if (profileData?.profileColors) {
+    if (profileColors?.backgroundColor && profileColors?.textColor) {
       setExtractedDefaultColors({
-        backgroundColor: profileData.profileColors.backgroundColor,
-        textColor: profileData.profileColors.foregroundColor,
+        backgroundColor: profileColors.backgroundColor,
+        textColor: profileColors.textColor,
       });
     } else {
       setExtractedDefaultColors({
@@ -314,7 +314,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         textColor: '#CFD6E8',
       });
     }
-  }, [profileData?.profileColors]);
+  }, [profileColors.backgroundColor, profileColors.textColor]);
 
   // Follow / unblock
   const handleFollowUnfollow = useCallback(async () => {
@@ -362,10 +362,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       // Map first 250px of scroll into 0 -> 1 progress (more gradual)
       const clamped = Math.max(0, Math.min(1, scrollY / 250));
       headerScrollProgress.value = clamped;
-
-      // Only toggle color when crossing the mid threshold to avoid rerendering on every frame
-      const shouldBeWhite = clamped >= 0.5;
-      setIsBackWhite((prev) => (prev !== shouldBeWhite ? shouldBeWhite : prev));
     },
     [headerScrollProgress],
   );
@@ -376,9 +372,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     const opacity = interpolate(progress, [0, 0.5, 1], [1, 1, 0], Extrapolate.CLAMP);
     return { opacity };
   }, [headerScrollProgress]);
-
-  // Back icon color: switch between header text color and pure white based on scroll threshold
-  const [isBackWhite, setIsBackWhite] = useState(false);
 
   // Build header actions exactly as original ProfileHeader customActions
   const headerActions: HeaderAction[] = useMemo(() => {
@@ -481,7 +474,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           >
             <BackArrowIcon
               size={30}
-              color={isBackWhite ? Colors.white : (profileColors.textColor || Colors.white)}
+              color={Colors.white}
             />
           </TouchableOpacity>
         ) : (
@@ -540,6 +533,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                     applySafeArea={true}
                     onColorsChange={setDynamicColors}
                     headerScrollProgress={headerScrollProgress}
+                    contentFadeDisabled={viewMode === 'grid'}
+                    dimOverlayDisabled={viewMode === 'grid'}
                   >
                     <TabNavigation
                       key={`tab-nav-${dynamicColors?.textColor || profileColors.textColor}`}

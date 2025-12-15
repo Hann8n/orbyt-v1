@@ -95,6 +95,7 @@ interface GridFeedViewProps {
   error?: Error | null;
   onRetry?: () => void;
   ListComponent?: any; // Optional custom list component
+  onVerticalScroll?: (scrollY: number) => void;
 }
 
 const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
@@ -115,6 +116,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
   error,
   onRetry,
   ListComponent,
+  onVerticalScroll,
 }, ref) => {
   // Safe area removed for grid feed view
   const navigation = useRouter();
@@ -236,9 +238,15 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
     );
   }, [onGridItemPress, feed, numColumns, itemWidth, itemHeight, navigation, feedOption, userDid, backgroundColor, secondaryColor]);
 
-  // Combine scroll handlers for infinite scroll and other scroll events
-  // Scroll handling removed - should be handled by parent component
-  const handleScroll = useCallback(() => {}, []);
+  // Combine scroll handlers for infinite scroll and header scroll progress updates
+  const handleScroll = useCallback(
+    (event: any) => {
+      if (onVerticalScroll && event?.nativeEvent?.contentOffset) {
+        onVerticalScroll(event.nativeEvent.contentOffset.y || 0);
+      }
+    },
+    [onVerticalScroll],
+  );
 
   // Use FlashList to render the grid with appropriate numColumns
   return (
@@ -252,6 +260,8 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
           showsVerticalScrollIndicator={false}
           bounces={true}
           refreshControl={refreshControl as any}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         >
           {headerComponent && (
             <View style={styles.headerWrapper}>

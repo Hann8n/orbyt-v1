@@ -18,9 +18,11 @@ import { Colors } from '../../src/components/ui/UI';
 import { useChannelColors, useChannel, useChannelColorsMutation, default as ChannelCache } from '../../src/services/cache/ChannelCache';
 import ProfileCache from '../../src/services/cache/ProfileCache';
 import { extractColorsFromImage } from '../../src/utils/formatting/colorUtils';
-import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
+import Icon, { Loading3FillIcon, BackArrowIcon } from '../../src/components/ui/Icon';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 import { isOrbytChannel, getChannelByUri, channelToHashtag } from '../../src/utils/orbytChannels';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { useSharedValue } from 'react-native-reanimated';
 
 interface ChannelScreenProps {}
 
@@ -29,6 +31,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   const params = useLocalSearchParams();
   useVisibilityRouteTracker('channel');
   const isRouteFocused = useVisibilityRouteIsActive('channel');
+  const insets = useSafeAreaInsets();
 
   // Get the channel URI from the route parameters (decode for safety)
   const uriParam = (params.id as string) || '';
@@ -62,6 +65,11 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
 
   const { colors: channelColors } = useChannelColors(uri || '');
   const colorsMutation = useChannelColorsMutation();
+
+  // Shared scroll progress for header fade/dim (0 = top, 1 = fully faded)
+  const headerScrollProgress = useSharedValue(0);
+
+  const overlayTop = (typeof insets?.top === 'number' ? insets.top : 0) + 5;
 
   // View mode state
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -266,12 +274,15 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
     <View style={styles.headerContainer} pointerEvents="box-none">
       <ChannelHeader
         channel={channelHeaderData}
-        showBackButton={true}
+        showBackButton={false}
         onBackPress={handleBackPress}
         applySafeArea={true}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         showViewToggle={!isCategoryChannel} // Hide view toggle in ChannelHeader when tabs are shown
+        headerScrollProgress={headerScrollProgress}
+        contentFadeDisabled={viewMode === 'grid'}
+        dimOverlayDisabled={viewMode === 'grid'}
       >
         {tabNavigation}
       </ChannelHeader>
@@ -287,6 +298,23 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
         backgroundColor: Colors.black, 
       }
     ]}>
+      {/* Overlay back button row to match profile screen */}
+      <View style={[styles.overlayRow, { top: overlayTop }]}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={handleBackPress}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.overlayBackButton}
+          activeOpacity={0.7}
+        >
+          <BackArrowIcon
+            size={30}
+            color={Colors.white}
+          />
+        </TouchableOpacity>
+      </View>
+
       {showErrorScreen ? (
         renderErrorScreen()
       ) : (
@@ -303,6 +331,11 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onPositionChange={handlePositionChange}
+            onVerticalScroll={(scrollY) => {
+              // Map first 250px of scroll into 0 -> 1 progress (more gradual), same as profile
+              const clamped = Math.max(0, Math.min(1, scrollY / 250));
+              headerScrollProgress.value = clamped;
+            }}
             queryOptions={queryOptions}
             isVisible={isRouteFocused}
             visibilityKey={uri ? `channel:${uri}:${isCategoryChannel ? (activeTab === 0 ? 'top' : 'latest') : ''}` : undefined}
@@ -320,6 +353,10 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onPositionChange={handlePositionChange}
+            onVerticalScroll={(scrollY) => {
+              const clamped = Math.max(0, Math.min(1, scrollY / 250));
+              headerScrollProgress.value = clamped;
+            }}
             queryOptions={{ enabled: false }}
             isVisible={isRouteFocused}
             visibilityKey={uri ? `channel:${uri}` : undefined}
@@ -404,6 +441,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
+  },
+  overlayRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 20,
+  },
+  overlayBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

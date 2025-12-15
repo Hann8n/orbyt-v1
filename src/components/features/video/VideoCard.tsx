@@ -91,12 +91,13 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const { updatePostInteraction, getPostInteraction } = usePostInteractionStore();
     
     // Enhanced video state management with automatic recycling
+    // Scope by post URI + feedOption so playback state doesn't leak across different feeds
     const [videoState, setVideoState] = useRecyclingState({
       hasError: false,
       userPaused: false,
       isReady: false,
       isBuffering: false,
-    }, [post.uri]); // Auto-resets when post.uri changes
+    }, [post.uri, feedOption]); // Auto-resets when post.uri or feed context changes
 
     // Get persisted interaction state from store
     const persistedInteraction = getPostInteraction(post.uri, {
@@ -114,11 +115,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       isLikePending: false,
       isRepostPending: false,
       ...persistedInteraction,
-    }, [post.uri]); // Auto-resets when post.uri changes
-
-    // Refs
-    const playerRef = useRef<any>(null);
-    const videoId = post.uri;
+    }, [post.uri, feedOption]); // Auto-resets when post.uri or feed context changes
     
     // Use Reanimated for better performance - runs on UI thread
     // Faster animation (80ms) for snappier feel during scrolling
@@ -155,7 +152,6 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     
     // Listen to player status changes using expo's useEvent hook
     const { status: playerStatus } = useEvent(player, 'statusChange', { status: player?.status ?? 'idle' });
-    const { isPlaying: playerIsPlaying } = useEvent(player, 'playingChange', { isPlaying: player?.playing ?? false });
 
     // Simplified content warning state
     const [userChoseToView, setUserChoseToView] = useState(false);
@@ -270,14 +266,15 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
         }
       },
       playPause: (shouldPlay: boolean) => togglePlayback(shouldPlay),
-      getPlayState: () => !videoState.userPaused && playerIsPlaying,
+      // Report intended play state based on our own logic, not the underlying player flag
+      getPlayState: () => shouldPlayVideo,
       getCurrentTime: () => {
         if (player && player.currentTime) {
           return player.currentTime * 1000; // Convert to ms
         }
         return 0;
       },
-    }), [player, playerIsPlaying, videoState.userPaused, togglePlayback, seek]);
+    }), [player, shouldPlayVideo, togglePlayback, seek]);
 
     // Track previous shouldDisablePlayback to detect when overlay blocking is removed
     const prevShouldDisablePlaybackRef = useRef(shouldDisablePlayback);
@@ -302,14 +299,15 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       prevShouldDisablePlaybackRef.current = shouldDisablePlayback;
     }, [shouldDisablePlayback, isVisible, videoState.hasError, videoState.userPaused, setVideoState]);
 
-    // Auto-resume when video becomes visible (e.g., scrolling to next video after returning to feed)
-    // This fixes the issue where the next video doesn't autoplay after returning to a feed
+    // Auto-resume when video becomes visible (e.g., scrolling to next video after returning to a feed)
+    // This fixes the issue where the next video doesn't autoplay after returning to a feed,
+    // while still allowing manual pause to work correctly.
     useEffect(() => {
       const wasVisible = prevIsVisibleRef.current;
       const becameVisible = !wasVisible && isVisible;
-      
+
       // When video becomes visible and can play, clear userPaused to allow autoplay
-      // This handles the case where userPaused was set due to screen blur
+      // This handles the case where userPaused was set due to screen blur or backgrounding.
       if (becameVisible && !shouldDisablePlayback && !videoState.hasError && videoState.userPaused) {
         setVideoState(prev => ({ ...prev, userPaused: false }));
       }
@@ -360,15 +358,17 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     }, [playerStatus, player, post.uri, onVideoStatus]);
 
     // Control playback based on shouldPlayVideo
+    // Drive play/pause directly from our own visibility logic, per Expo docs:
+    // https://docs.expo.dev/versions/latest/sdk/video/#usage
     useEffect(() => {
       if (!player) return;
-      
-      if (shouldPlayVideo && !playerIsPlaying) {
+
+      if (shouldPlayVideo) {
         player.play();
-      } else if (!shouldPlayVideo && playerIsPlaying) {
+      } else {
         player.pause();
       }
-    }, [shouldPlayVideo, playerIsPlaying, player]);
+    }, [shouldPlayVideo, player]);
 
     // Simplified overlay interaction handlers
     const handleLike = useCallback(async () => {
@@ -526,8 +526,9 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
         const xDiff = Math.abs(x - lastTapRef.current.x);
         const yDiff = Math.abs(y - lastTapRef.current.y);
         
-        // Double tap detected (within 500ms and similar position)
-        if (timeDiff < 500 && xDiff < 50 && yDiff < 50) {
+        // Double tap detected (within a tight window and similar position)
+        // Use a smaller window than the single-tap delay so playback never toggles on a real double tap
+        if (timeDiff < 250 && xDiff < 50 && yDiff < 50) {
           // Always show animation for visual feedback
           animateHeart(x, y);
           // Only like (never unlike) on double tap
@@ -546,7 +547,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
         togglePlayback();
         lastTapRef.current = null;
         singleTapTimeoutRef.current = null;
-      }, 400);
+      }, 260);
     }, [togglePlayback, cardHeight, handleLikeOnly, animateHeart]);
 
     // Handle long press to show comments
@@ -661,15 +662,15 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
           style={styles.videoContainerPressable}
         >
           <View style={styles.videoContainer}>
-            {/* Poster thumbnail - shows until video is ready */}
-            {!!posterUrl && !videoState.isReady && (
+            {/* Sharp poster layer - always present so there's no flashing; video renders over it */}
+            {!!posterUrl && (
               <Image
                 source={{ uri: posterUrl }}
                 contentFit="contain"
                 style={styles.poster}
               />
             )}
-            
+
             {/* Video Player - expo-video VideoView */}
             {shouldLoadVideo && player && (
               <VideoView
@@ -747,13 +748,9 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
           </View>
         </Pressable>
         
-        {/* Content Warning Overlay */}
+        {/* Content Warning Overlay - darken only, keep poster/video sharp */}
         {isBlurred && (
-          <BlurView 
-            intensity={100}
-            tint="dark"
-            style={styles.contentWarningOverlay}
-          >
+          <View style={styles.contentWarningOverlay}>
             <View style={styles.blurMessage}>
               <Text style={styles.blurTitle}>Content Warning</Text>
               <Text style={styles.blurText}>
@@ -765,7 +762,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 </View>
               </TouchableOpacity>
             </View>
-          </BlurView>
+          </View>
         )}
         
 

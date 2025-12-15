@@ -12,6 +12,7 @@ import { Colors } from '../../ui/UI';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
 import { isOrbytChannel, getChannelByUri, shouldShowChannelSlash } from '../../../utils/orbytChannels';
 import { parseRichText } from '../../../utils/richTextParser';
+import Animated, { type SharedValue, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
  
 
 
@@ -45,6 +46,9 @@ interface ChannelHeaderProps {
   viewMode?: 'list' | 'grid';
   onViewModeChange?: (mode: 'list' | 'grid') => void;
   showViewToggle?: boolean;
+  headerScrollProgress?: SharedValue<number>;
+  contentFadeDisabled?: boolean;
+  dimOverlayDisabled?: boolean;
 }
 
 
@@ -264,6 +268,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   viewMode = 'list',
   onViewModeChange,
   showViewToggle = false,
+  headerScrollProgress,
+  contentFadeDisabled = false,
+  dimOverlayDisabled = false,
 }) => {
   const navigation = useRouter();
 
@@ -405,6 +412,27 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     return orbytChannel?.isPostable !== false; // Default to true, only false for non-postable channels
   }, [isOrbyt, channel?.uri]);
 
+  // Animated styles driven by shared scroll progress (0 -> 1)
+  const headerAnimatedStyle = useAnimatedStyle(() => {
+    // Keep container fully opaque; inner UniversalHeader handles content fade
+    return { opacity: 1 };
+  }, []);
+
+  const dimOverlayStyle = useAnimatedStyle(() => {
+    const progress = headerScrollProgress?.value ?? 0;
+    if (dimOverlayDisabled) {
+      return { ...StyleSheet.absoluteFillObject, opacity: 0, pointerEvents: 'none' } as any;
+    }
+    // More gradual dim: start dimming at 40% progress, reach ~30% black opacity at max scroll
+    const overlayOpacity = interpolate(progress, [0, 0.4, 1], [0, 0, 0.3], Extrapolate.CLAMP);
+    return {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'black',
+      opacity: overlayOpacity,
+      pointerEvents: 'none',
+    } as any;
+  }, [headerScrollProgress, dimOverlayDisabled]);
+
   // Create children with subscribe button and other content
   const headerChildren = useMemo(() => (
     <>
@@ -448,26 +476,30 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   return (
     <>
       <StatusBar barStyle={statusBarStyle} backgroundColor={safeBackgroundColor} translucent={true} />
-      <UniversalHeader
-      content={headerContent}
-      actions={[]} // Hide default actions, use custom layout
-      customActions={customActions}
-      showBackButton={showBackButton}
-      onBackPress={onBackPress}
-      backgroundColor={safeBackgroundColor}
-      textColor={safeTextColor}
-      backgroundImage={backgroundImage}
-      isLoading={false}
-      // Removed showGradient and gradientType as they don't exist on UniversalHeaderProps
-      applySafeArea={applySafeArea}
-      style={{ opacity: 1 }}
-      contentStyle={[headerStyle]}
-      minHeight={isOrbyt ? 450 : undefined}
-      contentPosition={isOrbyt ? 'bottom' : 'top'}
-      hasTabs={hasTabs}
-    >
-      {headerChildren}
-    </UniversalHeader>
+      <Animated.View style={headerAnimatedStyle}>
+        <UniversalHeader
+          content={headerContent}
+          actions={[]} // Hide default actions, use custom layout
+          customActions={customActions}
+          showBackButton={showBackButton}
+          onBackPress={onBackPress}
+          backgroundColor={safeBackgroundColor}
+          textColor={safeTextColor}
+          backgroundImage={backgroundImage}
+          isLoading={false}
+          applySafeArea={applySafeArea}
+          style={{ opacity: 1 }}
+          contentStyle={[headerStyle]}
+          minHeight={isOrbyt ? 450 : undefined}
+          contentPosition={isOrbyt ? 'bottom' : 'top'}
+          hasTabs={hasTabs}
+          contentScrollProgress={contentFadeDisabled ? undefined : headerScrollProgress}
+        >
+          {headerChildren}
+        </UniversalHeader>
+        {/* Dim overlay above background as user scrolls */}
+        <Animated.View style={dimOverlayStyle} />
+      </Animated.View>
     </>
   );
 };

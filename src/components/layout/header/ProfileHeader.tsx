@@ -28,6 +28,8 @@ interface ProfileHeaderProps {
   headerStyle?: any;
   onColorsChange?: (colors: { backgroundColor: string; textColor: string }) => void;
   headerScrollProgress?: SharedValue<number>;
+  contentFadeDisabled?: boolean;
+  dimOverlayDisabled?: boolean;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -43,6 +45,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   headerStyle,
   onColorsChange,
   headerScrollProgress,
+  contentFadeDisabled = false,
+  dimOverlayDisabled = false,
 }) => {
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [showBetaInfo, setShowBetaInfo] = useState(false);
@@ -152,6 +156,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
   const dimOverlayStyle = useAnimatedStyle(() => {
     const progress = headerScrollProgress?.value ?? 0;
+    if (dimOverlayDisabled) {
+      return { ...StyleSheet.absoluteFillObject, opacity: 0, pointerEvents: 'none' } as any;
+    }
     // More gradual dim: start dimming at 40% progress, reach 30% black opacity at max scroll
     const overlayOpacity = interpolate(progress, [0, 0.4, 1], [0, 0, 0.3], Extrapolate.CLAMP);
     return {
@@ -178,7 +185,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           isLoading={false}
           applySafeArea={applySafeArea}
           reserveTopForOverlayButtons={true}
-          contentScrollProgress={headerScrollProgress}
+          contentScrollProgress={contentFadeDisabled ? undefined : headerScrollProgress}
           style={{ opacity: 1 }}
           contentStyle={[headerStyle]}
           showShadowGradient={false}

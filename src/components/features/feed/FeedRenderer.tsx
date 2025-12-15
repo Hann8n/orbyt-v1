@@ -282,9 +282,11 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
   }, [onPositionChange]);
 
   // Determine effective refreshing state
-  // Priority: 1) Parent-provided isRefreshing, 2) React Query's isFetching (most accurate)
-  // React Query's isFetching automatically tracks all fetch operations including refetches
-  const effectiveRefreshing = isRefreshing !== undefined ? isRefreshing : isFetching;
+  // Priority: 1) Parent-provided isRefreshing, 2) React Query's isFetching
+  // Exclude "fetch next page" so infinite scroll doesn't constantly show pull-to-refresh
+  const effectiveRefreshing = isRefreshing !== undefined
+    ? isRefreshing
+    : (isFetching && !isFetchingNextPage);
 
   // Create RefreshControl automatically if not provided
   // This centralizes refresh logic and removes redundancy
