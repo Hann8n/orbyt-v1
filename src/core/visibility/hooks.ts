@@ -24,8 +24,6 @@ interface FeedVisibilityResult {
   activeItemIndex: number;
   isFeedActive: boolean;
   canPlay: boolean;
-  headerVisiblePercent: number;
-  isHeaderBlockingPlayback: boolean;
   // Video visibility helpers (merged from useVideoVisibility)
   isVideoVisible: (uri: string | null | undefined) => boolean;
   shouldVideoPlay: (uri: string | null | undefined) => boolean;
@@ -51,13 +49,10 @@ export function useFeedVisibility({
   const activeItemUri = feedEntry?.activeItemUri ?? null;
   const activeItemIndex = feedEntry?.activeItemIndex ?? -1;
   const isFeedActive = Boolean(feedEntry?.isActive);
-  const headerVisiblePercent = feedEntry?.headerVisiblePercent ?? 0;
-  
   // Derive isForeground from appState
   const isForeground = appState === 'active';
   const overlayBlocked = pauseOnOverlay && hasOverlay;
-  const headerBlocked = headerVisiblePercent >= 0.5;
-  const canPlay = isFeedActive && isForeground && !overlayBlocked && !headerBlocked;
+  const canPlay = isFeedActive && isForeground && !overlayBlocked;
 
   const lastVisibleUriRef = useRef<string | null>(null);
   const lastVisibleIndexRef = useRef<number>(-1);
@@ -172,6 +167,13 @@ export function useFeedVisibility({
     return Boolean(uri) && isVideoVisible(uri) && canPlay;
   }, [isVideoVisible, canPlay]);
 
+  const reset = useCallback(() => {
+    resetFeedScope(scopeKey);
+    lastVisibleUriRef.current = null;
+    lastVisibleIndexRef.current = -1;
+    hasActivatedOnceRef.current = false;
+  }, [resetFeedScope, scopeKey]);
+
   return {
     onViewableItemsChanged,
     viewabilityConfig: memoizedConfig,
@@ -179,11 +181,9 @@ export function useFeedVisibility({
     activeItemIndex,
     isFeedActive,
     canPlay,
-    headerVisiblePercent,
-    isHeaderBlockingPlayback: headerBlocked,
     isVideoVisible,
     shouldVideoPlay,
-    reset: () => resetFeedScope(scopeKey),
+    reset,
   };
 }
 

@@ -7,7 +7,6 @@ interface FeedScopeState {
   activeItemUri: string | null;
   activeItemIndex: number;
   isActive: boolean;
-  headerVisiblePercent: number;
 }
 
 function createDefaultFeedScope(): FeedScopeState {
@@ -15,7 +14,6 @@ function createDefaultFeedScope(): FeedScopeState {
     activeItemUri: null,
     activeItemIndex: -1,
     isActive: false,
-    headerVisiblePercent: 0,
   };
 }
 
@@ -37,7 +35,6 @@ interface VisibilityState {
   setFeedVisibleItem: (key: FeedScopeKey, uri: string | null, index: number) => void;
   resetFeedScope: (key: FeedScopeKey) => void;
   resetAllFeeds: () => void;
-  setFeedHeaderVisibility: (key: FeedScopeKey, visiblePercent: number) => void;
 }
 
 export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
@@ -94,7 +91,6 @@ export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
           ...current,
           activeItemUri: null,
           activeItemIndex: -1,
-          headerVisiblePercent: 0,
         },
       },
     }));
@@ -109,27 +105,9 @@ export const useVisibilityCoreStore = create<VisibilityState>()((set, get) => ({
         activeItemUri: null,
         activeItemIndex: -1,
         isActive: false,
-        headerVisiblePercent: 0,
       };
     });
     set({ feeds: nextFeeds });
-  },
-  setFeedHeaderVisibility: (key, visiblePercent) => {
-    if (!key) return;
-    const clamped = Math.max(0, Math.min(1, visiblePercent));
-    const current = get().feeds[key] ?? createDefaultFeedScope();
-    // Reduced threshold from 0.02 to 0.01 for more responsive updates
-    // This ensures threshold crossings (0.5) are always detected
-    if (Math.abs(current.headerVisiblePercent - clamped) < 0.01) return;
-    set((state) => ({
-      feeds: {
-        ...state.feeds,
-        [key]: {
-          ...current,
-          headerVisiblePercent: clamped,
-        },
-      },
-    }));
   },
 }));
 

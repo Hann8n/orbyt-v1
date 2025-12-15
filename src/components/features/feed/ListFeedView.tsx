@@ -52,7 +52,6 @@ import type {
   ListFeedViewRef,
 } from "../../../types";
 import { useFeedVisibility } from "../../../hooks";
-import { useVisibilityCoreStore } from "../../../core/visibility";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -199,7 +198,8 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       null,
     );
     const lastHeaderVisibilityRef = useRef(0);
-    const headerVisibilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [isHeaderBlockingPlayback, setIsHeaderBlockingPlayback] =
+      useState(false);
 
     // Device detection
     const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
@@ -253,20 +253,17 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       activeItemIndex,
       canPlay,
       isFeedActive,
-      isVideoVisible: isVideoVisibleHelper,
+      reset: resetFeedVisibility,
     } = useFeedVisibility({
       scopeKey: scopedVisibilityKey,
       isActive: Boolean(isVisible),
       resetOnActivate: false,
       resetOnDeactivate: false,
     });
-    const setFeedHeaderVisibility = useVisibilityCoreStore(
-      (state) => state.setFeedHeaderVisibility,
-    );
 
     const updateHeaderVisibility = useCallback(
       (visiblePercent: number) => {
-        if (!scopedVisibilityKey || !isHeaderFeed) {
+        if (!isHeaderFeed) {
           return;
         }
 
@@ -276,7 +273,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         const nextBlocking = clamped >= CONSTANTS.SNAP_THRESHOLD;
         const delta = Math.abs(previous - clamped);
 
-        // If crossing the blocking threshold, update immediately (no debounce)
+        // If crossing the blocking threshold, update immediately
         const isThresholdCrossing = previousBlocking !== nextBlocking;
 
         // For non-threshold-crossing updates, apply jitter filtering
@@ -299,39 +296,16 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         }
 
         lastHeaderVisibilityRef.current = clamped;
-        
-        // Immediate update for threshold crossings, debounced for smooth scrolling
-        if (isThresholdCrossing) {
-          // Clear any pending debounced update
-          if (headerVisibilityTimeoutRef.current) {
-            clearTimeout(headerVisibilityTimeoutRef.current);
-            headerVisibilityTimeoutRef.current = null;
-          }
-          // Update immediately for threshold crossings
-          setFeedHeaderVisibility(scopedVisibilityKey, clamped);
-        } else {
-          // Debounce non-critical updates to reduce state changes during scroll
-          if (headerVisibilityTimeoutRef.current) {
-            clearTimeout(headerVisibilityTimeoutRef.current);
-          }
-          headerVisibilityTimeoutRef.current = setTimeout(() => {
-            setFeedHeaderVisibility(scopedVisibilityKey, clamped);
-            headerVisibilityTimeoutRef.current = null;
-          }, 16); // One frame debounce for smooth scrolling
-        }
+        setIsHeaderBlockingPlayback(nextBlocking);
       },
-      [scopedVisibilityKey, isHeaderFeed, setFeedHeaderVisibility],
+      [isHeaderFeed],
     );
 
     useEffect(() => {
-      if (!scopedVisibilityKey) {
-        return;
-      }
-
       if (!isHeaderFeed) {
         if (lastHeaderVisibilityRef.current !== 0) {
           lastHeaderVisibilityRef.current = 0;
-          setFeedHeaderVisibility(scopedVisibilityKey, 0);
+          setIsHeaderBlockingPlayback(false);
         }
         return;
       }
@@ -345,30 +319,36 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         updateHeaderVisibility(1);
       }
     }, [
-      scopedVisibilityKey,
       isHeaderFeed,
       isVisible,
       viewMode,
       headerHeight,
       updateHeaderVisibility,
-      setFeedHeaderVisibility,
     ]);
 
     useEffect(
       () => () => {
-        if (!scopedVisibilityKey) {
-          return;
-        }
         lastHeaderVisibilityRef.current = 0;
-        setFeedHeaderVisibility(scopedVisibilityKey, 0);
+        setIsHeaderBlockingPlayback(false);
       },
-      [scopedVisibilityKey, setFeedHeaderVisibility],
+      [],
     );
 
     const initialVisibilityTimeout = useRef<ReturnType<
       typeof setTimeout
     > | null>(null);
     const hasPrimedVisibleItemRef = useRef(false);
+
+    // When the underlying feed identity changes (e.g., profile tabs: posts/likes/reposts),
+    // reset visibility so the new feed can prime its centered item cleanly.
+    useEffect(() => {
+      // Reset global feed visibility entry
+      resetFeedVisibility();
+      // Reset local header and priming state
+      lastHeaderVisibilityRef.current = 0;
+      setIsHeaderBlockingPlayback(false);
+      hasPrimedVisibleItemRef.current = false;
+    }, [resetFeedVisibility, feedOption, userDid]);
 
     // Memoize profileColors to prevent recreation on every render
     const profileColors = useMemo(
@@ -482,6 +462,9 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Render item function - optimized to reduce dependencies and rerenders
     const renderItem = useCallback(
       ({ item, index }: ListRenderItemInfo<FeedItem>) => {
+        const canPlayWithHeader = canPlay && !isHeaderBlockingPlayback;
+        const isCentered = index === activeItemIndex;
+
         if (item.endCard) {
           return (
             <EmptyFeed
@@ -494,8 +477,8 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           );
         }
 
-        // Check visibility inline - no function call needed
-        const isVideoVisible = activeItemUri === item.post.uri && canPlay;
+        // Use center index as the single source of truth for "visible" video
+        const isVideoVisible = isCentered && canPlayWithHeader;
 
         return (
           <VideoItem
@@ -504,7 +487,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             height={cardHeight}
             feedOption={feedOption as "following" | "discover"}
             isVisible={isVideoVisible}
-            allowPlayback={canPlay}
+            allowPlayback={isVideoVisible}
             moderationDecision={item.moderationDecision}
             isModal={isModal}
             index={index}
@@ -516,9 +499,10 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         feedOption,
         canPlay,
         isModal,
-        activeItemUri,
+        activeItemIndex,
         secondaryColor,
         profileColors,
+        isHeaderBlockingPlayback,
       ],
     );
 
@@ -556,10 +540,6 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         if (initialVisibilityTimeout.current) {
           clearTimeout(initialVisibilityTimeout.current);
           initialVisibilityTimeout.current = null;
-        }
-        if (headerVisibilityTimeoutRef.current) {
-          clearTimeout(headerVisibilityTimeoutRef.current);
-          headerVisibilityTimeoutRef.current = null;
         }
         hasPrimedVisibleItemRef.current = false;
       };
