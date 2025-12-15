@@ -296,7 +296,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
                 if (item.post?.cid && item.post?.uri) {
                   return `${item.post.uri}:${item.post.cid}`;
                 }
-                return item.post?.uri || `item-${item.post?.index || Math.random()}`;
+                return item.post?.uri || `item-${Math.random()}`;
               }}
               numColumns={numColumns}
               contentContainerStyle={[

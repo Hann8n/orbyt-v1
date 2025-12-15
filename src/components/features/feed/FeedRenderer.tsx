@@ -157,10 +157,10 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
     if (isRefreshing === undefined && !onRefreshCallback) {
       // No parent managing state - directly refetch
       // React Query's isFetching state will automatically track this
-      await refetch();
+      await feedQuery.refetch();
     }
     // If parent manages isRefreshing, query invalidation in onRefreshCallback handles refetch
-  }, [isSearchFeed, isRefreshing, refetch, onRefreshCallback]);
+  }, [isSearchFeed, isRefreshing, feedQuery, onRefreshCallback]);
 
   // Memoized search feed hook with visibility control
   const searchFeedQuery = useSearchFeed(
