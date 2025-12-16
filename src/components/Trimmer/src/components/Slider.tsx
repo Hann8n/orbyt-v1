@@ -40,8 +40,9 @@ function Slider({
     <View style={[sliderStyles.container, style]}>
       <View style={sliderStyles.sliderWrapper}>
         {/* Frames background - spans entire track, positioned to match track */}
-        {frames && frames.length > 0 && (
-          <View style={sliderStyles.framesBackground}>
+        {/* Always render background for black background even when frames haven't loaded */}
+        <View style={sliderStyles.framesBackground}>
+          {frames && frames.length > 0 && (
             <ProgressBar
               value={0}
               tintColor={tintColor}
@@ -50,8 +51,8 @@ function Slider({
               startPercent={startPercent}
               endPercent={endPercent}
             />
-          </View>
-        )}
+          )}
+        </View>
         <View style={sliderStyles.sliderContainer}>
           <RNSlider
             animateTransitions

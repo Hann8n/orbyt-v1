@@ -29,6 +29,12 @@ export interface VideoProperties {
   frameRate: number;
   codec: string;
   duration: number;
+  // Optional color metadata (when available from FFprobe)
+  colorSpace?: string;
+  colorTransfer?: string;
+  colorPrimaries?: string;
+  // Flag to indicate if the source appears to be HDR (PQ/HLG/BT.2020, etc.)
+  isHdr?: boolean;
   bitrate?: number;
 }
 
@@ -209,6 +215,51 @@ class VideoProcessingService {
       throw new Error('Failed to standardize video path');
     }
     return resolved.uri;
+  }
+
+  /**
+   * Standardizes and normalizes a video path for in-app editing (trimmer, etc.)
+   * - Resolves iCloud / Photos URIs into a local sandbox path
+   * - Detects HDR / non-H.264 / out-of-range formats
+   * - Re-encodes to SDR BT.709 H.264 when needed
+   *
+   * Returns a path that is safe to pass through the rest of the pipeline as SDR.
+   */
+  static async normalizeVideoPathForEditing(
+    videoPath: string,
+    assetId?: string | null
+  ): Promise<string> {
+    // First, standardize the path (handles iCloud downloads, sandbox copies, file:// prefix)
+    const standardizedPath = await this.standardizeVideoPath(videoPath);
+    const localPath = standardizedPath.replace('file://', '');
+
+    // Analyze properties from the standardized file
+    const props = await this.analyzeVideoProperties(localPath);
+
+    const isHdr = !!props.isHdr;
+
+    // If it's not HDR, keep the standardized path as-is (no extra transcode)
+    if (!isHdr) {
+      return standardizedPath;
+    }
+
+    // For HDR sources, normalize once into an SDR, BT.709, H.264 MP4 for the rest of the flow
+    const targetWidth = props.width > 0 ? props.width : 1080;
+    const targetHeight = props.height > 0 ? props.height : 1920;
+
+    const tempDir = new Directory(Paths.cache, `video_edit_normalize_${Date.now()}`);
+    tempDir.create({ intermediates: true });
+    const outputFile = new File(tempDir, `normalized_edit_${Date.now()}.mp4`);
+
+    const normalizedPath = await this.normalizeVideoFormat(
+      standardizedPath,
+      outputFile.uri,
+      targetWidth,
+      targetHeight,
+      MERGE_TARGET_FPS
+    );
+
+    return this.ensureFileProtocol(normalizedPath);
   }
 
   /**
@@ -745,6 +796,20 @@ class VideoProcessingService {
     asset?: ImagePicker.ImagePickerAsset
   ): Promise<VideoProperties> {
     try {
+      // Helper to determine if a stream is HDR based on common FFmpeg color fields
+      const detectHdr = (colorPrimaries?: string, colorTransfer?: string): boolean => {
+        const prim = (colorPrimaries || '').toLowerCase();
+        const trans = (colorTransfer || '').toLowerCase();
+        // Common HDR indicators:
+        // - BT.2020 primaries
+        // - PQ (SMPTE 2084) transfer
+        // - HLG (ARIB STD-B67) transfer
+        const isBt2020 = prim.includes('2020');
+        const isPQ = trans.includes('2084') || trans.includes('pq');
+        const isHLG = trans.includes('hlg') || trans.includes('arib-std-b67');
+        return isBt2020 || isPQ || isHLG;
+      };
+
       // Normalize path for FFprobe
       let normalizedPath = videoPath.replace('file://', '');
       if (Platform.OS === 'ios' && !normalizedPath.startsWith('/')) {
@@ -763,7 +828,7 @@ class VideoProcessingService {
             mediaInfo = await FFprobeKit.getMediaInformation(normalizedPath);
           } else if (typeof FFprobeKit.execute === 'function') {
             // Alternative: use FFprobe execute with JSON output
-            const probeCommand = `-v error -select_streams v:0 -show_entries stream=width,height,codec_name,r_frame_rate,duration -show_entries format=duration -of json "${normalizedPath}"`;
+            const probeCommand = `-v error -select_streams v:0 -show_entries stream=width,height,codec_name,r_frame_rate,duration,color_space,color_transfer,color_primaries -show_entries format=duration -of json "${normalizedPath}"`;
             // FFprobe operations are already async and run in background threads
             const session = await FFprobeKit.execute(probeCommand);
             const returnCode = await session.getReturnCode();
@@ -781,6 +846,9 @@ class VideoProcessingService {
                   const codec = (stream.codec_name || 'h264').toLowerCase();
                   const rFrameRate = stream.r_frame_rate || '30/1';
                   const duration = parseFloat(format.duration || stream.duration || '0');
+                  const colorSpace = stream.color_space || undefined;
+                  const colorTransfer = stream.color_transfer || undefined;
+                  const colorPrimaries = stream.color_primaries || undefined;
                   
                   // Parse frame rate (format: "30/1" or "29.97")
                   let frameRate = 30;
@@ -797,6 +865,10 @@ class VideoProcessingService {
                     frameRate: Math.round(frameRate),
                     codec,
                     duration: duration || 0,
+                    colorSpace,
+                    colorTransfer,
+                    colorPrimaries,
+                    isHdr: detectHdr(colorPrimaries, colorTransfer),
                   };
                 }
               } catch (parseError) {
@@ -818,6 +890,18 @@ class VideoProcessingService {
               const codec = (videoStream.getCodec?.() || videoStream.codec || 'h264').toLowerCase();
               const rFrameRate = videoStream.getRealFrameRate?.() || videoStream.r_frame_rate || '30/1';
               const duration = (mediaInfo.getDuration?.() || mediaInfo.duration || 0) / 1000;
+              const colorSpace =
+                videoStream.getColorSpace?.() ||
+                videoStream.color_space ||
+                undefined;
+              const colorTransfer =
+                videoStream.getColorTransfer?.() ||
+                videoStream.color_transfer ||
+                undefined;
+              const colorPrimaries =
+                videoStream.getColorPrimaries?.() ||
+                videoStream.color_primaries ||
+                undefined;
               
               // Parse frame rate (format: "30/1" or "29.97")
               let frameRate = 30;
@@ -834,6 +918,10 @@ class VideoProcessingService {
                 frameRate: Math.round(frameRate),
                 codec,
                 duration: duration || 0,
+                colorSpace,
+                colorTransfer,
+                colorPrimaries,
+                isHdr: detectHdr(colorPrimaries, colorTransfer),
               };
             }
           }
@@ -854,6 +942,7 @@ class VideoProcessingService {
         codec: videoInfo.codec,
         duration: videoInfo.duration,
         bitrate: videoInfo.bitrate,
+        isHdr: false,
       };
     } catch (error) {
       logger.error('Error analyzing video properties', error, { component: 'VideoProcessingService' });
@@ -894,7 +983,7 @@ class VideoProcessingService {
         if (!normalizedOutput.startsWith('/')) normalizedOutput = '/' + normalizedOutput;
       }
 
-      // Analyze input video properties
+      // Analyze input video properties (including HDR metadata where available)
       const inputProps = await this.analyzeVideoProperties(inputPath);
       
       // Check if normalization is needed (skip if already matches target format)
@@ -917,9 +1006,34 @@ class VideoProcessingService {
       const qualityStandard = this.getQualityStandard(targetWidth, targetHeight);
       const targetBitrate = VIDEO_QUALITY_STANDARDS[qualityStandard]?.bitrate || 4000000;
 
-      // Build FFmpeg command for normalization
-      const scaleFilter = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2`;
-      const ffmpegCommand = `-i "${normalizedInput}" -vf "${scaleFilter}" -r ${targetFrameRate} -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -movflags +faststart "${normalizedOutput}"`;
+      // Build FFmpeg filter chain
+      // Always scale/pad to target dimensions; when the source appears to be HDR,
+      // apply a safe HDR→SDR tonemap first so Bluesky gets a standard BT.709 SDR stream.
+      const scaleAndPadFilter =
+        `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,` +
+        `pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2`;
+
+      const isHdr = !!inputProps.isHdr;
+
+      // Mild, well-tested HDR→SDR mapping: linearize, tonemap, then convert to BT.709 and 4:2:0
+      // This is intentionally simpler than the very long custom chain to keep it robust on mobile.
+      const hdrTonemapFilter =
+        'zscale=t=linear:npl=100,' +
+        'format=gbrpf32le,' +
+        'tonemap=tonemap=gamma:param=1.2:desat=0:peak=15,' +
+        'zscale=primaries=bt709:transfer=bt709:matrix=bt709:range=limited,' +
+        `${scaleAndPadFilter},` +
+        'format=yuv420p';
+
+      const videoFilter = isHdr
+        ? hdrTonemapFilter
+        : `${scaleAndPadFilter},format=yuv420p`;
+
+      // Build FFmpeg command for normalization (audio stays standard AAC)
+      const ffmpegCommand =
+        `-i "${normalizedInput}" ` +
+        `-vf "${videoFilter}" ` +
+        `-r ${targetFrameRate} -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -movflags +faststart "${normalizedOutput}"`;
 
       // FFmpeg operations are already async and run in background threads
       // No need for InteractionManager wrapper - FFmpegKit handles threading internally

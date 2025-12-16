@@ -71,9 +71,10 @@ export async function extractFrames(
     const interval = duration / (frameCount + 1); // +1 to avoid extracting at the very end
 
     const frames: FrameInfo[] = [];
+    const MAX_CONCURRENT = 2; // Limit concurrent extractions for faster overall processing
     const extractPromises: Promise<void>[] = [];
 
-    // Extract frames in parallel
+    // Extract frames with limited concurrency
     for (let i = 0; i < frameCount; i++) {
       const time = interval * (i + 1);
       const frameFile = new File(tempDir, `frame_${i}.jpg`);
@@ -87,13 +88,17 @@ export async function extractFrames(
       // Build FFmpeg command to extract frame at specific time
       // -ss: seek to time (before -i for faster seeking)
       // -i: input video
-      // -vframes 1: extract only 1 frame
-      // -q:v 2: high quality JPEG (2 is high quality, 31 is low)
-      // -vf scale: scale to reasonable size for thumbnails (width 200, maintain aspect ratio)
+      // -frames:v 1: extract only 1 frame
+      // -update 1: write single image (fixes image2 warning)
+      // -q:v 6: lower quality JPEG for faster processing (6 is still acceptable for thumbnails)
+      // -vf: video filter to scale to smaller size for faster processing (width 120, maintain aspect ratio)
+      //      format=yuv420p ensures proper pixel format conversion
+      // -pix_fmt yuvj420p: specify full-range pixel format for JPEG (prevents deprecated format warning)
       // -y: overwrite output file
       const escapedInput = normalizedInput.replace(/"/g, '\\"').replace(/\\/g, '\\\\');
       const escapedOutput = normalizedFramePath.replace(/"/g, '\\"').replace(/\\/g, '\\\\');
-      const cmd = `-ss ${time.toFixed(2)} -i "${escapedInput}" -vframes 1 -vf "scale=200:-1" -q:v 2 -y "${escapedOutput}"`;
+      // Use format filter to ensure proper pixel format conversion
+      const cmd = `-ss ${time.toFixed(2)} -i "${escapedInput}" -frames:v 1 -update 1 -vf "format=yuv420p,scale=120:-1" -pix_fmt yuvj420p -q:v 6 -y "${escapedOutput}"`;
 
       extractPromises.push(
         (async () => {
@@ -114,17 +119,29 @@ export async function extractFrames(
               }
             } else {
               const output = await session.getOutput();
-              logger.warn(`Frame extraction failed at ${time}s: ${output}`, { component: 'frameExtractor' });
+              const failStackTrace = await session.getFailStackTrace();
+              logger.warn(`Frame extraction failed at ${time}s`, { 
+                component: 'frameExtractor',
+                returnCode,
+                output: output?.substring(0, 200), // Limit output length
+                stackTrace: failStackTrace?.substring(0, 200)
+              });
             }
           } catch (error) {
-            logger.warn(`Error extracting frame at ${time}s`, { component: 'frameExtractor', error });
+            logger.warn(`Error extracting frame at ${time}s`, { 
+              component: 'frameExtractor', 
+              error: error instanceof Error ? error.message : String(error)
+            });
           }
         })()
       );
-    }
 
-    // Wait for all extractions to complete
-    await Promise.all(extractPromises);
+      // Limit concurrent extractions
+      if (extractPromises.length >= MAX_CONCURRENT || i === frameCount - 1) {
+        await Promise.all(extractPromises);
+        extractPromises.length = 0; // Clear array for next batch
+      }
+    }
 
     // Sort frames by time
     frames.sort((a, b) => a.time - b.time);

@@ -26,7 +26,8 @@ export const sliderStyles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 70,
-    borderRadius: 7.5,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 5,
     overflow: 'hidden',
   },
   sliderContainer: {

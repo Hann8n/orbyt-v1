@@ -56,27 +56,27 @@ const VideoTrimmerScreen: React.FC = () => {
       try {
         // Get asset info from MediaLibrary if we have assetId
         let duration: number | undefined;
-        let assetForStandardize: ImagePicker.ImagePickerAsset | undefined;
         
         if (assetId) {
           try {
             const mediaAsset = await MediaLibrary.getAssetInfoAsync(assetId, {
               shouldDownloadFromNetwork: true,
             });
-            // Convert duration from seconds (MediaLibrary) to match ImagePicker format
+            // MediaLibrary duration is already in seconds
             duration = mediaAsset.duration;
-            // Create a minimal asset-like object for standardizeVideoPath (only needs assetId)
-            assetForStandardize = { assetId } as ImagePicker.ImagePickerAsset;
           } catch (mediaError) {
             console.warn('Failed to get asset info from MediaLibrary:', mediaError);
-            // Still create minimal asset object for standardizeVideoPath
-            assetForStandardize = { assetId } as ImagePicker.ImagePickerAsset;
           }
         }
 
-        // Standardize video path (handles iCloud downloads)
-        const standardizedPath = await VideoProcessingService.standardizeVideoPath(videoPath, assetForStandardize);
-        setVideoUri(standardizedPath);
+        // Normalize early for editing:
+        // - Resolves iCloud / Photos URIs
+        // - Converts any HDR / non-H.264 input into SDR BT.709 H.264 MP4
+        const normalizedPath = await VideoProcessingService.normalizeVideoPathForEditing(
+          videoPath,
+          assetId || null
+        );
+        setVideoUri(normalizedPath);
         
         // Get video duration from asset if available
         if (duration !== undefined) {
