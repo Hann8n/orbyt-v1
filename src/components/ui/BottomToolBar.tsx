@@ -17,9 +17,17 @@ interface BottomToolBarProps {
   flashActive?: boolean;
   hasSegments?: boolean; // Add this prop to control delete button state
   isFrontCamera?: boolean; // Add this prop to disable flash in front camera mode
+  disableGalleryUpload?: boolean; // When true, disable gallery button (e.g., not enough remaining time)
 }
 
-const BottomToolBar: React.FC<BottomToolBarProps> = ({ mode, onToolPress, flashActive, hasSegments = false, isFrontCamera = false }) => {
+const BottomToolBar: React.FC<BottomToolBarProps> = ({
+  mode,
+  onToolPress,
+  flashActive,
+  hasSegments = false,
+  isFrontCamera = false,
+  disableGalleryUpload = false,
+}) => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
 
@@ -55,14 +63,16 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({ mode, onToolPress, flashA
         styles.container, 
         isSmallDevice && styles.containerSmall,
         {
-          paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom - 20, 4) : 4,
-          paddingTop: 4,
+          // Match bottom tab bar padding behavior from app/(tabs)/_layout.tsx
+          paddingTop: isSmallDevice ? 2 : 6,
+          paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
         }
       ]}>
         {tools.map((tool) => {
           const isDeleteDisabled = tool.id === 'delete' && !hasSegments;
           const isFlashDisabled = tool.id === 'flash' && isFrontCamera;
-          const isDisabled = isDeleteDisabled || isFlashDisabled;
+          const isGalleryDisabled = tool.id === 'gallery' && disableGalleryUpload;
+          const isDisabled = isDeleteDisabled || isFlashDisabled || isGalleryDisabled;
           
           let iconColor = "white";
           if (tool.id === 'flash' && isFlashDisabled) {

@@ -87,6 +87,7 @@ const CreateScreen: React.FC = () => {
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
   const isMountedRef = useRef(true);
   const isRecordingRef = useRef(false);
+  const prevTotalDurationRef = useRef(0);
   const processedTrimmedVideoRef = useRef<string | null>(null);
   
   const isFocused = useIsFocused();
@@ -110,6 +111,7 @@ const CreateScreen: React.FC = () => {
   
   // Get current max duration from selected option
   const maxDuration = selectedDuration;
+  const remainingTime = Math.max(0, maxDuration - totalDuration);
 
   // Keep currentZoomRef in sync with zoom state
   useEffect(() => {
@@ -638,6 +640,30 @@ const CreateScreen: React.FC = () => {
     }
   }, [segments, navigation, isProcessing, stopRecording]);
 
+  // Automatically proceed when user has fully used available time:
+  // trigger only on the edge where totalDuration crosses maxDuration,
+  // so users can delete clips and re-max multiple times without loops.
+  useEffect(() => {
+    const prev = prevTotalDurationRef.current;
+
+    if (
+      segments.length > 0 &&
+      prev < maxDuration &&
+      totalDuration >= maxDuration &&
+      !isProcessing &&
+      !isRecordingRef.current
+    ) {
+      finishRecording();
+    }
+
+    // Track previous duration for edge detection
+    if (segments.length === 0 && totalDuration === 0) {
+      prevTotalDurationRef.current = 0;
+    } else {
+      prevTotalDurationRef.current = totalDuration;
+    }
+  }, [segments.length, totalDuration, maxDuration, isProcessing, finishRecording]);
+
   // Render content based on the state of permissions and device availability
   const renderContent = () => {
     if (!cameraPermission) {
@@ -775,11 +801,7 @@ const CreateScreen: React.FC = () => {
           disabled={isProcessing}
           activeOpacity={0.7}
         >
-          {isProcessing ? (
-            <Loading3FillIcon size={30} color="white" />
-          ) : (
-            <ArrowRightFillIcon size={30} color="white" />
-          )}
+          <ArrowRightFillIcon size={30} color="white" />
         </TouchableOpacity>
       )}
       {renderContent()}
@@ -789,6 +811,7 @@ const CreateScreen: React.FC = () => {
         flashActive={flash === 'on'} 
         hasSegments={totalDuration > 0}
         isFrontCamera={isFrontCamera}
+        disableGalleryUpload={remainingTime < MIN_SEGMENT_DURATION}
       />
     </SafeAreaView>
   );
