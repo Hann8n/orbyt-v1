@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   trimmerWrapper: {
-    height: 300,
+    height: 400,
     borderRadius: 15,
     overflow: 'hidden',
   },

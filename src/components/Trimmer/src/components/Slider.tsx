@@ -1,7 +1,9 @@
-import { Text, View, StyleSheet, type ViewStyle } from 'react-native';
+import React, { useRef } from 'react';
+import { View, StyleSheet, type ViewStyle } from 'react-native';
 import { Slider as RNSlider } from '@miblanchard/react-native-slider';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import ProgressBar from './ProgressBar';
+import { StartThumb, EndThumb } from './Thumb';
 import { sliderStyles } from './styles';
 import type { FrameInfo } from '../utils/frameExtractor';
 
@@ -32,15 +34,12 @@ function Slider({
   startPercent,
   endPercent,
 }: SliderProps) {
-  const selectedDuration = parseFloat((thumbs[1] - thumbs[0]).toFixed(1));
+  const thumbIndexRef = useRef(0);
   
   return (
     <View style={[sliderStyles.container, style]}>
-      <Text style={sliderStyles.text}>
-        {selectedDuration}s
-      </Text>
       <View style={sliderStyles.sliderWrapper}>
-        {/* Frames background - spans entire track */}
+        {/* Frames background - spans entire track, positioned to match track */}
         {frames && frames.length > 0 && (
           <View style={sliderStyles.framesBackground}>
             <ProgressBar
@@ -53,35 +52,29 @@ function Slider({
             />
           </View>
         )}
-        <RNSlider
-          animateTransitions
-          animationType="spring"
-          maximumValue={duration}
-          minimumValue={0}
-          step={0.1}
-          value={thumbs}
-          trackStyle={StyleSheet.flatten([
-            sliderStyles.trackStyle,
-            { backgroundColor: 'transparent' },
-          ])}
-          minimumTrackTintColor="transparent"
-          maximumTrackTintColor="transparent"
-          renderMinimumTrackComponent={() => (
-            <ProgressBar
-              value={(playbackTime - thumbs[0]) / (thumbs[1] - thumbs[0])}
-              tintColor={tintColor}
-              frames={[]}
-              duration={duration}
-            />
-          )}
-          onSlidingComplete={onSlidingComplete}
-          onValueChange={onValueChange}
-          renderThumbComponent={() => (
-            <View style={sliderStyles.thumbStyle}>
-              <Text style={sliderStyles.thumbTextStyle}>|</Text>
-            </View>
-          )}
-        />
+        <View style={sliderStyles.sliderContainer}>
+          <RNSlider
+            animateTransitions
+            animationType="spring"
+            maximumValue={duration}
+            minimumValue={0}
+            step={0.1}
+            value={thumbs}
+            trackStyle={StyleSheet.flatten([
+              sliderStyles.trackStyle,
+              { backgroundColor: 'transparent' },
+            ])}
+            minimumTrackTintColor="transparent"
+            maximumTrackTintColor="transparent"
+            onSlidingComplete={onSlidingComplete}
+            onValueChange={onValueChange}
+            renderThumbComponent={() => {
+              const isStart = thumbIndexRef.current === 0;
+              thumbIndexRef.current = (thumbIndexRef.current + 1) % 2;
+              return isStart ? <StartThumb /> : <EndThumb />;
+            }}
+          />
+        </View>
       </View>
     </View>
   );

@@ -18,12 +18,13 @@ function ProgressBar({ value, style, tintColor, frames = [], duration, startPerc
   const hasFrames = frames.length > 0 && duration && duration > 0;
 
   // Animated styles for overlays using shared values
+  // Extend halfway beneath thumbs (thumb is 10px, so extend by ~1.5% which is ~5px on typical devices)
   const leftOverlayStyle = useAnimatedStyle(() => {
     if (!startPercent) return { width: 0 };
     const percent = startPercent.value;
     return {
       left: 0,
-      width: `${Math.max(0, percent)}%`,
+      width: `${Math.max(0, percent + 1.5)}%`,
     };
   });
 
@@ -31,8 +32,8 @@ function ProgressBar({ value, style, tintColor, frames = [], duration, startPerc
     if (!endPercent) return { width: 0 };
     const percent = endPercent.value;
     return {
-      left: `${Math.min(100, percent)}%`,
-      width: `${Math.max(0, 100 - percent)}%`,
+      left: `${Math.min(100, percent - 1.5)}%`,
+      width: `${Math.max(0, 100 - percent + 1.5)}%`,
     };
   });
 

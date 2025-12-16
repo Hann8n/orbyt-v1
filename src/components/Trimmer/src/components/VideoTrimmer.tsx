@@ -166,7 +166,7 @@ function VideoTrimmerUI(props: VideoTrimmerProps, ref: Ref<unknown>) {
     // Extract frames from video - extract more frames to fill the entire bar
     // Calculate frame count based on duration (aim for ~30 frames for good coverage)
     const frameCount = Math.max(20, Math.min(40, Math.floor(videoDuration * 2)));
-    if (source && 'uri' in source && source.uri) {
+    if (source && 'uri' in source && source.uri && typeof source.uri === 'string') {
       extractFrames(source.uri, videoDuration, frameCount).then((extractedFrames) => {
         setFrames(extractedFrames);
       }).catch((error) => {

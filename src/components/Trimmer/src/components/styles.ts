@@ -13,21 +13,29 @@ export const videoTrimmerStyles = StyleSheet.create({
 
 export const sliderStyles = StyleSheet.create({
   container: {
-    width: '80%',
+    width: '95%',
     alignSelf: 'center',
   },
   sliderWrapper: {
     position: 'relative',
-    height: 40,
+    height: 70,
+    justifyContent: 'center',
   },
   framesBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 2,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 70,
+    borderRadius: 7.5,
     overflow: 'hidden',
+  },
+  sliderContainer: {
+    position: 'relative',
+    zIndex: 1,
   },
   trackStyle: {
     borderRadius: 2,
-    height: 40,
+    height: 70,
     shadowColor: 'black',
     shadowOffset: {
       width: 0,
@@ -35,16 +43,12 @@ export const sliderStyles = StyleSheet.create({
     },
   },
   thumbStyle: {
-    paddingVertical: 5,
+    height: 70,
     paddingHorizontal: 5,
     backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 5,
-  },
-  thumbTextStyle: {
-    fontSize: 30,
-    color: 'gray',
   },
   text: {
     alignSelf: 'center',
