@@ -30,6 +30,7 @@ import VerticalListSheet, { VerticalListButton } from '../src/components/ui/Vert
 import BottomToolBar from '../src/components/ui/BottomToolBar';
 import { TextOverlay } from '../src/types';
 import { getBottomNavBarHeight } from '../src/utils/helpers';
+import VideoTrimmerUI from 'react-native-video-trimmer-ui';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16;
@@ -245,60 +246,42 @@ interface TrimSheetProps {
 const TrimSheet: React.FC<TrimSheetProps> = ({ visible, clip, onDismiss, onApply, isProcessing }) => {
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(clip?.duration || 10);
-  const [actualDuration, setActualDuration] = useState(clip?.duration || 10);
+  const [videoUri, setVideoUri] = useState<string>('');
+  const trimmerRef = useRef<any>(null);
 
   useEffect(() => {
-    if (clip) {
+    if (clip && visible) {
       const clipDuration = clip.duration || 10;
-      setActualDuration(clipDuration);
       setStartTime(clip.trimStart || 0);
       setEndTime(clip.trimEnd || clipDuration);
+      
+      // Resolve video URI
+      const resolveUri = async () => {
+        try {
+          const pathInfo = await resolveVideoPath(clip.videoPath);
+          setVideoUri(pathInfo.uri);
+        } catch (error) {
+          console.error('Error resolving video path:', error);
+        }
+      };
+      resolveUri();
     }
-  }, [clip]);
+  }, [clip, visible]);
 
-  if (!visible || !clip) return null;
+  const handleSelected = (start: number, end: number) => {
+    setStartTime(start);
+    setEndTime(end);
+  };
 
-  const maxDuration = actualDuration > 0 ? actualDuration : 10;
+  const handleApply = () => {
+    if (endTime > startTime) {
+      onApply(startTime, endTime);
+    }
+  };
+
+  if (!visible || !clip || !videoUri) return null;
+
   const duration = endTime - startTime;
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const percentage = ((value: number, min: number, max: number) => ((value - min) / (max - min)) * 100);
-  const trackWidth = SCREEN_WIDTH - 80;
-
-  const TrimSlider = ({ value, onValueChange, min = 0, max = 1 }: {
-    value: number;
-    onValueChange: (value: number) => void;
-    min?: number;
-    max?: number;
-  }) => {
-    const percent = percentage(value, min, max);
-    return (
-      <View style={styles.trimSliderContainer}>
-        <TouchableOpacity
-          style={styles.sliderTrack}
-          activeOpacity={1}
-          onPress={(e) => {
-            const { locationX } = e.nativeEvent;
-            const newValue = min + (locationX / trackWidth) * (max - min);
-            onValueChange(Math.max(min, Math.min(max, newValue)));
-          }}
-        >
-          <View style={[styles.sliderFill, { width: `${percent}%` }]} />
-          <View
-            style={[
-              styles.sliderThumb,
-              { left: `${percent}%`, marginLeft: -8 }
-            ]}
-          />
-        </TouchableOpacity>
-      </View>
-    );
-  };
 
   return (
     <VerticalListSheet
@@ -307,29 +290,16 @@ const TrimSheet: React.FC<TrimSheetProps> = ({ visible, clip, onDismiss, onApply
       title="Trim Video"
     >
       <View style={styles.trimContainer}>
-        <Text style={styles.trimLabel}>Start: {formatTime(startTime)}</Text>
-        <TrimSlider
-          value={startTime}
-          onValueChange={(value) => {
-            const newStart = Math.max(0, Math.min(value, endTime - 0.5));
-            setStartTime(newStart);
-          }}
-          min={0}
-          max={maxDuration}
+        <VideoTrimmerUI
+          ref={trimmerRef}
+          source={{ uri: videoUri }}
+          onSelected={handleSelected}
+          loop={true}
+          containerStyle={styles.trimmerWrapper}
+          sliderContainerStyle={styles.trimmerSliderContainer}
+          tintColor={Colors.purple}
+          minDuration={0.5}
         />
-        
-        <Text style={styles.trimLabel}>End: {formatTime(endTime)}</Text>
-        <TrimSlider
-          value={endTime}
-          onValueChange={(value) => {
-            const newEnd = Math.max(startTime + 0.5, Math.min(value, maxDuration));
-            setEndTime(newEnd);
-          }}
-          min={0}
-          max={maxDuration}
-        />
-        
-        <Text style={styles.trimDuration}>Duration: {formatTime(duration)}</Text>
         
         <View style={styles.trimButtons}>
           <VerticalListButton
@@ -338,7 +308,7 @@ const TrimSheet: React.FC<TrimSheetProps> = ({ visible, clip, onDismiss, onApply
           />
           <VerticalListButton
             label={isProcessing ? "Processing..." : "Apply Trim"}
-            onPress={() => onApply(startTime, endTime)}
+            onPress={handleApply}
             disabled={isProcessing || duration < 0.5}
           />
         </View>
@@ -1592,26 +1562,18 @@ const styles = StyleSheet.create({
   trimContainer: {
     padding: 20,
   },
-  trimLabel: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
-    marginBottom: 8,
+  trimmerWrapper: {
+    height: 200,
+    borderRadius: BORDER_RADIUS.MEDIUM,
+    overflow: 'hidden',
+    marginBottom: 20,
   },
-  trimDuration: {
-    color: Colors.lightGray,
-    fontSize: 14,
-    fontFamily: 'Firma-Medium',
-    marginTop: 16,
-    marginBottom: 8,
-    textAlign: 'center',
+  trimmerSliderContainer: {
+    marginHorizontal: 0,
   },
   trimButtons: {
     marginTop: 20,
     gap: 12,
-  },
-  trimSliderContainer: {
-    marginBottom: 20,
   },
   clipIndicator: {
     position: 'absolute',

@@ -22,7 +22,7 @@ import {
   useMicrophonePermissions,
   CameraRecordingOptions
 } from 'expo-camera';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
@@ -64,6 +64,7 @@ interface VideoSegment {
 }
 
 const CreateScreen: React.FC = () => {
+  const params = useLocalSearchParams<{ trimmedVideoPath?: string; trimmedDuration?: string }>();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
   const [isRecording, setIsRecording] = useState(false);
@@ -85,6 +86,7 @@ const CreateScreen: React.FC = () => {
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
   const isMountedRef = useRef(true);
   const isRecordingRef = useRef(false);
+  const processedTrimmedVideoRef = useRef<string | null>(null);
   
   const isFocused = useIsFocused();
 
@@ -176,6 +178,59 @@ const CreateScreen: React.FC = () => {
       setIsProcessing(false);
     };
   }, []);
+
+  // Handle trimmed video from video-trimmer screen
+  useEffect(() => {
+    const addTrimmedVideoSegment = async () => {
+      if (params.trimmedVideoPath && params.trimmedVideoPath !== processedTrimmedVideoRef.current) {
+        const trimmedPath = params.trimmedVideoPath;
+        processedTrimmedVideoRef.current = trimmedPath;
+        
+        try {
+          // Use the passed trimmed duration if available, otherwise try to get from video info
+          let duration: number;
+          if (params.trimmedDuration) {
+            duration = parseFloat(params.trimmedDuration);
+          } else {
+            // Fallback: try to get duration from video file (may not be accurate for trimmed videos)
+            const videoInfo = await VideoProcessingService.getVideoInfo(trimmedPath);
+            duration = videoInfo.duration;
+          }
+          
+          if (duration >= MIN_SEGMENT_DURATION && totalDuration + duration <= maxDuration) {
+            const newSegment: VideoSegment = {
+              startTime: Date.now(),
+              duration: duration,
+              video: { uri: trimmedPath },
+              sourceType: 'gallery',
+            };
+            
+            setSegments(prev => {
+              const updated = [...prev, newSegment];
+              segmentsRef.current = updated;
+              return updated;
+            });
+            setTotalDuration(prev => {
+              const updated = prev + duration;
+              const progress = (updated / maxDuration) * 100;
+              progressWidth.value = withTiming(Math.min(progress, 100), { duration: 200 });
+              return updated;
+            });
+          } else if (duration < MIN_SEGMENT_DURATION) {
+            Alert.alert('Error', 'Trimmed video is too short');
+          } else {
+            Alert.alert('Error', 'Adding this video would exceed the maximum duration');
+          }
+        } catch (error) {
+          console.error('Error adding trimmed video segment:', error);
+          Alert.alert('Error', 'Failed to add trimmed video');
+        }
+        // Note: processedTrimmedVideoRef prevents re-processing the same video
+      }
+    };
+    
+    addTrimmedVideoSegment();
+  }, [params.trimmedVideoPath, totalDuration, maxDuration, progressWidth]);
 
   // Reset processing state when screen comes back into focus (user navigated back)
   useFocusEffect(
@@ -364,42 +419,20 @@ const CreateScreen: React.FC = () => {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
         
-        // iCloud downloads will be handled by VideoProcessingService.standardizeVideoPath()
-        // when processing the video
+        // Navigate to trimmer screen to allow user to trim the video
+        const videoPath = asset.uri;
+        const assetId = asset.assetId;
         
-        const segmentDuration = asset.duration ? (asset.duration > 1000 ? asset.duration / 1000 : asset.duration) : 0;
-        if (segmentDuration > 0) {
-          const newTotalDuration = totalDuration + segmentDuration;
-          if (newTotalDuration > maxDuration) {
-            Alert.alert(
-              'Video too long',
-              `Adding this video would exceed the ${maxDuration} second limit. Please select a shorter video.`
-            );
-            setIsLoadingFromGallery(false);
-            setIsProcessing(false);
-            return;
-          }
-          
-          const gallerySegment: VideoSegment = {
-            startTime: Date.now(),
-            duration: segmentDuration,
-            video: asset, // Use full ImagePickerAsset - standardization will handle iCloud downloads
-            sourceType: 'gallery',
-          };
-          
-          await new Promise(resolve => setTimeout(resolve, 100));
-          setSegments(prev => {
-            const updated = [...prev, gallerySegment];
-            segmentsRef.current = updated;
-            return updated;
-          });
-          setTotalDuration(newTotalDuration);
-          const progress = (newTotalDuration / maxDuration) * 100;
-          progressWidth.value = withTiming(progress, { duration: 300 });
-        } else {
-          Alert.alert('Invalid video', 'Could not determine video duration.');
-          setIsLoadingFromGallery(false);
-        }
+        navigation.push({
+          pathname: '/video-trimmer',
+          params: {
+            videoPath,
+            ...(assetId ? { assetId } : {}),
+            returnTo: 'create',
+            maxDuration: maxDuration.toString(),
+            currentDuration: totalDuration.toString(),
+          },
+        });
       }
     } catch (e) {
       Alert.alert('Error', 'Failed to access gallery. Please try again.');
