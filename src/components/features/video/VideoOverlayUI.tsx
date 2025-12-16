@@ -24,7 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import { VerificationBadge } from '../badging';
 import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { getChannelBySlug } from '../../../utils/orbytChannels';
 
 
@@ -100,6 +100,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const { presentShareSheet } = useGlobalShareSheet();
   const { presentCommentSection } = useGlobalCommentSection();
   const navigation = useRouter();
+  const segments = useSegments();
+  const hasTabBar = Array.isArray(segments) && segments[0] === '(tabs)';
   
   // Get mapping helper for optimized rendering of nested components
   const { getMappingKey } = useMappingHelper();
@@ -315,8 +317,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const overlayContentStyle = useMemo(() => [
     styles.overlayContentContainer,
     { padding: contentPadding },
-    isModal ? { bottom: 0 } : (isSmallScreenDevice || isTabletDevice) ? { bottom: bottomNavBarHeight} : {},
-  ], [contentPadding, isModal, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight]);
+    isModal
+      ? { bottom: 0 }
+      : hasTabBar && (isSmallScreenDevice || isTabletDevice)
+        ? { bottom: bottomNavBarHeight }
+        : {},
+  ], [contentPadding, isModal, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight, hasTabBar]);
 
   // Use animated opacity instead of conditional rendering to prevent unmounting
   // This reduces jank when switching between videos

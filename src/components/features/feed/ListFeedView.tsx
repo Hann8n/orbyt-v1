@@ -738,9 +738,16 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         offsets.push(0); // Allow resting at the very top (header fully visible)
 
         // For feeds with headers, align first video item between status and bottom bars
-        // after scrolling past the header
+        // after scrolling past the header.
+        // On full-screen 9:16 devices we *don't* subtract the top safe area here because
+        // the parent header layout already accounts for it; doing so would shift content
+        // under the notch/status area. This bug only affected header feeds, not the main page.
         const topInset = viewportDimensions.effectiveInsets.top;
-        const base = Math.max(0, headerHeight - topInset);
+        const shouldSubtractTopInset = !isSmallDevice;
+        const base = Math.max(
+          0,
+          headerHeight - (shouldSubtractTopInset ? topInset : 0),
+        );
 
         const itemCount = listData.length;
         for (let i = 0; i < itemCount; i++) {
