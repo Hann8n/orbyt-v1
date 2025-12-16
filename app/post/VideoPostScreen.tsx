@@ -20,8 +20,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Host, Button, Text as SwiftUIText } from '@expo/ui/swift-ui';
-import { glassEffect, frame, cornerRadius, background } from '@expo/ui/swift-ui/modifiers';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
 import { useEvent } from 'expo';
 import { File, Directory, Paths } from 'expo-file-system';
@@ -933,69 +932,72 @@ const VideoPostScreen: React.FC = () => {
               </View>
               {/* Post Button */}
               <View style={[styles.landscapePostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-                {Platform.OS === 'ios' ? (
-                  <Host style={{ width: SCREEN_WIDTH * 0.6, height: 60 }}>
-                    <Button
-                      onPress={handlePost}
-                      disabled={isPosting || isCompressing}
-                      modifiers={[
-                        frame({ width: SCREEN_WIDTH * 0.6, height: 60 }),
-                        cornerRadius(BORDER_RADIUS.FULL),
-                        glassEffect({
-                          glass: {
-                            variant: 'regular',
-                            tint: Colors.lightGray,
-                          },
-                        }),
+                <TouchableOpacity 
+                  onPress={handlePost}
+                  disabled={isPosting || isCompressing}
+                  activeOpacity={0.8}
+                >
+                  {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
+                    <GlassView
+                      style={[styles.landscapePostButtonGlass, { width: SCREEN_WIDTH * 0.6 }]}
+                      glassEffectStyle="clear"
+                      tintColor="rgba(255,255,255,0.9)"
+                      isInteractive
+                    >
+                      <View style={styles.buttonContent}>
+                        {isPosting ? (
+                          <View style={styles.loadingContainer}>
+                            <Loading3FillIcon size={24} color={Colors.black} />
+                            <Text style={styles.postButtonText}>
+                              {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
+                               uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
+                               'Creating post...'}
+                            </Text>
+                          </View>
+                        ) : isCompressing ? (
+                          <View style={styles.loadingContainer}>
+                            <Loading3FillIcon size={24} color={Colors.black} />
+                            <Text style={styles.postButtonText}>
+                              Getting ready...
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.postButtonText}>POST</Text>
+                        )}
+                      </View>
+                    </GlassView>
+                  ) : (
+                    <View 
+                      style={[
+                        styles.landscapePostButtonHost, 
+                        { width: SCREEN_WIDTH * 0.6 }, 
+                        (isPosting || isCompressing) && styles.landscapePostButtonDisabled
                       ]}
                     >
-                      {isPosting ? (
-                        <SwiftUIText size={18} weight="black" color={Colors.black}>
-                          {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
-                           uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
-                           'Creating post...'}
-                        </SwiftUIText>
-                      ) : isCompressing ? (
-                        <SwiftUIText size={18} weight="black" color={Colors.black}>
-                          Getting ready...
-                        </SwiftUIText>
-                      ) : (
-                        <SwiftUIText size={18} weight="black" color={Colors.black}>
-                          POST
-                        </SwiftUIText>
-                      )}
-                    </Button>
-                  </Host>
-                ) : (
-                  <TouchableOpacity 
-                    style={[styles.landscapePostButtonHost, { width: SCREEN_WIDTH * 0.6 }, (isPosting || isCompressing) && styles.landscapePostButtonDisabled]}
-                    onPress={handlePost}
-                    disabled={isPosting || isCompressing}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.buttonContent}>
-                      {isPosting ? (
-                        <View style={styles.loadingContainer}>
-                          <Loading3FillIcon size={24} color={Colors.black} />
-                          <Text style={styles.postButtonText}>
-                            {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
-                             uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
-                             'Creating post...'}
-                          </Text>
-                        </View>
-                      ) : isCompressing ? (
-                        <View style={styles.loadingContainer}>
-                          <Loading3FillIcon size={24} color={Colors.black} />
-                          <Text style={styles.postButtonText}>
-                            Getting ready...
-                          </Text>
-                        </View>
-                      ) : (
-                        <Text style={styles.postButtonText}>POST</Text>
-                      )}
+                      <View style={styles.buttonContent}>
+                        {isPosting ? (
+                          <View style={styles.loadingContainer}>
+                            <Loading3FillIcon size={24} color={Colors.black} />
+                            <Text style={styles.postButtonText}>
+                              {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
+                               uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
+                               'Creating post...'}
+                            </Text>
+                          </View>
+                        ) : isCompressing ? (
+                          <View style={styles.loadingContainer}>
+                            <Loading3FillIcon size={24} color={Colors.black} />
+                            <Text style={styles.postButtonText}>
+                              Getting ready...
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.postButtonText}>POST</Text>
+                        )}
+                      </View>
                     </View>
-                  </TouchableOpacity>
-                )}
+                  )}
+                </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
@@ -1587,69 +1589,72 @@ const VideoPostScreen: React.FC = () => {
 
         
         <View style={[styles.floatingPostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-          {Platform.OS === 'ios' ? (
-            <Host style={{ width: SCREEN_WIDTH * 0.6, height: 60 }}>
-              <Button
-                onPress={handlePost}
-                disabled={isPosting || isCompressing}
-                modifiers={[
-                  frame({ width: SCREEN_WIDTH * 0.6, height: 60 }),
-                  cornerRadius(BORDER_RADIUS.FULL),
-                  glassEffect({
-                    glass: {
-                      variant: 'regular',
-                      tint: Colors.lightGray,
-                    },
-                  }),
+          <TouchableOpacity 
+            onPress={handlePost}
+            disabled={isPosting || isCompressing}
+            activeOpacity={0.8}
+          >
+            {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
+              <GlassView
+                style={[styles.floatingPostButtonGlass, { width: SCREEN_WIDTH * 0.6 }]}
+                glassEffectStyle="clear"
+                tintColor="rgba(255,255,255,0.9)"
+                isInteractive
+              >
+                <View style={styles.buttonContent}>
+                  {isPosting ? (
+                    <View style={styles.loadingContainer}>
+                      <Loading3FillIcon size={24} color={Colors.black} />
+                      <Text style={styles.postButtonText}>
+                        {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
+                         uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
+                         'Creating post...'}
+                      </Text>
+                    </View>
+                  ) : isCompressing ? (
+                    <View style={styles.loadingContainer}>
+                      <Loading3FillIcon size={24} color={Colors.black} />
+                      <Text style={styles.postButtonText}>
+                        Getting ready...
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.postButtonText}>POST</Text>
+                  )}
+                </View>
+              </GlassView>
+            ) : (
+              <View 
+                style={[
+                  styles.floatingPostButtonHost, 
+                  { width: SCREEN_WIDTH * 0.6 }, 
+                  (isPosting || isCompressing) && styles.floatingPostButtonDisabled
                 ]}
               >
-                {isPosting ? (
-                  <SwiftUIText size={18} weight="black" color={Colors.black}>
-                    {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
-                     uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
-                     'Creating post...'}
-                  </SwiftUIText>
-                ) : isCompressing ? (
-                  <SwiftUIText size={18} weight="black" color={Colors.black}>
-                    Getting ready...
-                  </SwiftUIText>
-                ) : (
-                  <SwiftUIText size={18} weight="black" color={Colors.black}>
-                    POST
-                  </SwiftUIText>
-                )}
-              </Button>
-            </Host>
-          ) : (
-            <TouchableOpacity 
-              style={[styles.floatingPostButtonHost, { width: SCREEN_WIDTH * 0.6 }, (isPosting || isCompressing) && styles.floatingPostButtonDisabled]}
-              onPress={handlePost}
-              disabled={isPosting || isCompressing}
-              activeOpacity={0.8}
-            >
-              <View style={styles.buttonContent}>
-                {isPosting ? (
-                  <View style={styles.loadingContainer}>
-                    <Loading3FillIcon size={24} color={Colors.black} />
-                    <Text style={styles.postButtonText}>
-                      {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
-                       uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
-                       'Creating post...'}
-                    </Text>
-                  </View>
-                ) : isCompressing ? (
-                  <View style={styles.loadingContainer}>
-                    <Loading3FillIcon size={24} color={Colors.black} />
-                    <Text style={styles.postButtonText}>
-                      Getting ready...
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={styles.postButtonText}>POST</Text>
-                )}
+                <View style={styles.buttonContent}>
+                  {isPosting ? (
+                    <View style={styles.loadingContainer}>
+                      <Loading3FillIcon size={24} color={Colors.black} />
+                      <Text style={styles.postButtonText}>
+                        {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
+                         uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
+                         'Creating post...'}
+                      </Text>
+                    </View>
+                  ) : isCompressing ? (
+                    <View style={styles.loadingContainer}>
+                      <Loading3FillIcon size={24} color={Colors.black} />
+                      <Text style={styles.postButtonText}>
+                        Getting ready...
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.postButtonText}>POST</Text>
+                  )}
+                </View>
               </View>
-            </TouchableOpacity>
-          )}
+            )}
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
