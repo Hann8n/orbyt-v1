@@ -98,6 +98,23 @@ const CreateScreen: React.FC = () => {
   const pendingTrim = useVideoTrimStore(state => state.pendingTrim);
   const consumePendingTrim = useVideoTrimStore(state => state.consumePendingTrim);
   
+  // Calculate 9:16 aspect ratio dimensions
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  
+  // Use existing utility to check if small screen (9:16)
+  const isSmallDevice = isSmallScreen();
+  
+  // For small screens, use full screen; otherwise use available space between safe areas
+  const availableHeight = isSmallDevice 
+    ? screenHeight 
+    : screenHeight - insets.top - bottomNavBarHeight;
+  
+  // If small screen, use full screen; otherwise maintain 9:16 aspect ratio
+  const cameraHeight = isSmallDevice 
+    ? screenHeight 
+    : Math.min((screenWidth * 16) / 9, availableHeight);
+  const cameraWidth = screenWidth; // Use full width
+  
   // Get current max duration from selected option
   const maxDuration = selectedDuration;
   const remainingTime = Math.max(0, maxDuration - totalDuration);
@@ -645,23 +662,28 @@ const CreateScreen: React.FC = () => {
       <>
         {/* Camera View - only render when screen is focused */}
         <View style={styles.cameraContainer}>
-          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+          <StatusBar hidden={true} />
           {isFocused && (
             <CameraView
               key={`camera-${isFrontCamera ? 'front' : 'back'}`}
               ref={cameraRef}
-              style={styles.camera}
+              style={[styles.camera, { 
+                width: cameraWidth, 
+                height: cameraHeight,
+                marginTop: isSmallDevice ? 0 : insets.top,
+              }]}
               facing={isFrontCamera ? 'front' : 'back'}
               mode="video"
               enableTorch={flash === 'on' && !isFrontCamera}
               mute={!microphonePermission?.granted}
               videoQuality="1080p"
-              ratio="16:9"
             />
           )}
           
           {/* Progress Bar - overlays on top of camera */}
-          <View style={[styles.progressBarOverlay, { height: insets.top }]}>
+          <View style={[styles.progressBarOverlay, { 
+            height: isSmallDevice ? 54 : insets.top // 10 (top) + 44 (button height) = 54
+          }]}>
             <View style={styles.combinedProgressBarContainer}>
               <Animated.View
                 style={[
@@ -696,13 +718,16 @@ const CreateScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <TouchableOpacity style={[styles.backButton, { top: insets.top + 10 }]} onPress={handleBackPress}>
+      <TouchableOpacity style={[styles.backButton, { 
+        top: isSmallDevice ? 5 : insets.top + 4,
+        left: 4,
+      }]} onPress={handleBackPress}>
         <CloseFillIcon size={26} color="white" />
       </TouchableOpacity>
       
       {/* Duration Selector */}
       {!isRecording && segments.length === 0 && (
-        <View style={[styles.durationSelector, { top: insets.top + 10 }]}>
+        <View style={[styles.durationSelector, { top: isSmallDevice ? 10 : insets.top + 10 }]}>
           {isDurationSelectorExpanded ? (
             <>
               {DURATION_OPTIONS.map((option) => (
@@ -750,7 +775,10 @@ const CreateScreen: React.FC = () => {
       
       {segments.length > 0 && (
         <TouchableOpacity 
-          style={[styles.doneButton, { top: insets.top + 10 }]} 
+          style={[styles.doneButton, { 
+            top: isSmallDevice ? 5 : insets.top + 4,
+            right: 4,
+          }]} 
           onPress={finishRecording} 
           disabled={isProcessing}
           activeOpacity={0.7}
@@ -818,9 +846,11 @@ const styles = StyleSheet.create({
   cameraContainer: {
     flex: 1,
     position: 'relative',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
   },
   camera: {
-    flex: 1,
+    // Dimensions will be set dynamically via inline style
   },
   progressBarOverlay: {
     position: 'absolute',
@@ -885,7 +915,7 @@ const styles = StyleSheet.create({
   doneButton: {
     position: 'absolute',
     right: 10,
-    zIndex: 10,
+    zIndex: 1000,
     width: 44,
     height: 44,
     alignItems: 'center',

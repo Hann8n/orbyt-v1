@@ -147,7 +147,7 @@ export async function generateChannelColorFromGIF(channelGIF: any): Promise<stri
     }
 
     // Extract colors from the GIF
-    const extractedColors = await extractColorsFromImage(resolvedAsset.uri);
+    const extractedColors = await extractColorsFromImage(uri);
     const dominantColor = extractedColors.backgroundColor || extractedColors.accentColor || '#6366F1';
 
     // Find the closest color in the app's palette

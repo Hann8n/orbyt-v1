@@ -1,4 +1,4 @@
-import { AtpAgent } from '@atproto/api';
+import { AtpAgent, RichText } from '@atproto/api';
 import * as SecureStore from 'expo-secure-store';
 import { storageHelpers } from '../../utils/storage';
 import { Platform } from 'react-native';
@@ -838,18 +838,19 @@ class AtprotoService {
     images?: { uri: string, alt: string, aspectRatio?: { width: number, height: number } }[]
   ): Promise<any> {
     await this.ensureSession();
+    const { api } = await this.getApiClient();
     
     // If no parent is specified, reply directly to the post (parent = root)
     const actualParentUri = parentUri || rootUri;
     const actualParentCid = parentCid || rootCid;
     
-    // Parse rich text to extract facets for mentions, links, and hashtags
-    const { parseRichTextWithResolvedMentions } = await import('../../utils/richTextParser');
-    const parsedText = await parseRichTextWithResolvedMentions(text);
+    // Use official RichText API to detect facets
+    const richText = new RichText({ text: text || '' });
+    await richText.detectFacets(api);
     
     const postRecord: any = {
       $type: 'app.bsky.feed.post',
-      text: parsedText.text,
+      text: richText.text,
       createdAt: new Date().toISOString(),
       reply: {
         root: { uri: rootUri, cid: rootCid },
@@ -857,9 +858,9 @@ class AtprotoService {
       },
     };
 
-    // Add facets if they exist
-    if (parsedText.facets && parsedText.facets.length > 0) {
-      postRecord.facets = parsedText.facets;
+    // Add facets if they exist (from RichText API)
+    if (richText.facets && richText.facets.length > 0) {
+      postRecord.facets = richText.facets;
     }
     
     // Add images if provided
@@ -899,7 +900,6 @@ class AtprotoService {
       }
     }
     
-    const { api } = await this.getApiClient();
     const commentResponse = await api.post(postRecord);
     return commentResponse;
   }
@@ -939,9 +939,9 @@ class AtprotoService {
       // Get video aspect ratio
       const aspectRatio = await this.getVideoAspectRatio(videoPath);
 
-      // Parse rich text to extract facets for mentions, links, and hashtags
-      const { parseRichTextWithResolvedMentions } = await import('../../utils/richTextParser');
-      const parsedText = await parseRichTextWithResolvedMentions(text);
+      // Use official RichText API to detect facets
+      const richText = new RichText({ text: text || '' });
+      await richText.detectFacets(api);
 
       // Determine platform tag
       let platformTag: string;
@@ -965,7 +965,7 @@ class AtprotoService {
       // Create the post with video embed
       const postRecord: any = {
         $type: 'app.bsky.feed.post',
-        text: parsedText.text,
+        text: richText.text,
         createdAt: new Date().toISOString(),
         embed: {
           $type: 'app.bsky.embed.video',
@@ -975,9 +975,9 @@ class AtprotoService {
         tags: tags
       };
 
-      // Add facets if they exist
-      if (parsedText.facets && parsedText.facets.length > 0) {
-        postRecord.facets = parsedText.facets;
+      // Add facets if they exist (from RichText API)
+      if (richText.facets && richText.facets.length > 0) {
+        postRecord.facets = richText.facets;
       }
 
       // Add content warnings if provided

@@ -523,7 +523,6 @@ class ChannelCache {
             const urisToPrefetch = Array.from(uniqueUris).filter(uri => uri && uri.trim() !== '');
             
             if (urisToPrefetch.length === 0) {
-              resolve();
               return;
             }
 

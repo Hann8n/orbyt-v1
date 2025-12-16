@@ -957,8 +957,7 @@ class ProfileCache {
     try {
             const profile = await AtprotoService.getProfileByDid(did);
             if (!profile) {
-              resolve(null);
-              return;
+              return null;
             }
 
             // Fetch colors from PDS
@@ -1326,7 +1325,6 @@ class ProfileCache {
             const handlesToPrefetch = Array.from(uniqueHandles).filter(handle => handle && handle.trim() !== '');
             
             if (handlesToPrefetch.length === 0) {
-              resolve();
               return;
             }
 

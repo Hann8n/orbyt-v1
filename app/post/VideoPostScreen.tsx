@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Animated } from 'react-native';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
@@ -37,7 +36,7 @@ import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils
 
 import { Colors } from '../../src/components/ui/UI';
 import AuthorItem from '../../src/components/ui/AuthorItem';
-import { isTablet } from '../../src/utils/helpers';
+import { isTablet, isSmallScreen } from '../../src/utils/helpers';
 import { useCurrentUser, useAccountManagement } from '../../src/stores/userStore';
 import { useProfile, useProfileColors } from '../../src/services/cache/ProfileCache';
 import ProfileCache from '../../src/services/cache/ProfileCache';
@@ -48,7 +47,7 @@ import { SavedAccount } from '../../src/stores/userStore';
 import { getPostableChannels, shouldShowChannelSlash, OrbytChannel, extractFeedSlug, getChannelAvatarUri } from '../../src/utils/orbytChannels';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
 import { useRichTextSearchTrigger, RichTextSearchModal } from '../../src/components/ui/usersearch';
-import { parseRichText } from '../../src/utils/richTextParser';
+import { useRichText, formatRichTextForDisplay } from '../../src/hooks/useRichText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16; // 9:16 aspect ratio for video cards
@@ -122,7 +121,6 @@ const VideoPostScreen: React.FC = () => {
   
   // Full-screen description input modal state
   const [showDescriptionInputModal, setShowDescriptionInputModal] = useState(false);
-  const descriptionModalOpacity = useRef(new Animated.Value(0)).current;
   const [videoLoading, setVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState<string | null>(null);
   // Store video dimensions for aspect ratio
@@ -134,7 +132,6 @@ const VideoPostScreen: React.FC = () => {
   
   // Rich text search state (for @ mentions and # hashtags)
   const [descriptionSelection, setDescriptionSelection] = useState({ start: 0, end: 0 });
-  const [descriptionInputHeight, setDescriptionInputHeight] = useState(24);
 
   // Video size and compression state
   const [videoSizeInfo, setVideoSizeInfo] = useState<{
@@ -172,9 +169,8 @@ const VideoPostScreen: React.FC = () => {
   // User store hooks
   const { currentUser } = useCurrentUser();
   
-  // Rich text search hook for description input
+  // Rich text search hook for description input (for @ mentions and # hashtags)
   const {
-    inputProps: richTextInputProps,
     richTextSearchModalProps,
   } = useRichTextSearchTrigger({
     value: description,
@@ -388,6 +384,12 @@ const VideoPostScreen: React.FC = () => {
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
+
+  // Use RichText API hook for formatting
+  const [richText] = useRichText(description);
+  
+  // Format rich text for display using RichText API
+  const formattedRichText = formatRichTextForDisplay(richText);
 
 
 
@@ -701,20 +703,12 @@ const VideoPostScreen: React.FC = () => {
     };
   }, []);
 
-  // Animate description modal fade
+  // Reset selection when modal opens to fix cursor alignment
   useEffect(() => {
     if (showDescriptionInputModal) {
-      Animated.timing(descriptionModalOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(descriptionModalOpacity, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
+      setTimeout(() => {
+        setDescriptionSelection({ start: description.length, end: description.length });
+      }, 100);
     }
   }, [showDescriptionInputModal]);
 
@@ -730,6 +724,7 @@ const VideoPostScreen: React.FC = () => {
 
   const [orientation, setOrientation] = useState(getOrientation());
   const insets = useSafeAreaInsets();
+  const isSmallDevice = isSmallScreen();
 
   useEffect(() => {
     const onChange = ({ window }: { window: { width: number; height: number } }) => {
@@ -744,85 +739,42 @@ const VideoPostScreen: React.FC = () => {
   if (orientation === 'landscape' && isTablet()) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
+        <StatusBar hidden={true} />
         <LinearGradient
           colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)', 'transparent']}
           locations={[0, 0.7, 1]}
-          style={[styles.statusBarGradient, { height: insets.top + 60 }]}
+          style={[styles.statusBarGradient, { height: isSmallDevice ? 54 : insets.top + 60 }]}
           pointerEvents="none"
         />
+        {/* Header */}
+        <TouchableOpacity 
+          onPress={handleCancel} 
+          style={[styles.headerButton, { 
+            top: isSmallDevice ? 5 : insets.top + 4,
+            left: 4,
+          }]}
+        >
+          <BackArrowIcon size={32} color={Colors.white} />
+        </TouchableOpacity>
         <View style={styles.landscapeContainer}>
           {/* Left: Info Side */}
           <View style={styles.landscapeInfoSide}>
             <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 40 }]}>
-              <View style={styles.header}>
-                <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-                  <BackArrowIcon size={32} color={Colors.white} />
-                </TouchableOpacity>
-              </View>
                         {/* Description Section */}
-          <View style={styles.descriptionSection}>
-            <Text style={[styles.sectionHeaderTitle, { marginBottom: 6 }]}>Description</Text>
+          <View style={[styles.descriptionSection, { paddingBottom: 0 }]}>
+            <Text style={[styles.sectionHeaderTitle, { marginBottom: 4 }]}>Description</Text>
             <TouchableOpacity 
               onPress={() => setShowDescriptionInputModal(true)}
               activeOpacity={0.7}
               style={styles.descriptionInputTouchable}
             >
               {description ? (
-                <Text style={styles.descriptionInputPreview} numberOfLines={0}>
-                  {(() => {
-                    // Simple regex to find mentions and hashtags
-                    const mentionRegex = /@[\w.-]+/g;
-                    const hashtagRegex = /#[\w]+/g;
-                    const parts: Array<{ text: string; isBold: boolean }> = [];
-                    let lastIndex = 0;
-                    const matches: Array<{ start: number; end: number }> = [];
-                    
-                    // Find all mentions
-                    let match;
-                    while ((match = mentionRegex.exec(description)) !== null) {
-                      matches.push({ start: match.index, end: match.index + match[0].length });
-                    }
-                    
-                    // Find all hashtags
-                    while ((match = hashtagRegex.exec(description)) !== null) {
-                      matches.push({ start: match.index, end: match.index + match[0].length });
-                    }
-                    
-                    // Sort matches by position
-                    matches.sort((a, b) => a.start - b.start);
-                    
-                    if (matches.length > 0) {
-                      for (const m of matches) {
-                        // Add text before match
-                        if (m.start > lastIndex) {
-                          const beforeText = description.slice(lastIndex, m.start);
-                          if (beforeText) {
-                            parts.push({ text: beforeText, isBold: false });
-                          }
-                        }
-                        
-                        // Add match text (bold for both mentions and hashtags)
-                        const matchText = description.slice(m.start, m.end);
-                        parts.push({ text: matchText, isBold: true });
-                        
-                        lastIndex = m.end;
-                      }
-                      
-                      // Add remaining text
-                      if (lastIndex < description.length) {
-                        parts.push({ text: description.slice(lastIndex), isBold: false });
-                      }
-                    } else {
-                      parts.push({ text: description, isBold: false });
-                    }
-                    
-                    return parts.map((part, index) => (
-                      <Text key={index} style={part.isBold ? styles.descriptionInputPreviewBold : styles.descriptionInputPreview}>
-                        {part.text}
-                      </Text>
-                    ));
-                  })()}
+                <Text style={styles.descriptionInputPreview} numberOfLines={3}>
+                  {formattedRichText.map((part, index) => (
+                    <Text key={index} style={part.isSemiBold ? styles.descriptionInputPreviewSemiBold : styles.descriptionInputPreviewNormal}>
+                      {part.text}
+                    </Text>
+                  ))}
                 </Text>
               ) : (
                 <Text style={[styles.descriptionInputPreview, styles.descriptionInputPlaceholder]}>
@@ -1061,15 +1013,15 @@ const VideoPostScreen: React.FC = () => {
         <Modal
           visible={showDescriptionInputModal}
           transparent={true}
-          animationType="none"
+          animationType="fade"
           onRequestClose={() => setShowDescriptionInputModal(false)}
         >
           <View style={styles.descriptionModalContainer}>
-            <Animated.View style={[styles.descriptionModalOverlay, { opacity: descriptionModalOpacity }]}>
+            <View style={styles.descriptionModalOverlay}>
               <View style={[styles.descriptionModalContentWrapper, { paddingTop: insets.top }]}>
                 <View style={styles.descriptionModalHeader}>
                   <View style={styles.descriptionModalHeaderSpacer} />
-                  <Text style={styles.descriptionModalTitle}>Description</Text>
+                  <Text style={[styles.sectionHeaderTitle, { marginBottom: 0 }]}>Description</Text>
                   <TouchableOpacity 
                     onPress={() => setShowDescriptionInputModal(false)}
                     style={styles.descriptionModalDoneButton}
@@ -1081,92 +1033,48 @@ const VideoPostScreen: React.FC = () => {
                 <KeyboardAvoidingView 
                   behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                   style={styles.descriptionModalContent}
+                  keyboardVerticalOffset={0}
                 >
-                <View style={styles.descriptionInputWrapper}>
-                  <TextInput
-                    {...richTextInputProps}
-                    style={[styles.descriptionModalInput, { height: descriptionInputHeight, color: description.length > 0 ? 'transparent' : Colors.white }]}
-                    placeholder="Add text & tags (optional)"
-                    placeholderTextColor={Colors.gray}
-                    multiline
-                    maxLength={300}
-                    autoFocus={true}
-                    textAlignVertical="top"
-                    onContentSizeChange={(e) => {
-                      const newHeight = Math.min(Math.max(24, e.nativeEvent.contentSize.height + 8), 400);
-                      setDescriptionInputHeight(newHeight);
-                    }}
-                  />
-                  {description.length > 0 && (
-                    <View style={[styles.descriptionPreview, { height: descriptionInputHeight }]}>
-                      {(() => {
-                        // Simple regex to find mentions and hashtags
-                        const mentionRegex = /@[\w.-]+/g;
-                        const hashtagRegex = /#[\w]+/g;
-                        const parts: Array<{ text: string; isBold: boolean }> = [];
-                        let lastIndex = 0;
-                        const matches: Array<{ start: number; end: number }> = [];
-                        
-                        // Find all mentions
-                        let match;
-                        while ((match = mentionRegex.exec(description)) !== null) {
-                          matches.push({ start: match.index, end: match.index + match[0].length });
-                        }
-                        
-                        // Find all hashtags
-                        while ((match = hashtagRegex.exec(description)) !== null) {
-                          matches.push({ start: match.index, end: match.index + match[0].length });
-                        }
-                        
-                        // Sort matches by position
-                        matches.sort((a, b) => a.start - b.start);
-                        
-                        if (matches.length > 0) {
-                          for (const m of matches) {
-                            // Add text before match
-                            if (m.start > lastIndex) {
-                              const beforeText = description.slice(lastIndex, m.start);
-                              if (beforeText) {
-                                parts.push({ text: beforeText, isBold: false });
-                              }
-                            }
-                            
-                            // Add match text (bold for both mentions and hashtags)
-                            const matchText = description.slice(m.start, m.end);
-                            parts.push({ text: matchText, isBold: true });
-                            
-                            lastIndex = m.end;
-                          }
-                          
-                          // Add remaining text
-                          if (lastIndex < description.length) {
-                            parts.push({ text: description.slice(lastIndex), isBold: false });
-                          }
-                        } else {
-                          parts.push({ text: description, isBold: false });
-                        }
-                        
-                        return (
-                          <Text style={styles.descriptionPreviewText} numberOfLines={0}>
-                            {parts.map((part, index) => (
-                              <Text key={index} style={part.isBold ? styles.descriptionPreviewBold : styles.descriptionPreviewNormal}>
-                                {part.text}
-                              </Text>
-                            ))}
-                          </Text>
-                        );
-                      })()}
-                    </View>
-                  )}
-                </View>
+                  <View style={styles.descriptionInputContainer}>
+                    <TextInput
+                      value={description}
+                      onChangeText={setDescription}
+                      onSelectionChange={(e) => {
+                        setDescriptionSelection(e.nativeEvent.selection);
+                      }}
+                      style={styles.descriptionModalInput}
+                      placeholder="Add text & tags (optional)"
+                      placeholderTextColor={Colors.mediumGray}
+                      multiline={true}
+                      maxLength={300}
+                      autoFocus={true}
+                      textAlignVertical="top"
+                      blurOnSubmit={false}
+                      returnKeyType="default"
+                      selectionColor={Colors.lightGray}
+                      cursorColor={Colors.lightGray}
+                    />
+                    {description && (
+                      <View style={styles.descriptionInputOverlay} pointerEvents="none">
+                        <Text style={styles.descriptionInputOverlayText}>
+                          {formattedRichText.map((part, index) => (
+                            <Text key={index} style={part.isSemiBold ? styles.descriptionInputOverlaySemiBold : styles.descriptionInputOverlayNormal}>
+                              {part.text}
+                            </Text>
+                          ))}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   {richTextSearchModalProps.visible && (
                     <RichTextSearchModal
                       {...richTextSearchModalProps}
+                      containerStyle={styles.searchModalContainer}
                     />
                   )}
                 </KeyboardAvoidingView>
               </View>
-            </Animated.View>
+            </View>
           </View>
         </Modal>
 
@@ -1327,30 +1235,33 @@ const VideoPostScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.black} />
+      <StatusBar hidden={true} />
       <LinearGradient
         colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)', 'transparent']}
         locations={[0, 0.7, 1]}
-        style={[styles.statusBarGradient, { height: insets.top + 60 }]}
+        style={[styles.statusBarGradient, { height: isSmallDevice ? 54 : insets.top + 60 }]}
         pointerEvents="none"
       />
+      {/* Header */}
+      <TouchableOpacity 
+        onPress={handleCancel} 
+        style={[styles.headerButton, { 
+          top: isSmallDevice ? 5 : insets.top + 4,
+          left: 4,
+        }]}
+      >
+        <BackArrowIcon size={32} color={Colors.white} />
+      </TouchableOpacity>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <ScrollView 
-          style={styles.scrollView} 
-          contentContainerStyle={[
-            styles.scrollViewContentContainer,
+        <View 
+          style={[
+            styles.contentContainer,
             { paddingBottom: 60 + Math.max(insets.bottom, 20) + 80 }
           ]}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-              <BackArrowIcon size={32} color={Colors.white} />
-            </TouchableOpacity>
-          </View>
           {/* Video Preview Section */}
           <View style={styles.previewSection}>
             <View style={[styles.videoContainer, { width: containerWidth, height: containerHeight }]}>
@@ -1407,69 +1318,24 @@ const VideoPostScreen: React.FC = () => {
             </View>
           </View>
           
+          {/* Spacer to account for absolutely positioned preview */}
+          <View style={{ height: containerHeight + 22 }} />
+          
           {/* Description Section */}
-          <View style={[styles.descriptionSection, { marginTop: containerHeight, paddingTop: 0 }]}>
-            <Text style={[styles.sectionHeaderTitle, { marginBottom: 0}]}>Description</Text>
+          <View style={[styles.descriptionSection, { paddingTop: 0, paddingBottom: 0 }]}>
+            <Text style={[styles.sectionHeaderTitle, { marginBottom: 4 }]}>Description</Text>
             <TouchableOpacity 
               onPress={() => setShowDescriptionInputModal(true)}
               activeOpacity={0.7}
               style={styles.descriptionInputTouchable}
             >
               {description ? (
-                <Text style={styles.descriptionInputPreview} numberOfLines={0}>
-                  {(() => {
-                    // Simple regex to find mentions and hashtags
-                    const mentionRegex = /@[\w.-]+/g;
-                    const hashtagRegex = /#[\w]+/g;
-                    const parts: Array<{ text: string; isBold: boolean }> = [];
-                    let lastIndex = 0;
-                    const matches: Array<{ start: number; end: number }> = [];
-                    
-                    // Find all mentions
-                    let match;
-                    while ((match = mentionRegex.exec(description)) !== null) {
-                      matches.push({ start: match.index, end: match.index + match[0].length });
-                    }
-                    
-                    // Find all hashtags
-                    while ((match = hashtagRegex.exec(description)) !== null) {
-                      matches.push({ start: match.index, end: match.index + match[0].length });
-                    }
-                    
-                    // Sort matches by position
-                    matches.sort((a, b) => a.start - b.start);
-                    
-                    if (matches.length > 0) {
-                      for (const m of matches) {
-                        // Add text before match
-                        if (m.start > lastIndex) {
-                          const beforeText = description.slice(lastIndex, m.start);
-                          if (beforeText) {
-                            parts.push({ text: beforeText, isBold: false });
-                          }
-                        }
-                        
-                        // Add match text (bold for both mentions and hashtags)
-                        const matchText = description.slice(m.start, m.end);
-                        parts.push({ text: matchText, isBold: true });
-                        
-                        lastIndex = m.end;
-                      }
-                      
-                      // Add remaining text
-                      if (lastIndex < description.length) {
-                        parts.push({ text: description.slice(lastIndex), isBold: false });
-                      }
-                    } else {
-                      parts.push({ text: description, isBold: false });
-                    }
-                    
-                    return parts.map((part, index) => (
-                      <Text key={index} style={part.isBold ? styles.descriptionInputPreviewBold : styles.descriptionInputPreview}>
-                        {part.text}
-                      </Text>
-                    ));
-                  })()}
+                <Text style={styles.descriptionInputPreview} numberOfLines={3}>
+                  {formattedRichText.map((part, index) => (
+                    <Text key={index} style={part.isSemiBold ? styles.descriptionInputPreviewSemiBold : styles.descriptionInputPreviewNormal}>
+                      {part.text}
+                    </Text>
+                  ))}
                 </Text>
               ) : (
                 <Text style={[styles.descriptionInputPreview, styles.descriptionInputPlaceholder]}>
@@ -1478,6 +1344,9 @@ const VideoPostScreen: React.FC = () => {
               )}
             </TouchableOpacity>
           </View>
+          
+          {/* Divider */}
+          <View style={styles.sectionDivider} />
           
           {/* Channel Selection */}
           <View style={styles.section}>
@@ -1584,7 +1453,7 @@ const VideoPostScreen: React.FC = () => {
           </View>
           
           
-        </ScrollView>
+        </View>
         
 
         
@@ -1662,15 +1531,15 @@ const VideoPostScreen: React.FC = () => {
       <Modal
         visible={showDescriptionInputModal}
         transparent={true}
-        animationType="none"
+        animationType="fade"
         onRequestClose={() => setShowDescriptionInputModal(false)}
       >
         <View style={styles.descriptionModalContainer}>
-          <Animated.View style={[styles.descriptionModalOverlay, { opacity: descriptionModalOpacity }]}>
+          <View style={styles.descriptionModalOverlay}>
             <View style={[styles.descriptionModalContentWrapper, { paddingTop: insets.top }]}>
               <View style={styles.descriptionModalHeader}>
                 <View style={styles.descriptionModalHeaderSpacer} />
-                <Text style={styles.descriptionModalTitle}>Description</Text>
+                <Text style={[styles.sectionHeaderTitle, { marginBottom: 0 }]}>Description</Text>
                 <TouchableOpacity 
                   onPress={() => setShowDescriptionInputModal(false)}
                   style={[
@@ -1691,94 +1560,46 @@ const VideoPostScreen: React.FC = () => {
               <KeyboardAvoidingView 
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.descriptionModalContent}
+                keyboardVerticalOffset={0}
               >
-                <View style={styles.descriptionInputWrapper}>
+                <View style={styles.descriptionInputContainer}>
                   <TextInput
-                    {...richTextInputProps}
-                    style={[styles.descriptionModalInput, { height: descriptionInputHeight, color: description.length > 0 ? 'transparent' : Colors.white }]}
+                    value={description}
+                    onChangeText={setDescription}
+                    onSelectionChange={(e) => {
+                      setDescriptionSelection(e.nativeEvent.selection);
+                    }}
+                    style={styles.descriptionModalInput}
                     placeholder="Add text & tags (optional)"
-                    placeholderTextColor={Colors.gray}
-                    multiline
+                    placeholderTextColor={Colors.mediumGray}
+                    multiline={true}
                     maxLength={300}
                     autoFocus={true}
                     textAlignVertical="top"
-                    onContentSizeChange={(e) => {
-                      const newHeight = Math.min(Math.max(24, e.nativeEvent.contentSize.height + 8), 400);
-                      setDescriptionInputHeight(newHeight);
-                    }}
+                    blurOnSubmit={false}
+                    returnKeyType="default"
                   />
-                  {description.length > 0 && (
-                    <View style={[styles.descriptionPreview, { height: descriptionInputHeight }]}>
-                      {(() => {
-                        // Simple regex to find mentions and hashtags
-                        const mentionRegex = /@[\w.-]+/g;
-                        const hashtagRegex = /#[\w]+/g;
-                        const parts: Array<{ text: string; isBold: boolean }> = [];
-                        let lastIndex = 0;
-                        const matches: Array<{ start: number; end: number }> = [];
-                        
-                        // Find all mentions
-                        let match;
-                        while ((match = mentionRegex.exec(description)) !== null) {
-                          matches.push({ start: match.index, end: match.index + match[0].length });
-                        }
-                        
-                        // Find all hashtags
-                        while ((match = hashtagRegex.exec(description)) !== null) {
-                          matches.push({ start: match.index, end: match.index + match[0].length });
-                        }
-                        
-                        // Sort matches by position
-                        matches.sort((a, b) => a.start - b.start);
-                        
-                        if (matches.length > 0) {
-                          for (const m of matches) {
-                            // Add text before match
-                            if (m.start > lastIndex) {
-                              const beforeText = description.slice(lastIndex, m.start);
-                              if (beforeText) {
-                                parts.push({ text: beforeText, isBold: false });
-                              }
-                            }
-                            
-                            // Add match text (bold for both mentions and hashtags)
-                            const matchText = description.slice(m.start, m.end);
-                            parts.push({ text: matchText, isBold: true });
-                            
-                            lastIndex = m.end;
-                          }
-                          
-                          // Add remaining text
-                          if (lastIndex < description.length) {
-                            parts.push({ text: description.slice(lastIndex), isBold: false });
-                          }
-                        } else {
-                          parts.push({ text: description, isBold: false });
-                        }
-                        
-                        return (
-                          <Text style={styles.descriptionPreviewText} numberOfLines={0}>
-                            {parts.map((part, index) => (
-                              <Text key={index} style={part.isBold ? styles.descriptionPreviewBold : styles.descriptionPreviewNormal}>
-                                {part.text}
-                              </Text>
-                            ))}
+                  {description && (
+                    <View style={styles.descriptionInputOverlay} pointerEvents="none">
+                      <Text style={styles.descriptionInputOverlayText}>
+                        {formattedRichText.map((part, index) => (
+                          <Text key={index} style={part.isSemiBold ? styles.descriptionInputOverlaySemiBold : styles.descriptionInputOverlayNormal}>
+                            {part.text}
                           </Text>
-                        );
-                      })()}
+                        ))}
+                      </Text>
                     </View>
                   )}
                 </View>
                 {richTextSearchModalProps.visible && (
-                  <View style={styles.searchResultsContainer}>
-                    <RichTextSearchModal
-                      {...richTextSearchModalProps}
-                    />
-                  </View>
+                  <RichTextSearchModal
+                    {...richTextSearchModalProps}
+                    containerStyle={styles.searchModalContainer}
+                  />
                 )}
               </KeyboardAvoidingView>
             </View>
-          </Animated.View>
+          </View>
         </View>
       </Modal>
 
@@ -1943,7 +1764,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 15,
+    paddingHorizontal: 4,
   },
   headerTitle: {
     color: Colors.lightGray,
@@ -1951,6 +1772,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
   },
   headerButton: {
+    position: 'absolute',
+    zIndex: 1000,
     padding: 8,
     borderRadius: BORDER_RADIUS.LARGE,
     width: 44,
@@ -1958,13 +1781,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.overlayBlack50,
-    marginHorizontal: 2,
   },
   postButton: {
     backgroundColor: Colors.darkGray,
     paddingHorizontal: 15,
   },
-  scrollView: {
+  contentContainer: {
     flex: 1,
   },
   previewSection: {
@@ -2059,6 +1881,7 @@ const styles = StyleSheet.create({
   },
   descriptionSection: {
     padding: 15,
+    paddingBottom: 0,
   },
   authorItemStyle: {
     marginBottom: 4,
@@ -2088,11 +1911,19 @@ const styles = StyleSheet.create({
   },
   section: {
     padding: 15,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  sectionDivider: {
+    height: 2,
+    backgroundColor: Colors.darkGray,
+    marginHorizontal: 15,
+    marginVertical: 4,
   },
   sectionHeaderTitle: {
     color: Colors.lightGray,
     fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Firma-Bold',
     marginBottom: 12,
   },
   sectionSelector: {
@@ -2199,7 +2030,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.lightGray,
     height: 60,
     borderRadius: BORDER_RADIUS.LARGE,
     justifyContent: 'center',
@@ -2263,9 +2094,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
   },
 
-  scrollViewContentContainer: {
-    flexGrow: 1,
-  },
   radioContainer: {
     position: 'relative',
     justifyContent: 'center',
@@ -2301,7 +2129,7 @@ const styles = StyleSheet.create({
   },
   landscapePostButton: {
     marginTop: 24,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.lightGray,
     height: 60,
     borderRadius: BORDER_RADIUS.LARGE,
     justifyContent: 'center',
@@ -2418,18 +2246,23 @@ const styles = StyleSheet.create({
   descriptionInputPreview: {
     color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
   },
-  descriptionInputPreviewBold: {
+  descriptionInputPreviewNormal: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-Bold',
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 'bold',
+    fontFamily: 'Firma-Regular',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  descriptionInputPreviewSemiBold: {
+    color: Colors.lightGray,
+    fontFamily: 'Firma-SemiBold',
+    fontSize: 15,
+    lineHeight: 22,
   },
   descriptionInputPlaceholder: {
-    color: Colors.gray,
+    color: Colors.mediumGray,
   },
   descriptionModalContainer: {
     flex: 1,
@@ -2441,12 +2274,14 @@ const styles = StyleSheet.create({
   descriptionModalContentWrapper: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'flex-start',
   },
   descriptionModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 15,
+    paddingLeft: 15,
+    paddingRight: 15,
     paddingVertical: 12,
   },
   descriptionModalHeaderSpacer: {
@@ -2458,13 +2293,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
   },
   descriptionModalDoneButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 0,
+    paddingLeft: 16,
+    paddingRight: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   descriptionModalDoneText: {
     color: Colors.lightGray,
-    fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
+    fontSize: 18,
+    fontFamily: 'Firma-Medium',
   },
   descriptionModalDoneTextDisabled: {
     color: Colors.red,
@@ -2473,26 +2311,63 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   descriptionModalContent: {
-    flex: 1,
     padding: 15,
-    paddingTop: 8,
+    paddingTop: 4,
+    flex: 1,
+  },
+  descriptionInputContainer: {
+    position: 'relative',
+    width: '100%',
   },
   descriptionModalInput: {
+    color: 'transparent',
+    fontFamily: 'Firma-Regular',
+    fontSize: 15,
+    textAlignVertical: 'top',
+    includeFontPadding: false,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    width: '100%',
+    minHeight: 24,
+    maxHeight: 400,
+  },
+  descriptionInputOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+  },
+  descriptionInputOverlayText: {
     color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
-    fontSize: 16,
+    fontSize: 15,
     textAlignVertical: 'top',
+    includeFontPadding: false,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
-  descriptionInputWrapper: {
-    width: '100%',
-    position: 'relative',
+  descriptionInputOverlayNormal: {
+    color: Colors.lightGray,
+    fontFamily: 'Firma-Regular',
+    fontSize: 15,
+  },
+  descriptionInputOverlaySemiBold: {
+    color: Colors.lightGray,
+    fontFamily: 'Firma-SemiBold',
+    fontSize: 15,
   },
   descriptionPreview: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
+    bottom: 0,
     pointerEvents: 'none',
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
   descriptionPreviewText: {
     color: Colors.lightGray,
@@ -2503,14 +2378,19 @@ const styles = StyleSheet.create({
   descriptionPreviewNormal: {
     color: Colors.lightGray,
     fontFamily: 'Firma-Regular',
+    fontSize: 16,
   },
-  descriptionPreviewBold: {
+  descriptionPreviewSemiBold: {
     color: Colors.lightGray,
-    fontFamily: 'Firma-Bold',
-    fontWeight: 'bold',
+    fontFamily: 'Firma-SemiBold',
+    fontSize: 16,
   },
   searchResultsContainer: {
     flex: 1,
+  },
+  searchModalContainer: {
+    flex: 1,
+    marginTop: 8,
   },
   channelSelectorContainer: {
     flexDirection: 'row',

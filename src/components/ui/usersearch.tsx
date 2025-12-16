@@ -61,6 +61,7 @@ interface RichTextSearchModalProps {
   searchQuery: string;
   searchType: 'mention' | 'hashtag';
   anchorPosition?: AnchorPosition;
+  containerStyle?: any;
 }
 
 // Helper: extract @mention query from text and cursor position
@@ -183,6 +184,7 @@ export function RichTextSearchModal({
   searchQuery,
   searchType,
   anchorPosition,
+  containerStyle,
 }: RichTextSearchModalProps) {
   // User search query
   const {
@@ -241,7 +243,7 @@ export function RichTextSearchModal({
   if (!visible) return null;
 
   return (
-    <View style={styles.richTextSearchContainer}>
+    <View style={[styles.richTextSearchContainer, containerStyle]}>
       {searchType === 'mention' ? (
         isLoadingUsers ? (
           <View style={styles.centered}>
@@ -303,7 +305,10 @@ export function RichTextSearchModal({
                     onPress={() => onSelectHashtag?.(item.tag)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.hashtagText}>#{item.tag}</Text>
+                    <Text style={styles.hashtagText}>
+                      <Text style={styles.hashtagSymbol}>#</Text>
+                      <Text style={styles.hashtagTag}>{item.tag}</Text>
+                    </Text>
                   </TouchableOpacity>
                 )}
                 contentContainerStyle={styles.hashtagListContent}
@@ -415,6 +420,17 @@ export function useRichTextSearchTrigger({
     if (!selection) return;
     const cursor = selection.start;
     
+    // If modal is visible and user types a space, dismiss it
+    if (modalVisible && cursor > 0) {
+      const charBeforeCursor = value[cursor - 1];
+      if (charBeforeCursor === ' ') {
+        setModalVisible(false);
+        setSearchQuery('');
+        setSearchRange(null);
+        return;
+      }
+    }
+    
     // Check for hashtag first (more specific pattern)
     const hashtag = getHashtagQuery(value, cursor);
     if (hashtag) {
@@ -437,7 +453,7 @@ export function useRichTextSearchTrigger({
       setSearchRange(null);
       setModalVisible(false);
     }
-  }, [value, selection]);
+  }, [value, selection, modalVisible]);
 
   // Insert selected user at the mention position
   const handleSelectUser = useCallback(
@@ -612,6 +628,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
   hashtagText: {
+    color: Colors.white,
+    fontSize: 17,
+    fontFamily: 'Firma-Regular',
+  },
+  hashtagSymbol: {
+    color: Colors.white,
+    fontSize: 17,
+    fontFamily: 'Firma-Regular',
+  },
+  hashtagTag: {
     color: Colors.white,
     fontSize: 17,
     fontFamily: 'Firma-SemiBold',

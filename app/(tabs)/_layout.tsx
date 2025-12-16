@@ -151,7 +151,7 @@ export default function TabsLayout() {
       tabBarHideOnKeyboard: true,
       tabBarShowLabel: false,
       tabBarStyle: (isCreateScreen || isScrubbing) ? {
-        display: 'none',
+        display: 'none' as const,
       } : {
         backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent',
         paddingTop: isSmallDevice ? 2 : 6,
@@ -159,7 +159,7 @@ export default function TabsLayout() {
         shadowOpacity: 0,
         borderTopWidth: 0,
         elevation: 0,
-        position: 'absolute',
+        position: 'absolute' as const,
         borderColor: 'transparent',
       },
       tabBarBackground: () => (
