@@ -194,6 +194,8 @@ const CreateScreen: React.FC = () => {
           isRecordingRef.current = false;
           setIsRecording(false);
         }
+        // Ensure flashlight is turned off when leaving the create screen
+        setFlash('off');
       };
     }, [])
   );
