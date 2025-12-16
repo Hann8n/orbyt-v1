@@ -1,6 +1,6 @@
 import { AtpAgent } from '@atproto/api';
 import * as SecureStore from 'expo-secure-store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storageHelpers } from '../../utils/storage';
 import { Platform } from 'react-native';
 import { ModerationDecision, ModerationSettings, LabelPreference, ModerationOpts, LabelDefinition } from '../ModerationTypes';
 import { AtProtoOAuthService } from '../auth/OAuthService';
@@ -1721,7 +1721,7 @@ class AtprotoService {
         userDid: userDid,
         targetFeed: targetFeed,
       };
-      await AsyncStorage.setItem(feedbackKey, JSON.stringify(feedbackData));
+      await storageHelpers.setItem(feedbackKey, JSON.stringify(feedbackData));
 
       // If we have a target feed, send the interaction to Bluesky's API
       // This communicates the preference to the feed generator
@@ -1774,7 +1774,7 @@ class AtprotoService {
   static async getVideoFeedback(postUri: string): Promise<{ type: 'interested' | 'not_interested'; timestamp: string; userDid: string } | null> {
     try {
       const feedbackKey = `video_feedback_${postUri}`;
-      const feedbackStr = await AsyncStorage.getItem(feedbackKey);
+      const feedbackStr = await storageHelpers.getItem(feedbackKey);
       
       if (feedbackStr) {
         const feedbackData = JSON.parse(feedbackStr);
@@ -1793,7 +1793,7 @@ class AtprotoService {
   static async removeVideoFeedback(postUri: string): Promise<void> {
     try {
       const feedbackKey = `video_feedback_${postUri}`;
-      await AsyncStorage.removeItem(feedbackKey);
+      await storageHelpers.removeItem(feedbackKey);
     } catch (error: unknown) {
       throw error;
     }

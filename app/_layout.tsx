@@ -13,6 +13,7 @@ import { setVideoCacheSizeAsync } from 'expo-video';
 import { Colors } from '../src/components/ui/UI';
 import { useAppStore } from '../src/stores/appStore';
 import { useAuth, useAccountManagement, useUserStore } from '../src/stores/userStore';
+import { migrateAsyncStorageToMMKV } from '../src/utils/storage';
 import { useBookmarkStore } from '../src/stores/bookmarkStore';
 import { CommonErrorHandlers } from '../src/utils/errorHandler';
 import { feedService, createQueryKeys } from '../src/services/FeedService';
@@ -126,6 +127,9 @@ export default function RootLayout() {
   // Parallel initialization: fonts and auth state load simultaneously
   useEffect(() => {
     const initializeApp = async () => {
+      // Migrate AsyncStorage to MMKV (one-time migration)
+      await migrateAsyncStorageToMMKV();
+      
       // Run font loading and user initialization in parallel
       const [fontsResult] = await Promise.allSettled([
         Font.loadAsync({

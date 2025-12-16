@@ -39,9 +39,35 @@
         "distribution": "internal",
         "buildConfiguration": "Release"
       }
+    },
+    "beta": {
+      "extends": "production",
+      "distribution": "store",
+      "android": {
+        "buildType": "aab"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_CONFIG": "app.prod.json"
+      }
+    },
+    "beta-apk": {
+      "extends": "production",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_CONFIG": "app.prod.json"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {},
+    "beta": {
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
+      }
+    }
   }
 }

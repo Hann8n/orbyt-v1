@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storageAdapter } from '../utils/storage';
 import { Message, Conversation, ProfileViewBasic } from '../services/ChatService';
 import { ChatMessage, convertMessagesToGiftedChat } from '../utils/chatHelpers';
 
@@ -188,7 +188,7 @@ export const useChatStore = create<ChatState>()(
     }),
     {
       name: 'chat-store',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => storageAdapter),
       partialize: (state) => ({
         // Only persist messages cache and conversations
         messagesCache: state.messagesCache,

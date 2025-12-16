@@ -95,6 +95,19 @@
           "supportsBackgroundPlayback": false,
           "supportsPictureInPicture": false
         }
+      ],
+      [
+        "@mozzius/expo-dynamic-app-icon",
+        {
+          "default": {
+            "ios": "./src/assets/icon.png",
+            "android": "./src/assets/icon.png"
+          },
+          "dev": {
+            "ios": "./src/assets/icon-dev.png",
+            "android": "./src/assets/icon-dev.png"
+          }
+        }
       ]
     ],
     "extra": {

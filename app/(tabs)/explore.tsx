@@ -1456,9 +1456,8 @@ const ExploreScreen: React.FC = () => {
   // Load visit history from storage
   const loadVisitHistory = useCallback(async () => {
     try {
-      // Using AsyncStorage for persistence
-      const AsyncStorage = await import('@react-native-async-storage/async-storage');
-      const history = await AsyncStorage.default.getItem('visitHistory');
+      const { storageHelpers } = await import('../../src/utils/storage');
+      const history = await storageHelpers.getItem('visitHistory');
       if (history) {
         setVisitHistory(JSON.parse(history));
       }
@@ -1470,7 +1469,7 @@ const ExploreScreen: React.FC = () => {
   // Save visited profile or channel to history
   const saveToVisitHistory = useCallback(async (type: 'profile' | 'channel', data: Profile | Channel) => {
     try {
-      const AsyncStorage = await import('@react-native-async-storage/async-storage');
+      const { storageHelpers } = await import('../../src/utils/storage');
       const historyItem = {
         type,
         data,
@@ -1489,7 +1488,7 @@ const ExploreScreen: React.FC = () => {
       ].slice(0, 20); // Keep last 20 visited items
       
       setVisitHistory(newHistory);
-      await AsyncStorage.default.setItem('visitHistory', JSON.stringify(newHistory));
+      await storageHelpers.setItem('visitHistory', JSON.stringify(newHistory));
     } catch (error) {
       console.warn('Failed to save visit history:', error);
     }
@@ -1498,9 +1497,9 @@ const ExploreScreen: React.FC = () => {
   // Clear visit history
   const clearVisitHistory = useCallback(async () => {
     try {
-      const AsyncStorage = await import('@react-native-async-storage/async-storage');
+      const { storageHelpers } = await import('../../src/utils/storage');
       setVisitHistory([]);
-      await AsyncStorage.default.removeItem('visitHistory');
+      await storageHelpers.removeItem('visitHistory');
     } catch (error) {
       console.warn('Failed to clear visit history:', error);
     }

@@ -8,7 +8,7 @@ import React, { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 // Note: Using individual selectors instead of shallow comparison for better performance
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storageAdapter, storageHelpers } from '../utils/storage';
 import * as SecureStore from 'expo-secure-store';
 import { InteractionManager } from 'react-native';
 import { Agent } from '@atproto/api';
@@ -733,9 +733,9 @@ export const useUserStore = create<UserState>()(
           // Filter out built-in channels before saving
           const channelsToSave = get().subscribedChannels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
           
-          // Save to storage using AsyncStorage
+          // Save to storage
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
-          await AsyncStorage.setItem(key, JSON.stringify(channelsToSave));
+          await storageHelpers.setItem(key, JSON.stringify(channelsToSave));
 
           // Sync subscribed channels to orbyt profile record (best-effort)
           try {
@@ -766,10 +766,10 @@ export const useUserStore = create<UserState>()(
           
           set({ subscribedChannels: updatedChannels });
           
-          // Save to storage using AsyncStorage (filter built-ins)
+          // Save to storage (filter built-ins)
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
           const channelsToSave = updatedChannels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
-          await AsyncStorage.setItem(key, JSON.stringify(channelsToSave));
+          await storageHelpers.setItem(key, JSON.stringify(channelsToSave));
 
           // Sync subscribed channels to orbyt profile record (best-effort)
           try {
@@ -841,7 +841,7 @@ export const useUserStore = create<UserState>()(
           // Single storage operation for all changes (filter built-ins)
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
           const channelsToSave = get().subscribedChannels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
-          await AsyncStorage.setItem(key, JSON.stringify(channelsToSave));
+          await storageHelpers.setItem(key, JSON.stringify(channelsToSave));
 
           // Sync subscribed channels to orbyt profile record (best-effort)
           try {
@@ -873,7 +873,7 @@ export const useUserStore = create<UserState>()(
           // Single storage operation for all changes (filter built-ins)
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, currentUser.did);
           const channelsToSave = updatedChannels.filter(ch => !BUILT_IN_CHANNELS.includes(ch.uri));
-          await AsyncStorage.setItem(key, JSON.stringify(channelsToSave));
+          await storageHelpers.setItem(key, JSON.stringify(channelsToSave));
 
           // Sync subscribed channels to orbyt profile record (best-effort)
           try {
@@ -892,7 +892,7 @@ export const useUserStore = create<UserState>()(
         try {
           const currentUser = get().currentUser;
           const key = currentUser?.did ? `experimental_feeds_enabled_${currentUser.did}` : 'experimental_feeds_enabled';
-          await AsyncStorage.setItem(key, enabled.toString());
+          await storageHelpers.setItem(key, enabled.toString());
           set({ experimentalFeedsEnabled: enabled });
         } catch (error) {
           logger.error('Error setting experimental feeds enabled', error, { component: 'userStore' });
@@ -904,7 +904,7 @@ export const useUserStore = create<UserState>()(
         try {
           const currentUser = get().currentUser;
           const key = currentUser?.did ? `feed_debug_overlay_enabled_${currentUser.did}` : 'feed_debug_overlay_enabled';
-          await AsyncStorage.setItem(key, enabled.toString());
+          await storageHelpers.setItem(key, enabled.toString());
           set({ feedDebugOverlayEnabled: enabled });
         } catch (error) {
           logger.error('Error setting feed debug overlay enabled', error, { component: 'userStore' });
@@ -916,7 +916,7 @@ export const useUserStore = create<UserState>()(
         try {
           const currentUser = get().currentUser;
           const key = currentUser?.did ? `experimental_feeds_enabled_${currentUser.did}` : 'experimental_feeds_enabled';
-          const value = await AsyncStorage.getItem(key);
+          const value = await storageHelpers.getItem(key);
           return value === null ? true : value === 'true';
         } catch (error) {
           logger.error('Error getting experimental feeds enabled', error, { component: 'userStore' });
@@ -928,7 +928,7 @@ export const useUserStore = create<UserState>()(
         try {
           const currentUser = get().currentUser;
           const key = currentUser?.did ? `feed_debug_overlay_enabled_${currentUser.did}` : 'feed_debug_overlay_enabled';
-          const value = await AsyncStorage.getItem(key);
+          const value = await storageHelpers.getItem(key);
           return value === 'true';
         } catch (error) {
           logger.error('Error getting feed debug overlay enabled', error, { component: 'userStore' });
@@ -945,9 +945,9 @@ export const useUserStore = create<UserState>()(
             : STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER;
           
           if (uri === null) {
-            await AsyncStorage.removeItem(key);
+            await storageHelpers.removeItem(key);
           } else {
-            await AsyncStorage.setItem(key, uri);
+            await storageHelpers.setItem(key, uri);
           }
           
           set({ algorithmicFeedProvider: uri });
@@ -972,7 +972,7 @@ export const useUserStore = create<UserState>()(
           const key = currentUser?.did 
             ? getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, currentUser.did)
             : STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER;
-          const value = await AsyncStorage.getItem(key);
+          const value = await storageHelpers.getItem(key);
           // Default to Bluesky Video if not set
           return value ?? ALGORITHMIC_FEED_PROVIDERS.BLUESKY_VIDEO.uri;
         } catch (error) {
@@ -1293,9 +1293,9 @@ export const useUserStore = create<UserState>()(
               // Save to local storage for faster access next time
               const key = getUserScopedKey(STORAGE_KEYS.ALGORITHMIC_FEED_PROVIDER, did);
               if (algorithmicFeedProvider === null) {
-                await AsyncStorage.removeItem(key);
+                await storageHelpers.removeItem(key);
               } else {
-                await AsyncStorage.setItem(key, algorithmicFeedProvider);
+                await storageHelpers.setItem(key, algorithmicFeedProvider);
               }
             } else {
               // No value in profile record, try local storage
@@ -1328,7 +1328,7 @@ export const useUserStore = create<UserState>()(
         try {
           // Load user-specific channel subscriptions
           const key = getUserScopedKey(STORAGE_KEYS.SUBSCRIBED_CHANNELS, did);
-          const savedChannelsStr = await AsyncStorage.getItem(key);
+          const savedChannelsStr = await storageHelpers.getItem(key);
           
           let savedChannels: SubscribedChannel[] = savedChannelsStr ? JSON.parse(savedChannelsStr) : [];
 
@@ -1357,7 +1357,7 @@ export const useUserStore = create<UserState>()(
                   isOrbytChannel: isOrbytChannel(uri),
                   subscribedAt: Date.now(),
                 }));
-                await AsyncStorage.setItem(key, JSON.stringify(savedChannels));
+                await storageHelpers.setItem(key, JSON.stringify(savedChannels));
               }
             }
           } catch {}
@@ -1431,7 +1431,7 @@ export const useUserStore = create<UserState>()(
           } while (cursor);
           
           // Update cache
-          await AsyncStorage.setItem(STORAGE_KEYS.DEVELOPER_MEMBERS, JSON.stringify(allMembers));
+          await storageHelpers.setItem(STORAGE_KEYS.DEVELOPER_MEMBERS, JSON.stringify(allMembers));
           
           // Check if current user is in the developer list
           const isDeveloper = allMembers.includes(currentUser.did);
@@ -1456,7 +1456,7 @@ export const useUserStore = create<UserState>()(
     }),
     {
       name: 'user-store',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => storageAdapter),
       partialize: (state) => ({
         // Only persist non-sensitive data
         savedAccounts: state.savedAccounts,

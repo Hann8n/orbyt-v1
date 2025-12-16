@@ -1276,7 +1276,7 @@
     resolve-from "^5.0.0"
     semver "^7.6.0"
 
-"@expo/image-utils@^0.8.8":
+"@expo/image-utils@^0.8.7", "@expo/image-utils@^0.8.8":
   version "0.8.8"
   resolved "https://registry.npmjs.org/@expo/image-utils/-/image-utils-0.8.8.tgz"
   integrity sha512-HHHaG4J4nKjTtVa1GG9PCh763xlETScfEyNxxOvfTRr8IKPJckjTyqSLEtdJoFNJ1vqiABEjW7tqGhqGibZLeA==
@@ -1704,6 +1704,14 @@
   version "2.6.0"
   resolved "https://registry.yarnpkg.com/@miblanchard/react-native-slider/-/react-native-slider-2.6.0.tgz#9f78c805d637ffaff0e3e7429932d2995a67edc9"
   integrity sha512-o7hk/f/8vkqh6QNR5L52m+ws846fQeD/qNCC9CCSRdBqjq66KiCgbxzlhRzKM/gbtxcvMYMIEEJ1yes5cr6I3A==
+
+"@mozzius/expo-dynamic-app-icon@^1.8.0":
+  version "1.8.0"
+  resolved "https://registry.yarnpkg.com/@mozzius/expo-dynamic-app-icon/-/expo-dynamic-app-icon-1.8.0.tgz#3e98b6dc6d2a90a4274f8d975231f71e1f765142"
+  integrity sha512-b8/OGbTWrEhNKi8fro9MEpS2aqfP/3uIjgMTlSmEPggwKSVho61sf86t8k1g2BsVt6T+pMbS3FTMsPAVeROiJQ==
+  dependencies:
+    "@expo/image-utils" "^0.8.7"
+    xcode "^3.0.1"
 
 "@radix-ui/primitive@1.1.3":
   version "1.1.3"

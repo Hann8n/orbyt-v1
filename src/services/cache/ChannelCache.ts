@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storageHelpers } from '../../utils/storage';
 import { InteractionManager } from 'react-native';
 import AtprotoService from '../api/AtprotoService';
 import { extractColorsFromImage, isColorDark, darkenColor } from '../../utils/formatting/colorUtils';
@@ -130,7 +130,7 @@ class ChannelCache {
     
     try {
       const normalizedUri = uri.toLowerCase();
-      const cached = await AsyncStorage.getItem(this.getCacheKey(normalizedUri));
+      const cached = await storageHelpers.getItem(this.getCacheKey(normalizedUri));
       
       if (cached) {
         const parsed = JSON.parse(cached) as CachedChannel;
@@ -342,8 +342,8 @@ class ChannelCache {
       // Update caches
       this.memoryCache.set(normalizedUri, cacheObject);
       
-      // AsyncStorage operations are already async - no delay needed
-      await AsyncStorage.setItem(
+      // Storage operations are already async - no delay needed
+      await storageHelpers.setItem(
         this.getCacheKey(normalizedUri),
         JSON.stringify(cacheObject)
       ).catch(() => {
@@ -394,7 +394,7 @@ class ChannelCache {
           
           // Update both memory and storage
           this.memoryCache.set(normalizedUri, {...cachedChannel});
-          await AsyncStorage.setItem(this.getCacheKey(normalizedUri), JSON.stringify(cachedChannel));
+          await storageHelpers.setItem(this.getCacheKey(normalizedUri), JSON.stringify(cachedChannel));
           
           // Notify subscribers of a channel update
           this.notifyChannelUpdated(normalizedUri);
@@ -475,7 +475,7 @@ class ChannelCache {
 
                 // Save to both memory and persistent cache
                 this.memoryCache.set(normalizedUri, cacheObject);
-                await AsyncStorage.setItem(this.getCacheKey(normalizedUri), JSON.stringify(cacheObject));
+                await storageHelpers.setItem(this.getCacheKey(normalizedUri), JSON.stringify(cacheObject));
                 
                 // Notify subscribers of a channel update
                 this.notifyChannelUpdated(normalizedUri);
@@ -566,10 +566,10 @@ class ChannelCache {
   static async clearCache(): Promise<void> {
     try {
       this.memoryCache.clear();
-      const keys = await AsyncStorage.getAllKeys();
+      const keys = await storageHelpers.getAllKeys();
       const channelKeys = keys.filter(key => key.startsWith('channel_'));
       if (channelKeys.length > 0) {
-        await AsyncStorage.multiRemove(channelKeys);
+        await Promise.all(channelKeys.map(key => storageHelpers.removeItem(key)));
       }
     } catch (error) {
     }
@@ -589,7 +589,7 @@ class ChannelCache {
       
       // Remove from persistent cache
       const cacheKey = this.getCacheKey(normalizedUri);
-      await AsyncStorage.removeItem(cacheKey);
+      await storageHelpers.removeItem(cacheKey);
       
       // Notify subscribers
       this.notifyChannelUpdated(normalizedUri);
@@ -691,8 +691,8 @@ class ChannelCache {
     // Cache in memory and storage
     this.memoryCache.set(normalizedUri, cacheObject);
     
-    // AsyncStorage operations are already async - no delay needed
-    AsyncStorage.setItem(
+    // Storage operations are already async - no delay needed
+    storageHelpers.setItem(
       this.getCacheKey(normalizedUri),
       JSON.stringify(cacheObject)
     ).catch(() => {

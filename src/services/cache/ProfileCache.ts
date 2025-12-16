@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storageHelpers } from '../../utils/storage';
 import { InteractionManager } from 'react-native';
 import AtprotoService from '../api/AtprotoService';
 import { isColorDark, getStatusBarStyle, DEFAULT_PROFILE_COLORS } from '@/utils/formatting/colorUtils';
@@ -585,7 +585,7 @@ class ProfileCache {
 
                 // Save to both memory and persistent cache
                 this.memoryCache.set(normalizedHandle, cacheObject);
-                await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cacheObject));
+                await storageHelpers.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cacheObject));
                 
                 // Notify subscribers of a profile update
                 this.notifyProfileUpdated(normalizedHandle);
@@ -633,7 +633,7 @@ class ProfileCache {
           
           // Update both memory and storage
           this.memoryCache.set(normalizedHandle, cachedProfile);
-          await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
+          await storageHelpers.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
           
           // Notify subscribers of a profile update
           this.notifyProfileUpdated(normalizedHandle);
@@ -685,7 +685,7 @@ class ProfileCache {
           
           // Update both memory and storage
           this.memoryCache.set(cacheKey.replace('profile_', ''), cachedProfile);
-          await AsyncStorage.setItem(cacheKey, JSON.stringify(cachedProfile));
+          await storageHelpers.setItem(cacheKey, JSON.stringify(cachedProfile));
           
           // Notify subscribers of a profile update
           this.notifyProfileUpdated(cachedProfile.handle);
@@ -753,7 +753,7 @@ class ProfileCache {
           
           // Update both memory and storage
           this.memoryCache.set(normalizedHandle, {...cachedProfile});
-          await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
+          await storageHelpers.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
           
           // Notify subscribers of a profile update
           this.notifyProfileUpdated(normalizedHandle);
@@ -808,7 +808,7 @@ class ProfileCache {
           
           // Update both memory and storage
           this.memoryCache.set(normalizedHandle, cachedProfile);
-          await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
+          await storageHelpers.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
           
           // Notify subscribers of a profile update
           this.notifyProfileUpdated(normalizedHandle);
@@ -851,7 +851,7 @@ class ProfileCache {
         };
 
         this.memoryCache.set(normalizedHandle, merged);
-        await AsyncStorage.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(merged));
+        await storageHelpers.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(merged));
         this.notifyProfileUpdated(normalizedHandle);
       } catch (error) {
         // Silently handle errors
@@ -1041,7 +1041,7 @@ class ProfileCache {
             this.memoryCache.set(did, cacheObject);
             
             // AsyncStorage operations are already async - no delay needed
-            await AsyncStorage.setItem(
+            await storageHelpers.setItem(
               this.getCacheKeyByDid(did),
               JSON.stringify(cacheObject)
             ).catch(() => {
@@ -1138,7 +1138,7 @@ class ProfileCache {
             this.memoryCache.set(normalizedHandle, cacheObject);
             
             // AsyncStorage operations are already async - no delay needed
-            await AsyncStorage.setItem(
+            await storageHelpers.setItem(
               this.getCacheKey(normalizedHandle),
               JSON.stringify(cacheObject)
             ).catch(() => {
@@ -1161,7 +1161,7 @@ class ProfileCache {
     
     // Async operations already run off the main thread - no delay needed
     try {
-      const cached = await AsyncStorage.getItem(this.getCacheKeyByDid(did));
+      const cached = await storageHelpers.getItem(this.getCacheKeyByDid(did));
       if (cached) {
         const parsed = JSON.parse(cached) as CachedProfile;
         return parsed;
@@ -1181,7 +1181,7 @@ class ProfileCache {
     // Async operations already run off the main thread - no delay needed
     try {
       const normalizedHandle = handle.toLowerCase();
-      const cached = await AsyncStorage.getItem(this.getCacheKey(normalizedHandle));
+      const cached = await storageHelpers.getItem(this.getCacheKey(normalizedHandle));
       if (cached) {
         const parsed = JSON.parse(cached) as CachedProfile;
         return parsed;
@@ -1227,7 +1227,7 @@ class ProfileCache {
       try {
         const normalizedHandle = handle.toLowerCase();
         this.memoryCache.delete(normalizedHandle);
-        await AsyncStorage.removeItem(this.getCacheKey(normalizedHandle));
+        await storageHelpers.removeItem(this.getCacheKey(normalizedHandle));
         
         // Notify subscribers of a profile update
         this.notifyProfileUpdated(normalizedHandle);
@@ -1247,11 +1247,11 @@ class ProfileCache {
         // Clear memory cache
         this.memoryCache.clear();
         
-        // Clear AsyncStorage cache
-        const keys = await AsyncStorage.getAllKeys();
+        // Clear storage cache
+        const keys = await storageHelpers.getAllKeys();
         const profileKeys = keys.filter(key => key.startsWith(this.CACHE_KEY_PREFIX));
         if (profileKeys.length > 0) {
-          await AsyncStorage.multiRemove(profileKeys);
+          await Promise.all(profileKeys.map(key => storageHelpers.removeItem(key)));
         }
         
         // Notify all subscribers

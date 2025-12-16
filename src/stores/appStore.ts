@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storageAdapter } from '../utils/storage';
 
 interface AppState {
   // App initialization state
@@ -35,7 +35,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'app-store',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => storageAdapter),
       partialize: (state) => ({
         // Only persist app state, not loading states
         appState: state.appState,

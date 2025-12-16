@@ -7,7 +7,6 @@ import AtprotoService from '../../src/services/api/AtprotoService';
 // Use plain FlashList via FeedRenderer; no adapter/converter
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
 import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileCache, { 
   useProfile, 
   useProfileByDid,
