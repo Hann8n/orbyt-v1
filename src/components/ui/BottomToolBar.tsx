@@ -65,7 +65,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
         {
           // Match bottom tab bar padding behavior from app/(tabs)/_layout.tsx
           paddingTop: isSmallDevice ? 2 : 6,
-          paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
+          paddingBottom: 0,
         }
       ]}>
         {tools.map((tool) => {
@@ -106,7 +106,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: Colors.black,
+    backgroundColor: 'transparent',
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flexDirection: 'row',
-    backgroundColor: Colors.black,
+    backgroundColor: 'transparent',
     borderTopWidth: 0,
     justifyContent: 'space-around',
     alignItems: 'flex-start',

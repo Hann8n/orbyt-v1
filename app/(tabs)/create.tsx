@@ -11,8 +11,6 @@ import {
   Platform,
   StatusBar,
   Linking,
-  PanResponder,
-  InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -41,11 +39,6 @@ import { Colors } from '../../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '../../src/utils/logger';
 import { useVideoTrimStore } from '../../src/stores/videoTrimStore';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const ASPECT_RATIO = 9 / 16;
-const VIDEO_WIDTH = SCREEN_WIDTH;
-const VIDEO_HEIGHT = VIDEO_WIDTH / ASPECT_RATIO;
 
 const MIN_SEGMENT_DURATION = 0.5; // Minimum duration for a segment in seconds
 
@@ -79,7 +72,6 @@ const CreateScreen: React.FC = () => {
   const [totalDuration, setTotalDuration] = useState(0);
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
   const [isDurationSelectorExpanded, setIsDurationSelectorExpanded] = useState(false);
-  const [zoom, setZoom] = useState(0);
 
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const segmentStartTime = useRef<number>(0);
@@ -99,9 +91,6 @@ const CreateScreen: React.FC = () => {
 
   const progressWidth = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
-  const currentZoomRef = useRef(0);
-  const initialZoom = useRef(0);
-  const initialDistance = useRef(0);
   
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
@@ -112,50 +101,6 @@ const CreateScreen: React.FC = () => {
   // Get current max duration from selected option
   const maxDuration = selectedDuration;
   const remainingTime = Math.max(0, maxDuration - totalDuration);
-
-  // Keep currentZoomRef in sync with zoom state
-  useEffect(() => {
-    currentZoomRef.current = zoom;
-  }, [zoom]);
-
-  // PanResponder for pinch-to-zoom
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (evt) => {
-        return evt.nativeEvent.touches.length === 2;
-      },
-      onPanResponderGrant: (evt) => {
-        if (evt.nativeEvent.touches.length === 2) {
-          const touch1 = evt.nativeEvent.touches[0];
-          const touch2 = evt.nativeEvent.touches[1];
-          const dx = touch2.pageX - touch1.pageX;
-          const dy = touch2.pageY - touch1.pageY;
-          initialDistance.current = Math.sqrt(dx * dx + dy * dy);
-          initialZoom.current = currentZoomRef.current;
-        }
-      },
-      onPanResponderMove: (evt) => {
-        if (evt.nativeEvent.touches.length === 2) {
-          const touch1 = evt.nativeEvent.touches[0];
-          const touch2 = evt.nativeEvent.touches[1];
-          const dx = touch2.pageX - touch1.pageX;
-          const dy = touch2.pageY - touch1.pageY;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          
-          if (initialDistance.current > 0) {
-            const scale = distance / initialDistance.current;
-            const newZoom = Math.min(Math.max(0, initialZoom.current + (scale - 1) * 0.5), 1);
-            setZoom(newZoom);
-            currentZoomRef.current = newZoom;
-          }
-        }
-      },
-      onPanResponderRelease: () => {
-        initialDistance.current = 0;
-      },
-    })
-  ).current;
 
   // Request camera permissions on mount
   useEffect(() => {
@@ -460,8 +405,6 @@ const CreateScreen: React.FC = () => {
       await stopRecording();
     }
     setIsFrontCamera(prev => !prev);
-    setZoom(0);
-    currentZoomRef.current = 0;
   }, [stopRecording]);
   const toggleFlash = useCallback(() => {
     // Only allow flash on back camera
@@ -686,38 +629,35 @@ const CreateScreen: React.FC = () => {
     // Normal camera content when permissions and device are available
     return (
       <>
-        {/* Progress Bar */}
-        <View style={[styles.progressBarOverlay, { height: insets.top }]}>
-          <View style={styles.combinedProgressBarContainer}>
-            <Animated.View
-              style={[
-                styles.progressBarFill,
-                { backgroundColor: selectedDuration === 6 ? '#09eb9a' : Colors.blurple },
-                animatedProgressStyle,
-              ]}
-            />
-          </View>
-        </View>
-
         {/* Camera View - only render when screen is focused */}
         <View style={styles.cameraContainer}>
-          <StatusBar barStyle="light-content" />
+          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
           {isFocused && (
-            <View {...panResponder.panHandlers} style={styles.cameraWrapper}>
-              <CameraView
-                key={`camera-${isFrontCamera ? 'front' : 'back'}`}
-                ref={cameraRef}
-                style={styles.camera}
-                facing={isFrontCamera ? 'front' : 'back'}
-                mode="video"
-                enableTorch={flash === 'on' && !isFrontCamera}
-                zoom={zoom}
-                mute={!microphonePermission?.granted}
-                videoQuality="1080p"
-                ratio="16:9"
+            <CameraView
+              key={`camera-${isFrontCamera ? 'front' : 'back'}`}
+              ref={cameraRef}
+              style={styles.camera}
+              facing={isFrontCamera ? 'front' : 'back'}
+              mode="video"
+              enableTorch={flash === 'on' && !isFrontCamera}
+              mute={!microphonePermission?.granted}
+              videoQuality="1080p"
+              ratio="16:9"
+            />
+          )}
+          
+          {/* Progress Bar - overlays on top of camera */}
+          <View style={[styles.progressBarOverlay, { height: insets.top }]}>
+            <View style={styles.combinedProgressBarContainer}>
+              <Animated.View
+                style={[
+                  styles.progressBarFill,
+                  { backgroundColor: selectedDuration === 6 ? '#09eb9a' : Colors.blurple },
+                  animatedProgressStyle,
+                ]}
               />
             </View>
-          )}
+          </View>
           
           {/* Controls */}
           <View style={[styles.centerButtonContainer, { bottom: bottomNavBarHeight + (isSmallScreen() ? 40 : 50) }]}>
@@ -741,7 +681,7 @@ const CreateScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <TouchableOpacity style={[styles.backButton, { top: insets.top + 10 }]} onPress={handleBackPress}>
         <CloseFillIcon size={26} color="white" />
       </TouchableOpacity>
@@ -865,13 +805,8 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
-  cameraWrapper: {
-    flex: 1,
-  },
   camera: {
-    width: VIDEO_WIDTH,
-    height: VIDEO_HEIGHT,
-    alignSelf: 'center',
+    flex: 1,
   },
   progressBarOverlay: {
     position: 'absolute',
@@ -883,7 +818,7 @@ const styles = StyleSheet.create({
   combinedProgressBarContainer: {
     width: '100%',
     height: '100%',
-    backgroundColor: Colors.black,
+    backgroundColor: 'transparent',
     position: 'relative',
     overflow: 'hidden',
   },
