@@ -249,13 +249,27 @@ const CreateScreen: React.FC = () => {
         if (recordingPromiseRef.current) {
           const video = await recordingPromiseRef.current;
           if (video) {
-            const segmentDuration = (Date.now() - segmentStartTime.current) / 1000;
+            // Get actual video duration from the video file for accurate tracking
+            // This is more accurate than using Date.now() timestamps
+            let actualDuration: number;
+            try {
+              actualDuration = await VideoProcessingService.getVideoDurationFromFile(video.uri);
+              // If duration extraction failed, fallback to timestamp
+              if (actualDuration <= 0) {
+                actualDuration = (Date.now() - segmentStartTime.current) / 1000;
+              }
+            } catch (error) {
+              // Fallback to timestamp-based calculation if video info fails
+              console.warn('Failed to get video duration, using timestamp fallback:', error);
+              actualDuration = (Date.now() - segmentStartTime.current) / 1000;
+            }
+            
             let updatedDuration: number | null = null;
-            if (segmentDuration >= MIN_SEGMENT_DURATION) {
-              updatedDuration = totalDuration + segmentDuration;
+            if (actualDuration >= MIN_SEGMENT_DURATION) {
+              updatedDuration = totalDuration + actualDuration;
               const newSegment = {
                 startTime: segmentStartTime.current,
-                duration: segmentDuration,
+                duration: actualDuration,
                 video,
                 sourceType: 'camera' as const,
               };

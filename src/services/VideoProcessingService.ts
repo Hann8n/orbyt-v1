@@ -106,6 +106,49 @@ export interface CompressionResult {
 
 class VideoProcessingService {
   /**
+   * Gets the actual video duration from the video file path
+   * Uses FFprobe for accurate duration, falls back to 0 if unavailable
+   */
+  static async getVideoDurationFromFile(videoPath: string): Promise<number> {
+    try {
+      // Normalize path for FFprobe
+      let normalizedPath = videoPath.replace('file://', '');
+      if (Platform.OS === 'ios' && !normalizedPath.startsWith('/')) {
+        normalizedPath = '/' + normalizedPath;
+      }
+
+      // Try FFprobe first if available
+      if (FFprobeKit) {
+        try {
+          if (typeof FFprobeKit.getMediaInformation === 'function') {
+            const mediaInfo = await FFprobeKit.getMediaInformation(normalizedPath);
+            const duration = (mediaInfo.getDuration?.() || mediaInfo.duration || 0) / 1000;
+            if (duration > 0) return duration;
+          } else if (typeof FFprobeKit.execute === 'function') {
+            const probeCommand = `-v error -show_entries format=duration -of json "${normalizedPath}"`;
+            const session = await FFprobeKit.execute(probeCommand);
+            const returnCode = await session.getReturnCode();
+            
+            if (ReturnCode && ReturnCode.isSuccess(returnCode)) {
+              const output = await session.getOutput();
+              const jsonOutput = JSON.parse(output);
+              const format = jsonOutput.format || {};
+              const duration = parseFloat(format.duration || '0');
+              if (duration > 0) return duration;
+            }
+          }
+        } catch (ffprobeError) {
+          logger.warn('FFprobe duration extraction failed', { component: 'VideoProcessingService', error: ffprobeError });
+        }
+      }
+    } catch (error) {
+      logger.warn('Failed to get video duration from file', { component: 'VideoProcessingService', error });
+    }
+    // Fallback: return 0 if we can't determine duration
+    return 0;
+  }
+
+  /**
    * Gets comprehensive video information
    */
   static async getVideoInfo(
