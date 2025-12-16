@@ -1079,10 +1079,10 @@ class VideoProcessingService {
     
     // Handle iCloud videos on iOS
     const assetId = 'assetId' in video ? video.assetId : null;
-    const localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
+    let localVideoPath = await this.getLocalVideoPath(videoPath, assetId);
     
     // Strip fragment identifier from path (iOS asset URIs may include #...)
-    localVideoPath = this.stripFragment(localVideoPath);
+    localVideoPath = VideoProcessingService.stripFragment(localVideoPath);
     
     // Analyze video to determine target resolution
     const asset = 'assetId' in video ? video as ImagePicker.ImagePickerAsset : undefined;
@@ -1151,8 +1151,8 @@ class VideoProcessingService {
       // Use complex filter approach for merging (prevents glitches from mixing different clip types)
       const mergedVideoPath = await this.mergeSegmentsComplex(segments, outputFile.uri);
 
-      // Verify merged file exists
-      const mergedFile = new File(mergedVideoPath.replace('file://', ''));
+      // Verify merged file exists (use mergedVideoPath with file:// prefix)
+      const mergedFile = new File(mergedVideoPath);
       if (!mergedFile.exists) {
         throw new Error('Merged video file was not created');
       }
@@ -1276,7 +1276,7 @@ class VideoProcessingService {
 
         // Normalize path for FFmpeg
         // Remove fragment identifier (#...) that iOS gallery URIs may contain
-        let normalizedPath = this.stripFragment(videoPath.replace('file://', ''));
+        let normalizedPath = VideoProcessingService.stripFragment(videoPath.replace('file://', ''));
         if (Platform.OS === 'ios' && !normalizedPath.startsWith('/')) {
           normalizedPath = '/' + normalizedPath;
         }
@@ -1332,8 +1332,8 @@ class VideoProcessingService {
       const returnCode = await session.getReturnCode();
 
       if (ReturnCode.isSuccess(returnCode)) {
-        // Verify output file exists
-        const outputFile = new File(normalizedOutput);
+        // Verify output file exists (use original outputPath URI, not normalized path)
+        const outputFile = new File(outputPath);
         if (!outputFile.exists) {
           throw new Error('Complex filter merge completed but output file not found');
         }
@@ -1608,7 +1608,7 @@ class VideoProcessingService {
       }
       
       // Strip fragment identifier and normalize path for FFmpeg
-      let normalizedPath = this.stripFragment(localVideoPath.replace('file://', ''));
+      let normalizedPath = VideoProcessingService.stripFragment(localVideoPath.replace('file://', ''));
       if (Platform.OS === 'ios' && !normalizedPath.startsWith('/')) {
         normalizedPath = '/' + normalizedPath;
       }
@@ -1638,8 +1638,8 @@ class VideoProcessingService {
       const returnCode = await session.getReturnCode();
 
       if (ReturnCode.isSuccess(returnCode)) {
-        // Verify thumbnail file exists
-        const thumbnail = new File(thumbnailPath);
+        // Verify thumbnail file exists (use thumbnailFile.uri, not normalized thumbnailPath)
+        const thumbnail = new File(thumbnailFile.uri);
         if (!thumbnail.exists) {
           throw new Error('Thumbnail file was not created');
         }

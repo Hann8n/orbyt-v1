@@ -203,11 +203,13 @@ export async function resolveVideoPath(
   }
 
   // Validate file exists
+  // Use full URI (with file:// prefix) for File constructor to avoid "URI is not absolute" errors on Android
   let exists = false;
   let size = 0;
   
   try {
-    const file = new File(localPath);
+    const fileUri = toFileUri(localPath);
+    const file = new File(fileUri);
     exists = file.exists;
     size = file.size || 0;
     
