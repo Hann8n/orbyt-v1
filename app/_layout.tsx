@@ -294,6 +294,14 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(modals)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen 
+            name="video-trimmer" 
+            options={{ 
+              headerShown: false,
+              animation: 'fade',
+              gestureEnabled: false,
+            }} 
+          />
           <Stack.Screen name="video-editor" options={{ headerShown: false }} />
           <Stack.Screen name="video-processing" options={{ headerShown: false }} />
           <Stack.Screen name="post/[id]" options={{ headerShown: false }} />

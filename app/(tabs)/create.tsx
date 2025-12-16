@@ -40,6 +40,7 @@ import { debugVideoPath } from '../../src/utils/videoPath';
 import { Colors } from '../../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '../../src/utils/logger';
+import { useVideoTrimStore } from '../../src/stores/videoTrimStore';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16;
@@ -104,6 +105,8 @@ const CreateScreen: React.FC = () => {
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
+  const pendingTrim = useVideoTrimStore(state => state.pendingTrim);
+  const consumePendingTrim = useVideoTrimStore(state => state.consumePendingTrim);
   
   // Get current max duration from selected option
   const maxDuration = selectedDuration;
@@ -181,56 +184,63 @@ const CreateScreen: React.FC = () => {
 
   // Handle trimmed video from video-trimmer screen
   useEffect(() => {
-    const addTrimmedVideoSegment = async () => {
-      if (params.trimmedVideoPath && params.trimmedVideoPath !== processedTrimmedVideoRef.current) {
-        const trimmedPath = params.trimmedVideoPath;
-        processedTrimmedVideoRef.current = trimmedPath;
-        
-        try {
-          // Use the passed trimmed duration if available, otherwise try to get from video info
-          let duration: number;
-          if (params.trimmedDuration) {
-            duration = parseFloat(params.trimmedDuration);
-          } else {
-            // Fallback: try to get duration from video file (may not be accurate for trimmed videos)
-            const videoInfo = await VideoProcessingService.getVideoInfo(trimmedPath);
-            duration = videoInfo.duration;
+    const maybeTrim = consumePendingTrim();
+    const handleTrim = async () => {
+      try {
+        let trim = maybeTrim;
+
+        // Backwards compatibility: also handle params-based trim (older flow)
+        if (!trim && params.trimmedVideoPath) {
+          const trimmedPath = params.trimmedVideoPath;
+          if (trimmedPath !== processedTrimmedVideoRef.current) {
+            processedTrimmedVideoRef.current = trimmedPath;
+            let duration: number;
+            if (params.trimmedDuration) {
+              duration = parseFloat(params.trimmedDuration);
+            } else {
+              const videoInfo = await VideoProcessingService.getVideoInfo(trimmedPath);
+              duration = videoInfo.duration;
+            }
+            trim = { videoPath: trimmedPath, duration };
           }
-          
-          if (duration >= MIN_SEGMENT_DURATION && totalDuration + duration <= maxDuration) {
-            const newSegment: VideoSegment = {
-              startTime: Date.now(),
-              duration: duration,
-              video: { uri: trimmedPath },
-              sourceType: 'gallery',
-            };
-            
-            setSegments(prev => {
-              const updated = [...prev, newSegment];
-              segmentsRef.current = updated;
-              return updated;
-            });
-            setTotalDuration(prev => {
-              const updated = prev + duration;
-              const progress = (updated / maxDuration) * 100;
-              progressWidth.value = withTiming(Math.min(progress, 100), { duration: 200 });
-              return updated;
-            });
-          } else if (duration < MIN_SEGMENT_DURATION) {
-            Alert.alert('Error', 'Trimmed video is too short');
-          } else {
-            Alert.alert('Error', 'Adding this video would exceed the maximum duration');
-          }
-        } catch (error) {
-          console.error('Error adding trimmed video segment:', error);
-          Alert.alert('Error', 'Failed to add trimmed video');
         }
-        // Note: processedTrimmedVideoRef prevents re-processing the same video
+
+        if (!trim) return;
+
+        const { videoPath, duration } = trim;
+
+        if (duration >= MIN_SEGMENT_DURATION && totalDuration + duration <= maxDuration) {
+          const newSegment: VideoSegment = {
+            startTime: Date.now(),
+            duration,
+            video: { uri: videoPath },
+            sourceType: 'gallery',
+          };
+
+          setSegments(prev => {
+            const updated = [...prev, newSegment];
+            segmentsRef.current = updated;
+            return updated;
+          });
+          setTotalDuration(prev => {
+            const updated = prev + duration;
+            const progress = (updated / maxDuration) * 100;
+            progressWidth.value = withTiming(Math.min(progress, 100), { duration: 200 });
+            return updated;
+          });
+        } else if (duration < MIN_SEGMENT_DURATION) {
+          Alert.alert('Error', 'Trimmed video is too short');
+        } else {
+          Alert.alert('Error', 'Adding this video would exceed the maximum duration');
+        }
+      } catch (error) {
+        console.error('Error adding trimmed video segment:', error);
+        Alert.alert('Error', 'Failed to add trimmed video');
       }
     };
-    
-    addTrimmedVideoSegment();
-  }, [params.trimmedVideoPath, totalDuration, maxDuration, progressWidth]);
+
+    handleTrim();
+  }, [pendingTrim, params.trimmedVideoPath, params.trimmedDuration, totalDuration, maxDuration, progressWidth]);
 
   // Reset processing state when screen comes back into focus (user navigated back)
   useFocusEffect(

@@ -34,7 +34,7 @@ function VideoTrimmerUI(props: VideoTrimmerProps, ref: Ref<unknown>) {
     source,
     loop = true,
     sliderContainerStyle,
-    tintColor = '#24a0ed',
+    tintColor = '#4528ea',
     onSelected,
     minDuration = MIN_DURATION,
     maxDuration,
@@ -191,6 +191,7 @@ function VideoTrimmerUI(props: VideoTrimmerProps, ref: Ref<unknown>) {
         key={`video-${loop}`}
         ref={videoRef}
         source={source}
+        resizeMode="contain"
         onProgress={onProgress}
         onEnd={onEnd}
         onLoad={onLoad}

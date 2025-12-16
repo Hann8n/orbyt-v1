@@ -19,6 +19,7 @@ import { resolveVideoPath } from '../src/utils/videoPath';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
+import { useVideoTrimStore } from '../src/stores/videoTrimStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -26,6 +27,7 @@ const VideoTrimmerScreen: React.FC = () => {
   const params = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const setPendingTrim = useVideoTrimStore(state => state.setPendingTrim);
   const trimmerRef = useRef<any>(null);
   
   const videoPath = params.videoPath as string | undefined;
@@ -170,19 +172,14 @@ const VideoTrimmerScreen: React.FC = () => {
         );
       }
       
-      // Navigate back with trimmed video (or original if no trimming)
+      // Provide trimmed video to caller and go back
       if (returnTo === 'create') {
-        // Navigate back to create screen with video as a segment
-        router.push({
-          pathname: '/(tabs)/create',
-          params: {
-            trimmedVideoPath: finalVideoPath,
-            trimmedDuration: trimmedDuration.toString(),
-          },
+        setPendingTrim({
+          videoPath: finalVideoPath,
+          duration: trimmedDuration,
         });
-      } else {
-        router.back();
       }
+      router.back();
     } catch (error: any) {
       console.error('Error trimming video:', error);
       Alert.alert('Error', error.message || 'Failed to trim video. Please try again.');
@@ -208,27 +205,25 @@ const VideoTrimmerScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { top: insets.top }]}>
+      {/* Footer */}
+      <View style={[styles.header, { bottom: insets.bottom }]}>
         <TouchableOpacity
-          style={styles.headerButton}
+          style={styles.cancelButton}
           onPress={handleCancel}
           disabled={isProcessing}
         >
-          <CloseFillIcon size={26} color="white" />
+          <Text style={styles.cancelButtonText}>Back</Text>
         </TouchableOpacity>
-        
-        <Text style={styles.headerTitle}>Trim Video</Text>
-        
+
         <TouchableOpacity
-          style={[styles.headerButton, !isReady && styles.headerButtonDisabled]}
+          style={[styles.saveButton, !isReady && styles.headerButtonDisabled]}
           onPress={handleApply}
           disabled={isProcessing || !isReady}
         >
           {isProcessing ? (
-            <Loading3FillIcon size={26} color="white" />
+            <Loading3FillIcon size={24} color={Colors.black} />
           ) : (
-            <ArrowRightFillIcon size={26} color="white" />
+            <Text style={styles.saveButtonText}>Done</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -242,7 +237,7 @@ const VideoTrimmerScreen: React.FC = () => {
           loop={true}
           containerStyle={styles.trimmerWrapper}
           sliderContainerStyle={styles.sliderContainer}
-          tintColor={Colors.purple}
+          tintColor={Colors.blurple}
           minDuration={0.5}
           maxDuration={availableDuration}
         />
@@ -278,11 +273,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     zIndex: 10,
   },
-  headerButton: {
-    width: 44,
-    height: 44,
+  cancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  cancelButtonText: {
+    color: Colors.white,
+    fontFamily: 'Firma-Bold',
+    fontSize: 17,
+  },
+  saveButton: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    minWidth: 60,
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  saveButtonText: {
+    fontFamily: 'Firma-Bold',
+    fontSize: 17,
+    color: Colors.black,
+    fontWeight: '600',
   },
   headerButtonDisabled: {
     opacity: 0.3,
@@ -294,14 +306,15 @@ const styles = StyleSheet.create({
   },
   trimmerContainer: {
     flex: 1,
-    marginTop: 60,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    marginTop: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    paddingBottom: 60,
   },
   trimmerWrapper: {
     height: 400,
-    borderRadius: 15,
-    overflow: 'hidden',
+    borderRadius: 0,
+    overflow: 'visible',
   },
   sliderContainer: {
     marginHorizontal: 0,

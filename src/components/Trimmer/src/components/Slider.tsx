@@ -35,6 +35,7 @@ function Slider({
   endPercent,
 }: SliderProps) {
   const thumbIndexRef = useRef(0);
+  const thumbColor = tintColor || '#4528ea';
   
   return (
     <View style={[sliderStyles.container, style]}>
@@ -72,7 +73,11 @@ function Slider({
             renderThumbComponent={() => {
               const isStart = thumbIndexRef.current === 0;
               thumbIndexRef.current = (thumbIndexRef.current + 1) % 2;
-              return isStart ? <StartThumb /> : <EndThumb />;
+              return isStart ? (
+                <StartThumb color={thumbColor} />
+              ) : (
+                <EndThumb color={thumbColor} />
+              );
             }}
           />
         </View>
