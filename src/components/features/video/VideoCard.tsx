@@ -38,6 +38,8 @@ import VideoOverlayUI from './VideoOverlayUI';
 import { useFocusEffect } from 'expo-router';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { usePostInteractionStore } from '../../../stores/postInteractionStore';
+import { useProfile } from '../../../services/cache/ProfileCache';
+import { getChannelBySlug } from '../../../utils/orbytChannels';
 
 // Use any type for post
 type Post = any;
@@ -116,10 +118,34 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       isRepostPending: false,
       ...persistedInteraction,
     }, [post.uri, feedOption]); // Auto-resets when post.uri or feed context changes
-    
-    // Use Reanimated for better performance - runs on UI thread
-    // Faster animation (80ms) for snappier feel during scrolling
-    const dimmingOpacity = useSharedValue(isVisible ? 0 : 1);
+
+    // Lightweight follow state per post, hoisted out of overlay
+    const { data: cachedProfile } = useProfile(post.author?.handle);
+    const isFollowing = cachedProfile?.isFollowing ?? false;
+    const hasProfile = !!cachedProfile;
+
+    // Extract channel slug from post tags - simple match, no lookups
+    const channelSlug = React.useMemo(() => {
+      const record = (post as any)?.record || {};
+      const tags = record?.tags || (post as any)?.tags || [];
+      if (!Array.isArray(tags) || tags.length === 0) {
+        return null;
+      }
+      const channelTag = tags.find((tag: string) => 
+        typeof tag === 'string' && tag.startsWith('orbyt-channel-')
+      );
+      if (!channelTag) {
+        return null;
+      }
+      return channelTag.replace(/^orbyt-channel-/, '') || null;
+    }, [post]);
+
+    // Get channel URI for navigation (only lookup needed for routing)
+    const channelUri = React.useMemo(() => {
+      if (!channelSlug) return null;
+      const channel = getChannelBySlug(channelSlug);
+      return channel?.uri || null;
+    }, [channelSlug]);
     
     // Double tap to like state - using Reanimated for UI thread performance
     const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
@@ -193,21 +219,6 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       // No need to reset videoState - handled automatically by useRecyclingState
     }, [post?.uri]);
 
-    // Optimized dimming animation using Reanimated - faster and smoother
-    // Runs on UI thread for better scroll performance
-    useEffect(() => {
-      // Faster animation (60ms) with ease-out for snappier feel during scrolling
-      dimmingOpacity.value = withTiming(isVisible ? 0 : 1, {
-        duration: 60, // Reduced from 150ms for much faster response
-        easing: Easing.out(Easing.ease), // Smooth ease-out curve
-      });
-    }, [isVisible, dimmingOpacity]);
-    
-    // Animated style for dimming overlay
-    const dimmingAnimatedStyle = useAnimatedStyle(() => ({
-      opacity: dimmingOpacity.value,
-    }));
-    
     // Animated style for heart animation - runs on UI thread
     const heartAnimatedStyle = useAnimatedStyle(() => {
       'worklet';
@@ -226,6 +237,9 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                            !(hasWarning && !shouldShowContent) &&
                            isVisible && // Use visibility instead of external shouldPlay prop
                            !!videoUrl;
+
+    // Simple dim state: dim when video cannot play, clear when it can
+    const isDimmed = !shouldPlayVideo;
 
     const shouldLoadVideo = !(hasWarning && !shouldShowContent) && !!videoSource;
 
@@ -659,6 +673,13 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       }
     }, [sourceFeed, navigation]);
 
+    const handleChannelPress = useCallback(() => {
+      if (channelUri) {
+        const encodedUri = encodeURIComponent(channelUri);
+        navigation.push(`/channel/${encodedUri}`);
+      }
+    }, [channelUri, navigation]);
+
     // Video Status Reporting - use post URI for simple tracking
     useEffect(() => {
       if (shouldPlayVideo) {
@@ -723,14 +744,13 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
               />
             </View>
 
-            {/* Optimized dimming overlay - always mounted for smooth transitions */}
-            <Animated.View 
-              style={[
-                styles.dimmingOverlay, 
-                dimmingAnimatedStyle
-              ]} 
-              pointerEvents="none"
-            />
+            {/* Simple dimming overlay - only rendered when video cannot play */}
+            {isDimmed && (
+              <View
+                style={styles.dimmingOverlay}
+                pointerEvents="none"
+              />
+            )}
 
             {/* Double tap heart animation - using Reanimated for UI thread */}
             <Animated.View
@@ -761,6 +781,10 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 repostCount={overlayState.repostCount}
                 isLikePending={overlayState.isLikePending}
                 isRepostPending={overlayState.isRepostPending}
+                isFollowing={isFollowing}
+                hasProfile={hasProfile}
+                channelSlug={channelSlug}
+                onChannelPress={handleChannelPress}
               />
             )}
           </View>

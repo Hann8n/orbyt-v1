@@ -17,6 +17,7 @@ import { Colors } from '../../ui/UI';
 import { feedService } from '../../../services/FeedService';
 import { APP_CONSTANTS } from '../../../utils/constants';
 import type { ListFeedViewRef } from '../../../types';
+import { FollowProvider } from '../../../context/FollowContext';
 
 // Types
 export interface Post {
@@ -446,9 +447,11 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
   ]);
 
   return (
-    <View style={styles.container}>
-      {feedView}
-    </View>
+    <FollowProvider>
+      <View style={styles.container}>
+        {feedView}
+      </View>
+    </FollowProvider>
   );
 }));
 

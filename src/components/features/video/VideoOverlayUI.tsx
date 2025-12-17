@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Animated, { useSharedValue, useAnimatedStyle, useAnimatedReaction, withSpring, withTiming, withSequence, Easing } from 'react-native-reanimated';
-import { useMappingHelper } from '@shopify/flash-list';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -13,19 +12,16 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../ui/UI';
 import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers';
-import Icon, { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon, TvIcon, AddCircleLineIcon, CheckCircleFillIcon } from '../../ui/Icon';
-import { useProfileFlags, isCurrentUser } from '../../../stores/profileInteractionStore';
-import { useUserStore } from '../../../stores/userStore';
+import { HeartFillIcon, ChatFillIcon, RefreshFillIcon, MoreFillIcon, AddCircleLineIcon, CheckCircleFillIcon } from '../../ui/Icon';
+import { isCurrentUser } from '../../../stores/profileInteractionStore';
 import { Avatar } from '../../ui/UI';
 import { formatNumber, formatHandle } from '../../../utils/helpers';
-import { useProfileColors, useProfile, useFollowMutation } from '../../../services/cache/ProfileCache';
-import { useChannelColors } from '../../../services/cache/ChannelCache';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import { VerificationBadge } from '../badging';
 import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useRouter, useSegments } from 'expo-router';
-import { getChannelBySlug } from '../../../utils/orbytChannels';
+import { useFollowContext } from '../../../context/FollowContext';
 
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -35,28 +31,6 @@ type Post = any;
 
 type RootStackParamList = {
   AuthorProfile: { handle: string };
-};
-
-// Map feed URIs to readable names
-const getFeedDisplayName = (uri: string): string => {
-  switch (uri) {
-    case 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/thevids':
-      return 'for your consideration';
-    case 'at://following':
-      return 'following';
-    default:
-      if (uri.includes('/app.bsky.feed.generator/')) {
-        const parts = uri.split('/app.bsky.feed.generator/');
-        if (parts.length > 1) {
-          const feedName = parts[1];
-          return feedName
-            .split('-')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-        }
-      }
-      return 'Custom Feed';
-  }
 };
 
 export interface VideoOverlayUIProps {
@@ -74,6 +48,10 @@ export interface VideoOverlayUIProps {
   repostCount?: number;
   isLikePending?: boolean;
   isRepostPending?: boolean;
+  isFollowing?: boolean;
+  hasProfile?: boolean;
+  channelSlug?: string | null;
+  onChannelPress?: () => void;
 }
 
 const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
@@ -91,6 +69,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   repostCount = 0,
   isLikePending = false,
   isRepostPending = false,
+  isFollowing = false,
+  hasProfile = false,
+  channelSlug,
+  onChannelPress,
 }) => {
   const isTabletDevice = isTablet();
   const isSmallScreenDevice = isSmallScreen();
@@ -103,12 +85,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const segments = useSegments();
   const hasTabBar = Array.isArray(segments) && segments[0] === '(tabs)';
   
-  // Get mapping helper for optimized rendering of nested components
-  const { getMappingKey } = useMappingHelper();
-  
   // Overlay state
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
-  const [hasLongText, setHasLongText] = useState(true);
 
   // Memoize expensive calculations to prevent rerenders
   const author = useMemo(() => post.author || {}, [post.author]);
@@ -126,15 +104,16 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Reset text state when post changes
   useEffect(() => {
-    setHasLongText(true);
     setIsOverlayCollapsed(true);
+    // Also reset follow confirmation when the post changes so it doesn't leak between items
+    setShowFollowConfirmation(false);
   }, [post?.uri, record?.text]);
 
-  // Handle text layout to detect if text is longer than 2 lines
-  const handleTextLayout = useCallback((event: any) => {
-    const { lines } = event.nativeEvent;
-    setHasLongText(lines.length > 2);
-  }, []);
+  // Heuristic to detect long text without layout measurement
+  const hasLongText = useMemo(
+    () => typeof record.text === 'string' && record.text.length > 140,
+    [record.text]
+  );
 
   // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
   const navigateToAuthorProfile = useCallback((rawHandle?: string | null) => {
@@ -253,65 +232,36 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     <ChatFillIcon size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} color={Colors.INTERACTIVE.COMMENT} />
   ), [isTabletDevice, actionIconSize]);
 
-  // Get profile colors for overlay
-  const { colors: profileColors } = useProfileColors(post.author?.handle);
-
-  
-  // Get channel colors for source feed
-  const { colors: channelColors } = useChannelColors(sourceFeed);
-
-  // Follow state and mutation
-  const { data: cachedProfile } = useProfile(post.author?.handle);
-  const isFollowingProfile = cachedProfile?.isFollowing ?? false;
-  const isFollowing = isFollowingProfile;
-  const followMutation = useFollowMutation();
-  const currentUser = useUserStore(state => state.currentUser);
+  // Follow state and mutation (lifted: follow state comes from parent, mutation from context)
+  const { followMutation, currentUser } = useFollowContext();
   const isCurrentUserProfile = isCurrentUser(post.author?.did, post.author?.handle, currentUser);
-
-  // Show confirmation badge when follow succeeds
-  useEffect(() => {
-    if (followMutation.isSuccess) {
-      setShowFollowConfirmation(true);
-      // Hide after 6s in case it wasn't already set
-      const timer = setTimeout(() => setShowFollowConfirmation(false), 6000);
-      return () => clearTimeout(timer);
-    }
-  }, [followMutation.isSuccess]);
 
   // Local UI state for confirmation badge
   const [showFollowConfirmation, setShowFollowConfirmation] = useState(false);
+  // Track that we've already shown a follow confirmation for this post so the + badge doesn't return after timeout
+  const [hasFollowedForPost, setHasFollowedForPost] = useState(false);
 
-  // Extract channel slug from post tags - simple match, no lookups
-  // Tags can be in post.record.tags or post.tags (check both)
-  const channelSlug = useMemo(() => {
-    const tags = record?.tags || post?.tags || [];
-    if (!Array.isArray(tags) || tags.length === 0) {
-      return null;
-    }
-    // Find tag that starts with 'orbyt-channel-'
-    const channelTag = tags.find((tag: string) => 
-      typeof tag === 'string' && tag.startsWith('orbyt-channel-')
-    );
-    if (!channelTag) {
-      return null;
-    }
-    // Extract slug from tag (remove 'orbyt-channel-' prefix) - use replace for robustness
-    return channelTag.replace(/^orbyt-channel-/, '') || null;
-  }, [record?.tags, post?.tags]);
+  // Auto-hide follow confirmation after a short delay to keep overlay lightweight
+  useEffect(() => {
+    if (!showFollowConfirmation) return;
+    const timeoutId = setTimeout(() => {
+      setShowFollowConfirmation(false);
+    }, 6000);
+    return () => clearTimeout(timeoutId);
+  }, [showFollowConfirmation]);
 
-  // Get channel URI for navigation (only lookup needed for routing)
-  const channelUri = useMemo(() => {
-    if (!channelSlug) return null;
-    const channel = getChannelBySlug(channelSlug);
-    return channel?.uri || null;
-  }, [channelSlug]);
+  // Precompute follow badge metrics
+  const followBadgeMetrics = useMemo(() => {
+    const badgeSize = Math.round(authorAvatarSize * 0.42);
+    const offset = Math.round(badgeSize * 0.25);
+    // Make hit box larger for easier tapping, but keep icon in same position
+    const hitBoxSize = Math.round(badgeSize * 1.4);
+    // Adjust positioning so icon stays in same visual position
+    const hitBoxOffset = Math.round((hitBoxSize - badgeSize) / 2);
+    return { badgeSize, offset, hitBoxSize, hitBoxOffset };
+  }, [authorAvatarSize]);
 
-  // Navigate to channel
-  const navigateToChannel = useCallback(() => {
-    if (channelUri) {
-      navigation.push(`/channel/${encodeURIComponent(channelUri)}`);
-    }
-  }, [channelUri, navigation]);
+  const { badgeSize, offset, hitBoxSize, hitBoxOffset } = followBadgeMetrics;
 
   // Memoize dynamic styles to prevent style object recreation
   const overlayContentStyle = useMemo(() => [
@@ -398,14 +348,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
           {/* Description container */}
           {record.text && (
             <View style={styles.descriptionContainer}>
-              {/* Hidden text to measure layout */}
-              <Text
-                style={[styles.descriptionText, { position: 'absolute', opacity: 0 }]}
-                onTextLayout={handleTextLayout}
-              >
-                {record.text}
-              </Text>
-              
               {hasLongText ? (
                 <TouchableOpacity onPress={toggleCollapsed} activeOpacity={0.8}>
                   <TextWithAuthorLinks
@@ -437,77 +379,59 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
           >
             <View style={{ position: 'relative', overflow: 'visible' }}>
               <Avatar
-              uri={profilePicUrl}
-              type="profile"
-              size={authorAvatarSize}
-              profileColors={profileColors}
-              style={[
-                isTabletDevice
-                  ? styles.profilePictureTablet
-                  : styles.profilePicture
-              ]}
-            />
+                uri={profilePicUrl}
+                type="profile"
+                size={authorAvatarSize}
+                style={[
+                  isTabletDevice
+                    ? styles.profilePictureTablet
+                    : styles.profilePicture
+                ]}
+              />
               {/* Follow badge overlay: show + when not following, show check briefly after follow */}
-              {/**
-               * Badge size is proportional to avatar. We offset it negatively
-               * so the badge sits partly outside the avatar's top-right corner.
-               */}
-              {(() => {
-                const badgeSize = Math.round(authorAvatarSize * 0.42);
-                const offset = Math.round(badgeSize * 0.25);
-                // Make hit box larger for easier tapping, but keep icon in same position
-                // Use smaller multiplier to avoid blocking avatar center
-                const hitBoxSize = Math.round(badgeSize * 1.4);
-                // Adjust positioning so icon stays in same visual position
-                const hitBoxOffset = Math.round((hitBoxSize - badgeSize) / 2);
-
-                return (
-                  <>
-                    {cachedProfile && !isFollowing && !showFollowConfirmation && !isCurrentUserProfile && (
-                      <TouchableOpacity
-                        onPress={() => {
-                          if (!post.author?.handle) return;
-                          // Optimistically show checkmark immediately
-                          setShowFollowConfirmation(true);
-                          // Trigger server follow
-                          try {
-                            followMutation.mutate({ handle: post.author.handle, isFollowing: true });
-                          } catch (err) {
-                            // If mutation fails, hide the checkmark
-                            setShowFollowConfirmation(false);
-                          }
-                        }}
-                        disabled={followMutation.isPending}
-                        activeOpacity={0.9}
-                        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                        style={[
-                          styles.followBadge,
-                          { 
-                            right: -offset - hitBoxOffset, 
-                            top: -offset - hitBoxOffset 
-                          },
-                          { width: hitBoxSize, height: hitBoxSize },
-                        ]}
-                      >
-                        <AddCircleLineIcon size={badgeSize} color={Colors.black} />
-                      </TouchableOpacity>
-                    )}
-                    {showFollowConfirmation && !isCurrentUserProfile && (
-                      <View
-                        pointerEvents="none"
-                        style={[
-                          styles.followBadge,
-                          { right: -offset, top: -offset },
-                          { width: badgeSize, height: badgeSize },
-                        ]}
-                      >
-                        <CheckCircleFillIcon size={badgeSize} color="#01f5b3" />
-                      </View>
-                    )}
-                  </>
-                );
-              })()}
-              {/* Follow badge already rendered above by IIFE */}
+              {hasProfile && !isFollowing && !showFollowConfirmation && !hasFollowedForPost && !isCurrentUserProfile && (
+                <TouchableOpacity
+                  onPress={() => {
+                    if (!post.author?.handle) return;
+                    // Optimistically show checkmark immediately
+                    setShowFollowConfirmation(true);
+                    setHasFollowedForPost(true);
+                    // Trigger server follow
+                    try {
+                      followMutation.mutate({ handle: post.author.handle, isFollowing: true });
+                    } catch (err) {
+                      // If mutation fails, hide the checkmark
+                      setShowFollowConfirmation(false);
+                      setHasFollowedForPost(false);
+                    }
+                  }}
+                  disabled={followMutation.isPending}
+                  activeOpacity={0.9}
+                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                  style={[
+                    styles.followBadge,
+                    { 
+                      right: -offset - hitBoxOffset, 
+                      top: -offset - hitBoxOffset 
+                    },
+                    { width: hitBoxSize, height: hitBoxSize },
+                  ]}
+                >
+                  <AddCircleLineIcon size={badgeSize} color={Colors.black} />
+                </TouchableOpacity>
+              )}
+              {showFollowConfirmation && !isCurrentUserProfile && (
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.followBadge,
+                    { right: -offset, top: -offset },
+                    { width: badgeSize, height: badgeSize },
+                  ]}
+                >
+                  <CheckCircleFillIcon size={badgeSize} color="#01f5b3" />
+                </View>
+              )}
             </View>
             <View style={styles.authorTextContainer}>
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
@@ -533,7 +457,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               {channelSlug ? (
                 <TouchableOpacity 
                   style={styles.sourceIndicatorContainer}
-                  onPress={navigateToChannel}
+                  onPress={onChannelPress}
                   activeOpacity={0.7}
                 >
                   <Text style={[
