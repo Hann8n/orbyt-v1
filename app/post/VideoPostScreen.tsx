@@ -994,24 +994,57 @@ const VideoPostScreen: React.FC = () => {
       navigation.replace('/(tabs)');
       
     } catch (error: any) {
-      let errorMessage = error.message || 'Failed to post video. Please try again.';
-      
-      // Add additional context for common errors
-      if (error.message?.includes('Video upload failed')) {
-        errorMessage = 'Video upload failed. This might be due to:\n• Video file size too large (max 50MB)\n• Network connection issues\n• Bluesky service temporarily unavailable\n\nPlease try again with a shorter video or the app will automatically compress it.';
-      } else if (error.message?.includes('timeout')) {
-        errorMessage = 'Video processing timed out. Please try again with a shorter video.';
+      // For upload failures, assume issue and offer retry
+      if (error.message?.includes('Video upload failed') || error.message?.includes('timeout')) {
+        Alert.alert(
+          'Upload Failed',
+          `It looks like there was an issue while uploading your video.\n\nWould you like to try again?`,
+          [
+            {
+              text: 'Close',
+              style: 'cancel',
+            },
+            {
+              text: 'Retry',
+              onPress: () => {
+                // Retry the upload
+                handlePost();
+              },
+            },
+          ]
+        );
       } else if (error.message?.includes('unauthorized')) {
-        errorMessage = 'Authentication failed. Please log out and log back in.';
+        Alert.alert(
+          'Authentication Failed',
+          'Your session has expired. Please log out and log back in.',
+          [{ text: 'OK' }]
+        );
       } else if (error.message?.includes('Video compression failed')) {
-        errorMessage = 'Video compression failed. Please try again with a shorter video or check your device storage.';
+        Alert.alert(
+          'Compression Failed',
+          'Failed to compress your video. Please try again with a shorter video or check your device storage.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // Generic error - still offer retry
+        Alert.alert(
+          'Upload Failed',
+          `Unable to upload your video. It looks like there was an issue.\n\nWould you like to try again?`,
+          [
+            {
+              text: 'Close',
+              style: 'cancel',
+            },
+            {
+              text: 'Retry',
+              onPress: () => {
+                // Retry the upload
+                handlePost();
+              },
+            },
+          ]
+        );
       }
-      
-      Alert.alert(
-        'error', 
-        errorMessage.toLowerCase(),
-        [{ text: 'OK' }]
-      );
     } finally {
       setIsPosting(false);
       setUploadProgress(0);
