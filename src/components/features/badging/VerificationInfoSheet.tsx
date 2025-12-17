@@ -85,10 +85,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
   
-  // Calculate footer height for content padding
-  // Footer: button (44px) + top padding (20px) = 64px
-  // Content needs padding to avoid being hidden behind footer
-  const footerHeight = 64;
+  // Calculate footer height as constant: cancelContainer paddingTop (20) + button minHeight (44)
+  const footerHeight = 20 + 44;
 
   const shouldUseGlass = useMemo(() => {
     return false; // Disabled for consistent black background
@@ -190,9 +188,11 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
       onDidDismiss={onDismiss}
       grabber={false}
       footer={
-        <View style={{ backgroundColor: Colors.black }}>
-          <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
-            <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}> 
+        <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
+          <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={0} style={{ backgroundColor: Colors.black }}>
+            <View 
+              style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
+            > 
               <TouchableOpacity 
                 style={styles.cancelButton} 
                 onPress={onDismiss}
@@ -252,7 +252,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         <View style={styles.infoContainer}>
           <Text style={styles.infoText}>
             <Text>{profile?.displayName || handle}</Text>
-            <Text> is a trusted verifier on the AT Protocol. Trusted verifiers can verify other accounts on the network.</Text>
+            <Text> is a trusted verifier on the atmosphere. Trusted verifiers can verify other accounts on the network.</Text>
           </Text>
         </View>
           

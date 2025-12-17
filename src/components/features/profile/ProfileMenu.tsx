@@ -65,8 +65,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   // TrueSheet refs for proper stacking
   const submenuSheetRef = useRef<TrueSheet>(null);
   
-  // Calculate footer height for submenu content padding (button height + padding + safe area)
-  const submenuFooterHeight = 44 + 20 + insets.bottom;
+  // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
+  const submenuFooterHeight = 8 + 44;
 
   // Get profile data to determine if it's the current user
   const { data: profile } = useQuery({

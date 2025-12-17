@@ -68,23 +68,17 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   scrollable = true,
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
-  const footerRef = useRef<View>(null);
   const insets = useSafeAreaInsets();
-  const [footerHeight, setFooterHeight] = useState(0);
 
-  // Measure footer height dynamically
-  const handleFooterLayout = (event: any) => {
-    const { height } = event.nativeEvent.layout;
-    if (height > 0) {
-      setFooterHeight(height);
-    }
-  };
+  // Calculate footer height as constant based on structure:
+  // cancelContainer paddingTop (footerTopPadding ?? 8) + button minHeight (44px)
+  const footerHeight = showCancelButton ? (footerTopPadding ?? 8) + 44 : 0;
 
   // Content padding accounts for footer height to prevent content from being hidden
-  // Dynamically calculated based on measured footer height
-  // Ensure content never sits under the bottom bar; add safe-area padding even without a footer
-  const contentPaddingBottom = showCancelButton && footerHeight > 0
-    ? footerHeight + insets.bottom
+  // For sheets with cancel button: use calculated footer height
+  // For sheets without cancel button: use safe area bottom + small padding
+  const contentPaddingBottom = showCancelButton
+    ? footerHeight
     : insets.bottom + 12;
 
   // Handle bottom sheet visibility
@@ -157,8 +151,6 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
         showCancelButton ? (
           <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
             <View 
-              ref={footerRef}
-              onLayout={handleFooterLayout}
               style={[styles.cancelContainer, { backgroundColor: Colors.black, paddingTop: footerTopPadding ?? 8 }]}
             >
               <TouchableOpacity 

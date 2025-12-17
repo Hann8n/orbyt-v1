@@ -79,8 +79,8 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
   
-  // Calculate footer height for content padding
-  const footerHeight = 44 + 8 + (typeof insets?.bottom === 'number' ? insets.bottom : 0); // button height + padding + safe area
+  // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
+  const footerHeight = 8 + 44;
 
   // Present sheet when data arrives
   useEffect(() => {
@@ -555,18 +555,22 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         showConversationPicker
           ? null
           : (
-            <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={typeof insets?.bottom === 'number' ? insets.bottom : 0} style={{ backgroundColor: Colors.black }}>
-              <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}> 
-                <TouchableOpacity 
-                  style={styles.cancelButton} 
-                  onPress={dismissSheet} 
-                  activeOpacity={0.7}
-                  disabled={isSubmitting}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </KeyboardAwareFooter>
+            <View style={{ backgroundColor: Colors.black, paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0 }}>
+              <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={0} style={{ backgroundColor: Colors.black }}>
+                <View 
+                  style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
+                > 
+                  <TouchableOpacity 
+                    style={styles.cancelButton} 
+                    onPress={dismissSheet} 
+                    activeOpacity={0.7}
+                    disabled={isSubmitting}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </KeyboardAwareFooter>
+            </View>
           )
       }
     >

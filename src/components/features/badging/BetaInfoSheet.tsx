@@ -23,8 +23,8 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
   const sheetDetents: ('auto' | number)[] = useMemo(() => ['auto'], []);
   const insets = useSafeAreaInsets();
   
-  // Calculate footer height for content padding (gap + top padding + safe area)
-  const footerHeight = 12 + 8 + insets.bottom;
+  // Calculate footer height as constant: cancelContainer paddingTop (8) + button minHeight (44)
+  const footerHeight = 8 + 44;
 
   useEffect(() => {
     if (visible) {
@@ -69,13 +69,17 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
       grabber={false}
       header={headerComponent}
       footer={
-        <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
-          <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}> 
-            <TouchableOpacity style={styles.cancelButton} onPress={onDismiss} activeOpacity={0.7}>
-              <Text style={styles.cancelButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAwareFooter>
+        <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
+          <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={0} style={{ backgroundColor: Colors.black }}>
+            <View 
+              style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
+            > 
+              <TouchableOpacity style={styles.cancelButton} onPress={onDismiss} activeOpacity={0.7}>
+                <Text style={styles.cancelButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAwareFooter>
+        </View>
       }
     >
       <View style={[styles.content, { paddingBottom: footerHeight }]}>

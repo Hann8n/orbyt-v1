@@ -1658,7 +1658,7 @@ const VideoPostScreen: React.FC = () => {
       >
         <ScrollView 
           style={styles.sheetContent}
-          contentContainerStyle={[styles.sheetContentContainer, { paddingBottom: 80 + insets.bottom }]}
+          contentContainerStyle={styles.sheetContentContainer}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled={true}
         >
