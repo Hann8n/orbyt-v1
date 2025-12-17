@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
+  type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -20,8 +21,9 @@ import { File, Directory, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import { useVideoTrimStore } from '../src/stores/videoTrimStore';
+import { isSmallScreen, getBottomNavBarHeight } from '../src/utils/helpers';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const VideoTrimmerScreen: React.FC = () => {
   const params = useLocalSearchParams();
@@ -38,6 +40,15 @@ const VideoTrimmerScreen: React.FC = () => {
   
   // Calculate available duration (remaining time that can be used for this clip)
   const availableDuration = maxDuration !== undefined ? maxDuration - currentDuration : undefined;
+  
+  const isSmallDevice = isSmallScreen();
+  const bottomNavBarHeight = getBottomNavBarHeight(insets);
+  
+  // Calculate available height for non-small devices (between safe area top and tab bar bottom)
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const availableHeight = isSmallDevice 
+    ? screenHeight 
+    : screenHeight - insets.top - bottomNavBarHeight;
   
   const [videoUri, setVideoUri] = useState<string>('');
   const [videoDuration, setVideoDuration] = useState<number>(0);
@@ -203,44 +214,89 @@ const VideoTrimmerScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Footer */}
-      <View style={[styles.header, { bottom: insets.bottom }]}>
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={handleCancel}
-          disabled={isProcessing}
-        >
-          <Text style={styles.cancelButtonText}>Back</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.saveButton, !isReady && styles.headerButtonDisabled]}
-          onPress={handleApply}
-          disabled={isProcessing || !isReady}
-        >
-          {isProcessing ? (
-            <Loading3FillIcon size={24} color={Colors.black} />
-          ) : (
-            <Text style={styles.saveButtonText}>Done</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       {/* Video Trimmer UI */}
-      <View style={styles.trimmerContainer}>
+      <View style={[
+        styles.trimmerContainer,
+        !isSmallDevice && {
+          marginTop: insets.top,
+          marginBottom: bottomNavBarHeight,
+        }
+      ]}>
         <VideoTrimmerUI
           ref={trimmerRef}
           source={{ uri: videoUri }}
           onSelected={handleSelected}
           loop={true}
-          containerStyle={styles.trimmerWrapper}
+          containerStyle={StyleSheet.flatten([
+            styles.trimmerWrapper,
+            isSmallDevice 
+              ? styles.trimmerWrapperFullScreen 
+              : { height: availableHeight }
+          ]) as ViewStyle}
           sliderContainerStyle={styles.sliderContainer}
           tintColor={Colors.blurple}
           minDuration={0.5}
           maxDuration={availableDuration}
         />
       </View>
+
+      {/* Back Button */}
+      <TouchableOpacity
+        style={[styles.backButton, { 
+          top: isSmallDevice ? 5 : insets.top + 4,
+          left: 4,
+        }]}
+        onPress={handleCancel}
+        disabled={isProcessing}
+      >
+        <CloseFillIcon size={26} color="white" />
+      </TouchableOpacity>
+
+      {/* Next Button - Above progress bar for small devices */}
+      {isSmallDevice && (
+        <TouchableOpacity
+          style={[
+            styles.nextButtonTop, 
+            { 
+              bottom: 100, // Position above the slider/progress bar area
+              right: 16,
+              opacity: (isProcessing || !isReady) ? 0.3 : 1,
+            }
+          ]}
+          onPress={handleApply}
+          disabled={isProcessing || !isReady}
+          activeOpacity={0.7}
+        >
+          {isProcessing ? (
+            <Loading3FillIcon size={24} color={Colors.black} />
+          ) : (
+            <Text style={styles.nextButtonTextTop}>NEXT</Text>
+          )}
+        </TouchableOpacity>
+      )}
+
+      {/* Next Button - Bottom toolbar for taller devices */}
+      {!isSmallDevice && (
+        <TouchableOpacity
+          style={[
+            styles.nextButtonBottom,
+            {
+              bottom: insets.bottom + 8, // Position above safe area bottom with padding
+              opacity: (isProcessing || !isReady) ? 0.3 : 1,
+            }
+          ]}
+          onPress={handleApply}
+          disabled={isProcessing || !isReady}
+          activeOpacity={0.7}
+        >
+          {isProcessing ? (
+            <Loading3FillIcon size={24} color={Colors.black} />
+          ) : (
+            <Text style={styles.nextButtonTextBottom}>NEXT</Text>
+          )}
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 };
@@ -261,62 +317,67 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Medium',
     marginTop: 16,
   },
-  header: {
+  backButton: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 60,
-    flexDirection: 'row',
+    left: 10,
+    zIndex: 1000,
+    width: 44,
+    height: 44,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    zIndex: 10,
+    justifyContent: 'center',
   },
-  cancelButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  cancelButtonText: {
-    color: Colors.white,
-    fontFamily: 'Firma-Bold',
-    fontSize: 17,
-  },
-  saveButton: {
+  nextButtonTop: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 1000,
     backgroundColor: '#FFFFFF',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
     minWidth: 60,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  saveButtonText: {
+  nextButtonTextTop: {
     fontFamily: 'Firma-Bold',
     fontSize: 17,
     color: Colors.black,
     fontWeight: '600',
   },
-  headerButtonDisabled: {
-    opacity: 0.3,
+  nextButtonBottom: {
+    position: 'absolute',
+    right: 16,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    minWidth: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
   },
-  headerTitle: {
-    color: Colors.white,
-    fontSize: 18,
-    fontFamily: 'Firma-SemiBold',
+  nextButtonTextBottom: {
+    fontFamily: 'Firma-Bold',
+    fontSize: 17,
+    color: Colors.black,
+    fontWeight: '600',
   },
   trimmerContainer: {
     flex: 1,
     marginTop: 0,
     paddingHorizontal: 0,
     paddingVertical: 0,
-    paddingBottom: 60,
   },
   trimmerWrapper: {
     height: 400,
     borderRadius: 0,
     overflow: 'visible',
   },
+  trimmerWrapperFullScreen: {
+    height: SCREEN_HEIGHT,
+  },
   sliderContainer: {
-    marginHorizontal: 0,
+    marginHorizontal: 8,
     marginTop: 20,
   },
 });
