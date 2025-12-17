@@ -39,6 +39,7 @@ import { Colors } from '../../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '../../src/utils/logger';
 import { useVideoTrimStore } from '../../src/stores/videoTrimStore';
+import * as Haptics from 'expo-haptics';
 
 const MIN_SEGMENT_DURATION = 0.5; // Minimum duration for a segment in seconds
 
@@ -81,6 +82,8 @@ const CreateScreen: React.FC = () => {
   const isRecordingRef = useRef(false);
   const prevTotalDurationRef = useRef(0);
   const processedTrimmedVideoRef = useRef<string | null>(null);
+  const lastTapRef = useRef<number>(0);
+  const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const isFocused = useIsFocused();
 
@@ -141,6 +144,10 @@ const CreateScreen: React.FC = () => {
         }
         isRecordingRef.current = false;
         setIsRecording(false);
+      }
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = null;
       }
       setIsProcessing(false);
     };
@@ -439,6 +446,31 @@ const CreateScreen: React.FC = () => {
     }
     setIsFrontCamera(prev => !prev);
   }, [stopRecording]);
+
+  const handleDoubleTap = useCallback(() => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300; // milliseconds
+    
+    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+      // Double tap detected
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = null;
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      flipCamera();
+    } else {
+      // First tap - wait to see if there's a second tap
+      lastTapRef.current = now;
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+      }
+      tapTimeoutRef.current = setTimeout(() => {
+        lastTapRef.current = 0;
+        tapTimeoutRef.current = null;
+      }, DOUBLE_TAP_DELAY);
+    }
+  }, [flipCamera]);
   const toggleFlash = useCallback(() => {
     // Only allow flash on back camera
     if (!isFrontCamera) {
@@ -666,20 +698,21 @@ const CreateScreen: React.FC = () => {
         <View style={styles.cameraContainer}>
           <StatusBar hidden={true} />
           {isFocused && (
-            <CameraView
-              key={`camera-${isFrontCamera ? 'front' : 'back'}`}
-              ref={cameraRef}
-              style={[styles.camera, { 
-                width: cameraWidth, 
-                height: cameraHeight,
-                marginTop: isSmallDevice ? 0 : insets.top,
-              }]}
-              facing={isFrontCamera ? 'front' : 'back'}
-              mode="video"
-              enableTorch={flash === 'on' && !isFrontCamera}
-              mute={!microphonePermission?.granted}
-              videoQuality="1080p"
-            />
+            <Pressable onPress={handleDoubleTap} style={styles.cameraPressable}>
+              <CameraView
+                ref={cameraRef}
+                style={[styles.camera, { 
+                  width: cameraWidth, 
+                  height: cameraHeight,
+                  marginTop: isSmallDevice ? 0 : insets.top,
+                }]}
+                facing={isFrontCamera ? 'front' : 'back'}
+                mode="video"
+                enableTorch={flash === 'on' && !isFrontCamera}
+                mute={!microphonePermission?.granted}
+                videoQuality="1080p"
+              />
+            </Pressable>
           )}
           
           {/* Progress Bar - overlays on top of camera */}
@@ -850,6 +883,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'flex-start',
     alignItems: 'center',
+  },
+  cameraPressable: {
+    width: '100%',
+    height: '100%',
   },
   camera: {
     // Dimensions will be set dynamically via inline style

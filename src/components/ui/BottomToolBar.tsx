@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../utils/helpers';
 import Icon from './Icon';
 import { Colors } from './UI';
@@ -87,7 +88,12 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
             <TouchableOpacity
               key={tool.id}
               style={[styles.tool, { width: iconSize, height: iconSize }]}
-              onPress={() => !isDisabled && onToolPress && onToolPress(tool.id)}
+              onPress={() => {
+                if (!isDisabled) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onToolPress && onToolPress(tool.id);
+                }
+              }}
               activeOpacity={isDisabled ? 1 : 0.7}
               disabled={isDisabled}
             >
