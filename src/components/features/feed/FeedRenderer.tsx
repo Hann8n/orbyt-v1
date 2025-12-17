@@ -157,14 +157,6 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
     }
   }, [isSearchFeed, feedQuery, onRefreshCallback]);
 
-  // Watch for parent-initiated refresh (e.g., when tapping home tab)
-  // When isRefreshing becomes true, trigger a refetch
-  useEffect(() => {
-    if (isRefreshing === true && !isSearchFeed && feedQuery.refetch) {
-      feedQuery.refetch();
-    }
-  }, [isRefreshing, isSearchFeed, feedQuery]);
-
   // Memoized search feed hook with visibility control
   const searchFeedQuery = useSearchFeed(
     searchHasNextPage,

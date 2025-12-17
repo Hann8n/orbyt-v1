@@ -29,10 +29,20 @@ const SubscriptionOptionsSheet: React.FC<SubscriptionOptionsSheetProps> = ({
   const handleTogglePreference = useCallback(async (key: 'post' | 'reply') => {
     if (!did) return;
     
+    const togglingOn = !preferences[key];
     const newPreferences = {
       ...preferences,
-      [key]: !preferences[key],
+      [key]: togglingOn,
     };
+
+    // Enforce "Posts" as required for "Replies"
+    // - If turning Replies on, ensure Posts is also on
+    // - If turning Posts off, also turn Replies off
+    if (key === 'reply' && togglingOn) {
+      newPreferences.post = true;
+    } else if (key === 'post' && !togglingOn && preferences.reply) {
+      newPreferences.reply = false;
+    }
     
     if (!newPreferences.post && !newPreferences.reply) {
       await unsubscribe(did);

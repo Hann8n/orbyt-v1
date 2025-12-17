@@ -21,6 +21,7 @@ interface FollowStoreState {
   updateFollowState: (did: string, update: Partial<FollowState>) => void;
   getFollowState: (did: string) => FollowState | undefined;
   clearFollows: () => void;
+  clearFollowForDid: (did: string) => void;
   
   // Batch operations
   batchUpdateFollows: (updates: Array<{ did: string; state: Partial<FollowState> }>) => void;
@@ -57,6 +58,14 @@ export const useFollowStore = create<FollowStoreState>((set, get) => ({
   
   clearFollows: () => {
     set({ follows: new Map() });
+  },
+  
+  clearFollowForDid: (did: string) => {
+    set((state) => {
+      const newFollows = new Map(state.follows);
+      newFollows.delete(did);
+      return { follows: newFollows };
+    });
   },
   
   batchUpdateFollows: (updates: Array<{ did: string; state: Partial<FollowState> }>) => {

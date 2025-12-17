@@ -24,6 +24,7 @@ export interface HeaderAction {
   icon?: string;
   customIcon?: React.ReactNode;
   onPress: () => void;
+  onLongPress?: () => void;
   disabled?: boolean;
   loading?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
@@ -217,6 +218,7 @@ const ActionButton = memo<{
       <TouchableOpacity
         style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
         onPress={action.onPress}
+        onLongPress={action.onLongPress}
         disabled={action.disabled || action.loading}
         activeOpacity={0.7}
       >
@@ -235,6 +237,7 @@ const ActionButton = memo<{
     <TouchableOpacity
       style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
       onPress={action.onPress}
+      onLongPress={action.onLongPress}
       disabled={action.disabled || action.loading}
       activeOpacity={0.7}
     >

@@ -977,20 +977,8 @@ class ProfileCache {
             }
 
             // Get both sides of the follow relationship from viewer data
-            let isFollowing = profile.viewer ? !!profile.viewer.following : undefined;
+            const isFollowing = profile.viewer ? !!profile.viewer.following : undefined;
             const isFollowedBy = profile.viewer ? !!profile.viewer.followedBy : undefined;
-            
-            // Check follow store for persisted state (overrides API if available)
-            try {
-              const { useFollowStore } = require('../../stores/followStore');
-              const followState = useFollowStore.getState().getFollowState(profile.did);
-              if (followState !== undefined) {
-                // Use persisted state if it exists (user action took precedence)
-                isFollowing = followState.isFollowing;
-              }
-            } catch (error) {
-              // Store not available, use API state
-            }
 
             const cacheObject: CachedProfile = {
               did: profile.did,
@@ -1237,6 +1225,29 @@ class ProfileCache {
   }
 
   /**
+   * Invalidate a specific profile in the cache by DID
+   * Mirrors invalidateProfile(handle) but uses DID-based keys
+   */
+  static async invalidateProfileByDid(did: string): Promise<void> {
+    if (!did) return;
+    
+    // Use InteractionManager to defer updates until interactions complete
+    return InteractionManager.runAfterInteractions(async () => {
+      try {
+        // Clear DID-based memory cache
+        this.memoryCache.delete(did);
+        // Clear DID-based persistent cache
+        await storageHelpers.removeItem(this.getCacheKeyByDid(did));
+        
+        // Notify subscribers of a profile update
+        this.notifyProfileUpdated(did);
+      } catch (error) {
+        // Silently handle errors
+      }
+    });
+  }
+
+  /**
    * Clear all cached profiles
    */
   static async clearCache(): Promise<void> {
@@ -1381,7 +1392,7 @@ class ProfileCache {
  * Hook to fetch and subscribe to profile data by DID (preferred method)
  */
 export function useProfileByDid(did: string | null | undefined): UseQueryResult<CachedProfile | null, Error> {
-  const queryResult = useQuery<CachedProfile | null, Error>({
+  return useQuery<CachedProfile | null, Error>({
     queryKey: did ? profileKeys.detail(`did_${did}`) : ['profiles', 'detail', 'did_'],
     queryFn: async () => did ? ProfileCache.getProfileByDid(did) : null,
     enabled: !!did,
@@ -1391,24 +1402,6 @@ export function useProfileByDid(did: string | null | undefined): UseQueryResult<
     refetchOnMount: false,         // don't refetch on mount if we have data
     refetchOnReconnect: false,     // don't refetch on reconnect
   });
-
-  // Subscribe to follow store for real-time follow state updates
-  const { useFollowStore } = require('../../stores/followStore');
-  const followState = useFollowStore((state) => 
-    queryResult.data?.did ? state.follows.get(queryResult.data.did) : undefined
-  );
-
-  // Merge follow store state with query data for real-time follow updates
-  return {
-    ...queryResult,
-    data: queryResult.data && followState?.isFollowing !== undefined
-      ? {
-          ...queryResult.data,
-          isFollowing: followState.isFollowing,
-          isFollowedBy: followState.isFollowedBy ?? queryResult.data.isFollowedBy,
-        }
-      : queryResult.data,
-  } as UseQueryResult<CachedProfile | null, Error>;
 }
 
 /**
@@ -1489,7 +1482,7 @@ export function useBatchProfilesByDid(
  * Hook to fetch and subscribe to profile data by handle (legacy)
  */
 export function useProfile(handle: string | null | undefined): UseQueryResult<CachedProfile | null, Error> {
-  const queryResult = useQuery<CachedProfile | null, Error>({
+  return useQuery<CachedProfile | null, Error>({
     queryKey: handle ? profileKeys.detail(handle) : ['profiles', 'detail', ''],
     queryFn: async () => handle ? ProfileCache.getProfile(handle) : null,
     enabled: !!handle,
@@ -1499,24 +1492,6 @@ export function useProfile(handle: string | null | undefined): UseQueryResult<Ca
     refetchOnMount: false,         // don't refetch on mount if we have data
     refetchOnReconnect: false,     // don't refetch on reconnect
   });
-
-  // Subscribe to follow store for real-time follow state updates
-  const { useFollowStore } = require('../../stores/followStore');
-  const followState = useFollowStore((state) => 
-    queryResult.data?.did ? state.follows.get(queryResult.data.did) : undefined
-  );
-
-  // Merge follow store state with query data for real-time follow updates
-  return {
-    ...queryResult,
-    data: queryResult.data && followState?.isFollowing !== undefined
-      ? {
-          ...queryResult.data,
-          isFollowing: followState.isFollowing,
-          isFollowedBy: followState.isFollowedBy ?? queryResult.data.isFollowedBy,
-        }
-      : queryResult.data,
-  } as UseQueryResult<CachedProfile | null, Error>;
 }
 
 /**

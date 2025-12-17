@@ -26,7 +26,7 @@ import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFollowMutation } from '../../src/services/cache/ProfileCache';
 import { createQueryKeys } from '../../src/services/FeedService';
-import { useUserSubscription } from '../../src/stores/subscriptionStore';
+import { useUserSubscription, useSubscriptionStore } from '../../src/stores/subscriptionStore';
 import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
 import EditProfileSheet from '../../src/components/features/profile/EditProfileSheet';
 import SubscriptionOptionsSheet from '../../src/components/features/profile/SubscriptionOptionsSheet';
@@ -150,25 +150,32 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Profile fetching is handled by React Query hooks
 
-  // Handle refresh - refreshes both profile metadata and feed
-  // FeedRenderer will handle feed refresh automatically when isRefreshing is true
+  // Handle refresh - refreshes profile metadata and lets FeedRenderer handle feed refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     setProfileError(null);
     try {
+      // Re-initialize activity subscriptions so "keep me posted" reflects server state
+      try {
+        const { useSubscriptionStore } = await import('../../src/stores/subscriptionStore');
+        await useSubscriptionStore.getState().initialize();
+      } catch {
+        // Subscriptions are non-critical; ignore errors
+      }
+
+      // Invalidate DID-based profile cache so useProfileByDid can refetch fresh data
+      if (profileData?.did) {
+        const ProfileCache = (await import('../../src/services/cache/ProfileCache')).default;
+        await ProfileCache.invalidateProfileByDid(profileData.did);
+        queryClient.invalidateQueries({ queryKey: profileKeys.detail(`did_${profileData.did}`) });
+      }
+
       if (colorsHandle) {
         await invalidateProfile(colorsHandle);
-
-        const userDid = profileData?.did;
-        if (userDid) {
-          // Invalidate feed queries - FeedRenderer's useEffect will refetch when isRefreshing is true
-          queryClient.invalidateQueries({ queryKey: ['feed', 'profile', userDid] });
-          queryClient.invalidateQueries({ queryKey: ['feed', 'reposts', userDid] });
-          queryClient.invalidateQueries({ queryKey: ['feed', 'likes', userDid] });
-        }
-
-        await refetchProfile();
       }
+      
+      // Always refetch profile data so header info stays in sync
+      await refetchProfile();
     } catch (error) {
       setProfileError("Failed to refresh profile.");
     } finally {
@@ -177,7 +184,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         setRefreshing(false);
       }, 2000);
     }
-  }, [colorsHandle, invalidateProfile, refetchProfile, queryClient, profileData]);
+  }, [colorsHandle, invalidateProfile, refetchProfile, profileData?.did, queryClient]);
 
   const handleLogout = async (clearAllAccounts: boolean = false) => {
     try {
@@ -457,7 +464,26 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
               : (dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white} 
           />
         ),
-        onPress: () => setShowSubscriptionSheet(true),
+        onPress: async () => {
+          const did = profileData.did;
+          if (!did) return;
+
+          const store = useSubscriptionStore.getState();
+          const currentlySubscribed = store.isSubscribed(did);
+
+          // Single tap behavior:
+          // - If not subscribed, turn on post notifications only (post: true, reply: false)
+          // - If subscribed, clear both states (unsubscribe from all activity)
+          if (!currentlySubscribed) {
+            await store.updatePreferences(did, { post: true, reply: false });
+          } else {
+            await store.unsubscribe(did);
+          }
+        },
+        onLongPress: () => {
+          if (!profileData.did) return;
+          setShowSubscriptionSheet(true);
+        },
         active: isSubscribed,
       } as HeaderAction);
     }
