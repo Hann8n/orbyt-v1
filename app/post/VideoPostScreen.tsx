@@ -120,6 +120,333 @@ const VideoPreviewContent: React.FC<{
   );
 };
 
+// Reusable description preview component
+const DescriptionPreview: React.FC<{
+  description: string;
+  formattedRichText: Array<{ text: string; isSemiBold: boolean }>;
+  onPress: () => void;
+}> = ({ description, formattedRichText, onPress }) => (
+  <View style={[styles.descriptionSection, { paddingBottom: 0 }]}>
+    <Text style={[styles.sectionHeaderTitle, { marginBottom: 4 }]}>Description</Text>
+    <TouchableOpacity 
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={styles.descriptionInputTouchable}
+    >
+      {description ? (
+        <Text style={styles.descriptionInputPreview} numberOfLines={3}>
+          {formattedRichText.map((part, index) => (
+            <Text key={index} style={part.isSemiBold ? styles.descriptionInputPreviewSemiBold : styles.descriptionInputPreviewNormal}>
+              {part.text}
+            </Text>
+          ))}
+        </Text>
+      ) : (
+        <Text style={[styles.descriptionInputPreview, styles.descriptionInputPlaceholder]}>
+          Add text & tags (optional)
+        </Text>
+      )}
+    </TouchableOpacity>
+  </View>
+);
+
+// Reusable channel selector component
+const ChannelSelector: React.FC<{
+  selectedChannel: OrbytChannel | null;
+  onPress: () => void;
+  showRing?: boolean;
+}> = ({ selectedChannel, onPress, showRing = false }) => (
+  <View style={styles.section}>
+    <Text style={styles.sectionHeaderTitle}>Channel (optional)</Text>
+    <TouchableOpacity 
+      style={styles.channelSelectorContainer}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.channelSelectorBox}>
+        {!selectedChannel ? (
+          <Avatar
+            type="channel"
+            size={52}
+            ringColor={showRing ? undefined : "transparent"}
+            fallbackIcon="device-tv"
+            fallbackIconColor={Colors.lightGray}
+            fallbackIconSize={32}
+          />
+        ) : (
+          <Avatar
+            uri={getChannelAvatarUri(selectedChannel.uri)}
+            type="channel"
+            size={52}
+            ringColor={showRing ? undefined : "transparent"}
+          />
+        )}
+      </View>
+      {!selectedChannel ? (
+        <View style={styles.channelSelectorPlaceholderContainer}>
+          <Text style={styles.channelSelectorPlaceholderText}>Pick a channel</Text>
+          <DownSmallFillIcon size={20} color={Colors.gray} />
+        </View>
+      ) : (
+        <View style={styles.channelSelectorNameContainer}>
+          {shouldShowChannelSlash(selectedChannel.uri) && (
+            <Text style={[
+              styles.channelSelectorName, 
+              styles.orbytSlash, 
+              { 
+                color: selectedChannel.channelColor || '#FFD700',
+                fontFamily: 'Firma-SemiBold'
+              }
+            ]}>/</Text>
+          )}
+          <Text style={[styles.channelSelectorName, { fontFamily: 'Firma-Bold' }]}>
+            {selectedChannel.displayName.toLowerCase()}
+          </Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  </View>
+);
+
+// Reusable comment filter selector component
+const CommentFilterSelector: React.FC<{
+  commentFilter: string | null;
+  getSelectedCommentFilterLabel: () => string;
+  onPress: () => void;
+}> = ({ commentFilter, getSelectedCommentFilterLabel, onPress }) => (
+  <View style={styles.section}>
+    <Text style={styles.sectionHeaderTitle}>Comments</Text>
+    <TouchableOpacity 
+      style={styles.channelSelectorContainer}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.channelSelectorBox}>
+        <Icon name="chat-3-line" size={32} color={Colors.lightGray} />
+      </View>
+      {!commentFilter ? (
+        <View style={styles.channelSelectorPlaceholderContainer}>
+          <Text style={styles.channelSelectorPlaceholderText}>{getSelectedCommentFilterLabel()}</Text>
+          <DownSmallFillIcon size={20} color={Colors.gray} />
+        </View>
+      ) : (
+        <View style={styles.channelSelectorNameContainer}>
+          <Text style={styles.channelSelectorName}>
+            {getSelectedCommentFilterLabel()}
+          </Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  </View>
+);
+
+// Reusable content warning selector component
+const ContentWarningSelector: React.FC<{
+  selectedContentWarnings: string[];
+  otherWarning: string;
+  getSelectedContentWarningsLabel: () => string;
+  onPress: () => void;
+}> = ({ selectedContentWarnings, otherWarning, getSelectedContentWarningsLabel, onPress }) => (
+  <View style={styles.section}>
+    <Text style={styles.sectionHeaderTitle}>Warnings</Text>
+    <TouchableOpacity 
+      style={styles.channelSelectorContainer}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.channelSelectorBox}>
+        <Icon name="warning-line" size={32} color={Colors.lightGray} />
+      </View>
+      {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
+        <View style={styles.channelSelectorPlaceholderContainer}>
+          <Text style={styles.channelSelectorPlaceholderText}>{getSelectedContentWarningsLabel()}</Text>
+          <DownSmallFillIcon size={20} color={Colors.gray} />
+        </View>
+      ) : (
+        <View style={styles.channelSelectorNameContainer}>
+          <Text style={styles.channelSelectorName}>
+            {getSelectedContentWarningsLabel()}
+          </Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  </View>
+);
+
+// Reusable post button component
+const PostButton: React.FC<{
+  onPress: () => void;
+  isPosting: boolean;
+  isCompressing: boolean;
+  uploadProgress: number;
+  buttonStyle?: 'landscape' | 'portrait';
+  width?: number;
+}> = ({ onPress, isPosting, isCompressing, uploadProgress, buttonStyle = 'portrait', width }) => {
+  const buttonWidth = width || SCREEN_WIDTH * 0.6;
+  const glassStyle = buttonStyle === 'landscape' ? styles.landscapePostButtonGlass : styles.floatingPostButtonGlass;
+  const hostStyle = buttonStyle === 'landscape' ? styles.landscapePostButtonHost : styles.floatingPostButtonHost;
+  const disabledStyle = buttonStyle === 'landscape' ? styles.landscapePostButtonDisabled : styles.floatingPostButtonDisabled;
+
+  return (
+    <TouchableOpacity 
+      onPress={onPress}
+      disabled={isPosting || isCompressing}
+      activeOpacity={0.8}
+    >
+      {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
+        <GlassView
+          style={[glassStyle, { width: buttonWidth }]}
+          glassEffectStyle="clear"
+          tintColor="rgba(255,255,255,0.9)"
+          isInteractive
+        >
+          <View style={styles.buttonContent}>
+            {isPosting ? (
+              <View style={styles.loadingContainer}>
+                <Loading3FillIcon size={24} color={Colors.black} />
+                <Text style={styles.postButtonText}>
+                  {uploadProgress < 50 ? 'Uploading video...' : 
+                   uploadProgress < 90 ? 'Processing video...' : 
+                   'Creating post...'}
+                </Text>
+              </View>
+            ) : isCompressing ? (
+              <View style={styles.loadingContainer}>
+                <Loading3FillIcon size={24} color={Colors.black} />
+                <Text style={styles.postButtonText}>
+                  Getting ready...
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.postButtonText}>POST</Text>
+            )}
+          </View>
+        </GlassView>
+      ) : (
+        <View 
+          style={[
+            hostStyle, 
+            { width: buttonWidth }, 
+            (isPosting || isCompressing) && disabledStyle
+          ]}
+        >
+          <View style={styles.buttonContent}>
+            {isPosting ? (
+              <View style={styles.loadingContainer}>
+                <Loading3FillIcon size={24} color={Colors.black} />
+                <Text style={styles.postButtonText}>
+                  {uploadProgress < 50 ? 'Uploading video...' : 
+                   uploadProgress < 90 ? 'Processing video...' : 
+                   'Creating post...'}
+                </Text>
+              </View>
+            ) : isCompressing ? (
+              <View style={styles.loadingContainer}>
+                <Loading3FillIcon size={24} color={Colors.black} />
+                <Text style={styles.postButtonText}>
+                  Getting ready...
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.postButtonText}>POST</Text>
+            )}
+          </View>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
+
+// Reusable description input modal component
+const DescriptionInputModal: React.FC<{
+  visible: boolean;
+  description: string;
+  formattedRichText: Array<{ text: string; isSemiBold: boolean }>;
+  descriptionSelection: { start: number; end: number };
+  setDescription: (text: string) => void;
+  setDescriptionSelection: (selection: { start: number; end: number }) => void;
+  onClose: () => void;
+  richTextSearchModalProps: any;
+  insets: { top: number };
+}> = ({ visible, description, formattedRichText, descriptionSelection, setDescription, setDescriptionSelection, onClose, richTextSearchModalProps, insets }) => (
+  <Modal
+    visible={visible}
+    transparent={true}
+    animationType="fade"
+    onRequestClose={onClose}
+  >
+    <View style={styles.descriptionModalContainer}>
+      <View style={styles.descriptionModalOverlay}>
+        <View style={[styles.descriptionModalContentWrapper, { paddingTop: insets.top }]}>
+          <View style={styles.descriptionModalHeader}>
+            <View style={styles.descriptionModalHeaderSpacer} />
+            <Text style={[styles.sectionHeaderTitle, { marginBottom: 0 }]}>Description</Text>
+            <TouchableOpacity 
+              onPress={onClose}
+              style={[
+                styles.descriptionModalDoneButton,
+                description.length > 300 && styles.descriptionModalDoneButtonDisabled
+              ]}
+              activeOpacity={0.7}
+              disabled={description.length > 300}
+            >
+              <Text style={[
+                styles.descriptionModalDoneText,
+                description.length > 300 && styles.descriptionModalDoneTextDisabled
+              ]}>
+                {description.length > 300 ? `+${description.length - 300}` : 'Done'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.descriptionModalContent}
+            keyboardVerticalOffset={0}
+          >
+            <View style={styles.descriptionInputContainer}>
+              <TextInput
+                value={description}
+                onChangeText={setDescription}
+                onSelectionChange={(e) => {
+                  setDescriptionSelection(e.nativeEvent.selection);
+                }}
+                style={styles.descriptionModalInput}
+                placeholder="Add text & tags (optional)"
+                placeholderTextColor={Colors.mediumGray}
+                multiline={true}
+                maxLength={300}
+                autoFocus={true}
+                textAlignVertical="top"
+                blurOnSubmit={false}
+                returnKeyType="default"
+                selectionColor={Colors.lightGray}
+                cursorColor={Colors.lightGray}
+              />
+              {description && (
+                <View style={styles.descriptionInputOverlay} pointerEvents="none">
+                  <Text style={styles.descriptionInputOverlayText}>
+                    {formattedRichText.map((part, index) => (
+                      <Text key={index} style={part.isSemiBold ? styles.descriptionInputOverlaySemiBold : styles.descriptionInputOverlayNormal}>
+                        {part.text}
+                      </Text>
+                    ))}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {richTextSearchModalProps.visible && (
+              <RichTextSearchModal
+                {...richTextSearchModalProps}
+                containerStyle={styles.searchModalContainer}
+              />
+            )}
+          </KeyboardAvoidingView>
+        </View>
+      </View>
+    </View>
+  </Modal>
+);
+
 // Content warning options
 const CONTENT_WARNINGS = [
   { id: 'nsfw', label: 'Adult Content (NSFW)' },
@@ -1024,196 +1351,35 @@ const VideoPostScreen: React.FC = () => {
           {/* Left: Info Side */}
           <View style={styles.landscapeInfoSide}>
             <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 40 }]}>
-                        {/* Description Section */}
-          <View style={[styles.descriptionSection, { paddingBottom: 0 }]}>
-            <Text style={[styles.sectionHeaderTitle, { marginBottom: 4 }]}>Description</Text>
-            <TouchableOpacity 
-              onPress={() => setShowDescriptionInputModal(true)}
-              activeOpacity={0.7}
-              style={styles.descriptionInputTouchable}
-            >
-              {description ? (
-                <Text style={styles.descriptionInputPreview} numberOfLines={3}>
-                  {formattedRichText.map((part, index) => (
-                    <Text key={index} style={part.isSemiBold ? styles.descriptionInputPreviewSemiBold : styles.descriptionInputPreviewNormal}>
-                      {part.text}
-                    </Text>
-                  ))}
-                </Text>
-              ) : (
-                <Text style={[styles.descriptionInputPreview, styles.descriptionInputPlaceholder]}>
-                  Add text & tags (optional)
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-              {/* Channel Selection */}
-              <View style={styles.section}>
-                <Text style={styles.sectionHeaderTitle}>Channel (optional)</Text>
-                <TouchableOpacity 
-                  style={styles.channelSelectorContainer}
-                  onPress={() => setShowChannelSelectionSheet(true)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.channelSelectorBox}>
-                    {!selectedChannel ? (
-                      <Avatar
-                        type="channel"
-                        size={52}
-                        fallbackIcon="device-tv"
-                        fallbackIconColor={Colors.lightGray}
-                        fallbackIconSize={32}
-                      />
-                    ) : (
-                      <Avatar
-                        uri={getChannelAvatarUri(selectedChannel.uri)}
-                        type="channel"
-                        size={52}
-                      />
-                    )}
-                  </View>
-                  {!selectedChannel ? (
-                    <View style={styles.channelSelectorPlaceholderContainer}>
-                      <Text style={styles.channelSelectorPlaceholderText}>Pick a channel</Text>
-                      <DownSmallFillIcon size={20} color={Colors.gray} />
-                    </View>
-                  ) : (
-                    <View style={styles.channelSelectorNameContainer}>
-                      {shouldShowChannelSlash(selectedChannel.uri) && (
-                        <Text style={[
-                          styles.channelSelectorName, 
-                          styles.orbytSlash, 
-                          { 
-                            color: selectedChannel.channelColor || '#FFD700',
-                            fontFamily: 'Firma-SemiBold'
-                          }
-                        ]}>/</Text>
-                      )}
-                      <Text style={[styles.channelSelectorName, { fontFamily: 'Firma-Bold' }]}>
-                        {selectedChannel.displayName.toLowerCase()}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-              {/* Comment Filtering */}
-              <View style={styles.section}>
-                <Text style={styles.sectionHeaderTitle}>Comments</Text>
-                <TouchableOpacity 
-                  style={styles.channelSelectorContainer}
-                  onPress={() => setShowCommentSettingsSheet(true)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.channelSelectorBox}>
-                    <Icon name="chat-3-line" size={32} color={Colors.lightGray} />
-                  </View>
-                  {!commentFilter ? (
-                    <View style={styles.channelSelectorPlaceholderContainer}>
-                      <Text style={styles.channelSelectorPlaceholderText}>{getSelectedCommentFilterLabel()}</Text>
-                      <DownSmallFillIcon size={20} color={Colors.gray} />
-                    </View>
-                  ) : (
-                    <View style={styles.channelSelectorNameContainer}>
-                      <Text style={styles.channelSelectorName}>
-                        {getSelectedCommentFilterLabel()}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-              {/* Content Warnings */}
-              <View style={styles.section}>
-                <Text style={styles.sectionHeaderTitle}>Warnings</Text>
-                <TouchableOpacity 
-                  style={styles.channelSelectorContainer}
-                  onPress={() => setShowContentWarningsSheet(true)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.channelSelectorBox}>
-                    <Icon name="warning-line" size={32} color={Colors.lightGray} />
-                  </View>
-                  {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
-                    <View style={styles.channelSelectorPlaceholderContainer}>
-                      <Text style={styles.channelSelectorPlaceholderText}>{getSelectedContentWarningsLabel()}</Text>
-                      <DownSmallFillIcon size={20} color={Colors.gray} />
-                    </View>
-                  ) : (
-                    <View style={styles.channelSelectorNameContainer}>
-                      <Text style={styles.channelSelectorName}>
-                        {getSelectedContentWarningsLabel()}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-              {/* Post Button */}
+              <DescriptionPreview
+                description={description}
+                formattedRichText={formattedRichText}
+                onPress={() => setShowDescriptionInputModal(true)}
+              />
+              <ChannelSelector
+                selectedChannel={selectedChannel}
+                onPress={() => setShowChannelSelectionSheet(true)}
+              />
+              <CommentFilterSelector
+                commentFilter={commentFilter}
+                getSelectedCommentFilterLabel={getSelectedCommentFilterLabel}
+                onPress={() => setShowCommentSettingsSheet(true)}
+              />
+              <ContentWarningSelector
+                selectedContentWarnings={selectedContentWarnings}
+                otherWarning={otherWarning}
+                getSelectedContentWarningsLabel={getSelectedContentWarningsLabel}
+                onPress={() => setShowContentWarningsSheet(true)}
+              />
               <View style={[styles.landscapePostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-                <TouchableOpacity 
+                <PostButton
                   onPress={handlePost}
-                  disabled={isPosting || isCompressing}
-                  activeOpacity={0.8}
-                >
-                  {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
-                    <GlassView
-                      style={[styles.landscapePostButtonGlass, { width: SCREEN_WIDTH * 0.6 }]}
-                      glassEffectStyle="clear"
-                      tintColor="rgba(255,255,255,0.9)"
-                      isInteractive
-                    >
-                      <View style={styles.buttonContent}>
-                        {isPosting ? (
-                          <View style={styles.loadingContainer}>
-                            <Loading3FillIcon size={24} color={Colors.black} />
-                            <Text style={styles.postButtonText}>
-                              {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
-                               uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
-                               'Creating post...'}
-                            </Text>
-                          </View>
-                        ) : isCompressing ? (
-                          <View style={styles.loadingContainer}>
-                            <Loading3FillIcon size={24} color={Colors.black} />
-                            <Text style={styles.postButtonText}>
-                              Getting ready...
-                            </Text>
-                          </View>
-                        ) : (
-                          <Text style={styles.postButtonText}>POST</Text>
-                        )}
-                      </View>
-                    </GlassView>
-                  ) : (
-                    <View 
-                      style={[
-                        styles.landscapePostButtonHost, 
-                        { width: SCREEN_WIDTH * 0.6 }, 
-                        (isPosting || isCompressing) && styles.landscapePostButtonDisabled
-                      ]}
-                    >
-                      <View style={styles.buttonContent}>
-                        {isPosting ? (
-                          <View style={styles.loadingContainer}>
-                            <Loading3FillIcon size={24} color={Colors.black} />
-                            <Text style={styles.postButtonText}>
-                              {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
-                               uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
-                               'Creating post...'}
-                            </Text>
-                          </View>
-                        ) : isCompressing ? (
-                          <View style={styles.loadingContainer}>
-                            <Loading3FillIcon size={24} color={Colors.black} />
-                            <Text style={styles.postButtonText}>
-                              Getting ready...
-                            </Text>
-                          </View>
-                        ) : (
-                          <Text style={styles.postButtonText}>POST</Text>
-                        )}
-                      </View>
-                    </View>
-                  )}
-                </TouchableOpacity>
+                  isPosting={isPosting}
+                  isCompressing={isCompressing}
+                  uploadProgress={uploadProgress}
+                  buttonStyle="landscape"
+                  width={SCREEN_WIDTH * 0.6}
+                />
               </View>
             </ScrollView>
           </View>
@@ -1233,224 +1399,6 @@ const VideoPostScreen: React.FC = () => {
             </View>
           </View>
         </Animated.View>
-
-        {/* Full-Screen Description Input Modal */}
-        <Modal
-          visible={showDescriptionInputModal}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setShowDescriptionInputModal(false)}
-        >
-          <View style={styles.descriptionModalContainer}>
-            <View style={styles.descriptionModalOverlay}>
-              <View style={[styles.descriptionModalContentWrapper, { paddingTop: insets.top }]}>
-                <View style={styles.descriptionModalHeader}>
-                  <View style={styles.descriptionModalHeaderSpacer} />
-                  <Text style={[styles.sectionHeaderTitle, { marginBottom: 0 }]}>Description</Text>
-                  <TouchableOpacity 
-                    onPress={() => setShowDescriptionInputModal(false)}
-                    style={styles.descriptionModalDoneButton}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.descriptionModalDoneText}>Done</Text>
-                  </TouchableOpacity>
-                </View>
-                <KeyboardAvoidingView 
-                  behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                  style={styles.descriptionModalContent}
-                  keyboardVerticalOffset={0}
-                >
-                  <View style={styles.descriptionInputContainer}>
-                    <TextInput
-                      value={description}
-                      onChangeText={setDescription}
-                      onSelectionChange={(e) => {
-                        setDescriptionSelection(e.nativeEvent.selection);
-                      }}
-                      style={styles.descriptionModalInput}
-                      placeholder="Add text & tags (optional)"
-                      placeholderTextColor={Colors.mediumGray}
-                      multiline={true}
-                      maxLength={300}
-                      autoFocus={true}
-                      textAlignVertical="top"
-                      blurOnSubmit={false}
-                      returnKeyType="default"
-                      selectionColor={Colors.lightGray}
-                      cursorColor={Colors.lightGray}
-                    />
-                    {description && (
-                      <View style={styles.descriptionInputOverlay} pointerEvents="none">
-                        <Text style={styles.descriptionInputOverlayText}>
-                          {formattedRichText.map((part, index) => (
-                            <Text key={index} style={part.isSemiBold ? styles.descriptionInputOverlaySemiBold : styles.descriptionInputOverlayNormal}>
-                              {part.text}
-                            </Text>
-                          ))}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  {richTextSearchModalProps.visible && (
-                    <RichTextSearchModal
-                      {...richTextSearchModalProps}
-                      containerStyle={styles.searchModalContainer}
-                    />
-                  )}
-                </KeyboardAvoidingView>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Content Warnings Sheet */}
-        <VerticalListSheet
-          visible={showContentWarningsSheet}
-          onDismiss={() => setShowContentWarningsSheet(false)}
-          title={getSelectedContentWarningsLabel()}
-          name="post-content-warnings-sheet"
-          detents={['auto']}
-          showCancelButton={true}
-          cancelButtonText="Close"
-        >
-          <View style={styles.sheetContent}>
-            <Text style={styles.sheetSectionHeader}>Content</Text>
-            {CONTENT_WARNINGS.map(warning => (
-              <TouchableOpacity
-                key={warning.id}
-                style={styles.sheetOptionRow}
-                onPress={() => toggleContentWarning(warning.id)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.sheetOptionText}>{warning.label.toLowerCase()}</Text>
-                <View style={[
-                  styles.checkbox,
-                  selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
-                ]}>
-                  {selectedContentWarnings.includes(warning.id) && (
-                    <Icon name="checkmark" size={16} color={Colors.black} />
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={styles.sheetOptionRow}
-              onPress={() => setShowContentWarningInput(!showContentWarningInput)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.sheetOptionText}>other warning</Text>
-              <View style={[
-                styles.checkbox,
-                showContentWarningInput && styles.checkboxSelected
-              ]}>
-                {showContentWarningInput && (
-                  <Icon name="checkmark" size={16} color={Colors.black} />
-                )}
-              </View>
-            </TouchableOpacity>
-            {showContentWarningInput && (
-              <View style={[styles.sheetInputContainer, isKeyboardVisible && styles.sheetInputContainerKeyboard]}>
-                <TextInput
-                  style={styles.otherWarningInput}
-                  placeholder="specify content warning"
-                  placeholderTextColor={Colors.lightGray}
-                  value={otherWarning}
-                  onChangeText={setOtherWarning}
-                  autoFocus={true}
-                  returnKeyType="done"
-                />
-              </View>
-            )}
-          </View>
-        </VerticalListSheet>
-
-        {/* Comment Settings Sheet */}
-        <VerticalListSheet
-          visible={showCommentSettingsSheet}
-          onDismiss={() => setShowCommentSettingsSheet(false)}
-          title={getSelectedCommentFilterLabel()}
-          name="post-comment-settings-sheet"
-          detents={['auto']}
-          showCancelButton={true}
-          cancelButtonText="Close"
-        >
-          <View style={styles.sheetContent}>
-            <Text style={styles.sheetSectionHeader}>Comments</Text>
-            {COMMENT_FILTERS.map(filter => (
-              <VerticalListButton
-                key={filter.id}
-                label={filter.label.toLowerCase()}
-                onPress={() => {
-                  setCommentFilter(filter.id);
-                  setShowCommentSettingsSheet(false);
-                }}
-                disabled={commentFilter === filter.id}
-              />
-            ))}
-          </View>
-        </VerticalListSheet>
-
-        {/* Channel Selection Sheet */}
-        <VerticalListSheet
-          visible={showChannelSelectionSheet}
-          onDismiss={() => setShowChannelSelectionSheet(false)}
-          title="Pick a channel"
-          name="post-channel-selection-sheet"
-          detents={['auto']}
-          showCancelButton={true}
-          cancelButtonText="Cancel"
-          titleSize={28}
-          hideCloseButton={true}
-        >
-          <ScrollView 
-            style={styles.sheetContent}
-            contentContainerStyle={[styles.sheetContentContainer, { paddingBottom: 80 + insets.bottom }]}
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled={true}
-          >
-            <VerticalListButton
-              label="none"
-              onPress={() => {
-                setSelectedChannel(null);
-                setShowChannelSelectionSheet(false);
-              }}
-              disabled={selectedChannel === null}
-            />
-            {getPostableChannels().map(channel => (
-              <TouchableOpacity
-                key={channel.slug}
-                style={[
-                  styles.channelListButton,
-                  selectedChannel?.slug === channel.slug && { opacity: 0.5 }
-                ]}
-                onPress={() => {
-                  setSelectedChannel(channel);
-                  setShowChannelSelectionSheet(false);
-                }}
-                activeOpacity={0.7}
-                disabled={selectedChannel?.slug === channel.slug}
-              >
-                <View style={styles.listButtonContent}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {shouldShowChannelSlash(channel.uri) && (
-                      <Text style={[
-                        styles.channelListButtonText, 
-                        styles.orbytSlash, 
-                        { 
-                          color: channel.channelColor || '#FFD700',
-                          fontFamily: 'Firma-SemiBold'
-                        }
-                      ]}>/</Text>
-                    )}
-                    <Text style={[styles.channelListButtonText, { fontFamily: 'Firma-Bold' }]}>
-                      {channel.displayName.toLowerCase()}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </VerticalListSheet>
 
       </SafeAreaView>
     );
@@ -1512,12 +1460,13 @@ const VideoPostScreen: React.FC = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <Animated.View 
-          style={[
-            styles.contentContainer,
-            { paddingBottom: 60 + Math.max(insets.bottom, 20) + 80 },
-            fadeAnimatedStyle
+        <Animated.ScrollView 
+          style={[styles.contentContainer, fadeAnimatedStyle]}
+          contentContainerStyle={[
+            { paddingBottom: 60 + Math.max(insets.bottom, 20) + 80 }
           ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* Video Preview Section */}
           <View style={styles.previewSection}>
@@ -1536,287 +1485,63 @@ const VideoPostScreen: React.FC = () => {
           {/* Spacer to account for absolutely positioned preview */}
           <View style={{ height: containerHeight + 22 }} />
           
-          {/* Description Section */}
-          <View style={[styles.descriptionSection, { paddingTop: 0, paddingBottom: 0 }]}>
-            <Text style={[styles.sectionHeaderTitle, { marginBottom: 4 }]}>Description</Text>
-            <TouchableOpacity 
-              onPress={() => setShowDescriptionInputModal(true)}
-              activeOpacity={0.7}
-              style={styles.descriptionInputTouchable}
-            >
-              {description ? (
-                <Text style={styles.descriptionInputPreview} numberOfLines={3}>
-                  {formattedRichText.map((part, index) => (
-                    <Text key={index} style={part.isSemiBold ? styles.descriptionInputPreviewSemiBold : styles.descriptionInputPreviewNormal}>
-                      {part.text}
-                    </Text>
-                  ))}
-                </Text>
-              ) : (
-                <Text style={[styles.descriptionInputPreview, styles.descriptionInputPlaceholder]}>
-                  Add text & tags (optional)
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
+          <DescriptionPreview
+            description={description}
+            formattedRichText={formattedRichText}
+            onPress={() => setShowDescriptionInputModal(true)}
+          />
           
           {/* Divider */}
           <View style={styles.sectionDivider} />
           
-          {/* Channel Selection */}
-          <View style={styles.section}>
-            <Text style={styles.sectionHeaderTitle}>Channel (optional)</Text>
-            <TouchableOpacity 
-              style={styles.channelSelectorContainer}
-              onPress={() => setShowChannelSelectionSheet(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.channelSelectorBox}>
-                {!selectedChannel ? (
-                  <Avatar
-                    type="channel"
-                    size={52}
-                    ringColor="transparent"
-                    fallbackIcon="device-tv"
-                    fallbackIconColor={Colors.lightGray}
-                    fallbackIconSize={32}
-                  />
-                ) : (
-                  <Avatar
-                    uri={getChannelAvatarUri(selectedChannel.uri)}
-                    type="channel"
-                    size={52}
-                    ringColor="transparent"
-                  />
-                )}
-              </View>
-              {!selectedChannel ? (
-                <View style={styles.channelSelectorPlaceholderContainer}>
-                  <Text style={styles.channelSelectorPlaceholderText}>Pick a channel</Text>
-                  <DownSmallFillIcon size={20} color={Colors.gray} />
-                </View>
-              ) : (
-                <View style={styles.channelSelectorNameContainer}>
-                  {shouldShowChannelSlash(selectedChannel.uri) && (
-                    <Text style={[
-                      styles.channelSelectorName, 
-                      styles.orbytSlash, 
-                      { 
-                        color: selectedChannel.channelColor || '#FFD700',
-                        fontFamily: 'Firma-SemiBold'
-                      }
-                    ]}>/</Text>
-                  )}
-                  <Text style={styles.channelSelectorName}>
-                    {selectedChannel.displayName.toLowerCase()}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+          <ChannelSelector
+            selectedChannel={selectedChannel}
+            onPress={() => setShowChannelSelectionSheet(true)}
+            showRing={false}
+          />
           
-          {/* Comment Filtering Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionHeaderTitle}>Comments</Text>
-            <TouchableOpacity 
-              style={styles.channelSelectorContainer}
-              onPress={() => setShowCommentSettingsSheet(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.channelSelectorBox}>
-                <Icon name="chat-3-line" size={32} color={Colors.lightGray} />
-              </View>
-              {!commentFilter ? (
-                <View style={styles.channelSelectorPlaceholderContainer}>
-                  <Text style={styles.channelSelectorPlaceholderText}>{getSelectedCommentFilterLabel()}</Text>
-                  <DownSmallFillIcon size={20} color={Colors.gray} />
-                </View>
-              ) : (
-                <View style={styles.channelSelectorNameContainer}>
-                  <Text style={styles.channelSelectorName}>
-                    {getSelectedCommentFilterLabel()}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+          <CommentFilterSelector
+            commentFilter={commentFilter}
+            getSelectedCommentFilterLabel={getSelectedCommentFilterLabel}
+            onPress={() => setShowCommentSettingsSheet(true)}
+          />
           
-          {/* Content Warning Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionHeaderTitle}>Warnings</Text>
-            <TouchableOpacity 
-              style={styles.channelSelectorContainer}
-              onPress={() => setShowContentWarningsSheet(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.channelSelectorBox}>
-                <Icon name="warning-line" size={32} color={Colors.lightGray} />
-              </View>
-              {selectedContentWarnings.length === 0 && !otherWarning.trim() ? (
-                <View style={styles.channelSelectorPlaceholderContainer}>
-                  <Text style={styles.channelSelectorPlaceholderText}>{getSelectedContentWarningsLabel()}</Text>
-                  <DownSmallFillIcon size={20} color={Colors.gray} />
-                </View>
-              ) : (
-                <View style={styles.channelSelectorNameContainer}>
-                  <Text style={styles.channelSelectorName}>
-                    {getSelectedContentWarningsLabel()}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+          <ContentWarningSelector
+            selectedContentWarnings={selectedContentWarnings}
+            otherWarning={otherWarning}
+            getSelectedContentWarningsLabel={getSelectedContentWarningsLabel}
+            onPress={() => setShowContentWarningsSheet(true)}
+          />
           
           
-        </Animated.View>
+        </Animated.ScrollView>
         
 
         
         <View style={[styles.floatingPostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-          <TouchableOpacity 
+          <PostButton
             onPress={handlePost}
-            disabled={isPosting || isCompressing}
-            activeOpacity={0.8}
-          >
-            {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
-              <GlassView
-                style={[styles.floatingPostButtonGlass, { width: SCREEN_WIDTH * 0.6 }]}
-                glassEffectStyle="clear"
-                tintColor="rgba(255,255,255,0.9)"
-                isInteractive
-              >
-                <View style={styles.buttonContent}>
-                  {isPosting ? (
-                    <View style={styles.loadingContainer}>
-                      <Loading3FillIcon size={24} color={Colors.black} />
-                      <Text style={styles.postButtonText}>
-                        {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
-                         uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
-                         'Creating post...'}
-                      </Text>
-                    </View>
-                  ) : isCompressing ? (
-                    <View style={styles.loadingContainer}>
-                      <Loading3FillIcon size={24} color={Colors.black} />
-                      <Text style={styles.postButtonText}>
-                        Getting ready...
-                      </Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.postButtonText}>POST</Text>
-                  )}
-                </View>
-              </GlassView>
-            ) : (
-              <View 
-                style={[
-                  styles.floatingPostButtonHost, 
-                  { width: SCREEN_WIDTH * 0.6 }, 
-                  (isPosting || isCompressing) && styles.floatingPostButtonDisabled
-                ]}
-              >
-                <View style={styles.buttonContent}>
-                  {isPosting ? (
-                    <View style={styles.loadingContainer}>
-                      <Loading3FillIcon size={24} color={Colors.black} />
-                      <Text style={styles.postButtonText}>
-                        {uploadProgress < 50 ? `Uploading video... ${uploadProgress}%` : 
-                         uploadProgress < 90 ? `Processing video... ${uploadProgress}%` : 
-                         'Creating post...'}
-                      </Text>
-                    </View>
-                  ) : isCompressing ? (
-                    <View style={styles.loadingContainer}>
-                      <Loading3FillIcon size={24} color={Colors.black} />
-                      <Text style={styles.postButtonText}>
-                        Getting ready...
-                      </Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.postButtonText}>POST</Text>
-                  )}
-                </View>
-              </View>
-            )}
-          </TouchableOpacity>
+            isPosting={isPosting}
+            isCompressing={isCompressing}
+            uploadProgress={uploadProgress}
+            buttonStyle="portrait"
+            width={SCREEN_WIDTH * 0.6}
+          />
         </View>
       </KeyboardAvoidingView>
 
-      {/* Full-Screen Description Input Modal */}
-      <Modal
+      {/* Description Input Modal */}
+      <DescriptionInputModal
         visible={showDescriptionInputModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowDescriptionInputModal(false)}
-      >
-        <View style={styles.descriptionModalContainer}>
-          <View style={styles.descriptionModalOverlay}>
-            <View style={[styles.descriptionModalContentWrapper, { paddingTop: insets.top }]}>
-              <View style={styles.descriptionModalHeader}>
-                <View style={styles.descriptionModalHeaderSpacer} />
-                <Text style={[styles.sectionHeaderTitle, { marginBottom: 0 }]}>Description</Text>
-                <TouchableOpacity 
-                  onPress={() => setShowDescriptionInputModal(false)}
-                  style={[
-                    styles.descriptionModalDoneButton,
-                    description.length > 300 && styles.descriptionModalDoneButtonDisabled
-                  ]}
-                  activeOpacity={0.7}
-                  disabled={description.length > 300}
-                >
-                  <Text style={[
-                    styles.descriptionModalDoneText,
-                    description.length > 300 && styles.descriptionModalDoneTextDisabled
-                  ]}>
-                    {description.length > 300 ? `+${description.length - 300}` : 'Done'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.descriptionModalContent}
-                keyboardVerticalOffset={0}
-              >
-                <View style={styles.descriptionInputContainer}>
-                  <TextInput
-                    value={description}
-                    onChangeText={setDescription}
-                    onSelectionChange={(e) => {
-                      setDescriptionSelection(e.nativeEvent.selection);
-                    }}
-                    style={styles.descriptionModalInput}
-                    placeholder="Add text & tags (optional)"
-                    placeholderTextColor={Colors.mediumGray}
-                    multiline={true}
-                    maxLength={300}
-                    autoFocus={true}
-                    textAlignVertical="top"
-                    blurOnSubmit={false}
-                    returnKeyType="default"
-                  />
-                  {description && (
-                    <View style={styles.descriptionInputOverlay} pointerEvents="none">
-                      <Text style={styles.descriptionInputOverlayText}>
-                        {formattedRichText.map((part, index) => (
-                          <Text key={index} style={part.isSemiBold ? styles.descriptionInputOverlaySemiBold : styles.descriptionInputOverlayNormal}>
-                            {part.text}
-                          </Text>
-                        ))}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                {richTextSearchModalProps.visible && (
-                  <RichTextSearchModal
-                    {...richTextSearchModalProps}
-                    containerStyle={styles.searchModalContainer}
-                  />
-                )}
-              </KeyboardAvoidingView>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        description={description}
+        formattedRichText={formattedRichText}
+        descriptionSelection={descriptionSelection}
+        setDescription={setDescription}
+        setDescriptionSelection={setDescriptionSelection}
+        onClose={() => setShowDescriptionInputModal(false)}
+        richTextSearchModalProps={richTextSearchModalProps}
+        insets={insets}
+      />
 
       {/* Content Warnings Sheet */}
       <VerticalListSheet
