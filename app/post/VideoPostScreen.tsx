@@ -14,9 +14,9 @@ import {
   Modal,
   FlatList,
   StatusBar,
-  Image,
   Keyboard,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -25,6 +25,7 @@ import { useEvent } from 'expo';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
+import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Avatar } from '../../src/components/ui/UI';
 import { VerificationBadge } from '../../src/components/features/badging';
@@ -52,6 +53,71 @@ import { useRichText, formatRichTextForDisplay } from '../../src/hooks/useRichTe
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16; // 9:16 aspect ratio for video cards
 const VIDEO_WIDTH = SCREEN_WIDTH * 0.33; // Slightly smaller preview
+
+// Reusable video preview component to avoid duplication
+const VideoPreviewContent: React.FC<{
+  thumbnailPath?: string;
+  videoUri: string;
+  player: VideoPlayer | null;
+  videoLoading: boolean;
+  isMerging: boolean;
+  videoError: string | null;
+  textOverlays: TextOverlay[];
+  containerStyle?: any;
+}> = ({ thumbnailPath, videoUri, player, videoLoading, isMerging, videoError, textOverlays, containerStyle }) => {
+  const thumbnailUrl = thumbnailPath || videoUri;
+  
+  return (
+    <View style={[styles.videoContainer, containerStyle]}>
+      {thumbnailUrl && (
+        <>
+          <BlurredThumbnailBackground thumbnailUrl={thumbnailUrl} />
+          {!videoLoading && !isMerging && (
+            <Image source={{ uri: thumbnailUrl }} contentFit="contain" style={styles.poster} />
+          )}
+        </>
+      )}
+      {videoUri && player && (
+        <VideoView player={player} style={styles.videoPlayer} contentFit="contain" nativeControls={false} />
+      )}
+      {(videoLoading || isMerging) && (
+        <View style={styles.loadingOverlay}>
+          <Loading3FillIcon size={48} color={Colors.white} />
+        </View>
+      )}
+      {videoError && (
+        <View style={[styles.loadingOverlay, { zIndex: 3, backgroundColor: Colors.darkGray }]}>
+          <Text style={{ color: Colors.lightGray, fontSize: 16 }}>{videoError}</Text>
+        </View>
+      )}
+      {!videoLoading && !isMerging && !videoError && textOverlays.length > 0 && textOverlays.map((overlay: TextOverlay) => (
+        <View
+          key={overlay.id}
+          style={[
+            styles.textOverlayContainer,
+            {
+              left: overlay.position.x,
+              top: overlay.position.y,
+              transform: [{ scale: overlay.scale }]
+            }
+          ]}
+        >
+          <Text
+            style={[
+              styles.textOverlay,
+              { 
+                fontFamily: overlay.fontFamily,
+                color: overlay.color
+              }
+            ]}
+          >
+            {overlay.text}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+};
 
 // Content warning options
 const CONTENT_WARNINGS = [
@@ -169,6 +235,31 @@ const VideoPostScreen: React.FC = () => {
 
   // User store hooks
   const { currentUser } = useCurrentUser();
+  
+  // Fade-in animation for smooth screen entry
+  const fadeOpacity = useSharedValue(0);
+  const headerFadeOpacity = useSharedValue(0);
+  
+  useEffect(() => {
+    // Fade in header buttons first, then content
+    headerFadeOpacity.value = withTiming(1, {
+      duration: 200,
+      easing: Easing.out(Easing.ease),
+    });
+    // Fade in content slightly after header
+    fadeOpacity.value = withTiming(1, {
+      duration: 300,
+      easing: Easing.out(Easing.ease),
+    });
+  }, []);
+  
+  const fadeAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: fadeOpacity.value,
+  }));
+  
+  const headerFadeAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: headerFadeOpacity.value,
+  }));
   
   // Rich text search hook for description input (for @ mentions and # hashtags)
   const {
@@ -839,31 +930,47 @@ const VideoPostScreen: React.FC = () => {
           pointerEvents="none"
         />
         {/* Header */}
-        <TouchableOpacity 
-          onPress={handleCancel} 
-          style={[styles.headerButton, { 
-            top: isSmallDevice ? 5 : insets.top + 4,
-            left: 4,
-          }]}
+        <Animated.View 
+          style={[
+            styles.headerButton, 
+            { 
+              top: isSmallDevice ? 5 : insets.top + 4,
+              left: 4,
+            },
+            headerFadeAnimatedStyle
+          ]}
         >
-          <BackArrowIcon size={32} color={Colors.white} />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={handleDownload}
-          disabled={isDownloading || isMerging || !activeVideoPath}
-          style={[styles.headerButton, { 
-            top: isSmallDevice ? 5 : insets.top + 4,
-            right: 4,
-            left: undefined,
-          }]}
+          <TouchableOpacity 
+            onPress={handleCancel}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <BackArrowIcon size={32} color={Colors.white} />
+          </TouchableOpacity>
+        </Animated.View>
+        <Animated.View 
+          style={[
+            styles.headerButton, 
+            { 
+              top: isSmallDevice ? 5 : insets.top + 4,
+              right: 4,
+              left: undefined,
+            },
+            headerFadeAnimatedStyle
+          ]}
         >
-          {isDownloading ? (
-            <Loading3FillIcon size={32} color={Colors.white} />
-          ) : (
-            <Icon name="save" size={32} color={Colors.white} />
-          )}
-        </TouchableOpacity>
-        <View style={styles.landscapeContainer}>
+          <TouchableOpacity 
+            onPress={handleDownload}
+            disabled={isDownloading || isMerging || !activeVideoPath}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+          >
+            {isDownloading ? (
+              <Loading3FillIcon size={32} color={Colors.white} />
+            ) : (
+              <Icon name="save" size={32} color={Colors.white} />
+            )}
+          </TouchableOpacity>
+        </Animated.View>
+        <Animated.View style={[styles.landscapeContainer, fadeAnimatedStyle]}>
           {/* Left: Info Side */}
           <View style={styles.landscapeInfoSide}>
             <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 40 }]}>
@@ -1063,58 +1170,19 @@ const VideoPostScreen: React.FC = () => {
           {/* Right: Video Preview Side */}
           <View style={styles.landscapeVideoSide}>
             <View style={styles.previewSection}>
-              <View style={[styles.videoContainer, { width: '100%', aspectRatio: ASPECT_RATIO, maxHeight: '90%' }]}> 
-                {/* Blurred thumbnail background */}
-                {(thumbnailPath || videoUri) && <BlurredThumbnailBackground thumbnailUrl={thumbnailPath || videoUri} />}
-                {(videoLoading || isMerging) && (
-                  <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: 'transparent' }]}> 
-                    <Loading3FillIcon size={48} color={Colors.white} />
-                  </View>
-                )}
-                <View style={{ width: '100%', aspectRatio: ASPECT_RATIO, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 1 }}>
-                  {videoUri && player ? (
-                      <VideoView
-                        player={player}
-                        style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
-                        contentFit="contain"
-                        nativeControls={false}
-                      />
-                  ) : null}
-                </View>
-                {videoError && (
-                  <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 3, backgroundColor: Colors.darkGray }]}> 
-                    <Text style={{ color: Colors.lightGray, fontSize: 16 }}>{videoError && videoError.toLowerCase()}</Text>
-                  </View>
-                )}
-                {!videoLoading && !isMerging && !videoError && textOverlays && textOverlays.length > 0 && textOverlays.map((overlay: TextOverlay) => (
-                  <View
-                    key={overlay.id}
-                    style={[
-                      styles.textOverlayContainer,
-                      {
-                        left: overlay.position.x,
-                        top: overlay.position.y,
-                        transform: [{ scale: overlay.scale }]
-                      }
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.textOverlay,
-                        { 
-                          fontFamily: overlay.fontFamily,
-                          color: overlay.color
-                        }
-                      ]}
-                    >
-                      {overlay.text}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+              <VideoPreviewContent
+                thumbnailPath={thumbnailPath}
+                videoUri={videoUri}
+                player={player}
+                videoLoading={videoLoading}
+                isMerging={isMerging}
+                videoError={videoError}
+                textOverlays={textOverlays}
+                containerStyle={{ width: '100%', aspectRatio: ASPECT_RATIO, maxHeight: '90%' }}
+              />
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Full-Screen Description Input Modal */}
         <Modal
@@ -1350,94 +1418,69 @@ const VideoPostScreen: React.FC = () => {
         pointerEvents="none"
       />
       {/* Header */}
-      <TouchableOpacity 
-        onPress={handleCancel} 
-        style={[styles.headerButton, { 
-          top: isSmallDevice ? 5 : insets.top + 4,
-          left: 4,
-        }]}
+      <Animated.View 
+        style={[
+          styles.headerButton, 
+          { 
+            top: isSmallDevice ? 5 : insets.top + 4,
+            left: 4,
+          },
+          headerFadeAnimatedStyle
+        ]}
       >
-        <BackArrowIcon size={32} color={Colors.white} />
-      </TouchableOpacity>
-      <TouchableOpacity 
-        onPress={handleDownload}
-        disabled={isDownloading || isMerging || !activeVideoPath}
-        style={[styles.headerButton, { 
-          top: isSmallDevice ? 5 : insets.top + 4,
-          right: 4,
-          left: undefined,
-        }]}
+        <TouchableOpacity 
+          onPress={handleCancel}
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <BackArrowIcon size={32} color={Colors.white} />
+        </TouchableOpacity>
+      </Animated.View>
+      <Animated.View 
+        style={[
+          styles.headerButton, 
+          { 
+            top: isSmallDevice ? 5 : insets.top + 4,
+            right: 4,
+            left: undefined,
+          },
+          headerFadeAnimatedStyle
+        ]}
       >
-        {isDownloading ? (
-          <Loading3FillIcon size={32} color={Colors.white} />
-        ) : (
-          <Icon name="save" size={32} color={Colors.white} />
-        )}
-      </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={handleDownload}
+          disabled={isDownloading || isMerging || !activeVideoPath}
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        >
+          {isDownloading ? (
+            <Loading3FillIcon size={32} color={Colors.white} />
+          ) : (
+            <Icon name="save" size={32} color={Colors.white} />
+          )}
+        </TouchableOpacity>
+      </Animated.View>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <View 
+        <Animated.View 
           style={[
             styles.contentContainer,
-            { paddingBottom: 60 + Math.max(insets.bottom, 20) + 80 }
+            { paddingBottom: 60 + Math.max(insets.bottom, 20) + 80 },
+            fadeAnimatedStyle
           ]}
         >
           {/* Video Preview Section */}
           <View style={styles.previewSection}>
-            <View style={[styles.videoContainer, { width: containerWidth, height: containerHeight }]}>
-              {/* Blurred thumbnail background */}
-              {(thumbnailPath || videoUri) && <BlurredThumbnailBackground thumbnailUrl={thumbnailPath || videoUri} />}
-              {/* Show loading indicator while video is loading */}
-              {(videoLoading || isMerging) && (
-                <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 2, backgroundColor: 'transparent' }]}>
-                  <Loading3FillIcon size={48} color={Colors.white} />
-                </View>
-              )}
-              <View style={{ width: containerWidth, height: containerHeight, justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 1 }}>
-                {videoUri && player ? (
-                  <VideoView
-                    player={player}
-                    style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
-                    contentFit="contain"
-                    nativeControls={false}
-                  />
-                ) : null}
-              </View>
-              {/* Error message if video fails to load */}
-              {videoError && (
-                <View style={[styles.video, { justifyContent: 'center', alignItems: 'center', position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 3, backgroundColor: Colors.darkGray }]}> 
-                  <Text style={{ color: Colors.lightGray, fontSize: 16 }}>{videoError}</Text>
-                </View>
-              )}
-              {/* Text Overlays - only show if they exist */}
-              {!videoLoading && !isMerging && !videoError && textOverlays && textOverlays.length > 0 && textOverlays.map((overlay: TextOverlay) => (
-                <View
-                  key={overlay.id}
-                  style={[
-                    styles.textOverlayContainer,
-                    {
-                      left: overlay.position.x,
-                      top: overlay.position.y,
-                      transform: [{ scale: overlay.scale }]
-                    }
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.textOverlay,
-                      { 
-                        fontFamily: overlay.fontFamily,
-                        color: overlay.color
-                      }
-                    ]}
-                  >
-                    {overlay.text}
-                  </Text>
-                </View>
-              ))}
-            </View>
+            <VideoPreviewContent
+              thumbnailPath={thumbnailPath}
+              videoUri={videoUri}
+              player={player}
+              videoLoading={videoLoading}
+              isMerging={isMerging}
+              videoError={videoError}
+              textOverlays={textOverlays}
+              containerStyle={{ width: containerWidth, height: containerHeight }}
+            />
           </View>
           
           {/* Spacer to account for absolutely positioned preview */}
@@ -1575,7 +1618,7 @@ const VideoPostScreen: React.FC = () => {
           </View>
           
           
-        </View>
+        </Animated.View>
         
 
         
@@ -1929,6 +1972,36 @@ const styles = StyleSheet.create({
   video: {
     width: '100%',
     height: '100%',
+  },
+  poster: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  videoPlayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+    backgroundColor: 'transparent',
   },
   textOverlayContainer: {
     position: 'absolute',
