@@ -703,7 +703,7 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   const contentAnimatedStyle = useAnimatedStyle(() => {
     const progress = contentScrollProgress?.value ?? 0;
     // More gradual fade: keep fully visible until 50% scroll, then fade to 0 over remaining 50%
-    const opacity = interpolate(progress, [0, 0.5, 1], [1, 1, 0], Extrapolate.CLAMP);
+    const opacity = interpolate(progress, [0, 0.5, 1], [1, 1, 0.02], Extrapolate.CLAMP);
     return { opacity };
   }, [contentScrollProgress]);
 

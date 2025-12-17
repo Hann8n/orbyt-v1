@@ -369,7 +369,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const overlayAnimatedStyle = useAnimatedStyle(() => {
     const progress = headerScrollProgress.value;
     // Smooth fade: start fading at 30%, complete fade by 80% for smoother transition
-    const opacity = interpolate(progress, [0, 0.3, 0.8], [1, 1, 0], Extrapolate.CLAMP);
+    const opacity = interpolate(progress, [0, 0.3, 0.8], [1, 1, 0.02], Extrapolate.CLAMP);
     return { opacity };
   }, [headerScrollProgress]);
 

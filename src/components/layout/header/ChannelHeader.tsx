@@ -203,28 +203,30 @@ const SubscribeButton: React.FC<{
               isInteractive
             />
           )}
-          {isSubscribing ? (
-            <Loading3FillIcon size={24} color={isSubscribed ? subscribedTextColor : '#FFFFFF'} />
-          ) : (
-            <>
-              <Text style={[styles.subscribeButtonText, { color: isSubscribed ? subscribedTextColor : '#FFFFFF' }]}>
-                {isSubscribed ? 'Subscribed' : 'Subscribe'}
-              </Text>
-              {isSubscribed ? (
-                <CheckIcon 
-                  size={16} 
-                  color={subscribedTextColor} 
-                  strokeWidth={2.0}
-                />
-              ) : (
-                <PlusIcon 
-                  size={12} 
-                  color="#FFFFFF" 
-                  strokeWidth={2.0}
-                />
-              )}
-            </>
-          )}
+          <View pointerEvents="none" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {isSubscribing ? (
+              <Loading3FillIcon size={24} color={isSubscribed ? subscribedTextColor : '#FFFFFF'} />
+            ) : (
+              <>
+                <Text style={[styles.subscribeButtonText, { color: isSubscribed ? subscribedTextColor : '#FFFFFF' }]}>
+                  {isSubscribed ? 'Subscribed' : 'Subscribe'}
+                </Text>
+                {isSubscribed ? (
+                  <CheckIcon 
+                    size={16} 
+                    color={subscribedTextColor} 
+                    strokeWidth={2.0}
+                  />
+                ) : (
+                  <PlusIcon 
+                    size={12} 
+                    color="#FFFFFF" 
+                    strokeWidth={2.0}
+                  />
+                )}
+              </>
+            )}
+          </View>
         </View>
       </TouchableOpacity>
       
@@ -488,6 +490,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           backgroundImage={backgroundImage}
           isLoading={false}
           applySafeArea={applySafeArea}
+          reserveTopForOverlayButtons={true}
           style={{ opacity: 1 }}
           contentStyle={[headerStyle]}
           minHeight={isOrbyt ? 450 : undefined}
