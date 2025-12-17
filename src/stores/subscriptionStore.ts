@@ -96,7 +96,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     await ProfileCache.updateSubscriptionStatus(did, true);
     
     try {
-      await AtprotoService.putActivitySubscription(did);
+      await AtprotoService.putActivitySubscription(did, preferences);
       return true;
     } catch (error) {
       logger.error('Failed to update subscription preferences', error, { component: 'subscriptionStore', did });

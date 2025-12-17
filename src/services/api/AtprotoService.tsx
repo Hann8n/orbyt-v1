@@ -3243,9 +3243,13 @@ class AtprotoService {
   /**
    * Subscribe to activity notifications from a user
    * @param did - DID of the user to subscribe to
+   * @param preferences - Activity subscription preferences (post/reply). Defaults to both true.
    * @returns Promise resolving to subscription status
    */
-  static async putActivitySubscription(did: string): Promise<{ subject: string; activitySubscription?: any }> {
+  static async putActivitySubscription(
+    did: string,
+    preferences: { post: boolean; reply: boolean } = { post: true, reply: true },
+  ): Promise<{ subject: string; activitySubscription?: any }> {
     try {
       const { api } = await this.getApiClient();
       
@@ -3262,8 +3266,8 @@ class AtprotoService {
       const response = await api.app.bsky.notification.putActivitySubscription({
         subject: did,
         activitySubscription: {
-          post: true,
-          reply: true,
+          post: preferences.post,
+          reply: preferences.reply,
         },
       });
 
