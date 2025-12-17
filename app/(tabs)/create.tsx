@@ -173,7 +173,9 @@ const CreateScreen: React.FC = () => {
 
         const { videoPath, duration } = trim;
 
-        if (duration >= MIN_SEGMENT_DURATION && totalDuration + duration <= maxDuration) {
+        // Use a small tolerance for floating point precision (0.1s, matching trimmer validation)
+        const DURATION_TOLERANCE = 0.1;
+        if (duration >= MIN_SEGMENT_DURATION && totalDuration + duration <= maxDuration + DURATION_TOLERANCE) {
           const newSegment: VideoSegment = {
             startTime: Date.now(),
             duration,

@@ -165,6 +165,7 @@ const VideoPostScreen: React.FC = () => {
   const [compressedVideoPath, setCompressedVideoPath] = useState<string | null>(null);
   const [compressionProgress, setCompressionProgress] = useState(0);
   const [wasAutoCompressed, setWasAutoCompressed] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // User store hooks
   const { currentUser } = useCurrentUser();
@@ -449,6 +450,33 @@ const VideoPostScreen: React.FC = () => {
       setIsPosting(true);
       setUploadProgress(0);
       
+      // Use compressed video if available, otherwise use the validated path
+      const videoPathToUpload = compressedVideoPath || videoPathToUse;
+      
+      // Save video to gallery FIRST (before upload) so user has it even if upload fails
+      try {
+        // Request media library permissions
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status === 'granted') {
+          // Resolve the video path to ensure it's accessible
+          const pathInfo = await resolveVideoPath(videoPathToUpload);
+          
+          if (pathInfo.exists) {
+            // Save video to media library silently (don't block post flow if this fails)
+            await MediaLibrary.createAssetAsync(pathInfo.uri);
+            
+            logger.info('Video saved to gallery before posting', {
+              component: 'VideoPostScreen',
+            });
+          }
+        }
+      } catch (saveError) {
+        // Silently fail - don't interrupt the post flow if save fails
+        logger.error('Failed to save video to gallery before posting', saveError, { 
+          component: 'VideoPostScreen' 
+        });
+      }
+      
       // Collect all content warnings, including custom one if present
       const allContentWarnings = [...selectedContentWarnings];
       if (otherWarning.trim()) {
@@ -466,9 +494,6 @@ const VideoPostScreen: React.FC = () => {
           return prev + 5;
         });
       }, 300);
-      
-      // Use compressed video if available, otherwise use the validated path
-      const videoPathToUpload = compressedVideoPath || videoPathToUse;
       
       // Extract slug from channel URI to ensure it matches what the backend expects
       const channelSlug = selectedChannel 
@@ -527,6 +552,73 @@ const VideoPostScreen: React.FC = () => {
         { text: 'discard', style: 'destructive', onPress: () => navigation.back() }
       ]
     );
+  };
+
+  const handleDownload = async () => {
+    if (!activeVideoPath || isDownloading || isMerging) {
+      if (isMerging) {
+        Alert.alert('Please wait', 'Video is still being merged. Please wait for it to complete.');
+      }
+      return;
+    }
+
+    try {
+      setIsDownloading(true);
+
+      // Request media library permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please grant access to your photo library to save the video.',
+          [{ text: 'OK' }]
+        );
+        setIsDownloading(false);
+        return;
+      }
+
+      // Use compressed video if available, otherwise use the active video path
+      const videoPathToDownload = compressedVideoPath || activeVideoPath;
+
+      // Resolve the video path to ensure it's accessible
+      const pathInfo = await resolveVideoPath(videoPathToDownload);
+      
+      if (!pathInfo.exists) {
+        Alert.alert(
+          'Video Not Found',
+          'The video file could not be found. Please try again.',
+          [{ text: 'OK' }]
+        );
+        setIsDownloading(false);
+        return;
+      }
+
+      // Use the resolved URI (already has file:// prefix)
+      const fileUri = pathInfo.uri;
+
+      // Save video to media library
+      const asset = await MediaLibrary.createAssetAsync(fileUri);
+      
+      Alert.alert(
+        'Video Saved',
+        'Your video has been saved to your photo library.',
+        [{ text: 'OK' }]
+      );
+
+      logger.info('Video downloaded successfully', {
+        component: 'VideoPostScreen',
+        assetId: asset.id,
+      });
+    } catch (error: any) {
+      logger.error('Failed to download video', error, { component: 'VideoPostScreen' });
+      Alert.alert(
+        'Download Failed',
+        error.message || 'Failed to save video to your photo library. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
 
@@ -755,6 +847,21 @@ const VideoPostScreen: React.FC = () => {
           }]}
         >
           <BackArrowIcon size={32} color={Colors.white} />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={handleDownload}
+          disabled={isDownloading || isMerging || !activeVideoPath}
+          style={[styles.headerButton, { 
+            top: isSmallDevice ? 5 : insets.top + 4,
+            right: 4,
+            left: undefined,
+          }]}
+        >
+          {isDownloading ? (
+            <Loading3FillIcon size={32} color={Colors.white} />
+          ) : (
+            <Icon name="save" size={32} color={Colors.white} />
+          )}
         </TouchableOpacity>
         <View style={styles.landscapeContainer}>
           {/* Left: Info Side */}
@@ -1251,6 +1358,21 @@ const VideoPostScreen: React.FC = () => {
         }]}
       >
         <BackArrowIcon size={32} color={Colors.white} />
+      </TouchableOpacity>
+      <TouchableOpacity 
+        onPress={handleDownload}
+        disabled={isDownloading || isMerging || !activeVideoPath}
+        style={[styles.headerButton, { 
+          top: isSmallDevice ? 5 : insets.top + 4,
+          right: 4,
+          left: undefined,
+        }]}
+      >
+        {isDownloading ? (
+          <Loading3FillIcon size={32} color={Colors.white} />
+        ) : (
+          <Icon name="save" size={32} color={Colors.white} />
+        )}
       </TouchableOpacity>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

@@ -143,29 +143,28 @@ const VideoTrimmerScreen: React.FC = () => {
         // No trimming needed, use original video path
         finalVideoPath = videoUri;
       } else {
-        // Generate temporary file path
+        // Generate temporary file path using Expo FileSystem best practices
         const timestamp = Date.now();
         const random = Math.random().toString(36).substring(7);
         const fileName = `trimmed_${timestamp}_${random}.mp4`;
         
+        // Create directory in cache using Directory.create() with intermediates option
         const tempDir = new Directory(Paths.cache, `video_trim_${timestamp}`);
         await tempDir.create({ intermediates: true });
         
+        // Create File object - .uri property already has correct format
         const outputFile = new File(tempDir, fileName);
-        let outputPath = outputFile.uri.replace(/^file:\/\//, '');
         
-        // Ensure absolute path for iOS
-        if (outputPath && !outputPath.startsWith('/')) {
-          outputPath = '/' + outputPath;
-        }
-
-        // Normalize input path
+        // VideoEditingService.trimVideo expects paths without file:// prefix for FFmpeg
+        // It handles normalization internally, so we pass the .uri without file:// prefix
+        const outputPath = outputFile.uri.replace(/^file:\/\//, '');
         const inputPath = videoUri.replace(/^file:\/\//, '');
-        const normalizedInput = inputPath.startsWith('/') ? inputPath : `/${inputPath}`;
 
         // Trim video using VideoEditingService
+        // trimVideo returns path with file:// prefix, which is what we need for storage
+        // It throws an error if trimming fails, so we can trust the returned path
         finalVideoPath = await VideoEditingService.trimVideo(
-          normalizedInput,
+          inputPath,
           outputPath,
           trimStart,
           trimEnd
