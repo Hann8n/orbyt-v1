@@ -44,6 +44,7 @@ import ProfileCache from '../../src/services/cache/ProfileCache';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import VideoProcessingService from '../../src/services/VideoProcessingService';
 import { logger } from '../../src/utils/logger';
+import { useVideoPostDraftStore } from '../../src/stores/videoPostDraftStore';
 import { SavedAccount } from '../../src/stores/userStore';
 import { getPostableChannels, shouldShowChannelSlash, OrbytChannel, extractFeedSlug, getChannelAvatarUri } from '../../src/utils/orbytChannels';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
@@ -153,6 +154,10 @@ const VideoPostScreen: React.FC = () => {
   
   const textOverlays = (params.textOverlays as any) || [];
   const navigation = useRouter();
+  
+  // Draft store
+  const { setDraft, clearDraft, getDraft } = useVideoPostDraftStore();
+  
   const [description, setDescription] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -295,6 +300,55 @@ const VideoPostScreen: React.FC = () => {
       ProfileCache.setCurrentUserHandle(currentUser.handle);
     }
   }, [currentUser?.did]);
+
+  // Restore draft state when component mounts or videoPath changes
+  useEffect(() => {
+    if (videoPath) {
+      const draft = getDraft();
+      if (draft && draft.videoPath === videoPath) {
+        // Restore draft state
+        setDescription(draft.description || '');
+        setSelectedContentWarnings(draft.selectedContentWarnings || []);
+        setOtherWarning(draft.otherWarning || '');
+        setCommentFilter(draft.commentFilter || null);
+        setSelectedChannel(draft.selectedChannel || null);
+      }
+    }
+  }, [videoPath, getDraft]);
+
+  // Save draft state whenever it changes (with debouncing to prevent infinite loops)
+  const prevDraftRef = useRef<string>('');
+  useEffect(() => {
+    if (!videoPath) return;
+    
+    const currentDraft = JSON.stringify({
+      videoPath,
+      segments: segmentsParam || null,
+      thumbnailPath: thumbnailPath || null,
+      textOverlays: textOverlays || [],
+      description,
+      selectedContentWarnings,
+      otherWarning,
+      commentFilter,
+      selectedChannel,
+    });
+    
+    // Only update if draft actually changed
+    if (prevDraftRef.current !== currentDraft) {
+      prevDraftRef.current = currentDraft;
+      setDraft({
+        videoPath,
+        segments: segmentsParam || null,
+        thumbnailPath: thumbnailPath || null,
+        textOverlays: textOverlays || [],
+        description,
+        selectedContentWarnings,
+        otherWarning,
+        commentFilter,
+        selectedChannel,
+      });
+    }
+  }, [videoPath, segmentsParam, thumbnailPath, textOverlays, description, selectedContentWarnings, otherWarning, commentFilter, selectedChannel]);
 
   // Handle background merging if segments are provided
   useEffect(() => {
@@ -606,6 +660,9 @@ const VideoPostScreen: React.FC = () => {
       // Small delay to show completion
       await new Promise(resolve => setTimeout(resolve, 500));
       
+      // Clear draft since post was successful
+      clearDraft();
+      
       // Close the current screen and navigate back to main
       navigation.replace('/(tabs)');
       
@@ -635,14 +692,7 @@ const VideoPostScreen: React.FC = () => {
   };
 
   const handleCancel = () => {
-    Alert.alert(
-      'discard changes?',
-      'are you sure you want to discard this post?',
-      [
-        { text: 'cancel', style: 'cancel' },
-        { text: 'discard', style: 'destructive', onPress: () => navigation.back() }
-      ]
-    );
+    navigation.back();
   };
 
   const handleDownload = async () => {

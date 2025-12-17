@@ -558,7 +558,38 @@ const CreateScreen: React.FC = () => {
     if (isRecordingRef.current) {
       await stopRecording();
     }
-    navigation.back();
+    
+    // Show warning if there are recordings
+    if (segments.length > 0 || totalDuration > 0) {
+      Alert.alert(
+        'Discard Recordings?',
+        'Closing will discard all your recordings. Are you sure you want to continue?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => {
+              // Reset all clip/segment state when closing
+              setSegments([]);
+              segmentsRef.current = [];
+              setTotalDuration(0);
+              setRecordedVideo(null);
+              progressWidth.value = 0;
+              prevTotalDurationRef.current = 0;
+              processedTrimmedVideoRef.current = null;
+              navigation.back();
+            },
+          },
+        ]
+      );
+    } else {
+      // No recordings, just navigate back
+      navigation.back();
+    }
   };
 
   const finishRecording = useCallback(async () => {

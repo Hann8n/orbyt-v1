@@ -110,7 +110,6 @@ export default function TabsLayout() {
   const isSmallDevice = isSmallScreen() || isTablet();
   const { hasUnread } = useUnreadCount();
   const segments = useSegments();
-  const isCreateScreen = segments.includes('create');
   // Use specific selector to only subscribe to videoScrubbing visibility
   const isScrubbing = useUIStore((state) => state.visibility.videoScrubbing ?? false);
   
@@ -150,7 +149,7 @@ export default function TabsLayout() {
       headerShown: false,
       tabBarHideOnKeyboard: true,
       tabBarShowLabel: false,
-      tabBarStyle: (isCreateScreen || isScrubbing) ? {
+      tabBarStyle: (route.name === 'create' || isScrubbing) ? {
         display: 'none' as const,
       } : {
         backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent',
@@ -233,7 +232,7 @@ export default function TabsLayout() {
         }
       },
     });
-  }, [isCreateScreen, isScrubbing, isSmallDevice, insets.bottom, isTabActive, handleDoubleTap, tabIconSize, captureSize, captureInner, hasUnread]);
+  }, [isScrubbing, isSmallDevice, insets.bottom, isTabActive, handleDoubleTap, tabIconSize, captureSize, captureInner, hasUnread]);
 
   return (
     <Tabs
