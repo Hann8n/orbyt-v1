@@ -77,11 +77,11 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
           
           let iconColor = "white";
           if (tool.id === 'flash' && isFlashDisabled) {
-            iconColor = Colors.gray;
+            iconColor = 'rgba(255, 255, 255, 0.75)';
           } else if (tool.id === 'flash' && flashActive) {
             iconColor = Colors.yellow;
           } else if (isDisabled) {
-            iconColor = Colors.gray;
+            iconColor = 'rgba(255, 255, 255, 0.70)';
           }
           
           return (
