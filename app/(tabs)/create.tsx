@@ -28,8 +28,10 @@ import * as FileSystem from 'expo-file-system';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
-  withTiming
+  withTiming,
+  runOnJS
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Icon, { CloseFillIcon, Loading3FillIcon, ArrowRightFillIcon } from '../../src/components/ui/Icon';
 import BottomToolBar from '../../src/components/ui/BottomToolBar';
 import { isSmallScreen, getBottomNavBarHeight } from '../../src/utils/helpers';
@@ -65,6 +67,7 @@ const CreateScreen: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isFrontCamera, setIsFrontCamera] = useState(false);
   const [flash, setFlash] = useState<'off' | 'on'>('off');
+  const [zoom, setZoom] = useState(0); // Zoom level: 0-1 (0 = no zoom, 1 = max zoom)
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
   const [recordedVideo, setRecordedVideo] = useState<{ uri: string } | null>(null);
@@ -94,6 +97,9 @@ const CreateScreen: React.FC = () => {
 
   const progressWidth = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
+  const zoomScale = useSharedValue(1);
+  const baseZoom = useSharedValue(0);
+  const startZoom = useSharedValue(0);
   
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
@@ -244,6 +250,37 @@ const CreateScreen: React.FC = () => {
       setFlash('off');
     }
   }, [isFrontCamera]);
+
+  // Reset zoom when switching cameras
+  useEffect(() => {
+    setZoom(0);
+    zoomScale.value = 1;
+    baseZoom.value = 0;
+    startZoom.value = 0;
+  }, [isFrontCamera]);
+
+  // Pinch gesture handler for zoom
+  const pinchGesture = Gesture.Pinch()
+    .onStart(() => {
+      'worklet';
+      // Store the current zoom as the starting point for this gesture
+      startZoom.value = baseZoom.value;
+    })
+    .onUpdate((event) => {
+      'worklet';
+      // Calculate new zoom: clamp between 0 and 1
+      // Scale factor: 1.0 = no zoom, higher = zoom in
+      // We use a multiplier for more natural feel (0.3 = slower, more controlled zoom)
+      const scaleChange = (event.scale - 1) * 0.3;
+      const newZoom = Math.max(0, Math.min(1, startZoom.value + scaleChange));
+      baseZoom.value = newZoom;
+      zoomScale.value = event.scale;
+      runOnJS(setZoom)(newZoom);
+    })
+    .onEnd(() => {
+      'worklet';
+      zoomScale.value = 1;
+    });
 
   // Animated styles
   const animatedProgressStyle = useAnimatedStyle(() => ({
@@ -698,21 +735,26 @@ const CreateScreen: React.FC = () => {
         <View style={styles.cameraContainer}>
           <StatusBar hidden={true} />
           {isFocused && (
-            <Pressable onPress={handleDoubleTap} style={styles.cameraPressable}>
-              <CameraView
-                ref={cameraRef}
-                style={[styles.camera, { 
-                  width: cameraWidth, 
-                  height: cameraHeight,
-                  marginTop: isSmallDevice ? 0 : insets.top,
-                }]}
-                facing={isFrontCamera ? 'front' : 'back'}
-                mode="video"
-                enableTorch={flash === 'on' && !isFrontCamera}
-                mute={!microphonePermission?.granted}
-                videoQuality="1080p"
-              />
-            </Pressable>
+            <GestureDetector gesture={pinchGesture}>
+              <Animated.View style={styles.cameraPressable}>
+                <Pressable onPress={handleDoubleTap} style={styles.cameraPressable}>
+                  <CameraView
+                    ref={cameraRef}
+                    style={[styles.camera, { 
+                      width: cameraWidth, 
+                      height: cameraHeight,
+                      marginTop: isSmallDevice ? 0 : insets.top,
+                    }]}
+                    facing={isFrontCamera ? 'front' : 'back'}
+                    mode="video"
+                    enableTorch={flash === 'on' && !isFrontCamera}
+                    mute={!microphonePermission?.granted}
+                    videoQuality="1080p"
+                    zoom={zoom}
+                  />
+                </Pressable>
+              </Animated.View>
+            </GestureDetector>
           )}
           
           {/* Progress Bar - overlays on top of camera */}
@@ -887,6 +929,7 @@ const styles = StyleSheet.create({
   cameraPressable: {
     width: '100%',
     height: '100%',
+    flex: 1,
   },
   camera: {
     // Dimensions will be set dynamically via inline style
