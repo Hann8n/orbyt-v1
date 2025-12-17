@@ -763,18 +763,18 @@ const CreateScreen: React.FC = () => {
     return (
       <>
         {/* Camera View - only render when screen is focused */}
-        <View style={styles.cameraContainer}>
+        <View style={[styles.cameraContainer, { justifyContent: Platform.OS === 'ios' ? 'flex-start' : 'center' }]}>
           <StatusBar hidden={true} />
           {isFocused && (
             <GestureDetector gesture={pinchGesture}>
-              <Animated.View style={styles.cameraPressable}>
-                <Pressable onPress={handleDoubleTap} style={styles.cameraPressable}>
+              <Animated.View style={[styles.cameraPressable, Platform.OS === 'android' && { flex: 0, height: 'auto' }]}>
+                <Pressable onPress={handleDoubleTap} style={[styles.cameraPressable, Platform.OS === 'android' && { flex: 0, height: 'auto' }]}>
                   <CameraView
                     ref={cameraRef}
                     style={[styles.camera, { 
                       width: cameraWidth, 
                       height: cameraHeight,
-                      marginTop: isSmallDevice ? 0 : insets.top,
+                      marginTop: Platform.OS === 'ios' ? (isSmallDevice ? 0 : insets.top) : 0,
                     }]}
                     facing={isFrontCamera ? 'front' : 'back'}
                     mode="video"
@@ -954,7 +954,6 @@ const styles = StyleSheet.create({
   cameraContainer: {
     flex: 1,
     position: 'relative',
-    justifyContent: 'flex-start',
     alignItems: 'center',
   },
   cameraPressable: {
