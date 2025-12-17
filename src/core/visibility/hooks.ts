@@ -1,255 +1,168 @@
-import { useCallback, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import { useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import type { ViewabilityConfig, ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 
-import { useVisibilityCoreStore, type FeedScopeKey } from './visibilityStore';
+import { useVisibilityCoreStore } from './visibilityStore';
 
+/**
+ * Optimized viewability config for FlashList
+ * Uses native FlashList viewability tracking for best performance
+ * Lower threshold for faster detection
+ */
 const DEFAULT_VIEWABILITY_CONFIG: ViewabilityConfig = {
-  itemVisiblePercentThreshold: 50, // Reduced from 65 for faster response
-  minimumViewTime: 50, // Reduced from 120ms for faster response
+  itemVisiblePercentThreshold: 50,
+  minimumViewTime: 0, // No delay - detect immediately
+  waitForInteraction: false,
 };
 
 interface FeedVisibilityOptions {
-  scopeKey: FeedScopeKey;
   isActive: boolean;
-  resetOnActivate?: boolean;
-  resetOnDeactivate?: boolean;
   viewabilityConfig?: ViewabilityConfig;
 }
 
 interface FeedVisibilityResult {
   onViewableItemsChanged: ({ viewableItems }: { viewableItems: ViewToken[] }) => void;
   viewabilityConfig: ViewabilityConfig;
-  activeItemUri: string | null;
   activeItemIndex: number;
-  isFeedActive: boolean;
   canPlay: boolean;
-  // Video visibility helpers (merged from useVideoVisibility)
-  isVideoVisible: (uri: string | null | undefined) => boolean;
-  shouldVideoPlay: (uri: string | null | undefined) => boolean;
-  reset: () => void;
+  isVideoVisible: (index: number) => boolean;
 }
 
+/**
+ * Lean visibility hook using FlashList's native viewability
+ * Tracks only the centered item index - minimal state updates
+ */
 export function useFeedVisibility({
-  scopeKey,
   isActive,
-  resetOnActivate = false,
-  resetOnDeactivate = false,
   viewabilityConfig,
 }: FeedVisibilityOptions): FeedVisibilityResult {
-  const setFeedActive = useVisibilityCoreStore((state) => state.setFeedActive);
-  const setFeedVisibleItem = useVisibilityCoreStore((state) => state.setFeedVisibleItem);
-  const resetFeedScope = useVisibilityCoreStore((state) => state.resetFeedScope);
-
-  const feedEntry = useVisibilityCoreStore(useCallback((state) => state.feeds[scopeKey], [scopeKey]));
   const appState = useVisibilityCoreStore((state) => state.appState);
-  const pauseOnOverlay = useVisibilityCoreStore((state) => state.pauseOnOverlay);
-  const hasOverlay = useVisibilityCoreStore((state) => state.hasOverlay);
-
-  const activeItemUri = feedEntry?.activeItemUri ?? null;
-  const activeItemIndex = feedEntry?.activeItemIndex ?? -1;
-  const isFeedActive = Boolean(feedEntry?.isActive);
-  // Derive isForeground from appState
+  const activeTab = useVisibilityCoreStore((state) => state.activeTab);
+  const activeRoute = useVisibilityCoreStore((state) => state.activeRoute);
   const isForeground = appState === 'active';
-  const overlayBlocked = pauseOnOverlay && hasOverlay;
-  const canPlay = isFeedActive && isForeground && !overlayBlocked;
+  // Video can play if: feed is active AND app is foreground AND (tab is active OR route is active)
+  // Tab/route tracking persists even when inactive, so videos resume immediately when they become active again
+  // For tab screens: activeTab !== null (e.g., 'index', 'explore')
+  // For stacked screens (modals, profiles, channels): activeRoute !== null (e.g., 'feed-modal', 'profile:self')
+  const canPlay = isActive && isForeground && (activeTab !== null || activeRoute !== null);
 
-  const lastVisibleUriRef = useRef<string | null>(null);
-  const lastVisibleIndexRef = useRef<number>(-1);
-  const hasActivatedOnceRef = useRef(false);
-
-  const getViewablePercent = useCallback((token: ViewToken) => {
-    const percent = (token as any)?.viewablePercent;
-    return typeof percent === 'number' ? percent : 0;
-  }, []);
-
-  // Auto-register feed scope on first use and manage lifecycle
-  useEffect(() => {
-    // Ensure feed scope exists (auto-register)
-    const current = useVisibilityCoreStore.getState().feeds[scopeKey];
-    if (!current) {
-      // Feed will be created automatically when we set state
-    }
-
-    return () => {
-      resetFeedScope(scopeKey);
-      setFeedActive(scopeKey, false);
-      lastVisibleUriRef.current = null;
-      lastVisibleIndexRef.current = -1;
-      hasActivatedOnceRef.current = false;
-    };
-  }, [scopeKey, resetFeedScope, setFeedActive]);
-
-  // Handle active state changes
-  useEffect(() => {
-    setFeedActive(scopeKey, isActive);
-    
-    if (isActive) {
-      if (hasActivatedOnceRef.current && resetOnActivate) {
-        resetFeedScope(scopeKey);
-        lastVisibleUriRef.current = null;
-      }
-      hasActivatedOnceRef.current = true;
-    } else {
-      if (resetOnDeactivate && lastVisibleUriRef.current !== null) {
-        setFeedVisibleItem(scopeKey, null, -1);
-        lastVisibleUriRef.current = null;
-        lastVisibleIndexRef.current = -1;
-      }
-    }
-  }, [isActive, scopeKey, resetOnActivate, resetOnDeactivate, setFeedActive, resetFeedScope, setFeedVisibleItem]);
+  // Track only the centered item index - minimal state
+  // Keep tracking even when feed is inactive so we can resume playback immediately
+  const [activeItemIndex, setActiveItemIndex] = useState<number>(-1);
+  const activeItemIndexRef = useRef<number>(-1);
+  
+  // Update ref when state changes
+  activeItemIndexRef.current = activeItemIndex;
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (!isActive) {
-        return;
-      }
+      // Always track viewable items, even when feed is inactive
+      // This allows us to resume playback immediately when feed becomes active again
 
-      const candidates = viewableItems.filter((token) => {
+      // Find the most visible item (highest viewable percent)
+      // If no percent available, use the first viewable item
+      let bestItem: ViewToken | null = null;
+      let bestPercent = -1;
+      let firstViewable: ViewToken | null = null;
+
+      for (const token of viewableItems) {
+        if (!token.isViewable) continue;
+        
         const item = token.item as any;
-        const uri = item?.post?.uri;
-        return token.isViewable && typeof uri === 'string' && !item?.endCard;
-      });
+        if (item?.endCard) continue;
 
-      if (candidates.length === 0) {
-        if (lastVisibleUriRef.current !== null) {
-          setFeedVisibleItem(scopeKey, null, -1);
-          lastVisibleUriRef.current = null;
+        // Track first viewable item as fallback
+        if (!firstViewable) {
+          firstViewable = token;
         }
-        return;
+
+        // Try to get viewablePercent (may not be available on all platforms)
+        const percent = (token as any)?.viewablePercent;
+        if (typeof percent === 'number' && percent > bestPercent) {
+          bestPercent = percent;
+          bestItem = token;
+        }
       }
 
-      const nextVisible = candidates.reduce((previous, current) => {
-        if (previous === null) return current;
-
-        const previousPercent = getViewablePercent(previous);
-        const currentPercent = getViewablePercent(current);
-
-        if (currentPercent !== previousPercent) {
-          return currentPercent > previousPercent ? current : previous;
-        }
-
-        const previousIndex = typeof previous.index === 'number' ? previous.index : Number.MAX_SAFE_INTEGER;
-        const currentIndex = typeof current.index === 'number' ? current.index : Number.MAX_SAFE_INTEGER;
-        const lastIndex = lastVisibleIndexRef.current;
-
-        if (lastIndex >= 0) {
-          const previousDistance = Math.abs(previousIndex - lastIndex);
-          const currentDistance = Math.abs(currentIndex - lastIndex);
-          if (currentDistance !== previousDistance) {
-            return currentDistance < previousDistance ? current : previous;
-          }
-        }
-
-        return currentIndex >= previousIndex ? current : previous;
-      }, null as ViewToken | null);
-
-      const nextUri = (nextVisible?.item as any)?.post?.uri ?? null;
-      const nextIndex = typeof nextVisible?.index === 'number' ? nextVisible.index : -1;
-
-      if (nextUri !== lastVisibleUriRef.current) {
-        lastVisibleUriRef.current = nextUri;
-        lastVisibleIndexRef.current = nextIndex;
-        setFeedVisibleItem(scopeKey, nextUri, nextIndex);
+      // Use best item if we found one with percent, otherwise use first viewable
+      const selectedItem = bestItem || firstViewable;
+      const nextIndex = typeof selectedItem?.index === 'number' ? selectedItem.index : -1;
+      
+      // Only update state if index changed (use ref to avoid callback recreation)
+      // Update even when feed is inactive to maintain tracking
+      if (nextIndex !== activeItemIndexRef.current) {
+        setActiveItemIndex(nextIndex);
       }
     },
-    [getViewablePercent, isActive, scopeKey, setFeedVisibleItem]
+    [] // No dependencies - callback is stable and always tracks viewability
   );
 
   const memoizedConfig = useMemo(() => viewabilityConfig ?? DEFAULT_VIEWABILITY_CONFIG, [viewabilityConfig]);
 
-  // Video visibility helpers (merged from useVideoVisibility)
-  const isVideoVisible = useCallback((uri: string | null | undefined) => {
-    return Boolean(uri) && activeItemUri === uri;
-  }, [activeItemUri]);
-
-  const shouldVideoPlay = useCallback((uri: string | null | undefined) => {
-    return Boolean(uri) && isVideoVisible(uri) && canPlay;
-  }, [isVideoVisible, canPlay]);
-
-  const reset = useCallback(() => {
-    resetFeedScope(scopeKey);
-    lastVisibleUriRef.current = null;
-    lastVisibleIndexRef.current = -1;
-    hasActivatedOnceRef.current = false;
-  }, [resetFeedScope, scopeKey]);
+  const isVideoVisible = useCallback((index: number) => {
+    return index === activeItemIndex;
+  }, [activeItemIndex]);
 
   return {
     onViewableItemsChanged,
     viewabilityConfig: memoizedConfig,
-    activeItemUri,
     activeItemIndex,
-    isFeedActive,
     canPlay,
     isVideoVisible,
-    shouldVideoPlay,
-    reset,
   };
 }
 
-export function useVisibilityOverlay(isBlocking: boolean) {
-  const setOverlay = useVisibilityCoreStore((state) => state.setOverlay);
-  const isBlockingRef = useRef(false);
-
-  useEffect(() => {
-    if (isBlocking !== isBlockingRef.current) {
-      setOverlay(isBlocking);
-      isBlockingRef.current = isBlocking;
-    }
-  }, [isBlocking, setOverlay]);
-
-  useEffect(() => () => {
-    if (isBlockingRef.current) {
-      setOverlay(false);
-      isBlockingRef.current = false;
-    }
-  }, [setOverlay]);
+/**
+ * Simplified overlay hook - removed (no longer needed with native controls)
+ */
+export function useVisibilityOverlay(_isBlocking: boolean) {
+  // No-op - overlays handled by VideoCard directly
 }
 
+/**
+ * Track when a route becomes active/inactive
+ * Updates visibility store so videos can pause/resume based on route focus
+ */
 export function useVisibilityRouteTracker(routeKey: string, tabKey?: string) {
-  const setActiveRouteKey = useVisibilityCoreStore((state) => state.setActiveRouteKey);
-  const setActiveTabKey = useVisibilityCoreStore((state) => state.setActiveTabKey);
+  const setActiveRoute = useVisibilityCoreStore((state) => state.setActiveRoute);
   const isFocused = useIsFocused();
 
-  useLayoutEffect(() => {
-    if (!routeKey) {
-      return;
-    }
+  useEffect(() => {
+    if (!routeKey) return;
 
     if (isFocused) {
-      setActiveRouteKey(routeKey);
-      if (tabKey) {
-        setActiveTabKey(tabKey);
-      }
+      setActiveRoute(routeKey);
       return () => {
-        const store = useVisibilityCoreStore.getState();
-        if (store.activeRouteKey === routeKey) {
-          store.setActiveRouteKey(null);
-        }
-        if (tabKey && store.activeTabKey === tabKey) {
-          store.setActiveTabKey(null);
+        // Clear route when component unmounts or loses focus
+        const currentRoute = useVisibilityCoreStore.getState().activeRoute;
+        if (currentRoute === routeKey) {
+          setActiveRoute(null);
         }
       };
+    } else {
+      // Route is not focused - clear if it was the active route
+      const currentRoute = useVisibilityCoreStore.getState().activeRoute;
+      if (currentRoute === routeKey) {
+        setActiveRoute(null);
+      }
     }
-
-    const store = useVisibilityCoreStore.getState();
-    if (store.activeRouteKey === routeKey) {
-      store.setActiveRouteKey(null);
-    }
-    if (tabKey && store.activeTabKey === tabKey) {
-      store.setActiveTabKey(null);
-    }
-  }, [isFocused, routeKey, tabKey, setActiveRouteKey, setActiveTabKey]);
+  }, [isFocused, routeKey, setActiveRoute]);
 }
 
+/**
+ * Check if a specific route is currently active
+ * Tracks route state from visibility store
+ */
 export function useVisibilityRouteIsActive(routeKey: string | null | undefined) {
-  return useVisibilityCoreStore(
-    useCallback((state) => Boolean(routeKey) && state.activeRouteKey === routeKey, [routeKey])
-  );
+  const activeRoute = useVisibilityCoreStore((state) => state.activeRoute);
+  return Boolean(routeKey) && activeRoute === routeKey;
 }
 
+/**
+ * Check if a specific tab is currently active
+ * Tracks tab state from visibility store
+ */
 export function useVisibilityTabIsActive(tabKey: string | null | undefined) {
-  return useVisibilityCoreStore(
-    useCallback((state) => Boolean(tabKey) && state.activeTabKey === tabKey, [tabKey])
-  );
+  const activeTab = useVisibilityCoreStore((state) => state.activeTab);
+  return Boolean(tabKey) && activeTab === tabKey;
 }

@@ -59,8 +59,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const CONSTANTS = {
   ITEM_MARGIN: 6, // 3px top + 3px bottom
   HEADER_HEIGHT_TABS: 280,
-  SNAP_THRESHOLD: 0.5,
-  VISIBILITY_JITTER_THRESHOLD: 0.05,
+HEADER_BLOCKING_THRESHOLD: 250, // Header blocks playback if scroll is less than 250px from top
 } as const;
 
 // Memoized empty component to prevent recreation on every render
@@ -198,9 +197,10 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     const positionSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(
       null,
     );
-    const lastHeaderVisibilityRef = useRef(0);
     const [isHeaderBlockingPlayback, setIsHeaderBlockingPlayback] =
       useState(false);
+    // Track current scroll offset to initialize blocking state correctly
+    const currentScrollOffsetRef = useRef<number>(0);
 
     // Device detection
     const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
@@ -245,111 +245,38 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       isSmallDevice,
     ]);
 
-    const scopedVisibilityKey = visibilityKey ?? feedOption;
-
     const {
       onViewableItemsChanged,
       viewabilityConfig,
-      activeItemUri,
       activeItemIndex,
       canPlay,
-      isFeedActive,
-      reset: resetFeedVisibility,
     } = useFeedVisibility({
-      scopeKey: scopedVisibilityKey,
       isActive: Boolean(isVisible),
-      resetOnActivate: false,
-      resetOnDeactivate: false,
     });
 
-    const updateHeaderVisibility = useCallback(
-      (visiblePercent: number) => {
-        if (!isHeaderFeed) {
-          return;
-        }
-
-        const clamped = Math.max(0, Math.min(1, visiblePercent));
-        const previous = lastHeaderVisibilityRef.current;
-        const previousBlocking = previous >= CONSTANTS.SNAP_THRESHOLD;
-        const nextBlocking = clamped >= CONSTANTS.SNAP_THRESHOLD;
-        const delta = Math.abs(previous - clamped);
-
-        // If crossing the blocking threshold, update immediately
-        const isThresholdCrossing = previousBlocking !== nextBlocking;
-
-        // For non-threshold-crossing updates, apply jitter filtering
-        if (!isThresholdCrossing) {
-          // Ignore jitter when we are clearly on the same side of the threshold
-          if (
-            !previousBlocking &&
-            !nextBlocking &&
-            delta < CONSTANTS.VISIBILITY_JITTER_THRESHOLD
-          ) {
-            return;
-          }
-          if (
-            previousBlocking &&
-            nextBlocking &&
-            delta < CONSTANTS.VISIBILITY_JITTER_THRESHOLD
-          ) {
-            return;
-          }
-        }
-
-        lastHeaderVisibilityRef.current = clamped;
-        setIsHeaderBlockingPlayback(nextBlocking);
-      },
-      [isHeaderFeed],
-    );
-
+    // Simplified header blocking logic: block playback if scroll is less than threshold from top
+    // This is consistent across all header feeds (profiles, channels, etc.)
+    // Initialize blocking state based on current scroll position when feed becomes visible
     useEffect(() => {
       if (!isHeaderFeed) {
-        if (lastHeaderVisibilityRef.current !== 0) {
-          lastHeaderVisibilityRef.current = 0;
-          setIsHeaderBlockingPlayback(false);
-        }
+        setIsHeaderBlockingPlayback(false);
+        currentScrollOffsetRef.current = 0;
         return;
       }
 
       if (!isVisible || viewMode !== "list") {
-        updateHeaderVisibility(0);
+        setIsHeaderBlockingPlayback(false);
         return;
       }
 
-      if (headerHeight > 0 && lastHeaderVisibilityRef.current === 0) {
-        updateHeaderVisibility(1);
-      }
-    }, [
-      isHeaderFeed,
-      isVisible,
-      viewMode,
-      headerHeight,
-      updateHeaderVisibility,
-    ]);
-
-    useEffect(
-      () => () => {
-        lastHeaderVisibilityRef.current = 0;
-        setIsHeaderBlockingPlayback(false);
-      },
-      [],
-    );
-
-    const initialVisibilityTimeout = useRef<ReturnType<
-      typeof setTimeout
-    > | null>(null);
-    const hasPrimedVisibleItemRef = useRef(false);
-
-    // When the underlying feed identity changes (e.g., profile tabs: posts/likes/reposts),
-    // reset visibility so the new feed can prime its centered item cleanly.
-    useEffect(() => {
-      // Reset global feed visibility entry
-      resetFeedVisibility();
-      // Reset local header and priming state
-      lastHeaderVisibilityRef.current = 0;
-      setIsHeaderBlockingPlayback(false);
-      hasPrimedVisibleItemRef.current = false;
-    }, [resetFeedVisibility, feedOption, userDid]);
+      // When feed becomes visible, check current scroll position and set blocking state
+      // Default to blocking (true) for header feeds - safer default until we get scroll event
+      // The first scroll event will update this correctly based on actual scroll position
+      const currentOffset = currentScrollOffsetRef.current;
+      // If we have a tracked scroll position, use it; otherwise default to blocking (safer)
+      const isBlocking = currentOffset === 0 || currentOffset < CONSTANTS.HEADER_BLOCKING_THRESHOLD;
+      setIsHeaderBlockingPlayback(isBlocking);
+    }, [isHeaderFeed, isVisible, viewMode]);
 
     // Memoize profileColors to prevent recreation on every render
     const profileColors = useMemo(
@@ -418,25 +345,26 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
     // Scroll handling - optimized to reduce work on scroll thread
     const onScrollNative = useCallback(
       (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-        // Only calculate header visibility if needed
-        // Calculate directly without requestAnimationFrame for immediate updates
-        if (isHeaderFeed && headerHeight > 0) {
-          const offsetY = e.nativeEvent.contentOffset.y;
-          const clampedOffset = Math.min(headerHeight, Math.max(0, offsetY));
-          const visibleHeight = Math.max(0, headerHeight - clampedOffset);
-          const visibilityRatio = headerHeight > 0 ? visibleHeight / headerHeight : 0;
-          updateHeaderVisibility(visibilityRatio);
+        const offsetY = e.nativeEvent.contentOffset.y;
+        // Track current scroll offset for state initialization
+        currentScrollOffsetRef.current = offsetY;
+        
+        // Simplified header blocking: block if scroll is less than threshold from top
+        if (isHeaderFeed) {
+          const isBlocking = offsetY < CONSTANTS.HEADER_BLOCKING_THRESHOLD;
+          setIsHeaderBlockingPlayback(isBlocking);
         }
+        
         // Forward vertical scroll offset to parent (for header animations, etc.)
         if (onVerticalScroll) {
-          onVerticalScroll(e.nativeEvent.contentOffset.y);
+          onVerticalScroll(offsetY);
         }
         // Call external onScroll if provided (but don't block scroll thread)
         if (onScroll) {
           onScroll(e);
         }
       },
-      [onScroll, onVerticalScroll, isHeaderFeed, headerHeight, updateHeaderVisibility],
+      [onScroll, onVerticalScroll, isHeaderFeed],
     );
 
     // Momentum scroll end - save position (moved to background thread)
@@ -469,6 +397,10 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       ({ item, index }: ListRenderItemInfo<FeedItem>) => {
         const canPlayWithHeader = canPlay && !isHeaderBlockingPlayback;
         const isCentered = index === activeItemIndex;
+        // Video is "visible" for tracking if centered - maintains tracking even when feed is inactive
+        // Dim video when header is blocking (treat as non-visible for dimming, but still tracked)
+        // allowPlayback controls actual playback based on canPlay state
+        const isVideoVisible = isCentered && !isHeaderBlockingPlayback;
 
         if (item.endCard) {
           return (
@@ -482,9 +414,6 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
           );
         }
 
-        // Use center index as the single source of truth for "visible" video
-        const isVideoVisible = isCentered && canPlayWithHeader;
-
         return (
           <VideoItem
             post={item.post}
@@ -492,7 +421,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             height={cardHeight}
             feedOption={feedOption as "following" | "discover"}
             isVisible={isVideoVisible}
-            allowPlayback={isVideoVisible}
+            allowPlayback={isCentered && canPlayWithHeader}
             moderationDecision={item.moderationDecision}
             isModal={isModal}
             index={index}
@@ -535,67 +464,19 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [itemHeightWithMargin],
     );
 
-    // Comprehensive cleanup for all timeout refs to prevent memory leaks
+    // Cleanup timeout refs to prevent memory leaks
     useEffect(() => {
       return () => {
         if (positionSaveTimeout.current) {
           clearTimeout(positionSaveTimeout.current);
           positionSaveTimeout.current = null;
         }
-        if (initialVisibilityTimeout.current) {
-          clearTimeout(initialVisibilityTimeout.current);
-          initialVisibilityTimeout.current = null;
-        }
-        hasPrimedVisibleItemRef.current = false;
       };
     }, []);
 
-    useEffect(() => {
-      if (activeItemUri) {
-        hasPrimedVisibleItemRef.current = true;
-      }
-    }, [activeItemUri]);
-
-    // Prime initial visible item only on first mount when feed is visible
-    useEffect(() => {
-      if (!isVisible || !isFeedActive) return;
-      if (viewMode !== "list") return;
-      if (listData.length === 0) return;
-      if (activeItemUri) return;
-      if (hasPrimedVisibleItemRef.current) return;
-
-      const firstPlayableIndex = listData.findIndex(
-        (item) => !item.endCard && item?.post?.uri,
-      );
-      if (firstPlayableIndex < 0) return;
-
-      const candidate = listData[firstPlayableIndex];
-      const viewToken: ViewToken = {
-        item: candidate,
-        key: candidate.endCard
-          ? `end-card-${firstPlayableIndex}`
-          : candidate.post.uri,
-        index: firstPlayableIndex,
-        isViewable: true,
-        section: undefined,
-      };
-
-      if (initialVisibilityTimeout.current) {
-        clearTimeout(initialVisibilityTimeout.current);
-      }
-
-      initialVisibilityTimeout.current = setTimeout(() => {
-        onViewableItemsChanged({ viewableItems: [viewToken] });
-        hasPrimedVisibleItemRef.current = true;
-      }, 0);
-    }, [
-      isVisible,
-      isFeedActive,
-      viewMode,
-      listData,
-      activeItemUri,
-      onViewableItemsChanged,
-    ]);
+    // FlashList's native viewability handles item detection automatically
+    // maintainVisibleContentPosition preserves scroll position, so the visible item
+    // at that position will be detected by the viewability callback
 
     // Unified item press handler for grid feeds
     // Uses FlashList's native scrollToIndex when switching to list view
@@ -655,26 +536,21 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         // Move to background thread to avoid blocking UI
         InteractionManager.runAfterInteractions(() => {
           setTimeout(() => {
-            if (flashListRef.current && feed.length > 0 && activeItemUri) {
-              const currentIndex = feed.findIndex(
-                (item) => item.post.uri === activeItemUri,
-              );
-              if (currentIndex >= 0) {
-                try {
-                  flashListRef.current.scrollToIndex({
-                    index: currentIndex,
-                    animated: false,
-                    viewPosition: 0.5,
-                  });
-                } catch (error) {
-                  // Handle scroll errors gracefully
-                }
+            if (flashListRef.current && feed.length > 0 && activeItemIndex >= 0) {
+              try {
+                flashListRef.current.scrollToIndex({
+                  index: activeItemIndex,
+                  animated: false,
+                  viewPosition: 0.5,
+                });
+              } catch (error) {
+                // Handle scroll errors gracefully
               }
             }
           }, APP_CONSTANTS.ORIENTATION_CHANGE_DELAY);
         });
       },
-      [activeItemUri, feed],
+      [activeItemIndex, feed],
     );
 
     useEffect(() => {

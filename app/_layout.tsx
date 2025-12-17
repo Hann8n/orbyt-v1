@@ -77,10 +77,10 @@ const GlobalModals: React.FC = () => {
   );
 };
 
-// Visibility hook for inline logic
+// Visibility hook for inline logic - tracks app state and active tab
 const useVisibilityTracking = () => {
   const setAppState = useVisibilityCoreStore((state) => state.setAppState);
-  const setActiveTabSegment = useVisibilityCoreStore((state) => state.setActiveTabSegment);
+  const setActiveTab = useVisibilityCoreStore((state) => state.setActiveTab);
   const segments = useSegments();
 
   useEffect(() => {
@@ -94,14 +94,21 @@ const useVisibilityTracking = () => {
     return () => subscription.remove();
   }, [setAppState]);
 
+  // Track active tab from segments
   useEffect(() => {
     const normalizedSegments = Array.from(segments);
-    let tabSegment: string | null = null;
+    let activeTab: string | null = null;
+    
+    // Extract tab name from segments: (tabs)/index -> 'index', (tabs)/explore -> 'explore', etc.
     if (normalizedSegments.length >= 2 && normalizedSegments[0] === '(tabs)') {
-      tabSegment = normalizedSegments[1];
+      activeTab = normalizedSegments[1];
+    } else if (normalizedSegments.length === 1 && normalizedSegments[0] === '(tabs)') {
+      // Default to 'index' if we're at tabs root
+      activeTab = 'index';
     }
-    setActiveTabSegment(tabSegment);
-  }, [segments, setActiveTabSegment]);
+    
+    setActiveTab(activeTab);
+  }, [segments, setActiveTab]);
 };
 
 export default function RootLayout() {

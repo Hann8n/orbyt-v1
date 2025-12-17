@@ -289,6 +289,7 @@ const SwipeableFeedContainer = memo(forwardRef<ScrollToTopRef, SwipeableFeedCont
     
     return (
       <FeedRenderer
+        key={feedOption} // Stable key - never changes to preserve scroll position
         ref={(r) => {
           feedRendererRefs.current[feedOption] = r;
         }}
@@ -296,6 +297,8 @@ const SwipeableFeedContainer = memo(forwardRef<ScrollToTopRef, SwipeableFeedCont
         onRetryFeed={handleRetryFeed}
         queryOptions={baseQueryOptions}
         // Pass visibility state to control video playback and fetching - consistent with ListFeedView
+        // When feed becomes visible, isVisible changes trigger visibility detection in ListFeedView
+        // FlashList's maintainVisibleContentPosition preserves scroll position
         isVisible={isVisible}
         isRefreshing={isRefreshing}
         forceError={forceError}
