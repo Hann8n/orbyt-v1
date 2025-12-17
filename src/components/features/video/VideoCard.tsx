@@ -790,7 +790,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                     isInteractive
                   />
                 ) : null}
-                <View style={styles.buttonContent}>
+                <View style={styles.buttonContent} pointerEvents="none">
                   <Text style={styles.viewButtonText}>See video</Text>
                 </View>
               </TouchableOpacity>

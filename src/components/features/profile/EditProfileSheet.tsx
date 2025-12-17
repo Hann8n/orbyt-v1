@@ -730,32 +730,28 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
             </Text>
             
             <TouchableOpacity 
+              style={[styles.saveButtonGlass, !isLiquidGlassAvailable() && styles.saveButton]}
               onPress={handleSave}
               activeOpacity={0.8}
               disabled={profileUpdateMutation.isPending}
             >
-              {isLiquidGlassAvailable() ? (
+              {isLiquidGlassAvailable() && (
                 <GlassView 
-                  style={styles.saveButtonGlass}
+                  style={styles.glassBackground}
                   glassEffectStyle="clear"
                   tintColor={hexToRGBA(Colors.white, 0.9)}
                   isInteractive
-                >
-                  {profileUpdateMutation.isPending ? (
-                    <Loading3FillIcon size={24} color={Colors.black} />
-                  ) : (
-                    <Text style={[styles.saveButtonText, { color: Colors.black }]}>Save</Text>
-                  )}
-                </GlassView>
-              ) : (
-                <View style={styles.saveButton}>
-                  {profileUpdateMutation.isPending ? (
-                    <Loading3FillIcon size={24} color={Colors.black} />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Save</Text>
-                  )}
-                </View>
+                />
               )}
+              <View pointerEvents="none">
+                {profileUpdateMutation.isPending ? (
+                  <Loading3FillIcon size={24} color={Colors.black} />
+                ) : (
+                  <Text style={[styles.saveButtonText, isLiquidGlassAvailable() && { color: Colors.black }]}>
+                    Save
+                  </Text>
+                )}
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -810,24 +806,24 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                     }}
                     showRing={true}
                   />
-                  <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.8}>
-                    {isLiquidGlassAvailable() ? (
+                  <TouchableOpacity 
+                    style={[styles.uploadButton, !isLiquidGlassAvailable() && styles.uploadButtonFallback]}
+                    onPress={handleAvatarPress} 
+                    activeOpacity={0.8}
+                  >
+                    {isLiquidGlassAvailable() && (
                       <GlassView 
-                        style={styles.uploadButton}
+                        style={styles.glassBackground}
                         glassEffectStyle="clear"
                         tintColor={hexToRGBA(currentColors.textColor, 0.15)}
-                      >
-                        <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
-                          Upload
-                        </Text>
-                      </GlassView>
-                    ) : (
-                      <View style={[styles.uploadButton, styles.uploadButtonFallback]}> 
-                        <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
-                          Upload
-                        </Text>
-                      </View>
+                        isInteractive
+                      />
                     )}
+                    <View pointerEvents="none">
+                      <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
+                        Upload
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -935,6 +931,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  glassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 20,
+  },
   saveButtonText: {
     fontFamily: 'Firma-Bold',
     fontSize: 17,
@@ -972,6 +972,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 80,
+    overflow: 'hidden',
   },
   uploadButtonFallback: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',

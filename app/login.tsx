@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, PlusIcon, AtLineIcon, Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
@@ -319,63 +320,69 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     </View>
   );
 
-  const renderLoginButtons = () => (
-    <View style={[styles.loginButtonsContainer, { paddingBottom: Math.max(20, typeof insets?.bottom === 'number' ? insets.bottom : 0) }]}>
-      {/* Sign in button */}
-      <TouchableOpacity
-        style={styles.liquidGlassButton}
-        onPress={handleLogin}
-        disabled={isLoading}
-        activeOpacity={0.8}
-      >
-        <BlurView
-          intensity={20}
-          tint="light"
-          style={styles.blurContainer}
-          experimentalBlurMethod="dimezisBlurView"
+  const renderLoginButtons = () => {
+    const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
+    
+    const buttonContent = (
+      <View style={styles.buttonContent} pointerEvents="none">
+        {isLoading ? (
+          <>
+            <Loading3FillIcon 
+              size={24} 
+              color={Colors.black} 
+              style={{ marginRight: 8 }} 
+            />
+            <Text style={styles.blueskyButtonText}>
+              Signing in...
+            </Text>
+          </>
+        ) : (
+          <>
+            <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
+            <Text style={styles.blueskyButtonText}>
+              Sign in with Bluesky
+            </Text>
+          </>
+        )}
+      </View>
+    );
+    
+    return (
+      <View style={[styles.loginButtonsContainer, { paddingBottom: Math.max(20, typeof insets?.bottom === 'number' ? insets.bottom : 0) }]}>
+        {/* Sign in button */}
+        <TouchableOpacity
+          style={[styles.liquidGlassButton, !useLiquidGlass && styles.whiteButton]}
+          onPress={handleLogin}
+          disabled={isLoading}
+          activeOpacity={0.8}
         >
-          <LinearGradient
-            colors={['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.glassGradient}
-          >
-            <View style={styles.glassOverlay}>
-              {isLoading ? (
-                <View style={styles.buttonContent}>
-                  <Loading3FillIcon 
-                    size={24} 
-                    color={Colors.black} 
-                    style={{ marginRight: 8 }} 
-                  />
-                  <Text style={styles.blueskyButtonText}>
-                    Signing in...
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.buttonContent}>
-                  <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
-                  <Text style={styles.blueskyButtonText}>
-                    Sign in with Bluesky
-                  </Text>
-                </View>
-              )}
-            </View>
-          </LinearGradient>
-        </BlurView>
-      </TouchableOpacity>
+          {useLiquidGlass ? (
+            <>
+              <GlassView
+                style={styles.glassBackground}
+                glassEffectStyle="clear"
+                tintColor="rgba(255, 255, 255, 1)"
+                isInteractive
+              />
+              {buttonContent}
+            </>
+          ) : (
+            buttonContent
+          )}
+        </TouchableOpacity>
 
-      {/* Custom PDS text button */}
-      <TouchableOpacity
-        style={styles.customPDSTextButton}
-        onPress={() => setShowCustomPDSSheet(true)}
-        disabled={isLoading}
-        delayLongPress={500}
-      >
-        <Text style={styles.customPDSTextButtonText}>Custom Login</Text>
-      </TouchableOpacity>
-    </View>
-  );
+        {/* Custom PDS text button */}
+        <TouchableOpacity
+          style={styles.customPDSTextButton}
+          onPress={() => setShowCustomPDSSheet(true)}
+          disabled={isLoading}
+          delayLongPress={500}
+        >
+          <Text style={styles.customPDSTextButtonText}>Custom Login</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   const renderManualLogin = () => (
     <View style={styles.formContainer}>
@@ -500,24 +507,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 8,
-  },
-  blurContainer: {
-    borderRadius: BORDER_RADIUS.FULL,
-    overflow: 'hidden',
-  },
-  glassGradient: {
     paddingVertical: 16,
     paddingHorizontal: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: BORDER_RADIUS.FULL,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    minHeight: 56,
   },
-  glassOverlay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  glassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.FULL,
+  },
+  whiteButton: {
+    backgroundColor: Colors.white,
   },
   blueskyButtonText: {
     color: Colors.black,

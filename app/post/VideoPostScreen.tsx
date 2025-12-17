@@ -287,71 +287,54 @@ const PostButton: React.FC<{
   const hostStyle = buttonStyle === 'landscape' ? styles.landscapePostButtonHost : styles.floatingPostButtonHost;
   const disabledStyle = buttonStyle === 'landscape' ? styles.landscapePostButtonDisabled : styles.floatingPostButtonDisabled;
 
+  const buttonContent = (
+    <View style={styles.buttonContent} pointerEvents="none">
+      {isPosting ? (
+        <View style={styles.loadingContainer}>
+          <Loading3FillIcon size={24} color={Colors.black} />
+          <Text style={styles.postButtonText}>
+            {uploadProgress < 50 ? 'Uploading video...' : 
+             uploadProgress < 90 ? 'Processing video...' : 
+             'Creating post...'}
+          </Text>
+        </View>
+      ) : isCompressing ? (
+        <View style={styles.loadingContainer}>
+          <Loading3FillIcon size={24} color={Colors.black} />
+          <Text style={styles.postButtonText}>
+            Getting ready...
+          </Text>
+        </View>
+      ) : (
+        <Text style={styles.postButtonText}>POST</Text>
+      )}
+    </View>
+  );
+
   return (
     <TouchableOpacity 
+      style={[
+        glassStyle,
+        { width: buttonWidth },
+        !(Platform.OS === 'ios' && isLiquidGlassAvailable()) && hostStyle,
+        (isPosting || isCompressing) && disabledStyle
+      ]}
       onPress={onPress}
       disabled={isPosting || isCompressing}
       activeOpacity={0.8}
     >
       {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
-        <GlassView
-          style={[glassStyle, { width: buttonWidth }]}
-          glassEffectStyle="clear"
-          tintColor="rgba(255,255,255,0.9)"
-          isInteractive
-        >
-          <View style={styles.buttonContent}>
-            {isPosting ? (
-              <View style={styles.loadingContainer}>
-                <Loading3FillIcon size={24} color={Colors.black} />
-                <Text style={styles.postButtonText}>
-                  {uploadProgress < 50 ? 'Uploading video...' : 
-                   uploadProgress < 90 ? 'Processing video...' : 
-                   'Creating post...'}
-                </Text>
-              </View>
-            ) : isCompressing ? (
-              <View style={styles.loadingContainer}>
-                <Loading3FillIcon size={24} color={Colors.black} />
-                <Text style={styles.postButtonText}>
-                  Getting ready...
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.postButtonText}>POST</Text>
-            )}
-          </View>
-        </GlassView>
+        <>
+          <GlassView
+            style={styles.glassBackground}
+            glassEffectStyle="clear"
+            tintColor="rgba(255,255,255,0.9)"
+            isInteractive
+          />
+          {buttonContent}
+        </>
       ) : (
-        <View 
-          style={[
-            hostStyle, 
-            { width: buttonWidth }, 
-            (isPosting || isCompressing) && disabledStyle
-          ]}
-        >
-          <View style={styles.buttonContent}>
-            {isPosting ? (
-              <View style={styles.loadingContainer}>
-                <Loading3FillIcon size={24} color={Colors.black} />
-                <Text style={styles.postButtonText}>
-                  {uploadProgress < 50 ? 'Uploading video...' : 
-                   uploadProgress < 90 ? 'Processing video...' : 
-                   'Creating post...'}
-                </Text>
-              </View>
-            ) : isCompressing ? (
-              <View style={styles.loadingContainer}>
-                <Loading3FillIcon size={24} color={Colors.black} />
-                <Text style={styles.postButtonText}>
-                  Getting ready...
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.postButtonText}>POST</Text>
-            )}
-          </View>
-        </View>
+        buttonContent
       )}
     </TouchableOpacity>
   );
@@ -2074,6 +2057,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  glassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.FULL,
   },
   buttonContent: {
     justifyContent: 'center',

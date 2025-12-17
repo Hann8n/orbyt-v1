@@ -453,6 +453,7 @@ const HeaderContentComponent = memo<{
                   style={styles.glassBackground}
                   glassEffectStyle="clear"
                   tintColor="rgba(255,255,255,0.05)"
+                  isInteractive
                 />
               )}
               <Text style={[styles.actionText, { color: textColor }]}>

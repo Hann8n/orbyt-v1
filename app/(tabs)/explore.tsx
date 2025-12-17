@@ -1798,7 +1798,12 @@ const ExploreScreen: React.FC = () => {
       )}
 
       {/* Search Bar overlays header */}
-      <View
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => {
+          // Focus the input via the wrapper so taps hit the glass and still activate search
+          searchInputRef.current?.focus();
+        }}
         style={[
           styles.searchContainer,
           Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.searchContainerGlass,
@@ -1819,6 +1824,7 @@ const ExploreScreen: React.FC = () => {
         <SearchIcon size={24} color={Colors.black} style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }} />
         <TextInput
           ref={searchInputRef}
+          pointerEvents="none"
           style={styles.searchInput}
           placeholder="search"
           placeholderTextColor={Colors.gray}
@@ -1835,11 +1841,15 @@ const ExploreScreen: React.FC = () => {
           returnKeyType="search"
         />
         {isSearching && (
-          <TouchableOpacity onPress={handleClearSearch} style={styles.clearButton}>
+          <TouchableOpacity
+            onPress={handleClearSearch}
+            style={styles.clearButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Icon name="close-circle" size={22.5} color={Colors.darkGray} />
           </TouchableOpacity>
         )}
-      </View>
+      </TouchableOpacity>
 
       {/* Search Results */}
       {isSearching && (
@@ -2245,7 +2255,9 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   clearButton: {
-    padding: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 4,
+    marginRight: -4,
   },
   profileItem: {
     flexDirection: 'row',

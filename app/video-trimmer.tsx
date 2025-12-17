@@ -6,11 +6,13 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
+  Platform,
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import VideoTrimmerUI from '../src/components/Trimmer/src';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CloseFillIcon, ArrowRightFillIcon, Loading3FillIcon } from '../src/components/ui/Icon';
@@ -38,6 +40,7 @@ const VideoTrimmerScreen: React.FC = () => {
   const returnTo = (params.returnTo as string) || 'create';
   const maxDuration = params.maxDuration ? parseFloat(params.maxDuration as string) : undefined;
   const currentDuration = params.currentDuration ? parseFloat(params.currentDuration as string) : 0;
+  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
   
   // Calculate available duration (remaining time that can be used for this clip)
   const availableDuration = maxDuration !== undefined ? maxDuration - currentDuration : undefined;
@@ -328,6 +331,7 @@ const VideoTrimmerScreen: React.FC = () => {
         <TouchableOpacity
           style={[
             styles.nextButtonTop, 
+            useLiquidGlass && styles.nextButtonGlassWrapper,
             { 
               bottom: 100, // Position above the slider/progress bar area
               right: 16,
@@ -338,11 +342,21 @@ const VideoTrimmerScreen: React.FC = () => {
           disabled={isProcessing || !isReady}
           activeOpacity={0.7}
         >
-          {isProcessing ? (
-            <Loading3FillIcon size={24} color={Colors.black} />
-          ) : (
-            <Text style={styles.nextButtonTextTop}>NEXT</Text>
+          {useLiquidGlass && (
+            <GlassView
+              style={styles.nextButtonGlassBackground}
+              glassEffectStyle="clear"
+              tintColor="rgba(255,255,255,1)"
+              isInteractive
+            />
           )}
+          <View pointerEvents="none">
+            {isProcessing ? (
+              <Loading3FillIcon size={24} color={Colors.black} />
+            ) : (
+              <Text style={styles.nextButtonTextTop}>NEXT</Text>
+            )}
+          </View>
         </TouchableOpacity>
       )}
 
@@ -351,6 +365,7 @@ const VideoTrimmerScreen: React.FC = () => {
         <TouchableOpacity
           style={[
             styles.nextButtonBottom,
+            useLiquidGlass && styles.nextButtonGlassWrapper,
             {
               bottom: insets.bottom + 8, // Position above safe area bottom with padding
               opacity: (isProcessing || !isReady) ? 0.3 : 1,
@@ -360,11 +375,21 @@ const VideoTrimmerScreen: React.FC = () => {
           disabled={isProcessing || !isReady}
           activeOpacity={0.7}
         >
-          {isProcessing ? (
-            <Loading3FillIcon size={24} color={Colors.black} />
-          ) : (
-            <Text style={styles.nextButtonTextBottom}>NEXT</Text>
+          {useLiquidGlass && (
+            <GlassView
+              style={styles.nextButtonGlassBackground}
+              glassEffectStyle="clear"
+              tintColor="rgba(255,255,255,1)"
+              isInteractive
+            />
           )}
+          <View pointerEvents="none">
+            {isProcessing ? (
+              <Loading3FillIcon size={24} color={Colors.black} />
+            ) : (
+              <Text style={styles.nextButtonTextBottom}>NEXT</Text>
+            )}
+          </View>
         </TouchableOpacity>
       )}
     </SafeAreaView>
@@ -407,6 +432,13 @@ const styles = StyleSheet.create({
     minWidth: 60,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  nextButtonGlassWrapper: {
+    backgroundColor: 'transparent',
+  },
+  nextButtonGlassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 20,
   },
   nextButtonTextTop: {
     fontFamily: 'Firma-Bold',
