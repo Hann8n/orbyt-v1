@@ -36,6 +36,17 @@ function ProgressBar({ value, style, tintColor, frames = [], duration, startPerc
     };
   });
 
+  // Combined shadow style using same shared values as overlays
+  const shadowStyle = useAnimatedStyle(() => {
+    if (!startPercent || !endPercent) return { width: 0, left: 0 };
+    const start = startPercent.value;
+    const end = endPercent.value;
+    return {
+      left: `${Math.max(0, start)}%`,
+      width: `${Math.max(0, end - start)}%`,
+    };
+  });
+
   return (
     <View style={[progressBarStyles.container, style]}>
       {hasFrames ? (
@@ -60,6 +71,10 @@ function ProgressBar({ value, style, tintColor, frames = [], duration, startPerc
               />
             );
           })}
+          {/* Shadow - uses same shared values, moves with selection */}
+          {startPercent && endPercent && (
+            <Animated.View style={[progressBarStyles.shadowWrapper, shadowStyle]} />
+          )}
           {/* Left overlay - darkens area before selection */}
           {startPercent && (
             <Animated.View

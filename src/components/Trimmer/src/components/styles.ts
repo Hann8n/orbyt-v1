@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 export const videoTrimmerStyles = StyleSheet.create({
   container: { flex: 1 },
@@ -37,11 +37,6 @@ export const sliderStyles = StyleSheet.create({
   trackStyle: {
     borderRadius: 2,
     height: 70,
-    shadowColor: 'black',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
   },
   thumbStyle: {
     height: 70,
@@ -69,6 +64,25 @@ export const progressBarStyles = StyleSheet.create({
   framesContainer: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
+  },
+  shadowWrapper: {
+    position: 'absolute',
+    height: '100%',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: 'black',
+        shadowOffset: {
+          width: 0,
+          height: 1,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   frame: {
     position: 'absolute',

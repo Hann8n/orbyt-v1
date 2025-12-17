@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { View, StyleSheet, type ViewStyle } from 'react-native';
 import { Slider as RNSlider } from '@miblanchard/react-native-slider';
-import { useSharedValue, type SharedValue } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 import ProgressBar from './ProgressBar';
 import { StartThumb, EndThumb } from './Thumb';
 import { sliderStyles } from './styles';
