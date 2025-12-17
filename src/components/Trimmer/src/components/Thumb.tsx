@@ -1,29 +1,42 @@
 import React from 'react';
-import Svg, { Path } from 'react-native-svg';
-import { Colors } from '../../../ui/UI';
+import Svg, { Rect } from 'react-native-svg';
 
 type ThumbProps = {
   color?: string;
 };
 
-export function StartThumb({ color = '#7442ff' }: ThumbProps) {
+export function StartThumb({ color = 'white' }: ThumbProps) {
+  const height = 75;
+  const horizontalLineHeight = 5;
+  const verticalLineWidth = 10;
+  // Vertical line left edge at x=0 to align with trim position
+  // Horizontal lines maintain original visual position
   return (
-    <Svg width={10} height={70} viewBox="0 0 10 70">
-      <Path
-        d="M 5 0 L 10 0 L 10 70 L 5 70 A 5 5 0 0 1 0 65 L 0 5 A 5 5 0 0 1 5 0 Z"
-        fill={color}
-      />
+    <Svg width={24} height={height} viewBox={`0 0 24 ${height}`}>
+      {/* Top horizontal line (thicker) */}
+      <Rect x="3" y="0" width="14" height={horizontalLineHeight} fill={color} rx="2.5" />
+      {/* Vertical line (thick) - left edge aligns with slider trim position */}
+      <Rect x="0" y="0" width={verticalLineWidth} height={height} fill={color} rx="5" />
+      {/* Bottom horizontal line (thicker) */}
+      <Rect x="3" y={height - horizontalLineHeight} width="14" height={horizontalLineHeight} fill={color} rx="2.5" />
     </Svg>
   );
 }
 
-export function EndThumb({ color = '#7442ff' }: ThumbProps) {
+export function EndThumb({ color = 'white' }: ThumbProps) {
+  const height = 75;
+  const horizontalLineHeight = 5;
+  const verticalLineWidth = 10;
+  // Vertical line right edge at x=24 to align with trim position
+  // Horizontal lines maintain original visual position
   return (
-    <Svg width={10} height={70} viewBox="0 0 10 70">
-      <Path
-        d="M 0 0 L 5 0 A 5 5 0 0 1 10 5 L 10 65 A 5 5 0 0 1 5 70 L 0 70 Z"
-        fill={color}
-      />
+    <Svg width={24} height={height} viewBox={`0 0 24 ${height}`}>
+      {/* Top horizontal line (thicker) - flipped */}
+      <Rect x="8" y="0" width="14" height={horizontalLineHeight} fill={color} rx="2.5" />
+      {/* Vertical line (thick) - right edge aligns with slider trim position */}
+      <Rect x={24 - verticalLineWidth} y="0" width={verticalLineWidth} height={height} fill={color} rx="5" />
+      {/* Bottom horizontal line (thicker) - flipped */}
+      <Rect x="8" y={height - horizontalLineHeight} width="14" height={horizontalLineHeight} fill={color} rx="2.5" />
     </Svg>
   );
 }

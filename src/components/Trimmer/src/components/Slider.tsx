@@ -35,7 +35,7 @@ function Slider({
   endPercent,
 }: SliderProps) {
   const thumbIndexRef = useRef(0);
-  const thumbColor = tintColor || '#4528ea';
+  const thumbColor = 'white';
   
   return (
     <View style={[sliderStyles.container, style]}>

@@ -27,6 +27,7 @@ import { useVideoTrimStore } from '../src/stores/videoTrimStore';
 import { isSmallScreen, getBottomNavBarHeight } from '../src/utils/helpers';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const ASPECT_RATIO = 9 / 16; // 9:16 aspect ratio for video crop
 
 const VideoTrimmerScreen: React.FC = () => {
   const params = useLocalSearchParams();
@@ -54,8 +55,17 @@ const VideoTrimmerScreen: React.FC = () => {
     ? screenHeight 
     : screenHeight - insets.top - bottomNavBarHeight;
   
+  // Calculate 9:16 aspect ratio dimensions for video container
+  // Use full screen width, calculate height from aspect ratio
+  const videoContainerWidth = screenWidth;
+  const videoContainerHeight = videoContainerWidth / ASPECT_RATIO;
+  
   const [videoUri, setVideoUri] = useState<string>('');
   const [videoDuration, setVideoDuration] = useState<number>(0);
+  const [videoWidth, setVideoWidth] = useState<number>(1080);
+  const [videoHeight, setVideoHeight] = useState<number>(1920);
+  const [panOffsetX, setPanOffsetX] = useState<number>(0);
+  const [panOffsetY, setPanOffsetY] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
@@ -77,6 +87,8 @@ const VideoTrimmerScreen: React.FC = () => {
       try {
         // Get asset info from MediaLibrary if we have assetId
         let duration: number | undefined;
+        let width: number | undefined;
+        let height: number | undefined;
         
         if (assetId) {
           try {
@@ -85,6 +97,8 @@ const VideoTrimmerScreen: React.FC = () => {
             });
             // MediaLibrary duration is already in seconds
             duration = mediaAsset.duration;
+            width = mediaAsset.width;
+            height = mediaAsset.height;
           } catch (mediaError) {
             console.warn('Failed to get asset info from MediaLibrary:', mediaError);
           }
@@ -98,6 +112,29 @@ const VideoTrimmerScreen: React.FC = () => {
           assetId || null
         );
         setVideoUri(normalizedPath);
+        
+        // Get video info to get dimensions if not available from asset
+        if (!width || !height) {
+          try {
+            const videoInfo = await VideoProcessingService.getVideoInfo(normalizedPath);
+            width = videoInfo.width;
+            height = videoInfo.height;
+            if (duration === undefined) {
+              duration = videoInfo.duration;
+            }
+          } catch (infoError) {
+            console.warn('Failed to get video info, using defaults:', infoError);
+            // Use defaults
+            width = width || 1080;
+            height = height || 1920;
+          }
+        }
+        
+        // Store video dimensions
+        if (width && height) {
+          setVideoWidth(width);
+          setVideoHeight(height);
+        }
         
         // Get video duration from asset if available
         if (duration !== undefined) {
@@ -182,13 +219,14 @@ const VideoTrimmerScreen: React.FC = () => {
       // Check if trimming is needed (if full video is selected, skip trimming)
       const isFullVideo = trimStart === 0 && Math.abs(trimEnd - videoDuration) < 0.1;
       
-      let finalVideoPath: string;
+      let trimmedVideoPath: string;
       
+      // Step 1: Trim video if needed
       if (isFullVideo) {
         // No trimming needed, use original video path
-        finalVideoPath = videoUri;
+        trimmedVideoPath = videoUri;
       } else {
-        // Generate temporary file path using Expo FileSystem best practices
+        // Generate temporary file path for trimmed video
         const timestamp = Date.now();
         const random = Math.random().toString(36).substring(7);
         const fileName = `trimmed_${timestamp}_${random}.mp4`;
@@ -208,7 +246,7 @@ const VideoTrimmerScreen: React.FC = () => {
         // Trim video using VideoEditingService
         // trimVideo returns path with file:// prefix, which is what we need for storage
         // It throws an error if trimming fails, so we can trust the returned path
-        finalVideoPath = await VideoEditingService.trimVideo(
+        trimmedVideoPath = await VideoEditingService.trimVideo(
           inputPath,
           outputPath,
           trimStart,
@@ -216,7 +254,38 @@ const VideoTrimmerScreen: React.FC = () => {
         );
       }
       
-      // Provide trimmed video to caller and go back
+      // Step 2: Crop video to 9:16 aspect ratio
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(7);
+      const fileName = `cropped_${timestamp}_${random}.mp4`;
+      
+      const cropDir = new Directory(Paths.cache, `video_crop_${timestamp}`);
+      await cropDir.create({ intermediates: true });
+      
+      const cropOutputFile = new File(cropDir, fileName);
+      const cropOutputPath = cropOutputFile.uri.replace(/^file:\/\//, '');
+      const cropInputPath = trimmedVideoPath.replace(/^file:\/\//, '');
+      
+      // Get pan offset from trimmer ref (normalized -1 to 1)
+      let finalPanOffsetX = panOffsetX;
+      let finalPanOffsetY = panOffsetY;
+      if (trimmerRef.current && 'getCropPosition' in trimmerRef.current) {
+        const cropPos = (trimmerRef.current as any).getCropPosition();
+        finalPanOffsetX = cropPos.x;
+        finalPanOffsetY = cropPos.y;
+      }
+      
+      // Crop video to 9:16 using pan offset
+      const finalVideoPath = await VideoEditingService.cropVideoTo9x16(
+        cropInputPath,
+        cropOutputPath,
+        videoWidth,
+        videoHeight,
+        finalPanOffsetX,
+        finalPanOffsetY
+      );
+      
+      // Provide cropped video to caller and go back
       if (returnTo === 'create') {
         setPendingTrim({
           videoPath: finalVideoPath,
@@ -304,13 +373,19 @@ const VideoTrimmerScreen: React.FC = () => {
           containerStyle={StyleSheet.flatten([
             styles.trimmerWrapper,
             isSmallDevice 
-              ? styles.trimmerWrapperFullScreen 
-              : { height: availableHeight }
+              ? { width: videoContainerWidth, height: videoContainerHeight }
+              : { width: videoContainerWidth, height: Math.min(videoContainerHeight, availableHeight) }
           ]) as ViewStyle}
           sliderContainerStyle={styles.sliderContainer}
           tintColor={Colors.blurple}
           minDuration={0.5}
           maxDuration={availableDuration}
+          videoWidth={videoWidth}
+          videoHeight={videoHeight}
+          onCropPositionChange={(x, y) => {
+            setPanOffsetX(x);
+            setPanOffsetY(y);
+          }}
         />
       </View>
 
@@ -471,12 +546,9 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   trimmerWrapper: {
-    height: 400,
+    alignSelf: 'center',
     borderRadius: 0,
-    overflow: 'visible',
-  },
-  trimmerWrapperFullScreen: {
-    height: SCREEN_HEIGHT,
+    overflow: 'hidden',
   },
   sliderContainer: {
     marginHorizontal: 8,

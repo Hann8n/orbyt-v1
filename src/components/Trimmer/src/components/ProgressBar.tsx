@@ -17,33 +17,26 @@ interface ProgressBarProps {
 function ProgressBar({ value, style, tintColor, frames = [], duration, startPercent, endPercent }: ProgressBarProps) {
   const hasFrames = frames.length > 0 && duration && duration > 0;
 
-  // Animated styles for overlays using shared values
+  // Animated styles for dark overlays - only outside the selected region
+  // Use explicit clamped boundaries to prevent shadow bleed
   const leftOverlayStyle = useAnimatedStyle(() => {
     if (!startPercent) return { width: 0 };
-    const percent = startPercent.value;
+    const percent = Math.max(0, Math.min(100, startPercent.value));
+    // Clamp width to prevent extending into selected area
     return {
       left: 0,
-      width: `${Math.max(0, percent)}%`,
+      width: `${percent}%`,
     };
   });
 
   const rightOverlayStyle = useAnimatedStyle(() => {
     if (!endPercent) return { width: 0 };
-    const percent = endPercent.value;
+    const percent = Math.max(0, Math.min(100, endPercent.value));
+    const width = Math.max(0, 100 - percent);
+    // Clamp width to prevent extending into selected area
     return {
-      left: `${Math.min(100, percent)}%`,
-      width: `${Math.max(0, 100 - percent)}%`,
-    };
-  });
-
-  // Combined shadow style using same shared values as overlays
-  const shadowStyle = useAnimatedStyle(() => {
-    if (!startPercent || !endPercent) return { width: 0, left: 0 };
-    const start = startPercent.value;
-    const end = endPercent.value;
-    return {
-      left: `${Math.max(0, start)}%`,
-      width: `${Math.max(0, end - start)}%`,
+      left: `${percent}%`,
+      width: `${width}%`,
     };
   });
 
@@ -71,11 +64,7 @@ function ProgressBar({ value, style, tintColor, frames = [], duration, startPerc
               />
             );
           })}
-          {/* Shadow - uses same shared values, moves with selection */}
-          {startPercent && endPercent && (
-            <Animated.View style={[progressBarStyles.shadowWrapper, shadowStyle]} />
-          )}
-          {/* Left overlay - darkens area before selection */}
+          {/* Left overlay - darkens area before selection (outside left thumb) */}
           {startPercent && (
             <Animated.View
               style={[
@@ -84,7 +73,7 @@ function ProgressBar({ value, style, tintColor, frames = [], duration, startPerc
               ]}
             />
           )}
-          {/* Right overlay - darkens area after selection */}
+          {/* Right overlay - darkens area after selection (outside right thumb) */}
           {endPercent && (
             <Animated.View
               style={[

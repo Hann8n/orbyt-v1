@@ -392,6 +392,106 @@ class VideoEditingService {
       throw error;
     }
   }
+
+  /**
+   * Crops a video to 9:16 aspect ratio (portrait)
+   * Uses normalized pan offset (-1 to 1) to position the crop area
+   * 
+   * @param videoPath - Path to input video file
+   * @param outputPath - Path where the output video will be saved
+   * @param width - Original video width
+   * @param height - Original video height
+   * @param panOffsetX - Normalized horizontal pan offset (-1 to 1, 0 = centered)
+   * @param panOffsetY - Normalized vertical pan offset (-1 to 1, 0 = centered)
+   * @returns Promise resolving to the output path
+   */
+  static async cropVideoTo9x16(
+    videoPath: string,
+    outputPath: string,
+    width: number,
+    height: number,
+    panOffsetX: number = 0,
+    panOffsetY: number = 0
+  ): Promise<string> {
+    try {
+      if (!FFmpegKit || !ReturnCode) {
+        throw new Error('FFmpegKit is not available');
+      }
+
+      const normalizedInput = this.normalizePath(videoPath);
+      const normalizedOutput = this.normalizePath(outputPath);
+
+      const TARGET_ASPECT = 9 / 16;
+      const sourceAspect = width / height;
+
+      // Calculate crop dimensions (9:16)
+      let cropWidth: number;
+      let cropHeight: number;
+      
+      if (sourceAspect > TARGET_ASPECT) {
+        // Wider: crop width, keep full height
+        cropHeight = height;
+        cropWidth = Math.round(height * TARGET_ASPECT);
+      } else {
+        // Taller: crop height, keep full width
+        cropWidth = width;
+        cropHeight = Math.round(width / TARGET_ASPECT);
+      }
+
+      // Ensure even dimensions (FFmpeg requirement)
+      cropWidth = cropWidth % 2 === 0 ? cropWidth : cropWidth - 1;
+      cropHeight = cropHeight % 2 === 0 ? cropHeight : cropHeight - 1;
+
+      // Calculate max pan range (how much we can shift from center)
+      const maxPanX = sourceAspect > TARGET_ASPECT ? (width - cropWidth) / 2 : 0;
+      const maxPanY = sourceAspect <= TARGET_ASPECT ? (height - cropHeight) / 2 : 0;
+
+      // Calculate crop position: center - pan offset (inverted so drag direction matches crop)
+      // When user drags right (positive panOffset), crop moves left (shows right side)
+      const centerX = (width - cropWidth) / 2;
+      const centerY = (height - cropHeight) / 2;
+      let x = Math.round(centerX - panOffsetX * maxPanX);
+      let y = Math.round(centerY - panOffsetY * maxPanY);
+
+      // Clamp to valid range and ensure even (FFmpeg requirement)
+      x = Math.max(0, Math.min(x, width - cropWidth));
+      y = Math.max(0, Math.min(y, height - cropHeight));
+      x = x % 2 === 0 ? x : x - 1;
+      y = y % 2 === 0 ? y : y - 1;
+
+      // FFmpeg crop filter: crop=width:height:x:y
+      const cmd = `-i "${normalizedInput}" -vf "crop=${cropWidth}:${cropHeight}:${x}:${y}" -c:v libx264 -preset medium -c:a copy "${normalizedOutput}"`;
+
+      logger.info('Cropping video to 9:16', {
+        component: 'VideoEditingService',
+        originalSize: `${width}x${height}`,
+        cropSize: `${cropWidth}x${cropHeight}`,
+        cropPosition: `x=${x}, y=${y}`,
+        panOffset: `panX=${panOffsetX}, panY=${panOffsetY}`,
+      });
+
+      const session = await FFmpegKit.execute(cmd);
+      const returnCode = await session.getReturnCode();
+
+      if (ReturnCode.isSuccess(returnCode)) {
+        logger.info('Video cropped successfully', { component: 'VideoEditingService' });
+        return outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
+      } else {
+        const failStackTrace = await session.getFailStackTrace();
+        const output = await session.getOutput();
+        logger.error('Video cropping failed', {
+          component: 'VideoEditingService',
+          returnCode,
+          failStackTrace,
+          output,
+        });
+        throw new Error(`Video cropping failed: ${failStackTrace || output || 'Unknown error'}`);
+      }
+    } catch (error) {
+      logger.error('Error cropping video', error, { component: 'VideoEditingService' });
+      throw error;
+    }
+  }
 }
 
 export default VideoEditingService;

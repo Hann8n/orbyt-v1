@@ -1,14 +1,36 @@
 import { StyleSheet, Platform } from 'react-native';
 
 export const videoTrimmerStyles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { 
+    flex: 1,
+    overflow: 'visible',
+  },
   slider: {
     position: 'absolute',
     bottom: 20,
     width: '100%',
     alignItems: 'center',
   },
-  video: { flex: 1 },
+  videoWrapper: {
+    overflow: 'hidden',
+  },
+  video: { 
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  guidelinesOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    opacity: 0,
+  },
+  guideline: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    height: 1,
+    width: '100%',
+  },
 });
 
 export const sliderStyles = StyleSheet.create({
@@ -64,6 +86,7 @@ export const progressBarStyles = StyleSheet.create({
   framesContainer: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
+    overflow: 'hidden',
   },
   shadowWrapper: {
     position: 'absolute',
@@ -92,5 +115,7 @@ export const progressBarStyles = StyleSheet.create({
     position: 'absolute',
     height: '100%',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    top: 0,
+    bottom: 0,
   },
 });
