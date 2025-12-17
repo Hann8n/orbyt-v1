@@ -122,8 +122,10 @@ class VideoProcessingService {
         try {
           if (typeof FFprobeKit.getMediaInformation === 'function') {
             const mediaInfo = await FFprobeKit.getMediaInformation(normalizedPath);
-            const duration = (mediaInfo.getDuration?.() || mediaInfo.duration || 0) / 1000;
-            if (duration > 0) return duration;
+            if (mediaInfo) {
+              const duration = (mediaInfo.getDuration?.() || mediaInfo.duration || 0) / 1000;
+              if (duration > 0) return duration;
+            }
           } else if (typeof FFprobeKit.execute === 'function') {
             const probeCommand = `-v error -show_entries format=duration -of json "${normalizedPath}"`;
             const session = await FFprobeKit.execute(probeCommand);
