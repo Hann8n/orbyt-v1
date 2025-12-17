@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, withSequence, withDelay, Easing } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
-
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../ui/UI';
@@ -163,6 +163,24 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const isBlurred = shouldBlur && !shouldShowContent;
     const hasWarning = shouldBlur;
     const reason = decision?.reason;
+    
+    // Format warning labels for display
+    const getWarningDescription = useCallback(() => {
+      if (!reason) {
+        return 'This video may contain sensitive content';
+      }
+      // Split comma-separated labels, remove "content" from each label, and join with "&"
+      const labels = reason.split(',').map(l => {
+        // Remove "content" or "Content" from the end of each label
+        return l.trim().replace(/\s+[Cc]ontent\s*$/, '').trim();
+      });
+      const formattedLabels = labels.length > 1 
+        ? labels.slice(0, -1).join(', ') + ' & ' + labels[labels.length - 1]
+        : labels[0];
+      // Convert to lowercase but preserve NSFW in uppercase
+      const labelLower = formattedLabels.toLowerCase().replace(/nsfw/g, 'NSFW');
+      return `This video may contain ${labelLower} content`;
+    }, [reason]);
     
     // Handle user choosing to view content
     const handleViewContent = useCallback(() => {
@@ -748,21 +766,36 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
           </View>
         </Pressable>
         
-        {/* Content Warning Overlay - darken only, keep poster/video sharp */}
+        {/* Content Warning Overlay - blur with message */}
         {isBlurred && (
-          <View style={styles.contentWarningOverlay}>
-            <View style={styles.blurMessage}>
-              <Text style={styles.blurTitle}>Content Warning</Text>
-              <Text style={styles.blurText}>
-                {reason || 'This content may not be appropriate for all viewers.'}
-              </Text>
-              <TouchableOpacity onPress={handleViewContent}>
-                <View style={styles.viewButton}>
-                  <Text style={styles.viewButtonText}>Show Content</Text>
+          <>
+            <BlurView intensity={100} tint="dark" style={styles.contentWarningBlur} experimentalBlurMethod="dimezisBlurView" />
+            <View style={styles.contentWarningOverlay}>
+              <View style={styles.blurMessage}>
+                <Text style={styles.blurTitle}>Sensitive Content</Text>
+                <Text style={styles.blurText}>
+                  {getWarningDescription()}
+                </Text>
+              </View>
+              <TouchableOpacity 
+                onPress={handleViewContent}
+                style={styles.viewButton}
+                activeOpacity={0.8}
+              >
+                {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
+                  <GlassView
+                    style={styles.glassBackground}
+                    glassEffectStyle="clear"
+                    tintColor="rgba(255, 255, 255, 1)"
+                    isInteractive
+                  />
+                ) : null}
+                <View style={styles.buttonContent}>
+                  <Text style={styles.viewButtonText}>See video</Text>
                 </View>
               </TouchableOpacity>
             </View>
-          </View>
+          </>
         )}
         
 
@@ -821,40 +854,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 5,
   },
+  contentWarningBlur: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9,
+  },
   contentWarningOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
+    paddingBottom: 60,
   },
   blurMessage: {
-    width: '80%',
-    padding: 20,
-    borderRadius: BORDER_RADIUS.MEDIUM,
+    width: '90%',
+    maxWidth: 400,
+    padding: 24,
     alignItems: 'center',
   },
   blurTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 10,
+    fontSize: 20,
+    fontFamily: 'Firma-Bold',
+    color: Colors.white,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   blurText: {
-    fontSize: 14,
-    color: '#fff',
+    fontSize: 15,
+    fontFamily: 'Firma-Regular',
+    color: Colors.lightGray,
     textAlign: 'center',
-    marginBottom: 15,
+    lineHeight: 22,
   },
   viewButton: {
-    backgroundColor: '#ffffff',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: BORDER_RADIUS.SMALL,
+    position: 'absolute',
+    bottom: 80,
+    backgroundColor: Colors.white,
+    borderRadius: BORDER_RADIUS.FULL,
+    overflow: 'hidden',
+    minWidth: 120,
+  },
+  glassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.FULL,
+  },
+  buttonContent: {
+    position: 'relative',
+    zIndex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   viewButtonText: {
-    color: '#000',
-    fontWeight: 'bold',
+    color: Colors.black,
+    fontSize: 15,
+    fontFamily: 'Firma-SemiBold',
+    fontWeight: '600',
   },
   shadowGradient: {
     position: 'absolute',

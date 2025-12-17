@@ -332,6 +332,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           intensity={20}
           tint="light"
           style={styles.blurContainer}
+          experimentalBlurMethod="dimezisBlurView"
         >
           <LinearGradient
             colors={['rgba(255, 255, 255, 0.9)', 'rgba(255, 255, 255, 0.7)']}

@@ -69,7 +69,7 @@ const VideoGridItem: React.FC<{
         />
       )}
       {shouldBlur && (
-        <BlurView intensity={80} tint="dark" style={styles.warningOverlay} />
+        <BlurView intensity={80} tint="dark" style={styles.warningOverlay} experimentalBlurMethod="dimezisBlurView" />
       )}
     </TouchableOpacity>
   );

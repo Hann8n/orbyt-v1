@@ -21,7 +21,7 @@ export default function BlurredThumbnailBackground({ thumbnailUrl, recyclingKey 
         cachePolicy="disk"
         transition={200}
       />
-      <BlurView intensity={100} tint="systemChromeMaterialDark" style={styles.blur} />
+      <BlurView intensity={100} tint="systemChromeMaterialDark" style={styles.blur} experimentalBlurMethod="dimezisBlurView" />
       <View style={styles.overlay} />
     </View>
   );

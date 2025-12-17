@@ -429,7 +429,7 @@ export default function EmbeddedPostCard({
               contentFit="contain"
             />
             {isBlurred && (
-              <BlurView intensity={80} tint="dark" style={styles.cleanBlurOverlay} />
+              <BlurView intensity={80} tint="dark" style={styles.cleanBlurOverlay} experimentalBlurMethod="dimezisBlurView" />
             )}
             {isBlurred && (
               <View style={styles.cleanWarningOverlay}>
@@ -497,7 +497,7 @@ export default function EmbeddedPostCard({
           </View>
           
           {isBlurred && (
-            <BlurView intensity={80} tint="dark" style={styles.blurOverlay} />
+            <BlurView intensity={80} tint="dark" style={styles.blurOverlay} experimentalBlurMethod="dimezisBlurView" />
           )}
           {isBlurred && (
             <View style={styles.contentWarningOverlay}>
