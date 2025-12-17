@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import ListHeader from '../../src/components/ui/ListHeader';
-import Icon from '../../src/components/ui/Icon';
+import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import { useAlgorithmicFeedProvider, ALGORITHMIC_FEED_PROVIDERS } from '../../src/stores/userStore';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
@@ -123,7 +123,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
                 </View>
                 <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
                   {isSaving && selected ? (
-                    <ActivityIndicator size="small" color={Colors.lightGreen} />
+                    <Loading3FillIcon size={24} color={Colors.lightGreen} />
                   ) : selected ? (
                     <Icon name="check" size={24} color={Colors.lightGreen} />
                   ) : null}
