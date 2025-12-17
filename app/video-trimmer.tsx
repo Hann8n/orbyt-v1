@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import VideoTrimmerUI from '../src/components/Trimmer/src';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CloseFillIcon, ArrowRightFillIcon, Loading3FillIcon } from '../src/components/ui/Icon';
@@ -56,6 +57,10 @@ const VideoTrimmerScreen: React.FC = () => {
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
   const [isReady, setIsReady] = useState(false);
+  
+  // Progress bar animations - separate for existing and trim progress
+  const existingProgressWidth = useSharedValue(0);
+  const trimProgressWidth = useSharedValue(0);
 
   // Resolve video path
   useEffect(() => {
@@ -100,6 +105,17 @@ const VideoTrimmerScreen: React.FC = () => {
             ? Math.min(duration, availableDuration)
             : duration;
           setTrimEnd(initialTrimEnd);
+          // Initialize progress bars
+          if (maxDuration !== undefined) {
+            // Existing progress (from previous segments)
+            const existingProgress = Math.min((currentDuration / maxDuration) * 100, 100);
+            existingProgressWidth.value = withTiming(existingProgress, { duration: 200 });
+            
+            // Trim progress (from current video being trimmed)
+            const initialTrimmedDuration = initialTrimEnd;
+            const trimProgress = Math.min((initialTrimmedDuration / maxDuration) * 100, 100);
+            trimProgressWidth.value = withTiming(trimProgress, { duration: 200 });
+          }
           setIsReady(true); // Allow applying without trimming
         }
       } catch (error) {
@@ -112,13 +128,28 @@ const VideoTrimmerScreen: React.FC = () => {
     resolveVideo();
   }, [videoPath, assetId, router, availableDuration]);
 
+  // Update progress bar based on current trim selection
+  const updateProgress = (start: number, end: number) => {
+    if (maxDuration !== undefined) {
+      const trimmedDuration = end - start;
+      const trimProgress = Math.min((trimmedDuration / maxDuration) * 100, 100);
+      trimProgressWidth.value = withTiming(trimProgress, { duration: 100 });
+    }
+  };
+
   // Handle trim selection
   // Note: maxDuration constraint is now handled inside VideoTrimmerUI component
   // This callback receives the already-constrained values
   const handleSelected = (start: number, end: number) => {
     setTrimStart(start);
     setTrimEnd(end);
+    updateProgress(start, end);
     setIsReady(true);
+  };
+
+  // Handle real-time value changes during dragging
+  const handleValueChange = (start: number, end: number) => {
+    updateProgress(start, end);
   };
 
   // Apply trim
@@ -202,6 +233,16 @@ const VideoTrimmerScreen: React.FC = () => {
     router.back();
   };
 
+  // Animated progress bar styles - must be called before any early returns
+  const animatedExistingProgressStyle = useAnimatedStyle(() => ({
+    width: `${existingProgressWidth.value}%`,
+  }), []);
+
+  const animatedTrimProgressStyle = useAnimatedStyle(() => ({
+    width: `${trimProgressWidth.value}%`,
+    left: `${existingProgressWidth.value}%`,
+  }), []);
+
   if (!videoUri) {
     return (
       <SafeAreaView style={styles.container}>
@@ -215,6 +256,34 @@ const VideoTrimmerScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      {/* Progress Bar - overlays on top of trimmer */}
+      {maxDuration !== undefined && (
+        <View style={[styles.progressBarOverlay, { 
+          height: isSmallDevice ? 54 : insets.top
+        }]}>
+          <View style={styles.combinedProgressBarContainer}>
+            {/* Existing progress (from previous segments) */}
+            {currentDuration > 0 && (
+              <Animated.View
+                style={[
+                  styles.progressBarFill,
+                  { backgroundColor: Colors.blurple, opacity: 0.4 },
+                  animatedExistingProgressStyle,
+                ]}
+              />
+            )}
+            {/* Trim progress (from current video being trimmed) */}
+            <Animated.View
+              style={[
+                styles.progressBarFill,
+                { backgroundColor: Colors.blurple },
+                animatedTrimProgressStyle,
+              ]}
+            />
+          </View>
+        </View>
+      )}
+      
       {/* Video Trimmer UI */}
       <View style={[
         styles.trimmerContainer,
@@ -227,6 +296,7 @@ const VideoTrimmerScreen: React.FC = () => {
           ref={trimmerRef}
           source={{ uri: videoUri }}
           onSelected={handleSelected}
+          onValueChange={handleValueChange}
           loop={true}
           containerStyle={StyleSheet.flatten([
             styles.trimmerWrapper,
@@ -379,6 +449,28 @@ const styles = StyleSheet.create({
   sliderContainer: {
     marginHorizontal: 8,
     marginTop: 20,
+  },
+  progressBarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 999,
+  },
+  combinedProgressBarContainer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: Colors.blurple,
+    borderRadius: 0,
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
 });
 

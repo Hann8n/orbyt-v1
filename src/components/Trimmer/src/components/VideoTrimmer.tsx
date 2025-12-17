@@ -18,6 +18,7 @@ export interface VideoTrimmerProps {
   sliderContainerStyle?: ViewStyle;
   tintColor?: string;
   onSelected?: (start: number, end: number) => void;
+  onValueChange?: (start: number, end: number) => void;
   minDuration?: number;
   maxDuration?: number;
 }
@@ -36,6 +37,7 @@ function VideoTrimmerUI(props: VideoTrimmerProps, ref: Ref<unknown>) {
     sliderContainerStyle,
     tintColor = '#4528ea',
     onSelected,
+    onValueChange,
     minDuration = MIN_DURATION,
     maxDuration,
   } = props;
@@ -124,12 +126,16 @@ function VideoTrimmerUI(props: VideoTrimmerProps, ref: Ref<unknown>) {
   };
   
   // Handle real-time updates during dragging
-  const onValueChange = (value: number[]) => {
+  const handleValueChange = (value: number[]) => {
     const [start = 0, stop = minDuration] = value || [];
     // Update shared values in real-time during dragging
     if (duration > 0) {
       startPercent.value = (start / duration) * 100;
       endPercent.value = (stop / duration) * 100;
+    }
+    // Call external onValueChange callback if provided
+    if (onValueChange) {
+      onValueChange(start, stop);
     }
   };
 
@@ -204,7 +210,7 @@ function VideoTrimmerUI(props: VideoTrimmerProps, ref: Ref<unknown>) {
             duration={duration}
             playbackTime={playbackTime}
             onSlidingComplete={onSlidingComplete}
-            onValueChange={onValueChange}
+            onValueChange={handleValueChange}
             tintColor={tintColor}
             maxDuration={maxDuration}
             frames={frames}
