@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+  <!-- Left Eye (TV Screen) -->
+  <rect x="30" y="40" width="9.6" height="20" rx="4.8" fill="white"/>
+  
+  <!-- Right Eye (TV Screen) -->
+  <rect x="60" y="40" width="9.6" height="20" rx="4.8" fill="white"/>
+</svg>
+
