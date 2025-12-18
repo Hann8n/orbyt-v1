@@ -25,8 +25,8 @@
     "scheme": "com.getorbyt",
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./src/assets/orbyt_icon_adaptive_foreground.png",
+        "backgroundColor": "#000000"
       },
       "package": "com.orbyt.app",
       "permissions": [
