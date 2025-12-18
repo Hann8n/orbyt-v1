@@ -342,6 +342,16 @@ const SettingsScreen: React.FC = () => {
           showChevron: false
         },
         {
+          id: 'app-icon',
+          label: 'App icon',
+          icon: 'device-tv',
+          onPress: () => {
+            navigation.back();
+            setTimeout(() => navigation.push('/settings/app-icon'), 100);
+          },
+          showChevron: true
+        },
+        {
           id: 'about',
           label: 'About orbyt',
           icon: 'device-tv',

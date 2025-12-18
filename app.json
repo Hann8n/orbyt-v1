@@ -10,7 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.getorbyt.app",
-      "icon": "./src/assets/orBYTE.icon",
+      "icon": "./src/assets/AppIcons/iOS/orbyt.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "This app needs access to your camera to take photos and record videos",
@@ -25,8 +25,8 @@
     "scheme": "com.getorbyt",
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/orbyt_icon_adaptive_foreground.png",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./src/assets/AppIcons/android/orbyt_icon_adaptive_foreground.png",
+        "backgroundColor": "#5934e0"
       },
       "package": "com.orbyt.app",
       "permissions": [
@@ -44,6 +44,21 @@
     },
     "plugins": [
       "expo-font",
+      [
+        "@mozzius/expo-dynamic-app-icon",
+        {
+          "orBYTE": {
+            "ios": "./src/assets/AppIcons/iOS/orBYTE.png",
+            "android": "./src/assets/AppIcons/android/orBYTE_icon_adaptive_foreground.png",
+            "prerendered": true
+          },
+          "orbytTV": {
+            "ios": "./src/assets/AppIcons/iOS/orbyt.png",
+            "android": "./src/assets/AppIcons/android/orbyt_icon_adaptive_foreground.png",
+            "prerendered": true
+          }
+        }
+      ],
       [
         "expo-camera",
         {
