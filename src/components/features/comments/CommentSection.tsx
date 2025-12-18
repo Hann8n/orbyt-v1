@@ -3,15 +3,12 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Platform,
-  UIManager,
   StyleSheet,
   Alert,
   Modal,
   Pressable,
   TextInput,
   Linking,
-  Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
@@ -51,11 +48,6 @@ import { formatNumber, formatHandle } from '../../../utils/helpers';
 import CommentInputFooter from './CommentInputFooter';
 import CommentItem from './CommentItem';
 import type { Comment, Like } from './CommentItem';
-
-// Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 /**
  * Types (kept compatible with your current usage)
@@ -153,6 +145,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const [newCommentText, setNewCommentText] = useState('');
   const [inputSelection, setInputSelection] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
   const inputRef = useRef<TextInput>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const [replyContext, setReplyContext] = useState<{
     authorName: string;
@@ -605,15 +598,23 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     if (hasNextLikesPage && !isFetchingNextLikesPage) fetchNextLikesPage();
   }, [hasNextLikesPage, isFetchingNextLikesPage, fetchNextLikesPage]);
 
-  const onScrollBeginDragComments = useCallback(() => {
-    Keyboard.dismiss();
-  }, []);
-
-  const onScrollBeginDragLikes = useCallback(() => {
-    Keyboard.dismiss();
-  }, []);
 
   const placeholder = replyContext ? `Replying to ${replyContext.authorName}` : 'Say something nice...';
+
+  const handleInputFocus = useCallback(() => {
+    setIsInputFocused(true);
+    sheetRef.current?.resize(1);
+  }, []);
+
+  const handleInputBlur = useCallback(() => {
+    setIsInputFocused(false);
+  }, []);
+
+  const handleDetentChange = useCallback((e: any) => {
+    if (isInputFocused && e.nativeEvent.index === 0) {
+      sheetRef.current?.resize(1);
+    }
+  }, [isInputFocused]);
 
   const ComposerFooter = useMemo(() => {
     return (
@@ -637,6 +638,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         currentUserAvatar={currentUserProfile?.avatar}
         userSearchModalProps={userSearchModalProps}
         mentionInputProps={mentionInputProps}
+        onFocus={handleInputFocus}
+        onBlur={handleInputBlur}
       />
     );
   }, [
@@ -651,6 +654,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     currentUserProfile?.avatar,
     userSearchModalProps,
     mentionInputProps,
+    handleInputFocus,
+    handleInputBlur,
   ]);
 
   const headerComponent = useMemo(
@@ -722,8 +727,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         detents={scrollToCommentUri ? [1] : [0.5, 1]}
         backgroundColor={Colors.black}
         onDidDismiss={handleClose}
+        onDetentChange={handleDetentChange}
         scrollable
-        keyboardMode="pan"
         grabber={false}
         header={headerComponent}
         footer={activeTab === 'comments' ? ComposerFooter : undefined}
@@ -737,11 +742,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               renderItem={renderCommentItem}
               contentContainerStyle={listContentStyle}
               keyboardShouldPersistTaps="handled"
-              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+              keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled
               scrollEventThrottle={16}
-              onScrollBeginDrag={onScrollBeginDragComments}
               onEndReached={onEndReachedComments}
               onEndReachedThreshold={END_REACHED_THRESHOLD}
               overrideItemLayout={(layout) => {
@@ -759,11 +763,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               renderItem={renderLikeItem}
               contentContainerStyle={listContentStyle}
               keyboardShouldPersistTaps="handled"
-              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+              keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled
               scrollEventThrottle={16}
-              onScrollBeginDrag={onScrollBeginDragLikes}
               onEndReached={onEndReachedLikes}
               onEndReachedThreshold={END_REACHED_THRESHOLD}
               overrideItemLayout={(layout) => {

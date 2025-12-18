@@ -1695,10 +1695,10 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@lodev09/react-native-true-sheet@^3.0.0":
-  version "3.2.2"
-  resolved "https://registry.npmjs.org/@lodev09/react-native-true-sheet/-/react-native-true-sheet-3.2.2.tgz"
-  integrity sha512-2l+rYWQz01V7Z9Ib6I/4F/kUCeArhxzKlgtF9oL65gxNgnAvwWbw6q1kjxh3mXVmoxNACMipT+zrS0Vb6xxNkw==
+"@lodev09/react-native-true-sheet@3.5.0":
+  version "3.5.0"
+  resolved "https://registry.yarnpkg.com/@lodev09/react-native-true-sheet/-/react-native-true-sheet-3.5.0.tgz#bd38efd412bc4fba5d344073e8999e22b3339779"
+  integrity sha512-m/Z+9Wjmsge8fy6F94Jzw9hwH+cwY1ueNJvKK0bMXu2hOWAdwq27LOfk9r8MlYwz4bjF9pBhoaqu8MmQuSgAGw==
 
 "@miblanchard/react-native-slider@^2.6.0":
   version "2.6.0"

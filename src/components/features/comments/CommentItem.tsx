@@ -9,7 +9,6 @@ import {
   Pressable,
   Linking,
   Platform,
-  UIManager,
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
@@ -32,15 +31,8 @@ import { HeartFillIcon } from '../../ui/Icon';
 import { VerificationBadge } from '../badging';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
-import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useCommentStore } from '../../../stores/commentStore';
 import { useUserStore } from '../../../stores/userStore';
-
-// Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 export interface Comment {
   uri: string;
@@ -688,60 +680,6 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const BLUESKY_CDN = 'https://cdn.bsky.app/img/feed_thumbnail/plain/';
 
     // Shimmer Image Component
-    const ShimmerImage: React.FC<{
-      uri: string;
-      style: any;
-      onPress?: () => void;
-      accessibilityLabel?: string;
-      onLoad?: (e: any) => void;
-      onError?: (e: any) => void;
-    }> = React.memo(({ uri, style, onPress, accessibilityLabel, onLoad, onError }) => {
-      const [isLoading, setIsLoading] = useState(true);
-      const [hasError, setHasError] = useState(false);
-      const [imageLoaded, setImageLoaded] = useState(false);
-
-      const handleLoad = (e: any) => {
-        setIsLoading(false);
-        setImageLoaded(true);
-        onLoad?.(e);
-      };
-
-      const handleError = (e: any) => {
-        setIsLoading(false);
-        setHasError(true);
-        onError?.(e);
-      };
-
-      if (hasError) {
-        return null;
-      }
-
-      return (
-        <View style={style}>
-          {isLoading && !imageLoaded && (
-            <ShimmerPlaceholder
-              LinearGradient={LinearGradient}
-              style={[style, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}
-              shimmerColors={Colors.SHIMMER.PRIMARY}
-            />
-          )}
-          <Image
-            source={{ uri }}
-            style={[style, { opacity: isLoading && !imageLoaded ? 0 : 1 }]}
-            contentFit="cover"
-            accessible={true}
-            accessibilityLabel={accessibilityLabel}
-            onLoadStart={() => {
-              if (!imageLoaded) {
-                setIsLoading(true);
-              }
-            }}
-            onLoad={handleLoad}
-            onError={handleError}
-          />
-        </View>
-      );
-    });
 
     const LinkThumbnail: React.FC<{ external: { uri: string; thumb?: any; title?: string; description?: string } }> = React.memo(({ external }) => {
       if (!external?.uri || !/^https?:\/\//.test(external.uri)) return null;
@@ -799,7 +737,6 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
         external = embed.external;
       }
       
-      const [aspectRatio, setAspectRatio] = useState<number | null>(null);
       const getClampedAspectRatio = (ar: number) => Math.max(0.5, Math.min(2.0, ar));
       
       const isDirectImageUrl = (url: string) => {
@@ -809,33 +746,31 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       if (external && external.uri && /^https?:\/\//.test(external.uri)) {
         if (isDirectImageUrl(external.uri)) {
           const maxHeight = hasText ? 220 : 320;
+          // Use default aspect ratio to prevent size change on load
+          const defaultAspectRatio = 1.5;
           const imageStyle = {
             width: '100%' as const,
             maxHeight,
             marginTop: hasText ? 2 : 0,
-            aspectRatio: aspectRatio ? getClampedAspectRatio(aspectRatio) : 1.5,
+            aspectRatio: defaultAspectRatio,
             borderRadius: BORDER_RADIUS.MEDIUM,
           };
           return (
             <View style={styles.commentImagesContainer}>
               <TouchableOpacity
                 key={external.uri}
-                style={[styles.commentImageWrapper, { width: '100%' }]}
+                style={[styles.commentImageWrapper, { width: '100%', aspectRatio: defaultAspectRatio }]}
                 activeOpacity={0.8}
                 onPress={() => {
                   if (onImagePress) onImagePress(external.uri);
                 }}
               >
-                <ShimmerImage
-                  uri={external.uri}
+                <Image
+                  source={{ uri: external.uri }}
                   style={[styles.commentImage, imageStyle]}
+                  contentFit="cover"
+                  accessible={true}
                   accessibilityLabel={external.description || external.title || 'Comment image'}
-                  onError={(e: { nativeEvent: { error: string } }) => {
-                  }}
-                  onLoad={e => {
-                    const { width, height } = e.nativeEvent.source;
-                    if (width && height) setAspectRatio(width / height);
-                  }}
                 />
               </TouchableOpacity>
             </View>
@@ -872,35 +807,41 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       
       return (
         <View style={styles.commentImagesContainer}>
-          {embedImages.slice(0, 4).map((img: { alt: string; thumb: string; fullsize: string; aspectRatio?: { width: number; height: number } }, idx: number) => (
-            <TouchableOpacity 
-              key={`${img.thumb || img.fullsize || idx}`} 
-              style={[
-                styles.commentImageWrapper,
-                getImageLayoutStyle(idx, Math.min(embedImages.length, 4)),
-                idx % 2 === 0 ? { marginRight: '1%' } : { marginLeft: '1%' }
-              ]}
-              activeOpacity={0.8}
-              onPress={() => {
-                if (onImagePress && img.fullsize) {
-                  onImagePress(img.fullsize);
-                }
-              }}
-            >
-              <ShimmerImage
-                uri={img.thumb || img.fullsize}
+          {embedImages.slice(0, 4).map((img: { alt: string; thumb: string; fullsize: string; aspectRatio?: { width: number; height: number } }, idx: number) => {
+            // Calculate aspect ratio from embed data or use default
+            const aspectRatio = img.aspectRatio 
+              ? getClampedAspectRatio(img.aspectRatio.width / img.aspectRatio.height)
+              : 1;
+            
+            return (
+              <TouchableOpacity 
+                key={`${img.thumb || img.fullsize || idx}`} 
                 style={[
-                  styles.commentImage,
-                  img.aspectRatio ? {
-                    aspectRatio: img.aspectRatio.width / img.aspectRatio.height
-                  } : { aspectRatio: 1 }
+                  styles.commentImageWrapper,
+                  getImageLayoutStyle(idx, Math.min(embedImages.length, 4)),
+                  { aspectRatio },
+                  idx % 2 === 0 ? { marginRight: '1%' } : { marginLeft: '1%' }
                 ]}
-                accessibilityLabel={img.alt || "Comment image"}
-                onError={(e: { nativeEvent: { error: string } }) => {
+                activeOpacity={0.8}
+                onPress={() => {
+                  if (onImagePress && img.fullsize) {
+                    onImagePress(img.fullsize);
+                  }
                 }}
-              />
-            </TouchableOpacity>
-          ))}
+              >
+                <Image
+                  source={{ uri: img.thumb || img.fullsize }}
+                  style={[
+                    styles.commentImage,
+                    { aspectRatio }
+                  ]}
+                  contentFit="cover"
+                  accessible={true}
+                  accessibilityLabel={img.alt || "Comment image"}
+                />
+              </TouchableOpacity>
+            );
+          })}
           {embedImages.length > 4 && (
             <View style={styles.moreImagesIndicator}>
               <Text style={styles.moreImagesText}>+{embedImages.length - 4} more</Text>

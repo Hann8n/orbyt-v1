@@ -49,7 +49,7 @@
         {
           "orBYTE": {
             "ios": "./src/assets/AppIcons/iOS/orBYTE.png",
-            "android": "./src/assets/AppIcons/android/orBYTE_icon_adaptive_foreground.png",
+            "android": "./src/assets/AppIcons/android/orBYTE_foreground.png",
             "prerendered": true
           },
           "orbytTV": {

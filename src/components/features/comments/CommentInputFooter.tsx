@@ -1,7 +1,5 @@
 import React, { memo } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
 import Icon from '../../ui/Icon';
 import UI from '../../ui/UI';
 import { Colors } from '../../ui/UI';
@@ -28,6 +26,8 @@ interface CommentInputFooterProps {
   currentUserAvatar?: string | null;
   userSearchModalProps?: any;
   mentionInputProps?: any;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
@@ -45,19 +45,16 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   currentUserAvatar,
   userSearchModalProps,
   mentionInputProps,
+  onFocus,
+  onBlur,
 }) => {
-  const insets = useSafeAreaInsets();
   const charCount = value.length;
   const hasText = value.trim().length > 0;
   const showCharCount = charCount >= 150;
   const isSendDisabled = isPosting || !hasText || charCount > maxLength;
 
   return (
-    <KeyboardAwareFooter 
-      hideOnKeyboard={false} 
-      bottomPadding={insets.bottom}
-      style={styles.footerBlurContainer}
-    >
+    <View style={styles.footerContainer}>
       <View style={styles.inputContainer}>
         <View style={styles.inputRow}>
           <View style={styles.avatarContainer}>
@@ -88,6 +85,8 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               autoCorrect={true}
               autoCapitalize="sentences"
               textAlignVertical="top"
+              onFocus={onFocus}
+              onBlur={onBlur}
             />
           </View>
           <View style={styles.sendColumn}>
@@ -168,13 +167,15 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
           <UserSearchModal {...userSearchModalProps} />
         </View>
       )}
-    </KeyboardAwareFooter>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  footerBlurContainer: {
+  footerContainer: {
     backgroundColor: Colors.black,
+    width: '100%',
+    paddingBottom: 8,
   },
   inputContainer: {
     paddingHorizontal: 16,
