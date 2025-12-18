@@ -255,19 +255,21 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
 
   const renderComposer = useCallback((props: any) => {
     return (
-      <TextInput
-        {...props.textInputProps}
-        style={styles.textInput}
-        placeholder="Type a message..."
-        placeholderTextColor={Colors.lightGray}
-        multiline={true}
-        maxLength={1000}
-        returnKeyType="default"
-        blurOnSubmit={false}
-        autoCorrect={true}
-        autoCapitalize="sentences"
-        textAlignVertical="top"
-      />
+      <View style={styles.inputWrapper}>
+        <TextInput
+          {...props.textInputProps}
+          style={styles.textInput}
+          placeholder="Type a message..."
+          placeholderTextColor={Colors.gray}
+          multiline={true}
+          maxLength={1000}
+          returnKeyType="default"
+          blurOnSubmit={false}
+          autoCorrect={true}
+          autoCapitalize="sentences"
+          textAlignVertical="top"
+        />
+      </View>
     );
   }, []);
 
@@ -275,43 +277,47 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     const hasText = props.text && props.text.trim().length > 0;
     const isDisabled = !hasText || sendMessageMutation.isPending;
     
+    if (!hasText || isDisabled) return null;
+    
     return (
-      <TouchableOpacity
-        style={[
-          styles.sendButton,
-          { backgroundColor: hasText ? Colors.green : Colors.gray },
-          isDisabled && styles.sendButtonDisabled
-        ]}
-        onPress={() => {
-          if (props.text && props.text.trim() && !sendMessageMutation.isPending) {
-            // Create the message object that GiftedChat expects
-            const message: ChatMessage = {
-              _id: Math.random().toString(36).substr(2, 9),
-              text: props.text.trim(),
-              createdAt: new Date(),
-              user: {
-                _id: currentUserId,
-                name: currentUser?.handle || 'You',
-                avatar: currentUser?.avatar,
-              },
-            };
-            props.onSend([message]);
-          }
-        }}
-        activeOpacity={0.8}
-        disabled={isDisabled}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        {sendMessageMutation.isPending ? (
-          <Loading3FillIcon size={24} color={Colors.black} />
-        ) : (
-          <Icon 
-            name="send-plane-fill" 
-            size={22} 
-            color={Colors.black}
-          />
-        )}
-      </TouchableOpacity>
+      <View style={styles.sendColumn}>
+        <TouchableOpacity
+          style={styles.sendButton}
+          onPress={() => {
+            if (props.text && props.text.trim() && !sendMessageMutation.isPending) {
+              // Create the message object that GiftedChat expects
+              const message: ChatMessage = {
+                _id: Math.random().toString(36).substr(2, 9),
+                text: props.text.trim(),
+                createdAt: new Date(),
+                user: {
+                  _id: currentUserId,
+                  name: currentUser?.handle || 'You',
+                  avatar: currentUser?.avatar,
+                },
+              };
+              props.onSend([message]);
+            }
+          }}
+          activeOpacity={0.7}
+          disabled={isDisabled}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Send message"
+          delayPressIn={0}
+        >
+          {sendMessageMutation.isPending ? (
+            <Loading3FillIcon size={22} color={Colors.black} />
+          ) : (
+            <Icon 
+              name="arrow-up-fill" 
+              size={22} 
+              color={Colors.black}
+            />
+          )}
+        </TouchableOpacity>
+      </View>
     );
   }, [currentUserId, currentUser, sendMessageMutation.isPending]);
 
@@ -360,12 +366,20 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     return (
       <View style={styles.inputToolbar}>
         <View style={styles.inputToolbarContent}>
+          <View style={styles.avatarContainer}>
+            <Avatar
+              uri={currentUser?.avatar}
+              type="profile"
+              size={42}
+              style={styles.avatar}
+            />
+          </View>
           {props.renderComposer && props.renderComposer(props)}
           {props.renderSend && props.renderSend(props)}
         </View>
       </View>
     );
-  }, [conversationData?.status, currentUserInitiated, rejectConversationMutation, acceptConversationMutation]);
+  }, [conversationData?.status, currentUserInitiated, rejectConversationMutation, acceptConversationMutation, currentUser?.avatar]);
 
   const renderAvatar = useCallback(() => null, []);
 
@@ -733,6 +747,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         scrollToBottomStyle={styles.scrollToBottomContainer}
         listProps={{ 
           keyboardShouldPersistTaps: 'handled',
+          keyboardDismissMode: 'on-drag',
         }}
         keyboardAvoidingViewProps={undefined}
         onPressAvatar={() => {
@@ -914,7 +929,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
     borderTopWidth: 0,
     paddingTop: 0,
-    paddingBottom: 0,
     paddingHorizontal: 0,
     marginHorizontal: 0,
     marginBottom: 0,
@@ -922,10 +936,30 @@ const styles = StyleSheet.create({
   },
   inputToolbarContent: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 0,
-    paddingTop: 0,
+  },
+  avatarContainer: {
+    marginRight: 12,
+    marginTop: 0,
+  },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: BORDER_RADIUS.FULL,
+    borderWidth: 0,
+  },
+  inputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderRadius: BORDER_RADIUS.LARGE,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    position: 'relative',
   },
   textInput: {
     backgroundColor: 'transparent',
@@ -934,28 +968,36 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 42,
     maxHeight: 120,
+    paddingRight: 0,
+    paddingTop: 9,
+    paddingBottom: 9,
+    paddingLeft: 0,
     textAlignVertical: 'top',
     fontFamily: 'Firma-Regular',
     fontSize: 18,
     lineHeight: 24,
-    marginRight: 8,
   },
   sendColumn: {
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
+    zIndex: 10,
+    elevation: 10,
   },
   sendButton: {
     paddingHorizontal: 8,
     paddingVertical: 8,
     alignSelf: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.lightGray,
     borderRadius: BORDER_RADIUS.FULL,
     width: 42,
     height: 42,
     alignItems: 'center',
     marginLeft: 8,
     marginTop: 0,
+    zIndex: 11,
+    elevation: 11,
   },
   sendButtonInactive: {
     opacity: 0.5,
