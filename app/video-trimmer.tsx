@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Alert,
   Dimensions,
   Platform,
@@ -390,7 +390,7 @@ const VideoTrimmerScreen: React.FC = () => {
       </View>
 
       {/* Back Button */}
-      <TouchableOpacity
+      <Pressable
         style={[styles.backButton, { 
           top: isSmallDevice ? 5 : insets.top + 4,
           left: 4,
@@ -399,11 +399,11 @@ const VideoTrimmerScreen: React.FC = () => {
         disabled={isProcessing}
       >
         <CloseFillIcon size={26} color="white" />
-      </TouchableOpacity>
+      </Pressable>
 
       {/* Next Button - Above progress bar for small devices */}
       {isSmallDevice && (
-        <TouchableOpacity
+        <Pressable
           style={[
             styles.nextButtonTop, 
             useLiquidGlass && styles.nextButtonGlassWrapper,
@@ -415,7 +415,6 @@ const VideoTrimmerScreen: React.FC = () => {
           ]}
           onPress={handleApply}
           disabled={isProcessing || !isReady}
-          activeOpacity={0.7}
         >
           {useLiquidGlass && (
             <GlassView
@@ -432,12 +431,12 @@ const VideoTrimmerScreen: React.FC = () => {
               <Text style={styles.nextButtonTextTop}>NEXT</Text>
             )}
           </View>
-        </TouchableOpacity>
+        </Pressable>
       )}
 
       {/* Next Button - Bottom toolbar for taller devices */}
       {!isSmallDevice && (
-        <TouchableOpacity
+        <Pressable
           style={[
             styles.nextButtonBottom,
             useLiquidGlass && styles.nextButtonGlassWrapper,
@@ -448,7 +447,6 @@ const VideoTrimmerScreen: React.FC = () => {
           ]}
           onPress={handleApply}
           disabled={isProcessing || !isReady}
-          activeOpacity={0.7}
         >
           {useLiquidGlass && (
             <GlassView
@@ -465,7 +463,7 @@ const VideoTrimmerScreen: React.FC = () => {
               <Text style={styles.nextButtonTextBottom}>NEXT</Text>
             )}
           </View>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </SafeAreaView>
   );

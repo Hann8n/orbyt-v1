@@ -4,7 +4,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   RefreshControl,
   Dimensions,
 } from 'react-native';
@@ -306,10 +306,9 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     const isCurrentUserProfile = isCurrentUser(member.did, member.handle, currentUser);
     
     return (
-      <TouchableOpacity
+      <Pressable
         style={styles.memberItem}
         onPress={() => handleMemberPress(member)}
-        activeOpacity={0.7}
       >
         <Avatar
           uri={member.avatar}
@@ -331,17 +330,16 @@ const MembersListView: React.FC<MembersListViewProps> = ({
         </View>
         {/* Follow button would be rendered here if needed - check prevents showing for current user */}
         {onFollowPress && !isCurrentUserProfile && (
-          <TouchableOpacity
+          <Pressable
             style={[styles.followButton, { borderColor: textColor }]}
             onPress={() => handleFollowPress(member)}
-            activeOpacity={0.8}
           >
             <Text style={[styles.followButtonText, { color: textColor }]}>
               {member.isFollowing ? 'Following' : 'Follow'}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
-      </TouchableOpacity>
+      </Pressable>
     );
   }, [handleMemberPress, handleFollowPress, onFollowPress, currentUser, textColor]);
 
@@ -378,14 +376,14 @@ const MembersListView: React.FC<MembersListViewProps> = ({
       <Text style={[styles.errorDescription, { color: hexToRGBA(textColor, 0.67) }]}>
         Please try again later.
       </Text>
-      <TouchableOpacity
+      <Pressable
         style={[styles.retryButton, { borderColor: textColor }]}
         onPress={handleRefresh}
       >
         <Text style={[styles.retryButtonText, { color: textColor }]}>
           Retry
         </Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   ), [textColor, handleRefresh]);
 

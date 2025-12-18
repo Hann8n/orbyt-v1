@@ -4,7 +4,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Dimensions,
   useWindowDimensions,
@@ -322,9 +322,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
           {/* Repost indicator - repost icon + name text */}
           {post.repostedBy && (
             <View style={styles.repostIndicatorBox}>
-              <TouchableOpacity 
+              <Pressable 
                 style={styles.repostIndicatorContainer}
-                activeOpacity={0.7}
                 onPress={handleRepostAuthorPress}
               >
                 <View style={{ opacity: 0.8 }}>
@@ -341,7 +340,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 ]}>
                   {`reposted by ${formatHandle(post.repostedBy?.handle)}`}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           )}
           
@@ -349,7 +348,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
           {record.text && (
             <View style={styles.descriptionContainer}>
               {hasLongText ? (
-                <TouchableOpacity onPress={toggleCollapsed} activeOpacity={0.8}>
+                <Pressable onPress={toggleCollapsed}>
                   <TextWithAuthorLinks
                     text={record.text}
                     style={styles.descriptionText}
@@ -358,7 +357,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     onHashtagPress={navigateToHashtagFeed}
                     facets={record.facets}
                   />
-                </TouchableOpacity>
+                </Pressable>
               ) : (
                 <TextWithAuthorLinks
                   text={record.text}
@@ -372,9 +371,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
           )}
           
           {/* Author info */}
-          <TouchableOpacity
+          <Pressable
             style={styles.authorInfoContainer}
-            activeOpacity={0.7}
             onPress={handleAuthorPress}
           >
             <View style={{ position: 'relative', overflow: 'visible' }}>
@@ -390,7 +388,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               />
               {/* Follow badge overlay: show + when not following, show check briefly after follow */}
               {hasProfile && !isFollowing && !showFollowConfirmation && !hasFollowedForPost && !isCurrentUserProfile && (
-                <TouchableOpacity
+                <Pressable
                   onPress={() => {
                     if (!post.author?.handle) return;
                     // Optimistically show checkmark immediately
@@ -406,7 +404,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     }
                   }}
                   disabled={followMutation.isPending}
-                  activeOpacity={0.9}
                   hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                   style={[
                     styles.followBadge,
@@ -418,7 +415,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   ]}
                 >
                   <AddCircleLineIcon size={badgeSize} color={Colors.black} />
-                </TouchableOpacity>
+                </Pressable>
               )}
               {showFollowConfirmation && !isCurrentUserProfile && (
                 <View
@@ -455,10 +452,9 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 />}
               </View>
               {channelSlug ? (
-                <TouchableOpacity 
+                <Pressable 
                   style={styles.sourceIndicatorContainer}
                   onPress={onChannelPress}
-                  activeOpacity={0.7}
                 >
                   <Text style={[
                     isTabletDevice
@@ -471,15 +467,15 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   ]}>
                     /{channelSlug}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               ) : null}
             </View>
-          </TouchableOpacity>
+          </Pressable>
         </View>
         
         {/* Action buttons */}
         <View style={styles.actionsContainer} pointerEvents="box-none">
-          <TouchableOpacity 
+          <Pressable 
             style={[
               styles.baseActionButton,
               isTabletDevice
@@ -487,14 +483,13 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 : styles.actionButton
             ]} 
             onPress={handleSharePress}
-            activeOpacity={0.7}
           >
             <View style={styles.iconContainer}>
               <MoreFillIcon size={isTabletDevice ? Math.max(actionIconSize - 6, 24) : actionIconSize - 6} color={Colors.white} />
             </View>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity 
+          <Pressable 
             style={[
               styles.baseActionButton,
               isTabletDevice
@@ -523,13 +518,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               onRepost?.();
             }}
             disabled={isRepostPending}
-            activeOpacity={0.7}
           >
             {renderRepostIcon()}
             <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(repostCount)}</Text>
-          </TouchableOpacity>
+          </Pressable>
           
-          <TouchableOpacity 
+          <Pressable 
             style={[
               styles.baseActionButton,
               isTabletDevice
@@ -547,13 +541,12 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 isLikePending,
               });
             }}
-            activeOpacity={0.7}
           >
             {commentIcon}
             <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(post.replyCount || 0)}</Text>
-          </TouchableOpacity>
+          </Pressable>
           
-          <TouchableOpacity 
+          <Pressable 
             style={[
               styles.baseActionButton,
               isTabletDevice
@@ -575,11 +568,10 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
               onLike?.();
             }}
             disabled={isLikePending}
-            activeOpacity={0.7}
           >
             {renderLikeIcon()}
             <Text style={isTabletDevice ? styles.actionTextTablet : styles.actionText}>{formatNumber(likeCount)}</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
     </Animated.View>

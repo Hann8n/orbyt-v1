@@ -3,10 +3,9 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Alert,
-  Pressable,
   Linking,
   Platform,
 } from 'react-native';
@@ -757,10 +756,9 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
           };
           return (
             <View style={styles.commentImagesContainer}>
-              <TouchableOpacity
+              <Pressable
                 key={external.uri}
                 style={[styles.commentImageWrapper, { width: '100%', aspectRatio: defaultAspectRatio }]}
-                activeOpacity={0.8}
                 onPress={() => {
                   if (onImagePress) onImagePress(external.uri);
                 }}
@@ -772,7 +770,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   accessible={true}
                   accessibilityLabel={external.description || external.title || 'Comment image'}
                 />
-              </TouchableOpacity>
+              </Pressable>
             </View>
           );
         } else {
@@ -814,7 +812,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
               : 1;
             
             return (
-              <TouchableOpacity 
+              <Pressable 
                 key={`${img.thumb || img.fullsize || idx}`} 
                 style={[
                   styles.commentImageWrapper,
@@ -822,7 +820,6 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   { aspectRatio },
                   idx % 2 === 0 ? { marginRight: '1%' } : { marginLeft: '1%' }
                 ]}
-                activeOpacity={0.8}
                 onPress={() => {
                   if (onImagePress && img.fullsize) {
                     onImagePress(img.fullsize);
@@ -839,7 +836,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   accessible={true}
                   accessibilityLabel={img.alt || "Comment image"}
                 />
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
           {embedImages.length > 4 && (
@@ -876,7 +873,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             />
           )}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1, zIndex: 1 }}>
-            <TouchableOpacity onPress={handleAuthorAvatarPress}>
+            <Pressable onPress={handleAuthorAvatarPress}>
               <UI.Avatar
                 uri={authorAvatar}
                 type="profile"
@@ -889,17 +886,16 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   borderWidth: 0,
                 }}
               />
-            </TouchableOpacity>
+            </Pressable>
             <View style={{ flex: 1, justifyContent: 'center' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-                <TouchableOpacity
+                <Pressable
                   onPress={() => (authorHandle || authorDid) && handleAuthorPress(authorHandle, authorDid)}
-                  activeOpacity={0.7}
                 >
                   <Text style={{ color: Colors.white, fontSize: 16, marginBottom: 2, fontFamily: 'Firma-Bold' }}>
                     {authorName}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
                 {authorHandle && (
                   <VerificationBadge
                     handle={authorHandle}
@@ -913,14 +909,13 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                 {parent && parentAuthorName && level > 0 && parent.parent && (
                   <View style={styles.parentChyronContainer}>
                     <Text style={styles.parentChyronArrow}>→</Text>
-                    <TouchableOpacity
+                    <Pressable
                       onPress={() => (parentAuthorHandle || parentAuthorDid) && handleAuthorPress(parentAuthorHandle, parentAuthorDid)}
-                      activeOpacity={0.7}
                     >
                       <Text style={styles.parentChyronText} numberOfLines={1}>
                         {parentAuthorName}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 )}
               </View>
@@ -940,21 +935,21 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   dateString={comment?.indexedAt || comment?.post?.indexedAt}
                   style={styles.commentTimestamp}
                 />
-                <TouchableOpacity onPress={handleReplyPress} style={styles.replyButton}>
+                <Pressable onPress={handleReplyPress} style={styles.replyButton}>
                   <Text style={styles.replyButtonText}>Reply</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </View>
           </View>
           <View style={styles.commentActionsContainer}>
-            <TouchableOpacity onPress={handleLikeComment} style={styles.likeButton} disabled={isLiking}>
+            <Pressable onPress={handleLikeComment} style={styles.likeButton} disabled={isLiking}>
               <Animated.View style={heartAnimatedStyle}>
                 <HeartFillIcon
                   size={20}
                   color={isLiked ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.gray}
                 />
               </Animated.View>
-            </TouchableOpacity>
+            </Pressable>
             {likeCount > 0 && <Text style={styles.likeCount}>{formatNumber(likeCount)}</Text>}
           </View>
         </Animated.View>

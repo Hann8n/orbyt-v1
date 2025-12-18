@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { tabRefs } from '../../src/utils/tabRefs';
 import type { ScrollToTopRef } from '../../src/utils/tabRefs';
 import { BORDER_RADIUS } from '../../src/utils/constants';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
 import AtprotoService from '../../src/services/api/AtprotoService';
 // Use plain FlashList via FeedRenderer; no adapter/converter
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
@@ -236,21 +236,28 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           `We couldn't find a profile for @${providedHandle}` :
           profileError || "We couldn't retrieve your profile information"}
       </Text>
-      <TouchableOpacity
-        style={[styles.errorButton, { borderColor: profileColors.textColor + '44' }]}
-        activeOpacity={0.7}
+      <Pressable
+        style={({ pressed }) => [
+          styles.errorButton,
+          { borderColor: profileColors.textColor + '44' },
+          pressed && { opacity: 0.7 }
+        ]}
         onPress={onRefresh}
       >
         <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>Try Again</Text>
-      </TouchableOpacity>
+      </Pressable>
       {providedHandle && (
-        <TouchableOpacity
-          style={[styles.errorButton, styles.secondaryButton, { borderColor: profileColors.textColor + '44' }]}
-          activeOpacity={0.7}
+        <Pressable
+          style={({ pressed }) => [
+            styles.errorButton,
+            styles.secondaryButton,
+            { borderColor: profileColors.textColor + '44' },
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={() => router.back()}
         >
           <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>Go Back</Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
     );
@@ -510,13 +517,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       {/* Overlay actions row (back, follow, bell, edit) */}
       <View style={[styles.overlayRow, { top: overlayTop }]}>
         {showBackButton ? (
-          <TouchableOpacity
+          <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back"
             onPress={() => router.back()}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={styles.overlayBackButton}
-            activeOpacity={0.7}
           >
             <View style={styles.backIconContainer}>
               <Animated.View style={[StyleSheet.absoluteFillObject, backIconPrimaryStyle]}>
@@ -532,23 +538,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 />
               </Animated.View>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         ) : (
           <View style={styles.overlayBackSpacer} />
         )}
 
         <Animated.View style={[styles.overlayRightSection, overlayAnimatedStyle]}>
           {/* Menu button - same icon and sizing as UniversalHeader */}
-          <TouchableOpacity
+          <Pressable
             onPress={handleMenuPress}
             style={styles.overlayMenuButton}
-            activeOpacity={0.7}
           >
             <MoreFillIcon 
               size={24} 
               color={(dynamicColors ? dynamicColors.textColor : profileColors.textColor) || Colors.white} 
             />
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Header actions rendered with the same ActionButton component as UniversalHeader */}
           {headerActions.length > 0 && (

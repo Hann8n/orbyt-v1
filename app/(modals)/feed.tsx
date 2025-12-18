@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, memo } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
@@ -68,7 +68,7 @@ const FeedScreen: React.FC = memo(() => {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
+      <Pressable
         accessibilityRole="button"
         accessibilityLabel="Back"
         onPress={() => {
@@ -76,10 +76,9 @@ const FeedScreen: React.FC = memo(() => {
         }}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         style={[styles.backButton, { top: (typeof insets?.top === 'number' ? insets.top : 0) + 15 }]}
-        activeOpacity={0.7}
       >
         <BackArrowIcon size={30} color={Colors.white} />
-      </TouchableOpacity>
+      </Pressable>
       
       <FeedRenderer
         feedOption={routeParams.feedOption}

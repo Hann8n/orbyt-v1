@@ -4,7 +4,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Dimensions,
   Linking,
   Platform,
@@ -173,11 +173,10 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
     ({ item }: { item: Header }) => {
       const header = item;
       return (
-        <TouchableOpacity
+        <Pressable
           key={header.id}
           style={styles.headerItem}
           onPress={() => handleHeaderPress(header)}
-          activeOpacity={1}
         >
           <Image
             source={{ uri: header.imageUrl }}
@@ -236,7 +235,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
               })()}
             </View>
           </View>
-        </TouchableOpacity>
+        </Pressable>
       );
     },
     []
@@ -247,11 +246,10 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
     return (
       <View style={[styles.container, height ? { height } : null, { backgroundColor }]}>
         <View style={styles.headersContainer}>
-          <TouchableOpacity
+          <Pressable
             key={header.id}
             style={styles.headerItem}
             onPress={() => handleHeaderPress(header)}
-            activeOpacity={1}
           >
             <Image
               source={{ uri: header.imageUrl }}
@@ -310,7 +308,7 @@ const HeaderBanner: React.FC<HeaderBannerProps> = ({ headers, onHeaderPress, hei
                 })()}
               </View>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
     );

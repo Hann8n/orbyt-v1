@@ -10,7 +10,7 @@ import {
   Platform,
   Dimensions,
   Animated,
-  TouchableOpacity,
+  Pressable,
 } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -234,10 +234,9 @@ const ActivityScreen: React.FC = () => {
         <View style={styles.tabSection}>
           <View style={styles.indicatorContainer}>
             {pages.map((tabId) => (
-              <TouchableOpacity
+              <Pressable
                 key={tabId}
                 onPress={() => handleIndicatorTap(tabId)}
-                activeOpacity={0.7}
                 style={styles.indicatorItem}
               >
                 <View style={{ position: 'relative', paddingRight: 2, paddingTop: 2 }}>
@@ -258,7 +257,7 @@ const ActivityScreen: React.FC = () => {
                     }} />
                   )}
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
         </View>

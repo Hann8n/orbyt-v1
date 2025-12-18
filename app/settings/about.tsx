@@ -4,7 +4,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   Linking,
   Platform,
@@ -118,10 +118,9 @@ const AboutScreen: React.FC = () => {
           <View style={styles.linksContainer}>
             {aboutItems.map((item, itemIndex) => (
               <View key={item.id} style={{ marginBottom: 0 }}>
-                <TouchableOpacity
+                <Pressable
                   style={settingsButtonStyles.menuOption}
                   onPress={item.onPress}
-                  activeOpacity={0.7}
                   disabled={!item.onPress}
                 >
                   <View style={styles.linkItemLeft}>
@@ -137,7 +136,7 @@ const AboutScreen: React.FC = () => {
                       <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
                     )}
                   </View>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             ))}
           </View>

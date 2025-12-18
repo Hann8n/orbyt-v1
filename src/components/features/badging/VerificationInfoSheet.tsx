@@ -5,7 +5,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -193,13 +193,12 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             <View 
               style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
             > 
-              <TouchableOpacity 
+              <Pressable 
                 style={styles.cancelButton} 
                 onPress={onDismiss}
-                activeOpacity={0.7}
               >
                 <Text style={styles.cancelButtonText}>Close</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </KeyboardAwareFooter>
         </View>
@@ -220,13 +219,12 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
               {isTrustedVerifier ? 'Trusted Verifier' : 'Verified'}
             </Text>
           </View>
-          <TouchableOpacity 
+          <Pressable 
             style={styles.closeButton} 
             onPress={onDismiss}
-            activeOpacity={0.7}
           >
             <Icon name="close" size={20} color={Colors.white} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {isLoading ? (

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, parseISO, isValid } from 'date-fns';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
@@ -49,13 +49,12 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
           Beta User
         </Text>
       </View>
-      <TouchableOpacity 
+      <Pressable 
         style={styles.closeButton} 
         onPress={onDismiss}
-        activeOpacity={0.7}
       >
         <Icon name="close" size={20} color={Colors.white} />
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 
@@ -74,9 +73,9 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
             <View 
               style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
             > 
-              <TouchableOpacity style={styles.cancelButton} onPress={onDismiss} activeOpacity={0.7}>
+              <Pressable style={styles.cancelButton} onPress={onDismiss}>
                 <Text style={styles.cancelButtonText}>Close</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </KeyboardAwareFooter>
         </View>

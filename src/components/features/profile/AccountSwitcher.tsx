@@ -3,7 +3,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Alert,
   Platform,
@@ -341,13 +341,12 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         <View style={styles.addAccountSection}>
           <Text style={styles.addAccountHeader}>Add Account</Text>
           <View style={styles.addButtonsContainer}>
-            <TouchableOpacity
+            <Pressable
               style={[
                 styles.addAccountButton,
                 styles.addAccountButtonHalf
               ]}
               onPress={handleBlueskyAddAccount}
-              activeOpacity={0.8}
               disabled={isAuthenticating}
             >
               <View style={styles.buttonContent}>
@@ -360,15 +359,14 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
                   {isAuthenticating ? 'Signing in...' : 'Bluesky'}
                 </Text>
               </View>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity
+            <Pressable
               style={[
                 styles.addAccountButton,
                 styles.addAccountButtonHalf
               ]}
               onPress={handleCustomPDSAddAccount}
-              activeOpacity={0.8}
               disabled={isAuthenticating}
             >
               <View style={styles.buttonContent}>
@@ -377,7 +375,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
                   Custom
                 </Text>
               </View>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       );
@@ -436,17 +434,16 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
 
   // Custom header button for edit mode toggle
   const customHeaderButton = (
-    <TouchableOpacity
+    <Pressable
       onPress={() => {
         setEditMode(!editMode);
       }}
-      activeOpacity={0.7}
       style={styles.headerEditButton}
     >
       <Text style={styles.headerEditButtonText}>
         {editMode ? 'Done' : 'Edit'}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 
   return (

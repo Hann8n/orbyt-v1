@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, TouchableOpacity, Text, Alert, StatusBar, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Pressable, Text, Alert, StatusBar, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
@@ -176,10 +176,9 @@ const SubscribeButton: React.FC<{
 
   return (
     <View style={[styles.subscribeContainer, containerStyle]}>
-      <TouchableOpacity
+      <Pressable
         onPress={handleSubscribe}
         disabled={isSubscribing}
-        activeOpacity={0.8}
         style={[styles.subscribeButtonTouch, isWideScreen && styles.subscribeButtonMax]}
       >
         <View
@@ -228,30 +227,28 @@ const SubscribeButton: React.FC<{
             )}
           </View>
         </View>
-      </TouchableOpacity>
+      </Pressable>
       
       {showViewToggle && onViewModeChange && (
         <View style={styles.viewToggleContainer}>
-          <TouchableOpacity
+          <Pressable
             onPress={() => onViewModeChange('grid')}
             style={styles.viewToggleButton}
-            activeOpacity={0.7}
           >
             <GridViewIcon 
               color={viewMode === 'grid' ? textColor : hexToRGBA(textColor, 0.6)} 
               size={20}
             />
-          </TouchableOpacity>
-          <TouchableOpacity
+          </Pressable>
+          <Pressable
             onPress={() => onViewModeChange('list')}
             style={styles.viewToggleButton}
-            activeOpacity={0.7}
           >
             <ListViewIcon 
               color={viewMode === 'list' ? textColor : hexToRGBA(textColor, 0.6)} 
               size={20}
             />
-          </TouchableOpacity>
+          </Pressable>
         </View>
       )}
     </View>

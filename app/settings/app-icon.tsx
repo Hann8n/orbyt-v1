@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Image } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setAppIcon } from '@mozzius/expo-dynamic-app-icon';
@@ -72,10 +72,9 @@ const AppIconSettingsScreen: React.FC = () => {
       <View style={{ flex: 1 }}>
         {ICON_OPTIONS.map(option => (
           <View key={option.id} style={{ marginBottom: 0 }}>
-            <TouchableOpacity
+            <Pressable
               style={settingsButtonStyles.menuOption}
               onPress={() => handleSelectIcon(option.iconKey)}
-              activeOpacity={0.7}
               disabled={isSubmitting}
             >
               <View style={styles.row}>
@@ -84,7 +83,7 @@ const AppIconSettingsScreen: React.FC = () => {
                   <Image source={option.preview} style={styles.previewImage} resizeMode="contain" />
                 </View>
               </View>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         ))}
       </View>

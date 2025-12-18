@@ -2,7 +2,7 @@ declare let window: any;
 
 import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, TouchableOpacity, Text, TextInput, Platform } from 'react-native';
+import { View, StyleSheet, Pressable, Text, TextInput, Platform } from 'react-native';
 import { Image, ImageBackground } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Animated, { type SharedValue, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
@@ -215,12 +215,11 @@ const ActionButton = memo<{
       ? hexToRGBA(textColor, 0.45)
       : hexToRGBA(textColor, 0.18);
     return (
-      <TouchableOpacity
+      <Pressable
         style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
         onPress={action.onPress}
         onLongPress={action.onLongPress}
         disabled={action.disabled || action.loading}
-        activeOpacity={0.7}
       >
         <GlassView
           style={[styles.glassBackground]}
@@ -229,20 +228,19 @@ const ActionButton = memo<{
           isInteractive
         />
         {content}
-      </TouchableOpacity>
+      </Pressable>
     );
   }
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
       onPress={action.onPress}
       onLongPress={action.onLongPress}
       disabled={action.disabled || action.loading}
-      activeOpacity={0.7}
     >
       {content}
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 
@@ -259,16 +257,15 @@ const CustomActionLayout = memo<{
     if (!layout.menuIcon) return null;
     
     return (
-      <TouchableOpacity
+      <Pressable
         style={styles.menuIconButton}
         onPress={layout.menuIcon.onPress}
-        activeOpacity={0.7}
       >
         <MoreFillIcon 
           size={layout.menuIcon.size || 24} 
           color={textColor} 
         />
-      </TouchableOpacity>
+      </Pressable>
     );
   }, [layout.menuIcon, textColor]);
 
@@ -409,14 +406,13 @@ const HeaderContentComponent = memo<{
   return (
     <View style={styles.contentContainer}>
             <View style={styles.avatarContainer}>
-        <TouchableOpacity
+        <Pressable
           style={[
             styles.avatar, 
             content.avatarStyle === 'rounded-square' && styles.avatarRoundedSquare,
             content.hideAvatar && styles.hiddenAvatar
           ]}
           onPress={content.onAvatarPress}
-          activeOpacity={content.onAvatarPress ? 0.7 : 1}
         >
           {!content.hideAvatar && (
             <Avatar
@@ -428,13 +424,13 @@ const HeaderContentComponent = memo<{
               blurRadius={content.avatarBlurRadius}
             />
           )}
-        </TouchableOpacity>
+        </Pressable>
         {content.onAvatarPress && (
           <View style={styles.uploadSection}>
             <Text style={[styles.editSubheader, { color: textColor }]}>
               PROFILE PICTURE
             </Text>
-            <TouchableOpacity
+            <Pressable
               style={[
                 styles.actionButton,
                 styles.uploadButton,
@@ -449,7 +445,6 @@ const HeaderContentComponent = memo<{
                 Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.uploadButtonGlass
               ]}
               onPress={content.onAvatarPress}
-              activeOpacity={0.7}
             >
               {Platform.OS === 'ios' && isLiquidGlassAvailable() && (
                 <GlassView
@@ -462,7 +457,7 @@ const HeaderContentComponent = memo<{
               <Text style={[styles.actionText, { color: textColor }]}>
                 Upload
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         )}
       </View>
@@ -489,10 +484,9 @@ const HeaderContentComponent = memo<{
             onChangeText={content.onTitleChange}
           />
         ) : (
-          <TouchableOpacity
+          <Pressable
             style={styles.titleRow}
             onPress={content.onTitlePress}
-            activeOpacity={content.onTitlePress ? 0.7 : 1}
           >
             {content.customTitle ? (
               <View style={styles.titleRow}>
@@ -511,14 +505,13 @@ const HeaderContentComponent = memo<{
                 badges={[content.badge as React.ReactNode]}
               />
             )}
-          </TouchableOpacity>
+          </Pressable>
         )}
         
         {!!content.subtitle && (
-          <TouchableOpacity
+          <Pressable
             style={styles.subtitleRow}
             onPress={content.onTitlePress}
-            activeOpacity={content.onTitlePress ? 0.7 : 1}
           >
             <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
               <Text
@@ -529,7 +522,7 @@ const HeaderContentComponent = memo<{
                 {content.onTitlePress ? ' ›' : ''}
               </Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         )}
         
         {customDescription || (content.description && (
@@ -717,13 +710,12 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
         <View style={styles.topRow}>
           <View style={styles.leftSection}>
             {showBackButton && (
-              <TouchableOpacity
+              <Pressable
                 style={styles.backButton}
                 onPress={handleBackPress}
-                activeOpacity={0.7}
               >
                 <BackArrowIcon size={30} color={textColor} />
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
           

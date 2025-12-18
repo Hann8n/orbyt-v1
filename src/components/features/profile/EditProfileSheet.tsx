@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   TextInput,
   Alert,
   ScrollView,
@@ -94,7 +94,7 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = ({
   
   return (
     <View style={styles.colorSquareContainer}>
-      <TouchableOpacity
+      <Pressable
         style={[
           styles.colorSquare,
           {
@@ -103,7 +103,6 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = ({
           },
         ]}
         onPress={onPress}
-        activeOpacity={0.7}
       >
         {/* Background color section */}
         <Animated.View
@@ -122,7 +121,7 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = ({
             { backgroundColor: displayTextColor }
           ]}
         />
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 };
@@ -719,20 +718,19 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
         <SafeAreaView edges={['top']} style={styles.topSafeArea}>
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={handleDismiss} style={styles.cancelButton}>
+            <Pressable onPress={handleDismiss} style={styles.cancelButton}>
               <Text style={[styles.cancelButtonText, { color: Colors.white }]}>
                 Cancel
               </Text>
-            </TouchableOpacity>
+            </Pressable>
             
             <Text style={[styles.headerTitle, { color: Colors.white }]}>
               Edit Profile
             </Text>
             
-            <TouchableOpacity 
+            <Pressable 
               style={[styles.saveButtonGlass, !isLiquidGlassAvailable() && styles.saveButton]}
               onPress={handleSave}
-              activeOpacity={0.8}
               disabled={profileUpdateMutation.isPending}
             >
               {isLiquidGlassAvailable() && (
@@ -752,7 +750,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                   </Text>
                 )}
               </View>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Color Picker */}
@@ -806,10 +804,9 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                     }}
                     showRing={true}
                   />
-                  <TouchableOpacity 
+                  <Pressable 
                     style={[styles.uploadButton, !isLiquidGlassAvailable() && styles.uploadButtonFallback]}
                     onPress={handleAvatarPress} 
-                    activeOpacity={0.8}
                   >
                     {isLiquidGlassAvailable() && (
                       <GlassView 
@@ -824,7 +821,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                         Upload
                       </Text>
                     </View>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               </View>
 

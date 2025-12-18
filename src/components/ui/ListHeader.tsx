@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, CloseFillIcon } from './Icon';
 import { Colors } from './UI';
@@ -66,9 +66,9 @@ const ListHeader: React.FC<ListHeaderProps> = ({
         <View style={[styles.rightSection, styles.sheetRightSection]}>
           {right ?? (
             showCloseButton ? (
-              <TouchableOpacity style={styles.sheetCloseButton} onPress={onClosePress} activeOpacity={0.7}>
+              <Pressable onPress={onClosePress}>
                 <CloseFillIcon size={20} color={Colors.white} />
-              </TouchableOpacity>
+              </Pressable>
             ) : (
               <View style={styles.rightSpacer} />
             )
@@ -85,9 +85,9 @@ const ListHeader: React.FC<ListHeaderProps> = ({
         <View style={styles.stackedLeftRow}>
           {left ?? (
             showBackButton ? (
-              <TouchableOpacity style={styles.iconButton} onPress={onBackPress} activeOpacity={0.7}>
+              <Pressable onPress={onBackPress}>
                 <BackArrowIcon size={28} color={textColor} />
-              </TouchableOpacity>
+              </Pressable>
             ) : null
           )}
           {!!title && (
@@ -96,9 +96,9 @@ const ListHeader: React.FC<ListHeaderProps> = ({
         </View>
         <View style={styles.rightSection}>
           {right ?? (showCloseButton ? (
-            <TouchableOpacity style={styles.iconButton} onPress={onClosePress} activeOpacity={0.7}>
+            <Pressable onPress={onClosePress}>
               <CloseFillIcon size={20} color={textColor} />
-            </TouchableOpacity>
+            </Pressable>
           ) : (
             <View style={styles.rightSpacer} />
           ))}
@@ -113,9 +113,9 @@ const ListHeader: React.FC<ListHeaderProps> = ({
       <View style={styles.leftSection}>
         {left ?? (
           showBackButton ? (
-            <TouchableOpacity style={styles.iconButton} onPress={onBackPress} activeOpacity={0.7}>
+            <Pressable onPress={onBackPress}>
               <BackArrowIcon size={28} color={textColor} />
-            </TouchableOpacity>
+            </Pressable>
           ) : (
             <View style={styles.leftSpacer} />
           )
@@ -124,9 +124,9 @@ const ListHeader: React.FC<ListHeaderProps> = ({
       <Text style={titleStyle} numberOfLines={1}>{title}</Text>
       <View style={styles.rightSection}>
         {right ?? (showCloseButton ? (
-          <TouchableOpacity style={styles.iconButton} onPress={onClosePress} activeOpacity={0.7}>
+          <Pressable onPress={onClosePress}>
             <CloseFillIcon size={20} color={textColor} />
-          </TouchableOpacity>
+          </Pressable>
         ) : (
           <View style={styles.rightSpacer} />
         ))}

@@ -3,7 +3,7 @@ import { BORDER_RADIUS } from '../../utils/constants';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
@@ -125,13 +125,12 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       ) : customHeaderButton ? (
         customHeaderButton
       ) : (
-        <TouchableOpacity 
+        <Pressable 
           style={styles.closeButton} 
           onPress={onDismiss}
-          activeOpacity={0.7}
         >
           <Icon name="close" size={20} color={Colors.white} />
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );
@@ -153,13 +152,12 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
             <View 
               style={[styles.cancelContainer, { backgroundColor: Colors.black, paddingTop: footerTopPadding ?? 8 }]}
             >
-              <TouchableOpacity 
+              <Pressable 
                 style={styles.cancelButton} 
                 onPress={onDismiss} 
-                activeOpacity={0.7}
               >
                 <Text style={styles.cancelButtonText}>{cancelButtonText}</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         ) : undefined
@@ -332,7 +330,7 @@ export const VerticalListButton: React.FC<{
   textStyle?: any;
 }> = ({ label, onPress, icon, disabled, danger, style, textStyle }) => {
   return (
-    <TouchableOpacity
+    <Pressable
       style={[
         styles.listButton,
         danger && styles.listButtonDanger,
@@ -340,14 +338,13 @@ export const VerticalListButton: React.FC<{
       ]}
       onPress={onPress}
       disabled={disabled}
-      activeOpacity={0.7}
     >
       <View style={styles.listButtonContent}>
         <Text style={[styles.listButtonText, danger && styles.listButtonTextDanger, textStyle]}>
           {label}
         </Text>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
@@ -361,11 +358,10 @@ export const VerticalListCheckboxButton: React.FC<{
   style?: any;
 }> = ({ label, description, checked, onPress, disabled, style }) => {
   return (
-    <TouchableOpacity
+    <Pressable
       style={[styles.checkboxButtonRow, style]}
       onPress={onPress}
       disabled={disabled}
-      activeOpacity={0.7}
     >
       <View style={styles.checkboxButtonContent}>
         <Text style={styles.checkboxButtonLabel}>{label}</Text>
@@ -381,6 +377,6 @@ export const VerticalListCheckboxButton: React.FC<{
           <Icon name="checkmark" size={16} color={Colors.black} />
         )}
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 };

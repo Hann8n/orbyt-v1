@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
 import Icon from '../../ui/Icon';
 import UI from '../../ui/UI';
 import { Colors } from '../../ui/UI';
@@ -93,60 +93,54 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
             {replyContext ? (
               <>
                 {hasText && !isSendDisabled ? (
-                  <TouchableOpacity
+                  <Pressable
                     style={styles.sendButton}
                     onPress={onSubmit}
                     hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                    activeOpacity={0.7}
                     accessible={true}
                     accessibilityRole="button"
                     accessibilityLabel="Send comment"
-                    delayPressIn={0}
                   >
                     <Icon 
                       name="arrow-up-fill"
                       size={22}
                       color={Colors.black}
                     />
-                  </TouchableOpacity>
+                  </Pressable>
                 ) : !hasText ? (
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.sendButton, styles.cancelReplyButton]}
                     onPress={onCancelReply}
                     hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                    activeOpacity={0.7}
                     accessible={true}
                     accessibilityRole="button"
                     accessibilityLabel="Cancel reply"
-                    delayPressIn={0}
                   >
                     <Icon 
                       name="close"
                       size={18}
                       color={Colors.lightGray}
                     />
-                  </TouchableOpacity>
+                  </Pressable>
                 ) : null}
               </>
             ) : (
               <>
                 {hasText && !isSendDisabled && (
-                  <TouchableOpacity
+                  <Pressable
                     style={styles.sendButton}
                     onPress={onSubmit}
                     hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-                    activeOpacity={0.7}
                     accessible={true}
                     accessibilityRole="button"
                     accessibilityLabel="Send comment"
-                    delayPressIn={0}
                   >
                     <Icon 
                       name="arrow-up-fill" 
                       size={22} 
                       color={Colors.black}
                     />
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
               </>
             )}

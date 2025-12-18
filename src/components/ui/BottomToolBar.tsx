@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   View,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Platform,
 } from 'react-native';
@@ -85,7 +85,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
           }
           
           return (
-            <TouchableOpacity
+            <Pressable
               key={tool.id}
               style={[styles.tool, { width: iconSize, height: iconSize }]}
               onPress={() => {
@@ -94,7 +94,6 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
                   onToolPress && onToolPress(tool.id);
                 }
               }}
-              activeOpacity={isDisabled ? 1 : 0.7}
               disabled={isDisabled}
             >
               <Icon 
@@ -102,7 +101,7 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
                 size={iconSize} 
                 color={iconColor}
               />
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>

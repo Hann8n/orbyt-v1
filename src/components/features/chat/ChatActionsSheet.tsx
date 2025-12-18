@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Alert, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Alert, StyleSheet, Pressable } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { Colors } from '../../ui/UI';
@@ -164,11 +164,10 @@ export default function ChatActionsSheet({
     if (action.destructive) {
       return (
         <View key={action.id} style={styles.destructiveActionContainer}>
-          <TouchableOpacity
+          <Pressable
             style={styles.destructiveActionButton}
             onPress={() => handleAction(action)}
             disabled={isActionLoading}
-            activeOpacity={0.7}
           >
             <View style={styles.destructiveActionContent} pointerEvents="none">
               <Text style={styles.destructiveActionText}>
@@ -178,7 +177,7 @@ export default function ChatActionsSheet({
                 <Loading3FillIcon size={24} color={Colors.darkGray} style={styles.loadingIndicator} />
               )}
             </View>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       );
     }

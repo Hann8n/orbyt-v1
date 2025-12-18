@@ -5,7 +5,7 @@ import {
   Text,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   StatusBar,
   Platform,
   Keyboard,
@@ -400,10 +400,9 @@ const ChannelNameDisplay: React.FC<{ channel: Channel; style?: any }> = ({ chann
 const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: () => void }) => {
   const avatarUri = getChannelAvatarUri(channel.uri, channel.avatar);
   return (
-    <TouchableOpacity
+    <Pressable
       style={styles.channelItem}
       onPress={onPress}
-      activeOpacity={0.7}
     >
       <Avatar
         uri={avatarUri}
@@ -420,7 +419,7 @@ const PopularChannelItem = ({ channel, onPress }: { channel: Channel; onPress: (
           )}
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
@@ -433,10 +432,9 @@ const GridChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel:
   const thumbnailHeight = itemHeight || itemWidth; // Use itemHeight if provided, otherwise use itemWidth for square
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[styles.gridChannelItem, { width: itemWidth }]}
       onPress={onPress}
-      activeOpacity={0.7}
     >
       <View style={[
         styles.gridChannelThumbnail, 
@@ -480,7 +478,7 @@ const GridChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { channel:
           )}
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
@@ -498,7 +496,7 @@ const HorizontalChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { ch
   const isPopularNow = slug === 'popular-now';
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[
         styles.horizontalChannelButton,
         { 
@@ -508,7 +506,6 @@ const HorizontalChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { ch
         }
       ]}
       onPress={onPress}
-      activeOpacity={0.8}
     >
       {/* GIF fills entire button */}
       <View style={styles.horizontalChannelThumbnail}>
@@ -557,7 +554,7 @@ const HorizontalChannelItem = ({ channel, onPress, itemWidth, itemHeight }: { ch
           </Text>
         )}
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
@@ -596,7 +593,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
       keyExtractor={(profile) => `profile-${profile.did || profile.handle}`}
       renderItem={({ item: profile }) => (
         <View style={styles.profileItem}>
-          <TouchableOpacity
+          <Pressable
             style={styles.profileTouchable}
             onPress={() => {
               if (onProfilePress) {
@@ -640,15 +637,17 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
                 )}
               </View>
             </View>
-          </TouchableOpacity>
+          </Pressable>
           {!(ProfileCache.getProfileFromCacheSync(profile.handle || '')?.isFollowing ?? profile.isFollowing) && !isCurrentUser(profile.did, profile.handle, currentUser) && (
-            <TouchableOpacity
-              style={styles.followButton}
+            <Pressable
+              style={({ pressed }) => [
+                styles.followButton,
+                pressed && { opacity: 0.8 }
+              ]}
               onPress={() => onFollow(profile)}
-              activeOpacity={0.8}
             >
               <FollowIcon size={16} color={Colors.black} />
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
       )}
@@ -689,7 +688,7 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPr
       data={channels}
       keyExtractor={(channel) => `channel-${channel.uri || channel.cid}`}
       renderItem={({ item: channel }) => (
-        <TouchableOpacity
+        <Pressable
           style={styles.channelItem}
           onPress={() => {
             if (onChannelPress) {
@@ -717,7 +716,7 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPr
               )}
             </View>
           </View>
-        </TouchableOpacity>
+        </Pressable>
       )}
       contentContainerStyle={styles.listContainer}
       showsVerticalScrollIndicator={false}
@@ -815,10 +814,9 @@ const VisitHistoryList = React.memo(({
         if (isProfile && profileData) {
           return (
             <View style={styles.profileItem}>
-              <TouchableOpacity
+              <Pressable
                 style={styles.profileTouchable}
                 onPress={() => onHistoryItemPress(item)}
-                activeOpacity={0.7}
               >
                 <Avatar
                   uri={profileData.avatar}
@@ -841,24 +839,25 @@ const VisitHistoryList = React.memo(({
                     )}
                   </View>
                 </View>
-              </TouchableOpacity>
+              </Pressable>
               {!(ProfileCache.getProfileFromCacheSync(profileData.handle || '')?.isFollowing ?? profileData.isFollowing) && !isCurrentUser(profileData.did, profileData.handle, currentUser) && (
-                <TouchableOpacity
-                  style={styles.followButton}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.followButton,
+                    pressed && { opacity: 0.8 }
+                  ]}
                   onPress={() => onFollow(profileData)}
-                  activeOpacity={0.8}
                 >
                   <FollowIcon size={16} color={Colors.black} />
-                </TouchableOpacity>
+                </Pressable>
               )}
             </View>
           );
         } else if (!isProfile && channelData) {
           return (
-            <TouchableOpacity
+            <Pressable
               style={styles.channelItem}
               onPress={() => onHistoryItemPress(item)}
-              activeOpacity={0.7}
             >
               <Avatar
                 uri={getChannelAvatarUri(channelData.uri, channelData.avatar)}
@@ -875,7 +874,7 @@ const VisitHistoryList = React.memo(({
                   )}
                 </View>
               </View>
-            </TouchableOpacity>
+            </Pressable>
           );
         }
         return null;
@@ -1798,8 +1797,7 @@ const ExploreScreen: React.FC = () => {
       )}
 
       {/* Search Bar overlays header */}
-      <TouchableOpacity
-        activeOpacity={0.9}
+      <Pressable
         onPress={() => {
           // Focus the input via the wrapper so taps hit the glass and still activate search
           searchInputRef.current?.focus();
@@ -1841,15 +1839,15 @@ const ExploreScreen: React.FC = () => {
           returnKeyType="search"
         />
         {isSearching && (
-          <TouchableOpacity
+          <Pressable
             onPress={handleClearSearch}
             style={styles.clearButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Icon name="close-circle" size={22.5} color={Colors.darkGray} />
-          </TouchableOpacity>
+          </Pressable>
         )}
-      </TouchableOpacity>
+      </Pressable>
 
       {/* Search Results */}
       {isSearching && (
@@ -1866,16 +1864,15 @@ const ExploreScreen: React.FC = () => {
           >
             <View style={styles.indicatorContainer}>
               {pages.map((tabId) => (
-                <TouchableOpacity
+                <Pressable
                   key={tabId}
                   onPress={() => handleIndicatorTap(tabId)}
-                  activeOpacity={0.7}
                   style={styles.indicatorItem}
                 >
                   <Text style={getIndicatorStyle(tabId)}>
                     {SEARCH_TAB_LABELS[tabId] || tabId}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
           </View>
@@ -1987,7 +1984,7 @@ const ExploreScreen: React.FC = () => {
                     const shouldBlur = !!video.moderationDecision?.blur;
                     
                     return (
-                    <TouchableOpacity
+                    <Pressable
                       style={styles.spotlightVideoItem}
                       onPress={() => {
                         const videoData = video.post || video;
@@ -2045,7 +2042,7 @@ const ExploreScreen: React.FC = () => {
                           </View>
                         )}
                       </View>
-                    </TouchableOpacity>
+                    </Pressable>
                     );
                   }}
                 />
@@ -2064,7 +2061,7 @@ const ExploreScreen: React.FC = () => {
             const profile = item.data as Profile;
             return (
               <View style={styles.profileItem}>
-                <TouchableOpacity
+                <Pressable
                   style={styles.profileTouchable}
                   onPress={() => {
                     if (profile.handle) {
@@ -2103,15 +2100,17 @@ const ExploreScreen: React.FC = () => {
                       )}
                     </View>
                   </View>
-                </TouchableOpacity>
+                </Pressable>
                 {!(ProfileCache.getProfileFromCacheSync(profile.handle || '')?.isFollowing ?? profile.isFollowing) && !isCurrentUser(profile.did, profile.handle, currentUser) && (
-                  <TouchableOpacity
-                    style={styles.followButton}
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.followButton,
+                      pressed && { opacity: 0.8 }
+                    ]}
                     onPress={() => handleFollow(profile)}
-                    activeOpacity={0.8}
                   >
                     <FollowIcon size={16} color={Colors.black} />
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
               </View>
             );

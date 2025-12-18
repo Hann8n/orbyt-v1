@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Alert,
   ScrollView,
   TextInput,
@@ -899,9 +899,8 @@ const VideoEditorScreen: React.FC = () => {
     
     return (
       <View style={styles.sliderContainer}>
-        <TouchableOpacity
+        <Pressable
           style={styles.sliderTrack}
-          activeOpacity={1}
           onPress={(e) => {
             const { locationX } = e.nativeEvent;
             const newValue = min + (locationX / trackWidth) * (max - min);
@@ -915,7 +914,7 @@ const VideoEditorScreen: React.FC = () => {
               { left: `${percentage}%`, marginLeft: -8 }
             ]}
           />
-        </TouchableOpacity>
+        </Pressable>
         <Text style={styles.sliderValue}>{Math.round(value * 100)}%</Text>
       </View>
     );
@@ -990,26 +989,24 @@ const VideoEditorScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Minimal header buttons */}
-      <TouchableOpacity 
+      <Pressable 
         style={[styles.backButton, { top: insets.top + 10 }]} 
         onPress={handleBack}
       >
         <CloseFillIcon size={26} color="white" />
-      </TouchableOpacity>
-      <TouchableOpacity
+      </Pressable>
+      <Pressable
         style={[styles.doneButton, { top: insets.top + 10 }]}
         onPress={handleNext}
         disabled={isProcessing}
-        activeOpacity={0.7}
       >
         <ArrowRightFillIcon size={30} color="white" />
-      </TouchableOpacity>
+      </Pressable>
 
       {/* Video Preview Container - matches cameraContainer from create.tsx */}
       <View style={styles.videoContainer}>
-        <TouchableOpacity
+        <Pressable
           onPress={() => setIsPlaying(!isPlaying)}
-          activeOpacity={0.9}
           style={styles.videoWrapper}
         >
           {/* Show loading overlay when video is loading */}
@@ -1105,22 +1102,21 @@ const VideoEditorScreen: React.FC = () => {
               </Text>
             </View>
           )}
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Apply Changes Button - positioned absolutely */}
         {hasPendingEdits && (
-          <TouchableOpacity
+          <Pressable
             style={[styles.applyButton, { bottom: bottomNavBarHeight + 20 }, isProcessing && styles.applyButtonDisabled]}
             onPress={handleApplyEdits}
             disabled={isProcessing}
-            activeOpacity={0.7}
           >
             {isProcessing ? (
               <Loading3FillIcon size={24} color={Colors.white} />
             ) : (
               <Text style={styles.applyButtonText}>Apply Changes</Text>
             )}
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
 
@@ -1160,24 +1156,24 @@ const VideoEditorScreen: React.FC = () => {
         <View style={[styles.textControlsBar, { bottom: keyboardHeight }]}>
           <View style={styles.textControlsRow}>
             {/* Size controls */}
-            <TouchableOpacity
+            <Pressable
               style={styles.controlButton}
               onPress={() => handleOverlayUpdate(editingOverlay.id, { size: Math.max(12, editingOverlay.size - 4) })}
             >
               <Text style={styles.controlButtonText}>−</Text>
-            </TouchableOpacity>
+            </Pressable>
             <Text style={styles.controlValue}>{editingOverlay.size}</Text>
-            <TouchableOpacity
+            <Pressable
               style={styles.controlButton}
               onPress={() => handleOverlayUpdate(editingOverlay.id, { size: Math.min(72, editingOverlay.size + 4) })}
             >
               <Text style={styles.controlButtonText}>+</Text>
-            </TouchableOpacity>
+            </Pressable>
             
             {/* Color picker */}
             <View style={styles.colorRow}>
               {TEXT_COLORS.map((color) => (
-                <TouchableOpacity
+                <Pressable
                   key={color.value}
                   style={[
                     styles.colorDot,
@@ -1190,20 +1186,20 @@ const VideoEditorScreen: React.FC = () => {
             </View>
             
             {/* Delete */}
-            <TouchableOpacity
+            <Pressable
               style={styles.deleteControlButton}
               onPress={() => handleDeleteTextOverlay(editingOverlay.id)}
             >
               <CloseFillIcon size={20} color={Colors.white} />
-            </TouchableOpacity>
+            </Pressable>
             
             {/* Done */}
-            <TouchableOpacity
+            <Pressable
               style={styles.doneControlButton}
               onPress={handleDoneEditing}
             >
               <Text style={styles.doneControlText}>Done</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       )}

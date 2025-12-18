@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
-import { View, Text, FlatList, Alert, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, Alert, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, Loading3FillIcon } from '../../src/components/ui/Icon';
@@ -113,14 +113,13 @@ const HiddenPostsScreen: React.FC = () => {
             {item.text || 'Hidden post content...'}
           </Text>
         </View>
-        <TouchableOpacity
+        <Pressable
           style={[
             styles.unhideButton,
             isUnhiding && styles.unhideButtonDisabled
           ]}
           onPress={() => handleUnhidePost(item.id)}
           disabled={isUnhiding}
-          activeOpacity={0.7}
         >
           {isUnhiding ? (
             <Loading3FillIcon size={24} color={Colors.white} />
@@ -130,7 +129,7 @@ const HiddenPostsScreen: React.FC = () => {
               <Text style={styles.unhideButtonText}>Unhide</Text>
             </>
           )}
-        </TouchableOpacity>
+        </Pressable>
       </View>
     );
   };

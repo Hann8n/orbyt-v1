@@ -5,7 +5,7 @@ import { createQueryKeys } from '../../../services/FeedService';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Dimensions,
   Share,
@@ -435,25 +435,23 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             <Text style={styles.headerTitle} numberOfLines={1}>
               Report or Block
             </Text>
-            <TouchableOpacity 
+            <Pressable 
               style={styles.closeButton} 
               onPress={() => safeDismiss('profile-menu-submenu')}
-              activeOpacity={0.7}
             >
               <Icon name="close" size={20} color={Colors.white} />
-            </TouchableOpacity>
+            </Pressable>
           </View>
         }
         footer={
           <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
             <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
-            <TouchableOpacity 
+            <Pressable 
               style={styles.cancelButton} 
               onPress={() => safeDismiss('profile-menu-submenu')} 
-              activeOpacity={0.7}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
+            </Pressable>
             </View>
           </KeyboardAwareFooter>
         }

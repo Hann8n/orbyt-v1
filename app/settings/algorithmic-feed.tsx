@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import ListHeader from '../../src/components/ui/ListHeader';
@@ -101,11 +101,10 @@ const AlgorithmicFeedScreen: React.FC = () => {
           {FEED_OPTIONS.map((option) => {
             const selected = isSelected(option.uri);
             return (
-              <TouchableOpacity
+              <Pressable
                 key={option.id}
                 style={settingsButtonStyles.menuOption}
                 onPress={() => handleSelectProvider(option.uri)}
-                activeOpacity={0.7}
                 disabled={isSaving}
               >
                 <View style={styles.optionContent}>
@@ -128,7 +127,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
                     <Icon name="check" size={24} color={Colors.lightGreen} />
                   ) : null}
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>

@@ -4,7 +4,7 @@ import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Platform,
   Keyboard,
@@ -169,7 +169,7 @@ export function UserSearchModal({
         )}
       </View>
       {/* Dismiss area (optional):
-      <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onRequestClose} />
+      <Pressable style={StyleSheet.absoluteFill} onPress={onRequestClose} />
       */}
     </View>
   );
@@ -300,16 +300,15 @@ export function RichTextSearchModal({
                 data={hashtagSuggestions}
                 keyExtractor={item => item.tag}
                 renderItem={({ item }) => (
-                  <TouchableOpacity
+                  <Pressable
                     style={styles.hashtagItem}
                     onPress={() => onSelectHashtag?.(item.tag)}
-                    activeOpacity={0.8}
                   >
                     <Text style={styles.hashtagText}>
                       <Text style={styles.hashtagSymbol}>#</Text>
                       <Text style={styles.hashtagTag}>{item.tag}</Text>
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
                 contentContainerStyle={styles.hashtagListContent}
                 keyboardShouldPersistTaps="handled"

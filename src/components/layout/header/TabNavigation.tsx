@@ -1,6 +1,6 @@
 import React, { memo, useState } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { ListViewIcon, GridViewIcon, DownSmallFillIcon } from '../../ui/Icon';
 import { Colors } from '../../ui/UI';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
@@ -62,47 +62,44 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     return (
       <>
         <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
-          <TouchableOpacity
+          <Pressable
             style={styles.dropdownButton}
             onPress={() => setDropdownVisible(true)}
-            activeOpacity={0.7}
           >
             <Text style={[styles.dropdownText, { color: activeTabColor, fontFamily: 'Firma-SemiBold', fontSize: variant === 'header' ? 18 : 16 }]}>
               {activeTabLabel}
             </Text>
           <DownSmallFillIcon size={20} color={Colors.gray} />
-          </TouchableOpacity>
+          </Pressable>
 
           {/* View toggle area */}
           <View style={styles.viewToggleArea}>
             {showViewToggle && onViewModeChange && (
               <View style={styles.viewToggleContainer}>
-                <TouchableOpacity
+                <Pressable
                   style={[
                     styles.viewToggleButton,
                     viewMode === 'grid' && styles.activeViewToggleButton
                   ]}
                   onPress={() => handleViewModeChange('grid')}
-                  activeOpacity={0.7}
                 >
                   <GridViewIcon 
                     color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.75)} 
                     size={20}
                   />
-                </TouchableOpacity>
-                <TouchableOpacity
+                </Pressable>
+                <Pressable
                   style={[
                     styles.viewToggleButton,
                     viewMode === 'list' && styles.activeViewToggleButton
                   ]}
                   onPress={() => handleViewModeChange('list')}
-                  activeOpacity={0.7}
                 >
                   <ListViewIcon 
                     color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.75)} 
                     size={20}
                   />
-                </TouchableOpacity>
+                </Pressable>
               </View>
             )}
           </View>
@@ -141,10 +138,9 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     <View style={[styles.tabContainer, variantStyle, { backgroundColor }, style]}>
       <View style={styles.tabsRow}>
         {tabs.map((tab) => (
-          <TouchableOpacity
+          <Pressable
             key={tab.id}
             onPress={() => onTabPress(tab.id)}
-            activeOpacity={0.7}
             disabled={tab.disabled}
             style={[
               styles.tabOption,
@@ -166,7 +162,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             >
               {tab.label}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
       
@@ -174,32 +170,30 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
       <View style={styles.viewToggleArea}>
         {showViewToggle && onViewModeChange && (
           <View style={styles.viewToggleContainer}>
-            <TouchableOpacity
+            <Pressable
               style={[
                 styles.viewToggleButton,
                 viewMode === 'grid' && styles.activeViewToggleButton
               ]}
               onPress={() => handleViewModeChange('grid')}
-              activeOpacity={0.7}
             >
               <GridViewIcon 
                 color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.75)} 
                 size={20}
               />
-            </TouchableOpacity>
-            <TouchableOpacity
+            </Pressable>
+            <Pressable
               style={[
                 styles.viewToggleButton,
                 viewMode === 'list' && styles.activeViewToggleButton
               ]}
               onPress={() => handleViewModeChange('list')}
-              activeOpacity={0.7}
             >
               <ListViewIcon 
                 color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.75)} 
                 size={20}
               />
-            </TouchableOpacity>
+            </Pressable>
           </View>
         )}
       </View>

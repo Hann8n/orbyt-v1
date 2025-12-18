@@ -4,7 +4,7 @@ import {
   View,
   StyleSheet,
   Dimensions,
-  TouchableOpacity,
+  Pressable,
   Text,
 } from 'react-native';
 // Use plain FlashList via FeedRenderer; no adapter/converter
@@ -228,20 +228,18 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
       <Text style={styles.errorSubtext}>
         {"We couldn't retrieve this channel information"}
       </Text>
-      <TouchableOpacity
+      <Pressable
         style={[styles.errorButton, { borderColor: (channelColors.textColor || '#fff') + '44' }]}
-        activeOpacity={0.7}
         onPress={onRefresh}
       >
         <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>Try Again</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
+      </Pressable>
+      <Pressable
         style={[styles.errorButton, styles.secondaryButton, { borderColor: (channelColors.textColor || '#fff') + '44' }]}
-        activeOpacity={0.7}
         onPress={() => navigation.back()}
       >
         <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>Go Back</Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 
@@ -300,19 +298,18 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
     ]}>
       {/* Overlay back button row to match profile screen */}
       <View style={[styles.overlayRow, { top: overlayTop }]}>
-        <TouchableOpacity
+        <Pressable
           accessibilityRole="button"
           accessibilityLabel="Back"
           onPress={handleBackPress}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.overlayBackButton}
-          activeOpacity={0.7}
         >
           <BackArrowIcon
             size={30}
             color={Colors.white}
           />
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {showErrorScreen ? (

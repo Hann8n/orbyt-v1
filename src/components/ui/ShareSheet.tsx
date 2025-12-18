@@ -6,7 +6,7 @@ import { convertAtUriToBlueskyUrl } from '../../utils/blueskyLinks';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Share,
   Platform,
@@ -512,13 +512,12 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       <Text style={styles.headerTitle} numberOfLines={1}>
         post by {authorHandle ? formatHandle(authorHandle) : authorName}
       </Text>
-      <TouchableOpacity 
+      <Pressable 
         style={styles.closeButton} 
         onPress={dismissSheet}
-        activeOpacity={0.7}
       >
         <Icon name="close" size={20} color={Colors.white} />
-      </TouchableOpacity>
+      </Pressable>
     </View>
   ) : undefined;
 
@@ -560,14 +559,13 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                 <View 
                   style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
                 > 
-                  <TouchableOpacity 
+                  <Pressable 
                     style={styles.cancelButton} 
                     onPress={dismissSheet} 
-                    activeOpacity={0.7}
                     disabled={isSubmitting}
                   >
                     <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               </KeyboardAwareFooter>
             </View>
@@ -580,13 +578,12 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         {showConversationPicker ? (
           <View style={styles.pickerContainer}>
             <View style={styles.pickerHeader}>
-              <TouchableOpacity 
+              <Pressable 
                 style={styles.backButton} 
                 onPress={() => setShowConversationPicker(false)}
-                activeOpacity={0.7}
               >
                 <Icon name="left_arrow_filled" size={20} color={Colors.white} />
-              </TouchableOpacity>
+              </Pressable>
               <Text style={styles.pickerTitle}>Send to</Text>
               <View style={styles.headerSpacer} />
             </View>
@@ -617,10 +614,9 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                   const isDisabled = !isConversation && !canBeMessaged(item);
                   
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       style={[styles.conversationItem, isDisabled && styles.disabledItem]}
                       onPress={() => handleSendToConversation(item)}
-                      activeOpacity={0.7}
                       disabled={isSubmitting || isDisabled}
                     >
                       <Avatar
@@ -634,7 +630,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                           {formatHandle(profile.handle) || 'user'}
                         </Text>
                       </View>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 }}
                 contentContainerStyle={[
@@ -671,17 +667,16 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
             >
               {menuOptions.map((option) => (
                 <View key={option.id} style={styles.optionWrapper}>
-                  <TouchableOpacity 
+                  <Pressable 
                     style={[
                       styles.option,
                       { backgroundColor: option.buttonColor, borderColor: hexToRGBA(option.color, 0.28) }
                     ]}
                     onPress={option.onPress}
-                    activeOpacity={0.7}
                     disabled={isSubmitting || (option.id === 'bookmark' && isBookmarkPending)}
                   >
                     <Icon name={option.icon} size={45} color={option.color} />
-                  </TouchableOpacity>
+                  </Pressable>
                   <Text style={styles.optionText}>{option.label}</Text>
                 </View>
               ))}

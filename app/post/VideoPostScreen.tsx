@@ -4,7 +4,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Alert,
   Platform,
   Dimensions,
@@ -128,9 +128,8 @@ const DescriptionPreview: React.FC<{
 }> = ({ description, formattedRichText, onPress }) => (
   <View style={[styles.descriptionSection, { paddingBottom: 0 }]}>
     <Text style={[styles.sectionHeaderTitle, { marginBottom: 4 }]}>Description</Text>
-    <TouchableOpacity 
+    <Pressable 
       onPress={onPress}
-      activeOpacity={0.7}
       style={styles.descriptionInputTouchable}
     >
       {description ? (
@@ -146,7 +145,7 @@ const DescriptionPreview: React.FC<{
           Add text & tags (optional)
         </Text>
       )}
-    </TouchableOpacity>
+    </Pressable>
   </View>
 );
 
@@ -158,10 +157,9 @@ const ChannelSelector: React.FC<{
 }> = ({ selectedChannel, onPress, showRing = false }) => (
   <View style={styles.section}>
     <Text style={styles.sectionHeaderTitle}>Channel (optional)</Text>
-    <TouchableOpacity 
+    <Pressable 
       style={styles.channelSelectorContainer}
       onPress={onPress}
-      activeOpacity={0.7}
     >
       <View style={styles.channelSelectorBox}>
         {!selectedChannel ? (
@@ -204,7 +202,7 @@ const ChannelSelector: React.FC<{
           </Text>
         </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   </View>
 );
 
@@ -216,10 +214,9 @@ const CommentFilterSelector: React.FC<{
 }> = ({ commentFilter, getSelectedCommentFilterLabel, onPress }) => (
   <View style={styles.section}>
     <Text style={styles.sectionHeaderTitle}>Comments</Text>
-    <TouchableOpacity 
+    <Pressable 
       style={styles.channelSelectorContainer}
       onPress={onPress}
-      activeOpacity={0.7}
     >
       <View style={styles.channelSelectorBox}>
         <Icon name="chat-3-line" size={32} color={Colors.lightGray} />
@@ -236,7 +233,7 @@ const CommentFilterSelector: React.FC<{
           </Text>
         </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   </View>
 );
 
@@ -249,10 +246,9 @@ const ContentWarningSelector: React.FC<{
 }> = ({ selectedContentWarnings, otherWarning, getSelectedContentWarningsLabel, onPress }) => (
   <View style={styles.section}>
     <Text style={styles.sectionHeaderTitle}>Warnings</Text>
-    <TouchableOpacity 
+    <Pressable 
       style={styles.channelSelectorContainer}
       onPress={onPress}
-      activeOpacity={0.7}
     >
       <View style={styles.channelSelectorBox}>
         <Icon name="warning-line" size={32} color={Colors.lightGray} />
@@ -269,7 +265,7 @@ const ContentWarningSelector: React.FC<{
           </Text>
         </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   </View>
 );
 
@@ -312,7 +308,7 @@ const PostButton: React.FC<{
   );
 
   return (
-    <TouchableOpacity 
+    <Pressable 
       style={[
         glassStyle,
         { width: buttonWidth },
@@ -321,7 +317,6 @@ const PostButton: React.FC<{
       ]}
       onPress={onPress}
       disabled={isPosting || isCompressing}
-      activeOpacity={0.8}
     >
       {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
         <>
@@ -336,7 +331,7 @@ const PostButton: React.FC<{
       ) : (
         buttonContent
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
@@ -364,13 +359,12 @@ const DescriptionInputModal: React.FC<{
           <View style={styles.descriptionModalHeader}>
             <View style={styles.descriptionModalHeaderSpacer} />
             <Text style={[styles.sectionHeaderTitle, { marginBottom: 0 }]}>Description</Text>
-            <TouchableOpacity 
+            <Pressable 
               onPress={onClose}
               style={[
                 styles.descriptionModalDoneButton,
                 description.length > 300 && styles.descriptionModalDoneButtonDisabled
               ]}
-              activeOpacity={0.7}
               disabled={description.length > 300}
             >
               <Text style={[
@@ -379,7 +373,7 @@ const DescriptionInputModal: React.FC<{
               ]}>
                 {description.length > 300 ? `+${description.length - 300}` : 'Done'}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
           <KeyboardAvoidingView 
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1333,12 +1327,12 @@ const VideoPostScreen: React.FC = () => {
             headerFadeAnimatedStyle
           ]}
         >
-          <TouchableOpacity 
+          <Pressable 
             onPress={handleCancel}
             style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
           >
             <BackArrowIcon size={32} color={Colors.white} />
-          </TouchableOpacity>
+          </Pressable>
         </Animated.View>
         <Animated.View 
           style={[
@@ -1351,7 +1345,7 @@ const VideoPostScreen: React.FC = () => {
             headerFadeAnimatedStyle
           ]}
         >
-          <TouchableOpacity 
+          <Pressable 
             onPress={handleDownload}
             disabled={isDownloading || isMerging || !activeVideoPath}
             style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
@@ -1361,7 +1355,7 @@ const VideoPostScreen: React.FC = () => {
             ) : (
               <Icon name="save" size={32} color={Colors.white} />
             )}
-          </TouchableOpacity>
+          </Pressable>
         </Animated.View>
         <Animated.View style={[styles.landscapeContainer, fadeAnimatedStyle]}>
           {/* Left: Info Side */}
@@ -1442,12 +1436,12 @@ const VideoPostScreen: React.FC = () => {
           headerFadeAnimatedStyle
         ]}
       >
-        <TouchableOpacity 
+        <Pressable 
           onPress={handleCancel}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
         >
           <BackArrowIcon size={32} color={Colors.white} />
-        </TouchableOpacity>
+        </Pressable>
       </Animated.View>
       <Animated.View 
         style={[
@@ -1460,7 +1454,7 @@ const VideoPostScreen: React.FC = () => {
           headerFadeAnimatedStyle
         ]}
       >
-        <TouchableOpacity 
+        <Pressable 
           onPress={handleDownload}
           disabled={isDownloading || isMerging || !activeVideoPath}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
@@ -1470,7 +1464,7 @@ const VideoPostScreen: React.FC = () => {
           ) : (
             <Icon name="save" size={32} color={Colors.white} />
           )}
-        </TouchableOpacity>
+        </Pressable>
       </Animated.View>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1571,11 +1565,10 @@ const VideoPostScreen: React.FC = () => {
       >
         <View style={styles.sheetContent}>
           {CONTENT_WARNINGS.map(warning => (
-            <TouchableOpacity
+            <Pressable
               key={warning.id}
               style={styles.sheetOptionRow}
               onPress={() => toggleContentWarning(warning.id)}
-              activeOpacity={0.7}
             >
               <Text style={styles.sheetOptionText}>{warning.label.toLowerCase()}</Text>
               <View style={[
@@ -1586,12 +1579,11 @@ const VideoPostScreen: React.FC = () => {
                   <Icon name="checkmark" size={16} color={Colors.black} />
                 )}
               </View>
-            </TouchableOpacity>
+            </Pressable>
           ))}
-          <TouchableOpacity
+          <Pressable
             style={styles.sheetOptionRow}
             onPress={() => setShowContentWarningInput(!showContentWarningInput)}
-            activeOpacity={0.7}
           >
             <Text style={styles.sheetOptionText}>other warning</Text>
             <View style={[
@@ -1602,7 +1594,7 @@ const VideoPostScreen: React.FC = () => {
                 <Icon name="checkmark" size={16} color={Colors.black} />
               )}
             </View>
-          </TouchableOpacity>
+          </Pressable>
           {showContentWarningInput && (
             <View style={[styles.sheetInputContainer, isKeyboardVisible && styles.sheetInputContainerKeyboard]}>
               <TextInput
@@ -1671,14 +1663,13 @@ const VideoPostScreen: React.FC = () => {
             disabled={selectedChannel === null}
           />
           {getPostableChannels().map(channel => (
-            <TouchableOpacity
+            <Pressable
               key={channel.slug}
               style={styles.channelListButton}
               onPress={() => {
                 setSelectedChannel(channel);
                 setShowChannelSelectionSheet(false);
               }}
-              activeOpacity={0.7}
               disabled={selectedChannel?.slug === channel.slug}
             >
               <View style={styles.listButtonContent}>
@@ -1698,7 +1689,7 @@ const VideoPostScreen: React.FC = () => {
                   </Text>
                 </View>
               </View>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </ScrollView>
       </VerticalListSheet>

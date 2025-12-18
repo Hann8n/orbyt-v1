@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useCallback } from 'react';
 import { Tabs, router, useSegments } from 'expo-router';
-import { View, TouchableOpacity, Platform, Alert, StyleSheet } from 'react-native';
+import { View, Pressable, Platform, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 
@@ -41,10 +41,9 @@ const ProfileTabIcon = React.memo(({ color, focused, tabIconSize }: { color: str
   }
 
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={handleProfileTabPress}
       onLongPress={presentAccountSwitcher}
-      activeOpacity={0.7}
     >
       <View style={{ position: 'relative' }}>
         <Avatar
@@ -73,7 +72,7 @@ const ProfileTabIcon = React.memo(({ color, focused, tabIconSize }: { color: str
           />
         )}
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 
@@ -170,13 +169,13 @@ export default function TabsLayout() {
         // Only handle scroll-to-top for tabs that have scroll/focus functionality
         if (route.name === 'create') {
           // Create tab doesn't have scroll-to-top behavior, use default
-          return <TouchableOpacity {...props} />;
+          return <Pressable {...props} />;
         }
 
         const isActive = isTabActive(route.name);
 
         return (
-          <TouchableOpacity
+          <Pressable
             {...props}
             onPress={(e: any) => {
               if (isActive) {

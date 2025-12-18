@@ -2,11 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from '
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Alert,
   Modal,
-  Pressable,
   TextInput,
   Linking,
 } from 'react-native';
@@ -676,18 +675,16 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         <View style={styles.headerActions}>
           <RelativeDate dateString={postedAt || post?.indexedAt} style={styles.dateText} />
 
-          <TouchableOpacity
+          <Pressable
             onPress={handleHeaderSharePress}
-            activeOpacity={0.7}
             style={styles.actionButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <MoreFillIcon size={20} color={Colors.lightGray} />
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
+          <Pressable
             onPress={handleHeaderToggleLike}
-            activeOpacity={0.7}
             disabled={!!isLikePending || headerIsPending}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={styles.actionButton}
@@ -698,7 +695,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 color={(onToggleLike ? headerVisualLiked : headerIsLiked) ? Colors.INTERACTIVE.HEART.ACTIVE : Colors.gray}
               />
             </Animated.View>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
     ),

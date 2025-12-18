@@ -5,7 +5,7 @@ import {
   Text,
   StyleSheet,
   Image,
-  TouchableOpacity,
+  Pressable,
   RefreshControl,
 } from 'react-native';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
@@ -310,7 +310,7 @@ const NotificationItem: React.FC<{
 
   return (
     <View style={styles.notificationItem}>
-      <TouchableOpacity onPress={handleProfilePress} activeOpacity={0.7}>
+      <Pressable onPress={handleProfilePress}>
         <Avatar
           uri={author?.avatar}
           type="profile"
@@ -318,37 +318,33 @@ const NotificationItem: React.FC<{
           showRing={true}
           style={styles.profileImage}
         />
-      </TouchableOpacity>
+      </Pressable>
       <View style={styles.notificationContent}>
-        <TouchableOpacity onPress={handleProfilePress} activeOpacity={0.7}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
-            <Text style={styles.authorName}>
-              {formatHandle(author.handle) || 'Unknown user'}
+        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <Text style={styles.authorName}>
+            {formatHandle(author.handle) || 'Unknown user'}
+          </Text>
+          {author.handle && (
+            <VerificationBadge 
+              handle={author.handle} 
+              textSize={14} 
+              textColor={Colors.white}
+            />
+          )}
+        </View>
+        <View style={styles.actionRow}>
+          <Text style={styles.actionText}>
+            {actionText}
+          </Text>
+          {indexedAt && (
+            <Text style={styles.timeText}>
+              {formatRelativeDate(indexedAt)}
             </Text>
-            {author.handle && (
-              <VerificationBadge 
-                handle={author.handle} 
-                textSize={14} 
-                textColor={Colors.white}
-              />
-            )}
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={{ flex: 1 }}>
-          <View style={styles.actionRow}>
-            <Text style={styles.actionText}>
-              {actionText}
-            </Text>
-            {indexedAt && (
-              <Text style={styles.timeText}>
-                {formatRelativeDate(indexedAt)}
-              </Text>
-            )}
-          </View>
-        </TouchableOpacity>
+          )}
+        </View>
       </View>
       {isPostAction && isVideo && (
-        <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
+        <Pressable onPress={handlePress}>
           {thumbnail ? (
             <Image
               source={{ uri: thumbnail }}
@@ -364,7 +360,7 @@ const NotificationItem: React.FC<{
           ) : (
             <View style={styles.thumbnailVideo} />
           )}
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );

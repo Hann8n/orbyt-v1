@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Alert, Text, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { View, StyleSheet, Alert, Text, Pressable, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { GiftedChat } from 'react-native-gifted-chat';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
@@ -281,8 +281,11 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     
     return (
       <View style={styles.sendColumn}>
-        <TouchableOpacity
-          style={styles.sendButton}
+        <Pressable
+          style={({ pressed }) => [
+            styles.sendButton,
+            pressed && { opacity: 0.7 }
+          ]}
           onPress={() => {
             if (props.text && props.text.trim() && !sendMessageMutation.isPending) {
               // Create the message object that GiftedChat expects
@@ -299,13 +302,11 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
               props.onSend([message]);
             }
           }}
-          activeOpacity={0.7}
           disabled={isDisabled}
           hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel="Send message"
-          delayPressIn={0}
         >
           {sendMessageMutation.isPending ? (
             <Loading3FillIcon size={22} color={Colors.black} />
@@ -316,7 +317,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
               color={Colors.black}
             />
           )}
-        </TouchableOpacity>
+        </Pressable>
       </View>
     );
   }, [currentUserId, currentUser, sendMessageMutation.isPending]);
@@ -330,11 +331,14 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       return (
         <View style={styles.inputToolbar}>
           <View style={styles.actionButtonsContainer}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.rejectButton]}
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.rejectButton,
+                pressed && { opacity: 0.7 }
+              ]}
               onPress={() => rejectConversationMutation.mutate()}
               disabled={rejectConversationMutation.isPending || acceptConversationMutation.isPending}
-              activeOpacity={0.7}
             >
               <View pointerEvents="none">
                 {rejectConversationMutation.isPending ? (
@@ -343,12 +347,15 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                   <Text style={styles.actionButtonText}>Reject</Text>
                 )}
               </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.acceptButton]}
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.acceptButton,
+                pressed && { opacity: 0.7 }
+              ]}
               onPress={() => acceptConversationMutation.mutate()}
               disabled={rejectConversationMutation.isPending || acceptConversationMutation.isPending}
-              activeOpacity={0.7}
             >
               <View pointerEvents="none">
                 {acceptConversationMutation.isPending ? (
@@ -357,7 +364,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                   <Text style={[styles.actionButtonText, styles.acceptButtonText]}>Accept</Text>
                 )}
               </View>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       );
@@ -431,8 +438,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         >
           {/* Show message text if present */}
           {message.text && (
-            <TouchableOpacity
-              activeOpacity={1}
+            <Pressable
               onLongPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 setSelectedMessageId(String(message._id));
@@ -449,7 +455,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
               ]}>
                 {message.text}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
           
           {/* Show embedded post */}
@@ -491,7 +497,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                   const hasOtherUserReaction = !!otherUserReaction;
                   
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={emoji}
                       style={[
                         styles.emojiButton,
@@ -502,7 +508,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                         hasOtherUserReaction && styles.emojiButtonOtherUser,
                       ]}
                       onPress={() => handleEmojiSelect(emoji, String(message._id))}
-                      activeOpacity={0.7}
                     >
                       <Text style={[
                         styles.emojiText,
@@ -510,7 +515,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                       ]}>
                         {emoji}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
               </View>
@@ -524,7 +529,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     
     // For regular messages without embeds, use default rendering with proper alignment
     return (
-      <TouchableOpacity 
+      <Pressable 
         style={[
           styles.defaultMessageContainer,
           isCurrentUser ? styles.messageContainerRight : styles.messageContainerLeft
@@ -536,7 +541,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         onPress={() => {
           setSelectedMessageId(null);
         }}
-        activeOpacity={1}
       >
         <View style={[
           styles.messageBubble,
@@ -569,18 +573,18 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                 const hasOtherUserReaction = !!otherUserReaction;
                 
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={emoji}
-                    style={[
+                    style={({ pressed }) => [
                       styles.emojiButton,
                       idx === 0 && styles.emojiSegmentFirst,
                       idx > 0 && idx < arr.length - 1 && styles.emojiSegmentMiddle,
                       idx === arr.length - 1 && styles.emojiSegmentLast,
                       hasCurrentUserReaction && styles.emojiButtonSelected,
                       hasOtherUserReaction && styles.emojiButtonOtherUser,
+                      pressed && { opacity: 0.7 }
                     ]}
                     onPress={() => handleEmojiSelect(emoji, String(message._id))}
-                    activeOpacity={0.7}
                   >
                     <Text style={[
                       styles.emojiText,
@@ -588,7 +592,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                     ]}>
                       {emoji}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
@@ -606,7 +610,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
             }
           />
         )}
-      </TouchableOpacity>
+      </Pressable>
     );
   }, [currentUserId, selectedMessageId, handleEmojiSelect, handleReactionPress]);
 
@@ -669,7 +673,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         {/* Chat Header */}
         <View style={styles.chatHeader}>
           <View style={styles.headerContent}>
-          <TouchableOpacity 
+          <Pressable 
             style={styles.backButton}
             onPress={() => {
               // Dismiss keyboard first, then navigate after a brief delay
@@ -678,18 +682,16 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                 router.back();
               }, 150);
             }}
-            activeOpacity={0.7}
           >
             <BackArrowIcon size={28} color={Colors.white} />
-          </TouchableOpacity>
+          </Pressable>
           
           {otherUserForDisplay ? (
             <>
               <View style={styles.headerCenter}>
-                <TouchableOpacity 
+                <Pressable 
                   style={styles.headerUserInfo}
                   onPress={() => router.push(`/profile/${otherUserForDisplay.did}`)}
-                  activeOpacity={0.7}
                 >
                   <Avatar
                     uri={otherUserForDisplay.avatar}
@@ -701,16 +703,15 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                   <Text style={styles.headerDisplayName} numberOfLines={1}>
                     {formatHandle(otherUserForDisplay.handle) || 'User'}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
               <View style={styles.headerActions}>
-                <TouchableOpacity 
+                <Pressable 
                   style={styles.headerActionButton}
                   onPress={() => setShowActionsSheet(true)}
-                  activeOpacity={0.7}
                 >
                   <Icon name="more-fill" size={24} color={Colors.white} />
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </>
           ) : (

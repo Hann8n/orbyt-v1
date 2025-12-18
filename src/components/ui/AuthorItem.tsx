@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
-import { TouchableOpacity, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
 import { VerificationBadge } from '../features/badging';
@@ -126,14 +126,13 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   }, [onFollowPress, handle, followMutation, actualIsFollowing]);
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[
         styles.container,
         { backgroundColor: backgroundColor || Colors.darkGray },
         style,
       ]}
       onPress={handlePress}
-      activeOpacity={0.8}
     >
       <View style={styles.accountButtonContent}>
         <View style={styles.avatarContainer}>
@@ -168,7 +167,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           </View>
         </View>
         {showFollowButton ? (
-          <TouchableOpacity
+          <Pressable
             style={[
               styles.followButton,
               {
@@ -178,22 +177,20 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
               }
             ]}
             onPress={handleFollowPress}
-            activeOpacity={0.8}
           >
             {actualIsFollowing ? (
               <CheckIcon size={16} color={Colors.black} strokeWidth={2} />
             ) : (
               <FollowIcon size={16} color={Colors.black} />
             )}
-          </TouchableOpacity>
+          </Pressable>
         ) : showDeleteButton ? (
-          <TouchableOpacity
+          <Pressable
             style={styles.deleteButton}
             onPress={onDeletePress}
-            activeOpacity={0.7}
           >
             <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
-          </TouchableOpacity>
+          </Pressable>
         ) : showArrow && (
           <View style={styles.accountArrow}>
             <Icon 
@@ -204,7 +201,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 

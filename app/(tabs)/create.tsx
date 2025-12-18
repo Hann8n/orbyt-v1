@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Pressable,
   Dimensions,
   Alert,
@@ -752,9 +751,15 @@ const CreateScreen: React.FC = () => {
         <View style={styles.warningContainer}>
           <Icon name="videocam" size={64} color={Colors.lightGray} style={styles.errorIcon} />
           <Text style={styles.warningText}>Please enable camera permissions</Text>
-          <TouchableOpacity style={styles.button} activeOpacity={0.7} onPress={requestCameraPermission}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              pressed && { opacity: 0.7 }
+            ]}
+            onPress={requestCameraPermission}
+          >
             <Text style={styles.buttonText}>Grant Permission</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       );
     }
@@ -826,12 +831,15 @@ const CreateScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <TouchableOpacity style={[styles.backButton, { 
-        top: isSmallDevice ? 5 : insets.top + 4,
-        left: 4,
-      }]} onPress={handleBackPress}>
+      <Pressable
+        style={[styles.backButton, { 
+          top: isSmallDevice ? 5 : insets.top + 4,
+          left: 4,
+        }]}
+        onPress={handleBackPress}
+      >
         <CloseFillIcon size={26} color="white" />
-      </TouchableOpacity>
+      </Pressable>
       
       {/* Duration Selector */}
       {!isRecording && segments.length === 0 && (
@@ -839,7 +847,7 @@ const CreateScreen: React.FC = () => {
           {isDurationSelectorExpanded ? (
             <>
               {DURATION_OPTIONS.map((option) => (
-                <TouchableOpacity
+                <Pressable
                   key={option.value}
                   style={[
                     styles.durationOption,
@@ -853,7 +861,6 @@ const CreateScreen: React.FC = () => {
                     }
                   }}
                   disabled={isRecording || segments.length > 0}
-                  activeOpacity={0.7}
                 >
                   <Text
                     style={[
@@ -864,35 +871,37 @@ const CreateScreen: React.FC = () => {
                   >
                     {option.label}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </>
           ) : (
-            <TouchableOpacity
+            <Pressable
               style={styles.durationOption}
               onPress={() => setIsDurationSelectorExpanded(true)}
-              activeOpacity={0.7}
             >
               <Text style={styles.durationOptionText}>
                 {DURATION_OPTIONS.find(opt => opt.value === selectedDuration)?.label || '16s'}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
       )}
       
       {segments.length > 0 && (
-        <TouchableOpacity 
-          style={[styles.doneButton, { 
-            top: isSmallDevice ? 5 : insets.top + 4,
-            right: 4,
-          }]} 
-          onPress={finishRecording} 
+        <Pressable
+          style={({ pressed }) => [
+            styles.doneButton,
+            {
+              top: isSmallDevice ? 5 : insets.top + 4,
+              right: 4,
+            },
+            pressed && { opacity: 0.7 }
+          ]}
+          onPress={finishRecording}
           disabled={isProcessing}
-          activeOpacity={0.7}
         >
           <ArrowRightFillIcon size={30} color="white" />
-        </TouchableOpacity>
+        </Pressable>
       )}
       {renderContent()}
       <BottomToolBar 

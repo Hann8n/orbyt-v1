@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, Pressable, Alert } from 'react-native';
 import { useOAuth } from '../hooks/useOAuth';
 import { useAccountManager } from '../hooks/useAccountManager';
 import { analyzeOAuthError, handleOAuthError } from '../utils/oauthErrorHandler';
@@ -73,7 +73,7 @@ export function OAuthUsageExample() {
           <View>
             <Text>Switch Account:</Text>
             {accounts.map(account => (
-              <TouchableOpacity
+              <Pressable
                 key={account.did}
                 onPress={() => handleAccountSwitch(account.did)}
                 style={{ 
@@ -83,14 +83,14 @@ export function OAuthUsageExample() {
                 }}
               >
                 <Text>{account.displayName || account.handle}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
         )}
         
-        <TouchableOpacity onPress={signOut} style={{ padding: 10, backgroundColor: '#FF3B30' }}>
+        <Pressable onPress={signOut} style={{ padding: 10, backgroundColor: '#FF3B30' }}>
           <Text style={{ color: 'white' }}>Sign Out</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     );
   }
@@ -102,13 +102,13 @@ export function OAuthUsageExample() {
       {error && (
         <View style={{ padding: 10, backgroundColor: '#FF3B30', margin: 10 }}>
           <Text style={{ color: 'white' }}>{error}</Text>
-          <TouchableOpacity onPress={clearError}>
+          <Pressable onPress={clearError}>
             <Text style={{ color: 'white' }}>Dismiss</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       )}
       
-      <TouchableOpacity 
+      <Pressable 
         onPress={handleSignIn} 
         disabled={isAuthenticating}
         style={{ 
@@ -120,7 +120,7 @@ export function OAuthUsageExample() {
         <Text style={{ color: 'white', textAlign: 'center' }}>
           {isAuthenticating ? 'Signing In...' : 'Sign In with OAuth'}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }

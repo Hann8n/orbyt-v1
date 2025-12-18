@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Alert,
   Platform,
@@ -463,13 +463,12 @@ const SettingsScreen: React.FC = () => {
             case 'setting':
               return (
                 <View key={key} style={{ marginBottom: 0 }}>
-                  <TouchableOpacity
+                  <Pressable
                     style={[
                       settingsButtonStyles.menuOption,
                       item.destructive ? { backgroundColor: Colors.red } : null,
                     ]}
                     onPress={item.onPress}
-                    activeOpacity={0.7}
                     disabled={isSubmitting}
                   >
                     <View style={styles.menuOptionLeft}>
@@ -487,7 +486,7 @@ const SettingsScreen: React.FC = () => {
                         <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
                       ) : null}
                     </View>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               );
             case 'toggle':

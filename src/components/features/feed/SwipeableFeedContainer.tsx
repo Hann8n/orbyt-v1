@@ -6,7 +6,7 @@ import {
   Dimensions,
   StatusBar,
   Animated as RNAnimated,
-  TouchableOpacity,
+  Pressable,
 } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -374,16 +374,15 @@ const SwipeableFeedContainer = memo(forwardRef<ScrollToTopRef, SwipeableFeedCont
       >
         <View style={styles.indicatorContainer}>
           {feedOptions.map((feedOption) => (
-            <TouchableOpacity
+            <Pressable
               key={feedOption}
               onPress={() => handleIndicatorTap(feedOption)}
-              activeOpacity={0.7}
               style={styles.indicatorItem}
             >
               <Text style={getIndicatorStyle(feedOption)}>
                 {FEED_LABELS[feedOption] || feedOption}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
       </Animated.View>

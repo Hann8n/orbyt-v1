@@ -3,7 +3,7 @@ import { BORDER_RADIUS } from '../../utils/constants';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   TextInput,
 } from 'react-native';
@@ -132,7 +132,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
           Enter your full handle (e.g., user.domain.com) or email address
         </Text>
         
-        <TouchableOpacity
+        <Pressable
           style={[
             styles.loginButton,
             (username.trim() && !isAddingAccount && !isValidatingPds) && styles.loginButtonActive,
@@ -140,7 +140,6 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
           ]}
           onPress={handleUsernameLogin}
           disabled={!username.trim() || isAddingAccount || isValidatingPds}
-          activeOpacity={0.8}
         >
           {isAddingAccount || isValidatingPds ? (
             <View style={styles.buttonContent}>
@@ -155,7 +154,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
               (username.trim() && !isAddingAccount && !isValidatingPds) && styles.loginButtonTextActive
             ]}>Sign In</Text>
           )}
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </VerticalListSheet>
   );

@@ -4,7 +4,7 @@ import {
   Modal,
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   TouchableWithoutFeedback,
   StyleSheet,
 } from 'react-native';
@@ -38,9 +38,8 @@ const PopUpModal: React.FC<PopUpModalProps> = ({
       visible={visible}
       onRequestClose={onClose}
     >
-      <TouchableOpacity 
+      <Pressable 
         style={styles.modalBackdrop} 
-        activeOpacity={1}
         onPress={onClose}
       >
         <TouchableWithoutFeedback>
@@ -57,7 +56,7 @@ const PopUpModal: React.FC<PopUpModalProps> = ({
             {actions.length > 0 && (
               <View style={styles.actionsContainer}>
                 {actions.map((action, index) => (
-                  <TouchableOpacity 
+                  <Pressable 
                     key={index}
                     style={[
                       styles.actionButton, 
@@ -74,13 +73,13 @@ const PopUpModal: React.FC<PopUpModalProps> = ({
                     >
                       {action.label}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
             )}
           </View>
         </TouchableWithoutFeedback>
-      </TouchableOpacity>
+      </Pressable>
     </Modal>
   );
 };

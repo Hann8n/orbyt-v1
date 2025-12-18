@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
-import { StatusBar, TouchableOpacity, StyleSheet } from 'react-native';
+import { StatusBar, Pressable, StyleSheet } from 'react-native';
 import Animated, { type SharedValue, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
 import { useProfile, useProfileColors } from '../../../services/cache/ProfileCache';
@@ -111,9 +111,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       badge: profileData.handle ? (
         <>
           {isBeta && (
-            <TouchableOpacity onPress={() => setShowBetaInfo(true)} activeOpacity={0.7}>
+            <Pressable onPress={() => setShowBetaInfo(true)}>
               <BetaBadge textSize={24} color={profileColors.textColor} opacity={0.55} />
-            </TouchableOpacity>
+            </Pressable>
           )}
           <VerificationBadge
             handle={profileData.handle}

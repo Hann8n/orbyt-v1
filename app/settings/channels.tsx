@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { Alert, View, Text, StyleSheet, Pressable, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -121,10 +121,9 @@ export default function ChannelManagementScreen() {
     item: ChannelUser; 
   }) => {
     return (
-      <TouchableOpacity
+      <Pressable
         style={styles.channelItem}
         onPress={() => handleChannelPress(item)}
-        activeOpacity={0.7}
       >
         <Avatar 
           uri={item.avatar} 
@@ -159,7 +158,7 @@ export default function ChannelManagementScreen() {
             </Text>
           )}
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   }, [handleChannelPress]);
 
@@ -168,13 +167,12 @@ export default function ChannelManagementScreen() {
       <Icon name="tv" size={48} color={Colors.lightGray} style={styles.emptyIcon} />
       <Text style={styles.emptyTitle}>No channels yet</Text>
       <Text style={styles.emptySubtitle}>Explore channels to subscribe to them</Text>
-      <TouchableOpacity
+      <Pressable
         style={styles.exploreButton}
         onPress={handleExplorePress}
-        activeOpacity={0.7}
       >
         <Text style={styles.exploreButtonText}>Explore Channels</Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   ), [handleExplorePress]);
 

@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -115,7 +115,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
     
     return (
       <View style={styles.profileItem}>
-        <TouchableOpacity
+        <Pressable
           style={styles.profileTouchable}
           onPress={() => handleUserPress(item.handle)}
         >
@@ -140,9 +140,9 @@ const ListScreen: React.FC<ListScreenProps> = ({
               )}
             </View>
           </View>
-        </TouchableOpacity>
+        </Pressable>
         {shouldShowFollowButton && (
-          <TouchableOpacity
+          <Pressable
             style={[
               styles.followButton,
               actionUsers.has(item.handle || item.did) && styles.actionButton
@@ -162,7 +162,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
                 color={Colors.black} 
               />
             )}
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
     );

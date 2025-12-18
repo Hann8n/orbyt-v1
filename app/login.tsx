@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import {
   View,
-  TouchableOpacity,
+  Pressable,
   Text,
   StyleSheet,
   Alert,
@@ -350,11 +350,10 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     return (
       <View style={[styles.loginButtonsContainer, { paddingBottom: Math.max(20, typeof insets?.bottom === 'number' ? insets.bottom : 0) }]}>
         {/* Sign in button */}
-        <TouchableOpacity
+        <Pressable
           style={[styles.liquidGlassButton, !useLiquidGlass && styles.whiteButton]}
           onPress={handleLogin}
           disabled={isLoading}
-          activeOpacity={0.8}
         >
           {useLiquidGlass ? (
             <>
@@ -369,17 +368,17 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           ) : (
             buttonContent
           )}
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Custom PDS text button */}
-        <TouchableOpacity
+        <Pressable
           style={styles.customPDSTextButton}
           onPress={() => setShowCustomPDSSheet(true)}
           disabled={isLoading}
           delayLongPress={500}
         >
           <Text style={styles.customPDSTextButtonText}>Custom Login</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     );
   };

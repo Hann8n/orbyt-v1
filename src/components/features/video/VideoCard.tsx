@@ -20,7 +20,6 @@ import {
   Text,
   Dimensions,
   Pressable,
-  TouchableOpacity,
   StyleSheet,
   Platform,
 } from 'react-native';
@@ -801,10 +800,9 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                   {getWarningDescription()}
                 </Text>
               </View>
-              <TouchableOpacity 
+              <Pressable 
                 onPress={handleViewContent}
                 style={styles.viewButton}
-                activeOpacity={0.8}
               >
                 {Platform.OS === 'ios' && isLiquidGlassAvailable() ? (
                   <GlassView
@@ -817,7 +815,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 <View style={styles.buttonContent} pointerEvents="none">
                   <Text style={styles.viewButtonText}>See video</Text>
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </>
         )}

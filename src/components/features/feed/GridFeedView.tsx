@@ -4,7 +4,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Dimensions,
   ScrollView,
 } from 'react-native';
@@ -52,9 +52,8 @@ const VideoGridItem: React.FC<{
   const recyclingKey = item.post?.uri || item.post?.cid || `item-${index}`;
   
   return (
-    <TouchableOpacity
+    <Pressable
       style={[styles.gridItem, style, itemStyle]}
-      activeOpacity={0.7}
       onPress={handlePress}
     >
       <BlurredThumbnailBackground thumbnailUrl={validThumbnailUrl} recyclingKey={recyclingKey} />
@@ -71,7 +70,7 @@ const VideoGridItem: React.FC<{
       {shouldBlur && (
         <BlurView intensity={80} tint="dark" style={styles.warningOverlay} experimentalBlurMethod="dimezisBlurView" />
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -109,10 +109,9 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
     const messageText = getMessageText(item);
     
     return (
-      <TouchableOpacity
+      <Pressable
         style={styles.conversationItem}
         onPress={() => handleConversationPress(item)}
-        activeOpacity={0.8}
       >
         <View style={styles.avatarContainer}>
           <Avatar
@@ -153,7 +152,7 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
             </Text>
           </View>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   }, [currentUserDid, handleConversationPress, getMessageText]);
 

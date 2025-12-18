@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Switch, Linking } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import ListHeader from '../../src/components/ui/ListHeader';
@@ -224,10 +224,9 @@ const ContentFiltersScreen: React.FC = () => {
                   </View>
                   <View style={[styles.toggleButtonsContainer, { justifyContent: 'center' }]}>
                     <View style={settingsButtonStyles.toggleButtonGroup}>
-                      <TouchableOpacity
+                      <Pressable
                         style={[settingsButtonStyles.toggleButton, option.preference === 'ignore' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.SUCCESS, borderRightColor: UI.Colors.STATUS.SUCCESS }]]}
                         onPress={() => updateContentPreference(option.id, 'ignore')}
-                        activeOpacity={0.7}
                         accessibilityLabel="Show"
                       >
                         <Icon
@@ -235,11 +234,10 @@ const ContentFiltersScreen: React.FC = () => {
                           size={16}
                           color={option.preference === 'ignore' ? Colors.black : Colors.lightGray}
                         />
-                      </TouchableOpacity>
-                      <TouchableOpacity
+                      </Pressable>
+                      <Pressable
                         style={[settingsButtonStyles.toggleButton, option.preference === 'warn' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.WARNING, borderRightColor: UI.Colors.STATUS.WARNING }]]}
                         onPress={() => updateContentPreference(option.id, 'warn')}
-                        activeOpacity={0.7}
                         accessibilityLabel="Warn"
                       >
                         <Icon
@@ -247,11 +245,10 @@ const ContentFiltersScreen: React.FC = () => {
                         size={16}
                         color={option.preference === 'warn' ? Colors.black : Colors.lightGray}
                         />
-                      </TouchableOpacity>
-                      <TouchableOpacity
+                      </Pressable>
+                      <Pressable
                         style={[settingsButtonStyles.toggleButton, styles.toggleButtonLast, option.preference === 'hide' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.ERROR, borderRightColor: UI.Colors.STATUS.ERROR }]]}
                         onPress={() => updateContentPreference(option.id, 'hide')}
-                        activeOpacity={0.7}
                         accessibilityLabel="Hide"
                       >
                         <Icon
@@ -259,7 +256,7 @@ const ContentFiltersScreen: React.FC = () => {
                           size={16}
                           color={option.preference === 'hide' ? Colors.black : Colors.lightGray}
                         />
-                      </TouchableOpacity>
+                      </Pressable>
                     </View>
                   </View>
                 </View>
@@ -268,17 +265,16 @@ const ContentFiltersScreen: React.FC = () => {
           })}
         </View>
         <View style={{ marginTop: 4, paddingHorizontal: 5 }}>
-          <TouchableOpacity
+          <Pressable
             style={settingsButtonStyles.menuOption}
             onPress={() => Linking.openURL('https://bsky.app/moderation')}
-            activeOpacity={0.7}
           >
             <View style={styles.menuOptionLeft}>
               <Text style={settingsTextStyles.menuOptionText}>adjust on bsky.app</Text>
               <Text style={settingsTextStyles.menuOptionSubtitle}>open Bluesky content settings</Text>
             </View>
             <Icon name="external-link" size={20} color={Colors.gray} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </ScrollView>
     </View>

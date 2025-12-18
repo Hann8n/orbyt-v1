@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Vibration } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Animated, Vibration } from 'react-native';
 import { Colors } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { ReactionView } from '../../../services/ChatService';
@@ -112,7 +112,7 @@ export default function MessageReactions({
                   { transform: [{ scale: animValue }] }
                 ]}
               >
-                <TouchableOpacity
+                <Pressable
                   style={[
                     styles.reactionButton,
                     isFirst && styles.reactionSegmentFirst,
@@ -125,7 +125,6 @@ export default function MessageReactions({
                     animateReaction(reaction.emoji);
                     onReactionPress(reaction.emoji, reaction.isCurrentUserReacted);
                   }}
-                  activeOpacity={0.6}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={[
@@ -142,7 +141,7 @@ export default function MessageReactions({
                       {reaction.count}
                     </Text>
                   )}
-                </TouchableOpacity>
+                </Pressable>
               </Animated.View>
             );
           })}

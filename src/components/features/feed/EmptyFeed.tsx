@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Pressable, FlatList } from 'react-native';
 import { Image } from 'expo-image';
 import Icon from '../../ui/Icon';
 import { Colors } from '../../ui/UI';
@@ -172,7 +172,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           </View>
         </View>
         {!isFollowing && (
-          <TouchableOpacity
+          <Pressable
             style={styles.followButton}
             onPress={() => {
               followMutation.mutate({ 
@@ -180,10 +180,9 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
                 isFollowing: !isFollowing
               });
             }}
-            activeOpacity={0.8}
           >
             <Icon name="user-plus" size={16} color={Colors.black} />
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
     );
@@ -323,23 +322,22 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           {displayMessage}
         </Text>
         {isYourMixFeed && type === 'no-videos' && (
-          <TouchableOpacity
+          <Pressable
             style={styles.addChannelsButton}
             onPress={() => {
               navigation.push('/explore');
             }}
-            activeOpacity={0.7}
           >
             <Text style={styles.addChannelsButtonText}>Explore Channels</Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
         {onRetry && (type === 'error' || type === 'no-connection') && (
-          <TouchableOpacity 
+          <Pressable 
             style={[styles.retryButton, { borderColor: textColor }]} 
             onPress={onRetry}
           >
             <Text style={[styles.retryButtonText, { color: textColor }]}>Retry</Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
     </View>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { Svg, Path, Circle, Defs, Mask } from 'react-native-svg';
 import ProfileCache, { useProfileColors } from '../../../services/cache/ProfileCache';
@@ -219,9 +219,9 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
   // If onPress handler is provided, make it touchable
   if (onPress) {
     return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+      <Pressable onPress={onPress}>
         {badgeComponent}
-      </TouchableOpacity>
+      </Pressable>
     );
   }
 

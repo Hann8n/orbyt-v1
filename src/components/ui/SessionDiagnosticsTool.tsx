@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Alert,
 } from 'react-native';
 import { BORDER_RADIUS } from '../../utils/constants';
@@ -64,19 +64,19 @@ const SessionDiagnosticsTool: React.FC<SessionDiagnosticsToolProps> = ({
         </View>
 
         <View style={styles.actionsContainer}>
-          <TouchableOpacity
+          <Pressable
             style={[styles.actionButton, styles.clearButton]}
             onPress={handleClearSessions}
           >
             <Text style={styles.actionButtonText}>Clear All Sessions</Text>
-          </TouchableOpacity>
+          </Pressable>
           
-          <TouchableOpacity
+          <Pressable
             style={[styles.actionButton, styles.signOutButton]}
             onPress={handleSignOut}
           >
             <Text style={styles.actionButtonText}>Sign Out</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
     </VerticalListSheet>

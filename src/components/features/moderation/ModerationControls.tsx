@@ -4,7 +4,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Alert,
   Switch,
   ScrollView,
@@ -292,18 +292,17 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
 
             {/* Web Settings Button */}
             <View style={styles.webSettingsSection}>
-              <TouchableOpacity
+              <Pressable
                 style={styles.webSettingsTextButton}
                 onPress={() => {
                   // External moderation settings link is not currently available
                 }}
-                activeOpacity={0.7}
               >
                 <Icon name="external-link" size={24} color={Colors.white} />
                 <Text style={styles.webSettingsTextButtonText}>
                   adjust settings on bsky.app
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </>
         )}

@@ -2,7 +2,7 @@ import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   ViewStyle,
   TextStyle,
@@ -254,11 +254,10 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[getButtonStyle(), style]}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.7}
     >
       {loading ? (
         <Loading3FillIcon 
@@ -280,7 +279,7 @@ export const Button: React.FC<ButtonProps> = ({
           )}
         </>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
@@ -499,9 +498,8 @@ export const Modal: React.FC<ModalProps> = ({
       visible={visible}
       onRequestClose={onClose}
     >
-      <TouchableOpacity 
+      <Pressable 
         style={styles.modalBackdrop} 
-        activeOpacity={1}
         onPress={onClose}
       >
         <TouchableWithoutFeedback>
@@ -532,7 +530,7 @@ export const Modal: React.FC<ModalProps> = ({
             )}
           </Card>
         </TouchableWithoutFeedback>
-      </TouchableOpacity>
+      </Pressable>
     </RNModal>
   );
 };
@@ -575,7 +573,7 @@ export const Input: React.FC<InputProps> = ({
     <View style={[styles.inputContainer, style]}>
       <View style={styles.inputWrapper}>
         {icon && (
-          <TouchableOpacity
+          <Pressable
             style={styles.inputIcon}
             onPress={onIconPress}
             disabled={!onIconPress}
@@ -583,7 +581,7 @@ export const Input: React.FC<InputProps> = ({
             <React.Suspense fallback={<View style={{ width: 20, height: 20 }} />}>
               <Icon name={icon} size={20} color={Colors.gray} />
             </React.Suspense>
-          </TouchableOpacity>
+          </Pressable>
         )}
         <TextInput
           style={[
