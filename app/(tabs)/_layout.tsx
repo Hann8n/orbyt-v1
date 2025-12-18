@@ -44,6 +44,7 @@ const ProfileTabIcon = React.memo(({ color, focused, tabIconSize }: { color: str
     <Pressable
       onPress={handleProfileTabPress}
       onLongPress={presentAccountSwitcher}
+      delayLongPress={400}
     >
       <View style={{ position: 'relative' }}>
         <Avatar
@@ -202,6 +203,7 @@ export default function TabsLayout() {
                 tabRefs.explore?.focusSearch();
               }
             }}
+            delayLongPress={400}
           />
         );
       },

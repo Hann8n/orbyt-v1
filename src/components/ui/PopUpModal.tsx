@@ -5,7 +5,6 @@ import {
   View,
   Text,
   Pressable,
-  TouchableWithoutFeedback,
   StyleSheet,
 } from 'react-native';
 import { Colors } from './UI';
@@ -42,7 +41,7 @@ const PopUpModal: React.FC<PopUpModalProps> = ({
         style={styles.modalBackdrop} 
         onPress={onClose}
       >
-        <TouchableWithoutFeedback>
+        <Pressable onPress={(e) => e.stopPropagation()}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>{title}</Text>
             {subtitle && (
@@ -78,7 +77,7 @@ const PopUpModal: React.FC<PopUpModalProps> = ({
               </View>
             )}
           </View>
-        </TouchableWithoutFeedback>
+        </Pressable>
       </Pressable>
     </Modal>
   );

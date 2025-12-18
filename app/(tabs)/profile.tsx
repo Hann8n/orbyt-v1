@@ -491,6 +491,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           if (!profileData.did) return;
           setShowSubscriptionSheet(true);
         },
+        delayLongPress: 400,
         active: isSubscribed,
       } as HeaderAction);
     }

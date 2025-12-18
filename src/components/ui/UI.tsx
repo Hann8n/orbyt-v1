@@ -6,8 +6,6 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
-  TouchableWithoutFeedback,
-
   ScrollView,
   TextInput,
   Alert,
@@ -502,7 +500,7 @@ export const Modal: React.FC<ModalProps> = ({
         style={styles.modalBackdrop} 
         onPress={onClose}
       >
-        <TouchableWithoutFeedback>
+        <Pressable onPress={(e) => e.stopPropagation()}>
           <Card style={[styles.modalContainer, style]}>
             {title && (
               <Text style={styles.modalTitle}>{title}</Text>
@@ -529,7 +527,7 @@ export const Modal: React.FC<ModalProps> = ({
               </View>
             )}
           </Card>
-        </TouchableWithoutFeedback>
+        </Pressable>
       </Pressable>
     </RNModal>
   );

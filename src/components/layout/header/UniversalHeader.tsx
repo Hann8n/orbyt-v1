@@ -25,6 +25,7 @@ export interface HeaderAction {
   customIcon?: React.ReactNode;
   onPress: () => void;
   onLongPress?: () => void;
+  delayLongPress?: number;
   disabled?: boolean;
   loading?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
@@ -219,6 +220,7 @@ const ActionButton = memo<{
         style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
         onPress={action.onPress}
         onLongPress={action.onLongPress}
+        delayLongPress={action.delayLongPress}
         disabled={action.disabled || action.loading}
       >
         <GlassView
@@ -237,6 +239,7 @@ const ActionButton = memo<{
       style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
       onPress={action.onPress}
       onLongPress={action.onLongPress}
+      delayLongPress={action.delayLongPress}
       disabled={action.disabled || action.loading}
     >
       {content}
