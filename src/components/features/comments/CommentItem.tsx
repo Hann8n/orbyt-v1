@@ -583,6 +583,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         try {
                           const success = await AtprotoService.reportContent(uri, 'spam');
                           if (success) {
+                            const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+                            useReportedPostsStore.getState().reportPost(uri);
                             Alert.alert('Thank you', 'This content has been reported for review.');
                           } else {
                             Alert.alert('Error', 'Failed to submit report. Please try again.');
@@ -598,6 +600,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         try {
                           const success = await AtprotoService.reportContent(uri, 'violation');
                           if (success) {
+                            const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+                            useReportedPostsStore.getState().reportPost(uri);
                             Alert.alert('Thank you', 'This content has been reported for review.');
                           } else {
                             Alert.alert('Error', 'Failed to submit report. Please try again.');
@@ -613,6 +617,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         try {
                           const success = await AtprotoService.reportContent(uri, 'misleading');
                           if (success) {
+                            const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+                            useReportedPostsStore.getState().reportPost(uri);
                             Alert.alert('Thank you', 'This content has been reported for review.');
                           } else {
                             Alert.alert('Error', 'Failed to submit report. Please try again.');
@@ -628,6 +634,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         try {
                           const success = await AtprotoService.reportContent(uri, 'sexual');
                           if (success) {
+                            const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+                            useReportedPostsStore.getState().reportPost(uri);
                             Alert.alert('Thank you', 'This content has been reported for review.');
                           } else {
                             Alert.alert('Error', 'Failed to submit report. Please try again.');
@@ -643,6 +651,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         try {
                           const success = await AtprotoService.reportContent(uri, 'rude');
                           if (success) {
+                            const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+                            useReportedPostsStore.getState().reportPost(uri);
                             Alert.alert('Thank you', 'This content has been reported for review.');
                           } else {
                             Alert.alert('Error', 'Failed to submit report. Please try again.');
@@ -658,6 +668,8 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                         try {
                           const success = await AtprotoService.reportContent(uri, 'other');
                           if (success) {
+                            const { useReportedPostsStore } = await import('../../../stores/reportedPostsStore');
+                            useReportedPostsStore.getState().reportPost(uri);
                             Alert.alert('Thank you', 'This content has been reported for review.');
                           } else {
                             Alert.alert('Error', 'Failed to submit report. Please try again.');

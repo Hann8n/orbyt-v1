@@ -8,6 +8,7 @@ import {
   Modal,
   TextInput,
   Linking,
+  LayoutAnimation,
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
@@ -32,6 +33,7 @@ import { useProfile } from '../../../services/cache/ProfileCache';
 import { useUserStore } from '../../../stores/userStore';
 import { usePostInteractionStore } from '../../../stores/postInteractionStore';
 import { useCommentStore } from '../../../stores/commentStore';
+import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { useGlobalCommentSection, useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
@@ -384,13 +386,19 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     [commentsPages]
   );
 
+  // Track reported comments for animated removal
+  const reportedPostUris = useReportedPostsStore((state) => state.reportedPostUris);
+  const reportedUrisArray = useMemo(() => Array.from(reportedPostUris), [reportedPostUris.size]);
+  const previousCommentsLengthRef = useRef<number>(0);
+
   const flattenedComments = useMemo<Comment[]>(() => {
     const flat: Comment[] = [];
     const addComments = (commentList: Comment[], parentComment?: Comment) => {
       commentList.forEach((c: Comment) => {
         if (c && typeof c === 'object') {
           const commentUri = c?.uri || c?.post?.uri;
-          if (commentUri && deletedComments.has(commentUri)) {
+          // Filter out deleted and reported comments
+          if (commentUri && (deletedComments.has(commentUri) || reportedPostUris.has(commentUri))) {
             return;
           }
           const flatComment: Comment = {
@@ -409,7 +417,32 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       addComments(comments);
     }
     return flat;
-  }, [comments, deletedComments]);
+  }, [comments, deletedComments, reportedPostUris, reportedUrisArray]);
+
+  // Prepare layout animation when comments are removed
+  useEffect(() => {
+    const currentLength = flattenedComments.length;
+    const previousLength = previousCommentsLengthRef.current;
+    
+    if (previousLength > 0 && currentLength !== previousLength) {
+      LayoutAnimation.configureNext({
+        duration: 300,
+        create: {
+          type: LayoutAnimation.Types.easeInEaseOut,
+          property: LayoutAnimation.Properties.opacity,
+        },
+        update: {
+          type: LayoutAnimation.Types.easeInEaseOut,
+        },
+        delete: {
+          type: LayoutAnimation.Types.easeInEaseOut,
+          property: LayoutAnimation.Properties.opacity,
+        },
+      });
+    }
+    
+    previousCommentsLengthRef.current = currentLength;
+  }, [flattenedComments.length]);
 
   const {
     data: likesPages,

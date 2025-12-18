@@ -319,6 +319,9 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     try {
       const success = await AtprotoService.reportContent(postUri, reasonType);
       if (success) {
+        // Mark post as reported to trigger animated removal from feed
+        const { useReportedPostsStore } = await import('../../stores/reportedPostsStore');
+        useReportedPostsStore.getState().reportPost(postUri);
         Alert.alert('thank you', 'this content has been reported for review.');
       } else {
         Alert.alert('error', 'failed to submit report. please try again.');

@@ -26,6 +26,8 @@ import {
   FlashListRef,
   type ListRenderItemInfo,
 } from "@shopify/flash-list";
+import { useReportedPostsStore } from "../../../stores/reportedPostsStore";
+import { LayoutAnimation } from "react-native";
 
 import EmptyFeed from "./EmptyFeed";
 import { VideoItem } from "./VideoItem";
@@ -290,28 +292,73 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       [backgroundColor, secondaryColor],
     );
 
+    // Track reported posts for animated removal
+    // Subscribe to the store to react to changes
+    // Convert Set to array for proper dependency tracking
+    const reportedPostUris = useReportedPostsStore((state) => state.reportedPostUris);
+    const reportedUrisArray = useMemo(() => Array.from(reportedPostUris), [reportedPostUris.size]);
+    const previousFeedLengthRef = useRef<number>(0);
+    const previousFilteredLengthRef = useRef<number>(0);
+
+    // Filter feed to remove reported posts
+    const filteredFeed = useMemo(() => {
+      return feed.filter((item) => {
+        if (item.endCard) return true;
+        return !reportedPostUris.has(item.post.uri);
+      });
+    }, [feed, reportedPostUris, reportedUrisArray]);
+
+    // Prepare layout animation when items are added or removed
+    useEffect(() => {
+      const currentLength = filteredFeed.length;
+      const previousLength = previousFilteredLengthRef.current;
+      
+      // Only prepare animation if length changed (items added or removed)
+      // Skip on initial mount (previousLength === 0)
+      if (previousLength > 0 && currentLength !== previousLength) {
+        // Use React Native's LayoutAnimation for smooth transitions
+        LayoutAnimation.configureNext({
+          duration: 300,
+          create: {
+            type: LayoutAnimation.Types.easeInEaseOut,
+            property: LayoutAnimation.Properties.opacity,
+          },
+          update: {
+            type: LayoutAnimation.Types.easeInEaseOut,
+          },
+          delete: {
+            type: LayoutAnimation.Types.easeInEaseOut,
+            property: LayoutAnimation.Properties.opacity,
+          },
+        });
+      }
+      
+      previousFilteredLengthRef.current = currentLength;
+      previousFeedLengthRef.current = feed.length;
+    }, [filteredFeed.length, feed.length]);
+
     // List data with end card
     // FlashList's maintainVisibleContentPosition will handle position preservation
+    // Reanimated layout animations handle smooth removal of reported posts and addition of new items
     const listData = useMemo(() => {
-      const base = feed;
       const shouldAppendEndCard =
         !isLoading &&
         !isError &&
         !isFetchingNextPage &&
         !hasNextPage &&
-        base.length > 0;
+        filteredFeed.length > 0;
 
       if (shouldAppendEndCard) {
         return [
-          ...base,
+          ...filteredFeed,
           {
             post: { uri: "end-card", cid: "end-card" } as any,
             endCard: true,
           } as FeedItem,
         ];
       }
-      return base;
-    }, [feed, isLoading, isError, isFetchingNextPage, hasNextPage]);
+      return filteredFeed;
+    }, [filteredFeed, isLoading, isError, isFetchingNextPage, hasNextPage]);
 
     // Error handling
     const effectiveError = forceError
