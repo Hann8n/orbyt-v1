@@ -6,7 +6,6 @@ import { setAppIcon } from '@mozzius/expo-dynamic-app-icon';
 
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
-import Icon from '../../src/components/ui/Icon';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 
 type AppIconKey = 'orBYTE' | 'orbytTV' | null;
@@ -15,29 +14,19 @@ const ICON_OPTIONS: {
   id: string;
   label: string;
   iconKey: AppIconKey;
-  description: string;
   preview: any;
 }[] = [
   {
     id: 'default',
-    label: 'Default icon',
+    label: 'Default',
     iconKey: null,
-    description: 'Use the standard orbyt icon',
-    preview: require('../../src/assets/icon.png'),
+    preview: require('../../src/assets/AppIcons/iOS/orbyt.png'),
   },
   {
     id: 'orBYTE',
-    label: 'Triangle icon',
+    label: 'Beta',
     iconKey: 'orBYTE',
-    description: 'Minimal triangle mark',
-    preview: require('../../src/assets/AppIcons/android/orBYTE_icon_adaptive_foreground.png'),
-  },
-  {
-    id: 'orbytTV',
-    label: 'TV icon',
-    iconKey: 'orbytTV',
-    description: 'TV-inspired app icon',
-    preview: require('../../src/assets/AppIcons/android/orbyt_icon_adaptive_foreground.png'),
+    preview: require('../../src/assets/AppIcons/iOS/orBYTE.png'),
   },
 ];
 
@@ -89,17 +78,11 @@ const AppIconSettingsScreen: React.FC = () => {
               activeOpacity={0.7}
               disabled={isSubmitting}
             >
-              <View style={styles.iconRowLeft}>
+              <View style={styles.row}>
+                <Text style={settingsTextStyles.menuOptionText}>{option.label}</Text>
                 <View style={styles.previewContainer}>
                   <Image source={option.preview} style={styles.previewImage} resizeMode="contain" />
                 </View>
-                <View style={styles.textContainer}>
-                  <Text style={settingsTextStyles.menuOptionText}>{option.label}</Text>
-                  <Text style={styles.descriptionText}>{option.description}</Text>
-                </View>
-              </View>
-              <View style={styles.chevronContainer}>
-                <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
               </View>
             </TouchableOpacity>
           </View>
@@ -110,17 +93,17 @@ const AppIconSettingsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  iconRowLeft: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
   previewContainer: {
-    width: 44,
-    height: 44,
+    width: 52,
+    height: 52,
     borderRadius: 15,
     overflow: 'hidden',
-    marginRight: 12,
+    marginLeft: 'auto',
     backgroundColor: Colors.black,
   },
   previewImage: {
@@ -129,18 +112,6 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
-  },
-  descriptionText: {
-    color: Colors.gray,
-    fontSize: 12,
-    fontFamily: 'Firma-Regular',
-    marginTop: 4,
-  },
-  chevronContainer: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 
