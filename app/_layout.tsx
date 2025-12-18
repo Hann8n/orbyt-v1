@@ -306,6 +306,14 @@ export default function RootLayout() {
           <Stack.Screen name="(modals)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen 
+            name="oauth/callback" 
+            options={{ 
+              headerShown: false,
+              animation: 'none',
+              gestureEnabled: false,
+            }} 
+          />
+          <Stack.Screen 
             name="video-trimmer" 
             options={{ 
               headerShown: false,
