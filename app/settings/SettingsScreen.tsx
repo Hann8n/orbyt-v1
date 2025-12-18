@@ -341,7 +341,7 @@ const SettingsScreen: React.FC = () => {
           onPress: handleClearCache,
           showChevron: false
         },
-        {
+        ...(isDeveloper ? [{
           id: 'app-icon',
           label: 'App icon',
           icon: 'device-tv',
@@ -350,7 +350,7 @@ const SettingsScreen: React.FC = () => {
             setTimeout(() => navigation.push('/settings/app-icon'), 100);
           },
           showChevron: true
-        },
+        }] : []),
         {
           id: 'about',
           label: 'About orbyt',

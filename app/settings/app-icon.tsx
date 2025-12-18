@@ -8,7 +8,7 @@ import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 
-type AppIconKey = 'orBYTE' | 'orbytTV' | null;
+type AppIconKey = 'orBYTE' | null;
 
 const ICON_OPTIONS: {
   id: string;
