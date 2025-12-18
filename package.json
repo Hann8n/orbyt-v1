@@ -13,6 +13,8 @@
     "build:preview": "eas build --profile preview",
     "build:prod": "eas build --profile production",
     "build:ios-ipa": "eas build --platform ios --profile ios-ipa",
+    "build:android-apk": "cd android && ./gradlew assembleRelease",
+    "build:android-aab": "cd android && ./gradlew bundleRelease",
     "serve:docs": "npx serve docs -l 5173 --single"
   },
   "dependencies": {
