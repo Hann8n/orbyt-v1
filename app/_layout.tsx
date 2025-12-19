@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, StatusBar, Appearance, AppState, InteractionManager } from 'react-native';
+import { View, StyleSheet, StatusBar, Appearance, AppState, InteractionManager, Platform } from 'react-native';
 import { Stack, Redirect, usePathname, useSegments } from 'expo-router';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -134,8 +134,10 @@ export default function RootLayout() {
 
   // Set Android navigation bar to dark theme
   useEffect(() => {
-    NavigationBar.setBackgroundColorAsync(Colors.black).catch(() => {});
-    NavigationBar.setButtonStyleAsync('light').catch(() => {});
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync(Colors.black).catch(() => {});
+      NavigationBar.setButtonStyleAsync('light').catch(() => {});
+    }
   }, []);
 
   // Parallel initialization: fonts and auth state load simultaneously
@@ -179,9 +181,11 @@ export default function RootLayout() {
     const interactionHandle = InteractionManager.runAfterInteractions(async () => {
       try {
         await setVideoCacheSizeAsync(500 * 1024 * 1024);
-      } catch (error) {
-        console.warn('Failed to set video cache size:', error);
-        // Non-critical error - app will continue to work with default cache settings
+      } catch (error: any) {
+        // Silently ignore cache size errors (e.g., when players are active)
+        if (__DEV__ && error?.message?.includes('active players')) {
+          // Only log in dev, not in production
+        }
       }
     });
 

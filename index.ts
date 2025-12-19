@@ -1,11 +1,31 @@
 // Apply required polyfills for @atproto/oauth-client-expo
 import 'event-target-polyfill';
 
+// Polyfill Intl.Segmenter for @atproto/lex-data to prevent warning
+declare const global: any;
+if (typeof Intl.Segmenter === 'undefined') {
+  (Intl as any).Segmenter = class Segmenter {
+    constructor(_locale?: string | string[], _options?: any) {}
+    segment(text: string) {
+      return {
+        [Symbol.iterator]: function* () {
+          for (let i = 0; i < text.length; i++) {
+            yield { segment: text[i], index: i, input: text, isWordLike: false };
+          }
+        },
+        containing: (index: number) => 
+          index >= 0 && index < text.length 
+            ? { segment: text[index], index, input: text, isWordLike: false }
+            : undefined,
+      };
+    }
+  };
+}
+
 // Polyfill global.Buffer for node libraries that expect it (e.g., multiformats)
 // The 'buffer' package is included in package.json already.
 // This ensures libraries using Buffer won't crash in React Native.
 import { Buffer } from 'buffer';
-declare const global: any;
 if (typeof global.Buffer === 'undefined') {
   global.Buffer = Buffer;
 }

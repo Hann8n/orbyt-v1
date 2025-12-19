@@ -5,6 +5,9 @@ import {
   Text,
   Pressable,
   StyleSheet,
+  ViewStyle,
+  TextStyle,
+  StyleProp,
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../utils/truesheet/trueSheetUtils';
@@ -144,7 +147,6 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
       backgroundColor={Colors.black}
       onDidDismiss={onDismiss}
       grabber={false}
-      keyboardMode="pan"
       scrollable={scrollable}
       header={headerComponent}
       footer={
@@ -328,8 +330,8 @@ export const VerticalListButton: React.FC<{
   icon?: string;
   disabled?: boolean;
   danger?: boolean;
-  style?: any;
-  textStyle?: any;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
 }> = ({ label, onPress, icon, disabled, danger, style, textStyle }) => {
   return (
     <OptionsButton
@@ -350,7 +352,7 @@ export const VerticalListCheckboxButton: React.FC<{
   checked: boolean;
   onPress: () => void;
   disabled?: boolean;
-  style?: any;
+  style?: StyleProp<ViewStyle>;
 }> = ({ label, description, checked, onPress, disabled, style }) => {
   return (
     <OptionsButton
