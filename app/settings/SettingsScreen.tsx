@@ -7,8 +7,10 @@ import {
   Platform,
   ScrollView,
   Share,
+  Linking,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
@@ -93,17 +95,24 @@ const SettingsScreen: React.FC = () => {
 
   const handleRemoveAccount = async () => {
     if (isSubmitting) return;
-    
+
+    const hasMultipleAccounts = savedAccounts.length > 1;
+    const title = hasMultipleAccounts ? 'Remove accounts?' : 'Remove account?';
+    const message = hasMultipleAccounts
+      ? 'This will remove all accounts from this device. You will need to sign in again.'
+      : 'You will need to sign in again.';
+    const confirmLabel = hasMultipleAccounts ? 'Remove accounts' : 'Remove account';
+
     Alert.alert(
-      'Are you sure?',
-      'You will need to sign in again',
+      title,
+      message,
       [
         {
           text: 'Cancel',
           style: 'cancel',
         },
         {
-          text: 'Remove Account',
+          text: confirmLabel,
           style: 'destructive',
           onPress: async () => {
             setIsSubmitting(true);
@@ -196,6 +205,16 @@ const SettingsScreen: React.FC = () => {
     );
   };
 
+  const handleOpenLink = (url: string) => {
+    Linking.openURL(url).catch(err => console.error('Error opening link:', err));
+  };
+
+  const handleOpenEmail = (email: string) => {
+    Linking.openURL(`mailto:${email}`).catch(err => console.error('Error opening email:', err));
+  };
+
+  const appVersion = Constants.expoConfig?.version || '1.0.0';
+
 
 
 
@@ -229,15 +248,8 @@ const SettingsScreen: React.FC = () => {
           showChevron: false
         },
         {
-          id: 'channels',
-          label: 'Your channels',
-          icon: 'device-tv',
-          onPress: () => navigation.push('/settings/channels'),
-          showChevron: false
-        },
-        {
           id: 'saves',
-          label: 'Your Saves',
+          label: 'Your saves',
           icon: 'bookmark',
           onPress: () => navigation.push('/settings/saves'),
           showChevron: false
@@ -274,7 +286,7 @@ const SettingsScreen: React.FC = () => {
       ]
     },
     {
-      title: 'Content',
+      title: 'App Settings',
       items: [
         {
           id: 'content-filters',
@@ -285,12 +297,18 @@ const SettingsScreen: React.FC = () => {
         },
         {
           id: 'algorithmic-feed',
-          label: 'Algorithmic feed',
+          label: 'Your mix',
           icon: 'sparkles',
           onPress: () => navigation.push('/settings/algorithmic-feed'),
           showChevron: true
         },
-
+        ...(isDeveloper ? [{
+          id: 'app-icon',
+          label: 'App icon',
+          icon: 'device-tv',
+          onPress: () => navigation.push('/settings/app-icon'),
+          showChevron: true
+        }] : []),
         // {
         //   id: 'experimental-feeds',
         //   label: 'Experimental Feeds',
@@ -308,42 +326,61 @@ const SettingsScreen: React.FC = () => {
       ]
     },
     {
-      title: 'App Settings',
+      title: 'Troubleshooting',
       items: [
         {
           id: 'clear-cache',
-          label: 'Clear app cache',
+          label: 'Clear cache',
           onPress: handleClearCache,
           showChevron: false
         },
-        ...(isDeveloper ? [{
-          id: 'app-icon',
-          label: 'App icon',
-          icon: 'device-tv',
-          onPress: () => navigation.push('/settings/app-icon'),
-          showChevron: true
-        }] : []),
         {
-          id: 'about',
-          label: 'About orbyt',
-          icon: 'device-tv',
-          onPress: () => navigation.push('/settings/about'),
+          id: 'support',
+          label: 'Support',
+          onPress: () => handleOpenEmail('support@getorbyt.com'),
+          showChevron: true
+        }
+      ]
+    },
+    {
+      title: 'About',
+      items: [
+        {
+          id: 'website',
+          label: 'Website',
+          onPress: () => handleOpenLink('https://getorbyt.com'),
           showChevron: true
         },
-        // {
-        //   id: 'help',
-        //   label: 'Help & Support',
-        //   icon: 'headset',
-        //   onPress: () => handlePlaceholderAction('Help & Support'),
-        //   showChevron: true
-        // },
-        // {
-        //   id: 'feedback',
-        //   label: 'Send Feedback',
-        //   icon: 'message-text',
-        //   onPress: () => handlePlaceholderAction('Send Feedback'),
-        //   showChevron: true
-        // }
+        {
+          id: 'privacy',
+          label: 'Privacy policy',
+          onPress: () => handleOpenLink('https://getorbyt.com/privacy'),
+          showChevron: true
+        },
+        {
+          id: 'terms',
+          label: 'Terms of service',
+          onPress: () => handleOpenLink('https://getorbyt.com/terms'),
+          showChevron: true
+        }
+      ]
+    },
+    {
+      title: 'Accounts',
+      items: [
+        {
+          id: 'logout',
+          label: 'Log out',
+          onPress: handleLogout,
+          showChevron: false
+        },
+        {
+          id: 'remove-account',
+          label: savedAccounts.length > 1 ? 'Remove accounts' : 'Remove account',
+          onPress: handleRemoveAccount,
+          showChevron: false,
+          destructive: true
+        }
       ]
     },
 
@@ -353,7 +390,9 @@ const SettingsScreen: React.FC = () => {
   type ListRow =
     | { kind: 'section-title'; id: string; title: string }
     | { kind: 'setting'; id: string; label: string; showChevron?: boolean; onPress: () => void; destructive?: boolean }
-    | { kind: 'toggle'; id: string; label: string; subtitle?: string; value: boolean; onValueChange: (v: boolean) => void };
+    | { kind: 'toggle'; id: string; label: string; subtitle?: string; value: boolean; onValueChange: (v: boolean) => void }
+    | { kind: 'spacer'; id: string; height?: number }
+    | { kind: 'footer'; id: string };
 
   const listData: ListRow[] = [];
 
@@ -370,10 +409,11 @@ const SettingsScreen: React.FC = () => {
         label: (item as any).label,
         showChevron: (item as any).showChevron,
         onPress: (item as any).onPress,
+        destructive: (item as any).destructive,
       });
     });
 
-    if (section.title === 'Content') {
+    if (section.title === 'App Settings') {
       listData.push({
         kind: 'toggle',
         id: 'experimental-feeds',
@@ -385,23 +425,11 @@ const SettingsScreen: React.FC = () => {
     }
   });
 
-  // Add logout and remove account rows at the end
-  listData.push({
-    kind: 'setting',
-    id: 'logout',
-    label: 'Log out',
-    showChevron: false,
-    onPress: handleLogout,
-    destructive: false,
-  });
 
+  // Add footer with version and built with love message
   listData.push({
-    kind: 'setting',
-    id: 'remove-account',
-    label: savedAccounts.length > 1 ? 'Remove Accounts' : 'Remove Account',
-    showChevron: false,
-    onPress: handleRemoveAccount,
-    destructive: true,
+    kind: 'footer',
+    id: 'footer',
   });
 
   return (
@@ -453,6 +481,27 @@ const SettingsScreen: React.FC = () => {
                   onSwitchChange={item.onValueChange}
                 />
               );
+            case 'spacer':
+              return (
+                <View key={key} style={{ height: item.height || 12 }} />
+              );
+            case 'footer':
+              return (
+                <View key={key} style={styles.footer}>
+                  <View style={styles.footerContent}>
+                    <View style={styles.footerHeartContainer}>
+                      <Text style={styles.footerSubtext}>
+                        built with{' '}
+                      </Text>
+                      <Icon name="heart" size={18} color={Colors.lightRed} />
+                      <Text style={styles.footerSubtext}>
+                        {' '}for the community
+                      </Text>
+                    </View>
+                    <Text style={styles.versionText}>v{appVersion}</Text>
+                  </View>
+                </View>
+              );
             
             default:
               return null;
@@ -498,6 +547,32 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 12,
     marginHorizontal: 0,
+  },
+  footer: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  footerContent: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  footerSubtext: {
+    color: Colors.gray,
+    fontSize: 12,
+    fontFamily: 'Firma-Regular',
+    textAlign: 'center',
+  },
+  footerHeartContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  versionText: {
+    color: Colors.mediumGray,
+    fontSize: 12,
+    fontFamily: 'Firma-Regular',
+    textAlign: 'center',
   },
 });
 

@@ -359,7 +359,7 @@ export const settingsLayoutStyles = StyleSheet.create({
 
   // Content container with standard settings padding (5px)
   contentContainerWithPadding: {
-    paddingBottom: 40,
+    paddingBottom: 20,
     paddingHorizontal: 0, // Remove horizontal padding to match other sheets
   },
 

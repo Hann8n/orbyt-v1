@@ -83,28 +83,34 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
 
   const getBackgroundColor = () => {
     if (pressed) {
-      if (destructive) return Colors.darkGray;
+      if (destructive) return '#C04A58'; // Pastel red background when pressed
       return hexToRGBA(Colors.lightGray, 0.8);
     }
-    if (destructive) return Colors.red;
+    if (destructive) return Colors.darkRed;
     return Colors.darkGray;
   };
 
   const getTextColor = () => {
     if (pressed) {
+      if (destructive) return Colors.darkRed; // Dark red text when pressed
+      return Colors.black;
+    }
+    if (destructive) return '#C04A58'; // Pastel red, darker than #d65b6a
+    return Colors.white;
+  };
+
+  const getChevronColor = () => {
+    if (pressed) {
       if (destructive) return Colors.white;
       return Colors.black;
     }
-    if (destructive) return Colors.darkGray;
-    if (selected) return Colors.lightGreen;
-    return Colors.white;
+    return Colors.lightGray;
   };
 
   const buttonContent = (
     <View style={[
       buttonStyles.menuOption,
       { backgroundColor: getBackgroundColor() },
-      selected && !pressed && { borderColor: Colors.lightGreen, borderWidth: 1 },
       containerStyle,
       style,
     ]}>
@@ -122,7 +128,7 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
           {subtitle && (
             <Text style={[
               textStyles.menuOptionSubtitle,
-              pressed && { color: Colors.gray }
+              { color: pressed ? (destructive ? Colors.white : Colors.black) : Colors.gray }
             ]}>
               {subtitle}
             </Text>
@@ -130,7 +136,7 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
           {description && (
             <Text style={[
               textStyles.menuOptionSubtitle,
-              pressed && { color: Colors.gray }
+              { color: pressed ? (destructive ? Colors.white : Colors.black) : Colors.gray }
             ]}>
               {description}
             </Text>
@@ -155,7 +161,7 @@ export const OptionsButton: React.FC<OptionsButtonProps> = ({
         </View>
       ) : showChevron ? (
         <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
+          <Icon name="right_arrow_filled" size={24} color={getChevronColor()} />
         </View>
       ) : null}
     </View>

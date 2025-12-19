@@ -187,7 +187,7 @@ const ContentFiltersScreen: React.FC = () => {
     <View style={settingsLayoutStyles.container}>
       <ListHeader
         mode="sheet"
-        title="content filters"
+        title="Content filters"
         showCloseButton
         onClosePress={() => navigation.back()}
         applySafeAreaTop={false}

@@ -14,7 +14,7 @@ const SavesScreen: React.FC = () => {
     <View style={styles.container}>
       <ListHeader 
         mode="sheet"
-        title="Your Saves"
+        title="Your saves"
         showCloseButton
         onClosePress={() => navigation.back()}
         applySafeAreaTop={false}

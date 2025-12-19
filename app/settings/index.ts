@@ -1,6 +1,5 @@
 // Export all settings screens
 export { default as SettingsScreen } from './SettingsScreen';
-export { default as AboutScreen } from './about';
 
 export { default as ChannelManagementScreen } from './channels';
 export { default as HiddenPostsScreen } from './hidden-posts';
