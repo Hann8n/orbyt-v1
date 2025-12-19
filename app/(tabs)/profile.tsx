@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { tabRefs } from '../../src/utils/tabRefs';
 import type { ScrollToTopRef } from '../../src/utils/tabRefs';
 import { BORDER_RADIUS } from '../../src/utils/constants';
-import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Dimensions, Modal } from 'react-native';
+import { Image } from 'expo-image';
 import AtprotoService from '../../src/services/api/AtprotoService';
 // Use plain FlashList via FeedRenderer; no adapter/converter
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
@@ -15,7 +16,7 @@ import ProfileCache, {
   profileKeys
 } from '../../src/services/cache/ProfileCache';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Icon, { BackArrowIcon, Loading3FillIcon, FollowIcon, MutualHeartIcon, BellFilledIcon, MoreFillIcon } from '../../src/components/ui/Icon';
+import Icon, { BackArrowIcon, Loading3FillIcon, FollowIcon, MutualHeartIcon, BellFilledIcon, MoreFillIcon, CloseFillIcon } from '../../src/components/ui/Icon';
 import { useQueryClient } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
 import { useCurrentUser, useAccountManagement, useUserStore, useProfileCacheSync } from '../../src/stores/userStore';
@@ -28,7 +29,6 @@ import { useFollowMutation } from '../../src/services/cache/ProfileCache';
 import { createQueryKeys } from '../../src/services/FeedService';
 import { useUserSubscription, useSubscriptionStore } from '../../src/stores/subscriptionStore';
 import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
-import EditProfileSheet from '../../src/components/features/profile/EditProfileSheet';
 import SubscriptionOptionsSheet from '../../src/components/features/profile/SubscriptionOptionsSheet';
 import ChatService from '../../src/services/ChatService';
 import { HeaderAction, HeaderActionButton } from '../../src/components/layout/header/UniversalHeader';
@@ -274,9 +274,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   // Overlay action state (moved from ProfileHeader)
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showEditSheet, setShowEditSheet] = useState(false);
   const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
   const [canMessage, setCanMessage] = useState<boolean | null>(null);
+  const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
   const [extractedDefaultColors, setExtractedDefaultColors] = useState<{
     backgroundColor: string;
     textColor: string;
@@ -417,7 +417,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         {
           id: 'edit',
           label: 'Edit profile',
-          onPress: () => setShowEditSheet(true),
+          onPress: () => router.push('/edit-profile'),
         },
       ];
     }
@@ -597,6 +597,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                     headerScrollProgress={headerScrollProgress}
                     contentFadeDisabled={viewMode === 'grid'}
                     dimOverlayDisabled={viewMode === 'grid'}
+                    onAvatarPress={profileData?.avatar ? () => setFullscreenImageUri(profileData.avatar || null) : undefined}
                   >
                     <TabNavigation
                       key={`tab-nav-${dynamicColors?.textColor || profileColors.textColor}`}
@@ -631,13 +632,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       )}
 
       {/* Sheets and menus moved from ProfileHeader so overlay buttons can control them */}
-      <EditProfileSheet
-        visible={showEditSheet}
-        onDismiss={() => setShowEditSheet(false)}
-        profileData={profileData}
-        defaultColors={extractedDefaultColors}
-      />
-
       <ProfileMenu
         visible={showProfileMenu}
         onDismiss={() => setShowProfileMenu(false)}
@@ -656,6 +650,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           did={profileData.did}
         />
       )}
+
+      <Modal
+        visible={!!fullscreenImageUri}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setFullscreenImageUri(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setFullscreenImageUri(null)}>
+          {fullscreenImageUri && (
+            <Image source={{ uri: fullscreenImageUri }} style={styles.fullscreenImage} contentFit="contain" />
+          )}
+          <Pressable style={styles.closeButton} onPress={() => setFullscreenImageUri(null)}>
+            <CloseFillIcon size={28} color={Colors.white} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 });
@@ -767,6 +777,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenImage: {
+    width: '95%',
+    height: '80%',
+    borderRadius: BORDER_RADIUS.MEDIUM,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 60,
+    left: 24,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: BORDER_RADIUS.LARGE,
+    padding: 12,
   },
 });
 

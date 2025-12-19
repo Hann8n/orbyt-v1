@@ -2,7 +2,7 @@ declare let window: any;
 
 import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, Pressable, Text, TextInput, Platform } from 'react-native';
+import { View, StyleSheet, Pressable, Text, Platform } from 'react-native';
 import { Image, ImageBackground } from 'expo-image';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Animated, { type SharedValue, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
@@ -36,7 +36,6 @@ export interface HeaderContent {
   avatar?: string;
   title: string;
   customTitle?: React.ReactNode;
-  onTitleChange?: (text: string) => void;
   subtitle?: string;
   subtitleSecondary?: string; // e.g., Joined date or secondary line
   description?: string;
@@ -44,7 +43,6 @@ export interface HeaderContent {
   badge?: React.ReactNode;
   onAvatarPress?: () => void;
   onTitlePress?: () => void;
-  isEditMode?: boolean;
   avatarStyle?: 'circle' | 'rounded-square';
   hideAvatar?: boolean;
   avatarBlurRadius?: number;
@@ -428,69 +426,13 @@ const HeaderContentComponent = memo<{
             />
           )}
         </Pressable>
-        {content.onAvatarPress && (
-          <View style={styles.uploadSection}>
-            <Text style={[styles.editSubheader, { color: textColor }]}>
-              PROFILE PICTURE
-            </Text>
-            <Pressable
-              style={[
-                styles.actionButton,
-                styles.uploadButton,
-                {
-                  backgroundColor: hexToRGBA(textColor, 0.2),
-                  borderColor: hexToRGBA(textColor, 0.3),
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  minWidth: 90,
-                  height: 44,
-                },
-                Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.uploadButtonGlass
-              ]}
-              onPress={content.onAvatarPress}
-            >
-              {Platform.OS === 'ios' && isLiquidGlassAvailable() && (
-                <GlassView
-                  style={styles.glassBackground}
-                  glassEffectStyle="clear"
-                  tintColor="rgba(255,255,255,0.05)"
-                  isInteractive
-                />
-              )}
-              <Text style={[styles.actionText, { color: textColor }]}>
-                Upload
-              </Text>
-            </Pressable>
-          </View>
-        )}
       </View>
       
-      {content.isEditMode && (
-        <View style={[styles.dividerContainer, { marginLeft: -20, marginRight: -20 }]}>
-          <View style={[styles.divider, { backgroundColor: hexToRGBA(textColor, 0.2) }]} />
-        </View>
-      )}
-      
       <View style={styles.textContainer}>
-        {content.isEditMode && (
-          <Text style={[styles.editSubheader, { color: textColor }]}>
-            DISPLAY NAME
-          </Text>
-        )}
-        {content.isEditMode ? (
-          <TextInput
-            style={[styles.title, styles.editTitle, { color: textColor, marginTop: 2 }]}
-            value={content.title}
-            placeholder="Enter display name..."
-            placeholderTextColor={hexToRGBA(textColor, 0.5)}
-            maxLength={64}
-            onChangeText={content.onTitleChange}
-          />
-        ) : (
-          <Pressable
-            style={styles.titleRow}
-            onPress={content.onTitlePress}
-          >
+        <Pressable
+          style={styles.titleRow}
+          onPress={content.onTitlePress}
+        >
             {content.customTitle ? (
               <View style={styles.titleRow}>
                 {content.customTitle}
@@ -509,7 +451,6 @@ const HeaderContentComponent = memo<{
               />
             )}
           </Pressable>
-        )}
         
         {!!content.subtitle && (
           <Pressable
@@ -985,54 +926,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Medium',
     fontSize: 17,
   },
-  editAvatarOverlay: {
-    position: 'absolute',
-    top: '50%',
-    right: -16,
-    width: 32,
-    height: 32,
-    borderRadius: BORDER_RADIUS.FULL,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: Colors.white,
-    transform: [{ translateY: -16 }],
-  },
-  uploadSection: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 4,
-  },
-  uploadButton: {
-    overflow: 'hidden',
-  },
-  uploadButtonGlass: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  uploadLabel: {
-    fontFamily: 'Firma-Bold',
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    paddingLeft: 4,
-  },
-  editAvatarButton: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.LARGE,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: Colors.white,
-  },
-  editAvatarOverlayRoundedSquare: {
-    borderRadius: BORDER_RADIUS.LARGE,
-    top: '50%',
-    right: -16,
-    transform: [{ translateY: -16 }],
-  },
   content: {
     width: '100%',
     zIndex: 1,
@@ -1046,27 +939,6 @@ const styles = StyleSheet.create({
   },
   contentSpaceBetween: {
     justifyContent: 'space-between',
-  },
-  dividerContainer: {
-    marginTop: 6,
-    marginBottom: 6,
-  },
-  divider: {
-    height: 1,
-    width: '100%',
-  },
-  editSubheader: {
-    fontFamily: 'Firma-Bold',
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-    marginTop: 12,
-  },
-  editTitle: {
-    backgroundColor: 'transparent',
-    padding: 0,
-    margin: 0,
   },
   shadowGradient: {
     position: 'absolute',

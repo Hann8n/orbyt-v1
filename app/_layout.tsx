@@ -349,6 +349,14 @@ export default function RootLayout() {
               animation: 'slide_from_bottom'
             }} 
           />
+          <Stack.Screen 
+            name="edit-profile" 
+            options={{ 
+              headerShown: false,
+              presentation: 'modal',
+              animation: 'slide_from_bottom'
+            }} 
+          />
         </Stack>
         <GlobalModals />
       </View>

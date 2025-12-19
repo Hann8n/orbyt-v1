@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,43 +7,26 @@ import {
   TextInput,
   Alert,
   ScrollView,
-  Modal,
   Dimensions,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, SharedValue } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
-import { Button, Host } from '@expo/ui/swift-ui';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { Colors, Avatar } from '../../ui/UI';
-import { Loading3FillIcon } from '../../ui/Icon';
-import { useProfileUpdateMutation } from '../../../services/cache/ProfileCache';
+import { Colors, Avatar } from '../src/components/ui/UI';
+import { Loading3FillIcon } from '../src/components/ui/Icon';
+import { useProfileUpdateMutation, useProfile } from '../src/services/cache/ProfileCache';
+import { hexToRGBA } from '../src/utils/formatting/colorUtils';
+import { BORDER_RADIUS } from '../src/utils/constants';
+import { useCurrentUser } from '../src/stores/userStore';
 
 export interface ProfileColorOption {
   id: string;
   backgroundColor: string;
   textColor: string;
   label: string;
-}
-import { hexToRGBA } from '../../../utils/formatting/colorUtils';
-import Icon from '../../ui/Icon';
-import { BORDER_RADIUS } from '../../../utils/constants';
-
-interface EditProfileSheetProps {
-  visible: boolean;
-  onDismiss: () => void;
-  profileData: {
-    displayName?: string;
-    description?: string;
-    avatar?: string;
-    handle?: string;
-    did?: string;
-  } | null;
-  defaultColors?: {
-    backgroundColor: string;
-    textColor: string;
-  };
 }
 
 const INPUT_BACKGROUND_OPACITY = 0.06;
@@ -126,12 +109,14 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = ({
   );
 };
 
-const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
-  visible,
-  onDismiss,
-  profileData,
-  defaultColors,
-}) => {
+const EditProfileScreen: React.FC = () => {
+  const router = useRouter();
+  const { currentUser } = useCurrentUser();
+  const userHandle = currentUser?.handle || null;
+  
+  // Fetch profile data - use cache directly, no refetch
+  const { data: profileData } = useProfile(userHandle);
+  
   // Form state
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -148,7 +133,12 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   // Track inverted state per color ID
   const [invertedStates, setInvertedStates] = useState<Record<string, boolean>>({});
   
-  // Predefined color options - need to access this to create shared values
+  // Ref to track if we've initialized colors to prevent infinite loops
+  const hasInitializedColors = useRef(false);
+  // Ref for color picker ScrollView to scroll to selected color
+  const colorPickerScrollViewRef = useRef<ScrollView>(null);
+  
+  // Predefined color options
   const predefinedColors: ProfileColorOption[] = useMemo(() => [
     // First color option - black background with light gray text
     {
@@ -414,9 +404,21 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   // Mutation
   const profileUpdateMutation = useProfileUpdateMutation();
 
-  // Initialize form when sheet opens
+  // Get colors directly from cached profile data (more efficient than separate hook)
+  const defaultColors = useMemo(() => {
+    const colors = profileData?.profileColors;
+    if (!colors?.backgroundColor || !colors?.foregroundColor) {
+      return undefined;
+    }
+    return {
+      backgroundColor: colors.backgroundColor,
+      textColor: colors.foregroundColor, // foregroundColor is the text color
+    };
+  }, [profileData?.profileColors?.backgroundColor, profileData?.profileColors?.foregroundColor]);
+
+  // Initialize form when component mounts and profile data is available
   useEffect(() => {
-    if (visible && profileData) {
+    if (profileData && !hasInitializedColors.current) {
       setEditDisplayName(profileData.displayName || '');
       setEditDescription(profileData.description || '');
       setEditAvatar(undefined);
@@ -514,8 +516,32 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
       }
       
       setSelectedColorType('background');
+      hasInitializedColors.current = true;
     }
-  }, [visible, profileData, defaultColors, colorFlexValues]);
+  }, [profileData, defaultColors, colorFlexValues]);
+
+  // Calculate and set scroll position when color picker is laid out
+  const handleColorPickerLayout = useCallback(() => {
+    if (!colorPickerScrollViewRef.current || !hasInitializedColors.current || !selectedColorId) {
+      return;
+    }
+
+    const selectedColorIndex = predefinedColors.findIndex(c => c.id === selectedColorId);
+    if (selectedColorIndex < 0) return;
+
+    const colorWidth = 44;
+    const gap = 8;
+    const itemWidth = colorWidth + gap;
+    const padding = 20;
+    const screenWidth = Dimensions.get('window').width;
+    const colorPosition = selectedColorIndex * itemWidth + padding + (colorWidth / 2);
+    const scrollPosition = Math.max(0, colorPosition - (screenWidth / 2));
+
+    colorPickerScrollViewRef.current.scrollTo({
+      x: scrollPosition,
+      animated: false,
+    });
+  }, [selectedColorId, predefinedColors]);
 
   // Handle avatar selection
   const handleAvatarPress = useCallback(async () => {
@@ -618,7 +644,7 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
       }
       
       // Select new color
-    setSelectedColorId(colorOption.id);
+      setSelectedColorId(colorOption.id);
       const wasInverted = invertedStates[colorOption.id] || false;
       
       if (wasInverted) {
@@ -631,16 +657,16 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
           currentFlexValues.background.value = withSpring(1);
           currentFlexValues.text.value = withSpring(3);
         }
-    } else {
+      } else {
         // Normal state - ensure it's animated even if already at these values
-      setCustomColors({
-        backgroundColor: colorOption.backgroundColor,
-        textColor: colorOption.textColor,
-      });
+        setCustomColors({
+          backgroundColor: colorOption.backgroundColor,
+          textColor: colorOption.textColor,
+        });
         if (currentFlexValues) {
           currentFlexValues.background.value = withSpring(3);
           currentFlexValues.text.value = withSpring(1);
-    }
+        }
       }
     }
   }, [selectedColorId, invertedStates, customColors, colorFlexValues]);
@@ -683,16 +709,16 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
         });
       }
       
-      onDismiss();
+      router.back();
     } catch (error) {
       Alert.alert('Error', 'Failed to update profile. Please try again.');
     }
-  }, [profileData, editDisplayName, editDescription, editAvatar, customColors, selectedColorId, invertedStates, defaultColors, profileUpdateMutation, onDismiss]);
+  }, [profileData, editDisplayName, editDescription, editAvatar, customColors, defaultColors, profileUpdateMutation, router]);
 
   // Handle dismiss
   const handleDismiss = useCallback(() => {
-    onDismiss();
-  }, [onDismiss]);
+    router.back();
+  }, [router]);
 
   // Get current colors for display
   const currentColors = useMemo(() => {
@@ -706,168 +732,162 @@ const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   }, [customColors, defaultColors]);
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={handleDismiss}
-      transparent={false}
-    >
-      <GestureHandlerRootView style={styles.container}>
-        {/* Header and Color Picker - Black Background Section */}
-        <SafeAreaView edges={['top']} style={styles.topSafeArea}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Pressable onPress={handleDismiss} style={styles.cancelButton}>
-              <Text style={[styles.cancelButtonText, { color: Colors.white }]}>
-                Cancel
-              </Text>
-            </Pressable>
-            
-            <Text style={[styles.headerTitle, { color: Colors.white }]}>
-              Edit Profile
+    <GestureHandlerRootView style={styles.container}>
+      {/* Header and Color Picker - Black Background Section */}
+      <SafeAreaView edges={['top']} style={styles.topSafeArea}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Pressable onPress={handleDismiss} style={styles.cancelButton}>
+            <Text style={[styles.cancelButtonText, { color: Colors.white }]}>
+              Cancel
             </Text>
-            
-            <Pressable 
-              style={[styles.saveButtonGlass, !isLiquidGlassAvailable() && styles.saveButton]}
-              onPress={handleSave}
-              disabled={profileUpdateMutation.isPending}
-            >
-              {isLiquidGlassAvailable() && (
-                <GlassView 
-                  style={styles.glassBackground}
-                  glassEffectStyle="clear"
-                  tintColor={hexToRGBA(Colors.white, 0.9)}
-                  isInteractive
-                />
+          </Pressable>
+          
+          <Text style={[styles.headerTitle, { color: Colors.white }]}>
+            Edit Profile
+          </Text>
+          
+          <Pressable 
+            style={[styles.saveButtonGlass, !isLiquidGlassAvailable() && styles.saveButton]}
+            onPress={handleSave}
+            disabled={profileUpdateMutation.isPending}
+          >
+            {isLiquidGlassAvailable() && (
+              <GlassView 
+                style={styles.glassBackground}
+                glassEffectStyle="clear"
+                tintColor={hexToRGBA(Colors.white, 0.9)}
+                isInteractive
+              />
+            )}
+            <View pointerEvents="none">
+              {profileUpdateMutation.isPending ? (
+                <Loading3FillIcon size={24} color={Colors.black} />
+              ) : (
+                <Text style={[styles.saveButtonText, isLiquidGlassAvailable() && { color: Colors.black }]}>
+                  Save
+                </Text>
               )}
-              <View pointerEvents="none">
-                {profileUpdateMutation.isPending ? (
-                  <Loading3FillIcon size={24} color={Colors.black} />
-                ) : (
-                  <Text style={[styles.saveButtonText, isLiquidGlassAvailable() && { color: Colors.black }]}>
-                    Save
-                  </Text>
-                )}
-              </View>
-            </Pressable>
-          </View>
-
-          {/* Color Picker */}
-          <View style={styles.colorPickerSection}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.colorPickerContainer}
-              style={styles.colorPickerScrollView}
-            >
-              {predefinedColors.map((colorOption) => {
-                const isSelected = selectedColorId === colorOption.id;
-                const isInverted = invertedStates[colorOption.id] || false;
-                const flexValues = colorFlexValues[colorOption.id];
-                
-                if (!flexValues) return null;
-                
-                return (
-                  <AnimatedColorSquare
-                    key={colorOption.id}
-                    colorOption={colorOption}
-                    isSelected={isSelected}
-                    isInverted={isInverted}
-                    customColors={isSelected ? customColors : null}
-                    currentColors={currentColors}
-                    backgroundFlex={flexValues.background}
-                    textFlex={flexValues.text}
-                    onPress={() => handleColorSelect(colorOption)}
-                  />
-                );
-              })}
-            </ScrollView>
-          </View>
-        </SafeAreaView>
-
-        {/* Profile Editing Fields - Sheet Content */}
-        <View style={[styles.bottomSectionContainer, { backgroundColor: currentColors.backgroundColor }]}>
-          <SafeAreaView style={[styles.safeArea, { backgroundColor: currentColors.backgroundColor }]} edges={['bottom']}>
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-              {/* Avatar Section */}
-              <View style={styles.section}>
-                <View style={styles.avatarContainer}>
-                  <Avatar
-                    uri={editAvatar || profileData?.avatar}
-                    type="profile"
-                    size={112}
-                    profileColors={{
-                      backgroundColor: currentColors.backgroundColor,
-                      textColor: currentColors.textColor,
-                      foregroundColor: currentColors.textColor,
-                    }}
-                    showRing={true}
-                  />
-                  <Pressable 
-                    style={[styles.uploadButton, !isLiquidGlassAvailable() && styles.uploadButtonFallback]}
-                    onPress={handleAvatarPress} 
-                  >
-                    {isLiquidGlassAvailable() && (
-                      <GlassView 
-                        style={styles.glassBackground}
-                        glassEffectStyle="clear"
-                        tintColor={hexToRGBA(currentColors.textColor, 0.15)}
-                        isInteractive
-                      />
-                    )}
-                    <View pointerEvents="none">
-                      <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
-                        Upload
-                      </Text>
-                    </View>
-                  </Pressable>
-                </View>
-              </View>
-
-              {/* Display Name Section */}
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
-                  Display Name
-                </Text>
-                <TextInput
-                  style={[styles.textInput, {
-                    color: currentColors.textColor,
-                    backgroundColor: hexToRGBA(currentColors.textColor, INPUT_BACKGROUND_OPACITY),
-                    borderColor: 'transparent',
-                  }]}
-                  value={editDisplayName}
-                  onChangeText={setEditDisplayName}
-                  placeholder="Enter display name"
-                  placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
-                  maxLength={64}
-                />
-              </View>
-
-              {/* Bio Section */}
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
-                  Bio
-                </Text>
-                <TextInput
-                  style={[styles.textArea, {
-                    color: currentColors.textColor,
-                    backgroundColor: hexToRGBA(currentColors.textColor, 0.05),
-                    borderColor: 'transparent',
-                  }]}
-                  value={editDescription}
-                  onChangeText={setEditDescription}
-                  placeholder="Tell us about yourself"
-                  placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
-                  multiline
-                  maxLength={256}
-                />
-              </View>
-            </ScrollView>
-          </SafeAreaView>
+            </View>
+          </Pressable>
         </View>
-        </GestureHandlerRootView>
-      </Modal>
+
+        {/* Color Picker */}
+        <View style={styles.colorPickerSection}>
+          <ScrollView
+            ref={colorPickerScrollViewRef}
+            onLayout={handleColorPickerLayout}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.colorPickerContainer}
+            style={styles.colorPickerScrollView}
+          >
+            {predefinedColors.map((colorOption) => {
+              const isSelected = selectedColorId === colorOption.id;
+              const isInverted = invertedStates[colorOption.id] || false;
+              const flexValues = colorFlexValues[colorOption.id];
+              
+              if (!flexValues) return null;
+              
+              return (
+                <AnimatedColorSquare
+                  key={colorOption.id}
+                  colorOption={colorOption}
+                  isSelected={isSelected}
+                  isInverted={isInverted}
+                  customColors={isSelected ? customColors : null}
+                  currentColors={currentColors}
+                  backgroundFlex={flexValues.background}
+                  textFlex={flexValues.text}
+                  onPress={() => handleColorSelect(colorOption)}
+                />
+              );
+            })}
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+
+      {/* Profile Editing Fields - Sheet Content */}
+      <View style={[styles.bottomSectionContainer, { backgroundColor: currentColors.backgroundColor }]}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: currentColors.backgroundColor }]} edges={['bottom']}>
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Avatar Section */}
+            <View style={styles.section}>
+              <View style={styles.avatarContainer}>
+                <Avatar
+                  uri={editAvatar || profileData?.avatar}
+                  type="profile"
+                  size={112}
+                  profileColors={{
+                    backgroundColor: currentColors.backgroundColor,
+                    textColor: currentColors.textColor,
+                    foregroundColor: currentColors.textColor,
+                  }}
+                  showRing={true}
+                />
+                <Pressable 
+                  style={[styles.uploadButton, !isLiquidGlassAvailable() && styles.uploadButtonFallback]}
+                  onPress={handleAvatarPress} 
+                >
+                  {isLiquidGlassAvailable() && (
+                    <GlassView 
+                      style={styles.glassBackground}
+                      glassEffectStyle="clear"
+                      tintColor={hexToRGBA(currentColors.textColor, 0.15)}
+                      isInteractive
+                    />
+                  )}
+                  <View pointerEvents="none">
+                    <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
+                      Upload
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Display Name Section */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
+                Display Name
+              </Text>
+              <TextInput
+                style={[styles.textInput, {
+                  color: currentColors.textColor,
+                  backgroundColor: hexToRGBA(currentColors.textColor, INPUT_BACKGROUND_OPACITY),
+                  borderColor: 'transparent',
+                }]}
+                value={editDisplayName}
+                onChangeText={setEditDisplayName}
+                placeholder="Enter display name"
+                placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
+                maxLength={64}
+              />
+            </View>
+
+            {/* Bio Section */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
+                Bio
+              </Text>
+              <TextInput
+                style={[styles.textArea, {
+                  color: currentColors.textColor,
+                  backgroundColor: hexToRGBA(currentColors.textColor, 0.05),
+                  borderColor: 'transparent',
+                }]}
+                value={editDescription}
+                onChangeText={setEditDescription}
+                placeholder="Tell us about yourself"
+                placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
+                multiline
+                maxLength={256}
+              />
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </View>
+    </GestureHandlerRootView>
   );
 };
 
@@ -901,7 +921,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'Firma-Bold',
     fontSize: 18,
-
   },
   cancelButton: {
     paddingVertical: 8,
@@ -951,11 +970,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,
-  },
-  sectionSubtitle: {
-    fontFamily: 'Firma-Regular',
-    fontSize: 14,
-    marginBottom: 16,
   },
   avatarContainer: {
     flexDirection: 'row',
@@ -1008,44 +1022,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  backgroundSection: {
-    flex: 3, // 75% of the space
-  },
-  textSection: {
-    flex: 1, // 25% of the space
-  },
-  colorLabelContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    flexDirection: 'row',
-  },
-  colorLabel: {
-    fontSize: 10,
-    fontFamily: 'Firma-Medium',
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  colorLabelIcon: {
-    marginLeft: 2,
-  },
-  separatorContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  separator: {
-    width: 1.5,
-    height: 35,
-  },
   textInput: {
     fontFamily: 'Firma-Medium',
     fontSize: 16,
@@ -1071,24 +1047,6 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     backgroundColor: 'transparent',
   },
-  colorPickerPlaceholder: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  colorOption: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  colorPreview: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-  },
 });
 
-export default EditProfileSheet;
+export default EditProfileScreen;
