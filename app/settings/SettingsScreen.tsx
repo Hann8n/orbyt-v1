@@ -218,40 +218,28 @@ const SettingsScreen: React.FC = () => {
           id: 'followers',
           label: 'Your followers',
           icon: 'users',
-                      onPress: () => {
-              navigation.back();
-              setTimeout(() => navigation.push('/settings/followers'), 100);
-            },
+          onPress: () => navigation.push('/settings/followers'),
           showChevron: false
         },
         {
           id: 'following',
           label: 'People you follow',
           icon: 'user-plus',
-                      onPress: () => {
-              navigation.back();
-              setTimeout(() => navigation.push('/settings/following'), 100);
-            },
+          onPress: () => navigation.push('/settings/following'),
           showChevron: false
         },
         {
           id: 'channels',
           label: 'Your channels',
           icon: 'device-tv',
-                      onPress: () => {
-              navigation.back();
-              setTimeout(() => navigation.push('/settings/channels'), 100);
-            },
+          onPress: () => navigation.push('/settings/channels'),
           showChevron: false
         },
         {
           id: 'saves',
           label: 'Your Saves',
           icon: 'bookmark',
-          onPress: () => {
-            navigation.back();
-            setTimeout(() => navigation.push('/settings/saves'), 100);
-          },
+          onPress: () => navigation.push('/settings/saves'),
           showChevron: false
         }
       ]
@@ -274,19 +262,13 @@ const SettingsScreen: React.FC = () => {
         {
           id: 'blocked-users',
           label: 'Blocked accounts',
-                      onPress: () => {
-              navigation.back();
-              setTimeout(() => navigation.push('/settings/blocked'), 100);
-            },
+          onPress: () => navigation.push('/settings/blocked'),
           showChevron: false
         },
         {
           id: 'muted-users',
           label: 'Muted accounts',
-                      onPress: () => {
-              navigation.back();
-              setTimeout(() => navigation.push('/settings/muted'), 100);
-            },
+          onPress: () => navigation.push('/settings/muted'),
           showChevron: false
         },
       ]
@@ -298,20 +280,14 @@ const SettingsScreen: React.FC = () => {
           id: 'content-filters',
           label: 'Content filters',
           icon: 'filter',
-                      onPress: () => {
-              navigation.back();
-              setTimeout(() => navigation.push('/settings/content-filters'), 100);
-            },
+          onPress: () => navigation.push('/settings/content-filters'),
           showChevron: true
         },
         {
           id: 'algorithmic-feed',
           label: 'Algorithmic feed',
           icon: 'sparkles',
-          onPress: () => {
-            navigation.back();
-            setTimeout(() => navigation.push('/settings/algorithmic-feed'), 100);
-          },
+          onPress: () => navigation.push('/settings/algorithmic-feed'),
           showChevron: true
         },
 
@@ -344,20 +320,14 @@ const SettingsScreen: React.FC = () => {
           id: 'app-icon',
           label: 'App icon',
           icon: 'device-tv',
-          onPress: () => {
-            navigation.back();
-            setTimeout(() => navigation.push('/settings/app-icon'), 100);
-          },
+          onPress: () => navigation.push('/settings/app-icon'),
           showChevron: true
         }] : []),
         {
           id: 'about',
           label: 'About orbyt',
           icon: 'device-tv',
-                      onPress: () => {
-              navigation.back();
-              setTimeout(() => navigation.push('/settings/about'), 100);
-            },
+          onPress: () => navigation.push('/settings/about'),
           showChevron: true
         },
         // {
