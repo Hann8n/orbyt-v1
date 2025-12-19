@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, SharedValue } from 'react-native-reanimated';
+import Animated, { Layout, useSharedValue, useAnimatedStyle, withSpring, SharedValue } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Colors, Avatar } from '../src/components/ui/UI';
@@ -113,6 +113,29 @@ const EditProfileScreen: React.FC = () => {
   
   // Fetch profile data - use cache directly, no refetch
   const { data: profileData } = useProfile(userHandle);
+  const [isAboutFocused, setIsAboutFocused] = useState(false);
+  
+  // Handle formatting: detach ".bsky.social" suffix if present so we can
+  // render the suffix separately in the UI (bottom-right of the section).
+  const { handleBase, handleSuffix } = useMemo(() => {
+    const rawHandle = profileData?.handle ?? userHandle ?? 'username';
+    if (!rawHandle) {
+      return { handleBase: 'username', handleSuffix: null as string | null };
+    }
+    
+    const suffix = '.bsky.social';
+    if (rawHandle.endsWith(suffix)) {
+      return {
+        handleBase: rawHandle.slice(0, -suffix.length),
+        handleSuffix: suffix,
+      };
+    }
+    
+    return {
+      handleBase: rawHandle,
+      handleSuffix: null as string | null,
+    };
+  }, [profileData?.handle, userHandle]);
   
   // Form state
   const [editDisplayName, setEditDisplayName] = useState('');
@@ -803,103 +826,133 @@ const EditProfileScreen: React.FC = () => {
       {/* Profile Editing Fields - Sheet Content */}
       <View style={[styles.bottomSectionContainer, { backgroundColor: currentColors.backgroundColor }]}>
         <SafeAreaView style={[styles.safeArea, { backgroundColor: currentColors.backgroundColor }]} edges={['bottom']}>
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* Username Section */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.90) }]}>
-                USERNAME
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                bounces={false}
-                contentContainerStyle={{ flexGrow: 1 }}
-              >
-                <Text style={[styles.largeText, { color: currentColors.textColor }]}>
-                  <Text style={[styles.handleAt, { color: hexToRGBA(currentColors.textColor, 0.50) }]}>
-                    @
+          <ScrollView
+            style={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={() => {
+              if (isAboutFocused) {
+                setIsAboutFocused(false);
+              }
+            }}
+          >
+            {/* Username & Avatar & Display Name Sections */}
+            {!isAboutFocused && (
+              <Animated.View layout={Layout.springify().duration(220)}>
+                {/* Username Section */}
+                <View style={styles.usernameSection}>
+                  <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.90) }]}>
+                    USERNAME
                   </Text>
-                  <Text>
-                    {' '}
-                    {profileData?.handle ?? userHandle ?? 'username'}
-                  </Text>
-                </Text>
-              </ScrollView>
-            </View>
-
-            <View style={[styles.divider, { backgroundColor: hexToRGBA(currentColors.textColor, 0.20) }]} />
-
-            {/* Avatar Section */}
-            <View style={styles.section}>
-              <View style={styles.avatarContainer}>
-                <Avatar
-                  uri={editAvatar || profileData?.avatar}
-                  type="profile"
-                  size={112}
-                  profileColors={{
-                    backgroundColor: currentColors.backgroundColor,
-                    textColor: currentColors.textColor,
-                    foregroundColor: currentColors.textColor,
-                  }}
-                  showRing={true}
-                />
-                <View style={styles.avatarButtonColumn}>
-                  <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8), marginLeft: 6 }]}>
-                    PROFILE PICTURE
-                  </Text>
-                  <Pressable 
-                    style={[
-                      styles.uploadButton, 
-                      !isLiquidGlassAvailable() && {
-                        backgroundColor: hexToRGBA(currentColors.textColor, 0.15),
-                      }
-                    ]}
-                    onPress={handleAvatarPress} 
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    bounces={false}
+                    contentContainerStyle={{ flexGrow: 1 }}
                   >
-                    {isLiquidGlassAvailable() && (
-                      <GlassView 
-                        style={styles.glassBackground}
-                        glassEffectStyle="clear"
-                        tintColor={hexToRGBA(currentColors.textColor, 0.15)}
-                        isInteractive
-                      />
-                    )}
-                    <View pointerEvents="none">
-                      <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
-                        Upload
+                    <Text style={[styles.largeText, { color: currentColors.textColor }]}>
+                      <Text style={[styles.handleAt, { color: hexToRGBA(currentColors.textColor, 0.50) }]}>
+                        @
                       </Text>
-                    </View>
-                  </Pressable>
+                      <Text>
+                        {' '}
+                        {handleBase}
+                        {handleSuffix && (
+                          <Text
+                            style={[
+                              styles.handleSuffix,
+                              { color: hexToRGBA(currentColors.textColor, 0.50) },
+                            ]}
+                          >
+                            {handleSuffix}
+                          </Text>
+                        )}
+                      </Text>
+                    </Text>
+                  </ScrollView>
                 </View>
-              </View>
-            </View>
 
-            <View style={[styles.divider, { backgroundColor: hexToRGBA(currentColors.textColor, 0.12) }]} />
+                <View style={[styles.divider, { backgroundColor: hexToRGBA(currentColors.textColor, 0.20) }]} />
 
-            {/* Display Name Section */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8) }]}>
-                DISPLAY NAME
-              </Text>
-              <TextInput
-                style={[styles.largeInput, {
-                  color: currentColors.textColor,
-                  backgroundColor: 'transparent',
-                  borderColor: 'transparent',
-                }]}
-                value={editDisplayName}
-                onChangeText={setEditDisplayName}
-                placeholder="Name"
-                placeholderTextColor={hexToRGBA(currentColors.textColor, 0.30)}
-                scrollEnabled
-                maxLength={65}
-              />
-            </View>
+                {/* Avatar Section */}
+                <View style={styles.section}>
+                  <View style={styles.avatarContainer}>
+                    <Avatar
+                      uri={editAvatar || profileData?.avatar}
+                      type="profile"
+                      size={112}
+                      profileColors={{
+                        backgroundColor: currentColors.backgroundColor,
+                        textColor: currentColors.textColor,
+                        foregroundColor: currentColors.textColor,
+                      }}
+                      showRing={true}
+                    />
+                    <View style={styles.avatarButtonColumn}>
+                      <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8), marginLeft: 6 }]}>
+                        PROFILE PICTURE
+                      </Text>
+                      <Pressable 
+                        style={[
+                          styles.uploadButton, 
+                          !isLiquidGlassAvailable() && {
+                            backgroundColor: hexToRGBA(currentColors.textColor, 0.15),
+                          }
+                        ]}
+                        onPress={handleAvatarPress} 
+                      >
+                        {isLiquidGlassAvailable() && (
+                          <GlassView 
+                            style={styles.glassBackground}
+                            glassEffectStyle="clear"
+                            tintColor={hexToRGBA(currentColors.textColor, 0.15)}
+                            isInteractive
+                          />
+                        )}
+                        <View pointerEvents="none">
+                          <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
+                            Upload
+                          </Text>
+                        </View>
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
 
-            <View style={[styles.divider, { backgroundColor: hexToRGBA(currentColors.textColor, 0.12) }]} />
+                <View style={[styles.divider, { backgroundColor: hexToRGBA(currentColors.textColor, 0.12) }]} />
+
+                {/* Display Name Section */}
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8) }]}>
+                    DISPLAY NAME
+                  </Text>
+                  <TextInput
+                    style={[styles.largeInput, {
+                      color: currentColors.textColor,
+                      backgroundColor: 'transparent',
+                      borderColor: 'transparent',
+                    }]}
+                    value={editDisplayName}
+                    onChangeText={setEditDisplayName}
+                    placeholder="Name"
+                    placeholderTextColor={hexToRGBA(currentColors.textColor, 0.30)}
+                    scrollEnabled
+                    maxLength={65}
+                  />
+                </View>
+              </Animated.View>
+            )}
+
+            {!isAboutFocused && (
+              <View style={[styles.divider, { backgroundColor: hexToRGBA(currentColors.textColor, 0.12) }]} />
+            )}
 
             {/* About Section */}
-            <View style={styles.section}>
+            <Animated.View
+              layout={Layout.springify().duration(220)}
+              style={[styles.section, isAboutFocused && styles.aboutExpandedSection]}
+            >
               <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8) }]}>
                 ABOUT
               </Text>
@@ -913,8 +966,14 @@ const EditProfileScreen: React.FC = () => {
                 placeholderTextColor={hexToRGBA(currentColors.textColor, 0.30)}
                 multiline
                 maxLength={256}
+                onFocus={() => {
+                  setIsAboutFocused(true);
+                }}
+                onBlur={() => {
+                  setIsAboutFocused(false);
+                }}
               />
-            </View>
+            </Animated.View>
           </ScrollView>
         </SafeAreaView>
       </View>
@@ -996,6 +1055,13 @@ const styles = StyleSheet.create({
   section: {
     marginTop: 0,
   },
+  aboutExpandedSection: {
+    minHeight: 260,
+  },
+  usernameSection: {
+    marginTop: 0,
+    position: 'relative',
+  },
   sectionTitle: {
     fontFamily: 'Firma-SemiBold',
     fontSize: 12,
@@ -1014,6 +1080,10 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     fontSize: 30,
     lineHeight: 32,
+  },
+  handleSuffix: {
+    fontFamily: 'Firma-Medium',
+    fontSize: 14,
   },
   largeInput: {
     fontFamily: 'Firma-Black',
