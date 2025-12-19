@@ -212,6 +212,7 @@ export const settingsTextStyles = StyleSheet.create({
     fontFamily: 'Firma-SemiBold',
     paddingHorizontal: 30,
     paddingVertical: 12,
+    letterSpacing: 0.5,
   },
 
   // Section title (larger)
