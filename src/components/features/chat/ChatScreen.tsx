@@ -1,20 +1,19 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Alert, Text, Pressable, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
-import { GiftedChat } from 'react-native-gifted-chat';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { View, StyleSheet, Alert, Text, Pressable, TextInput, KeyboardAvoidingView, Platform, Keyboard, InteractionManager } from 'react-native';
+import { LegendList } from '@legendapp/list';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Animated as RNAnimated } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { format, isToday, isYesterday, parseISO } from 'date-fns';
+import { format, isToday, isYesterday, parseISO, isSameDay } from 'date-fns';
 
 import { Colors, Avatar } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { formatHandle } from '../../../utils/helpers';
 import Icon, { BackArrowIcon, Loading3FillIcon } from '../../ui/Icon';
-import { Conversation } from '../../../services/ChatService';
+import { Conversation, Message } from '../../../services/ChatService';
 import { useChatStore } from '../../../stores/chatStore';
-import { ChatMessage } from '../../../utils/chatHelpers';
 import { useCurrentUser } from '../../../stores/userStore';
 import { useMessageReactions } from '../../../hooks/useMessageReactions';
 import ChatService from '../../../services/ChatService';
@@ -29,10 +28,13 @@ interface ChatScreenProps {
 }
 
 export default function ChatScreen({ conversationId, recipientDid }: ChatScreenProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isReady, setIsReady] = useState(false);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { getGiftedChatMessages, setMessages: setCachedMessages } = useChatStore();
+  const { getMessages, setMessages: setCachedMessages } = useChatStore();
+  const newMessageIdsRef = useRef<Set<string>>(new Set());
   
   // Use existing hook from user store
   const { currentUser } = useCurrentUser();
@@ -186,23 +188,83 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   });
 
 
-  // Update messages from store when data changes - store as single source of truth
+  // Update messages from store when data changes - track new messages for animations
   useEffect(() => {
     if (conversationId && isUserReady && currentUserId && (messagesData?.messages !== undefined || !isLoading)) {
-      const giftedMessages = getGiftedChatMessages(
-        conversationId,
-        currentUserId,
-        currentUser?.avatar,
-        otherUser
-      );
-      setMessages(giftedMessages);
+      const cachedMessages = getMessages(conversationId);
+      if (cachedMessages && cachedMessages.length > 0) {
+        // Track new messages for animation
+        const currentMessageIds = new Set(messages.map(m => m.id));
+        cachedMessages.forEach(msg => {
+          if (!currentMessageIds.has(msg.id)) {
+            newMessageIdsRef.current.add(msg.id);
+          }
+        });
+        
+        setMessages(cachedMessages);
+        
+        // Clear animation tracking after a delay to prevent re-animations
+        setTimeout(() => {
+          newMessageIdsRef.current.clear();
+        }, 1000);
+      } else if (messagesData?.messages) {
+        setCachedMessages(conversationId, messagesData.messages);
+        setMessages(messagesData.messages);
+      }
     }
-  }, [conversationId, isUserReady, currentUserId, messagesData?.messages, isLoading, getGiftedChatMessages, currentUser?.avatar, otherUser]);
+  }, [conversationId, isUserReady, currentUserId, messagesData?.messages, isLoading, getMessages, setCachedMessages]);
+
+  // Use InteractionManager to ensure data is ready before rendering chat UI
+  useEffect(() => {
+    if (conversationId && isUserReady && currentUserId && conversationData && messagesData && !isLoading && !isLoadingConversation && !isLoadingOtherUser) {
+      // Wait for interactions to complete, then mark as ready
+      InteractionManager.runAfterInteractions(() => {
+        // Additional small delay to ensure layout is ready
+        setTimeout(() => {
+          setIsReady(true);
+        }, 100);
+      });
+    } else {
+      setIsReady(false);
+    }
+  }, [conversationId, isUserReady, currentUserId, conversationData, messagesData, isLoading, isLoadingConversation, isLoadingOtherUser]);
 
   // Memoize messages with embeds for video playlist
   const messagesWithEmbeds = useMemo(() => {
     return messages.filter(m => m.embed?.record).map(m => ({ embed: m.embed }));
   }, [messages]);
+
+  // Prepare messages with day separators for LegendList (normal order: oldest to newest)
+  const messagesWithSeparators = useMemo(() => {
+    const result: Array<Message | { type: 'day-separator'; date: Date }> = [];
+    
+    // Messages come from API newest-first, so reverse to get oldest-first for display
+    const sortedMessages = [...messages].reverse();
+    
+    sortedMessages.forEach((message, index) => {
+      const messageDate = new Date(message.createdAt);
+      const prevMessage = index > 0 ? sortedMessages[index - 1] : null;
+      const prevDate = prevMessage ? new Date(prevMessage.createdAt) : null;
+      
+      // Add day separator if this is the first message or date changed
+      if (!prevDate || !isSameDay(messageDate, prevDate)) {
+        result.push({ type: 'day-separator', date: messageDate } as any);
+      }
+      
+      result.push(message);
+    });
+    
+    return result;
+  }, [messages]);
+
+  // Calculate initial scroll index to start at the last (newest) message
+  // This uses LegendList's initialScrollIndex prop to scroll to bottom on mount
+  const initialScrollIndex = useMemo(() => {
+    if (messagesWithSeparators.length > 0) {
+      return messagesWithSeparators.length - 1;
+    }
+    return undefined;
+  }, [messagesWithSeparators.length]);
 
   // Mark conversation as read when user views the chat screen
   useEffect(() => {
@@ -220,16 +282,56 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     }
   }, [conversationId, isUserReady, messagesData?.messages, queryClient]);
 
-  const onSend = useCallback((newMessages: ChatMessage[] = []) => {
-    if (newMessages.length > 0) {
-      const message = newMessages[0];
-      // Update messages state directly (modern pattern)
-      setMessages((previousMessages) => [...newMessages, ...previousMessages]);
-      
-      // Send the message via API
-      sendMessageMutation.mutate(message.text);
-    }
-  }, [sendMessageMutation]);
+  const onSend = useCallback(() => {
+    if (!inputText.trim() || sendMessageMutation.isPending) return;
+    
+    const text = inputText.trim();
+    setInputText('');
+    
+    // Create optimistic message
+    const optimisticMessage: Message = {
+      id: `temp-${Date.now()}`,
+      rev: '',
+      text,
+      sentAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      conversationId,
+      senderDid: currentUserId,
+      sent: true,
+      received: false,
+      sender: {
+        did: currentUserId,
+        handle: currentUser?.handle || '',
+        displayName: formatHandle(currentUser?.handle) || 'You',
+        avatar: currentUser?.avatar,
+      },
+    };
+    
+    // Add to new messages for animation
+    newMessageIdsRef.current.add(optimisticMessage.id);
+    
+    // Update messages state optimistically
+    setMessages((previousMessages) => [optimisticMessage, ...previousMessages]);
+    
+    // Send the message via API
+    sendMessageMutation.mutate(text, {
+      onSuccess: (sentMessage) => {
+        // Replace optimistic message with real one
+        setMessages((previousMessages) => {
+          const filtered = previousMessages.filter(m => m.id !== optimisticMessage.id);
+          return [sentMessage, ...filtered];
+        });
+        // Update cache
+        setCachedMessages(conversationId, [sentMessage, ...messages]);
+      },
+      onError: () => {
+        // Remove optimistic message on error
+        setMessages((previousMessages) => 
+          previousMessages.filter(m => m.id !== optimisticMessage.id)
+        );
+      },
+    });
+  }, [inputText, sendMessageMutation, currentUserId, currentUser, conversationId, setCachedMessages, messages]);
 
   // Unified reaction handlers using the hook
   const handleEmojiSelect = useCallback((emoji: string, messageId: string) => {
@@ -241,177 +343,8 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     handleReactionToggle(emoji, messageId);
   }, [handleReactionToggle]);
 
-  // Format date for day separator
-  const formatDate = (date: Date) => {
-    if (isToday(date)) {
-      return 'Today';
-    } else if (isYesterday(date)) {
-      return 'Yesterday';
-    } else {
-      return format(date, 'EEEE, MMM d');
-    }
-  };
-
-
-  const renderComposer = useCallback((props: any) => {
-    return (
-      <View style={styles.inputWrapper}>
-        <TextInput
-          {...props.textInputProps}
-          style={styles.textInput}
-          placeholder="Type a message..."
-          placeholderTextColor={Colors.gray}
-          multiline={true}
-          maxLength={1000}
-          returnKeyType="default"
-          blurOnSubmit={false}
-          autoCorrect={true}
-          autoCapitalize="sentences"
-          textAlignVertical="top"
-        />
-      </View>
-    );
-  }, []);
-
-  const renderSend = useCallback((props: any) => {
-    const hasText = props.text && props.text.trim().length > 0;
-    const isDisabled = !hasText || sendMessageMutation.isPending;
-    
-    if (!hasText || isDisabled) return null;
-    
-    return (
-      <View style={styles.sendColumn}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.sendButton,
-            pressed && { opacity: 0.7 }
-          ]}
-          onPress={() => {
-            if (props.text && props.text.trim() && !sendMessageMutation.isPending) {
-              // Create the message object that GiftedChat expects
-              const message: ChatMessage = {
-                _id: Math.random().toString(36).substr(2, 9),
-                text: props.text.trim(),
-                createdAt: new Date(),
-                user: {
-                  _id: currentUserId,
-                  name: currentUser?.handle || 'You',
-                  avatar: currentUser?.avatar,
-                },
-              };
-              props.onSend([message]);
-            }
-          }}
-          disabled={isDisabled}
-          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-          accessible={true}
-          accessibilityRole="button"
-          accessibilityLabel="Send message"
-        >
-          {sendMessageMutation.isPending ? (
-            <Loading3FillIcon size={22} color={Colors.black} />
-          ) : (
-            <Icon 
-              name="arrow-up-fill" 
-              size={22} 
-              color={Colors.black}
-            />
-          )}
-        </Pressable>
-      </View>
-    );
-  }, [currentUserId, currentUser, sendMessageMutation.isPending]);
-
-  const renderInputToolbar = useCallback((props: any) => {
-    // Only show accept/reject buttons if conversation status is not "accepted" (using API status directly)
-    // AND the current user is the recipient (didn't initiate the conversation)
-    const showAcceptReject = conversationData?.status !== 'accepted' && !currentUserInitiated;
-    
-    if (showAcceptReject) {
-      return (
-        <View style={styles.inputToolbar}>
-          <View style={styles.actionButtonsContainer}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionButton,
-                styles.rejectButton,
-                pressed && { opacity: 0.7 }
-              ]}
-              onPress={() => rejectConversationMutation.mutate()}
-              disabled={rejectConversationMutation.isPending || acceptConversationMutation.isPending}
-            >
-              <View pointerEvents="none">
-                {rejectConversationMutation.isPending ? (
-                  <Loading3FillIcon size={20} color={Colors.white} />
-                ) : (
-                  <Text style={styles.actionButtonText}>Reject</Text>
-                )}
-              </View>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionButton,
-                styles.acceptButton,
-                pressed && { opacity: 0.7 }
-              ]}
-              onPress={() => acceptConversationMutation.mutate()}
-              disabled={rejectConversationMutation.isPending || acceptConversationMutation.isPending}
-            >
-              <View pointerEvents="none">
-                {acceptConversationMutation.isPending ? (
-                  <Loading3FillIcon size={20} color={Colors.black} />
-                ) : (
-                  <Text style={[styles.actionButtonText, styles.acceptButtonText]}>Accept</Text>
-                )}
-              </View>
-            </Pressable>
-          </View>
-        </View>
-      );
-    }
-    
-    return (
-      <View style={styles.inputToolbar}>
-        <View style={styles.inputToolbarContent}>
-          <View style={styles.avatarContainer}>
-            <Avatar
-              uri={currentUser?.avatar}
-              type="profile"
-              size={42}
-              style={styles.avatar}
-            />
-          </View>
-          {props.renderComposer && props.renderComposer(props)}
-          {props.renderSend && props.renderSend(props)}
-        </View>
-      </View>
-    );
-  }, [conversationData?.status, currentUserInitiated, rejectConversationMutation, acceptConversationMutation, currentUser?.avatar]);
-
-  const renderAvatar = useCallback(() => null, []);
-
-  // Get the other user (not the current user) from the conversation
-  // Prefer conversation members, fallback to profile query
-  const otherUserForDisplay = useMemo(() => {
-    if (otherUser) return otherUser;
-    
-    // If we have profile data from the profile query, use that
-    if (otherUserProfile && otherUserDid) {
-      return {
-        did: otherUserDid,
-        handle: otherUserProfile.handle,
-        displayName: formatHandle(otherUserProfile.handle) || 'User',
-        avatar: otherUserProfile.avatar,
-      };
-    }
-    
-    return null;
-  }, [otherUser, otherUserProfile, otherUserDid]);
-
-  const renderDay = useCallback((dayProps: any) => {
-    const date = dayProps.currentMessage?.createdAt;
-    if (!date) return null;
-    
+  // Render day separator
+  const renderDaySeparator = useCallback((date: Date) => {
     return (
       <View style={styles.daySeparator}>
         <View style={styles.daySeparatorLine} />
@@ -421,16 +354,24 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     );
   }, []);
 
-  const renderMessage = useCallback((props: any) => {
-    const message = props.currentMessage;
+  // Render message item for LegendList
+  const renderMessageItem = useCallback(({ item, index }: { item: Message | { type: 'day-separator'; date: Date }; index: number }) => {
+    // Handle day separator
+    if ('type' in item && item.type === 'day-separator') {
+      return renderDaySeparator(item.date);
+    }
+
+    const message = item as Message;
     const hasEmbed = message.embed?.record;
-    const isCurrentUser = message.user._id === currentUserId;
-    const isSelected = selectedMessageId === String(message._id);
-    
+    const isCurrentUser = message.senderDid === currentUserId;
+    const isSelected = selectedMessageId === message.id;
+    const shouldAnimate = newMessageIdsRef.current.has(message.id);
+
     // For messages with embeds, render custom layout with proper alignment
     if (hasEmbed) {
       return (
-        <View 
+        <Animated.View
+          entering={shouldAnimate ? FadeInDown.duration(200).springify() : undefined}
           style={[
             styles.embeddedMessageContainer,
             isCurrentUser ? styles.messageContainerRight : styles.messageContainerLeft
@@ -441,17 +382,17 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
             <Pressable
               onLongPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setSelectedMessageId(String(message._id));
+                setSelectedMessageId(message.id);
               }}
               onPress={() => setSelectedMessageId(null)}
               style={[
                 styles.messageBubble,
-                message.user._id === currentUserId ? styles.sentMessage : styles.receivedMessage
+                isCurrentUser ? styles.sentMessage : styles.receivedMessage
               ]}
             >
               <Text style={[
                 styles.messageText,
-                message.user._id === currentUserId ? styles.sentMessageText : styles.receivedMessageText
+                isCurrentUser ? styles.sentMessageText : styles.receivedMessageText
               ]}>
                 {message.text}
               </Text>
@@ -466,20 +407,20 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
               isCurrentUser={isCurrentUser}
               reactions={isSelected ? [] : message.reactions}
               currentUserId={currentUserId}
-              messageId={String(message._id)}
+              messageId={message.id}
               onReactionPress={(emoji, isCurrentUserReacted) =>
-                handleReactionPress(String(message._id), emoji, isCurrentUserReacted)
+                handleReactionPress(message.id, emoji, isCurrentUserReacted)
               }
               onLongPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setSelectedMessageId(String(message._id));
+                setSelectedMessageId(message.id);
               }}
               conversationMessages={messagesWithEmbeds}
             />
           </View>
           {/* Anchored popover reaction picker below embedded content */}
           {isSelected && (
-            <RNAnimated.View
+            <Animated.View
               style={[
                 styles.pickerContainer,
                 isCurrentUser ? styles.inlineEmojiBarRight : styles.inlineEmojiBarLeft,
@@ -507,7 +448,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                         hasCurrentUserReaction && styles.emojiButtonSelected,
                         hasOtherUserReaction && styles.emojiButtonOtherUser,
                       ]}
-                      onPress={() => handleEmojiSelect(emoji, String(message._id))}
+                      onPress={() => handleEmojiSelect(emoji, message.id)}
                     >
                       <Text style={[
                         styles.emojiText,
@@ -519,43 +460,44 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                   );
                 })}
               </View>
-            </RNAnimated.View>
+            </Animated.View>
           )}
-          
-          {/* Reactions moved into EmbeddedPostCard when embed is present */}
-        </View>
+        </Animated.View>
       );
     }
     
-    // For regular messages without embeds, use default rendering with proper alignment
+    // For regular messages without embeds
     return (
-      <Pressable 
+      <Animated.View
+        entering={shouldAnimate ? FadeInDown.duration(200).springify() : undefined}
         style={[
           styles.defaultMessageContainer,
           isCurrentUser ? styles.messageContainerRight : styles.messageContainerLeft
         ]}
-        onLongPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setSelectedMessageId(String(message._id));
-        }}
-        onPress={() => {
-          setSelectedMessageId(null);
-        }}
       >
-        <View style={[
-          styles.messageBubble,
-          message.user._id === currentUserId ? styles.sentMessage : styles.receivedMessage
-        ]}>
+        <Pressable 
+          onLongPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setSelectedMessageId(message.id);
+          }}
+          onPress={() => {
+            setSelectedMessageId(null);
+          }}
+          style={[
+            styles.messageBubble,
+            isCurrentUser ? styles.sentMessage : styles.receivedMessage
+          ]}
+        >
           <Text style={[
             styles.messageText,
-            message.user._id === currentUserId ? styles.sentMessageText : styles.receivedMessageText
+            isCurrentUser ? styles.sentMessageText : styles.receivedMessageText
           ]}>
             {message.text}
           </Text>
-        </View>
+        </Pressable>
         {/* Anchored popover reaction picker below message bubble */}
         {isSelected && (
-          <RNAnimated.View
+          <Animated.View
             style={[
               styles.pickerContainer,
               isCurrentUser ? styles.inlineEmojiBarRight : styles.inlineEmojiBarLeft,
@@ -584,7 +526,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                       hasOtherUserReaction && styles.emojiButtonOtherUser,
                       pressed && { opacity: 0.7 }
                     ]}
-                    onPress={() => handleEmojiSelect(emoji, String(message._id))}
+                    onPress={() => handleEmojiSelect(emoji, message.id)}
                   >
                     <Text style={[
                       styles.emojiText,
@@ -596,46 +538,72 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                 );
               })}
             </View>
-          </RNAnimated.View>
+          </Animated.View>
         )}
         
         {/* Show reactions if present */}
         {!isSelected && message.reactions && message.reactions.length > 0 && (
           <MessageReactions
-            messageId={String(message._id)}
+            messageId={message.id}
             reactions={message.reactions}
             currentUserId={currentUserId}
             onReactionPress={(emoji, isCurrentUserReacted) => 
-              handleReactionPress(String(message._id), emoji, isCurrentUserReacted)
+              handleReactionPress(message.id, emoji, isCurrentUserReacted)
             }
           />
         )}
-      </Pressable>
+      </Animated.View>
     );
-  }, [currentUserId, selectedMessageId, handleEmojiSelect, handleReactionPress]);
+  }, [currentUserId, selectedMessageId, handleEmojiSelect, handleReactionPress, messagesWithEmbeds, renderDaySeparator]);
 
-  // Memoize user object for GiftedChat
-  const giftedChatUser = useMemo(() => ({
-    _id: currentUserId,
-    name: currentUser?.handle || 'You',
-    avatar: currentUser?.avatar,
-  }), [currentUserId, currentUser?.handle, currentUser?.avatar]);
+  // Format date for day separator
+  const formatDate = useCallback((date: Date) => {
+    if (isToday(date)) {
+      return 'Today';
+    } else if (isYesterday(date)) {
+      return 'Yesterday';
+    } else {
+      return format(date, 'EEEE, MMM d');
+    }
+  }, []);
 
-  if (isLoading || isLoadingConversation || isLoadingOtherUser || !isUserReady) {
-    return (
-      <View style={styles.container}>
-        <SafeAreaView style={styles.safeAreaTop} edges={['top']}>
-          <View />
-        </SafeAreaView>
-        <View style={styles.loadingContainer}>
-          <Loading3FillIcon size={48} color={Colors.white} />
-          <Text style={styles.loadingText}>Loading conversation...</Text>
-        </View>
-        <SafeAreaView style={styles.safeAreaBottom} edges={['bottom']}>
-          <View />
-        </SafeAreaView>
-      </View>
-    );
+  // Key extractor for LegendList
+  const keyExtractor = useCallback((item: Message | { type: 'day-separator'; date: Date }, index: number) => {
+    if ('type' in item && item.type === 'day-separator') {
+      return `day-${item.date.getTime()}`;
+    }
+    return (item as Message).id;
+  }, []);
+
+  // Get item type for LegendList
+  const getItemType = useCallback((item: Message | { type: 'day-separator'; date: Date }) => {
+    if ('type' in item && item.type === 'day-separator') {
+      return 'day-separator';
+    }
+    return 'message';
+  }, []);
+
+  // Get the other user (not the current user) from the conversation
+  // Prefer conversation members, fallback to profile query
+  const otherUserForDisplay = useMemo(() => {
+    if (otherUser) return otherUser;
+    
+    // If we have profile data from the profile query, use that
+    if (otherUserProfile && otherUserDid) {
+      return {
+        did: otherUserDid,
+        handle: otherUserProfile.handle,
+        displayName: formatHandle(otherUserProfile.handle) || 'User',
+        avatar: otherUserProfile.avatar,
+      };
+    }
+    
+    return null;
+  }, [otherUser, otherUserProfile, otherUserDid]);
+
+  // Don't render chat UI until data is ready (handled by InteractionManager)
+  if (!isReady) {
+    return null;
   }
 
   if (error) {
@@ -656,9 +624,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     );
   }
 
-  // Calculate header height for keyboard offset
-  const headerHeight = 60; // Approximate header height
-
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeAreaTop} edges={['top']}>
@@ -667,7 +632,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       <KeyboardAvoidingView 
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight - insets.bottom : 0}
         enabled={true}
       >
         {/* Chat Header */}
@@ -676,7 +640,6 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
           <Pressable 
             style={styles.backButton}
             onPress={() => {
-              // Dismiss keyboard first, then navigate after a brief delay
               Keyboard.dismiss();
               setTimeout(() => {
                 router.back();
@@ -726,36 +689,121 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
           )}
           </View>
         </View>
-        <GiftedChat
-        messages={messages}
-        onSend={onSend}
-        user={giftedChatUser}
-        renderSend={renderSend}
-        renderMessage={renderMessage}
-        renderComposer={renderComposer}
-        renderInputToolbar={renderInputToolbar}
-        renderAvatar={renderAvatar}
-        renderDay={renderDay}
-        scrollToBottomComponent={() => (
-          <View style={styles.scrollToBottomButton}>
-            <Icon name="chevron-down" size={16} color={Colors.white} />
+        {/* Messages List - LegendList handles all scrolling and alignment */}
+        <View style={styles.listContainer}>
+          <LegendList
+            data={messagesWithSeparators}
+            renderItem={renderMessageItem}
+            keyExtractor={keyExtractor}
+            getItemType={getItemType}
+            estimatedItemSize={80}
+            initialScrollIndex={initialScrollIndex}
+            alignItemsAtEnd
+            maintainScrollAtEnd
+            maintainScrollAtEndThreshold={0.1}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          />
+        </View>
+
+        {/* Input Toolbar */}
+        {conversationData?.status !== 'accepted' && !currentUserInitiated ? (
+          <View style={styles.inputToolbar}>
+            <View style={styles.actionButtonsContainer}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  styles.rejectButton,
+                  pressed && { opacity: 0.7 }
+                ]}
+                onPress={() => rejectConversationMutation.mutate()}
+                disabled={rejectConversationMutation.isPending || acceptConversationMutation.isPending}
+              >
+                <View pointerEvents="none">
+                  {rejectConversationMutation.isPending ? (
+                    <Loading3FillIcon size={20} color={Colors.white} />
+                  ) : (
+                    <Text style={styles.actionButtonText}>Reject</Text>
+                  )}
+                </View>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  styles.acceptButton,
+                  pressed && { opacity: 0.7 }
+                ]}
+                onPress={() => acceptConversationMutation.mutate()}
+                disabled={rejectConversationMutation.isPending || acceptConversationMutation.isPending}
+              >
+                <View pointerEvents="none">
+                  {acceptConversationMutation.isPending ? (
+                    <Loading3FillIcon size={20} color={Colors.black} />
+                  ) : (
+                    <Text style={[styles.actionButtonText, styles.acceptButtonText]}>Accept</Text>
+                  )}
+                </View>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.inputToolbar}>
+            <View style={styles.inputToolbarContent}>
+              <View style={styles.avatarContainer}>
+                <Avatar
+                  uri={currentUser?.avatar}
+                  type="profile"
+                  size={42}
+                  style={styles.avatar}
+                />
+              </View>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Type a message..."
+                  placeholderTextColor={Colors.gray}
+                  multiline={true}
+                  maxLength={1000}
+                  returnKeyType="default"
+                  blurOnSubmit={false}
+                  autoCorrect={true}
+                  autoCapitalize="sentences"
+                  textAlignVertical="top"
+                  value={inputText}
+                  onChangeText={setInputText}
+                />
+              </View>
+              {inputText.trim().length > 0 && !sendMessageMutation.isPending && (
+                <View style={styles.sendColumn}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.sendButton,
+                      pressed && { opacity: 0.7 }
+                    ]}
+                    onPress={onSend}
+                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel="Send message"
+                  >
+                    <Icon 
+                      name="arrow-up-fill" 
+                      size={22} 
+                      color={Colors.black}
+                    />
+                  </Pressable>
+                </View>
+              )}
+              {sendMessageMutation.isPending && (
+                <View style={styles.sendColumn}>
+                  <View style={styles.sendButton}>
+                    <Loading3FillIcon size={22} color={Colors.black} />
+                  </View>
+                </View>
+              )}
+            </View>
           </View>
         )}
-        minInputToolbarHeight={50}
-        maxComposerHeight={120}
-        minComposerHeight={42}
-        messagesContainerStyle={styles.messagesContainer}
-        scrollToBottomStyle={styles.scrollToBottomContainer}
-        listProps={{ 
-          keyboardShouldPersistTaps: 'handled',
-          keyboardDismissMode: 'on-drag',
-        }}
-        keyboardAvoidingViewProps={undefined}
-        onPressAvatar={() => {
-          // Dismiss emoji bar when tapping avatar
-          setSelectedMessageId(null);
-        }}
-        />
         
         {/* Chat Actions Sheet */}
         <ChatActionsSheet
@@ -784,6 +832,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
   keyboardContainer: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  listContainer: {
     flex: 1,
   },
   chatHeader: {
@@ -865,20 +917,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkGray,
     borderRadius: BORDER_RADIUS.SMALL,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.black,
-    paddingHorizontal: 32,
-  },
-  loadingText: {
-    fontSize: 16,
-    fontFamily: 'Firma-Medium',
-    color: Colors.lightGray,
-    marginTop: 20,
-    textAlign: 'center',
-  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -900,11 +938,6 @@ const styles = StyleSheet.create({
     color: Colors.lightGray,
     textAlign: 'center',
     lineHeight: 22,
-  },
-  messagesContainer: {
-    paddingHorizontal: 0,
-    paddingBottom: 0,
-    paddingTop: 0,
   },
   daySeparator: {
     flexDirection: 'row',
@@ -1005,19 +1038,6 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
-  },
-  scrollToBottomContainer: {
-    backgroundColor: Colors.blue,
-    borderRadius: BORDER_RADIUS.FULL,
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    marginRight: 16,
-  },
-  scrollToBottomButton: {
-    backgroundColor: 'transparent',
   },
   inlineEmojiBar: {
     flexDirection: 'row',
