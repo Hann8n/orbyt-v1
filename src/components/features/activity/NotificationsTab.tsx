@@ -4,10 +4,10 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   Pressable,
   RefreshControl,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ScrollToTopRef } from '../../../utils/tabRefs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,7 +34,14 @@ const RadarGif = require('../../../assets/radar.gif');
 const EmptyNotifications = () => (
   <View style={styles.emptyContainer}>
     <View style={styles.emptyContent}>
-      <Image source={RadarGif} style={styles.radarGif} resizeMode="contain" />
+      <Image 
+        source={RadarGif} 
+        style={styles.radarGif} 
+        contentFit="contain" 
+        cachePolicy="memory-disk"
+        priority="low"
+        allowDownscaling={true}
+      />
        <Text style={styles.emptyText}>no recent notifications</Text>
     </View>
   </View>
@@ -349,7 +356,8 @@ const NotificationItem: React.FC<{
             <Image
               source={{ uri: thumbnail }}
               style={styles.thumbnailVideo}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
               onError={() => {
                 // Silently fail - image just won't display
                 if (__DEV__) {

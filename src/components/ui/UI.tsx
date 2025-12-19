@@ -367,6 +367,9 @@ export const Avatar: React.FC<AvatarProps> = ({
   const styleSanitized = typeof style === 'object' || typeof style === 'undefined' ? (style as StyleProp<ViewStyle>) : undefined;
 
   if (uri) {
+    // Detect if URI is a GIF by checking file extension
+    const isGif = uri.toLowerCase().endsWith('.gif') || uri.includes('.gif?');
+    
     return (
       <View style={[containerStyle, styleSanitized]}> 
         <Image
@@ -375,8 +378,10 @@ export const Avatar: React.FC<AvatarProps> = ({
           contentFit="cover"
           blurRadius={blurRadius || 0}
           cachePolicy="memory-disk"
-          priority="normal"
+          priority={type === 'channel' && isGif ? "low" : "normal"}
           transition={200}
+          allowDownscaling={true}
+          recyclingKey={uri}
         />
       </View>
     );

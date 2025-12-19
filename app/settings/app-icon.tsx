@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert, Platform, Image } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, Platform } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setAppIcon } from '@mozzius/expo-dynamic-app-icon';
@@ -80,7 +81,12 @@ const AppIconSettingsScreen: React.FC = () => {
               <View style={styles.row}>
                 <Text style={settingsTextStyles.menuOptionText}>{option.label}</Text>
                 <View style={styles.previewContainer}>
-                  <Image source={option.preview} style={styles.previewImage} resizeMode="contain" />
+                  <Image 
+                    source={option.preview} 
+                    style={styles.previewImage} 
+                    contentFit="contain"
+                    cachePolicy="memory"
+                  />
                 </View>
               </View>
             </Pressable>

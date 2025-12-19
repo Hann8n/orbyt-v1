@@ -252,7 +252,14 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
         >
           <View style={[styles.contentContainer, { justifyContent: 'center', alignItems: 'center' }]}>
             <View style={styles.iconContainer}>
-              <Image source={TVStaticGif} style={styles.ufoGif} contentFit="contain" />
+              <Image 
+                source={TVStaticGif} 
+                style={styles.ufoGif} 
+                contentFit="contain" 
+                cachePolicy="memory-disk"
+                priority="low"
+                allowDownscaling={true}
+              />
             </View>
             {displayMessage && (
               <Text style={[styles.emptyText, { color: textColor }]}> 
@@ -285,10 +292,17 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           viewableAreaHeight ? { height: viewableAreaHeight } : {}
         ]}
       >
-        <View style={[styles.contentContainer, { justifyContent: 'center' }]}>
-          <View style={styles.iconContainer}>
-            <Image source={LivingGif} style={styles.ufoGif} contentFit="contain" />
-          </View>
+          <View style={[styles.contentContainer, { justifyContent: 'center' }]}>
+            <View style={styles.iconContainer}>
+              <Image 
+                source={LivingGif} 
+                style={styles.ufoGif} 
+                contentFit="contain" 
+                cachePolicy="memory-disk"
+                priority="low"
+                allowDownscaling={true}
+              />
+            </View>
           <Text style={[styles.emptyText, { color: textColor }]}> 
             {displayMessage}
           </Text>
@@ -307,9 +321,23 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
       <View style={[styles.contentContainer, shouldOffsetTop && { paddingTop: topThirdOffset }]}>
           <View style={styles.iconContainer}>
             {(isProfileFeed || (feedOption && feedOption.startsWith('hashtag:'))) && type === 'no-videos' ? (
-              <Image source={UFOGif} style={styles.ufoGif} contentFit="contain" />
+              <Image 
+                source={UFOGif} 
+                style={styles.ufoGif} 
+                contentFit="contain" 
+                cachePolicy="memory-disk"
+                priority="low"
+                allowDownscaling={true}
+              />
             ) : isYourMixFeed && type === 'no-videos' ? (
-              <Image source={TVStaticGif} style={styles.ufoGif} contentFit="contain" />
+              <Image 
+                source={TVStaticGif} 
+                style={styles.ufoGif} 
+                contentFit="contain" 
+                cachePolicy="memory-disk"
+                priority="low"
+                allowDownscaling={true}
+              />
             ) : (
               <Icon 
                 name={icon} 
