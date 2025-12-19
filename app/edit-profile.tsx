@@ -65,15 +65,12 @@ const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = ({
     };
   });
   
-  // Determine colors to display
-  let displayBackgroundColor = colorOption.backgroundColor;
-  let displayTextColor = colorOption.textColor;
-  
-  if (isSelected && customColors) {
-    // Use custom colors when selected (already in correct order, no swapping needed)
-    displayBackgroundColor = customColors.backgroundColor;
-    displayTextColor = customColors.textColor;
-  }
+  // Determine colors to display for the color box itself.
+  // We intentionally always use the preset colors here so that toggling
+  // inversion does not swap the visual colors inside the box; only the
+  // proportions (flex) change.
+  const displayBackgroundColor = colorOption.backgroundColor;
+  const displayTextColor = colorOption.textColor;
   
   return (
     <View style={styles.colorSquareContainer}>
@@ -743,10 +740,6 @@ const EditProfileScreen: React.FC = () => {
             </Text>
           </Pressable>
           
-          <Text style={[styles.headerTitle, { color: Colors.white }]}>
-            Edit Profile
-          </Text>
-          
           <Pressable 
             style={[styles.saveButtonGlass, !isLiquidGlassAvailable() && styles.saveButton]}
             onPress={handleSave}
@@ -811,6 +804,31 @@ const EditProfileScreen: React.FC = () => {
       <View style={[styles.bottomSectionContainer, { backgroundColor: currentColors.backgroundColor }]}>
         <SafeAreaView style={[styles.safeArea, { backgroundColor: currentColors.backgroundColor }]} edges={['bottom']}>
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Username Section */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.90) }]}>
+                USERNAME
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                bounces={false}
+                contentContainerStyle={{ flexGrow: 1 }}
+              >
+                <Text style={[styles.largeText, { color: currentColors.textColor }]}>
+                  <Text style={[styles.handleAt, { color: hexToRGBA(currentColors.textColor, 0.50) }]}>
+                    @
+                  </Text>
+                  <Text>
+                    {' '}
+                    {profileData?.handle ?? userHandle ?? 'username'}
+                  </Text>
+                </Text>
+              </ScrollView>
+            </View>
+
+            <View style={[styles.divider, { backgroundColor: hexToRGBA(currentColors.textColor, 0.20) }]} />
+
             {/* Avatar Section */}
             <View style={styles.section}>
               <View style={styles.avatarContainer}>
@@ -825,61 +843,74 @@ const EditProfileScreen: React.FC = () => {
                   }}
                   showRing={true}
                 />
-                <Pressable 
-                  style={[styles.uploadButton, !isLiquidGlassAvailable() && styles.uploadButtonFallback]}
-                  onPress={handleAvatarPress} 
-                >
-                  {isLiquidGlassAvailable() && (
-                    <GlassView 
-                      style={styles.glassBackground}
-                      glassEffectStyle="clear"
-                      tintColor={hexToRGBA(currentColors.textColor, 0.15)}
-                      isInteractive
-                    />
-                  )}
-                  <View pointerEvents="none">
-                    <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
-                      Upload
-                    </Text>
-                  </View>
-                </Pressable>
+                <View style={styles.avatarButtonColumn}>
+                  <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8), marginLeft: 6 }]}>
+                    PROFILE PICTURE
+                  </Text>
+                  <Pressable 
+                    style={[
+                      styles.uploadButton, 
+                      !isLiquidGlassAvailable() && {
+                        backgroundColor: hexToRGBA(currentColors.textColor, 0.15),
+                      }
+                    ]}
+                    onPress={handleAvatarPress} 
+                  >
+                    {isLiquidGlassAvailable() && (
+                      <GlassView 
+                        style={styles.glassBackground}
+                        glassEffectStyle="clear"
+                        tintColor={hexToRGBA(currentColors.textColor, 0.15)}
+                        isInteractive
+                      />
+                    )}
+                    <View pointerEvents="none">
+                      <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
+                        Upload
+                      </Text>
+                    </View>
+                  </Pressable>
+                </View>
               </View>
             </View>
 
+            <View style={[styles.divider, { backgroundColor: hexToRGBA(currentColors.textColor, 0.12) }]} />
+
             {/* Display Name Section */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
-                Display Name
+              <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8) }]}>
+                DISPLAY NAME
               </Text>
               <TextInput
-                style={[styles.textInput, {
+                style={[styles.largeInput, {
                   color: currentColors.textColor,
-                  backgroundColor: hexToRGBA(currentColors.textColor, INPUT_BACKGROUND_OPACITY),
+                  backgroundColor: 'transparent',
                   borderColor: 'transparent',
                 }]}
                 value={editDisplayName}
                 onChangeText={setEditDisplayName}
-                placeholder="Enter display name"
-                placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
-                maxLength={64}
+                placeholder="Name"
+                placeholderTextColor={hexToRGBA(currentColors.textColor, 0.30)}
+                scrollEnabled
+                maxLength={65}
               />
             </View>
 
-            {/* Bio Section */}
+            <View style={[styles.divider, { backgroundColor: hexToRGBA(currentColors.textColor, 0.12) }]} />
+
+            {/* About Section */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: currentColors.textColor }]}>
-                Bio
+              <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8) }]}>
+                ABOUT
               </Text>
               <TextInput
                 style={[styles.textArea, {
                   color: currentColors.textColor,
-                  backgroundColor: hexToRGBA(currentColors.textColor, 0.05),
-                  borderColor: 'transparent',
                 }]}
                 value={editDescription}
                 onChangeText={setEditDescription}
                 placeholder="Tell us about yourself"
-                placeholderTextColor={hexToRGBA(currentColors.textColor, 0.5)}
+                placeholderTextColor={hexToRGBA(currentColors.textColor, 0.30)}
                 multiline
                 maxLength={256}
               />
@@ -931,7 +962,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
   },
   saveButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
@@ -960,21 +991,56 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 0,
+    paddingTop: 20,
   },
   section: {
-    marginTop: 16,
+    marginTop: 0,
   },
   sectionTitle: {
-    fontFamily: 'Firma-Bold',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontFamily: 'Firma-SemiBold',
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  largeText: {
+    fontFamily: 'Firma-Black',
+    fontSize: 26,
+    lineHeight: 32,
+  },
+  handleAt: {
+    fontFamily: 'Firma-Medium',
+    fontWeight: '400',
+    fontSize: 30,
+    lineHeight: 32,
+  },
+  largeInput: {
+    fontFamily: 'Firma-Black',
+    fontSize: 32,
+    lineHeight: 40,
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 2,
+    marginTop: 0,
+    textAlignVertical: 'center',
+    backgroundColor: 'transparent',
+  },
+  divider: {
+    height: 2,
+    marginVertical: 20,
+    marginHorizontal: -20,
   },
   avatarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+  },
+  avatarButtonColumn: {
+    flex: 1,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: 6,
   },
   uploadButton: {
     borderRadius: 20,
@@ -986,7 +1052,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   uploadButtonFallback: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.20)',
   },
   uploadButtonText: {
     fontFamily: 'Firma-Bold',
@@ -999,15 +1065,15 @@ const styles = StyleSheet.create({
   },
   colorPickerContainer: {
     paddingHorizontal: 20,
-    gap: 8,
+    gap: 4,
   },
   colorSquareContainer: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   colorSquare: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
@@ -1027,9 +1093,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 0,
     borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 6,
     minHeight: 48,
     textAlignVertical: 'center',
     backgroundColor: 'transparent',
@@ -1037,11 +1103,7 @@ const styles = StyleSheet.create({
   textArea: {
     fontFamily: 'Firma-Medium',
     fontSize: 16,
-    borderWidth: 0,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginTop: 8,
+    marginTop: 0,
     minHeight: 100,
     maxHeight: 220,
     textAlignVertical: 'top',
