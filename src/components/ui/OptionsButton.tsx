@@ -1,0 +1,192 @@
+import React, { useState } from 'react';
+import { View, Text, Pressable, Switch, ViewStyle, TextStyle, StyleSheet } from 'react-native';
+import Icon from './Icon';
+import { Colors } from './UI';
+import { BORDER_RADIUS } from '../../utils/constants';
+import { hexToRGBA } from '../../utils/formatting/colorUtils';
+
+// Define styles inline to avoid import path issues
+const buttonStyles = StyleSheet.create({
+  menuOption: {
+    backgroundColor: Colors.darkGray,
+    borderRadius: BORDER_RADIUS.LARGE,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    marginHorizontal: 10,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    borderWidth: 0,
+    borderColor: 'transparent',
+  },
+});
+
+const textStyles = StyleSheet.create({
+  menuOptionText: {
+    color: Colors.white,
+    fontSize: 18,
+    fontFamily: 'Firma-SemiBold',
+  },
+  menuOptionSubtitle: {
+    color: Colors.gray,
+    fontSize: 12,
+    fontWeight: '400',
+    fontFamily: 'Firma-Regular',
+    marginTop: 4,
+  },
+});
+
+interface OptionsButtonProps {
+  label: string;
+  subtitle?: string;
+  description?: string;
+  onPress?: () => void;
+  showChevron?: boolean;
+  showSwitch?: boolean;
+  switchValue?: boolean;
+  onSwitchChange?: (value: boolean) => void;
+  rightIcon?: React.ReactNode;
+  leftContent?: React.ReactNode;
+  rightContent?: React.ReactNode;
+  destructive?: boolean;
+  disabled?: boolean;
+  selected?: boolean;
+  loading?: boolean;
+  style?: ViewStyle;
+  textStyle?: TextStyle;
+  containerStyle?: ViewStyle;
+}
+
+export const OptionsButton: React.FC<OptionsButtonProps> = ({
+  label,
+  subtitle,
+  description,
+  onPress,
+  showChevron = false,
+  showSwitch = false,
+  switchValue = false,
+  onSwitchChange,
+  rightIcon,
+  leftContent,
+  rightContent,
+  destructive = false,
+  disabled = false,
+  selected = false,
+  loading = false,
+  style,
+  textStyle,
+  containerStyle,
+}) => {
+  const [pressed, setPressed] = useState(false);
+
+  const getBackgroundColor = () => {
+    if (pressed) {
+      if (destructive) return Colors.darkGray;
+      return hexToRGBA(Colors.lightGray, 0.8);
+    }
+    if (destructive) return Colors.red;
+    return Colors.darkGray;
+  };
+
+  const getTextColor = () => {
+    if (pressed) {
+      if (destructive) return Colors.white;
+      return Colors.black;
+    }
+    if (destructive) return Colors.darkGray;
+    if (selected) return Colors.lightGreen;
+    return Colors.white;
+  };
+
+  const buttonContent = (
+    <View style={[
+      buttonStyles.menuOption,
+      { backgroundColor: getBackgroundColor() },
+      selected && !pressed && { borderColor: Colors.lightGreen, borderWidth: 1 },
+      containerStyle,
+      style,
+    ]}>
+      {leftContent ? (
+        leftContent
+      ) : (
+        <View style={{ flexDirection: 'column', flex: 1 }}>
+          <Text style={[
+            textStyles.menuOptionText,
+            { color: getTextColor() },
+            textStyle,
+          ]}>
+            {label}
+          </Text>
+          {subtitle && (
+            <Text style={[
+              textStyles.menuOptionSubtitle,
+              pressed && { color: Colors.gray }
+            ]}>
+              {subtitle}
+            </Text>
+          )}
+          {description && (
+            <Text style={[
+              textStyles.menuOptionSubtitle,
+              pressed && { color: Colors.gray }
+            ]}>
+              {description}
+            </Text>
+          )}
+        </View>
+      )}
+      {rightContent ? (
+        rightContent
+      ) : rightIcon ? (
+        <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+          {rightIcon}
+        </View>
+      ) : showSwitch ? (
+        <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+          <Switch
+            value={switchValue}
+            onValueChange={onSwitchChange}
+            trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
+            thumbColor={switchValue ? Colors.white : Colors.lightGray}
+            ios_backgroundColor={Colors.mediumGray}
+          />
+        </View>
+      ) : showChevron ? (
+        <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
+        </View>
+      ) : null}
+    </View>
+  );
+
+  if (onPress) {
+    const handlePress = () => {
+      setPressed(false);
+      onPress();
+    };
+
+    return (
+      <View style={{ marginBottom: 0 }}>
+        <Pressable 
+          onPress={handlePress} 
+          onPressIn={() => setPressed(true)}
+          onPressOut={() => setPressed(false)}
+          disabled={disabled || loading}
+        >
+          {buttonContent}
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ marginBottom: 0 }}>
+      {buttonContent}
+    </View>
+  );
+};
+
+export default OptionsButton;
+

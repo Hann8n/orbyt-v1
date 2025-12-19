@@ -176,6 +176,8 @@ const styles = StyleSheet.create({
   sheetRightSection: {
     width: 40,
     height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stackedLeftRow: {
     flex: 1,
@@ -224,10 +226,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     fontFamily: 'Firma-Bold',
-    marginLeft: 5,
   },
   titleSheetIndent: {
-    marginLeft: 14,
+    marginLeft: 8,
   },
 });
 

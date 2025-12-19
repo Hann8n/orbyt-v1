@@ -8,6 +8,7 @@ import { setAppIcon } from '@mozzius/expo-dynamic-app-icon';
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
+import { OptionsButton } from '../../src/components/ui/OptionsButton';
 
 type AppIconKey = 'orBYTE' | null;
 
@@ -72,12 +73,12 @@ const AppIconSettingsScreen: React.FC = () => {
 
       <View style={{ flex: 1 }}>
         {ICON_OPTIONS.map(option => (
-          <View key={option.id} style={{ marginBottom: 0 }}>
-            <Pressable
-              style={settingsButtonStyles.menuOption}
-              onPress={() => handleSelectIcon(option.iconKey)}
-              disabled={isSubmitting}
-            >
+          <OptionsButton
+            key={option.id}
+            label={option.label}
+            onPress={() => handleSelectIcon(option.iconKey)}
+            disabled={isSubmitting}
+            leftContent={
               <View style={styles.row}>
                 <Text style={settingsTextStyles.menuOptionText}>{option.label}</Text>
                 <View style={styles.previewContainer}>
@@ -89,8 +90,8 @@ const AppIconSettingsScreen: React.FC = () => {
                   />
                 </View>
               </View>
-            </Pressable>
-          </View>
+            }
+          />
         ))}
       </View>
     </View>

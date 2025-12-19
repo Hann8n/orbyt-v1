@@ -7,6 +7,7 @@ import Icon, { Loading3FillIcon } from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import { useAlgorithmicFeedProvider, ALGORITHMIC_FEED_PROVIDERS } from '../../src/stores/userStore';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
+import { OptionsButton } from '../../src/components/ui/OptionsButton';
 
 interface FeedProviderOption {
   id: string;
@@ -101,33 +102,20 @@ const AlgorithmicFeedScreen: React.FC = () => {
           {FEED_OPTIONS.map((option) => {
             const selected = isSelected(option.uri);
             return (
-              <Pressable
+              <OptionsButton
                 key={option.id}
-                style={settingsButtonStyles.menuOption}
+                label={option.displayName}
+                description={option.description}
                 onPress={() => handleSelectProvider(option.uri)}
                 disabled={isSaving}
-              >
-                <View style={styles.optionContent}>
-                  <View style={styles.optionHeader}>
-                    <Text style={[
-                      settingsTextStyles.menuOptionText,
-                      selected && { color: Colors.lightGreen },
-                    ]}>
-                      {option.displayName}
-                    </Text>
-                  </View>
-                  <Text style={styles.optionDescription}>
-                    {option.description}
-                  </Text>
-                </View>
-                <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-                  {isSaving && selected ? (
-                    <Loading3FillIcon size={24} color={Colors.lightGreen} />
-                  ) : selected ? (
-                    <Icon name="check" size={24} color={Colors.lightGreen} />
-                  ) : null}
-                </View>
-              </Pressable>
+                selected={selected}
+                loading={isSaving && selected}
+                rightIcon={isSaving && selected ? (
+                  <Loading3FillIcon size={24} color={Colors.lightGreen} />
+                ) : selected ? (
+                  <Icon name="check" size={24} color={Colors.lightGreen} />
+                ) : undefined}
+              />
             );
           })}
         </View>

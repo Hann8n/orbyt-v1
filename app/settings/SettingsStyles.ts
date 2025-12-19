@@ -26,7 +26,7 @@ export const settingsButtonStyles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.LARGE,
     paddingVertical: 20,
     paddingHorizontal: 20,
-    marginHorizontal: 12,
+    marginHorizontal: 10,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -207,13 +207,11 @@ export const settingsTextStyles = StyleSheet.create({
   // Section title text
   sectionTitle: {
     color: Colors.gray,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
-    marginBottom: 12,
-    paddingHorizontal: 20,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
   },
 
   // Section title (larger)
@@ -381,7 +379,8 @@ export const settingsLayoutStyles = StyleSheet.create({
 
   // Section
   section: {
-    marginTop: 12,
+    marginTop: 0,
+    marginBottom: 12,
   },
 
   // Section with standard settings padding (5px)

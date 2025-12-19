@@ -20,6 +20,7 @@ import Constants from 'expo-constants';
 import { useProfile } from '../../src/services/cache/ProfileCache';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
+import { OptionsButton } from '../../src/components/ui/OptionsButton';
 
 interface AboutItem {
   id: string;
@@ -117,27 +118,14 @@ const AboutScreen: React.FC = () => {
           <Text style={settingsTextStyles.sectionTitle}>links & legal</Text>
           <View style={styles.linksContainer}>
             {aboutItems.map((item, itemIndex) => (
-              <View key={item.id} style={{ marginBottom: 0 }}>
-                <Pressable
-                  style={settingsButtonStyles.menuOption}
-                  onPress={item.onPress}
-                  disabled={!item.onPress}
-                >
-                  <View style={styles.linkItemLeft}>
-                    <View style={styles.linkTextContainer}>
-                      <Text style={settingsTextStyles.menuOptionText}>{item.label}</Text>
-                      {item.description && (
-                        <Text style={styles.linkItemDescription}>{item.description}</Text>
-                      )}
-                    </View>
-                  </View>
-                  <View style={styles.linkItemRight}>
-                    {item.showChevron && (
-                      <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
-                    )}
-                  </View>
-                </Pressable>
-              </View>
+              <OptionsButton
+                key={item.id}
+                label={item.label}
+                description={item.description}
+                onPress={item.onPress}
+                showChevron={item.showChevron}
+                disabled={!item.onPress}
+              />
             ))}
           </View>
         </View>

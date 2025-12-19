@@ -11,6 +11,7 @@ import { safeDismiss, safePresent } from '../../utils/truesheet/trueSheetUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import { Colors } from './UI';
+import { OptionsButton } from './OptionsButton';
 
 interface VerticalListSheetProps {
   visible: boolean;
@@ -320,6 +321,7 @@ const styles = StyleSheet.create({
 export default VerticalListSheet;
 
 // Optional in-file list button for consistent styling inside sheets
+// Now uses OptionsButton for consistency
 export const VerticalListButton: React.FC<{
   label: string;
   onPress: () => void;
@@ -330,21 +332,14 @@ export const VerticalListButton: React.FC<{
   textStyle?: any;
 }> = ({ label, onPress, icon, disabled, danger, style, textStyle }) => {
   return (
-    <Pressable
-      style={[
-        styles.listButton,
-        danger && styles.listButtonDanger,
-        style,
-      ]}
+    <OptionsButton
+      label={label}
       onPress={onPress}
       disabled={disabled}
-    >
-      <View style={styles.listButtonContent}>
-        <Text style={[styles.listButtonText, danger && styles.listButtonTextDanger, textStyle]}>
-          {label}
-        </Text>
-      </View>
-    </Pressable>
+      destructive={danger}
+      style={[{ marginHorizontal: 12 }, style]}
+      textStyle={textStyle}
+    />
   );
 };
 
@@ -358,25 +353,22 @@ export const VerticalListCheckboxButton: React.FC<{
   style?: any;
 }> = ({ label, description, checked, onPress, disabled, style }) => {
   return (
-    <Pressable
-      style={[styles.checkboxButtonRow, style]}
+    <OptionsButton
+      label={label}
+      subtitle={description}
       onPress={onPress}
       disabled={disabled}
-    >
-      <View style={styles.checkboxButtonContent}>
-        <Text style={styles.checkboxButtonLabel}>{label}</Text>
-        {description && (
-          <Text style={styles.checkboxButtonDescription}>{description}</Text>
-        )}
-      </View>
-      <View style={[
-        styles.checkboxButtonCheckbox,
-        checked && styles.checkboxButtonCheckboxSelected
-      ]}>
-        {checked && (
-          <Icon name="checkmark" size={16} color={Colors.black} />
-        )}
-      </View>
-    </Pressable>
+      rightIcon={
+        <View style={[
+          styles.checkboxButtonCheckbox,
+          checked && styles.checkboxButtonCheckboxSelected
+        ]}>
+          {checked && (
+            <Icon name="checkmark" size={16} color={Colors.black} />
+          )}
+        </View>
+      }
+      style={[{ marginHorizontal: 12 }, style]}
+    />
   );
 };

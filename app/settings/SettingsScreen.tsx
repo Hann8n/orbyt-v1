@@ -2,12 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   Alert,
   Platform,
   ScrollView,
-  Switch,
   Share,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -15,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
+import { OptionsButton } from '../../src/components/ui/OptionsButton';
 import { useFeedSettings, useAuth, useCurrentUser, useUserStore, useAccountManagement } from '../../src/stores/userStore';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { useQueryClient } from '@tanstack/react-query';
@@ -213,7 +212,7 @@ const SettingsScreen: React.FC = () => {
             // Ensure modal close animation completes before presenting account switcher
             setTimeout(() => presentAccountSwitcher(), 350);
           },
-          showChevron: true
+          showChevron: false
         },
         {
           id: 'followers',
@@ -223,7 +222,7 @@ const SettingsScreen: React.FC = () => {
               navigation.back();
               setTimeout(() => navigation.push('/settings/followers'), 100);
             },
-          showChevron: true
+          showChevron: false
         },
         {
           id: 'following',
@@ -233,7 +232,7 @@ const SettingsScreen: React.FC = () => {
               navigation.back();
               setTimeout(() => navigation.push('/settings/following'), 100);
             },
-          showChevron: true
+          showChevron: false
         },
         {
           id: 'channels',
@@ -243,7 +242,7 @@ const SettingsScreen: React.FC = () => {
               navigation.back();
               setTimeout(() => navigation.push('/settings/channels'), 100);
             },
-          showChevron: true
+          showChevron: false
         },
         {
           id: 'saves',
@@ -253,7 +252,7 @@ const SettingsScreen: React.FC = () => {
             navigation.back();
             setTimeout(() => navigation.push('/settings/saves'), 100);
           },
-          showChevron: true
+          showChevron: false
         }
       ]
     },
@@ -279,7 +278,7 @@ const SettingsScreen: React.FC = () => {
               navigation.back();
               setTimeout(() => navigation.push('/settings/blocked'), 100);
             },
-          showChevron: true
+          showChevron: false
         },
         {
           id: 'muted-users',
@@ -288,7 +287,7 @@ const SettingsScreen: React.FC = () => {
               navigation.back();
               setTimeout(() => navigation.push('/settings/muted'), 100);
             },
-          showChevron: true
+          showChevron: false
         },
       ]
     },
@@ -333,7 +332,7 @@ const SettingsScreen: React.FC = () => {
       ]
     },
     {
-      title: 'App',
+      title: 'App Settings',
       items: [
         {
           id: 'clear-cache',
@@ -443,7 +442,6 @@ const SettingsScreen: React.FC = () => {
         showCloseButton
         onClosePress={() => navigation.back()}
         applySafeAreaTop={Platform.OS === 'android'}
-        style={{ marginHorizontal: -5 }}
         backgroundColor={Colors.black}
         titleIndent={true}
       />
@@ -462,52 +460,28 @@ const SettingsScreen: React.FC = () => {
               );
             case 'setting':
               return (
-                <View key={key} style={{ marginBottom: 0 }}>
-                  <Pressable
-                    style={[
-                      settingsButtonStyles.menuOption,
-                      item.destructive ? { backgroundColor: Colors.red } : null,
-                    ]}
-                    onPress={item.onPress}
-                    disabled={isSubmitting}
-                  >
-                    <View style={styles.menuOptionLeft}>
-                      <Text style={[
-                        settingsTextStyles.menuOptionText,
-                        item.destructive ? { color: Colors.darkGray } : null,
-                      ]}>
-                        {item.label}
-                      </Text>
-                    </View>
-                    <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-                      {item.id === 'copy-profile-link' && isProfileLinkCopied ? (
-                        <Icon name="check" size={24} color={Colors.lightGreen} />
-                      ) : item.showChevron ? (
-                        <Icon name="right_arrow_filled" size={24} color={Colors.lightGray} />
-                      ) : null}
-                    </View>
-                  </Pressable>
-                </View>
+                <OptionsButton
+                  key={key}
+                  label={item.label}
+                  onPress={item.onPress}
+                  showChevron={item.showChevron}
+                  destructive={item.destructive}
+                  disabled={isSubmitting}
+                  rightIcon={item.id === 'copy-profile-link' && isProfileLinkCopied ? (
+                    <Icon name="check" size={24} color={Colors.lightGreen} />
+                  ) : undefined}
+                />
               );
             case 'toggle':
               return (
-                <View key={key} style={{ marginBottom: 0 }}>
-                  <View style={settingsButtonStyles.menuOption}>
-                    <View style={styles.menuOptionLeft}>
-                      <Text style={settingsTextStyles.menuOptionText}>{item.label}</Text>
-                      {item.subtitle ? (
-                        <Text style={settingsTextStyles.menuOptionSubtitle}>{item.subtitle}</Text>
-                      ) : null}
-                    </View>
-                    <Switch
-                      value={item.value}
-                      onValueChange={item.onValueChange}
-                      trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
-                      thumbColor={item.value ? Colors.white : Colors.lightGray}
-                      ios_backgroundColor={Colors.mediumGray}
-                    />
-                  </View>
-                </View>
+                <OptionsButton
+                  key={key}
+                  label={item.label}
+                  subtitle={item.subtitle}
+                  showSwitch={true}
+                  switchValue={item.value}
+                  onSwitchChange={item.onValueChange}
+                />
               );
             
             default:
@@ -555,11 +529,6 @@ const styles = StyleSheet.create({
     gap: 12,
     marginHorizontal: 0,
   },
-  menuOptionLeft: {
-    flexDirection: 'column',
-    flex: 1,
-  },
-
 });
 
 export default SettingsScreen;

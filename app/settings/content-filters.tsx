@@ -11,6 +11,7 @@ import { ModerationService } from '../../src/services/ModerationService';
 import { ModerationSettings, LabelPreference } from '../../src/services/ModerationTypes';
 import { useModeration, useUserStoreState } from '../../src/stores/userStore';
 import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles, settingsActiveStyles } from './SettingsStyles';
+import { OptionsButton } from '../../src/components/ui/OptionsButton';
 
 interface ContentTypeOption {
   id: string;
@@ -198,18 +199,12 @@ const ContentFiltersScreen: React.FC = () => {
         <View style={settingsLayoutStyles.section}>
           <View style={{ marginBottom: 12, paddingHorizontal: 5 }}>
             {adultContentEnabled && (
-              <View style={settingsButtonStyles.menuOption}>
-                <View style={styles.menuOptionLeft}>
-                  <Text style={settingsTextStyles.menuOptionText}>sensitive content</Text>
-                </View>
-                <Switch
-                  value={adultContentEnabled}
-                  onValueChange={updateAdultContent}
-                  trackColor={{ false: Colors.mediumGray, true: Colors.lightGreen }}
-                  thumbColor={adultContentEnabled ? Colors.white : Colors.lightGray}
-                  ios_backgroundColor={Colors.mediumGray}
-                />
-              </View>
+              <OptionsButton
+                label="sensitive content"
+                showSwitch={true}
+                switchValue={adultContentEnabled}
+                onSwitchChange={updateAdultContent}
+              />
             )}
           </View>
 
@@ -218,63 +213,60 @@ const ContentFiltersScreen: React.FC = () => {
             if (isAdult && !adultContentEnabled) return null;
             return (
               <View key={option.id} style={{ marginBottom: 12, paddingHorizontal: 5 }}>
-                <View style={[settingsButtonStyles.menuOption, { alignItems: 'center' }]}>
-                  <View style={[styles.menuOptionLeft, { paddingRight: 12 }]}>
-                    <Text style={settingsTextStyles.menuOptionText}>{option.label}</Text>
-                  </View>
-                  <View style={[styles.toggleButtonsContainer, { justifyContent: 'center' }]}>
-                    <View style={settingsButtonStyles.toggleButtonGroup}>
-                      <Pressable
-                        style={[settingsButtonStyles.toggleButton, option.preference === 'ignore' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.SUCCESS, borderRightColor: UI.Colors.STATUS.SUCCESS }]]}
-                        onPress={() => updateContentPreference(option.id, 'ignore')}
-                        accessibilityLabel="Show"
-                      >
-                        <Icon
-                          name="check"
-                          size={16}
-                          color={option.preference === 'ignore' ? Colors.black : Colors.lightGray}
-                        />
-                      </Pressable>
-                      <Pressable
-                        style={[settingsButtonStyles.toggleButton, option.preference === 'warn' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.WARNING, borderRightColor: UI.Colors.STATUS.WARNING }]]}
-                        onPress={() => updateContentPreference(option.id, 'warn')}
-                        accessibilityLabel="Warn"
-                      >
-                        <Icon
-                          name="eye"
-                        size={16}
-                        color={option.preference === 'warn' ? Colors.black : Colors.lightGray}
-                        />
-                      </Pressable>
-                      <Pressable
-                        style={[settingsButtonStyles.toggleButton, styles.toggleButtonLast, option.preference === 'hide' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.ERROR, borderRightColor: UI.Colors.STATUS.ERROR }]]}
-                        onPress={() => updateContentPreference(option.id, 'hide')}
-                        accessibilityLabel="Hide"
-                      >
-                        <Icon
-                          name="close"
-                          size={16}
-                          color={option.preference === 'hide' ? Colors.black : Colors.lightGray}
-                        />
-                      </Pressable>
+                <OptionsButton
+                  label={option.label}
+                  containerStyle={{ alignItems: 'center' }}
+                  rightContent={
+                    <View style={[styles.toggleButtonsContainer, { justifyContent: 'center' }]}>
+                      <View style={settingsButtonStyles.toggleButtonGroup}>
+                        <Pressable
+                          style={[settingsButtonStyles.toggleButton, option.preference === 'ignore' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.SUCCESS, borderRightColor: UI.Colors.STATUS.SUCCESS }]]}
+                          onPress={() => updateContentPreference(option.id, 'ignore')}
+                          accessibilityLabel="Show"
+                        >
+                          <Icon
+                            name="check"
+                            size={16}
+                            color={option.preference === 'ignore' ? Colors.black : Colors.lightGray}
+                          />
+                        </Pressable>
+                        <Pressable
+                          style={[settingsButtonStyles.toggleButton, option.preference === 'warn' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.WARNING, borderRightColor: UI.Colors.STATUS.WARNING }]]}
+                          onPress={() => updateContentPreference(option.id, 'warn')}
+                          accessibilityLabel="Warn"
+                        >
+                          <Icon
+                            name="eye"
+                            size={16}
+                            color={option.preference === 'warn' ? Colors.black : Colors.lightGray}
+                          />
+                        </Pressable>
+                        <Pressable
+                          style={[settingsButtonStyles.toggleButton, styles.toggleButtonLast, option.preference === 'hide' && [settingsActiveStyles.toggleButtonActive, { backgroundColor: UI.Colors.STATUS.ERROR, borderRightColor: UI.Colors.STATUS.ERROR }]]}
+                          onPress={() => updateContentPreference(option.id, 'hide')}
+                          accessibilityLabel="Hide"
+                        >
+                          <Icon
+                            name="close"
+                            size={16}
+                            color={option.preference === 'hide' ? Colors.black : Colors.lightGray}
+                          />
+                        </Pressable>
+                      </View>
                     </View>
-                  </View>
-                </View>
+                  }
+                />
               </View>
             );
           })}
         </View>
         <View style={{ marginTop: 4, paddingHorizontal: 5 }}>
-          <Pressable
-            style={settingsButtonStyles.menuOption}
+          <OptionsButton
+            label="adjust on bsky.app"
+            subtitle="open Bluesky content settings"
             onPress={() => Linking.openURL('https://bsky.app/moderation')}
-          >
-            <View style={styles.menuOptionLeft}>
-              <Text style={settingsTextStyles.menuOptionText}>adjust on bsky.app</Text>
-              <Text style={settingsTextStyles.menuOptionSubtitle}>open Bluesky content settings</Text>
-            </View>
-            <Icon name="external-link" size={20} color={Colors.gray} />
-          </Pressable>
+            rightIcon={<Icon name="external-link" size={20} color={Colors.gray} />}
+          />
         </View>
       </ScrollView>
     </View>
