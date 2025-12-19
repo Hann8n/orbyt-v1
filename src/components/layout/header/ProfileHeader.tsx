@@ -30,6 +30,7 @@ interface ProfileHeaderProps {
   headerScrollProgress?: SharedValue<number>;
   contentFadeDisabled?: boolean;
   dimOverlayDisabled?: boolean;
+  onAvatarPress?: () => void;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -47,6 +48,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   headerScrollProgress,
   contentFadeDisabled = false,
   dimOverlayDisabled = false,
+  onAvatarPress,
 }) => {
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [showBetaInfo, setShowBetaInfo] = useState(false);
@@ -125,8 +127,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </>
       ) : undefined,
       avatarBlurRadius: isBlocked ? 30 : 0,
+      onAvatarPress,
     };
-  }, [profileData, profileColors.textColor, joinDate, isBlocked]);
+  }, [profileData, profileColors.textColor, joinDate, isBlocked, onAvatarPress]);
 
 
   // Get colors for description and tab navigation

@@ -16,7 +16,7 @@ import ProfileCache, {
   profileKeys
 } from '../../src/services/cache/ProfileCache';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import Icon, { BackArrowIcon, Loading3FillIcon, FollowIcon, MutualHeartIcon, BellFilledIcon, MoreFillIcon, CloseFillIcon } from '../../src/components/ui/Icon';
+import Icon, { BackArrowIcon, Loading3FillIcon, FollowIcon, MutualHeartIcon, BellFilledIcon, MoreFillIcon } from '../../src/components/ui/Icon';
 import { useQueryClient } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
 import { useCurrentUser, useAccountManagement, useUserStore, useProfileCacheSync } from '../../src/stores/userStore';
@@ -661,8 +661,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           {fullscreenImageUri && (
             <Image source={{ uri: fullscreenImageUri }} style={styles.fullscreenImage} contentFit="contain" />
           )}
-          <Pressable style={styles.closeButton} onPress={() => setFullscreenImageUri(null)}>
-            <CloseFillIcon size={28} color={Colors.white} />
+          <Pressable 
+            style={[styles.closeButton, { top: overlayTop }]} 
+            onPress={() => setFullscreenImageUri(null)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Icon name="close" size={30} color={Colors.white} />
           </Pressable>
         </Pressable>
       </Modal>
@@ -791,11 +795,11 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 60,
-    left: 24,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: BORDER_RADIUS.LARGE,
-    padding: 12,
+    left: 20,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
