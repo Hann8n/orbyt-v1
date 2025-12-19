@@ -1802,22 +1802,59 @@ class AtprotoService {
   static async listNotifications(cursor: string | null = null, limit = 50): Promise<{ notifications: any[]; cursor: string | null }> {
     await this.ensureSession();
     try {
+      const apiClient = await this.getApiClient();
+      if (!apiClient) {
+        logger.error('No API client available for listNotifications', { component: 'AtprotoService' });
+        throw new Error('No authenticated session available');
+      }
+      
+      const { api } = apiClient;
+      
+      // Verify we have a valid API client
+      if (!api || !api.app || !api.app.bsky || !api.app.bsky.notification) {
+        logger.error('Invalid API client structure for listNotifications', { component: 'AtprotoService' });
+        throw new Error('Invalid API client');
+      }
+      
       const params: { cursor?: string, limit: number } = { 
         limit
       };
       if (cursor !== null) {
         params.cursor = cursor;
       }
-      const { api } = await this.getApiClient();
+      
+      if (__DEV__) {
+        logger.debug('Calling listNotifications API', { 
+          component: 'AtprotoService',
+          params,
+          hasApi: !!api,
+          hasNotificationApi: !!api.app.bsky.notification
+        });
+      }
+      
       const response = await api.app.bsky.notification.listNotifications(params);
       
+      if (__DEV__) {
+        logger.debug('listNotifications API response received', { 
+          component: 'AtprotoService',
+          notificationCount: response.data?.notifications?.length || 0,
+          hasCursor: !!response.data?.cursor
+        });
+      }
       
       return { 
         notifications: response.data.notifications || [], 
         cursor: response.data.cursor || null 
       };
     } catch (error: unknown) {
-      return { notifications: [], cursor: null };
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error fetching notifications', error, { 
+        component: 'AtprotoService',
+        cursor,
+        limit,
+        errorMessage: errorMsg
+      });
+      throw error; // Re-throw so the UI can handle it properly
     }
   }
 
@@ -1828,7 +1865,13 @@ class AtprotoService {
   static async updateNotificationSeen(): Promise<void> {
     await this.ensureSession();
     try {
-      const { api } = await this.getApiClient();
+      const apiClient = await this.getApiClient();
+      if (!apiClient) {
+        logger.debug('No API client available for updateNotificationSeen', { component: 'AtprotoService' });
+        return; // Non-critical operation, fail silently
+      }
+      
+      const { api } = apiClient;
       // Call the Bluesky API to mark notifications as seen
       // This uses the current timestamp as the seenAt parameter
       await api.app.bsky.notification.updateSeen({

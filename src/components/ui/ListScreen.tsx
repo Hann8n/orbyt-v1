@@ -368,18 +368,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     paddingTop: 100,
   },
-  retryButton: {
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    marginTop: 24,
-  },
-  retryButtonText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
-  },
 });
 
 export default ListScreen;

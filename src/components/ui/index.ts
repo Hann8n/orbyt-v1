@@ -2,6 +2,7 @@
 export {
   Colors,
   Button,
+  RetryButton,
   Card,
   Modal,
   Input,

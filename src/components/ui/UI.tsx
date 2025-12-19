@@ -11,11 +11,13 @@ import {
   Alert,
   StyleProp,
   ImageStyle,
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Modal as RNModal } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Icon, { Loading3FillIcon } from './Icon';
 import { hexToRGBA, isColorDark, getContrastRatio } from '../../utils/formatting/colorUtils';
 import Typography, { TypographyText } from '../../utils/helpers/typography';
@@ -280,6 +282,78 @@ export const Button: React.FC<ButtonProps> = ({
     </Pressable>
   );
 };
+
+// Retry Button Component - consistent styling across the app
+interface RetryButtonProps {
+  onPress: () => void;
+  style?: ViewStyle;
+  textStyle?: TextStyle;
+}
+
+export const RetryButton: React.FC<RetryButtonProps> = ({ onPress, style, textStyle }) => {
+  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
+  
+  const buttonContent = (
+    <View style={retryButtonStyles.buttonContent} pointerEvents="none">
+      <Text style={[retryButtonStyles.text, textStyle]} pointerEvents="none">Retry</Text>
+    </View>
+  );
+  
+  return (
+    <Pressable 
+      style={[retryButtonStyles.button, !useLiquidGlass && retryButtonStyles.whiteButton, style]} 
+      onPress={onPress}
+    >
+      {useLiquidGlass ? (
+        <>
+          <GlassView
+            style={retryButtonStyles.glassBackground}
+            glassEffectStyle="clear"
+            tintColor="rgba(255, 255, 255, 1)"
+            isInteractive
+          />
+          {buttonContent}
+        </>
+      ) : (
+        buttonContent
+      )}
+    </Pressable>
+  );
+};
+
+const retryButtonStyles = StyleSheet.create({
+  button: {
+    borderRadius: BORDER_RADIUS.FULL,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginTop: 20,
+    overflow: 'hidden',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  buttonContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  whiteButton: {
+    backgroundColor: Colors.white,
+  },
+  glassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.FULL,
+  },
+  text: {
+    color: Colors.black,
+    fontSize: 16,
+    fontFamily: 'Firma-SemiBold',
+  },
+});
 
 // Icon Component
 
@@ -886,6 +960,7 @@ export const CommonStyles = StyleSheet.create({
 export default {
   Colors,
   Button,
+  RetryButton,
   Card,
   Modal,
   Input,

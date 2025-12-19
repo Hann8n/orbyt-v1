@@ -3,7 +3,7 @@ import { BORDER_RADIUS } from '../../../utils/constants';
 import { View, Text, StyleSheet, Dimensions, Pressable, FlatList } from 'react-native';
 import { Image } from 'expo-image';
 import Icon from '../../ui/Icon';
-import { Colors } from '../../ui/UI';
+import { Colors, RetryButton } from '../../ui/UI';
 import { useQuery } from '@tanstack/react-query';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar } from '../../ui/UI';
@@ -360,12 +360,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
           </Pressable>
         )}
         {onRetry && (type === 'error' || type === 'no-connection') && (
-          <Pressable 
-            style={[styles.retryButton, { borderColor: textColor }]} 
-            onPress={onRetry}
-          >
-            <Text style={[styles.retryButtonText, { color: textColor }]}>Retry</Text>
-          </Pressable>
+          <RetryButton onPress={onRetry} />
         )}
       </View>
     </View>
@@ -402,17 +397,6 @@ const styles = StyleSheet.create({
   ufoGif: {
     width: 80,
     height: 80,
-  },
-  retryButton: {
-    borderWidth: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    marginTop: 20,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
   },
   // Matching ExploreScreen styles exactly
   sectionHeader: {

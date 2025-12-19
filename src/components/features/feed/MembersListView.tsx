@@ -19,7 +19,7 @@ import { Avatar, Icon } from '../../ui/UI';
 import { Loading3FillIcon } from '../../ui/Icon';
 import { VerificationBadge } from '../badging';
 import ProfileCache from '../../../services/cache/ProfileCache';
-import { Colors } from '../../ui/UI';
+import { Colors, RetryButton } from '../../ui/UI';
 import UI from '../../ui/UI';
 import { formatHandle } from '../../../utils/helpers';
 import { isCurrentUser } from '../../../stores/profileInteractionStore';
@@ -376,14 +376,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
       <Text style={[styles.errorDescription, { color: hexToRGBA(textColor, 0.67) }]}>
         Please try again later.
       </Text>
-      <Pressable
-        style={[styles.retryButton, { borderColor: textColor }]}
-        onPress={handleRefresh}
-      >
-        <Text style={[styles.retryButtonText, { color: textColor }]}>
-          Retry
-        </Text>
-      </Pressable>
+      <RetryButton onPress={handleRefresh} />
     </View>
   ), [textColor, handleRefresh]);
 
@@ -580,17 +573,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
-  },
-  retryButton: {
-    borderWidth: 1,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    marginTop: 20,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
   },
 });
 

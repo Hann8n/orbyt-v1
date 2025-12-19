@@ -429,8 +429,21 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
   } = useInfiniteQuery({
     queryKey: ['notifications', 'all'],
     queryFn: async ({ pageParam }) => {
-      const response = await AtprotoService.listNotifications(pageParam as string | null);
-      return response;
+      if (__DEV__) {
+        console.log('[NotificationsTab] Fetching notifications with cursor:', pageParam);
+      }
+      try {
+        const response = await AtprotoService.listNotifications(pageParam as string | null);
+        if (__DEV__) {
+          console.log('[NotificationsTab] Received notifications:', response.notifications.length, 'cursor:', response.cursor);
+        }
+        return response;
+      } catch (error) {
+        if (__DEV__) {
+          console.error('[NotificationsTab] Error fetching notifications:', error);
+        }
+        throw error; // Re-throw so React Query can handle it
+      }
     },
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.cursor,
