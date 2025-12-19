@@ -965,7 +965,17 @@ const EditProfileScreen: React.FC = () => {
 
                 {/* Display Name Section */}
                 <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8) }]}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      {
+                        color: hexToRGBA(currentColors.textColor, 0.8),
+                        // Slightly tighter margin than default to visually
+                        // match the username header-to-value spacing.
+                        marginBottom: 2,
+                      },
+                    ]}
+                  >
                     DISPLAY NAME
                   </Text>
                   <TextInput
@@ -1148,7 +1158,7 @@ const styles = StyleSheet.create({
     lineHeight: 40,
     borderWidth: 0,
     paddingHorizontal: 0,
-    paddingVertical: 2,
+    paddingVertical: 0,
     marginTop: 0,
     textAlignVertical: 'center',
     backgroundColor: 'transparent',
@@ -1199,8 +1209,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   colorSquare: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
