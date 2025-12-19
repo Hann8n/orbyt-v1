@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import * as NavigationBar from 'expo-navigation-bar';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 import { setVideoCacheSizeAsync } from 'expo-video';
 
@@ -130,6 +131,12 @@ export default function RootLayout() {
   
   const [isInitializing, setIsInitializing] = useState(true);
   const [appIsReady, setAppIsReady] = useState(false);
+
+  // Set Android navigation bar to dark theme
+  useEffect(() => {
+    NavigationBar.setBackgroundColorAsync(Colors.black).catch(() => {});
+    NavigationBar.setButtonStyleAsync('light').catch(() => {});
+  }, []);
 
   // Parallel initialization: fonts and auth state load simultaneously
   useEffect(() => {
@@ -358,3 +365,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
