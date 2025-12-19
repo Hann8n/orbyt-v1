@@ -452,22 +452,34 @@ const HeaderContentComponent = memo<{
             )}
           </Pressable>
         
-        {!!content.subtitle && (
-          <Pressable
-            style={styles.subtitleRow}
-            onPress={content.onTitlePress}
-          >
-            <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-              <Text
-                style={[styles.subtitle, { color: textColor }]}
-                numberOfLines={1}
-              >
-                {content.subtitle}
-                {content.onTitlePress ? ' ›' : ''}
-              </Text>
-            </View>
-          </Pressable>
-        )}
+        {!!content.subtitle && (() => {
+          const subtitle = content.subtitle;
+          const firstDotIndex = subtitle.indexOf('.');
+          const subtitleBase = firstDotIndex !== -1 ? subtitle.slice(0, firstDotIndex) : subtitle;
+          const subtitleSuffix = firstDotIndex !== -1 ? subtitle.slice(firstDotIndex) : null;
+          
+          return (
+            <Pressable
+              style={styles.subtitleRow}
+              onPress={content.onTitlePress}
+            >
+              <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <Text
+                  style={[styles.subtitle, { color: textColor }]}
+                  numberOfLines={1}
+                >
+                  {subtitleBase}
+                  {subtitleSuffix && (
+                    <Text style={{ color: hexToRGBA(textColor, 0.50) }}>
+                      {subtitleSuffix}
+                    </Text>
+                  )}
+                  {content.onTitlePress ? ' ›' : ''}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })()}
         
         {customDescription || (content.description && (
           <TextWithLinks
