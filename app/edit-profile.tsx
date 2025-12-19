@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
   Dimensions,
+  Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,6 +31,7 @@ export interface ProfileColorOption {
 }
 
 const INPUT_BACKGROUND_OPACITY = 0.06;
+const ABOUT_MAX_LENGTH = 256;
 
 // Animated Color Square Component
 interface AnimatedColorSquareProps {
@@ -141,6 +143,11 @@ const EditProfileScreen: React.FC = () => {
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editAvatar, setEditAvatar] = useState<string | undefined>(undefined);
+  
+  // About length tracking
+  const aboutCount = editDescription?.length || 0;
+  const aboutOverBy = Math.max(0, aboutCount - ABOUT_MAX_LENGTH);
+  const aboutRemaining = Math.max(0, ABOUT_MAX_LENGTH - aboutCount);
   
   // Color selection state
   const [selectedColorId, setSelectedColorId] = useState<string>('black');
@@ -762,17 +769,50 @@ const EditProfileScreen: React.FC = () => {
               Cancel
             </Text>
           </Pressable>
-          
+
+          {isAboutFocused && (aboutRemaining <= 50 || aboutOverBy > 0) && (
+            <View style={styles.headerCenter}>
+              <Text style={styles.aboutHeaderCounter}>
+                <Text style={[styles.aboutHeaderCurrent, aboutOverBy > 0 && styles.aboutHeaderCurrentOver]}>
+                  {aboutCount}
+                </Text>
+                <Text>{` / ${ABOUT_MAX_LENGTH}`}</Text>
+              </Text>
+            </View>
+          )}
+
           <Pressable 
-            style={[styles.saveButtonGlass, !isLiquidGlassAvailable() && styles.saveButton]}
-            onPress={handleSave}
-            disabled={profileUpdateMutation.isPending}
+            style={[
+              styles.saveButtonGlass,
+              !isLiquidGlassAvailable() && styles.saveButton,
+              isAboutFocused && aboutOverBy > 0 && styles.saveButtonDisabled,
+            ]}
+            pointerEvents={
+              profileUpdateMutation.isPending || (isAboutFocused && aboutOverBy > 0)
+                ? 'none'
+                : 'auto'
+            }
+            onPress={() => {
+              if (isAboutFocused) {
+                if (aboutOverBy > 0) {
+                  return;
+                }
+                setIsAboutFocused(false);
+                Keyboard.dismiss();
+              } else {
+                handleSave();
+              }
+            }}
+            disabled={profileUpdateMutation.isPending || (isAboutFocused && aboutOverBy > 0)}
           >
             {isLiquidGlassAvailable() && (
               <GlassView 
                 style={styles.glassBackground}
                 glassEffectStyle="clear"
-                tintColor={hexToRGBA(Colors.white, 0.9)}
+                tintColor={hexToRGBA(
+                  Colors.white,
+                  isAboutFocused && aboutOverBy > 0 ? 0.35 : 0.9
+                )}
                 isInteractive
               />
             )}
@@ -780,8 +820,14 @@ const EditProfileScreen: React.FC = () => {
               {profileUpdateMutation.isPending ? (
                 <Loading3FillIcon size={24} color={Colors.black} />
               ) : (
-                <Text style={[styles.saveButtonText, isLiquidGlassAvailable() && { color: Colors.black }]}>
-                  Save
+                <Text
+                  style={[
+                    styles.saveButtonText,
+                    isLiquidGlassAvailable() && { color: Colors.black },
+                    isAboutFocused && aboutOverBy > 0 && { color: hexToRGBA(Colors.black, 0.25) },
+                  ]}
+                >
+                  {isAboutFocused ? 'Done' : 'Save'}
                 </Text>
               )}
             </View>
@@ -828,14 +874,9 @@ const EditProfileScreen: React.FC = () => {
         <SafeAreaView style={[styles.safeArea, { backgroundColor: currentColors.backgroundColor }]} edges={['bottom']}>
           <ScrollView
             style={styles.content}
+            contentContainerStyle={{ flexGrow: 1 }}
             showsVerticalScrollIndicator={false}
-            keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
-            onScrollBeginDrag={() => {
-              if (isAboutFocused) {
-                setIsAboutFocused(false);
-              }
-            }}
           >
             {/* Username & Avatar & Display Name Sections */}
             {!isAboutFocused && (
@@ -959,18 +1000,14 @@ const EditProfileScreen: React.FC = () => {
               <TextInput
                 style={[styles.textArea, {
                   color: currentColors.textColor,
-                }]}
+                }, isAboutFocused && { flex: 1 }]}
                 value={editDescription}
                 onChangeText={setEditDescription}
                 placeholder="Tell us about yourself"
                 placeholderTextColor={hexToRGBA(currentColors.textColor, 0.30)}
                 multiline
-                maxLength={256}
                 onFocus={() => {
                   setIsAboutFocused(true);
-                }}
-                onBlur={() => {
-                  setIsAboutFocused(false);
                 }}
               />
             </Animated.View>
@@ -1028,6 +1065,9 @@ const styles = StyleSheet.create({
     minWidth: 60,
     alignItems: 'center',
   },
+  saveButtonDisabled: {
+    opacity: 0.4,
+  },
   saveButtonGlass: {
     borderRadius: 20,
     paddingVertical: 8,
@@ -1047,6 +1087,23 @@ const styles = StyleSheet.create({
     color: Colors.black,
     fontWeight: '600',
   },
+  aboutHeaderCounter: {
+    marginHorizontal: 8,
+    fontFamily: 'Firma-SemiBold',
+    fontSize: 14,
+    color: Colors.white,
+  },
+  aboutHeaderCurrent: {
+    fontFamily: 'Firma-SemiBold',
+    fontSize: 16,
+  },
+  aboutHeaderCurrentOver: {
+    color: Colors.red,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
   content: {
     flex: 1,
     paddingHorizontal: 20,
@@ -1056,7 +1113,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   aboutExpandedSection: {
-    minHeight: 260,
+    flex: 1,
   },
   usernameSection: {
     marginTop: 0,
@@ -1175,7 +1232,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 0,
     minHeight: 100,
-    maxHeight: 220,
     textAlignVertical: 'top',
     backgroundColor: 'transparent',
   },
