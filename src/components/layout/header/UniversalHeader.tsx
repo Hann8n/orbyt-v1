@@ -454,9 +454,9 @@ const HeaderContentComponent = memo<{
         
         {!!content.subtitle && (() => {
           const subtitle = content.subtitle;
-          const firstDotIndex = subtitle.indexOf('.');
-          const subtitleBase = firstDotIndex !== -1 ? subtitle.slice(0, firstDotIndex) : subtitle;
-          const subtitleSuffix = firstDotIndex !== -1 ? subtitle.slice(firstDotIndex) : null;
+          const suffix = '.bsky.social';
+          const subtitleBase = subtitle.endsWith(suffix) ? subtitle.slice(0, -suffix.length) : subtitle;
+          const subtitleSuffix = subtitle.endsWith(suffix) ? suffix : null;
           
           return (
             <Pressable

@@ -117,7 +117,7 @@ const EditProfileScreen: React.FC = () => {
   const { data: profileData } = useProfile(userHandle);
   const [isAboutFocused, setIsAboutFocused] = useState(false);
   
-  // Handle formatting: detach everything after the first "." as a suffix so we can
+  // Handle formatting: detach ".bsky.social" suffix if present so we can
   // render the suffix separately in the UI (bottom-right of the section).
   const { handleBase, handleSuffix } = useMemo(() => {
     const rawHandle = profileData?.handle ?? userHandle ?? 'username';
@@ -125,11 +125,11 @@ const EditProfileScreen: React.FC = () => {
       return { handleBase: 'username', handleSuffix: null as string | null };
     }
     
-    const firstDotIndex = rawHandle.indexOf('.');
-    if (firstDotIndex !== -1) {
+    const suffix = '.bsky.social';
+    if (rawHandle.endsWith(suffix)) {
       return {
-        handleBase: rawHandle.slice(0, firstDotIndex),
-        handleSuffix: rawHandle.slice(firstDotIndex),
+        handleBase: rawHandle.slice(0, -suffix.length),
+        handleSuffix: suffix,
       };
     }
     
