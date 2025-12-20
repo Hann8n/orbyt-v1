@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, StatusBar, Appearance, AppState, InteractionManager } from 'react-native';
+import { View, StyleSheet, StatusBar, Appearance, AppState, InteractionManager, Platform } from 'react-native';
 import { Stack, Redirect, usePathname, useSegments } from 'expo-router';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -134,8 +134,10 @@ export default function RootLayout() {
 
   // Set Android navigation bar to dark theme
   useEffect(() => {
-    NavigationBar.setBackgroundColorAsync(Colors.black).catch(() => {});
-    NavigationBar.setButtonStyleAsync('light').catch(() => {});
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync(Colors.black).catch(() => {});
+      NavigationBar.setButtonStyleAsync('light').catch(() => {});
+    }
   }, []);
 
   // Parallel initialization: fonts and auth state load simultaneously

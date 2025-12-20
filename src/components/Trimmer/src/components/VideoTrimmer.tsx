@@ -367,7 +367,7 @@ function VideoTrimmerUI(props: VideoTrimmerProps, ref: Ref<unknown>) {
     const translateX = cropOffsetX.value * overflowX;
     const translateY = cropOffsetY.value * overflowY;
     
-    return { transform: [{ translateX }, { translateY }] };
+    return { transform: [{ translateX }, { translateY }] as any };
   });
 
   return (
