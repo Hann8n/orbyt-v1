@@ -1,6 +1,9 @@
 // Apply required polyfills for @atproto/oauth-client-expo
 import 'event-target-polyfill';
 
+// Polyfill Intl.Segmenter for @atproto/lex-data (used by @atproto/api RichText)
+import '@formatjs/intl-segmenter/polyfill';
+
 // Polyfill global.Buffer for node libraries that expect it (e.g., multiformats)
 // The 'buffer' package is included in package.json already.
 // This ensures libraries using Buffer won't crash in React Native.

@@ -715,18 +715,22 @@ const CreateScreen: React.FC = () => {
     }
   }, [segments, navigation, isProcessing, stopRecording]);
 
-  // Automatically proceed when user has fully used available time:
-  // trigger only on the edge where totalDuration crosses maxDuration,
-  // so users can delete clips and re-max multiple times without loops.
+  // Automatically proceed only when recording reaches max duration
   useEffect(() => {
     const prev = prevTotalDurationRef.current;
 
+    // Only auto-proceed if:
+    // 1. We were recording (check if last segment was from camera)
+    // 2. Duration crossed max threshold
+    // 3. Not currently processing
+    const lastSegmentIsFromRecording = segments.length > 0 && 
+      segments[segments.length - 1]?.sourceType === 'camera';
+
     if (
-      segments.length > 0 &&
+      lastSegmentIsFromRecording &&
       prev < maxDuration &&
       totalDuration >= maxDuration &&
-      !isProcessing &&
-      !isRecordingRef.current
+      !isProcessing
     ) {
       finishRecording();
     }
@@ -737,7 +741,7 @@ const CreateScreen: React.FC = () => {
     } else {
       prevTotalDurationRef.current = totalDuration;
     }
-  }, [segments.length, totalDuration, maxDuration, isProcessing, finishRecording]);
+  }, [segments, totalDuration, maxDuration, isProcessing, finishRecording]);
 
   // Render content based on the state of permissions and device availability
   const renderContent = () => {

@@ -275,12 +275,10 @@ const VideoTrimmerScreen: React.FC = () => {
         finalPanOffsetY = cropPos.y;
       }
       
-      // Crop video to 9:16 using pan offset
+      // Crop video to 9:16 using pan offset (dimensions auto-detected by FFmpeg)
       const finalVideoPath = await VideoEditingService.cropVideoTo9x16(
         cropInputPath,
         cropOutputPath,
-        videoWidth,
-        videoHeight,
         finalPanOffsetX,
         finalPanOffsetY
       );

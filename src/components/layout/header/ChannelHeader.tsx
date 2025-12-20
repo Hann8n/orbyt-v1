@@ -11,7 +11,7 @@ import { hexToRGBA, darkenColor, getStatusBarStyle, isColorDark } from '../../..
 import { Colors } from '../../ui/UI';
 import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
 import { isOrbytChannel, getChannelByUri, shouldShowChannelSlash } from '../../../utils/orbytChannels';
-import { parseRichText } from '../../../utils/richTextParser';
+import { RichText } from '@atproto/api';
 import Animated, { type SharedValue, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
  
 
@@ -379,8 +379,12 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     ) : undefined;
 
     // Parse description to generate rich text facets
-    const parsedDescription = channel.description 
-      ? parseRichText(channel.description)
+    const richText = channel.description 
+      ? (() => {
+          const rt = new RichText({ text: channel.description });
+          rt.detectFacetsWithoutResolution();
+          return rt;
+        })()
       : null;
 
     return {
@@ -388,8 +392,8 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       title: channel.name,
       customTitle: customTitle,
       subtitle: isOrbyt ? undefined : (channel.creator?.handle ? channel.creator.handle : undefined),
-      description: parsedDescription?.text,
-      facets: parsedDescription?.facets,
+      description: richText?.text,
+      facets: richText?.facets,
       badge: experimentalBadge,
       avatarStyle: 'rounded-square' as const,
       onTitlePress: handleCreatorPress,

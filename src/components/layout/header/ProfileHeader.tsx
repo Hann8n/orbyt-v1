@@ -11,7 +11,7 @@ import BetaInfoSheet from '../../features/badging/BetaInfoSheet';
 import VerificationInfoSheet from '../../features/badging/VerificationInfoSheet';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { getStatusBarStyle } from '../../../utils/formatting/colorUtils';
-import { parseRichText } from '../../../utils/richTextParser';
+import { RichText } from '@atproto/api';
 import { formatHandle } from '../../../utils/helpers';
 import { useUserSubscription } from '../../../stores/subscriptionStore';
 
@@ -99,8 +99,12 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     })();
 
     // Parse description to generate rich text facets
-    const parsedDescription = profileData.description 
-      ? parseRichText(profileData.description)
+    const richText = profileData.description 
+      ? (() => {
+          const rt = new RichText({ text: profileData.description });
+          rt.detectFacetsWithoutResolution();
+          return rt;
+        })()
       : null;
 
     return {
@@ -108,8 +112,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       title: profileData.displayName || formatHandle(profileData.handle) || 'Unknown User',
       subtitle,
       // subtitleSecondary intentionally omitted (no joined date in header)
-      description: parsedDescription?.text,
-      facets: parsedDescription?.facets,
+      description: richText?.text,
+      facets: richText?.facets,
       badge: profileData.handle ? (
         <>
           {isBeta && (

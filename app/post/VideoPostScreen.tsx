@@ -1184,57 +1184,26 @@ const VideoPostScreen: React.FC = () => {
   // Final video URI for playback
   const videoUri = videoPathInfo?.uri || '';
 
-  // Create expo-video player without initial source; attach source when resolved
-  const player = useVideoPlayer(null, (p) => {
+  // Simple video player - auto-plays when source is set
+  const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, (p) => {
     p.loop = true;
     p.volume = videoVolume;
     playerRef.current = p;
   });
 
-  // Attach/replace source when `videoUri` becomes available
+  // Update source and play when videoUri changes
   useEffect(() => {
-    if (!player) return;
-    if (videoUri) {
-      (async () => {
-        try {
-          await player.replaceAsync({ uri: videoUri });
-          // Clear previous errors when replacing source
-          setVideoError(null);
-        } catch (e) {
-          setVideoError('Failed to load video');
-        }
-      })();
-    }
+    if (!player || !videoUri) return;
+    player.replaceAsync({ uri: videoUri }).then(() => {
+      player.play();
+    });
   }, [player, videoUri]);
-
-  // Handle player status changes (support either string or object payload)
-  (useEvent as any)(player, 'statusChange', (payload: any) => {
-    const status = typeof payload === 'string' ? payload : payload?.status;
-    if (status === 'loading') {
-      setVideoLoading(true);
-      setVideoError(null);
-    } else if (status === 'readyToPlay') {
-      setVideoLoading(false);
-      if (player.currentTime === 0 && currentTime > 0) {
-        player.currentTime = currentTime;
-      }
-    } else if (status === 'error') {
-      setVideoLoading(false);
-      setVideoError('Failed to load video');
-    }
-  });
 
   // Track playback progress
   useEffect(() => {
     if (!player) return;
     const interval = setInterval(() => {
-      if (player.currentTime !== undefined) {
-        setCurrentTime(player.currentTime);
-        // First tick indicates frames are advancing; hide loading overlay
-        if (videoLoading) {
-          setVideoLoading(false);
-        }
-      }
+      setCurrentTime(player.currentTime || 0);
     }, 100);
     return () => clearInterval(interval);
   }, [player]);
@@ -1242,11 +1211,7 @@ const VideoPostScreen: React.FC = () => {
   // Sync play/pause state
   useEffect(() => {
     if (!player) return;
-    if (isPlaying) {
-      player.play();
-    } else {
-      player.pause();
-    }
+    isPlaying ? player.play() : player.pause();
   }, [player, isPlaying]);
 
   // Update volume when videoVolume changes
