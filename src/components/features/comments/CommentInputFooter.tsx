@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
+import { View, Text, Pressable, TextInput, StyleSheet, Platform } from 'react-native';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import Icon from '../../ui/Icon';
 import UI from '../../ui/UI';
 import { Colors } from '../../ui/UI';
@@ -52,6 +53,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
   const hasText = value.trim().length > 0;
   const showCharCount = charCount >= 150;
   const isSendDisabled = isPosting || !hasText || charCount > maxLength;
+  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
 
   return (
     <View style={styles.footerContainer}>
@@ -94,18 +96,36 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               <>
                 {hasText && !isSendDisabled ? (
                   <Pressable
-                    style={styles.sendButton}
+                    style={[styles.sendButton, !useLiquidGlass && styles.sendButtonFallback]}
                     onPress={onSubmit}
                     hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                     accessible={true}
                     accessibilityRole="button"
                     accessibilityLabel="Send comment"
                   >
-                    <Icon 
-                      name="arrow-up-fill"
-                      size={22}
-                      color={Colors.black}
-                    />
+                    {useLiquidGlass ? (
+                      <>
+                        <GlassView
+                          style={styles.glassBackground}
+                          glassEffectStyle="clear"
+                          tintColor="rgba(255, 255, 255, 1)"
+                          isInteractive
+                        />
+                        <View style={styles.sendButtonContent} pointerEvents="none">
+                          <Icon 
+                            name="arrow-up-fill"
+                            size={22}
+                            color={Colors.black}
+                          />
+                        </View>
+                      </>
+                    ) : (
+                      <Icon 
+                        name="arrow-up-fill"
+                        size={22}
+                        color={Colors.black}
+                      />
+                    )}
                   </Pressable>
                 ) : !hasText ? (
                   <Pressable
@@ -128,18 +148,36 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               <>
                 {hasText && !isSendDisabled && (
                   <Pressable
-                    style={styles.sendButton}
+                    style={[styles.sendButton, !useLiquidGlass && styles.sendButtonFallback]}
                     onPress={onSubmit}
                     hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                     accessible={true}
                     accessibilityRole="button"
                     accessibilityLabel="Send comment"
                   >
-                    <Icon 
-                      name="arrow-up-fill" 
-                      size={22} 
-                      color={Colors.black}
-                    />
+                    {useLiquidGlass ? (
+                      <>
+                        <GlassView
+                          style={styles.glassBackground}
+                          glassEffectStyle="clear"
+                          tintColor="rgba(255, 255, 255, 1)"
+                          isInteractive
+                        />
+                        <View style={styles.sendButtonContent} pointerEvents="none">
+                          <Icon 
+                            name="arrow-up-fill" 
+                            size={22} 
+                            color={Colors.black}
+                          />
+                        </View>
+                      </>
+                    ) : (
+                      <Icon 
+                        name="arrow-up-fill" 
+                        size={22} 
+                        color={Colors.black}
+                      />
+                    )}
                   </Pressable>
                 )}
               </>
@@ -230,7 +268,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignSelf: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.lightGray,
     borderRadius: BORDER_RADIUS.FULL,
     width: 42,
     height: 42,
@@ -239,6 +276,20 @@ const styles = StyleSheet.create({
     marginTop: 0,
     zIndex: 11,
     elevation: 11,
+    overflow: 'hidden',
+  },
+  sendButtonFallback: {
+    backgroundColor: Colors.lightGray,
+  },
+  glassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.FULL,
+  },
+  sendButtonContent: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelReplyButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',

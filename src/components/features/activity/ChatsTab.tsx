@@ -6,7 +6,7 @@ import { Colors } from '../../../components/ui/UI';
 import { ConversationList } from '../chat';
 import { getBottomNavBarHeight } from '../../../utils/helpers';
 
-const MessagesTab: React.FC = () => {
+const ChatsTab: React.FC = () => {
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
 
@@ -17,7 +17,7 @@ const MessagesTab: React.FC = () => {
   );
 };
 
-export default MessagesTab;
+export default ChatsTab;
 
 const styles = StyleSheet.create({
   container: {
@@ -25,3 +25,4 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.black,
   },
 });
+

@@ -557,6 +557,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
       <View style={styles.errorContainer}>
         <EmptyFeed 
           type="no-connection" 
+          message="can't connect to notifications"
           onRetry={() => refetch()}
         />
       </View>

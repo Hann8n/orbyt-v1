@@ -4,6 +4,7 @@ import { Stack, Redirect, usePathname, useSegments } from 'expo-router';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -60,7 +61,9 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={styles.gestureHandler}>
-          {children}
+          <KeyboardProvider>
+            {children}
+          </KeyboardProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
     </SafeAreaProvider>

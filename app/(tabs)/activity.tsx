@@ -18,14 +18,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/components/ui/UI';
 import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
-import MessagesTab from '../../src/components/features/activity/MessagesTab';
+import ChatsTab from '../../src/components/features/activity/ChatsTab';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
 import { NotificationIndicator } from '../../src/components/ui/NotificationIndicator';
 
 // Tab labels
 const TAB_LABELS: { [key: string]: string } = {
   'notifications': 'notifications',
-  'messages': 'chats',
+  'chats': 'chats',
 };
 
 // Activity Swipeable Pager Component using react-native-pager-view
@@ -35,13 +35,13 @@ const ActivitySwipePager = ({
   renderTabContent,
   onScrollProgressChange,
 }: {
-  activeTab: 'notifications' | 'messages';
-  onActiveTabChange: (tab: 'notifications' | 'messages') => void;
-  renderTabContent: (tabId: 'notifications' | 'messages') => React.ReactNode;
+  activeTab: 'notifications' | 'chats';
+  onActiveTabChange: (tab: 'notifications' | 'chats') => void;
+  renderTabContent: (tabId: 'notifications' | 'chats') => React.ReactNode;
   onScrollProgressChange?: (progress: number) => void;
 }) => {
   const pagerViewRef = useRef<PagerView>(null);
-  const pages: Array<'notifications' | 'messages'> = ['notifications', 'messages'];
+  const pages: Array<'notifications' | 'chats'> = ['notifications', 'chats'];
   const activeIndex = pages.indexOf(activeTab);
 
   // Track scroll progress from PagerView's onPageScroll for indicator animation
@@ -169,28 +169,28 @@ const ActivitySwipePager = ({
 };
 
 const ActivityScreen: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'notifications' | 'messages'>('notifications');
+  const [activeTab, setActiveTab] = useState<'notifications' | 'chats'>('notifications');
   // State to trigger indicator re-renders during scroll (doesn't affect feeds) - matches SwipeableFeedContainer
   const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const { notificationsCount, messagesCount } = useUnreadCount();
   
-  const pages: Array<'notifications' | 'messages'> = ['notifications', 'messages'];
+  const pages: Array<'notifications' | 'chats'> = ['notifications', 'chats'];
   const activeIndex = pages.indexOf(activeTab);
 
   // Tab content renderer
-  const renderTabContent = useCallback((tabId: 'notifications' | 'messages') => {
+  const renderTabContent = useCallback((tabId: 'notifications' | 'chats') => {
     if (tabId === 'notifications') {
       return <NotificationsTab ref={(r) => { tabRefs.activity = r; }} />;
-    } else if (tabId === 'messages') {
-      return <MessagesTab />;
+    } else if (tabId === 'chats') {
+      return <ChatsTab />;
     }
     return null;
   }, []);
 
   // Get indicator style using PagerView's scroll progress - matches SwipeableFeedContainer exactly
-  const getIndicatorStyle = useCallback((tabId: 'notifications' | 'messages') => {
+  const getIndicatorStyle = useCallback((tabId: 'notifications' | 'chats') => {
     const tabIndex = pages.indexOf(tabId);
     const isActive = tabId === activeTab;
     
@@ -221,7 +221,7 @@ const ActivityScreen: React.FC = () => {
   }, [activeTab, pages, indicatorScrollProgress, activeIndex]);
 
   // Handle indicator tap
-  const handleIndicatorTap = useCallback((tabId: 'notifications' | 'messages') => {
+  const handleIndicatorTap = useCallback((tabId: 'notifications' | 'chats') => {
     setActiveTab(tabId);
   }, []);
 

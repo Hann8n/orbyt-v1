@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, StyleSheet, Alert, Text, Pressable, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { GiftedChat } from 'react-native-gifted-chat';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Animated as RNAnimated } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import { Colors, Avatar } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
@@ -22,6 +23,7 @@ import { AtprotoService } from '../../../services/api/AtprotoService';
 import MessageReactions from './MessageReactions';
 import ChatActionsSheet from './ChatActionsSheet';
 import EmbeddedPostCard from './EmbeddedPostCard';
+import EmptyFeed from '../feed/EmptyFeed';
 
 interface ChatScreenProps {
   conversationId: string;
@@ -44,6 +46,9 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   
   // Chat actions sheet state
   const [showActionsSheet, setShowActionsSheet] = useState(false);
+  
+  // Track optimistic message ID for error handling
+  const optimisticMessageIdRef = useRef<string | null>(null);
 
   // Dismiss keyboard when screen loses focus
   useFocusEffect(
@@ -72,6 +77,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     data: messagesData,
     isLoading,
     error,
+    refetch: refetchMessages,
   } = useQuery({
     queryKey: ['messages', conversationId],
     queryFn: async () => {
@@ -93,12 +99,21 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       text,
     }),
     onSuccess: () => {
+      // Clear optimistic message ID on success
+      optimisticMessageIdRef.current = null;
       // Refetch messages and conversations
       queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       queryClient.invalidateQueries({ queryKey: ['conversations-count'] });
     },
     onError: (error: any) => {
+      // Remove optimistic message on error
+      if (optimisticMessageIdRef.current) {
+        setMessages((previousMessages) =>
+          previousMessages.filter((msg) => msg._id !== optimisticMessageIdRef.current)
+        );
+        optimisticMessageIdRef.current = null;
+      }
       Alert.alert('Error', 'Failed to send message. Please try again.');
     },
   });
@@ -223,6 +238,8 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   const onSend = useCallback((newMessages: ChatMessage[] = []) => {
     if (newMessages.length > 0) {
       const message = newMessages[0];
+      // Store optimistic message ID for error handling
+      optimisticMessageIdRef.current = String(message._id);
       // Update messages state directly (modern pattern)
       setMessages((previousMessages) => [...newMessages, ...previousMessages]);
       
@@ -276,6 +293,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   const renderSend = useCallback((props: any) => {
     const hasText = props.text && props.text.trim().length > 0;
     const isDisabled = !hasText || sendMessageMutation.isPending;
+    const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
     
     if (!hasText || isDisabled) return null;
     
@@ -284,6 +302,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         <Pressable
           style={({ pressed }) => [
             styles.sendButton,
+            !useLiquidGlass && styles.sendButtonFallback,
             pressed && { opacity: 0.7 }
           ]}
           onPress={() => {
@@ -308,14 +327,38 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
           accessibilityRole="button"
           accessibilityLabel="Send message"
         >
-          {sendMessageMutation.isPending ? (
-            <Loading3FillIcon size={22} color={Colors.black} />
+          {useLiquidGlass ? (
+            <>
+              <GlassView
+                style={styles.glassBackground}
+                glassEffectStyle="clear"
+                tintColor="rgba(255, 255, 255, 1)"
+                isInteractive
+              />
+              <View style={styles.sendButtonContent} pointerEvents="none">
+                {sendMessageMutation.isPending ? (
+                  <Loading3FillIcon size={22} color={Colors.black} />
+                ) : (
+                  <Icon 
+                    name="arrow-up-fill" 
+                    size={22} 
+                    color={Colors.black}
+                  />
+                )}
+              </View>
+            </>
           ) : (
-            <Icon 
-              name="arrow-up-fill" 
-              size={22} 
-              color={Colors.black}
-            />
+            <>
+              {sendMessageMutation.isPending ? (
+                <Loading3FillIcon size={22} color={Colors.black} />
+              ) : (
+                <Icon 
+                  name="arrow-up-fill" 
+                  size={22} 
+                  color={Colors.black}
+                />
+              )}
+            </>
           )}
         </Pressable>
       </View>
@@ -641,17 +684,13 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   if (error) {
     return (
       <View style={styles.container}>
-        <SafeAreaView style={styles.safeAreaTop} edges={['top']}>
-          <View />
-        </SafeAreaView>
         <View style={styles.errorContainer}>
-          <Icon name="alert-circle" size={48} color={Colors.lightRed} />
-          <Text style={styles.errorTitle}>Unable to load messages</Text>
-          <Text style={styles.errorSubtitle}>Please check your connection and try again</Text>
+          <EmptyFeed 
+            type="no-connection" 
+            message="can't connect to chats"
+            onRetry={() => refetchMessages()}
+          />
         </View>
-        <SafeAreaView style={styles.safeAreaBottom} edges={['bottom']}>
-          <View />
-        </SafeAreaView>
       </View>
     );
   }
@@ -881,25 +920,7 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.black,
-    paddingHorizontal: 32,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontFamily: 'Firma-Bold',
-    color: Colors.white,
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  errorSubtitle: {
-    fontSize: 16,
-    fontFamily: 'Firma-Regular',
-    color: Colors.lightGray,
-    textAlign: 'center',
-    lineHeight: 22,
+    padding: 20,
   },
   messagesContainer: {
     paddingHorizontal: 0,
@@ -990,7 +1011,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignSelf: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.lightGray,
     borderRadius: BORDER_RADIUS.FULL,
     width: 42,
     height: 42,
@@ -999,6 +1019,20 @@ const styles = StyleSheet.create({
     marginTop: 0,
     zIndex: 11,
     elevation: 11,
+    overflow: 'hidden',
+  },
+  sendButtonFallback: {
+    backgroundColor: Colors.lightGray,
+  },
+  glassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BORDER_RADIUS.FULL,
+  },
+  sendButtonContent: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sendButtonInactive: {
     opacity: 0.5,

@@ -1,2 +1,2 @@
 export { default as NotificationsTab } from './NotificationsTab';
-export { default as MessagesTab } from './MessagesTab';
+export { default as ChatsTab } from './ChatsTab';

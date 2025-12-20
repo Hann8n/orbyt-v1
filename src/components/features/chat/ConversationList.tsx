@@ -14,6 +14,7 @@ import { formatHandle } from '../../../utils/helpers';
 import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import { useChatStore } from '../../../stores/chatStore';
 import { useCurrentUser } from '../../../stores/userStore';
+import EmptyFeed from '../feed/EmptyFeed';
 
 interface ConversationListProps {
   onConversationPress?: (conversation: Conversation) => void;
@@ -169,18 +170,6 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
     </View>
   );
 
-  const renderErrorState = () => (
-    <View style={styles.emptyContainer}>
-      <View style={styles.emptyContent}>
-        <Icon 
-          name="alert-circle" 
-          size={48} 
-          color={Colors.lightRed} 
-        />
-        <Text style={styles.emptyText}>unable to load conversations</Text>
-      </View>
-    </View>
-  );
 
   // All hooks must be called before any conditional returns
   const keyExtractor = useCallback((item: Conversation) => item.id, []);
@@ -203,7 +192,15 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
   }
 
   if (error) {
-    return renderErrorState();
+    return (
+      <View style={styles.errorContainer}>
+        <EmptyFeed 
+          type="no-connection" 
+          message="can't connect to chats"
+          onRetry={() => refetch()}
+        />
+      </View>
+    );
   }
 
   return (
@@ -313,7 +310,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 15,
-    paddingVertical: 60,
   },
   emptyContent: {
     alignItems: 'center',
@@ -325,6 +321,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Firma-Medium',
     marginTop: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    padding: 20,
   },
   loadingContainer: {
     flex: 1,
