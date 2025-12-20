@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { storageAdapter } from '../utils/storage';
-import { Message, Conversation } from '../services/ChatService';
+import { Message, Conversation, ProfileViewBasic } from '../services/ChatService';
+import { ChatMessage, convertMessagesToGiftedChat } from '../utils/chatHelpers';
 
 interface ChatState {
   // Cache messages by conversation ID
@@ -16,6 +17,14 @@ interface ChatState {
   addMessage: (conversationId: string, message: Message) => void;
   updateMessage: (conversationId: string, messageId: string, updates: Partial<Message>) => void;
   getMessages: (conversationId: string) => Message[];
+  
+  // GiftedChat conversion methods - store as single source of truth
+  getGiftedChatMessages: (
+    conversationId: string,
+    currentUserId: string,
+    currentUserAvatar?: string,
+    otherUser?: ProfileViewBasic
+  ) => ChatMessage[];
   
   setConversations: (conversations: Conversation[]) => void;
   updateConversation: (conversationId: string, updates: Partial<Conversation>) => void;
@@ -79,6 +88,12 @@ export const useChatStore = create<ChatState>()(
       
       getMessages: (conversationId) => {
         return get().messagesCache[conversationId] || [];
+      },
+      
+      // Get messages in GiftedChat format - store as single source of truth
+      getGiftedChatMessages: (conversationId, currentUserId, currentUserAvatar, otherUser) => {
+        const messages = get().messagesCache[conversationId] || [];
+        return convertMessagesToGiftedChat(messages, currentUserId, currentUserAvatar, otherUser);
       },
       
       setConversations: (conversations) => {

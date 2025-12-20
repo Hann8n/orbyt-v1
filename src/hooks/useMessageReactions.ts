@@ -1,13 +1,14 @@
 import { useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import ChatService from '../services/ChatService';
-import { Message, ReactionView } from '../services/ChatService';
+import { ChatMessage } from '../utils/chatHelpers';
+import { ReactionView } from '../services/ChatService';
 import { formatHandle } from '../utils/helpers';
 
 interface UseMessageReactionsProps {
   conversationId: string;
-  messages: Message[];
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  messages: ChatMessage[];
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   currentUserId: string;
   currentUser?: { handle?: string; avatar?: string };
 }
@@ -63,7 +64,7 @@ export function useMessageReactions({
    */
   const handleReactionToggle = useCallback(
     (emoji: string, messageId: string) => {
-      const targetMessage = messages.find((msg) => msg.id === messageId);
+      const targetMessage = messages.find((msg) => String(msg._id) === messageId);
       const isCurrentUserReacted = targetMessage?.reactions?.some(
         (reaction) => reaction.value === emoji && reaction.sender.did === currentUserId
       );
@@ -75,11 +76,11 @@ export function useMessageReactions({
         // Optimistically remove reaction
         setMessages((prev) =>
           prev.map((m) => {
-            if (m.id !== messageId) return m;
+            if (String(m._id) !== messageId) return m;
             const nextReactions = (m.reactions || []).filter(
               (r) => !(r.value === emoji && r.sender.did === currentUserId)
             );
-            return { ...m, reactions: nextReactions };
+            return { ...m, reactions: nextReactions } as ChatMessage;
           })
         );
 
@@ -111,9 +112,9 @@ export function useMessageReactions({
 
         setMessages((prev) =>
           prev.map((m) => {
-            if (m.id !== messageId) return m;
+            if (String(m._id) !== messageId) return m;
             const nextReactions = [...(m.reactions || []), optimisticReaction];
-            return { ...m, reactions: nextReactions };
+            return { ...m, reactions: nextReactions } as ChatMessage;
           })
         );
 
