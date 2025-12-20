@@ -557,7 +557,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         showConversationPicker
           ? null
           : (
-            <View style={{ backgroundColor: Colors.black, paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0 }}>
+            <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
               <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={0} style={{ backgroundColor: Colors.black }}>
                 <View 
                   style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
@@ -657,7 +657,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
           </View>
         ) : (
           /* Options */
-          <View style={[styles.contentContainer, { paddingBottom: footerHeight }]}>
+          <View style={[styles.contentContainer, { paddingBottom: footerHeight + 20 }]}>
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
