@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, Switch, ViewStyle, TextStyle, StyleSheet, StyleProp } from 'react-native';
+import { View, Text, Pressable, Switch, ViewStyle, TextStyle, StyleSheet } from 'react-native';
 import Icon from './Icon';
 import { Colors } from './UI';
 import { BORDER_RADIUS } from '../../utils/constants';
@@ -54,9 +54,9 @@ interface OptionsButtonProps {
   disabled?: boolean;
   selected?: boolean;
   loading?: boolean;
-  style?: StyleProp<ViewStyle>;
-  textStyle?: StyleProp<TextStyle>;
-  containerStyle?: StyleProp<ViewStyle>;
+  style?: ViewStyle;
+  textStyle?: TextStyle;
+  containerStyle?: ViewStyle;
 }
 
 export const OptionsButton: React.FC<OptionsButtonProps> = ({

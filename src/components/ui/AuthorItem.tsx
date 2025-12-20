@@ -3,7 +3,7 @@ import { BORDER_RADIUS } from '../../utils/constants';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Avatar } from './UI';
-import VerificationBadge from '../features/badging/VerificationBadge';
+import { VerificationBadge } from '../features/badging';
 import Icon, { FollowIcon, CheckIcon } from './Icon';
 import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { Colors } from './UI';

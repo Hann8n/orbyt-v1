@@ -39,10 +39,7 @@
   "exclude": [
     "node_modules",
     "dist",
-    "src/navigation/**/*",
-    "**/__tests__/**/*",
-    "**/*.test.ts",
-    "**/*.test.tsx"
+    "src/navigation/**/*"
   ],
   "extends": "expo/tsconfig.base"
 }
