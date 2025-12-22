@@ -127,39 +127,52 @@ const getThumbnailByKind = (embed: any, kind: PostKind): string | null => {
   return null;
 };
 
-// Get post URI from notification
-// Based on API structure:
-// - subscribed-post: uri is the post URI
-// - reply: record.reply.root.uri is the root post (reasonSubject is parent, not root)
-// - like/repost: record.subject.uri is the post URI (record is the like/repost record)
-// - quote/mention: post.uri exists with full post data
+// Get the root post URI from any notification
+// Handles all notification types uniformly by extracting the relevant URI
 const getPostUri = (notification: any): string | null => {
-  const { reason, uri, post, record } = notification;
+  const { uri, post, record } = notification;
   
-  if (reason === 'subscribed-post') return uri;
-  if (reason === 'reply') return record?.reply?.root?.uri || null;
-  // For like/repost notifications, post field doesn't exist - must use record.subject.uri
-  if (reason === 'like' || reason === 'repost') return record?.subject?.uri || null;
-  return post?.uri || null;
+  // subscribed-post: uri is the post URI
+  if (notification.reason === 'subscribed-post') return uri;
+  
+  // reply: root post is in record.reply.root.uri
+  if (record?.reply?.root?.uri) return record.reply.root.uri;
+  
+  // like/repost/like-via-repost/repost-via-repost: subject URI (may be post or repost record)
+  if (record?.subject?.uri) return record.subject.uri;
+  
+  // quote/mention: post field contains the post
+  if (post?.uri) return post.uri;
+  
+  return null;
 };
 
-// Extract post data from notification
-// Based on API structure:
-// - subscribed-post: record contains post data, use it directly or fetched version
-// - reply: post field doesn't exist, must fetch root post from postDataMap
-// - like/repost: post field doesn't exist - must use fetched post from postDataMap
-// - quote/mention: post field contains full post data, use it directly
+// Resolve a URI to the root post URI (handles repost records automatically)
+const resolveRootPostUri = (uri: string, postDataMap: Map<string, any>): string | null => {
+  // If it's a repost record URI, extract the root post URI from it
+  if (uri.includes('app.bsky.feed.repost')) {
+    const repostRecord = postDataMap.get(uri);
+    return repostRecord?.record?.subject?.uri || null;
+  }
+  return uri;
+};
+
+// Extract root post data from notification
 const getPostDataFromNotification = (notification: any, postDataMap: Map<string, any>) => {
-  const { reason, uri, record, post } = notification;
+  const { uri, record, post } = notification;
   const postUri = getPostUri(notification);
   if (!postUri) return null;
   
-  const fetchedPost = postDataMap.get(postUri);
+  // Resolve to root post URI (handles repost records)
+  const rootPostUri = resolveRootPostUri(postUri, postDataMap);
+  if (!rootPostUri) return null;
   
-  if (reason === 'subscribed-post' && record) {
-    // Use fetched post if available, otherwise construct from notification record
-    // Always ensure embed is set from record.embed even if fetched post exists
-    const postData = fetchedPost || {
+  // Get root post data
+  const rootPost = postDataMap.get(rootPostUri);
+  
+  // For subscribed-post, use notification record if available (has embed data)
+  if (notification.reason === 'subscribed-post' && record) {
+    const postData = rootPost || {
       uri,
       cid: notification.cid,
       author: notification.author,
@@ -167,23 +180,18 @@ const getPostDataFromNotification = (notification: any, postDataMap: Map<string,
       embed: record.embed,
       indexedAt: notification.indexedAt,
     };
-    // Ensure embed is always set from record.embed (fetched post might be incomplete)
+    // Ensure embed is set from record.embed
     if (record.embed && postData) {
       postData.embed = record.embed;
     }
     return postData;
   }
   
-  // For reply notifications, post field doesn't exist - must use fetched root post
-  if (reason === 'reply') return fetchedPost;
+  // For quote/mention, prefer notification post data (has embed), fallback to fetched
+  if (post) return post;
   
-  // For like/repost notifications, post field doesn't exist - must use fetched post
-  if (reason === 'like' || reason === 'repost') {
-    return fetchedPost;
-  }
-  
-  // For other notifications (quote/mention), post field contains full post data
-  return post || fetchedPost;
+  // For all others, use fetched root post
+  return rootPost;
 };
 
 // Notification item component
@@ -196,8 +204,12 @@ const NotificationItem: React.FC<{
   const { reason, author, indexedAt, uri } = item;
   const { presentCommentSection } = useGlobalCommentSection();
   
-  const isPostAction = ['like', 'repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'].includes(reason);
+  // All notification types that relate to posts
+  const postActionTypes = ['like', 'repost', 'like-via-repost', 'repost-via-repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'];
+  const isPostAction = postActionTypes.includes(reason);
   const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : null;
+  const postUri = isPostAction ? getPostUri(item) : null;
+  const isPostDeleted = isPostAction && postUri && !postData;
   const embed = postData ? getEmbed(postData) : null;
   const postKind = embed ? getPostKind(embed) : 'text';
   const thumbnail = embed ? getThumbnailByKind(embed, postKind) : null;
@@ -205,9 +217,27 @@ const NotificationItem: React.FC<{
   const postTypeLabel = isVideo ? 'video' : 'post';
   
   const actionText = useMemo(() => {
+    // If post is deleted, show "deleted post" message
+    if (isPostDeleted) {
+      const deletedActions: Record<string, string> = {
+        like: 'liked deleted post',
+        repost: 'reshared deleted post',
+        'like-via-repost': 'liked deleted post',
+        'repost-via-repost': 'reshared deleted post',
+        reply: 'left a comment on deleted post',
+        quote: 'quoted deleted post',
+        mention: 'mentioned you in deleted post',
+        post: 'created a deleted post',
+        'subscribed-post': 'created a deleted post',
+      };
+      return deletedActions[reason] || `performed action on deleted post: ${reason}`;
+    }
+    
     const actions: Record<string, string> = {
       like: `liked your ${postTypeLabel}`,
       repost: `reshared your ${postTypeLabel}`,
+      'like-via-repost': `liked your ${postTypeLabel}`,
+      'repost-via-repost': `reshared your ${postTypeLabel}`,
       follow: 'followed you',
       mention: 'mentioned you',
       reply: 'left a comment',
@@ -219,7 +249,7 @@ const NotificationItem: React.FC<{
       unverified: 'unverified you',
     };
     return actions[reason] || `performed action: ${reason}`;
-  }, [reason, postTypeLabel]);
+  }, [reason, postTypeLabel, isPostDeleted]);
   
   // Navigate to profile
   const navigateToProfile = useCallback((handle: string) => {
@@ -278,10 +308,39 @@ const NotificationItem: React.FC<{
 
     try {
       let finalPostData = postData;
+      let rootPostUri = resolveRootPostUri(postUri, postDataMap) || postUri;
+      
+      // Fetch if not already available (except subscribed-post which has record data)
       if (!finalPostData && reason !== 'subscribed-post') {
-        finalPostData = await AtprotoService.getPost(postUri);
+        // If postUri is a repost record, fetch it first to get root post URI
+        if (postUri.includes('app.bsky.feed.repost')) {
+          try {
+            const apiClient = await AtprotoService.getApiClient();
+            if (apiClient) {
+              const { api } = apiClient;
+              const uriMatch = postUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
+              if (uriMatch) {
+                const repostRecord = await api.com.atproto.repo.getRecord({
+                  repo: uriMatch[1],
+                  collection: 'app.bsky.feed.repost',
+                  rkey: uriMatch[2],
+                });
+                if (repostRecord?.data?.value?.subject?.uri) {
+                  rootPostUri = repostRecord.data.value.subject.uri;
+                  finalPostData = await AtprotoService.getPost(rootPostUri);
+                }
+              }
+            }
+          } catch (error) {
+            // Fallback: try fetching postUri directly
+            finalPostData = await AtprotoService.getPost(postUri);
+          }
+        } else {
+          finalPostData = await AtprotoService.getPost(postUri);
+        }
       }
       
+      // If post is deleted/missing, navigate to profile
       if (!finalPostData) {
         if (author?.handle) navigateToProfile(author.handle);
         return;
@@ -290,7 +349,7 @@ const NotificationItem: React.FC<{
       const finalEmbed = getEmbed(finalPostData);
       const finalKind = finalEmbed ? getPostKind(finalEmbed) : 'text';
       
-      // For reply notifications, open comment section with scrollToCommentUri
+      // Reply notifications: open comment section
       if (reason === 'reply' && uri) {
         if (finalKind === 'video') {
           navigateToVideoPost(finalPostData);
@@ -304,20 +363,16 @@ const NotificationItem: React.FC<{
         navigateToVideoPost(finalPostData);
       } else {
         const { openPostInBluesky } = await import('../../../utils/blueskyLinks');
-        await openPostInBluesky(postUri);
+        await openPostInBluesky(rootPostUri);
       }
     } catch (error) {
       if (author?.handle) navigateToProfile(author.handle);
     }
   };
 
-  const handleProfilePress = useCallback(() => {
-    if (author?.handle) navigateToProfile(author.handle);
-  }, [author?.handle, navigateToProfile]);
-
   return (
     <View style={styles.notificationItem}>
-      <Pressable onPress={handleProfilePress}>
+      <Pressable onPress={() => author?.handle && navigateToProfile(author.handle)}>
         <Avatar
           uri={author?.avatar}
           type="profile"
@@ -326,8 +381,11 @@ const NotificationItem: React.FC<{
           style={styles.profileImage}
         />
       </Pressable>
-      <View style={styles.notificationContent}>
-        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+      <Pressable onPress={handlePress} style={styles.notificationContent}>
+        <Pressable 
+          onPress={() => author?.handle && navigateToProfile(author.handle)}
+          style={{flexDirection: 'row', alignItems: 'center'}}
+        >
           <Text style={styles.authorName}>
             {formatHandle(author.handle) || 'Unknown user'}
           </Text>
@@ -338,9 +396,9 @@ const NotificationItem: React.FC<{
               textColor={Colors.white}
             />
           )}
-        </View>
+        </Pressable>
         <View style={styles.actionRow}>
-          <Text style={styles.actionText}>
+          <Text style={[styles.actionText, isPostDeleted && styles.deletedActionText]}>
             {actionText}
           </Text>
           {indexedAt && (
@@ -349,9 +407,9 @@ const NotificationItem: React.FC<{
             </Text>
           )}
         </View>
-      </View>
-      {isPostAction && isVideo && (
-        <Pressable onPress={handlePress}>
+      </Pressable>
+      {isPostAction && isVideo && !isPostDeleted && (
+        <Pressable onPress={handlePress} style={styles.thumbnailContainer}>
           {thumbnail ? (
             <Image
               source={{ uri: thumbnail }}
@@ -459,73 +517,118 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
     }
   }, [notifications]);
 
-  // Extract unique post URIs that need to be fetched
-  // Only fetch video posts (for thumbnails)
-  // Based on API structure:
-  // - reply: fetch to check if root post is a video (can't determine from notification data)
-  // - like/repost: fetch to check if post is a video (post field doesn't exist)
-  // - subscribed-post: fetch only if video without thumbnail (record has post data)
-  // - quote/mention: fetch only if video without thumbnail (post field exists)
+  // Extract all post URIs that need to be fetched
+  // Fetch all post-related notifications to check for videos
   const postUrisToFetch = useMemo(() => {
     const uris = new Set<string>();
+    const postActionTypes = ['like', 'repost', 'like-via-repost', 'repost-via-repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'];
+    
     for (const notification of notifications) {
-      const isPostAction = ['like', 'repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'].includes(notification.reason);
-      if (!isPostAction) continue;
+      if (!postActionTypes.includes(notification.reason)) continue;
       
       const postUri = getPostUri(notification);
       if (!postUri) continue;
       
-      // Reply notifications: fetch to check if root post is a video
-      // (We need the post data to determine if it's a video since notification has no post field)
-      if (notification.reason === 'reply') {
-        uris.add(postUri);
-        continue;
-      }
-      
-      // Like/repost notifications: fetch to check if post is a video
-      // (post field doesn't exist, so we need to fetch to determine if it's a video)
-      if (notification.reason === 'like' || notification.reason === 'repost') {
-        uris.add(postUri);
-        continue;
-      }
-      
-      // Subscribed-post: fetch only if video without thumbnail
-      if (notification.reason === 'subscribed-post') {
-        const embed = notification.record?.embed;
-        const kind = embed ? getPostKind(embed) : 'text';
-        if (kind === 'video') {
-          const thumbnail = embed ? getThumbnailByKind(embed, kind) : null;
-          if (!thumbnail) {
-            uris.add(postUri);
-          }
-        }
-        continue;
-      }
-      
-      // Other notifications (quote/mention): fetch only if video without thumbnail (post field exists)
+      // For notifications with post data, only fetch if video without thumbnail
       if (notification.post) {
         const embed = notification.post?.embed;
         const kind = embed ? getPostKind(embed) : 'text';
         if (kind === 'video') {
           const thumbnail = embed ? getThumbnailByKind(embed, kind) : null;
-          if (!thumbnail) {
-            uris.add(postUri);
-          }
+          if (!thumbnail) uris.add(postUri);
         }
+        continue;
       }
+      
+      // For subscribed-post with record data, only fetch if video without thumbnail
+      if (notification.reason === 'subscribed-post' && notification.record) {
+        const embed = notification.record?.embed;
+        const kind = embed ? getPostKind(embed) : 'text';
+        if (kind === 'video') {
+          const thumbnail = embed ? getThumbnailByKind(embed, kind) : null;
+          if (!thumbnail) uris.add(postUri);
+        }
+        continue;
+      }
+      
+      // For all others (like, repost, like-via-repost, repost-via-repost, reply), always fetch
+      uris.add(postUri);
     }
+    
     return Array.from(uris);
   }, [notifications]);
 
-  // Batch fetch all posts needed for notifications
+  // Batch fetch all posts, automatically resolving repost records to root posts
   const { data: postDataMap = new Map() } = useQuery({
     queryKey: ['notification-posts-batch', postUrisToFetch.join(',')],
     queryFn: async () => {
-      return AtprotoService.getPosts(postUrisToFetch);
+      const result = new Map<string, any>();
+      const repostUris: string[] = [];
+      const postUris: string[] = [];
+      
+      // Separate repost records from regular posts
+      for (const uri of postUrisToFetch) {
+        if (uri.includes('app.bsky.feed.repost')) {
+          repostUris.push(uri);
+        } else {
+          postUris.push(uri);
+        }
+      }
+      
+      // Fetch regular posts
+      if (postUris.length > 0) {
+        const posts = await AtprotoService.getPosts(postUris);
+        posts.forEach((post, uri) => result.set(uri, post));
+      }
+      
+      // Fetch repost records and resolve to root posts
+      if (repostUris.length > 0) {
+        try {
+          const apiClient = await AtprotoService.getApiClient();
+          if (!apiClient) return result;
+          
+          const { api } = apiClient;
+          const rootPostUris: string[] = [];
+          
+          for (const repostUri of repostUris) {
+            try {
+              const uriMatch = repostUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
+              if (!uriMatch) continue;
+              
+              const repostRecord = await api.com.atproto.repo.getRecord({
+                repo: uriMatch[1],
+                collection: 'app.bsky.feed.repost',
+                rkey: uriMatch[2],
+              });
+              
+              result.set(repostUri, {
+                record: repostRecord.data.value,
+                uri: repostUri,
+              });
+              
+              if (repostRecord?.data?.value?.subject?.uri) {
+                rootPostUris.push(repostRecord.data.value.subject.uri);
+              }
+            } catch (error) {
+              // Silently fail for individual repost records
+            }
+          }
+          
+          // Fetch root posts
+          if (rootPostUris.length > 0) {
+            const rootPosts = await AtprotoService.getPosts(rootPostUris);
+            rootPosts.forEach((post, uri) => result.set(uri, post));
+          }
+        } catch (error) {
+          // Silently fail
+        }
+      }
+      
+      return result;
     },
     enabled: postUrisToFetch.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 
   const renderNotificationContent = useCallback(({ item }: { item: any }) => {
@@ -634,6 +737,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     marginRight: 10,
   },
+  thumbnailContainer: {
+    justifyContent: 'flex-start',
+  },
   thumbnailVideo: {
     width: 45,
     height: 80, // 9:16 aspect ratio (45/80 = 0.5625)
@@ -656,6 +762,10 @@ const styles = StyleSheet.create({
     color: Colors.mutedGray,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
+  },
+  deletedActionText: {
+    opacity: 0.6,
+    fontStyle: 'italic',
   },
   timeText: {
     color: Colors.gray,
