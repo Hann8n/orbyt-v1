@@ -223,17 +223,6 @@ const SettingsScreen: React.FC = () => {
       title: '', // No title for profile section
       items: [
         {
-          id: 'switch-account',
-          label: 'Switch account',
-          icon: 'user',
-          onPress: () => {
-            navigation.back();
-            // Ensure modal close animation completes before presenting account switcher
-            setTimeout(() => presentAccountSwitcher(), 350);
-          },
-          showChevron: false
-        },
-        {
           id: 'followers',
           label: 'Your followers',
           icon: 'users',
@@ -368,6 +357,18 @@ const SettingsScreen: React.FC = () => {
     {
       title: 'Accounts',
       items: [
+        {
+          id: 'switch-account',
+          label: savedAccounts.length > 1 ? 'Switch account' : 'Add account',
+          icon: 'user',
+          onPress: () => {
+            navigation.back();
+            // Ensure modal close animation completes before presenting account switcher
+            // Account switcher will show "Add Account" options by default if only one account
+            setTimeout(() => presentAccountSwitcher(), 350);
+          },
+          showChevron: false
+        },
         {
           id: 'logout',
           label: 'Log out',

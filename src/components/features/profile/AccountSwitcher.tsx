@@ -131,9 +131,11 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     }
   }, [savedAccounts, loadAccounts]);
 
-  // Reset edit mode when modal opens
+  // Reset edit mode when modal opens, and disable edit mode if only one account
   useEffect(() => {
     if (visible) {
+      // Always reset to non-edit mode when opening
+      // Edit mode is automatically disabled when there's only one account
       setEditMode(false);
     }
   }, [visible]);
@@ -324,8 +326,11 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
       data: account,
     }));
 
-    // Add the "Add Account" options only when in edit mode and onAddAccount is provided
-    if (editMode && onAddAccount) {
+    // Add the "Add Account" options when:
+    // 1. There's only one account (show by default)
+    // 2. OR when in edit mode and onAddAccount is provided (multiple accounts)
+    const shouldShowAddButtons = (savedAccounts.length <= 1 || editMode) && onAddAccount;
+    if (shouldShowAddButtons) {
       accountItems.push({
         type: 'addButtons' as const,
         data: null,
@@ -333,13 +338,13 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     }
 
     return accountItems;
-  }, [accounts, onAddAccount, editMode]);
+  }, [accounts, onAddAccount, editMode, savedAccounts.length]);
 
   const renderAccountItem = useCallback(({ item }: { item: typeof listData[0] }) => {
     if ((item as any).type === 'addButtons') {
       return (
         <View style={styles.addAccountSection}>
-          <Text style={styles.addAccountHeader}>Add Account</Text>
+          <Text style={styles.addAccountHeader}>Sign in</Text>
           <View style={styles.addButtonsContainer}>
             <Pressable
               style={[
@@ -414,17 +419,22 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           size="large"
           showRing={true}
           showArrow={!editMode && !isActive}
-          showDeleteButton={editMode}
+          showDeleteButton={editMode && savedAccounts.length > 1}
           onDeletePress={() => handleRemoveAccount(account)}
           backgroundColor={Colors.darkGray}
           onPress={() => {
-            if (!isActive && !editMode) handleSwitchAccount(account);
+            if (!isActive && !editMode) {
+              // Only allow switching if there are multiple accounts
+              if (savedAccounts.length > 1) {
+                handleSwitchAccount(account);
+              }
+            }
           }}
           style={isActive ? styles.activeAccountButton : undefined}
         />
       </View>
     );
-  }, [switchingAccount, editMode, customColors, handleSwitchAccount, handleRemoveAccount, handleBlueskyAddAccount, handleCustomPDSAddAccount, isAuthenticating]);
+  }, [switchingAccount, editMode, customColors, handleSwitchAccount, handleRemoveAccount, handleBlueskyAddAccount, handleCustomPDSAddAccount, isAuthenticating, savedAccounts.length, activeAccountDid]);
 
   const keyExtractor = useCallback((item: typeof listData[0]) => {
     const type = (item as any).type;
@@ -432,8 +442,8 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     return item.data.id;
   }, []);
 
-  // Custom header button for edit mode toggle
-  const customHeaderButton = (
+  // Custom header button for edit mode toggle (only show when there are multiple accounts)
+  const customHeaderButton = savedAccounts.length > 1 ? (
     <Pressable
       onPress={() => {
         setEditMode(!editMode);
@@ -444,14 +454,14 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
         {editMode ? 'Done' : 'Edit'}
       </Text>
     </Pressable>
-  );
+  ) : null;
 
   return (
     <>
       <VerticalListSheet
         visible={visible}
         onDismiss={onDismiss}
-        title="Switch Account"
+        title="Accounts"
         customHeaderButton={customHeaderButton}
         name="account-switcher"
         detents={['auto']}
@@ -533,20 +543,22 @@ const styles = StyleSheet.create({
     // AuthorItem handles its own styling
   },
   addAccountSection: {
-    marginTop: 20,
+    marginTop: 0,
     marginBottom: 12,
   },
   addAccountHeader: {
-    color: Colors.lightGray,
+    color: Colors.gray,
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
-    marginBottom: 12,
-    textAlign: 'left',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    letterSpacing: 0.5,
   },
   addButtonsContainer: {
     flexDirection: 'row',
     gap: 8,
+    paddingBottom: 12,
   },
   addAccountButton: {
     backgroundColor: Colors.darkGray,

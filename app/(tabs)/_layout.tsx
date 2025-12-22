@@ -4,27 +4,19 @@ import { View, Pressable, Platform, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 
-import { Colors, Avatar } from '../../src/components/ui/UI';
+import { Colors } from '../../src/components/ui/UI';
 import { Loading3FillIcon } from '../../src/components/ui/Icon';
 import Icon, { HomeIcon, ExploreIcon, NotificationIcon, UserIcon } from '../../src/components/ui/Icon';
 import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
 import { NotificationIndicator } from '../../src/components/ui/NotificationIndicator';
-import { useUserStore } from '../../src/stores/userStore';
-import { useProfile } from '../../src/services/cache/ProfileCache';
 import { tabRefs } from '../../src/utils/tabRefs';
 import { useUIStore } from '../../src/stores/uiStore';
 
 // Move ProfileTabIcon outside component to prevent recreation on every render
 const ProfileTabIcon = React.memo(({ color, focused, tabIconSize }: { color: string; focused: boolean; tabIconSize: number }) => {
-  // Use specific selectors to prevent unnecessary re-renders
-  const currentUserHandle = useUserStore((state) => state.currentUser?.handle);
-  const savedAccountsLength = useUserStore((state) => state.savedAccounts.length);
-  const { data: profileData } = useProfile(currentUserHandle);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
-
-  const hasMultipleAccounts = savedAccountsLength > 1;
 
   const handleProfileTabPress = useCallback((e: any) => {
     if (focused) {
@@ -36,43 +28,13 @@ const ProfileTabIcon = React.memo(({ color, focused, tabIconSize }: { color: str
     }
   }, [focused]);
 
-  if (!hasMultipleAccounts) {
-    return <UserIcon size={tabIconSize} color={color} />;
-  }
-
   return (
     <Pressable
       onPress={handleProfileTabPress}
       onLongPress={presentAccountSwitcher}
       delayLongPress={400}
     >
-      <View style={{ position: 'relative' }}>
-        <Avatar
-          uri={profileData?.avatar}
-          type="profile"
-          size={tabIconSize}
-          showRing={true}
-          profileColors={profileData?.profileColors ? {
-            backgroundColor: profileData.profileColors.backgroundColor,
-            textColor: profileData.profileColors.foregroundColor || color,
-            foregroundColor: profileData.profileColors.foregroundColor || color,
-          } : undefined}
-          ringColor={profileData?.profileColors?.foregroundColor || color}
-        />
-        {!focused && (
-          <View
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              borderRadius: tabIconSize / 2,
-              backgroundColor: 'rgba(128, 128, 128, 0.5)',
-            }}
-          />
-        )}
-      </View>
+      <UserIcon size={tabIconSize} color={color} />
     </Pressable>
   );
 });
