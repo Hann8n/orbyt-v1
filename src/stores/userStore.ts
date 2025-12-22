@@ -523,8 +523,8 @@ export const useUserStore = create<UserState>()(
             // This ensures feeds wait until the account switch is complete before fetching
             set({ isSwitchingAccount: false });
             
-            // Then invalidate all React Query caches to trigger fresh data fetch for the new account
-            // This ensures feeds, profiles, and all user-specific data refreshes
+            // Invalidate ALL React Query queries to trigger fresh data fetch for the new account
+            // This ensures feeds, profiles, channels, and all user-specific data refreshes
             // Feeds will now be enabled (because isSwitchingAccount is false) and can fetch successfully
             queryClient.invalidateQueries();
             
@@ -1004,7 +1004,7 @@ export const useUserStore = create<UserState>()(
       
       clearAllCaches: async () => {
         try {
-          // Clear React Query cache (this is the single source of truth for feed data)
+          // Clear React Query cache (single source of truth for all data)
           queryClient.clear();
           
           // Clear search results state
@@ -1013,27 +1013,16 @@ export const useUserStore = create<UserState>()(
           // Clear post interaction cache
           usePostInteractionStore.getState().clearInteractions();
           
-            // Clear follow state cache
-            const { useFollowStore } = await import('./followStore');
-            useFollowStore.getState().clearFollows();
+          // Clear follow state cache
+          const { useFollowStore } = await import('./followStore');
+          useFollowStore.getState().clearFollows();
 
           // Clear profile interaction flags
           const { useProfileInteractionStore } = await import('./profileInteractionStore');
           useProfileInteractionStore.getState().clearAll();
           
-          // Clear AtprotoService cache
-          AtprotoService.clearAllCaches();
-          
-          // Clear existing caches
-          await Promise.all([
-            ProfileCache.clearCache(),
-            ChannelCache.clearCache(),
-            ModerationService.clearModerationCache(),
-          ]);
-          
-          // Note: We don't invalidate queries here because clearAllCaches is called
-          // before account switch. Queries will be invalidated after the new account
-          // session is restored in switchAccount.
+          // Note: All data caching is now handled by React Query
+          // Custom caches (ProfileCache, ChannelCache, AtprotoService) have been removed
           
         } catch (error) {
           logger.error('Error clearing caches', error, { component: 'userStore' });

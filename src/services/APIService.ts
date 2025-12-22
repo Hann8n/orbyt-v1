@@ -51,9 +51,7 @@ abstract class APIService<T extends ApiResponse> {
   protected abstract readonly ENDPOINT_NAME: string;
   protected abstract readonly DATA_PROPERTY: keyof T;
   
-  protected cache: T | null = null;
-  protected lastFetch: number = 0;
-  protected readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  // Custom caching removed - React Query handles all caching
 
   /**
    * Build candidate URLs for fetching data in this priority:
@@ -99,11 +97,7 @@ abstract class APIService<T extends ApiResponse> {
 
   protected async fetchData(): Promise<T> {
     try {
-      const now = Date.now();
-      if (this.cache && (now - this.lastFetch) < this.CACHE_DURATION) {
-        return this.cache;
-      }
-
+      // React Query handles caching - no custom cache needed
       const candidates = this.buildCandidateUrls();
       let data: T | null = null;
       let usedUrl: string | null = null;
@@ -129,10 +123,6 @@ abstract class APIService<T extends ApiResponse> {
         throw new Error(`No ${this.ENDPOINT_NAME} endpoints responded with valid data`);
       }
 
-      // Update cache
-      this.cache = data;
-      this.lastFetch = now;
-
       // Update base URL for HeaderService
       if (usedUrl && this instanceof HeaderService) {
         (this as any).updateLastSuccessfulBaseUrl(usedUrl);
@@ -140,22 +130,16 @@ abstract class APIService<T extends ApiResponse> {
 
       return data;
     } catch (error) {
-
-      if (this.cache) {
-        return this.cache;
-      }
-
       // Return empty data as fallback
       return this.getEmptyData();
     }
   }
 
   /**
-   * Clear the cache to force a fresh fetch
+   * Clear the cache - no-op since React Query handles all caching
    */
   clearCache(): void {
-    this.cache = null;
-    this.lastFetch = 0;
+    // React Query handles all caching - no custom cache to clear
   }
 
   /**
@@ -230,8 +214,7 @@ class HeaderService extends APIService<HeadersResponse> {
   }
 
   static clearCache(): void {
-    const instance = new HeaderService();
-    instance.clearCache();
+    // React Query handles all caching - no custom cache to clear
   }
 }
 
@@ -256,8 +239,7 @@ class StaticChannelsService extends APIService<ChannelsResponse> {
   }
 
   static clearCache(): void {
-    const instance = new StaticChannelsService();
-    instance.clearCache();
+    // React Query handles all caching - no custom cache to clear
   }
 }
 

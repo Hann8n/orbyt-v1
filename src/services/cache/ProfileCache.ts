@@ -1248,30 +1248,11 @@ class ProfileCache {
   }
 
   /**
-   * Clear all cached profiles
+   * Clear all cached profiles - no-op since React Query handles all caching
    */
   static async clearCache(): Promise<void> {
-    // Use InteractionManager to defer cache clearing until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
-        // Clear memory cache
-        this.memoryCache.clear();
-        
-        // Clear storage cache
-        const keys = await storageHelpers.getAllKeys();
-        const profileKeys = keys.filter(key => key.startsWith(this.CACHE_KEY_PREFIX));
-        if (profileKeys.length > 0) {
-          await Promise.all(profileKeys.map(key => storageHelpers.removeItem(key)));
-        }
-        
-        // Notify all subscribers
-        for (const handle of this.cacheUpdateCallbacks.keys()) {
-          this.notifyProfileUpdated(handle);
-        }
-      } catch (error) {
-        // Silently handle errors
-      }
-    });
+    // React Query handles all caching - no custom cache to clear
+    // Memory cache is kept for immediate lookups but React Query is the source of truth
   }
 
   /**

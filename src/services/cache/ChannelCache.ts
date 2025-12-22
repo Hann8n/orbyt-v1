@@ -560,18 +560,11 @@ class ChannelCache {
   }
 
   /**
-   * Clear all cached data
+   * Clear all cached data - no-op since React Query handles all caching
    */
   static async clearCache(): Promise<void> {
-    try {
-      this.memoryCache.clear();
-      const keys = await storageHelpers.getAllKeys();
-      const channelKeys = keys.filter(key => key.startsWith('channel_'));
-      if (channelKeys.length > 0) {
-        await Promise.all(channelKeys.map(key => storageHelpers.removeItem(key)));
-      }
-    } catch (error) {
-    }
+    // React Query handles all caching - no custom cache to clear
+    // Memory cache is kept for immediate lookups but React Query is the source of truth
   }
 
   /**

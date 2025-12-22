@@ -429,14 +429,8 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
   } = useInfiniteQuery({
     queryKey: ['notifications', 'all'],
     queryFn: async ({ pageParam }) => {
-      if (__DEV__) {
-        console.log('[NotificationsTab] Fetching notifications with cursor:', pageParam);
-      }
       try {
         const response = await AtprotoService.listNotifications(pageParam as string | null);
-        if (__DEV__) {
-          console.log('[NotificationsTab] Received notifications:', response.notifications.length, 'cursor:', response.cursor);
-        }
         return response;
       } catch (error) {
         if (__DEV__) {
@@ -527,9 +521,6 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
   const { data: postDataMap = new Map() } = useQuery({
     queryKey: ['notification-posts-batch', postUrisToFetch.join(',')],
     queryFn: async () => {
-      if (__DEV__) {
-        console.log(`[NotificationsTab] Batch fetching ${postUrisToFetch.length} unique posts`);
-      }
       return AtprotoService.getPosts(postUrisToFetch);
     },
     enabled: postUrisToFetch.length > 0,

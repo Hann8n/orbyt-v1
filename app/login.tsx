@@ -65,18 +65,15 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     clearAuthError();
 
     try {
-      console.log('[LoginScreen] Starting OAuth login');
       await signIn('https://bsky.social');
       
       // Reload accounts to show the new one
       await loadSavedAccounts();
-      console.log('[LoginScreen] OAuth login successful');
       
       await onLogin('oauth-success');
     } catch (error) {
       // Don't show errors for user cancellation
       if (isUserCancellation(error)) {
-        console.log('[LoginScreen] User cancelled OAuth login');
         return;
       }
       
@@ -103,18 +100,15 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     clearAuthError();
 
     try {
-      console.log('[LoginScreen] Starting custom PDS OAuth login for:', identifier);
       await signIn(identifier);
       
       // Reload accounts to show the new one
       await loadSavedAccounts();
-      console.log('[LoginScreen] Custom PDS OAuth login successful');
       
       await onLogin('oauth-success');
     } catch (error) {
       // Don't show errors for user cancellation
       if (isUserCancellation(error)) {
-        console.log('[LoginScreen] User cancelled custom PDS login');
         return;
       }
       
@@ -157,16 +151,13 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   };
 
   const handleSavedAccountLogin = async (account: SavedAccount) => {
-    console.log('[LoginScreen] Starting account login for:', account.handle, 'DID:', account.did);
     setIsLoading(true);
     
     try {
       // First check if the account has a valid session
-      console.log('[LoginScreen] Checking session validity before switching...');
       const hasValidSession = await checkAccountSessionValidity(account.did);
       
       if (!hasValidSession) {
-        console.log('[LoginScreen] No valid session found for account');
         setIsLoading(false);
         
         Alert.alert(
@@ -188,9 +179,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       }
       
       // Session is valid, proceed with account switch
-      console.log('[LoginScreen] Session is valid, proceeding with account switch');
       await switchAccount(account.did);
-      console.log('[LoginScreen] Account switch successful');
       
       if (onAccountSwitch) {
         await onAccountSwitch(account);

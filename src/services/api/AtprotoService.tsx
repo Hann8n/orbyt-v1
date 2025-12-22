@@ -125,32 +125,7 @@ class AtprotoService {
     return promise;
   }
   
-  // Performance caching for frequently accessed data
-  private static _feedCache = new Map<string, { data: any; timestamp: number }>();
-  private static _profileCache = new Map<string, { data: any; timestamp: number }>();
-  private static _channelCache = new Map<string, { data: any; timestamp: number }>();
-  private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-  // Cache utility methods
-  private static getCachedData(cache: Map<string, { data: any; timestamp: number }>, key: string): any | null {
-    const cached = cache.get(key);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      return cached.data;
-    }
-    if (cached) {
-      cache.delete(key); // Remove expired data
-    }
-    return null;
-  }
-
-  private static setCachedData(cache: Map<string, { data: any; timestamp: number }>, key: string, data: any): void {
-    cache.set(key, { data, timestamp: Date.now() });
-    // Cleanup old entries if cache gets too large
-    if (cache.size > 100) {
-      const oldestKey = cache.keys().next().value;
-      cache.delete(oldestKey);
-    }
-  }
+  // Custom caching removed - React Query handles all caching
 
   /**
    * Resolve a DID's PDS service endpoint via PLC and cache it.
@@ -252,7 +227,6 @@ class AtprotoService {
       // Check if session restoration is in progress
       if (userStore.isAuthenticating || userStore.isSwitchingAccount) {
         // Session restoration in progress - return null gracefully
-        logger.debug('Session restoration in progress, API client not available yet', { component: 'AtprotoService' });
         return null;
       }
       
@@ -261,7 +235,6 @@ class AtprotoService {
       }
       
       // No session available - return null instead of throwing
-      logger.debug('No valid session found for API client', { component: 'AtprotoService' });
       return null;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -299,7 +272,6 @@ class AtprotoService {
         
         // Handle case where no session is available
         if (!apiClient) {
-          logger.debug('No API client available for feed request', { component: 'AtprotoService' });
           return { feed: [], cursor: null };
         }
         
@@ -490,7 +462,6 @@ class AtprotoService {
       // Then get the API client
       const apiClient = await this.getApiClient();
       if (!apiClient || !apiClient.api) {
-        logger.debug('No API client available', { component: 'AtprotoService' });
         throw new Error('No API client available');
       }
       
@@ -535,7 +506,6 @@ class AtprotoService {
       
       // Handle case where no session is available or restoration is in progress
       if (!apiClient) {
-        logger.debug('No API client available for conversations request', { component: 'AtprotoService' });
         return { conversations: [], cursor: null };
       }
       
@@ -758,7 +728,6 @@ class AtprotoService {
     const apiClient = await this.getApiClient();
     
     if (!apiClient) {
-      logger.debug('No API client available for getBookmarks', { component: 'AtprotoService' });
       return { bookmarks: [], cursor: null };
     }
     
@@ -1312,30 +1281,20 @@ class AtprotoService {
    */
   static async getProfileByDid(did: string): Promise<any> {
     return this.deduplicateRequest(`profile_did_${did}`, async () => {
-      // Check cache first
-      const cacheKey = `profile_did_${did}`;
-      const cachedProfile = this.getCachedData(this._profileCache, cacheKey);
-      if (cachedProfile) {
-        return cachedProfile;
+      // React Query handles caching - no custom cache needed
+      const { api } = await this.getApiClient();
+      try {
+        const response = await api.app.bsky.actor.getProfile({
+          actor: did,
+        });
+        
+        // The profile response already includes verification data
+        // No need for separate API calls - verification data is included in the profile
+        return response.data;
+      } catch (error: unknown) {
+        return null;
       }
-
-        const { api } = await this.getApiClient();
-        try {
-          const response = await api.app.bsky.actor.getProfile({
-            actor: did,
-          });
-          
-          // Cache the profile data
-          const profileData = response.data;
-          this.setCachedData(this._profileCache, cacheKey, profileData);
-          
-          // The profile response already includes verification data
-          // No need for separate API calls - verification data is included in the profile
-          return profileData;
-        } catch (error: unknown) {
-          return null;
-        }
-      });
+    });
   }
 
   /**
@@ -1345,30 +1304,20 @@ class AtprotoService {
    */
   static async getProfile(handle: string): Promise<any> {
     return this.deduplicateRequest(`profile_${handle}`, async () => {
-      // Check cache first
-      const cacheKey = `profile_${handle}`;
-      const cachedProfile = this.getCachedData(this._profileCache, cacheKey);
-      if (cachedProfile) {
-        return cachedProfile;
-      }
-
+      // React Query handles caching - no custom cache needed
       const { api } = await this.getApiClient();
-        try {
-          const response = await api.app.bsky.actor.getProfile({
-            actor: handle,
-          });
-          
-          // Cache the profile data
-          const profileData = response.data;
-          this.setCachedData(this._profileCache, cacheKey, profileData);
-          
-          // The profile response already includes verification data
-          // No need for separate API calls - verification data is included in the profile
-          return profileData;
-        } catch (error: unknown) {
-          return null;
-        }
-      });
+      try {
+        const response = await api.app.bsky.actor.getProfile({
+          actor: handle,
+        });
+        
+        // The profile response already includes verification data
+        // No need for separate API calls - verification data is included in the profile
+        return response.data;
+      } catch (error: unknown) {
+        return null;
+      }
+    });
   }
 
   /**
@@ -1811,7 +1760,6 @@ class AtprotoService {
     try {
       const apiClient = await this.getApiClient();
       if (!apiClient) {
-        logger.debug('No API client available for listNotifications', { component: 'AtprotoService' });
         return { notifications: [], cursor: null };
       }
       
@@ -1830,24 +1778,7 @@ class AtprotoService {
         params.cursor = cursor;
       }
       
-      if (__DEV__) {
-        logger.debug('Calling listNotifications API', { 
-          component: 'AtprotoService',
-          params,
-          hasApi: !!api,
-          hasNotificationApi: !!api.app.bsky.notification
-        });
-      }
-      
       const response = await api.app.bsky.notification.listNotifications(params);
-      
-      if (__DEV__) {
-        logger.debug('listNotifications API response received', { 
-          component: 'AtprotoService',
-          notificationCount: response.data?.notifications?.length || 0,
-          hasCursor: !!response.data?.cursor
-        });
-      }
       
       return { 
         notifications: response.data.notifications || [], 
@@ -1874,7 +1805,6 @@ class AtprotoService {
     try {
       const apiClient = await this.getApiClient();
       if (!apiClient) {
-        logger.debug('No API client available for updateNotificationSeen', { component: 'AtprotoService' });
         return; // Non-critical operation, fail silently
       }
       
@@ -1885,11 +1815,7 @@ class AtprotoService {
         seenAt: new Date().toISOString()
       });
     } catch (error: unknown) {
-      // Log error but don't throw - this is a non-critical operation
-      logger.debug('Error updating notification seen status', { 
-        component: 'AtprotoService',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      // Non-critical operation, fail silently
     }
   }
 
@@ -2088,12 +2014,10 @@ class AtprotoService {
    */
 
   /**
-   * Clear all caches - useful for logout or account switching
+   * Clear all caches - no-op since React Query handles all caching
    */
   static clearAllCaches(): void {
-    this._feedCache.clear();
-    this._profileCache.clear();
-    this._channelCache.clear();
+    // React Query handles all caching - no custom cache to clear
   }
 
 
@@ -3164,7 +3088,6 @@ class AtprotoService {
       if (!userDid) return false;
       const apiClient = await this.getApiClient();
       if (!apiClient) {
-        logger.debug('API client not available, skipping profile record update', { component: 'AtprotoService' });
         return false;
       }
       const { api } = apiClient;
