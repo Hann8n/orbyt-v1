@@ -2,9 +2,17 @@ import { useQuery } from '@tanstack/react-query';
 import AtprotoService from '../services/api/AtprotoService';
 import ChatService from '../services/ChatService';
 import { useChatStore } from '../stores/chatStore';
+import { useUserStore } from '../stores/userStore';
 
 export const useUnreadCount = () => {
   const { updateFromConversations } = useChatStore();
+  const isAuthenticated = useUserStore(state => state.isAuthenticated);
+  
+  const queryOptions = {
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 30000 : false,
+    staleTime: 60000,
+  };
   
   // Get unread notifications count
   const { data: notificationsData } = useQuery({
@@ -13,8 +21,7 @@ export const useUnreadCount = () => {
       const response = await AtprotoService.listNotifications(null, 100);
       return response.notifications.filter((n: any) => !n.isRead).length;
     },
-    refetchInterval: 30000, // Check every 30 seconds
-    staleTime: 60000, // Consider stale after 1 minute
+    ...queryOptions,
   });
 
   // Get unread messages count
@@ -22,14 +29,12 @@ export const useUnreadCount = () => {
     queryKey: ['conversations-count'],
     queryFn: async () => {
       const response = await ChatService.getConversations();
-      // Update chat store with conversations (includes latest messages from notifications)
       if (response.conversations) {
         updateFromConversations(response.conversations);
       }
       return response.conversations.reduce((total, conv) => total + conv.unreadCount, 0);
     },
-    refetchInterval: 30000, // Check every 30 seconds
-    staleTime: 60000, // Consider stale after 1 minute
+    ...queryOptions,
   });
 
   const notificationsCount = notificationsData || 0;

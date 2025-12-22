@@ -418,8 +418,9 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
           avatar={account.cachedProfile?.avatar}
           size="large"
           showRing={true}
-          showArrow={!editMode && !isActive}
+          showArrow={false}
           showDeleteButton={editMode && savedAccounts.length > 1}
+          showCheckmark={isActive && !editMode}
           onDeletePress={() => handleRemoveAccount(account)}
           backgroundColor={Colors.darkGray}
           onPress={() => {
@@ -535,6 +536,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 12,
     paddingVertical: 0,
+    paddingBottom: 12,
   },
   accountButton: {
     marginBottom: 0,
@@ -549,7 +551,7 @@ const styles = StyleSheet.create({
   addAccountHeader: {
     color: Colors.gray,
     fontSize: 16,
-    fontWeight: '600',
+
     fontFamily: 'Firma-SemiBold',
     paddingHorizontal: 10,
     paddingVertical: 12,
@@ -558,7 +560,6 @@ const styles = StyleSheet.create({
   addButtonsContainer: {
     flexDirection: 'row',
     gap: 8,
-    paddingBottom: 12,
   },
   addAccountButton: {
     backgroundColor: Colors.darkGray,

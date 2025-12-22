@@ -755,7 +755,14 @@ class AtprotoService {
    */
   static async getBookmarks(cursor?: string, limit: number = 50): Promise<{ bookmarks: any[], cursor: string | null }> {
     await this.ensureSession();
-    const { api } = await this.getApiClient();
+    const apiClient = await this.getApiClient();
+    
+    if (!apiClient) {
+      logger.debug('No API client available for getBookmarks', { component: 'AtprotoService' });
+      return { bookmarks: [], cursor: null };
+    }
+    
+    const { api } = apiClient;
     
     try {
       const response = await api.app.bsky.bookmark.getBookmarks({
@@ -1804,8 +1811,8 @@ class AtprotoService {
     try {
       const apiClient = await this.getApiClient();
       if (!apiClient) {
-        logger.error('No API client available for listNotifications', { component: 'AtprotoService' });
-        throw new Error('No authenticated session available');
+        logger.debug('No API client available for listNotifications', { component: 'AtprotoService' });
+        return { notifications: [], cursor: null };
       }
       
       const { api } = apiClient;

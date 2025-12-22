@@ -197,13 +197,19 @@ export default function RootLayout() {
 
   // Load bookmarks when user is authenticated
   useEffect(() => {
-    if (isAuthenticated && appIsReady) {
-      loadBookmarks().catch(err => {
-        console.warn('Failed to load bookmarks:', err);
-      });
-    } else if (!isAuthenticated) {
+    if (!isAuthenticated) {
       clearBookmarks();
+      return;
     }
+    
+    if (!appIsReady) return;
+    
+    // Defer until interactions complete (service already checks authentication state)
+    const handle = InteractionManager.runAfterInteractions(() => {
+      loadBookmarks().catch(() => {});
+    });
+    
+    return () => handle.cancel();
   }, [isAuthenticated, appIsReady, loadBookmarks, clearBookmarks]);
 
   // Prefetch feed in background after app is fully ready and interactions complete

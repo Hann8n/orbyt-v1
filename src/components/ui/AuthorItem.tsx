@@ -38,6 +38,7 @@ interface AuthorItemProps {
   customFontSize?: number;
   showDeleteButton?: boolean;
   onDeletePress?: () => void;
+  showCheckmark?: boolean;
 }
 
 const AuthorItem: React.FC<AuthorItemProps> = ({
@@ -64,6 +65,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   customFontSize,
   showDeleteButton = false,
   onDeletePress,
+  showCheckmark = false,
 }) => {
   const navigation = useRouter();
   
@@ -191,6 +193,10 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
           >
             <Icon name="delete-2-fill" size={16} color={UI.Colors.STATUS.ERROR} />
           </Pressable>
+        ) : showCheckmark ? (
+          <View style={styles.checkmarkButton}>
+            <CheckIcon size={16} color={Colors.lightGreen} strokeWidth={2} />
+          </View>
         ) : showArrow && (
           <View style={styles.accountArrow}>
             <Icon 
@@ -276,6 +282,14 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 8,
     backgroundColor: hexToRGBA(UI.Colors.STATUS.ERROR, 0.1),
+    borderRadius: BORDER_RADIUS.SMALL,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  checkmarkButton: {
+    padding: 8,
+    backgroundColor: hexToRGBA(Colors.lightGreen, 0.1),
     borderRadius: BORDER_RADIUS.SMALL,
     justifyContent: 'center',
     alignItems: 'center',
