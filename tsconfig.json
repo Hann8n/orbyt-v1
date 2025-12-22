@@ -41,5 +41,5 @@
     "dist",
     "src/navigation/**/*"
   ],
-  "extends": "expo/tsconfig.base"
+  "extends": "expo/tsconfig.base.json"
 }

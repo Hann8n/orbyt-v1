@@ -903,7 +903,7 @@ const EditProfileScreen: React.FC = () => {
                           <Text
                             style={[
                               styles.handleSuffix,
-                              { color: hexToRGBA(currentColors.textColor, 0.50) },
+                              { color: hexToRGBA(currentColors.textColor, 0.70) },
                             ]}
                           >
                             {handleSuffix}

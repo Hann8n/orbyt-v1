@@ -165,7 +165,7 @@ export default function TabsLayout() {
         <View style={{ flex: 1, backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent' }} />
       ),
       tabBarActiveTintColor: '#fff',
-      tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.75)',
+      tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.70)',
       tabBarButton: (props: any) => {
         // Only handle scroll-to-top for tabs that have scroll/focus functionality
         if (route.name === 'create') {

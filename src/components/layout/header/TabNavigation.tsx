@@ -84,7 +84,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                   onPress={() => handleViewModeChange('grid')}
                 >
                   <GridViewIcon 
-                    color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.75)} 
+                    color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.70)} 
                     size={20}
                   />
                 </Pressable>
@@ -96,7 +96,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
                   onPress={() => handleViewModeChange('list')}
                 >
                   <ListViewIcon 
-                    color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.75)} 
+                    color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.70)} 
                     size={20}
                   />
                 </Pressable>
@@ -152,7 +152,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
               style={[
                 styles.tabText,
                 { 
-                  color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.75),
+                  color: activeTab === tab.id ? activeTabColor : hexToRGBA(textColor, 0.70),
                   fontFamily: variant === 'header' ? 'Firma-Black' : 'Firma-Black',
                   fontSize: variant === 'header' ? 18 : 16
                 },
@@ -178,7 +178,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
               onPress={() => handleViewModeChange('grid')}
             >
               <GridViewIcon 
-                color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.75)} 
+                color={viewMode === 'grid' ? activeTabColor : hexToRGBA(textColor, 0.70)} 
                 size={20}
               />
             </Pressable>
@@ -190,7 +190,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
               onPress={() => handleViewModeChange('list')}
             >
               <ListViewIcon 
-                color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.75)} 
+                color={viewMode === 'list' ? activeTabColor : hexToRGBA(textColor, 0.70)} 
                 size={20}
               />
             </Pressable>

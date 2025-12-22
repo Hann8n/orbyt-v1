@@ -470,7 +470,7 @@ const HeaderContentComponent = memo<{
                 >
                   {subtitleBase}
                   {subtitleSuffix && (
-                    <Text style={{ color: hexToRGBA(textColor, 0.50) }}>
+                    <Text style={{ color: hexToRGBA(textColor, 0.70) }}>
                       {subtitleSuffix}
                     </Text>
                   )}
