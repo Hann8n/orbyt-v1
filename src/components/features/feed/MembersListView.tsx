@@ -12,8 +12,6 @@ import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
-import { LinearGradient } from 'expo-linear-gradient';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar, Icon } from '../../ui/UI';
 import { Loading3FillIcon } from '../../ui/Icon';
@@ -28,21 +26,13 @@ import { useUserStore } from '../../../stores/userStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Shimmer component for member items (match likes item skeleton)
+// Loading placeholder component for member items
 const MemberItemShimmer = () => (
   <View style={styles.memberItem}>
-    <ShimmerPlaceholder
-      LinearGradient={LinearGradient}
-      style={[styles.memberAvatar, { borderRadius: BORDER_RADIUS.LARGE, borderWidth: 0, borderColor: 'transparent' }]}
-      shimmerColors={Colors.SHIMMER.PRIMARY}
-    />
+    <View style={[styles.memberAvatar, { borderRadius: BORDER_RADIUS.LARGE, borderWidth: 0, borderColor: 'transparent', backgroundColor: Colors.mediumGray }]} />
     <View style={styles.memberDetails}>
       <View style={styles.memberNameRow}>
-        <ShimmerPlaceholder
-          LinearGradient={LinearGradient}
-          style={{ width: '55%', height: 18, borderRadius: BORDER_RADIUS.SMALL, marginBottom: 0 }}
-          shimmerColors={Colors.SHIMMER.PRIMARY}
-        />
+        <View style={{ width: '55%', height: 18, borderRadius: BORDER_RADIUS.SMALL, marginBottom: 0, backgroundColor: Colors.mediumGray }} />
       </View>
     </View>
   </View>

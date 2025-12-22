@@ -18,8 +18,6 @@ import { useRouter } from 'expo-router';
 import { Avatar } from '../../ui/UI';
 import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
-import ShimmerPlaceholder from 'react-native-shimmer-placeholder';
-import { LinearGradient } from 'expo-linear-gradient';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
 import VerificationBadge from './VerificationBadge';
@@ -48,28 +46,16 @@ interface VerificationData {
   isVerified?: boolean;
 }
 
-// Shimmer component for verified by profile
+// Loading placeholder component for verified by profile
 const VerifiedByShimmer = () => (
   <View style={styles.issuerListItem}>
     <View style={styles.issuerContent}>
-      <ShimmerPlaceholder
-        LinearGradient={LinearGradient}
-        style={styles.issuerAvatarShimmer}
-        shimmerColors={Colors.SHIMMER.PRIMARY}
-      />
+      <View style={[styles.issuerAvatarShimmer, { backgroundColor: Colors.mediumGray }]} />
       <View style={styles.issuerTextContainer}>
         <View style={styles.issuerNameRow}>
-          <ShimmerPlaceholder
-            LinearGradient={LinearGradient}
-            style={styles.issuerNameShimmer}
-            shimmerColors={Colors.SHIMMER.PRIMARY}
-          />
+          <View style={[styles.issuerNameShimmer, { backgroundColor: Colors.mediumGray }]} />
         </View>
-        <ShimmerPlaceholder
-          LinearGradient={LinearGradient}
-          style={styles.issuerHandleShimmer}
-          shimmerColors={Colors.SHIMMER.PRIMARY}
-        />
+        <View style={[styles.issuerHandleShimmer, { backgroundColor: Colors.mediumGray }]} />
       </View>
     </View>
   </View>
