@@ -1797,7 +1797,7 @@ const ExploreScreen: React.FC = () => {
       )}
 
       {/* Search Bar overlays header */}
-      <View
+      <Pressable
         style={[
           styles.searchContainer,
           Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.searchContainerGlass,
@@ -1806,6 +1806,7 @@ const ExploreScreen: React.FC = () => {
             zIndex: 20,
           },
         ]}
+        onPress={() => searchInputRef.current?.focus()}
       >
         {Platform.OS === 'ios' && isLiquidGlassAvailable() && (
           <GlassView
@@ -1815,7 +1816,9 @@ const ExploreScreen: React.FC = () => {
             isInteractive
           />
         )}
-        <SearchIcon size={24} color={Colors.black} style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }} />
+        <View pointerEvents="none">
+          <SearchIcon size={24} color={Colors.black} style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }} />
+        </View>
         <TextInput
           ref={searchInputRef}
           style={styles.searchInput}
@@ -1832,6 +1835,9 @@ const ExploreScreen: React.FC = () => {
           autoCorrect={false}
           keyboardAppearance="dark"
           returnKeyType="search"
+          textAlignVertical="center"
+          includeFontPadding={false}
+          pointerEvents="none"
         />
         {isSearching && (
           <Pressable
@@ -1841,7 +1847,7 @@ const ExploreScreen: React.FC = () => {
             <Icon name="close-circle" size={22.5} color={Colors.darkGray} />
           </Pressable>
         )}
-      </View>
+      </Pressable>
 
       {/* Search Results */}
       {isSearching && (
@@ -2243,9 +2249,13 @@ const styles = StyleSheet.create({
     flex: 1,
     color: 'black',
     fontSize: 20,
-    height: '100%',
     fontFamily: 'Firma-Medium',
     marginLeft: 10,
+    padding: 0,
+    ...(Platform.OS === 'android' && {
+      textAlignVertical: 'center',
+      includeFontPadding: false,
+    }),
   },
   clearButton: {
     padding: 0,
