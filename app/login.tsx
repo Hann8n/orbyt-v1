@@ -327,7 +327,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
           </>
         ) : (
           <>
-            <Icon name="bluesky-icon" size={20} color={Colors.bluesky} style={{ marginRight: 8 }} />
+            <Icon name="bluesky-icon" size={24} color={Colors.bluesky} style={{ marginRight: 12 }} />
             <Text style={styles.blueskyButtonText}>
               Sign in with Bluesky
             </Text>
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
   blueskyButtonText: {
     color: Colors.black,
     fontSize: 18,
-    fontFamily: 'Firma-Bold',
+    fontFamily: 'Firma-SemiBold',
   },
   customPDSTextButton: {
     alignSelf: 'center',
@@ -524,6 +524,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Firma-SemiBold',
     textAlign: 'center',
+    textDecorationLine: 'underline',
   },
   savedAccountsContainer: {
     width: '100%',
