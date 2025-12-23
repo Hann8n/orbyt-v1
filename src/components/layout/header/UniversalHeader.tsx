@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import { Avatar } from '../../ui/UI';
 import { Colors } from '../../ui/UI';
-import { isSmallScreen, isTablet } from '../../../utils/helpers';
+import { isSmallScreen, isTablet, splitHandleSuffix } from '../../../utils/helpers';
 import { TextWithLinks } from '../../ui/TextWithLinks';
 import type { RichTextFacet } from '../../../utils/richTextParser';
 
@@ -453,10 +453,7 @@ const HeaderContentComponent = memo<{
           </Pressable>
         
         {!!content.subtitle && (() => {
-          const subtitle = content.subtitle;
-          const suffix = '.bsky.social';
-          const subtitleBase = subtitle.endsWith(suffix) ? subtitle.slice(0, -suffix.length) : subtitle;
-          const subtitleSuffix = subtitle.endsWith(suffix) ? suffix : null;
+          const { handleBase: subtitleBase, handleSuffix: subtitleSuffix } = splitHandleSuffix(content.subtitle);
           
           return (
             <Pressable

@@ -22,6 +22,7 @@ import { useProfileUpdateMutation, useProfile } from '../src/services/cache/Prof
 import { hexToRGBA } from '../src/utils/formatting/colorUtils';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import { useCurrentUser } from '../src/stores/userStore';
+import { splitHandleSuffix } from '../src/utils/helpers';
 
 export interface ProfileColorOption {
   id: string;
@@ -117,26 +118,11 @@ const EditProfileScreen: React.FC = () => {
   const { data: profileData } = useProfile(userHandle);
   const [isAboutFocused, setIsAboutFocused] = useState(false);
   
-  // Handle formatting: detach ".bsky.social" suffix if present so we can
+  // Handle formatting: detach ".bsky.social" or ".orbyt.video" suffix if present so we can
   // render the suffix separately in the UI (bottom-right of the section).
   const { handleBase, handleSuffix } = useMemo(() => {
     const rawHandle = profileData?.handle ?? userHandle ?? 'username';
-    if (!rawHandle) {
-      return { handleBase: 'username', handleSuffix: null as string | null };
-    }
-    
-    const suffix = '.bsky.social';
-    if (rawHandle.endsWith(suffix)) {
-      return {
-        handleBase: rawHandle.slice(0, -suffix.length),
-        handleSuffix: suffix,
-      };
-    }
-    
-    return {
-      handleBase: rawHandle,
-      handleSuffix: null as string | null,
-    };
+    return splitHandleSuffix(rawHandle);
   }, [profileData?.handle, userHandle]);
   
   // Form state
