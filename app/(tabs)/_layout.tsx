@@ -160,7 +160,7 @@ export default function TabsLayout() {
       },
       tabBarBackground: () => (
         <LinearGradient
-          colors={['transparent', 'rgba(0, 0, 0, 0.35)']}
+          colors={['transparent', 'rgba(0, 0, 0, 0.30)']}
           style={{ flex: 1 }}
           pointerEvents="none"
         />
