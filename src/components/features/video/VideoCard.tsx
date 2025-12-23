@@ -93,11 +93,9 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     
     // Enhanced video state management with automatic recycling
     // Scope by post URI + feedOption so playback state doesn't leak across different feeds
+    // Only track userPaused - derive hasError directly from playerStatus to avoid duplication
     const [videoState, setVideoState] = useRecyclingState({
-      hasError: false,
       userPaused: false,
-      isReady: false,
-      isBuffering: false,
     }, [post.uri, feedOption]); // Auto-resets when post.uri or feed context changes
 
     // Get persisted interaction state from store
@@ -177,6 +175,9 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     
     // Listen to player status changes using expo's useEvent hook
     const { status: playerStatus } = useEvent(player, 'statusChange', { status: player?.status ?? 'idle' });
+    
+    // Derive error state directly from playerStatus (no need to duplicate in state)
+    const hasError = playerStatus === 'error';
 
     // Simplified content warning state
     const [userChoseToView, setUserChoseToView] = useState(false);
@@ -231,7 +232,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
 
     // Isolated video playback logic - only depends on this video's state
     const shouldPlayVideo = !shouldDisablePlayback && 
-                           !videoState.hasError && 
+                           !hasError && 
                            !videoState.userPaused &&
                            !(hasWarning && !shouldShowContent) &&
                            isVisible && // Use visibility instead of external shouldPlay prop
@@ -249,12 +250,12 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
         return;
       }
 
-      setVideoState(prev => {
-        // Guard against toggling when an error has occurred
-        if (prev.hasError) {
-          return prev;
-        }
+      // Guard against toggling when an error has occurred
+      if (hasError) {
+        return;
+      }
 
+      setVideoState(prev => {
         const nextPaused = shouldPlay !== undefined ? !shouldPlay : !prev.userPaused;
         if (prev.userPaused === nextPaused) {
           return prev;
@@ -262,7 +263,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
 
         return { ...prev, userPaused: nextPaused };
       });
-    }, [hasWarning, shouldShowContent, shouldDisablePlayback, setVideoState]);
+    }, [hasWarning, shouldShowContent, shouldDisablePlayback, hasError, setVideoState]);
 
     // togglePlayback handles all play/pause logic directly
 
@@ -319,7 +320,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       const isNowUnblocked = !shouldDisablePlayback && wasBlocked;
       
       // When overlay blocking is removed and video should be visible, ensure it can resume
-      if (isNowUnblocked && isVisible && !videoState.hasError) {
+      if (isNowUnblocked && isVisible && !hasError) {
         // Clear userPaused to allow video to resume
         // This handles the case where overlay blocked playback and is now removed
         if (videoState.userPaused) {
@@ -328,7 +329,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       }
       
       prevShouldDisablePlaybackRef.current = shouldDisablePlayback;
-    }, [shouldDisablePlayback, isVisible, videoState.hasError, videoState.userPaused, setVideoState]);
+    }, [shouldDisablePlayback, isVisible, hasError, videoState.userPaused, setVideoState]);
 
     // Auto-resume when video becomes visible (e.g., scrolling to next video after returning to a feed)
     // This fixes the issue where the next video doesn't autoplay after returning to a feed,
@@ -339,12 +340,12 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
 
       // When video becomes visible and can play, clear userPaused to allow autoplay
       // This handles the case where userPaused was set due to screen blur or backgrounding.
-      if (becameVisible && !shouldDisablePlayback && !videoState.hasError && videoState.userPaused) {
+      if (becameVisible && !shouldDisablePlayback && !hasError && videoState.userPaused) {
         setVideoState(prev => ({ ...prev, userPaused: false }));
       }
       
       prevIsVisibleRef.current = isVisible;
-    }, [isVisible, shouldDisablePlayback, videoState.hasError, videoState.userPaused, setVideoState]);
+    }, [isVisible, shouldDisablePlayback, hasError, videoState.userPaused, setVideoState]);
 
     // Simplified focus effect - pause on blur, resume on focus if needed
     useFocusEffect(
@@ -360,30 +361,15 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       }, [videoState.userPaused, togglePlayback])
     );
 
-    // Handle player status changes via effect
+    // Handle player status changes for callbacks only
     useEffect(() => {
       if (!player) return;
       
       if (playerStatus === 'readyToPlay') {
-        setVideoState(prev => ({
-          ...prev,
-          isReady: true,
-          isBuffering: false,
-          hasError: false,
-        }));
         onVideoStatus?.(post.uri, 'loaded');
       } else if (playerStatus === 'loading') {
-        setVideoState(prev => ({
-          ...prev,
-          isBuffering: true
-        }));
         onVideoStatus?.(post.uri, 'loading');
       } else if (playerStatus === 'error') {
-        setVideoState(prev => ({
-          ...prev,
-          hasError: true,
-          isBuffering: false
-        }));
         onVideoStatus?.(post.uri, 'error');
       }
     }, [playerStatus, player, post.uri, onVideoStatus]);
@@ -690,8 +676,8 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
 
     return (
       <View style={[styles.container, { height: cardHeight }]}>
-        {/* Blurred thumbnail background */}
-        <BlurredThumbnailBackground thumbnailUrl={posterUrl} />
+        {/* Blurred thumbnail background - iOS only (expensive on Android) */}
+        {Platform.OS === 'ios' && <BlurredThumbnailBackground thumbnailUrl={posterUrl} />}
         {/* Unified Video and Overlay Container */}
         <Pressable 
           onPress={handleVideoTap} 
@@ -710,7 +696,8 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
             )}
 
             {/* Video Player - expo-video VideoView */}
-            {shouldLoadVideo && player && (
+            {/* Always render VideoView when source is available (no content warning) to start loading earlier for faster playback */}
+            {!!videoSource && !(hasWarning && !shouldShowContent) && player && (
               <VideoView
                 player={player}
                 style={styles.videoPlayer}

@@ -308,7 +308,7 @@ export default function RootLayout() {
     return (
       <AppProviders>
         <View style={styles.rootView} onLayout={onLayoutRootView}>
-          <StatusBar barStyle="light-content" backgroundColor={Colors.black} hidden={false} />
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} hidden={false} />
           <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
         </View>
       </AppProviders>
@@ -318,7 +318,7 @@ export default function RootLayout() {
   return (
     <AppProviders>
       <View style={styles.rootView} onLayout={onLayoutRootView}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.black} hidden={false} />
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} hidden={false} />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(modals)" options={{ headerShown: false }} />

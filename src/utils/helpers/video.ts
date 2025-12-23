@@ -3,12 +3,14 @@
  * Uses native expo-video caching (500MB LRU)
  */
 
+import { Platform } from 'react-native';
 import type { VideoSource } from 'expo-video';
 
 /**
  * Creates a properly configured VideoSource object for HLS streaming.
  * Automatically detects HLS streams and sets appropriate contentType.
- * Note: expo-video handles caching internally for HLS streams.
+ * Enables caching on Android (iOS doesn't support HLS caching per expo-video docs).
+ * Adaptive bitrate is handled automatically by the native HLS player.
  */
 export function createVideoSource(videoUrl: string | null): VideoSource | null {
   if (!videoUrl) return null;
@@ -24,8 +26,9 @@ export function createVideoSource(videoUrl: string | null): VideoSource | null {
   return {
     uri: videoUrl,
     contentType: 'hls',
-    // Disable caching for HLS (iOS limitation, matches docs)
-    useCaching: false,
+    // Enable caching on Android for better performance (iOS limitation: can't cache HLS)
+    // Per expo-video docs: "Due to platform limitations, the cache cannot be used with HLS video sources on iOS"
+    useCaching: Platform.OS === 'android',
   };
 }
 

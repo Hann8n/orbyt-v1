@@ -203,6 +203,10 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       useState(false);
     // Track current scroll offset to initialize blocking state correctly
     const currentScrollOffsetRef = useRef<number>(0);
+    // Track blocking state in ref to avoid state updates on every scroll
+    const isHeaderBlockingRef = useRef<boolean>(false);
+    // Throttle state updates for header blocking
+    const headerBlockingUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Device detection
     const isSmallDevice = useMemo(() => isSmallScreen() || isTablet(), []);
@@ -277,6 +281,7 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
       const currentOffset = currentScrollOffsetRef.current;
       // If we have a tracked scroll position, use it; otherwise default to blocking (safer)
       const isBlocking = currentOffset === 0 || currentOffset < CONSTANTS.HEADER_BLOCKING_THRESHOLD;
+      isHeaderBlockingRef.current = isBlocking;
       setIsHeaderBlockingPlayback(isBlocking);
     }, [isHeaderFeed, isVisible, viewMode]);
 
@@ -397,9 +402,25 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         currentScrollOffsetRef.current = offsetY;
         
         // Simplified header blocking: block if scroll is less than threshold from top
+        // Use ref to track state and only update React state when it changes
         if (isHeaderFeed) {
           const isBlocking = offsetY < CONSTANTS.HEADER_BLOCKING_THRESHOLD;
-          setIsHeaderBlockingPlayback(isBlocking);
+          
+          // Only update state if blocking state actually changed
+          if (isBlocking !== isHeaderBlockingRef.current) {
+            isHeaderBlockingRef.current = isBlocking;
+            
+            // Clear any pending update
+            if (headerBlockingUpdateTimeoutRef.current) {
+              clearTimeout(headerBlockingUpdateTimeoutRef.current);
+            }
+            
+            // Throttle state update to avoid excessive re-renders during scroll
+            headerBlockingUpdateTimeoutRef.current = setTimeout(() => {
+              setIsHeaderBlockingPlayback(isBlocking);
+              headerBlockingUpdateTimeoutRef.current = null;
+            }, 16); // ~60fps throttling
+          }
         }
         
         // Forward vertical scroll offset to parent (for header animations, etc.)
@@ -517,6 +538,10 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
         if (positionSaveTimeout.current) {
           clearTimeout(positionSaveTimeout.current);
           positionSaveTimeout.current = null;
+        }
+        if (headerBlockingUpdateTimeoutRef.current) {
+          clearTimeout(headerBlockingUpdateTimeoutRef.current);
+          headerBlockingUpdateTimeoutRef.current = null;
         }
       };
     }, []);
@@ -746,7 +771,6 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
             ) : null
           }
           // FlashList performance optimizations
-          removeClippedSubviews={true}
           overrideItemLayout={overrideItemLayout}
           // Snapping configuration
           pagingEnabled={false}
@@ -761,6 +785,8 @@ const ListFeedView = forwardRef<ListFeedViewRef, ListFeedViewProps>(
               ? SCROLL_CONSTANTS.DECELERATION_RATE_IOS
               : SCROLL_CONSTANTS.DECELERATION_RATE_ANDROID
           }
+          // Disable fast scrolling to prevent scrolling past multiple items
+          disableIntervalMomentum={true}
           scrollEventThrottle={APP_CONSTANTS.SCROLL_THROTTLE}
           // Event handlers
           onScroll={onScrollNative}

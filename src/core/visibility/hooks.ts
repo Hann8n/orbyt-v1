@@ -50,6 +50,8 @@ export function useFeedVisibility({
   // Keep tracking even when feed is inactive so we can resume playback immediately
   const [activeItemIndex, setActiveItemIndex] = useState<number>(-1);
   const activeItemIndexRef = useRef<number>(-1);
+  // Throttle viewability updates to reduce state changes during scroll
+  const viewabilityUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Update ref when state changes
   activeItemIndexRef.current = activeItemIndex;
@@ -91,7 +93,20 @@ export function useFeedVisibility({
       // Only update state if index changed (use ref to avoid callback recreation)
       // Update even when feed is inactive to maintain tracking
       if (nextIndex !== activeItemIndexRef.current) {
-        setActiveItemIndex(nextIndex);
+        // Update ref immediately for synchronous access
+        activeItemIndexRef.current = nextIndex;
+        
+        // Clear any pending update
+        if (viewabilityUpdateTimeoutRef.current) {
+          clearTimeout(viewabilityUpdateTimeoutRef.current);
+        }
+        
+        // Batch state update to reduce re-renders during rapid scrolling
+        // Use requestAnimationFrame to batch with other updates
+        viewabilityUpdateTimeoutRef.current = setTimeout(() => {
+          setActiveItemIndex(nextIndex);
+          viewabilityUpdateTimeoutRef.current = null;
+        }, 0); // Batch in next tick to avoid blocking scroll thread
       }
     },
     [] // No dependencies - callback is stable and always tracks viewability

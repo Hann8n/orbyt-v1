@@ -122,55 +122,12 @@ const removeDownloadBlock = (contents) => {
 };
 
 const withFfmpegKitAndroid = (config, { androidLocalPath }) => {
-  // First, copy the local AAR and patch the ffmpeg-kit-react-native build.gradle
+  // Copy the local AAR file - the build.gradle modifications are handled by patch-package
   config = withDangerousMod(config, [
     'android',
     async (cfg) => {
       const { platformProjectRoot, projectRoot } = cfg.modRequest;
       copyAndroidAar(platformProjectRoot, projectRoot, androidLocalPath);
-
-      const ffmpegKitBuildGradlePath = path.join(
-        platformProjectRoot,
-        '..',
-        'node_modules',
-        'ffmpeg-kit-react-native',
-        'android',
-        'build.gradle'
-      );
-
-      if (fs.existsSync(ffmpegKitBuildGradlePath)) {
-        let buildGradle = fs.readFileSync(ffmpegKitBuildGradlePath, 'utf-8');
-        
-        // Add flatDir repository if not present
-        const flatDirRepo = `flatDir {\n    dirs "$rootDir/libs"\n  }`;
-        const repositoriesRegex = /repositories\s*\{[\s\S]*?mavenCentral\(\)[\s\S]*?google\(\)/;
-        if (!buildGradle.includes('flatDir') && buildGradle.match(repositoriesRegex)) {
-          buildGradle = buildGradle.replace(
-            /(google\(\))/,
-            `$1\n  ${flatDirRepo}`
-          );
-        }
-        
-        // Replace the Maven dependency with local AAR
-        const originalDependency = /implementation 'com\.arthenica:ffmpeg-kit-'.*/;
-        const replacement = `implementation(name: 'ffmpeg-kit-full-gpl', ext: 'aar')`;
-        
-        if (buildGradle.match(originalDependency)) {
-          buildGradle = buildGradle.replace(originalDependency, replacement);
-          
-          // Also add the smart-exception dependency if not present
-          if (!buildGradle.includes('smart-exception-java')) {
-            buildGradle = buildGradle.replace(
-              replacement,
-              `${replacement}\n  implementation 'com.arthenica:smart-exception-java:0.2.1'`
-            );
-          }
-          
-          fs.writeFileSync(ffmpegKitBuildGradlePath, buildGradle);
-          console.log('[ffmpeg-kit-plugin] Patched ffmpeg-kit-react-native build.gradle');
-        }
-      }
-      
       return cfg;
     },
   ]);
