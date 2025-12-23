@@ -27,9 +27,9 @@ import * as FileSystem from 'expo-file-system';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
-  withTiming,
-  runOnJS
+  withTiming
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Icon, { CloseFillIcon, Loading3FillIcon, ArrowRightFillIcon } from '../../src/components/ui/Icon';
 import BottomToolBar from '../../src/components/ui/BottomToolBar';
@@ -274,7 +274,7 @@ const CreateScreen: React.FC = () => {
       const newZoom = Math.max(0, Math.min(1, startZoom.value + scaleChange));
       baseZoom.value = newZoom;
       zoomScale.value = event.scale;
-      runOnJS(setZoom)(newZoom);
+      scheduleOnRN(setZoom, newZoom);
     })
     .onEnd(() => {
       'worklet';

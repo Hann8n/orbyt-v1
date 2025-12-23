@@ -1,11 +1,10 @@
-import React, { useState, useRef, useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Tabs, router, useSegments } from 'expo-router';
-import { View, Pressable, Platform, Alert, StyleSheet } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 
 import { Colors, Avatar } from '../../src/components/ui/UI';
-import { Loading3FillIcon } from '../../src/components/ui/Icon';
 import Icon, { HomeIcon, ExploreIcon, NotificationIcon, UserIcon } from '../../src/components/ui/Icon';
 import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
@@ -14,7 +13,6 @@ import { NotificationIndicator } from '../../src/components/ui/NotificationIndic
 import { useUserStore } from '../../src/stores/userStore';
 import { useProfile } from '../../src/services/cache/ProfileCache';
 import { tabRefs } from '../../src/utils/tabRefs';
-import { useUIStore } from '../../src/stores/uiStore';
 
 // Move ProfileTabIcon outside component to prevent recreation on every render
 const ProfileTabIcon = React.memo(({ color, focused, tabIconSize }: { color: string; focused: boolean; tabIconSize: number }) => {
@@ -110,8 +108,6 @@ export default function TabsLayout() {
   const isSmallDevice = isSmallScreen() || isTablet();
   const { hasUnread } = useUnreadCount();
   const segments = useSegments();
-  // Use specific selector to only subscribe to videoScrubbing visibility
-  const isScrubbing = useUIStore((state) => state.visibility.videoScrubbing ?? false);
   
   const isTabActive = useCallback((routeName: string) => {
     const lastSegment = segments[segments.length - 1];
@@ -149,7 +145,7 @@ export default function TabsLayout() {
       headerShown: false,
       tabBarHideOnKeyboard: true,
       tabBarShowLabel: false,
-      tabBarStyle: (route.name === 'create' || isScrubbing) ? {
+      tabBarStyle: route.name === 'create' ? {
         display: 'none' as const,
       } : {
         backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent',
@@ -233,7 +229,7 @@ export default function TabsLayout() {
         }
       },
     });
-  }, [isScrubbing, isSmallDevice, insets.bottom, isTabActive, handleDoubleTap, tabIconSize, captureSize, captureInner, hasUnread]);
+  }, [isSmallDevice, insets.bottom, isTabActive, handleDoubleTap, tabIconSize, captureSize, captureInner, hasUnread]);
 
   return (
     <Tabs
@@ -250,5 +246,5 @@ export default function TabsLayout() {
           }} 
         />
       </Tabs>
-    );
+  );
 }

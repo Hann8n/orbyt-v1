@@ -39,6 +39,8 @@ import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { usePostInteractionStore } from '../../../stores/postInteractionStore';
 import { useProfile } from '../../../services/cache/ProfileCache';
 import { getChannelBySlug } from '../../../utils/orbytChannels';
+import { useUIStore } from '../../../stores/uiStore';
+import { VideoScrubber } from './VideoScrubber';
 
 // Use any type for post
 type Post = any;
@@ -674,6 +676,9 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       }
     }, [shouldPlayVideo, post.uri, onVideoStatus]);
 
+    // Scrubber for iOS only - overlays the video
+    const seekingAnimationSV = useSharedValue(0);
+
     return (
       <View style={[styles.container, { height: cardHeight }]}>
         {/* Blurred thumbnail background - iOS only (expensive on Android) */}
@@ -771,6 +776,17 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 hasProfile={hasProfile}
                 channelSlug={channelSlug}
                 onChannelPress={handleChannelPress}
+                seekingAnimationSV={seekingAnimationSV}
+              />
+            )}
+
+            {/* Video Scrubber - iOS only, overlays video above bottom bar */}
+            {Platform.OS === 'ios' && (
+              <VideoScrubber
+                active={isVisible && !hasError}
+                player={player}
+                seekingAnimationSV={seekingAnimationSV}
+                isVisible={isVisible}
               />
             )}
           </View>

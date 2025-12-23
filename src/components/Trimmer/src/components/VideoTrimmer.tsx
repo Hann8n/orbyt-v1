@@ -1,6 +1,7 @@
 import React, { forwardRef, useState, useEffect, useCallback, type Ref } from 'react';
 import { View, type ViewStyle, Dimensions } from 'react-native';
-import { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
+import { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import Video, {
@@ -313,7 +314,7 @@ function VideoTrimmerUI(props: VideoTrimmerProps, ref: Ref<unknown>) {
       
       // Notify parent of crop position change (normalized -1 to 1)
       if (onCropPositionChange) {
-        runOnJS(onCropPositionChange)(cropOffsetX.value, cropOffsetY.value);
+        scheduleOnRN(onCropPositionChange, cropOffsetX.value, cropOffsetY.value);
       }
     })
     .onEnd(() => {

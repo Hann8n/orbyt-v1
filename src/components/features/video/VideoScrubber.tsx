@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import {
   Gesture,
   GestureDetector,
@@ -8,16 +8,16 @@ import {
 import Animated, {
   clamp,
   interpolate,
-  runOnJS,
-  runOnUI,
   type SharedValue,
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  Easing,
 } from 'react-native-reanimated';
+import { scheduleOnUI, scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaFrame, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useEventListener } from 'expo';
+import { useEvent } from 'expo';
 import { type VideoPlayer } from 'expo-video';
 import { formatTime } from '../../../utils/helpers';
 import { Colors } from '../../ui/UI';
@@ -29,6 +29,7 @@ interface VideoScrubberProps {
   seekingAnimationSV: SharedValue<number>;
   scrollGesture?: NativeGesture;
   children?: React.ReactNode;
+  isVisible?: boolean; // Visibility for fade animation (matches overlay)
 }
 
 // Memoize VideoScrubber to prevent unnecessary re-renders when props haven't changed
@@ -38,7 +39,13 @@ export const VideoScrubber = React.memo(({
   seekingAnimationSV,
   scrollGesture,
   children,
+  isVisible = true,
 }: VideoScrubberProps) => {
+  // iOS only - return null on other platforms
+  if (Platform.OS !== 'ios') {
+    return null;
+  }
+
   const { width: screenWidth } = useSafeAreaFrame();
   const insets = useSafeAreaInsets();
   const setScrubbingState = useUIStore((state) => state.setVisibility);
@@ -48,135 +55,208 @@ export const VideoScrubber = React.memo(({
   const [duration, setDuration] = useState(0);
   const isSeekingSV = useSharedValue(false);
   const seekProgressSV = useSharedValue(0);
-  const optimisticTimeSV = useSharedValue(0); // Optimistic seek time (0 means not set)
   const playerRef = useRef(player);
+  const activeRef = useRef(active);
+  
+  // Scrubber bar dimensions (from styles)
+  const scrubberBarHeight = 3; // Base bar height from styles.track
+  const scrubberTouchAreaHeight = 32; // Touchable area from styles.trackContainer.paddingTop
+  const scrubberTotalHeight = scrubberTouchAreaHeight + scrubberBarHeight; // Matches styles.trackContainer.height (34)
 
-  // Reset optimistic time when player changes or component becomes inactive
+  // Track active state for visibility reset
+  activeRef.current = active;
+
+  // Reset local UI state only - never affects player or playback
+  useEffect(() => {
+    if (!active) {
+      // Only reset local UI state - never touches player
+      scheduleOnUI(() => {
+        'worklet';
+        isSeekingSV.set(false);
+        currentTimeSV.set(0);
+        seekProgressSV.set(0);
+        seekingAnimationSV.set(0);
+      });
+    } else if (active && player) {
+      // Read-only sync - never affects playback
+      try {
+        const currentTime = player.currentTime;
+        if (currentTime > 0) {
+          scheduleOnUI(() => {
+            'worklet';
+            currentTimeSV.set(currentTime);
+          });
+        }
+      } catch (error) {
+        // Silently ignore - scrubber never blocks
+      }
+    }
+  }, [active, player, isSeekingSV, currentTimeSV, seekProgressSV, seekingAnimationSV]);
+
+  // Reset local UI state when player changes - never affects player
   useEffect(() => {
     if (player !== playerRef.current) {
-      // Player changed - reset optimistic time
-      runOnUI(() => {
+      // Only reset local UI state - never touches player
+      scheduleOnUI(() => {
         'worklet';
-        optimisticTimeSV.set(0);
-      })();
+        currentTimeSV.set(0);
+        seekProgressSV.set(0);
+      });
       playerRef.current = player;
     }
-  }, [player, optimisticTimeSV]);
+  }, [player, currentTimeSV, seekProgressSV]);
+
+  // Read-only duration sync - never affects player
+  const { status: playerStatus } = useEvent(player || null, 'statusChange', { status: player?.status ?? 'idle' });
+  
+  useEffect(() => {
+    if (!player || !active) return;
+    
+    // Read-only operation - never affects playback
+    if (playerStatus === 'readyToPlay' || player.duration > 0) {
+      const playerDuration = player.duration;
+      if (playerDuration > 0 && duration !== playerDuration) {
+        // Only update local state - never touches player
+        setDuration(Math.round(playerDuration));
+        scheduleOnUI(() => {
+          'worklet';
+          durationSV.set(playerDuration);
+        });
+      }
+    }
+  }, [player, active, playerStatus, duration, durationSV]);
+
+  // Passive read-only sync from player - never interferes with playback
+  // Uses lower frequency to avoid any performance impact on core playback
+  useEffect(() => {
+    if (!player || !active) return;
+    
+    const syncProgress = () => {
+      // Defensive checks - never block if player is invalid
+      if (!player || playerRef.current !== player) return;
+      
+      try {
+        const isSeeking = isSeekingSV.get();
+        // Only read from player when not seeking (during seek, use local seekProgressSV)
+        if (!isSeeking) {
+          // Read-only operation - never affects playback
+          const currentTime = player.currentTime;
+          if (currentTime >= 0) {
+            scheduleOnUI(() => {
+              'worklet';
+              currentTimeSV.set(currentTime);
+            });
+          }
+        }
+      } catch (error) {
+        // Silently ignore - scrubber never blocks or interferes
+      }
+    };
+    
+    // Lower frequency sync (30fps) - scrubber is non-primary, never blocks playback
+    const interval = setInterval(syncProgress, 33);
+    return () => clearInterval(interval);
+  }, [player, active, isSeekingSV, currentTimeSV]);
 
   // Sync seekingAnimationSV to UI store using same threshold as overlay (0.2)
   useAnimatedReaction(
-    () => seekingAnimationSV.value,
+    () => seekingAnimationSV.get(),
     (seekingValue) => {
       'worklet';
       const isScrubbing = seekingValue >= 0.2;
-      runOnJS(setScrubbingState)('videoScrubbing', isScrubbing);
+      scheduleOnRN(setScrubbingState, 'videoScrubbing', isScrubbing);
     },
   );
 
-  // Reset optimistic time when component becomes inactive
-  useEffect(() => {
-    if (!active) {
-      runOnUI(() => {
-        'worklet';
-        optimisticTimeSV.set(0);
-        isSeekingSV.set(false);
-      })();
-    }
-    // When becoming active, let updateTime handle syncing with actual player time
-  }, [active, optimisticTimeSV, isSeekingSV]);
-
-  const updateTime = (currentTime: number, duration: number) => {
-    'worklet';
-    const isSeeking = isSeekingSV.get();
-    const optimisticTime = optimisticTimeSV.get();
-    
-    if (!isSeeking && optimisticTime > 0) {
-      // Check if player time is close to optimistic value (works for both forward and backward)
-      const diff = Math.abs(currentTime - optimisticTime);
-      if (diff < 0.2) {
-        // Player has caught up, use player time and clear optimistic
-        currentTimeSV.set(currentTime);
-        optimisticTimeSV.set(0);
-      }
-      // Otherwise keep using optimistic value (don't update currentTimeSV)
-    } else {
-      // Normal update when not seeking or no optimistic value
-      // Always update to ensure progress bar reflects actual player time
-      currentTimeSV.set(currentTime);
-    }
-    
-    if (duration !== 0) {
-      durationSV.set(duration);
-    }
-  };
-
-  // Throttle seek time updates to reduce JS thread work
-  // Only update when seeking (not during normal playback)
+  // Update current time display from shared value (for both seeking and normal playback)
   useAnimatedReaction(
     () => {
       const isSeeking = isSeekingSV.get();
-      if (!isSeeking) return -1; // Return sentinel value when not seeking
-      return Math.round(seekProgressSV.get());
+      if (isSeeking) {
+        // When seeking, use seek progress
+        return Math.round(seekProgressSV.get());
+      } else {
+        // When not seeking, use current time
+        return Math.round(currentTimeSV.get());
+      }
     },
-    (progress, prevProgress) => {
-      // Only update if seeking and value changed
-      if (progress !== prevProgress && progress >= 0) {
-        runOnJS(setCurrentSeekTime)(progress);
+    (time, prevTime) => {
+      // Update if time changed
+      if (time !== prevTime && time >= 0) {
+        scheduleOnRN(setCurrentSeekTime, time);
       }
     },
   );
 
+  // Non-blocking seek - never interferes with playback state
+  // Fire-and-forget operation that only sets position, never affects play/pause
   const seekTo = useCallback(
     (time: number) => {
       if (!player) return;
       
-      optimisticTimeSV.value = time; // Store optimistic time
-      const currentTime = currentTimeSV.value;
-      player.seekBy(time - currentTime); // Calculate relative offset
+      // Non-blocking async operation - never blocks core playback logic
+      requestAnimationFrame(() => {
+        try {
+          // Only set position - never touch play/pause state or other playback properties
+          player.currentTime = time;
+          
+          // Update local UI state immediately (non-blocking)
+          scheduleOnUI(() => {
+            'worklet';
+            currentTimeSV.set(time);
+          });
 
-      setTimeout(() => {
-        runOnUI(() => {
-          'worklet';
-          isSeekingSV.set(false);
-          seekingAnimationSV.set(withTiming(0, { duration: 500 }));
-        })();
-      }, 50);
+          // Clear seeking state after brief delay (non-blocking)
+          setTimeout(() => {
+            scheduleOnUI(() => {
+              'worklet';
+              isSeekingSV.set(false);
+              seekingAnimationSV.set(withTiming(0, { duration: 500 }));
+            });
+          }, 50);
+        } catch (error) {
+          // Silently ignore - scrubber never blocks or interferes with playback
+        }
+      });
     },
-    [player, isSeekingSV, seekingAnimationSV, optimisticTimeSV, currentTimeSV],
+    [player, isSeekingSV, seekingAnimationSV, currentTimeSV],
   );
 
-  // Memoize gesture to prevent recreation - only recreate when dependencies actually change
+  // Lightweight gesture handler - purely UI, never blocks or interferes with playback
   const scrubPanGesture = useMemo(() => {
     const gesture = Gesture.Pan()
       .activeOffsetX([-10, 10])
       .failOffsetY([-10, 10])
       .onStart(() => {
         'worklet';
+        // Only update local UI state - never affects playback
         seekProgressSV.set(currentTimeSV.get());
         isSeekingSV.set(true);
         seekingAnimationSV.set(withTiming(1, { duration: 500 }));
       })
       .onUpdate(evt => {
         'worklet';
+        // Pure UI calculation - never touches player
         const progress = evt.x / screenWidth;
         const duration = durationSV.get();
-        // Clamp calculation optimized - avoid multiple get() calls
         seekProgressSV.set(clamp(progress * duration, 0, duration));
       })
       .onEnd(evt => {
         'worklet';
+        // Calculate final position (UI only)
         const progress = evt.x / screenWidth;
         const duration = durationSV.get();
         const newTime = clamp(progress * duration, 0, duration);
 
-        // Optimistically set the progress bar and seek time
+        // Update local UI state immediately
         seekProgressSV.set(newTime);
-        optimisticTimeSV.set(newTime);
+        currentTimeSV.set(newTime);
 
-        // Seek to absolute time
-        runOnJS(seekTo)(newTime);
+        // Non-blocking seek - fire and forget, never blocks playback
+        scheduleOnRN(seekTo, newTime);
       });
 
+    // Don't block scroll - scrubber is non-primary
     if (scrollGesture) {
       gesture.blocksExternalGesture(scrollGesture);
     }
@@ -190,7 +270,6 @@ export const VideoScrubber = React.memo(({
     isSeekingSV,
     seekProgressSV,
     seekTo,
-    optimisticTimeSV,
     currentTimeSV,
   ]);
 
@@ -210,14 +289,14 @@ export const VideoScrubber = React.memo(({
     };
   });
 
-  // Optimize bar style calculation - cache duration to avoid repeated get() calls
+  // Bar style - use local progress state directly
   const barStyle = useAnimatedStyle(() => {
     'worklet';
     const isSeeking = isSeekingSV.get();
     const seekingAnim = seekingAnimationSV.get();
     const duration = durationSV.get();
     
-    // Early return for zero duration to avoid division
+    // Early return for zero duration
     if (duration === 0) {
       return {
         height: 3,
@@ -226,14 +305,12 @@ export const VideoScrubber = React.memo(({
       };
     }
     
-    // Use seek progress while actively seeking, otherwise use optimistic time or player time
-    const currentTime = isSeeking 
-      ? seekProgressSV.get()
-      : (optimisticTimeSV.get() || currentTimeSV.get());
-    
+    // Use seek progress while seeking, otherwise use current time
+    const currentTime = isSeeking ? seekProgressSV.get() : currentTimeSV.get();
     const progress = currentTime === 0 ? 0 : currentTime / duration;
+    
     return {
-      height: seekingAnim * 5 + 3, // Thicker when seeking (3px base + up to 5px more)
+      height: seekingAnim * 5 + 3, // Thicker when seeking
       opacity: interpolate(seekingAnim, [0, 1], [0.5, 0.8]),
       width: `${progress * 100}%`,
     };
@@ -254,22 +331,32 @@ export const VideoScrubber = React.memo(({
     };
   });
 
+  // Fade out with overlay - matches VideoOverlayUI fade behavior
+  const overlayOpacitySV = useSharedValue(isVisible ? 1 : 0);
+  
+  useEffect(() => {
+    overlayOpacitySV.set(withTiming(isVisible ? 1 : 0, {
+      duration: 60,
+      easing: Easing.out(Easing.ease),
+    }));
+  }, [isVisible, overlayOpacitySV]);
+
+  const scrubberOpacityStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      opacity: overlayOpacitySV.get(),
+    };
+  });
+
   return (
     <>
-      {player && active && (
-        <PlayerListener
-          player={player}
-          setDuration={setDuration}
-          updateTime={updateTime}
-        />
-      )}
       <Animated.View
         style={[
           styles.timeContainer,
           {
             left: 0,
             right: 0,
-            bottom: insets.bottom + 5, // Moved even lower
+            bottom: scrubberTotalHeight + 5, // Position above scrubber bar at bottom of card
           },
           timeStyle,
         ]}
@@ -286,7 +373,7 @@ export const VideoScrubber = React.memo(({
       </Animated.View>
 
       <GestureDetector gesture={scrubPanGesture}>
-        <View style={styles.scrubberContainer}>
+        <Animated.View style={[styles.scrubberContainer, { bottom: 0 }, scrubberOpacityStyle]}>
           <View style={styles.trackContainer}>
             <Animated.View
               style={[
@@ -306,7 +393,7 @@ export const VideoScrubber = React.memo(({
           <Animated.View style={childrenStyle}>
             {children}
           </Animated.View>
-        </View>
+        </Animated.View>
       </GestureDetector>
     </>
   );
@@ -320,38 +407,12 @@ export const VideoScrubber = React.memo(({
   );
 });
 
-// Memoized PlayerListener to prevent recreation on every render
-const PlayerListener = React.memo(({
-  player,
-  setDuration,
-  updateTime,
-}: {
-  player: VideoPlayer;
-  setDuration: (duration: number) => void;
-  updateTime: (currentTime: number, duration: number) => void;
-}) => {
-  // Throttle duration updates to reduce JS thread work
-  const lastDurationRef = useRef(0);
-  
-  useEventListener(player, 'timeUpdate', evt => {
-    const duration = player.duration;
-    // Only update duration if it changed significantly (avoid unnecessary setState calls)
-    if (duration !== 0 && Math.abs(duration - lastDurationRef.current) > 0.5) {
-      lastDurationRef.current = duration;
-      setDuration(Math.round(duration));
-    }
-    // Always update time (runs on UI thread, so it's fast)
-    runOnUI(updateTime)(evt.currentTime, duration);
-  });
-
-  return null;
-});
-
 const styles = StyleSheet.create({
   timeContainer: {
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 20, // Always on top - above overlay (zIndex: 5) and scrubber (zIndex: 10)
   },
   timeText: {
     textAlign: 'center',
@@ -374,7 +435,6 @@ const styles = StyleSheet.create({
   },
   scrubberContainer: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
     width: '100%',
