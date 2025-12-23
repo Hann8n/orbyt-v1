@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, StatusBar, Appearance, AppState, InteractionManager, Platform } from 'react-native';
 import { Stack, Redirect, usePathname, useSegments } from 'expo-router';
-import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -10,6 +10,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as NavigationBar from 'expo-navigation-bar';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 import { setVideoCacheSizeAsync } from 'expo-video';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Keep local imports where they are; no file moves
 import { Colors } from '../src/components/ui/UI';
@@ -119,6 +120,7 @@ export default function RootLayout() {
   // Use individual selectors to prevent unnecessary re-renders
   const fontsLoaded = useAppStore(state => state.fontsLoaded);
   const setFontsLoaded = useAppStore(state => state.setFontsLoaded);
+  const insets = useSafeAreaInsets();
   
   // Inline visibility tracking
   useVisibilityTracking();
@@ -309,6 +311,11 @@ export default function RootLayout() {
       <AppProviders>
         <View style={styles.rootView} onLayout={onLayoutRootView}>
           <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} hidden={false} />
+          <LinearGradient
+            colors={['transparent', Colors.black]}
+            style={[styles.bottomGradient, { height: 45 + insets.bottom }]}
+            pointerEvents="none"
+          />
           <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
         </View>
       </AppProviders>
@@ -382,6 +389,12 @@ const styles = StyleSheet.create({
   },
   gestureHandler: {
     flex: 1,
+  },
+  bottomGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
 });
 

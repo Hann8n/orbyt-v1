@@ -3,6 +3,7 @@ import { Tabs, router, useSegments } from 'expo-router';
 import { View, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Colors, Avatar } from '../../src/components/ui/UI';
 import Icon, { HomeIcon, ExploreIcon, NotificationIcon, UserIcon } from '../../src/components/ui/Icon';
@@ -158,7 +159,11 @@ export default function TabsLayout() {
         borderColor: 'transparent',
       },
       tabBarBackground: () => (
-        <View style={{ flex: 1, backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent' }} />
+        <LinearGradient
+          colors={['transparent', 'rgba(0, 0, 0, 0.35)']}
+          style={{ flex: 1 }}
+          pointerEvents="none"
+        />
       ),
       tabBarActiveTintColor: '#fff',
       tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.70)',
