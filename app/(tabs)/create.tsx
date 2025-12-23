@@ -41,8 +41,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logger } from '../../src/utils/logger';
 import { useVideoTrimStore } from '../../src/stores/videoTrimStore';
 import * as Haptics from 'expo-haptics';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
-const MIN_SEGMENT_DURATION = 0.5; // Minimum duration for a segment in seconds
+const MIN_SEGMENT_DURATION = 0; // No minimum segment duration
 
 // Duration options in seconds
 const DURATION_OPTIONS = [
@@ -94,7 +95,8 @@ const CreateScreen: React.FC = () => {
     segmentsRef.current = segments;
   }, [segments]);
 
-  const progressWidth = useSharedValue(0);
+  // Passive UI duration used only for the progress bar (what the user actually saw)
+  const displayDuration = useSharedValue(0);
   const buttonOpacity = useSharedValue(1);
   const zoomScale = useSharedValue(1);
   const baseZoom = useSharedValue(0);
@@ -122,7 +124,7 @@ const CreateScreen: React.FC = () => {
     ? screenHeight 
     : Math.min((screenWidth * 16) / 9, availableHeight);
   const cameraWidth = screenWidth; // Use full width
-  
+
   // Get current max duration from selected option
   const maxDuration = selectedDuration;
   const remainingTime = Math.max(0, maxDuration - totalDuration);
@@ -202,8 +204,8 @@ const CreateScreen: React.FC = () => {
           });
           setTotalDuration(prev => {
             const updated = prev + duration;
-            const progress = (updated / maxDuration) * 100;
-            progressWidth.value = withTiming(Math.min(progress, 100), { duration: 200 });
+            // Keep passive bar in sync when adding from gallery
+            displayDuration.value = updated;
             return updated;
           });
         } else if (duration < MIN_SEGMENT_DURATION) {
@@ -218,7 +220,7 @@ const CreateScreen: React.FC = () => {
     };
 
     handleTrim();
-  }, [pendingTrim, params.trimmedVideoPath, params.trimmedDuration, totalDuration, maxDuration, progressWidth]);
+  }, [pendingTrim, params.trimmedVideoPath, params.trimmedDuration, totalDuration, maxDuration]);
 
   // Reset processing state when screen comes back into focus (user navigated back)
   useFocusEffect(
@@ -231,9 +233,9 @@ const CreateScreen: React.FC = () => {
         // Cleanup when screen loses focus - stop recording if active
         if (isRecordingRef.current && cameraRef.current) {
           cameraRef.current.stopRecording();
-          if (recordingTimer.current) {
-            clearInterval(recordingTimer.current);
-          }
+        if (recordingTimer.current) {
+          clearInterval(recordingTimer.current);
+        }
           isRecordingRef.current = false;
           setIsRecording(false);
         }
@@ -281,10 +283,16 @@ const CreateScreen: React.FC = () => {
       zoomScale.value = 1;
     });
 
-  // Animated styles
-  const animatedProgressStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.value}%`,
-  }), []);
+  // Animated styles - purely driven by displayDuration shared value
+  const animatedProgressStyle = useAnimatedStyle(() => {
+    'worklet';
+    const safeMax = maxDuration || 1;
+    const clamped = Math.min(Math.max(displayDuration.value, 0), safeMax);
+    const progress = (clamped / safeMax) * 100;
+    return {
+      width: `${progress}%`,
+    };
+  }, [maxDuration]);
 
   const animatedButtonOpacityStyle = useAnimatedStyle(() => ({
     opacity: buttonOpacity.value,
@@ -328,7 +336,9 @@ const CreateScreen: React.FC = () => {
             
             let updatedDuration: number | null = null;
             if (actualDuration >= MIN_SEGMENT_DURATION) {
-              updatedDuration = totalDuration + actualDuration;
+              // For UI consistency, use exactly what the user saw in the bar
+              const uiDuration = Math.min(displayDuration.value, maxDuration);
+              updatedDuration = uiDuration;
               const newSegment = {
                 startTime: segmentStartTime.current,
                 duration: actualDuration,
@@ -341,17 +351,12 @@ const CreateScreen: React.FC = () => {
                 return updated;
               });
               setTotalDuration(updatedDuration);
+              // Snap the passive bar to this final UI duration (no jump for the user)
+              displayDuration.value = updatedDuration;
             } else {
-              // Reset progress bar if segment was too short
-              const progress = (totalDuration / maxDuration) * 100;
-              progressWidth.value = withTiming(progress, { duration: 200 });
+              // Segment was too short; keep existing totalDuration. Progress is derived from duration.
             }
             setRecordedVideo(video);
-            
-            if (updatedDuration !== null && updatedDuration >= maxDuration) {
-              // Cap progress at 100% when max duration is reached, but keep segments
-              progressWidth.value = withTiming(100, { duration: 200 });
-            }
           }
         }
         
@@ -366,7 +371,7 @@ const CreateScreen: React.FC = () => {
         recordingPromiseRef.current = null;
       }
     }
-  }, [progressWidth, totalDuration, maxDuration]);
+  }, [totalDuration, maxDuration, displayDuration]);
 
   const startRecording = useCallback(async () => {
     if (cameraRef.current && !isRecordingRef.current && totalDuration < maxDuration) {
@@ -390,16 +395,15 @@ const CreateScreen: React.FC = () => {
         
         recordingPromiseRef.current = cameraRef.current.recordAsync(recordingOptions);
         
-        // Update progress bar smoothly
+        // Update progress bar smoothly using passive UI duration
         recordingTimer.current = setInterval(() => {
-          const currentDuration = totalDuration + ((Date.now() - segmentStartTime.current) / 1000);
-          const progress = (currentDuration / maxDuration) * 100;
-          if (progress >= 100) {
+          const elapsed = (Date.now() - segmentStartTime.current) / 1000;
+          const uiCurrent = totalDuration + elapsed;
+          displayDuration.value = uiCurrent;
+
+          if (uiCurrent >= maxDuration) {
             stopRecording();
             if (recordingTimer.current) clearInterval(recordingTimer.current);
-            progressWidth.value = withTiming(100, { duration: 200 });
-          } else {
-            progressWidth.value = withTiming(progress, { duration: 100 });
           }
         }, 50);
       } catch (e) {
@@ -408,16 +412,16 @@ const CreateScreen: React.FC = () => {
         recordingPromiseRef.current = null;
       }
     }
-  }, [progressWidth, totalDuration, stopRecording, microphonePermission, requestMicrophonePermission, maxDuration]);
+  }, [totalDuration, stopRecording, microphonePermission, requestMicrophonePermission, maxDuration, displayDuration]);
   
-  // Handle press start - begin recording
+  // Handle press start - begin recording (press in to start)
   const handlePressIn = useCallback(() => {
-    if (!isRecordingRef.current && totalDuration < maxDuration) {
+    if (!isRecordingRef.current && !isProcessing && totalDuration < maxDuration) {
       startRecording();
     }
-  }, [totalDuration, startRecording, maxDuration]);
+  }, [isProcessing, totalDuration, startRecording, maxDuration]);
 
-  // Handle press end - stop recording
+  // Handle press end - stop recording (press out to stop)
   const handlePressOut = useCallback(() => {
     if (isRecordingRef.current) {
       stopRecording();
@@ -519,20 +523,17 @@ const CreateScreen: React.FC = () => {
       const newSegments = [...segments];
       const removedSegment = newSegments.pop();
       const newTotalDuration = Math.max(0, totalDuration - (removedSegment?.duration || 0));
-      
+
       setSegments(newSegments);
       segmentsRef.current = newSegments;
       setTotalDuration(newTotalDuration);
-      
-      // Explicitly reset progress to 0 when all segments are deleted
-      const progress = newSegments.length === 0 ? 0 : (newTotalDuration / maxDuration) * 100;
-      progressWidth.value = withTiming(progress, { duration: 300 });
+      displayDuration.value = newTotalDuration;
     } else if (totalDuration > 0) {
       // Handle case where there's progress but no segments (e.g., tiny rejected segment)
       setTotalDuration(0);
-      progressWidth.value = withTiming(0, { duration: 300 });
+      displayDuration.value = 0;
     }
-  }, [segments, totalDuration, maxDuration, progressWidth]);
+  }, [segments, totalDuration, maxDuration, displayDuration]);
 
   const handleToolAction = useCallback((action: string) => {
     switch (action) {
@@ -577,7 +578,7 @@ const CreateScreen: React.FC = () => {
               segmentsRef.current = [];
               setTotalDuration(0);
               setRecordedVideo(null);
-              progressWidth.value = 0;
+              displayDuration.value = 0;
               prevTotalDurationRef.current = 0;
               processedTrimmedVideoRef.current = null;
               navigation.back();
@@ -847,42 +848,69 @@ const CreateScreen: React.FC = () => {
       
       {/* Duration Selector */}
       {!isRecording && segments.length === 0 && (
-        <View style={[styles.durationSelector, { top: isSmallDevice ? 10 : insets.top + 10 }]}>
+        <View style={[
+          styles.durationSelector,
+          { top: isSmallDevice ? 5 : insets.top + 4 }
+        ]}>
           {isDurationSelectorExpanded ? (
             <>
-              {DURATION_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.value}
-                  style={[
-                    styles.durationOption,
-                    selectedDuration === option.value && styles.durationOptionSelected,
-                  ]}
-                  onPress={() => {
-                    // Only allow changing duration if not recording and no segments exist
-                    if (!isRecording && segments.length === 0) {
-                      setSelectedDuration(option.value);
-                      setIsDurationSelectorExpanded(false);
-                    }
-                  }}
-                  disabled={isRecording || segments.length > 0}
-                >
-                  <Text
+              {DURATION_OPTIONS.map((option) => {
+                const useGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
+                const isSelected = selectedDuration === option.value;
+                return (
+                  <Pressable
+                    key={option.value}
                     style={[
-                      styles.durationOptionText,
-                      selectedDuration === option.value && styles.durationOptionTextSelected,
-                      (isRecording || segments.length > 0) && styles.durationOptionTextDisabled,
+                      styles.durationOption,
+                      useGlass && styles.durationOptionGlass,
+                      isSelected && (useGlass ? styles.durationOptionSelectedGlass : styles.durationOptionSelected),
                     ]}
+                    onPress={() => {
+                      // Only allow changing duration if not recording and no segments exist
+                      if (!isRecording && segments.length === 0) {
+                        setSelectedDuration(option.value);
+                        setIsDurationSelectorExpanded(false);
+                      }
+                    }}
+                    disabled={isRecording || segments.length > 0}
                   >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    {useGlass && (
+                      <GlassView
+                        style={styles.glassBackground}
+                        glassEffectStyle="clear"
+                        tintColor="rgba(255, 255, 255, 0)"
+                        isInteractive
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.durationOptionText,
+                        isSelected && styles.durationOptionTextSelected,
+                        (isRecording || segments.length > 0) && styles.durationOptionTextDisabled,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </>
           ) : (
             <Pressable
-              style={styles.durationOption}
+              style={[
+                styles.durationOption,
+                Platform.OS === 'ios' && isLiquidGlassAvailable() && styles.durationOptionGlass,
+              ]}
               onPress={() => setIsDurationSelectorExpanded(true)}
             >
+              {Platform.OS === 'ios' && isLiquidGlassAvailable() && (
+                <GlassView
+                  style={styles.glassBackground}
+                  glassEffectStyle="clear"
+                  tintColor="rgba(255, 255, 255, 0)"
+                  isInteractive
+                />
+              )}
               <Text style={styles.durationOptionText}>
                 {DURATION_OPTIONS.find(opt => opt.value === selectedDuration)?.label || '16s'}
               </Text>
@@ -1021,9 +1049,20 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 15,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+  },
+  durationOptionGlass: {
+    backgroundColor: 'transparent',
+  },
+  glassBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 15,
   },
   durationOptionSelected: {
     backgroundColor: Colors.white,
+  },
+  durationOptionSelectedGlass: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   durationOptionText: {
     color: Colors.white,
@@ -1031,7 +1070,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Medium',
   },
   durationOptionTextSelected: {
-    color: Colors.black,
+    color: Colors.white,
     fontFamily: 'Firma-SemiBold',
   },
   durationOptionTextDisabled: {
