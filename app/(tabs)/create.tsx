@@ -403,7 +403,7 @@ const CreateScreen: React.FC = () => {
       try {
         const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
         const recordingOptions: CameraRecordingOptions = {
-          maxDuration: availableTime,
+          maxDuration: availableTime * 1000,
         };
         
         recordingPromiseRef.current = cameraRef.current.recordAsync(recordingOptions);
@@ -495,10 +495,10 @@ const CreateScreen: React.FC = () => {
           setIsProcessing(false);
           
           // Show editor with maxDuration constraint
-          // iOS expects Int (seconds), Android expects Double (milliseconds)
+          // iOS expects Int (seconds), Android expects Double (seconds)
           const maxDurationSeconds = Math.floor(availableTime);
           showEditor(videoUri, {
-            maxDuration: Platform.OS === 'ios' ? maxDurationSeconds : availableTime * 1000,
+            maxDuration: Platform.OS === 'ios' ? maxDurationSeconds : availableTime,
             saveToPhoto: false,
             openShareSheetOnFinish: false,
             removeAfterSavedToPhoto: false,
