@@ -1,4 +1,4 @@
-import { AtpAgent, RichText } from '@atproto/api';
+import { AtpAgent, RichText, AtUri } from '@atproto/api';
 import * as SecureStore from 'expo-secure-store';
 import { storageHelpers } from '../../utils/storage';
 import { Platform } from 'react-native';
@@ -898,26 +898,99 @@ class AtprotoService {
     await this.ensureSession();
     
     try {
+      logger.info('Starting video post creation', {
+        component: 'AtprotoService',
+        videoPath: videoPath?.substring(0, 50) + '...',
+        textLength: text?.length || 0,
+        contentWarnings,
+        commentFilter,
+        feedSlug
+      });
+
       // Validate video file
       if (!videoPath || !videoPath.startsWith('file://')) {
+        logger.error('Invalid video path', new Error('Invalid video path'), {
+          component: 'AtprotoService',
+          videoPath
+        });
         throw new Error('Invalid video path');
       }
 
+      logger.debug('Fetching video file', { component: 'AtprotoService' });
       // Upload video directly to PDS
-      const videoResponse = await fetch(videoPath);
-      const videoBlob = await videoResponse.blob();
+      let videoBlob: Blob;
+      try {
+        const videoResponse = await fetch(videoPath);
+        if (!videoResponse.ok) {
+          throw new Error(`Failed to fetch video: ${videoResponse.status} ${videoResponse.statusText}`);
+        }
+        videoBlob = await videoResponse.blob();
+        
+        logger.info('Video blob created', {
+          component: 'AtprotoService',
+          blobSize: videoBlob.size,
+          blobType: videoBlob.type,
+          videoPath: videoPath.substring(0, 100) + '...'
+        });
+      } catch (fetchError: any) {
+        logger.error('Failed to fetch/create video blob', fetchError, {
+          component: 'AtprotoService',
+          videoPath: videoPath.substring(0, 100) + '...',
+          errorMessage: fetchError?.message,
+          errorStack: fetchError?.stack
+        });
+        throw new Error(`Failed to create video blob: ${fetchError?.message || 'Unknown error'}`);
+      }
       
       const { api } = await this.getApiClient();
-      const { data } = await api.com.atproto.repo.uploadBlob(videoBlob, {
-        encoding: 'video/mp4'
+      logger.debug('Uploading video blob to PDS', {
+        component: 'AtprotoService',
+        blobSize: videoBlob.size,
+        blobType: videoBlob.type
+      });
+      
+      let blobData: any;
+      try {
+        blobData = await api.com.atproto.repo.uploadBlob(videoBlob, {
+          encoding: 'video/mp4'
+        });
+      } catch (uploadError: any) {
+        logger.error('Failed to upload video blob to PDS', uploadError, {
+          component: 'AtprotoService',
+          blobSize: videoBlob.size,
+          blobType: videoBlob.type,
+          errorMessage: uploadError?.message,
+          errorStack: uploadError?.stack,
+          errorResponse: uploadError?.response,
+          errorData: uploadError?.data,
+          errorStatus: uploadError?.status,
+          errorStatusText: uploadError?.statusText
+        });
+        throw new Error(`Failed to upload video blob: ${uploadError?.message || 'Network request failed'}`);
+      }
+      
+      const { data } = blobData;
+      
+      logger.info('Video blob uploaded successfully', {
+        component: 'AtprotoService',
+        blobRef: data.blob.ref?.$link,
+        blobSize: data.blob.size,
+        blobMimeType: data.blob.mimeType
       });
       
       // Get video aspect ratio
+      logger.debug('Getting video aspect ratio', { component: 'AtprotoService' });
       const aspectRatio = await this.getVideoAspectRatio(videoPath);
+      logger.debug('Video aspect ratio', { component: 'AtprotoService', aspectRatio });
 
       // Use official RichText API to detect facets
+      logger.debug('Processing rich text', { component: 'AtprotoService' });
       const richText = new RichText({ text: text || '' });
       await richText.detectFacets(api);
+      logger.debug('Rich text processed', {
+        component: 'AtprotoService',
+        facetsCount: richText.facets?.length || 0
+      });
 
       // Determine platform tag
       let platformTag: string;
@@ -957,26 +1030,137 @@ class AtprotoService {
       }
 
       // Add content warnings if provided
+      // Map UI labels to valid Bluesky self-label values
+      // Only these values are valid for self-labeling: porn, sexual, nudity, graphic-media, !no-unauthenticated
       if (contentWarnings && contentWarnings.length > 0) {
-        postRecord.labels = contentWarnings.map(warning => ({
-          $type: 'com.atproto.label.defs#selfLabel',
-          val: warning
-        }));
+        logger.debug('Processing content warnings', {
+          component: 'AtprotoService',
+          inputWarnings: contentWarnings
+        });
+        
+        const validLabels = contentWarnings
+          .map(warning => {
+            // Remove 'other:' prefix if present (custom warnings aren't valid for self-labeling)
+            const cleanWarning = warning.startsWith('other:') ? null : warning;
+            if (!cleanWarning) {
+              logger.debug('Filtered out custom warning', {
+                component: 'AtprotoService',
+                warning
+              });
+              return null;
+            }
+            
+            // Map UI label IDs to valid Bluesky self-label values
+            const labelMap: Record<string, string> = {
+              'nsfw': 'porn',
+              'nudity': 'nudity',
+              'violence': 'graphic-media',
+              'sensitive': 'sexual'
+            };
+            
+            const mappedLabel = labelMap[cleanWarning] || null;
+            if (!mappedLabel) {
+              logger.warn('Unknown content warning label', {
+                component: 'AtprotoService',
+                warning: cleanWarning
+              });
+            }
+            
+            return mappedLabel;
+          })
+          .filter((label): label is string => label !== null);
+        
+        logger.info('Content warnings mapped', {
+          component: 'AtprotoService',
+          inputWarnings: contentWarnings,
+          validLabels
+        });
+        
+        if (validLabels.length > 0) {
+          // Self-labels should be an array of selfLabel objects
+          // Each object has $type: 'com.atproto.label.defs#selfLabel' and val: string
+          postRecord.selfLabels = validLabels.map(label => ({
+            $type: 'com.atproto.label.defs#selfLabel',
+            val: label
+          }));
+          logger.debug('Self-labels added to post record', {
+            component: 'AtprotoService',
+            selfLabels: postRecord.selfLabels,
+            validLabels
+          });
+        } else {
+          logger.warn('No valid labels after mapping', {
+            component: 'AtprotoService',
+            inputWarnings: contentWarnings
+          });
+        }
       }
 
+      logger.info('Post record prepared', {
+        component: 'AtprotoService',
+        recordType: postRecord.$type,
+        hasText: !!postRecord.text,
+        hasEmbed: !!postRecord.embed,
+        hasSelfLabels: !!postRecord.selfLabels,
+        selfLabelsCount: postRecord.selfLabels?.length || 0,
+        tags: postRecord.tags
+      });
+
       // Create the post
+      logger.debug('Sending post to API', { component: 'AtprotoService' });
       const postResponse = await api.post(postRecord);
+      logger.info('Post created successfully', {
+        component: 'AtprotoService',
+        uri: postResponse.uri,
+        cid: postResponse.cid
+      });
 
       // Set comment filtering if specified
       if (commentFilter && commentFilter !== 'all') {
         try {
+          logger.debug('Setting comment filter', {
+            component: 'AtprotoService',
+            commentFilter
+          });
           await this.setCommentFilter(postResponse.uri, commentFilter);
+          logger.debug('Comment filter set successfully', { component: 'AtprotoService' });
         } catch (error) {
+          logger.error('Failed to set comment filter', error, { component: 'AtprotoService' });
         }
       }
 
       return postResponse;
     } catch (error: unknown) {
+      const errorDetails = {
+        component: 'AtprotoService',
+        videoPath: videoPath?.substring(0, 50) + '...',
+        contentWarnings,
+        commentFilter,
+        feedSlug,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined,
+        errorName: error instanceof Error ? error.name : undefined
+      };
+
+      // Log full error details
+      if (error instanceof Error) {
+        logger.error('Video upload failed', error, errorDetails);
+      } else {
+        logger.error('Video upload failed', new Error(String(error)), errorDetails);
+      }
+
+      // If it's an API error, try to extract more details
+      if (error && typeof error === 'object' && 'response' in error) {
+        const apiError = error as any;
+        logger.error('API error details', new Error('API Error'), {
+          component: 'AtprotoService',
+          status: apiError.response?.status,
+          statusText: apiError.response?.statusText,
+          data: apiError.response?.data,
+          headers: apiError.response?.headers
+        });
+      }
+
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Video upload failed: ${errorMessage}`);
     }
@@ -1069,20 +1253,39 @@ class AtprotoService {
    */
   private static async setCommentFilter(postUri: string, filter: 'followers' | 'mentioned' | 'none'): Promise<void> {
     try {
-      // Extract the record key (rkey) from the URI
-      const parts = postUri.split('/');
-      if (parts.length < 4) {
-        throw new Error('Invalid post URI');
+      logger.debug('Setting thread gate', {
+        component: 'AtprotoService',
+        postUri,
+        filter
+      });
+
+      // Extract the record key (rkey) from the URI using AtUri
+      let rkey: string;
+      try {
+        const uri = new AtUri(postUri);
+        rkey = uri.rkey;
+        if (!rkey) {
+          throw new Error('Could not extract rkey from URI');
+        }
+      } catch (uriError: any) {
+        logger.error('Failed to parse post URI', uriError, {
+          component: 'AtprotoService',
+          postUri
+        });
+        throw new Error(`Invalid post URI: ${uriError?.message || 'Could not parse URI'}`);
       }
       
-      const rkey = parts[4];
-      
       // Create threadgate record based on filter
+      // According to Bluesky docs:
+      // - followerRule: allows replies from users who follow you
+      // - followingRule: allows replies from users you follow
+      // - mentionRule: allows replies from users mentioned in the post
       let allow: any[] = [];
       
       switch (filter) {
         case 'followers':
-          allow = [{ $type: 'app.bsky.feed.threadgate#followingRule' }];
+          // "Only followers can comment" means users who follow you
+          allow = [{ $type: 'app.bsky.feed.threadgate#followerRule' }];
           break;
         case 'mentioned':
           allow = [{ $type: 'app.bsky.feed.threadgate#mentionRule' }];
@@ -1099,9 +1302,18 @@ class AtprotoService {
         allow
       };
       
+      logger.debug('Thread gate record prepared', {
+        component: 'AtprotoService',
+        rkey,
+        allowRules: allow.length,
+        recordType: record.$type
+      });
+      
       const { api } = await this.getApiClient();
       const userDid = await this.getCurrentUserDid();
-      if (!userDid) throw new Error('No authenticated user');
+      if (!userDid) {
+        throw new Error('No authenticated user');
+      }
       
       await api.com.atproto.repo.createRecord({
         repo: userDid,
@@ -1109,7 +1321,21 @@ class AtprotoService {
         rkey: rkey,
         record
       });
+      
+      logger.info('Thread gate created successfully', {
+        component: 'AtprotoService',
+        rkey,
+        filter,
+        allowRules: allow.length
+      });
     } catch (error: unknown) {
+      logger.error('Failed to set comment filter', error, {
+        component: 'AtprotoService',
+        postUri,
+        filter,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined
+      });
       throw error;
     }
   }

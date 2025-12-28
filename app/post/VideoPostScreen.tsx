@@ -895,6 +895,12 @@ const VideoPostScreen: React.FC = () => {
 
     // Description is optional for video posts
 
+    // Collect all content warnings, including custom one if present (before try block for error handling)
+    const allContentWarnings = [...selectedContentWarnings];
+    if (otherWarning.trim()) {
+      allContentWarnings.push('other:' + otherWarning.trim());
+    }
+
     try {
       setIsPosting(true);
       setUploadProgress(0);
@@ -926,11 +932,16 @@ const VideoPostScreen: React.FC = () => {
         });
       }
       
-      // Collect all content warnings, including custom one if present
-      const allContentWarnings = [...selectedContentWarnings];
-      if (otherWarning.trim()) {
-        allContentWarnings.push('other:' + otherWarning.trim());
-      }
+      logger.info('Preparing video post', {
+        component: 'VideoPostScreen',
+        videoPath: videoPathToUpload?.substring(0, 50) + '...',
+        descriptionLength: description?.length || 0,
+        selectedContentWarnings,
+        allContentWarnings,
+        otherWarning: otherWarning.trim() || null,
+        commentFilter,
+        selectedChannel: selectedChannel ? { uri: selectedChannel.uri, slug: selectedChannel.slug } : null
+      });
       
       // Simulate upload progress with realistic stages
       const progressInterval = setInterval(() => {
@@ -949,6 +960,15 @@ const VideoPostScreen: React.FC = () => {
         ? (extractFeedSlug(selectedChannel.uri) || selectedChannel.slug)
         : undefined;
 
+      logger.debug('Calling createVideoPost', {
+        component: 'VideoPostScreen',
+        description: description?.substring(0, 100) + (description?.length > 100 ? '...' : ''),
+        videoPath: videoPathToUpload?.substring(0, 50) + '...',
+        contentWarnings: allContentWarnings.length > 0 ? allContentWarnings : undefined,
+        commentFilter: (commentFilter || 'all') as 'all' | 'followers' | 'mentioned' | 'none',
+        channelSlug
+      });
+
       // Create the video post using AtprotoService
       const result = await AtprotoService.createVideoPost(
         description,
@@ -957,6 +977,12 @@ const VideoPostScreen: React.FC = () => {
         (commentFilter || 'all') as 'all' | 'followers' | 'mentioned' | 'none',
         channelSlug // Pass channel slug for tagging (extracted from URI)
       );
+      
+      logger.info('Video post created successfully', {
+        component: 'VideoPostScreen',
+        uri: result?.uri,
+        cid: result?.cid
+      });
       
       // Complete the progress
       setUploadProgress(100);
@@ -971,6 +997,18 @@ const VideoPostScreen: React.FC = () => {
       navigation.replace('/(tabs)');
       
     } catch (error: any) {
+      logger.error('Video post upload failed', error, {
+        component: 'VideoPostScreen',
+        errorMessage: error?.message,
+        errorStack: error?.stack,
+        errorName: error?.name,
+        errorResponse: error?.response,
+        errorData: error?.data,
+        selectedContentWarnings,
+        allContentWarnings,
+        otherWarning: otherWarning.trim() || null
+      });
+      
       // For upload failures, assume issue and offer retry
       if (error.message?.includes('Video upload failed') || error.message?.includes('timeout')) {
         Alert.alert(
