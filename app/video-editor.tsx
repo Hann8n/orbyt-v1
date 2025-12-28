@@ -30,7 +30,8 @@ import VerticalListSheet, { VerticalListButton } from '../src/components/ui/Vert
 import BottomToolBar from '../src/components/ui/BottomToolBar';
 import { TextOverlay } from '../src/types';
 import { getBottomNavBarHeight } from '../src/utils/helpers';
-import VideoTrimmerUI from 'react-native-video-trimmer-ui';
+import { NativeEventEmitter, NativeModules } from 'react-native';
+import { showEditor, isValidFile, type Spec } from 'react-native-video-trim';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16;
@@ -239,82 +240,142 @@ interface TrimSheetProps {
   visible: boolean;
   clip: VideoClip | undefined;
   onDismiss: () => void;
-  onApply: (startTime: number, endTime: number) => void;
+  onApply: (startTime: number, endTime: number, trimmedPath?: string) => void;
   isProcessing: boolean;
+  clipIndex: number;
 }
 
-const TrimSheet: React.FC<TrimSheetProps> = ({ visible, clip, onDismiss, onApply, isProcessing }) => {
-  const [startTime, setStartTime] = useState(0);
-  const [endTime, setEndTime] = useState(clip?.duration || 10);
-  const [videoUri, setVideoUri] = useState<string>('');
-  const trimmerRef = useRef<any>(null);
+const TrimSheet: React.FC<TrimSheetProps> = ({ visible, clip, onDismiss, onApply, isProcessing, clipIndex }) => {
+  const listeners = useRef<{ onFinishTrimming?: any; onError?: any }>({});
+  const hasOpenedEditor = useRef(false);
 
   useEffect(() => {
-    if (clip && visible) {
-      const clipDuration = clip.duration || 10;
-      setStartTime(clip.trimStart || 0);
-      setEndTime(clip.trimEnd || clipDuration);
-      
-      // Resolve video URI
-      const resolveUri = async () => {
-        try {
-          const pathInfo = await resolveVideoPath(clip.videoPath);
-          setVideoUri(pathInfo.uri);
-        } catch (error) {
-          console.error('Error resolving video path:', error);
-        }
-      };
-      resolveUri();
+    if (clip && visible && !hasOpenedEditor.current) {
+      hasOpenedEditor.current = true;
+      openTrimmer();
+    } else if (!visible) {
+      hasOpenedEditor.current = false;
     }
   }, [clip, visible]);
 
-  const handleSelected = (start: number, end: number) => {
-    setStartTime(start);
-    setEndTime(end);
-  };
+  // Set up event listeners for react-native-video-trim using Spec API
+  useEffect(() => {
+    const NativeVideoTrim = NativeModules.VideoTrim as Spec;
+    
+    // Use the new Spec API if available, otherwise fall back to old architecture
+    if (NativeVideoTrim && typeof NativeVideoTrim.onFinishTrimming === 'function') {
+      listeners.current.onFinishTrimming = NativeVideoTrim.onFinishTrimming(handleTrimmingComplete);
+      listeners.current.onError = NativeVideoTrim.onError(({ message, errorCode }) => {
+        console.error('Trimming error:', message, errorCode);
+        Alert.alert('Error', message || 'Failed to trim video');
+        onDismiss();
+      });
+    } else {
+      // Fallback to old architecture
+      const eventEmitter = new NativeEventEmitter(NativeVideoTrim);
+      listeners.current.onFinishTrimming = eventEmitter.addListener(
+        'VideoTrim',
+        (event: any) => {
+          if (event.name === 'onFinishTrimming') {
+            // Extract data from event (old architecture includes name property)
+            const { name, ...data } = event;
+            handleTrimmingComplete(data);
+          }
+        }
+      );
+      listeners.current.onError = eventEmitter.addListener(
+        'VideoTrim',
+        (event: any) => {
+          if (event.name === 'onError') {
+            console.error('Trimming error:', event.message, event.errorCode);
+            Alert.alert('Error', event.message || 'Failed to trim video');
+            onDismiss();
+          }
+        }
+      );
+    }
 
-  const handleApply = () => {
-    if (endTime > startTime) {
-      onApply(startTime, endTime);
+    return () => {
+      listeners.current.onFinishTrimming?.remove();
+      listeners.current.onError?.remove();
+    };
+  }, [handleTrimmingComplete, onDismiss]);
+
+  const openTrimmer = async () => {
+    if (!clip) return;
+
+    try {
+      // Resolve video path
+      const pathInfo = await resolveVideoPath(clip.videoPath);
+      const normalizedUri = pathInfo.uri.replace(/^file:\/\//, '');
+
+      // Validate file and get actual video duration
+      const validationResult = await isValidFile(normalizedUri);
+      if (!validationResult.isValid) {
+        Alert.alert('Error', 'Invalid video file');
+        onDismiss();
+        return;
+      }
+
+      // Get actual video duration in milliseconds from validation result (already in ms)
+      const actualVideoDurationMs = validationResult.duration;
+      // Use clip duration if available, otherwise use actual video duration
+      const clipDurationMs = clip.duration ? clip.duration * 1000 : undefined;
+      // Use the minimum of clip duration and actual video duration to ensure valid bounds
+      // If no clip duration, use actual video duration
+      // NOTE: iOS has a bug where it treats maxDuration/minDuration as seconds instead of milliseconds
+      // Android expects milliseconds, so we need to pass seconds for iOS, milliseconds for Android
+      const effectiveMaxDuration = clipDurationMs 
+        ? Math.min(clipDurationMs, actualVideoDurationMs)
+        : actualVideoDurationMs;
+      
+      const effectiveMinDuration = 500; // 0.5 seconds minimum in milliseconds
+
+      // Show the video trimmer editor
+      // iOS requires Int (seconds), Android expects Double (milliseconds)
+      showEditor(normalizedUri, {
+        maxDuration: Platform.OS === 'ios' ? Math.floor(effectiveMaxDuration / 1000) : effectiveMaxDuration,
+        minDuration: Platform.OS === 'ios' ? Math.floor(effectiveMinDuration / 1000) : effectiveMinDuration,
+        saveToPhoto: false,
+        openShareSheetOnFinish: false,
+        removeAfterSavedToPhoto: false,
+        headerText: 'Trim Video',
+        cancelButtonText: 'Cancel',
+        saveButtonText: 'Done',
+        trimmerColor: Colors.purple,
+        enableCancelTrimming: true,
+        closeWhenFinish: true,
+        autoplay: true,
+        fullScreenModalIOS: true, // Use fullscreen modal on iOS to prevent view issues
+      });
+    } catch (error) {
+      console.error('Error opening trimmer:', error);
+      Alert.alert('Error', 'Failed to open video trimmer');
+      onDismiss();
     }
   };
 
-  if (!visible || !clip || !videoUri) return null;
+  const handleTrimmingComplete = async ({ outputPath, startTime, endTime, duration }: { outputPath: string; startTime: number; endTime: number; duration: number }) => {
+    try {
+      
+      // Convert milliseconds to seconds
+      const startTimeSeconds = startTime / 1000;
+      const endTimeSeconds = endTime / 1000;
+      const trimmedDuration = duration / 1000;
+      
+      // The library already trimmed the video and returns outputPath
+      // Pass both the trim times and the trimmed path
+      onApply(startTimeSeconds, endTimeSeconds, outputPath);
+      onDismiss();
+    } catch (error: any) {
+      console.error('Error handling trim completion:', error);
+      Alert.alert('Error', error.message || 'Failed to process trimmed video');
+    }
+  };
 
-  const duration = endTime - startTime;
-
-  return (
-    <VerticalListSheet
-      visible={visible}
-      onDismiss={onDismiss}
-      title="Trim Video"
-    >
-      <View style={styles.trimContainer}>
-        <VideoTrimmerUI
-          ref={trimmerRef}
-          source={{ uri: videoUri }}
-          onSelected={handleSelected}
-          loop={true}
-          containerStyle={styles.trimmerWrapper}
-          sliderContainerStyle={styles.trimmerSliderContainer}
-          tintColor={Colors.purple}
-          minDuration={0.5}
-        />
-        
-        <View style={styles.trimButtons}>
-          <VerticalListButton
-            label="Cancel"
-            onPress={onDismiss}
-          />
-          <VerticalListButton
-            label={isProcessing ? "Processing..." : "Apply Trim"}
-            onPress={handleApply}
-            disabled={isProcessing || duration < 0.5}
-          />
-        </View>
-      </View>
-    </VerticalListSheet>
-  );
+  // Since react-native-video-trim shows a native full-screen editor,
+  // we don't render the sheet UI. The editor handles its own UI.
+  return null;
 };
 
 interface VideoClip {
@@ -936,7 +997,7 @@ const VideoEditorScreen: React.FC = () => {
   }, [clips.length]);
 
   // Apply trim to clip
-  const handleApplyTrim = useCallback(async (clipIndex: number, startTime: number, endTime: number) => {
+  const handleApplyTrim = useCallback(async (clipIndex: number, startTime: number, endTime: number, trimmedPath?: string) => {
     if (isProcessing) return;
     
     const clip = clips[clipIndex];
@@ -944,18 +1005,26 @@ const VideoEditorScreen: React.FC = () => {
 
     setIsProcessing(true);
     try {
-      const outputPath = await getTempFilePath();
-      const trimmedPath = await VideoEditingService.trimVideo(
-        clip.videoPath.replace('file://', ''),
-        outputPath,
-        startTime,
-        endTime
-      );
+      let finalTrimmedPath: string;
+      
+      // If the library already trimmed the video, use that path directly
+      if (trimmedPath) {
+        finalTrimmedPath = trimmedPath.startsWith('file://') ? trimmedPath : `file://${trimmedPath}`;
+      } else {
+        // Otherwise, trim the video ourselves
+        const outputPath = await getTempFilePath();
+        finalTrimmedPath = await VideoEditingService.trimVideo(
+          clip.videoPath.replace('file://', ''),
+          outputPath,
+          startTime,
+          endTime
+        );
+      }
 
       // Update clip with trimmed path and trim times
       setClips(prev => prev.map((c, i) => 
         i === clipIndex 
-          ? { ...c, videoPath: trimmedPath, trimStart: startTime, trimEnd: endTime, duration: endTime - startTime }
+          ? { ...c, videoPath: finalTrimmedPath, trimStart: startTime, trimEnd: endTime, duration: endTime - startTime }
           : c
       ));
 
@@ -1146,8 +1215,9 @@ const VideoEditorScreen: React.FC = () => {
             setShowTrimSheet(false);
             setTrimmingClipIndex(null);
           }}
-          onApply={(startTime, endTime) => handleApplyTrim(trimmingClipIndex, startTime, endTime)}
+          onApply={(startTime, endTime, trimmedPath) => handleApplyTrim(trimmingClipIndex, startTime, endTime, trimmedPath)}
           isProcessing={isProcessing}
+          clipIndex={trimmingClipIndex}
         />
       )}
 

@@ -1,0 +1,15 @@
+diff --git a/node_modules/react-native-video-trim/VideoTrim.podspec b/node_modules/react-native-video-trim/VideoTrim.podspec
+index 76afec4..18a573b 100644
+--- a/node_modules/react-native-video-trim/VideoTrim.podspec
++++ b/node_modules/react-native-video-trim/VideoTrim.podspec
+@@ -16,7 +16,9 @@ Pod::Spec.new do |s|
+   s.source_files = "ios/**/*.{h,m,mm,swift}"
+   s.private_header_files = "ios/**/*.h"
+ 
+-  s.dependency "ffmpeg-mobile-#{ENV['FFMPEGKIT_PACKAGE'] || 'min'}", ENV['FFMPEGKIT_PACKAGE_VERSION'] || '~> 6.0'
++  s.dependency "ffmpeg-kit-react-native", "~> 6.0"
++  # Removed local podspec reference - handled by Podfile instead
++  # The ffmpeg-kit-ios-full-gpl dependency is already declared in Podfile
+ 
+   s.frameworks = 'AVFoundation', 'AVKit', 'UIKit', 'Photos'
+ 

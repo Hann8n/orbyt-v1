@@ -338,14 +338,6 @@ export default function RootLayout() {
               gestureEnabled: false,
             }} 
           />
-          <Stack.Screen 
-            name="video-trimmer" 
-            options={{ 
-              headerShown: false,
-              animation: 'fade',
-              gestureEnabled: false,
-            }} 
-          />
           <Stack.Screen name="video-editor" options={{ headerShown: false }} />
           <Stack.Screen name="video-processing" options={{ headerShown: false }} />
           <Stack.Screen 
