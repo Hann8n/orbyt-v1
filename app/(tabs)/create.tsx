@@ -355,7 +355,7 @@ const CreateScreen: React.FC = () => {
     }
   }, [isFrontCamera]);
 
-  // Reset zoom when switching cameras
+  // Reset zoom when switching cameras - CameraView respects the controlled zoom prop
   useEffect(() => {
     setZoom(0);
     zoomScale.value = 1;
@@ -632,6 +632,11 @@ const CreateScreen: React.FC = () => {
     if (isRecordingRef.current && cameraRef.current) {
       await stopRecording();
     }
+    // Reset zoom synchronously before switching cameras to ensure CameraView receives the update
+    setZoom(0);
+    zoomScale.value = 1;
+    baseZoom.value = 0;
+    startZoom.value = 0;
     setIsFrontCamera(prev => !prev);
   }, [stopRecording]);
 
