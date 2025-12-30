@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   TextInput,
+  Linking,
 } from 'react-native';
 import Icon, { Loading3FillIcon } from './Icon';
 import { Colors } from './UI';
@@ -100,6 +101,8 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
       title={title}
       showCancelButton={false}
       name={name}
+      scrollable={false}
+      contentBottomPadding={0}
     >
       <View style={styles.usernameInputContainer}>
         {pdsError && (
@@ -109,10 +112,10 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
         )}
         
         <View style={styles.inputContainer}>
-          <Icon name="at" size={20} color={Colors.lightGray} style={styles.inputIcon} />
+          <Icon name="at" size={28} color={Colors.black} style={styles.inputIcon} />
           <TextInput
             style={styles.input}
-            placeholder="enter your handle"
+            placeholder="username"
             placeholderTextColor={Colors.gray}
             value={username}
             onChangeText={(text) => {
@@ -128,15 +131,10 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
           />
         </View>
         
-        <Text style={styles.helpText}>
-          Enter your full handle (e.g., user.domain.com) or email address
-        </Text>
-        
         <Pressable
           style={[
             styles.loginButton,
             (username.trim() && !isAddingAccount && !isValidatingPds) && styles.loginButtonActive,
-            (!username.trim() || isAddingAccount || isValidatingPds) && styles.loginButtonDisabled
           ]}
           onPress={handleUsernameLogin}
           disabled={!username.trim() || isAddingAccount || isValidatingPds}
@@ -149,12 +147,31 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
               </Text>
             </View>
           ) : (
-            <Text style={[
-              styles.loginButtonText,
-              (username.trim() && !isAddingAccount && !isValidatingPds) && styles.loginButtonTextActive
-            ]}>Sign In</Text>
+            <View style={styles.buttonContentRow}>
+              <Text style={[
+                styles.loginButtonText,
+                (username.trim() && !isAddingAccount && !isValidatingPds) && styles.loginButtonTextActive
+              ]}>Sign me in</Text>
+              <Icon 
+                name="right_arrow_filled" 
+                size={24} 
+                color={(username.trim() && !isAddingAccount && !isValidatingPds) ? Colors.darkGray : Colors.gray} 
+              />
+            </View>
           )}
         </Pressable>
+        
+        <View style={styles.termsContainer}>
+          <Text style={styles.termsText}>
+            By signing in you are agreeing to the
+          </Text>
+          <Text 
+            style={styles.termsLink}
+            onPress={() => Linking.openURL('https://getorbyt.com/terms.html')}
+          >
+            orbyt terms of use
+          </Text>
+        </View>
       </View>
     </VerticalListSheet>
   );
@@ -163,14 +180,14 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
 const styles = StyleSheet.create({
   usernameInputContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 0,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.LARGE,
-    marginBottom: 20,
+    backgroundColor: Colors.white,
+    borderRadius: BORDER_RADIUS.FULL,
+    marginBottom: 4,
     paddingHorizontal: 20,
     height: 56,
   },
@@ -179,38 +196,40 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: Colors.white,
-    fontSize: 16,
+    color: Colors.black,
+    fontSize: 20,
     height: '100%',
-    fontFamily: 'Firma-SemiBold',
+    fontFamily: 'Firma-Medium',
+    letterSpacing: 0.25,
   },
   loginButton: {
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.lightGray,
     borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 16,
+    paddingVertical: 20,
     paddingHorizontal: 20,
     marginTop: 8,
-    marginBottom: 16,
+    marginBottom: 0,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     overflow: 'hidden',
     borderWidth: 0,
     borderColor: 'transparent',
+    flexDirection: 'row',
+    minHeight: 64,
   },
   loginButtonActive: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.green,
   },
   loginButtonDisabled: {
     opacity: 0.5,
   },
   loginButtonText: {
-    color: Colors.white,
+    color: Colors.gray,
     fontSize: 18,
-    fontWeight: '600',
     fontFamily: 'Firma-SemiBold',
   },
   loginButtonTextActive: {
-    color: Colors.black,
+    color: Colors.darkGray,
   },
   errorContainer: {
     marginBottom: 16,
@@ -224,19 +243,37 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Medium',
     textAlign: 'center',
   },
-  helpText: {
-    color: Colors.gray,
-    fontSize: 14,
+  termsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginTop: 20,
+    paddingLeft: 20,
+  },
+  termsText: {
+    color: Colors.lightGray,
+    fontSize: 16,
     fontFamily: 'Firma-Regular',
-    textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 20,
-    lineHeight: 18,
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: Colors.lightGray,
+    fontSize: 16,
+    fontFamily: 'Firma-SemiBold',
+    textDecorationLine: 'underline',
+    lineHeight: 20,
   },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  buttonContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
   },
 });
 

@@ -53,6 +53,10 @@ interface VerticalListSheetProps {
    * Enable scrollable content (default: true)
    */
   scrollable?: boolean;
+  /**
+   * Custom bottom padding for content (overrides default calculation)
+   */
+  contentBottomPadding?: number;
 }
 
 const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
@@ -70,6 +74,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   hideCloseButton = false,
   footerTopPadding,
   scrollable = true,
+  contentBottomPadding,
 }) => {
   const bottomSheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
@@ -81,7 +86,10 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
   // Content padding accounts for footer height to prevent content from being hidden
   // For sheets with cancel button: use calculated footer height
   // For sheets without cancel button: use safe area bottom + small padding
-  const contentPaddingBottom = showCancelButton
+  // Or use custom padding if provided
+  const contentPaddingBottom = contentBottomPadding !== undefined
+    ? contentBottomPadding
+    : showCancelButton
     ? footerHeight
     : insets.bottom + 12;
 

@@ -4,6 +4,7 @@ import {
   Pressable,
   StyleSheet,
   Platform,
+  Text,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
@@ -11,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../utils/helpers';
 import Icon from './Icon';
 import { Colors } from './UI';
+import { BORDER_RADIUS } from '../../utils/constants';
 
 interface BottomToolBarProps {
   mode: 'create' | 'edit';
@@ -19,6 +21,8 @@ interface BottomToolBarProps {
   hasSegments?: boolean; // Add this prop to control delete button state
   isFrontCamera?: boolean; // Add this prop to disable flash in front camera mode
   disableGalleryUpload?: boolean; // When true, disable gallery button (e.g., not enough remaining time)
+  onNextPress?: () => void; // Optional next button handler
+  nextButtonDisabled?: boolean; // Disable next button
 }
 
 const BottomToolBar: React.FC<BottomToolBarProps> = ({
@@ -28,6 +32,8 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   hasSegments = false,
   isFrontCamera = false,
   disableGalleryUpload = false,
+  onNextPress,
+  nextButtonDisabled = false,
 }) => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -44,7 +50,6 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
     } else if (mode === 'edit') {
       return [
         { id: 'text', icon: 'text' },
-        { id: 'trim', icon: 'scissors' },
         { id: 'filter', icon: 'color-picker-fill' },
         { id: 'audio', icon: 'music' },
       ];
@@ -58,52 +63,108 @@ const BottomToolBar: React.FC<BottomToolBarProps> = ({
   // Icon size for toolbar
   const iconSize = Math.round(Math.max(22, Math.min(28, width * 0.07)));
 
+  // Render tool button
+  const renderTool = (tool: { id: string; icon: string }, index?: number) => {
+    const isDeleteDisabled = tool.id === 'delete' && !hasSegments;
+    const isFlashDisabled = tool.id === 'flash' && isFrontCamera;
+    const isGalleryDisabled = tool.id === 'gallery' && disableGalleryUpload;
+    const isDisabled = isDeleteDisabled || isFlashDisabled || isGalleryDisabled;
+    
+    let iconColor = "white";
+    if (tool.id === 'flash' && isFlashDisabled) {
+      iconColor = 'rgba(255, 255, 255, 0.75)';
+    } else if (tool.id === 'flash' && flashActive) {
+      iconColor = Colors.yellow;
+    } else if (isDisabled) {
+      iconColor = 'rgba(255, 255, 255, 0.70)';
+    }
+
+    // Different styles for create vs edit mode
+    const toolStyle = mode === 'create' 
+      ? [styles.tool, { width: iconSize, height: iconSize }]
+      : [
+          styles.toolEdit,
+          { 
+            width: iconSize, 
+            height: iconSize,
+            marginLeft: index === 0 ? 0 : 30,
+          },
+        ];
+
+    return (
+      <Pressable
+        key={tool.id}
+        style={({ pressed }) => [
+          ...toolStyle,
+          pressed && { opacity: 0.7 },
+        ]}
+        onPress={() => {
+          if (!isDisabled) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onToolPress && onToolPress(tool.id);
+          }
+        }}
+        disabled={isDisabled}
+      >
+        <Icon 
+          name={tool.icon} 
+          size={iconSize} 
+          color={iconColor}
+        />
+      </Pressable>
+    );
+  };
+
+  // Original style for create mode
+  if (mode === 'create') {
+    return (
+      <View style={[styles.safeArea, { height: bottomNavBarHeight }]}>
+        <View style={[
+          styles.containerCreate, 
+          isSmallDevice && styles.containerSmall,
+          {
+            // Match bottom tab bar padding behavior from app/(tabs)/_layout.tsx
+            paddingTop: isSmallDevice ? 2 : 6,
+            paddingBottom: insets.bottom,
+          }
+        ]}>
+          {tools.map((tool) => renderTool(tool))}
+        </View>
+      </View>
+    );
+  }
+
+  // New style for edit mode with next button
   return (
     <View style={[styles.safeArea, { height: bottomNavBarHeight }]}>
       <View style={[
-        styles.container, 
+        styles.containerEdit, 
         isSmallDevice && styles.containerSmall,
         {
-          // Match bottom tab bar padding behavior from app/(tabs)/_layout.tsx
-          paddingTop: isSmallDevice ? 2 : 6,
-          paddingBottom: 0,
+          paddingBottom: insets.bottom,
         }
       ]}>
-        {tools.map((tool) => {
-          const isDeleteDisabled = tool.id === 'delete' && !hasSegments;
-          const isFlashDisabled = tool.id === 'flash' && isFrontCamera;
-          const isGalleryDisabled = tool.id === 'gallery' && disableGalleryUpload;
-          const isDisabled = isDeleteDisabled || isFlashDisabled || isGalleryDisabled;
-          
-          let iconColor = "white";
-          if (tool.id === 'flash' && isFlashDisabled) {
-            iconColor = 'rgba(255, 255, 255, 0.75)';
-          } else if (tool.id === 'flash' && flashActive) {
-            iconColor = Colors.yellow;
-          } else if (isDisabled) {
-            iconColor = 'rgba(255, 255, 255, 0.70)';
-          }
-          
-          return (
+        {/* Left side - tools */}
+        <View style={styles.toolsContainer}>
+          {tools.map((tool, index) => renderTool(tool, index))}
+        </View>
+
+        {/* Right side - next button */}
+        {onNextPress && (
+          <View style={styles.nextButtonContainer}>
             <Pressable
-              key={tool.id}
-              style={[styles.tool, { width: iconSize, height: iconSize }]}
-              onPress={() => {
-                if (!isDisabled) {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onToolPress && onToolPress(tool.id);
-                }
-              }}
-              disabled={isDisabled}
+              style={({ pressed }) => [
+                styles.nextButton,
+                pressed && { opacity: 0.8 },
+                nextButtonDisabled && styles.nextButtonDisabled,
+              ]}
+              onPress={onNextPress}
+              disabled={nextButtonDisabled}
             >
-              <Icon 
-                name={tool.icon} 
-                size={iconSize} 
-                color={iconColor}
-              />
+              <Text style={styles.nextButtonText}>NEXT</Text>
             </Pressable>
-          );
-        })}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -121,7 +182,8 @@ const styles = StyleSheet.create({
   safeAreaSmall: {
     backgroundColor: 'transparent',
   },
-  container: {
+  // Original style for create mode
+  containerCreate: {
     flexDirection: 'row',
     backgroundColor: 'transparent',
     borderTopWidth: 0,
@@ -130,14 +192,61 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     flex: 1,
   },
+  // New style for edit mode
+  containerEdit: {
+    flexDirection: 'row',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    flex: 1,
+  },
   containerSmall: {
     backgroundColor: 'transparent',
     borderTopWidth: 0,
   },
+  toolsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nextButtonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Original tool style for create mode
   tool: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
+  },
+  // New tool style for edit mode
+  toolEdit: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    minWidth: 60,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  nextButtonDisabled: {
+    opacity: 0.4,
+  },
+  nextButtonText: {
+    color: Colors.black,
+    fontSize: 17,
+    fontFamily: 'Firma-Bold',
+    fontWeight: '600',
+    includeFontPadding: false,
   },
 });
 

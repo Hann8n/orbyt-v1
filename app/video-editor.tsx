@@ -17,21 +17,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
-import { useEvent } from 'expo';
 import * as FileSystem from 'expo-file-system';
 import { File, Directory, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
-import { resolveVideoPath, debugVideoPath } from '../src/utils/videoPath';
+import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../src/utils/videoPath';
 import { BackArrowIcon, ArrowRightFillIcon, Loading3FillIcon, CloseFillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
 import { BORDER_RADIUS } from '../src/utils/constants';
 import VideoEditingService, { TextOverlayOptions, BackgroundMusicOptions } from '../src/services/VideoEditingService';
+import VideoProcessingService from '../src/services/VideoProcessingService';
 import VerticalListSheet, { VerticalListButton } from '../src/components/ui/VerticalListSheet';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
 import { TextOverlay } from '../src/types';
-import { getBottomNavBarHeight } from '../src/utils/helpers';
-import { NativeEventEmitter, NativeModules } from 'react-native';
-import { showEditor, isValidFile, type Spec } from 'react-native-video-trim';
+import { getBottomNavBarHeight, isSmallScreen } from '../src/utils/helpers';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16;
@@ -235,157 +233,6 @@ const POSITION_PRESETS = [
   { label: 'Bottom Center', x: '(w-text_w)/2', y: 'h-text_h-10' },
 ];
 
-// Trim Sheet Component
-interface TrimSheetProps {
-  visible: boolean;
-  clip: VideoClip | undefined;
-  onDismiss: () => void;
-  onApply: (startTime: number, endTime: number, trimmedPath?: string) => void;
-  isProcessing: boolean;
-  clipIndex: number;
-}
-
-const TrimSheet: React.FC<TrimSheetProps> = ({ visible, clip, onDismiss, onApply, isProcessing, clipIndex }) => {
-  const listeners = useRef<{ onFinishTrimming?: any; onError?: any }>({});
-  const hasOpenedEditor = useRef(false);
-
-  useEffect(() => {
-    if (clip && visible && !hasOpenedEditor.current) {
-      hasOpenedEditor.current = true;
-      openTrimmer();
-    } else if (!visible) {
-      hasOpenedEditor.current = false;
-    }
-  }, [clip, visible]);
-
-  // Set up event listeners for react-native-video-trim using Spec API
-  useEffect(() => {
-    const NativeVideoTrim = NativeModules.VideoTrim as Spec;
-    
-    // Use the new Spec API if available, otherwise fall back to old architecture
-    if (NativeVideoTrim && typeof NativeVideoTrim.onFinishTrimming === 'function') {
-      listeners.current.onFinishTrimming = NativeVideoTrim.onFinishTrimming(handleTrimmingComplete);
-      listeners.current.onError = NativeVideoTrim.onError(({ message, errorCode }) => {
-        console.error('Trimming error:', message, errorCode);
-        Alert.alert('Error', message || 'Failed to trim video');
-        onDismiss();
-      });
-    } else {
-      // Fallback to old architecture
-      const eventEmitter = new NativeEventEmitter(NativeVideoTrim);
-      listeners.current.onFinishTrimming = eventEmitter.addListener(
-        'VideoTrim',
-        (event: any) => {
-          if (event.name === 'onFinishTrimming') {
-            // Extract data from event (old architecture includes name property)
-            const { name, ...data } = event;
-            handleTrimmingComplete(data);
-          }
-        }
-      );
-      listeners.current.onError = eventEmitter.addListener(
-        'VideoTrim',
-        (event: any) => {
-          if (event.name === 'onError') {
-            console.error('Trimming error:', event.message, event.errorCode);
-            Alert.alert('Error', event.message || 'Failed to trim video');
-            onDismiss();
-          }
-        }
-      );
-    }
-
-    return () => {
-      listeners.current.onFinishTrimming?.remove();
-      listeners.current.onError?.remove();
-    };
-  }, [handleTrimmingComplete, onDismiss]);
-
-  const openTrimmer = async () => {
-    if (!clip) return;
-
-    try {
-      // Resolve video path
-      const pathInfo = await resolveVideoPath(clip.videoPath);
-      const normalizedUri = pathInfo.uri.replace(/^file:\/\//, '');
-
-      // Validate file and get actual video duration
-      const validationResult = await isValidFile(normalizedUri);
-      if (!validationResult.isValid) {
-        Alert.alert('Error', 'Invalid video file');
-        onDismiss();
-        return;
-      }
-
-      // Get actual video duration in milliseconds from validation result (already in ms)
-      const actualVideoDurationMs = validationResult.duration;
-      // Use clip duration if available, otherwise use actual video duration
-      const clipDurationMs = clip.duration ? clip.duration * 1000 : undefined;
-      // Use the minimum of clip duration and actual video duration to ensure valid bounds
-      // If no clip duration, use actual video duration
-      // NOTE: iOS has a bug where it treats maxDuration/minDuration as seconds instead of milliseconds
-      // Android expects milliseconds, so we need to pass seconds for iOS, milliseconds for Android
-      const effectiveMaxDuration = clipDurationMs 
-        ? Math.min(clipDurationMs, actualVideoDurationMs)
-        : actualVideoDurationMs;
-      
-      const effectiveMinDuration = 500; // 0.5 seconds minimum in milliseconds
-
-      // Show the video trimmer editor
-      // iOS requires Int (seconds), Android expects Double (milliseconds)
-      showEditor(normalizedUri, {
-        maxDuration: Platform.OS === 'ios' ? Math.floor(effectiveMaxDuration / 1000) : effectiveMaxDuration,
-        minDuration: Platform.OS === 'ios' ? Math.floor(effectiveMinDuration / 1000) : effectiveMinDuration,
-        saveToPhoto: false,
-        openShareSheetOnFinish: false,
-        removeAfterSavedToPhoto: false,
-        headerText: 'Trim Video',
-        cancelButtonText: 'Cancel',
-        saveButtonText: 'Done',
-        trimmerColor: Colors.purple,
-        enableCancelTrimming: true,
-        closeWhenFinish: true,
-        autoplay: true,
-        fullScreenModalIOS: true, // Use fullscreen modal on iOS to prevent view issues
-      });
-    } catch (error) {
-      console.error('Error opening trimmer:', error);
-      Alert.alert('Error', 'Failed to open video trimmer');
-      onDismiss();
-    }
-  };
-
-  const handleTrimmingComplete = async ({ outputPath, startTime, endTime, duration }: { outputPath: string; startTime: number; endTime: number; duration: number }) => {
-    try {
-      
-      // Convert milliseconds to seconds
-      const startTimeSeconds = startTime / 1000;
-      const endTimeSeconds = endTime / 1000;
-      const trimmedDuration = duration / 1000;
-      
-      // The library already trimmed the video and returns outputPath
-      // Pass both the trim times and the trimmed path
-      onApply(startTimeSeconds, endTimeSeconds, outputPath);
-      onDismiss();
-    } catch (error: any) {
-      console.error('Error handling trim completion:', error);
-      Alert.alert('Error', error.message || 'Failed to process trimmed video');
-    }
-  };
-
-  // Since react-native-video-trim shows a native full-screen editor,
-  // we don't render the sheet UI. The editor handles its own UI.
-  return null;
-};
-
-interface VideoClip {
-  videoPath: string;
-  assetId?: string | null;
-  duration: number;
-  sourceType?: 'camera' | 'gallery';
-  trimStart?: number;
-  trimEnd?: number;
-}
 
 const VideoEditorScreen: React.FC = () => {
   const params = useLocalSearchParams();
@@ -393,36 +240,21 @@ const VideoEditorScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const playerRef = useRef<VideoPlayer | null>(null);
   
-  // Parse segments from params or fallback to single videoPath
+  // Get video path or segments from params (same as post screen)
+  const videoPath = params.videoPath as string | undefined;
   const segmentsParam = params.segments as string | undefined;
-  const originalVideoPath = params.videoPath as string | undefined;
   
-  const [clips, setClips] = useState<VideoClip[]>(() => {
-    if (segmentsParam) {
-      try {
-        const parsed = JSON.parse(segmentsParam);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (e) {
-        console.error('Failed to parse segments:', e);
-      }
-    }
-    if (originalVideoPath) {
-      // Fallback: single video
-      return [{ videoPath: originalVideoPath, duration: 0 }];
-    }
-    return [];
-  });
-  
-  const [mergedVideoPath, setMergedVideoPath] = useState<string | null>(null);
+  // Background merging state (same as post screen)
   const [isMerging, setIsMerging] = useState(false);
+  const [mergingProgress, setMergingProgress] = useState(0);
+  const [mergedVideoPath, setMergedVideoPath] = useState<string | null>(null);
+  const [mergingError, setMergingError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [videoLoading, setVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [showTrimSheet, setShowTrimSheet] = useState(false);
-  const [trimmingClipIndex, setTrimmingClipIndex] = useState<number | null>(null);
   
   // Text overlay state
   const [textOverlays, setTextOverlays] = useState<TextOverlayEdit[]>([]);
@@ -442,159 +274,138 @@ const VideoEditorScreen: React.FC = () => {
   
   // Temporary files to clean up
   const tempFilesRef = useRef<string[]>([]);
-  
-  // Merge clips into a single seamless video using FFmpeg
-  const mergeClipsForPlayback = useCallback(async () => {
-    if (clips.length === 0) {
-      setMergedVideoPath(null);
-      return;
-    }
 
-    setIsMerging(true);
-    try {
-      const { default: VideoProcessingService } = await import('../src/services/VideoProcessingService');
-      
-      // Convert clips to VideoSegment format
-      const processingSegments = clips.map((clip) => {
-        const videoObject: any = {
-          uri: clip.videoPath,
-          duration: clip.duration,
-        };
+  // Handle background merging if segments are provided (same as post screen)
+  useEffect(() => {
+    if (!segmentsParam || mergedVideoPath) return; // Already merged or no segments
+    
+    const mergeSegments = async () => {
+      try {
+        setIsMerging(true);
+        setMergingError(null);
+        setMergingProgress(0);
         
-        if (clip.assetId) {
-          videoObject.assetId = clip.assetId;
+        // Parse segments from params
+        const segments = JSON.parse(segmentsParam);
+        
+        if (!segments || segments.length === 0) {
+          throw new Error('No video segments provided');
         }
         
-        return {
-          startTime: 0,
-          duration: clip.duration,
-          video: videoObject,
-          sourceType: clip.sourceType,
-        };
-      });
-      
-      // Process clips (merges multiple or normalizes single)
-      const processedVideo = await VideoProcessingService.mergeSegments(processingSegments);
-      const processedPath = processedVideo.path.startsWith('file://') 
-        ? processedVideo.path 
-        : `file://${processedVideo.path}`;
-      
-      // Verify processed file exists
-      const processedFile = new File(processedPath.replace('file://', ''));
-      if (!processedFile.exists) {
-        throw new Error(`Processed video file not found at: ${processedPath}`);
+        // Convert to ProcessingVideoSegment format
+        const processingSegments = segments.map((segment: any) => ({
+          startTime: segment.startTime,
+          duration: segment.duration,
+          video: segment.video,
+          sourceType: segment.sourceType,
+        }));
+        
+        // Merge segments in background using InteractionManager
+        const { InteractionManager } = require('react-native');
+        await InteractionManager.runAfterInteractions(async () => {
+          setMergingProgress(25);
+          
+          const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
+          
+          setMergingProgress(100);
+          setMergedVideoPath(mergedVideo.path);
+          setIsMerging(false);
+        });
+      } catch (error: any) {
+        console.error('[VideoEditor] Error merging segments:', error);
+        setMergingError(error.message || 'Failed to merge video segments');
+        setIsMerging(false);
+        Alert.alert(
+          'Merging Failed',
+          error.message || 'Failed to merge video segments. Please try again.',
+          [
+            {
+              text: 'Go Back',
+              onPress: () => router.back(),
+            }
+          ]
+        );
       }
-      
-      setMergedVideoPath(processedPath);
-    } catch (error) {
-      Alert.alert(
-        'Processing Error', 
-        `Failed to process video: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-      setMergedVideoPath(null);
-    } finally {
-      setIsMerging(false);
-    }
-  }, [clips]);
+    };
+    
+    mergeSegments();
+  }, [segmentsParam, mergedVideoPath, router]);
 
-  // Merge clips when they change
-  useEffect(() => {
-    mergeClipsForPlayback();
-  }, [mergeClipsForPlayback]);
+  // Determine the active video path (merged > provided > null) - same as post screen
+  const activeVideoPath = mergedVideoPath || videoPath;
 
-  // Current video path is the merged video for seamless playback
-  const currentVideoPath = mergedVideoPath || '';
-
-  // Resolved video URI for playback
-  const [resolvedVideoUri, setResolvedVideoUri] = useState<string>('');
+  // Resolved video path info (same as post screen)
+  const [videoPathInfo, setVideoPathInfo] = useState<VideoPathInfo | null>(null);
   
-  // Resolve video path when it changes
+  // Resolve video path on mount or when activeVideoPath changes (same as post screen)
   useEffect(() => {
-    const resolve = async () => {
-      if (!currentVideoPath) {
-        setResolvedVideoUri('');
+    const resolveVideo = async () => {
+      // Wait for merging to complete if in progress
+      if (isMerging || !activeVideoPath) {
+        if (isMerging) {
+          setVideoLoading(true);
+          setVideoError(null);
+        }
         return;
       }
-      
-      debugVideoPath('VideoEditor currentVideoPath', currentVideoPath);
+
+      // Debug the incoming path
+      debugVideoPath('VideoEditor received', activeVideoPath);
       
       try {
-        const pathInfo = await resolveVideoPath(currentVideoPath);
-        setResolvedVideoUri(pathInfo.uri);
+        setVideoLoading(true);
+        setVideoError(null);
+        
+        // Use the utility to resolve the path (handles iCloud, normalization, validation)
+        const pathInfo = await resolveVideoPath(activeVideoPath);
+        
+        setVideoPathInfo(pathInfo);
         
         if (!pathInfo.exists) {
           setVideoError('Video file not found');
         }
       } catch (error) {
-        console.error('[VideoEditor] Error resolving path:', error);
-        setVideoError('Unable to access video');
+        console.error('[VideoEditor] Error resolving video path:', error);
+        setVideoError('Unable to access video file');
+      } finally {
+        setVideoLoading(false);
       }
     };
-    
-    resolve();
-  }, [currentVideoPath]);
 
-  // Final video URI for playback
-  const videoUri = resolvedVideoUri;
+    resolveVideo();
+  }, [activeVideoPath, isMerging]);
 
-  // Create expo-video player
-  const player = useVideoPlayer(null, (p) => {
+  // Final video URI for playback (same as post screen)
+  const videoUri = videoPathInfo?.uri || '';
+
+  // Simple video player - auto-plays when source is set (same as post screen)
+  const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, (p) => {
     p.loop = true;
     p.volume = masterVolume;
     playerRef.current = p;
   });
 
-  // Attach/replace source when resolved
+  // Update source and play when videoUri changes (same as post screen)
   useEffect(() => {
-    if (!player) return;
-    if (videoUri) {
-      (async () => {
-        try {
-          await player.replaceAsync({ uri: videoUri });
-          setVideoError(null);
-        } catch (e) {
-          setVideoError('Failed to load video');
-        }
-      })();
-    }
+    if (!player || !videoUri) return;
+    player.replaceAsync({ uri: videoUri }).then(() => {
+      player.play();
+    });
   }, [player, videoUri]);
 
-  // Handle player status changes
-  (useEvent as any)(player, 'statusChange', (payload: any) => {
-    const status = typeof payload === 'string' ? payload : payload?.status;
-    if (status === 'loading') {
-      setVideoLoading(true);
-      setVideoError(null);
-    } else if (status === 'readyToPlay') {
-      setVideoLoading(false);
-      if (player.duration) {
-        setDuration(player.duration);
-      }
-    } else if (status === 'error') {
-      setVideoLoading(false);
-      setVideoError('Failed to load video');
-    }
-  });
-
-  // Track playback progress
+  // Track playback progress (same as post screen)
   useEffect(() => {
     if (!player) return;
     const interval = setInterval(() => {
-      if (player.currentTime !== undefined) {
-        setCurrentTime(player.currentTime);
-      }
+      setCurrentTime(player.currentTime || 0);
     }, 100);
     return () => clearInterval(interval);
   }, [player]);
 
-  // Sync play/pause state
+  // Sync play/pause state (same as post screen)
   useEffect(() => {
     if (!player) return;
-    if (isPlaying) {
-      player.play();
-    } else {
-      player.pause();
-    }
+    isPlaying ? player.play() : player.pause();
   }, [player, isPlaying]);
 
   // Update volume when masterVolume changes
@@ -817,33 +628,13 @@ const VideoEditorScreen: React.FC = () => {
 
   // Apply all edits
   const handleApplyEdits = useCallback(async () => {
-    if (isProcessing) return;
+    if (isProcessing || !activeVideoPath) return;
     
     setIsProcessing(true);
     setVideoLoading(true);
     
     try {
-      let workingPath = originalVideoPath.replace('file://', '');
-      
-      // Step 0: Merge clips if multiple clips exist
-      if (clips.length === 0) {
-        throw new Error('No clips to process');
-      }
-      
-      if (clips.length > 1) {
-        // Import VideoProcessingService for merging
-        const { default: VideoProcessingService } = await import('../src/services/VideoProcessingService');
-        const processingSegments = clips.map(clip => ({
-          startTime: 0,
-          duration: clip.duration,
-          video: { path: clip.videoPath.replace('file://', '') } as any,
-          sourceType: clip.sourceType,
-        }));
-        const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
-        workingPath = mergedVideo.path.replace('file://', '');
-      } else {
-        workingPath = clips[0].videoPath.replace('file://', '');
-      }
+      let workingPath = activeVideoPath.replace('file://', '');
 
       // Step 1: Apply text overlays
       if (textOverlays.length > 0) {
@@ -908,7 +699,7 @@ const VideoEditorScreen: React.FC = () => {
         workingPath = resultPath.replace('file://', '');
       }
       
-      // Update current video path
+      // Update merged video path
       const finalPath = workingPath.startsWith('file://') ? workingPath : `file://${workingPath}`;
       setMergedVideoPath(finalPath);
       
@@ -925,7 +716,7 @@ const VideoEditorScreen: React.FC = () => {
       setIsProcessing(false);
       setVideoLoading(false);
     }
-  }, [textOverlays, musicPath, videoVolume, musicVolume, masterVolume, clips, getTempFilePath]);
+  }, [textOverlays, musicPath, videoVolume, musicVolume, masterVolume, activeVideoPath, getTempFilePath, player]);
 
   // Check if there are pending edits
   const hasPendingEdits = textOverlays.length > 0 || musicPath !== null || masterVolume !== 1.0;
@@ -935,12 +726,12 @@ const VideoEditorScreen: React.FC = () => {
   };
 
   const handleNext = async () => {
-    if (!currentVideoPath) {
+    if (!activeVideoPath) {
       Alert.alert('Error', 'No video available');
       return;
     }
 
-    const normalizedPath = currentVideoPath.startsWith('file://') ? currentVideoPath : `file://${currentVideoPath}`;
+    const normalizedPath = activeVideoPath.startsWith('file://') ? activeVideoPath : `file://${activeVideoPath}`;
     router.push({
       pathname: '/post/[id]',
       params: { id: 'new', videoPath: normalizedPath }
@@ -984,61 +775,6 @@ const VideoEditorScreen: React.FC = () => {
 
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
 
-  // Handle trim action - trim the currently visible clip
-  const handleTrim = useCallback(() => {
-    // For merged video, we need to determine which clip is at current time
-    // For simplicity, allow trimming any clip by index
-    // In a full implementation, you'd calculate which clip based on currentTime
-    if (clips.length > 0) {
-      // For now, trim the first clip - can be enhanced to detect current clip
-      setTrimmingClipIndex(0);
-      setShowTrimSheet(true);
-    }
-  }, [clips.length]);
-
-  // Apply trim to clip
-  const handleApplyTrim = useCallback(async (clipIndex: number, startTime: number, endTime: number, trimmedPath?: string) => {
-    if (isProcessing) return;
-    
-    const clip = clips[clipIndex];
-    if (!clip) return;
-
-    setIsProcessing(true);
-    try {
-      let finalTrimmedPath: string;
-      
-      // If the library already trimmed the video, use that path directly
-      if (trimmedPath) {
-        finalTrimmedPath = trimmedPath.startsWith('file://') ? trimmedPath : `file://${trimmedPath}`;
-      } else {
-        // Otherwise, trim the video ourselves
-        const outputPath = await getTempFilePath();
-        finalTrimmedPath = await VideoEditingService.trimVideo(
-          clip.videoPath.replace('file://', ''),
-          outputPath,
-          startTime,
-          endTime
-        );
-      }
-
-      // Update clip with trimmed path and trim times
-      setClips(prev => prev.map((c, i) => 
-        i === clipIndex 
-          ? { ...c, videoPath: finalTrimmedPath, trimStart: startTime, trimEnd: endTime, duration: endTime - startTime }
-          : c
-      ));
-
-      // Clips will be re-merged automatically via useEffect
-      setShowTrimSheet(false);
-      setTrimmingClipIndex(null);
-    } catch (error: any) {
-      console.error('Error trimming video:', error);
-      Alert.alert('Error', error.message || 'Failed to trim video. Please try again.');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [clips, getTempFilePath, isProcessing]);
-
   const handleToolAction = useCallback((action: string) => {
     switch (action) {
       case 'text':
@@ -1047,29 +783,28 @@ const VideoEditorScreen: React.FC = () => {
       case 'audio':
         setShowMusicSheet(true);
         break;
-      case 'trim':
-        handleTrim();
-        break;
       default:
         break;
     }
-  }, [handleAddTextOverlay, handleTrim]);
+  }, [handleAddTextOverlay]);
+
+  const isSmallDevice = isSmallScreen();
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Minimal header buttons */}
+      {/* Header buttons - matches create screen */}
       <Pressable 
-        style={[styles.backButton, { top: insets.top + 10 }]} 
+        style={({ pressed }) => [
+          styles.backButton,
+          {
+            top: isSmallDevice ? 5 : insets.top + 4,
+            left: 4,
+          },
+          pressed && { opacity: 0.7 }
+        ]}
         onPress={handleBack}
       >
         <CloseFillIcon size={26} color="white" />
-      </Pressable>
-      <Pressable
-        style={[styles.doneButton, { top: insets.top + 10 }]}
-        onPress={handleNext}
-        disabled={isProcessing}
-      >
-        <ArrowRightFillIcon size={30} color="white" />
       </Pressable>
 
       {/* Video Preview Container - matches cameraContainer from create.tsx */}
@@ -1078,40 +813,17 @@ const VideoEditorScreen: React.FC = () => {
           onPress={() => setIsPlaying(!isPlaying)}
           style={styles.videoWrapper}
         >
-          {/* Show loading overlay when video is loading */}
-          {videoLoading && !isMerging && (
+          {videoUri && player && (
+            <VideoView player={player} style={styles.video} contentFit="contain" nativeControls={false} />
+          )}
+          {(videoLoading || isMerging) && (
             <View style={styles.loadingOverlay}>
               <Loading3FillIcon size={48} color={Colors.white} />
             </View>
           )}
-          {(videoUri && clips.length > 0) || isMerging ? (
-            <>
-              {isMerging && (
-                <View style={styles.loadingOverlay}>
-                  <Loading3FillIcon size={48} color={Colors.white} />
-                  <Text style={styles.mergingText}>
-                    {clips.length > 1 ? 'Merging clips...' : 'Processing video...'}
-                  </Text>
-                </View>
-              )}
-              {videoUri && !isMerging && mergedVideoPath && player && (
-                <VideoView
-                  key={mergedVideoPath}
-                  player={player}
-                  style={styles.video}
-                  contentFit="contain"
-                  nativeControls={false}
-                />
-              )}
-            </>
-          ) : (
-            <View style={styles.noVideoContainer}>
-              <Text style={styles.noVideoText}>No video available</Text>
-            </View>
-          )}
           {videoError && (
-            <View style={styles.errorOverlay}>
-              <Text style={styles.errorText}>{videoError}</Text>
+            <View style={[styles.loadingOverlay, { zIndex: 3, backgroundColor: Colors.darkGray }]}>
+              <Text style={{ color: Colors.lightGray, fontSize: 16 }}>{videoError}</Text>
             </View>
           )}
           {/* Text Overlay Previews */}
@@ -1163,14 +875,6 @@ const VideoEditorScreen: React.FC = () => {
             </View>
           )}
           
-          {/* Clip Indicator - show when multiple clips */}
-          {clips.length > 1 && mergedVideoPath && (
-            <View style={styles.clipIndicator}>
-              <Text style={styles.clipIndicatorText}>
-                {clips.length} clips merged
-              </Text>
-            </View>
-          )}
         </Pressable>
 
         {/* Apply Changes Button - positioned absolutely */}
@@ -1206,20 +910,6 @@ const VideoEditorScreen: React.FC = () => {
         />
       </VerticalListSheet>
 
-      {/* Trim Sheet */}
-      {trimmingClipIndex !== null && clips[trimmingClipIndex] && (
-        <TrimSheet
-          visible={showTrimSheet}
-          clip={clips[trimmingClipIndex]}
-          onDismiss={() => {
-            setShowTrimSheet(false);
-            setTrimmingClipIndex(null);
-          }}
-          onApply={(startTime, endTime, trimmedPath) => handleApplyTrim(trimmingClipIndex, startTime, endTime, trimmedPath)}
-          isProcessing={isProcessing}
-          clipIndex={trimmingClipIndex}
-        />
-      )}
 
       {/* Text Overlay Controls - appears above keyboard when editing */}
       {editingOverlay && keyboardHeight > 0 && (
@@ -1278,6 +968,8 @@ const VideoEditorScreen: React.FC = () => {
       <BottomToolBar
         mode="edit"
         onToolPress={handleToolAction}
+        onNextPress={handleNext}
+        nextButtonDisabled={isProcessing || !activeVideoPath}
       />
     </SafeAreaView>
   );
@@ -1290,8 +982,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    left: 10,
-    zIndex: 10,
+    zIndex: 1000,
     width: 44,
     height: 44,
     alignItems: 'center',
@@ -1299,8 +990,7 @@ const styles = StyleSheet.create({
   },
   doneButton: {
     position: 'absolute',
-    right: 10,
-    zIndex: 10,
+    zIndex: 1000,
     width: 44,
     height: 44,
     alignItems: 'center',
@@ -1358,6 +1048,12 @@ const styles = StyleSheet.create({
   noVideoText: {
     color: Colors.lightGray,
     fontSize: 16,
+  },
+  mergingText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontFamily: 'Firma-Medium',
+    marginTop: 12,
   },
   textOverlayPreview: {
     position: 'absolute',
@@ -1624,43 +1320,6 @@ const styles = StyleSheet.create({
     height: 30,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  trimContainer: {
-    padding: 20,
-  },
-  trimmerWrapper: {
-    height: 200,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    overflow: 'hidden',
-    marginBottom: 20,
-  },
-  trimmerSliderContainer: {
-    marginHorizontal: 0,
-  },
-  trimButtons: {
-    marginTop: 20,
-    gap: 12,
-  },
-  clipIndicator: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: BORDER_RADIUS.MEDIUM,
-    zIndex: 2,
-  },
-  clipIndicatorText: {
-    color: Colors.white,
-    fontSize: 12,
-    fontFamily: 'Firma-SemiBold',
-  },
-  mergingText: {
-    color: Colors.white,
-    fontSize: 14,
-    fontFamily: 'Firma-Medium',
-    marginTop: 12,
   },
 });
 

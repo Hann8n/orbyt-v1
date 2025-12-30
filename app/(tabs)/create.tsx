@@ -35,14 +35,13 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Icon, { CloseFillIcon, Loading3FillIcon, ArrowRightFillIcon } from '../../src/components/ui/Icon';
 import BottomToolBar from '../../src/components/ui/BottomToolBar';
 import { isSmallScreen, getBottomNavBarHeight } from '../../src/utils/helpers';
-import VideoProcessingService from '../../src/services/VideoProcessingService';
 import { Colors } from '../../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import NativeVideoTrim, { showEditor, isValidFile, type Spec } from 'react-native-video-trim';
 import { SegmentManager, type Segment } from '../../src/utils/segmentManager';
-import { debugVideoPath } from '../../src/utils/videoPath';
+import { useUserStore } from '../../src/stores/userStore';
 
 
 // Duration options in seconds
@@ -111,6 +110,7 @@ const CreateScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const listenerSubscription = useRef<Record<string, EventSubscription>>({});
+  const { isDeveloper } = useUserStore();
   
   // Calculate 9:16 aspect ratio dimensions
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -752,109 +752,51 @@ const CreateScreen: React.FC = () => {
       return;
     }
     
-    setIsProcessing(true);
-    try {
-      // If only one segment, check compatibility and process accordingly
-      if (finalSegments.length === 1) {
-        const segment = finalSegments[0];
-        const asset = 'assetId' in segment.video ? segment.video as ImagePicker.ImagePickerAsset : undefined;
-        // Both { uri: string } and ImagePickerAsset have uri property
-        const videoPath = segment.video.uri;
-        
-        // Validate that videoPath exists before proceeding
-        if (!videoPath) {
-          throw new Error('Video URI is undefined. Cannot process video.');
-        }
-        
-        // Debug: Log the incoming video path
-        debugVideoPath('create.tsx single segment', videoPath, asset);
-        
-        // Standardize path first (handles iCloud downloads)
-        const standardizedPath = await VideoProcessingService.standardizeVideoPath(videoPath, asset);
-        
-        // Check if video is already compatible - skip normalization if so
-        // Use standardizedPath for compatibility check since that's the path we'll actually use
-        const isCompatible = await VideoProcessingService.isVideoCompatible(standardizedPath, asset);
-        
-        let finalVideoPath: string;
-        if (isCompatible) {
-          // Video is compatible, use standardized path directly
-          finalVideoPath = standardizedPath;
-        } else {
-          // Video needs normalization
-          const normalizedVideo = await VideoProcessingService.normalizeVideo(segment.video);
-          finalVideoPath = normalizedVideo.path;
-        }
-        
-        // Debug: Log the final path being sent
-        debugVideoPath('create.tsx -> VideoPostScreen', finalVideoPath);
-        
-        // Extract first frame as thumbnail (FFmpeg runs in background thread, won't block UI)
-        // Use standardized path which is already copied to sandbox and accessible
-        let thumbnailPath: string | undefined;
-        try {
-          thumbnailPath = await VideoProcessingService.extractFirstFrame(finalVideoPath);
-        } catch (error) {
-          // Failed to extract thumbnail, continuing without it
-        }
-        
-        // Only navigate if component is still mounted
-        if (isMountedRef.current) {
-          // Navigate directly to post screen with processed video
+    // Convert to VideoSegment format
+    const videoSegments = segmentManagerRef.current.toVideoSegments();
+    
+    // Only navigate if component is still mounted
+    if (isMountedRef.current) {
+      // Route to video editor if developer, otherwise go straight to post screen
+      if (isDeveloper) {
+        // For developers: pass segments to video-editor (same as post screen)
+        if (videoSegments.length === 1) {
           navigation.push({
-            pathname: '/post/[id]',
+            pathname: '/video-editor',
             params: {
-              id: 'new',
-              videoPath: finalVideoPath,
-              ...(thumbnailPath ? { thumbnailPath } : {})
+              videoPath: videoSegments[0].video.uri,
+            }
+          });
+        } else {
+          navigation.push({
+            pathname: '/video-editor',
+            params: {
+              segments: JSON.stringify(videoSegments),
             }
           });
         }
       } else {
-        // Multiple segments need merging - merge in background and go directly to post screen
-        // Extract thumbnail from first segment (FFmpeg runs in background thread, won't block UI)
-        // Standardize the first segment's path first to ensure it's accessible
-        let thumbnailPath: string | undefined;
-        const firstSegment = finalSegments[0];
-        const firstAsset = 'assetId' in firstSegment.video ? firstSegment.video as ImagePicker.ImagePickerAsset : undefined;
-        const firstVideoPath = firstSegment.video.uri;
-        
-        try {
-          if (firstVideoPath) {
-            // Standardize path first (handles iCloud downloads and copies to sandbox)
-            const standardizedFirstPath = await VideoProcessingService.standardizeVideoPath(firstVideoPath, firstAsset);
-            thumbnailPath = await VideoProcessingService.extractFirstFrame(standardizedFirstPath);
-          }
-        } catch (error) {
-          // Failed to extract thumbnail, continuing without it
-        }
-        
-        // Only navigate if component is still mounted
-        if (isMountedRef.current) {
-          // Convert to VideoSegment format for VideoProcessingService
-          const videoSegments = segmentManagerRef.current.toVideoSegments();
+        // For non-developers: pass segments to post screen (same as before)
+        if (videoSegments.length === 1) {
           navigation.push({
             pathname: '/post/[id]',
             params: {
               id: 'new',
-              segments: JSON.stringify(videoSegments), // Pass segments for background merging
-              ...(thumbnailPath ? { thumbnailPath } : {})
+              videoPath: videoSegments[0].video.uri,
+            }
+          });
+        } else {
+          navigation.push({
+            pathname: '/post/[id]',
+            params: {
+              id: 'new',
+              segments: JSON.stringify(videoSegments),
             }
           });
         }
       }
-    } catch (error) {
-      // Only show alert if component is still mounted
-      if (isMountedRef.current) {
-        Alert.alert('Error', 'Failed to process video. Please try again.');
-      }
-    } finally {
-      // Reset processing state in finally block to ensure cleanup
-      if (isMountedRef.current) {
-        setIsProcessing(false);
-      }
     }
-  }, [navigation, isProcessing, stopRecording]);
+  }, [navigation, isProcessing, stopRecording, isDeveloper]);
 
   // Render content based on the state of permissions and device availability
   const renderContent = () => {

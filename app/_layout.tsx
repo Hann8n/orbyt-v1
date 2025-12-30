@@ -82,6 +82,42 @@ const GlobalModals: React.FC = () => {
   );
 };
 
+// Route protection component - redirects unauthenticated users to login
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isAuthenticated = useUserStore(state => state.isAuthenticated);
+  const segments = useSegments();
+  const pathname = usePathname();
+
+  // Public routes that don't require authentication
+  const publicRoutes = ['/login', '/advanced-login', '/oauth/callback'];
+  const isPublicRoute = pathname ? publicRoutes.some(route => pathname.startsWith(route)) : false;
+
+  // Redirect authenticated users away from login pages
+  if (isAuthenticated && pathname && (pathname === '/login' || pathname === '/advanced-login')) {
+    return <Redirect href="/(tabs)" />;
+  }
+
+  // Check if current route is protected
+  // Protected routes include: (tabs), (modals), settings, edit-profile, video-editor, etc.
+  // Exclude: index (root), login, advanced-login, oauth/callback
+  // If pathname is undefined or segments are empty, allow (initial load - index.tsx will handle redirect)
+  const firstSegment = segments[0];
+  const isProtectedRoute = pathname && 
+    !isPublicRoute && 
+    segments.length > 0 && 
+    firstSegment !== 'index' &&
+    firstSegment !== 'login' &&
+    firstSegment !== 'advanced-login' &&
+    !pathname.startsWith('/oauth/');
+
+  // Redirect to login if trying to access protected route while not authenticated
+  if (!isAuthenticated && isProtectedRoute) {
+    return <Redirect href="/login" />;
+  }
+
+  return <>{children}</>;
+};
+
 // Visibility hook for inline logic - tracks app state and active tab
 const useVisibilityTracking = () => {
   const setAppState = useVisibilityCoreStore((state) => state.setAppState);
@@ -306,27 +342,19 @@ export default function RootLayout() {
     return null;
   }
 
-  if (!isAuthenticated) {
-    return (
-      <AppProviders>
-        <View style={styles.rootView} onLayout={onLayoutRootView}>
-          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} hidden={false} />
-          <LinearGradient
-            colors={['transparent', Colors.black]}
-            style={[styles.bottomGradient, { height: 45 + insets.bottom }]}
-            pointerEvents="none"
-          />
-          <LoginScreen onLogin={handleLogin} onAccountSwitch={handleAccountSwitch} />
-        </View>
-      </AppProviders>
-    );
-  }
-
   return (
     <AppProviders>
-      <View style={styles.rootView} onLayout={onLayoutRootView}>
-        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} hidden={false} />
-        <Stack screenOptions={{ headerShown: false }}>
+      <ProtectedRoute>
+        <View style={styles.rootView} onLayout={onLayoutRootView}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} hidden={false} />
+          {!isAuthenticated && (
+            <LinearGradient
+              colors={['transparent', Colors.black]}
+              style={[styles.bottomGradient, { height: 45 + insets.bottom }]}
+              pointerEvents="none"
+            />
+          )}
+          <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(modals)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
@@ -367,9 +395,10 @@ export default function RootLayout() {
               animation: 'slide_from_bottom'
             }} 
           />
-        </Stack>
-        <GlobalModals />
-      </View>
+          </Stack>
+          {isAuthenticated && <GlobalModals />}
+        </View>
+      </ProtectedRoute>
     </AppProviders>
   );
 }

@@ -344,7 +344,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
     if ((item as any).type === 'addButtons') {
       return (
         <View style={styles.addAccountSection}>
-          <Text style={styles.addAccountHeader}>Sign in</Text>
+          <Text style={styles.addAccountHeader}>Add Account</Text>
           <View style={styles.addButtonsContainer}>
             <Pressable
               style={[
@@ -375,9 +375,9 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
               disabled={isAuthenticating}
             >
               <View style={styles.buttonContent}>
-                <Icon name="at" size={20} color={Colors.lightGray} style={{ marginRight: 8 }} />
+                <Icon name="at" size={20} color={Colors.white} style={{ marginRight: 8 }} />
                 <Text style={styles.addAccountButtonText}>
-                  Custom
+                  Network
                 </Text>
               </View>
             </Pressable>
@@ -490,7 +490,7 @@ const AccountSwitcher: React.FC<AccountSwitcherProps> = ({
            setShowUsernameInput(false);
          }}
          onSignIn={handleCustomPDSSignIn}
-         title="Add Account"
+         title="Network sign in"
          name="custom-pds-input"
        />
     </>

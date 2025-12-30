@@ -90,7 +90,17 @@ export class AtProtoOAuthService {
         throw new Error(errorMsg);
       }
     } catch (error) {
-      logger.error('Sign-in failed', error, { component: 'OAuthService', identifier });
+      // Check if this is a user cancellation - don't log at all
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const isUserCancellation = errorMessage.includes('cancelled') || 
+                                errorMessage.includes('cancel') ||
+                                errorMessage.includes('user_cancelled') ||
+                                errorMessage.includes('User cancelled');
+      
+      if (!isUserCancellation) {
+        // Only log actual errors, not cancellations
+        logger.error('Sign-in failed', error, { component: 'OAuthService', identifier });
+      }
       throw error;
     }
   }

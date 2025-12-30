@@ -359,7 +359,7 @@ const SettingsScreen: React.FC = () => {
       items: [
         {
           id: 'switch-account',
-          label: savedAccounts.length > 1 ? 'Switch account' : 'Add account',
+          label: savedAccounts.length > 1 ? 'Switch account' : 'Network sign in',
           icon: 'user',
           onPress: () => {
             navigation.back();

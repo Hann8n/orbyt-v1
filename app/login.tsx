@@ -6,7 +6,6 @@ import {
   Text,
   StyleSheet,
   Alert,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   Linking,
@@ -15,32 +14,31 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { BackArrowIcon, PlusIcon, AtLineIcon, Loading3FillIcon } from '../src/components/ui/Icon';
 import { Colors } from '../src/components/ui/UI';
-import { 
-  AnimatedTV, 
-  CustomPDSInputSheet
-} from '../src/components/ui';
 import AuthorItem from '../src/components/ui/AuthorItem';
+import { useRouter, Link } from 'expo-router';
 import { SavedAccount } from '../src/stores/userStore';
 import { useAuth, useAccountManagement } from '../src/stores/userStore';
 import { useGlobalAccountSwitcher } from '../src/hooks/useGlobalModals';
 import { PDSDiscoveryService } from '../src/services/PDSDiscoveryService';
 import { isUserCancellation, getErrorMessage, shouldShowError } from '../src/utils/errorHandler';
+import { hexToRGBA } from '../src/utils/formatting/colorUtils';
 
 interface LoginScreenProps {
-  onLogin: (handle: string) => Promise<void>;
+  onLogin?: (handle: string) => Promise<void>;
   onAccountSwitch?: (account: SavedAccount) => Promise<void>;
 }
 
-export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenProps) {
+export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenProps = {}) {
   const DEBUG = __DEV__ && false;
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const [oauthError, setOAuthError] = useState<string | null>(null);
-  const [showCustomPDSSheet, setShowCustomPDSSheet] = useState<boolean>(false);
 
   // User store hooks
   const { 
@@ -70,7 +68,9 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       // Reload accounts to show the new one
       await loadSavedAccounts();
       
-      await onLogin('oauth-success');
+      if (onLogin) {
+        await onLogin('oauth-success');
+      }
     } catch (error) {
       // Don't show errors for user cancellation
       if (isUserCancellation(error)) {
@@ -94,18 +94,21 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     }
   };
 
-  const handleCustomPDSSignIn = async (identifier: string) => {
+  const handleCreateAccountOAuth = async () => {
     setIsLoading(true);
     setOAuthError(null);
     clearAuthError();
 
     try {
-      await signIn(identifier);
+      // Trigger OAuth flow for account creation
+      await signIn('https://bsky.social');
       
       // Reload accounts to show the new one
       await loadSavedAccounts();
       
-      await onLogin('oauth-success');
+      if (onLogin) {
+        await onLogin('oauth-success');
+      }
     } catch (error) {
       // Don't show errors for user cancellation
       if (isUserCancellation(error)) {
@@ -113,11 +116,11 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       }
       
       const errorMessage = getErrorMessage(error);
-      console.error('[LoginScreen] Custom PDS OAuth login failed:', errorMessage);
+      console.error('[LoginScreen] OAuth account creation failed:', errorMessage);
+      setOAuthError(errorMessage);
       
-      // Show error with app password fallback option
       Alert.alert(
-        'Custom PDS Sign-in Failed',
+        'Account Creation Failed',
         errorMessage,
         [
           { text: 'OK', style: 'cancel' },
@@ -127,8 +130,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       setIsLoading(false);
     }
   };
-
-
 
   // Check for saved accounts on mount
   useEffect(() => {
@@ -264,9 +265,6 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     }
   };
 
-  const handleCreateAccount = () => {
-    Linking.openURL('https://bsky.app');
-  };
 
 
 
@@ -312,7 +310,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   const renderLoginButtons = () => {
     const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
     
-    const buttonContent = (
+    const signInButtonContent = (
       <View style={styles.buttonContent} pointerEvents="none">
         {isLoading ? (
           <>
@@ -337,7 +335,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
     );
     
     return (
-      <View style={[styles.loginButtonsContainer, { paddingBottom: Math.max(20, typeof insets?.bottom === 'number' ? insets.bottom : 0) }]}>
+      <View style={[styles.loginButtonsContainer, { paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom + 16 : 16 }]}>
         {/* Sign in button */}
         <Pressable
           style={[styles.liquidGlassButton, !useLiquidGlass && styles.whiteButton]}
@@ -352,22 +350,26 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
                 tintColor="rgba(255, 255, 255, 1)"
                 isInteractive
               />
-              {buttonContent}
+              {signInButtonContent}
             </>
           ) : (
-            buttonContent
+            signInButtonContent
           )}
         </Pressable>
 
-        {/* Custom PDS text button */}
-        <Pressable
-          style={styles.customPDSTextButton}
-          onPress={() => setShowCustomPDSSheet(true)}
-          disabled={isLoading}
-          delayLongPress={500}
-        >
-          <Text style={styles.customPDSTextButtonText}>Custom Login</Text>
-        </Pressable>
+        {/* Advanced login link */}
+        <View style={[styles.manualSignInLink, { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }]}>
+          <Text style={[styles.termsText, { color: Colors.lightGray }]}>
+            On another network?{' '}
+          </Text>
+          <Link href="/advanced-login" asChild>
+            <Pressable disabled={isLoading}>
+              <Text style={[styles.termsText, { color: Colors.lightGray, textDecorationLine: 'underline', fontFamily: 'Firma-SemiBold' }, isLoading && styles.customPDSButtonDisabled]}>
+                sign in here
+              </Text>
+            </Pressable>
+          </Link>
+        </View>
       </View>
     );
   };
@@ -385,11 +387,11 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
   );
 
   const renderContent = () => (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <View
       style={[styles.container, { 
         paddingTop: typeof insets?.top === 'number' ? insets.top : 0,
-        paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0
+        paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
+        justifyContent: hasSavedAccounts ? 'space-between' : 'flex-end'
       }]}
     >
       {/* Logo and App Name */}
@@ -401,7 +403,12 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
               locations={[0, 0.1, 0.9, 1]}
               style={styles.logoGradient}
             >
-              <AnimatedTV size={120} />
+              <Image 
+                source={require('../src/assets/orbyt-logo-padded.png')} 
+                style={styles.logoImage}
+                contentFit="contain"
+                tintColor={Colors.white}
+              />
               <Text style={styles.appName}>orbyt</Text>
             </LinearGradient>
           </View>
@@ -411,24 +418,17 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       {hasSavedAccounts ? (
         <>
           {renderSavedAccounts()}
-          <View style={styles.dividerContainer}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.divider} />
+          <View>
+            <View style={styles.dividerContainer}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.divider} />
+            </View>
+            {renderLoginButtons()}
           </View>
-          {renderLoginButtons()}
         </>
       ) : renderManualLogin()}
-
-      {/* Custom PDS Input Sheet */}
-      <CustomPDSInputSheet
-        visible={showCustomPDSSheet}
-        onDismiss={() => setShowCustomPDSSheet(false)}
-        onSignIn={handleCustomPDSSignIn}
-        title="Custom Login"
-        name="login-custom-pds"
-      />
-    </KeyboardAvoidingView>
+    </View>
   );
 
   return renderContent();
@@ -437,7 +437,7 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     paddingHorizontal: 24,
     paddingVertical: 20,
     backgroundColor: Colors.black,
@@ -465,6 +465,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 25,
   },
+  logoImage: {
+    width: 120,
+    height: 120,
+  },
   appName: {
     color: Colors.white,
     fontSize: 42,
@@ -476,8 +480,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
-    marginTop: 'auto',
-    marginBottom: 40,
   },
   loginButtonsContainer: {
     width: '100%',
@@ -488,7 +490,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: BORDER_RADIUS.FULL,
     marginTop: 8,
-    marginBottom: 16,
+    marginBottom: 8,
     overflow: 'hidden',
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 8 },
@@ -513,18 +515,31 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Firma-SemiBold',
   },
-  customPDSTextButton: {
+  customPDSButton: {
     alignSelf: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginTop: 8,
   },
-  customPDSTextButtonText: {
+  manualSignInLink: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  manualSignInLinkText: {
     color: Colors.lightGray,
     fontSize: 16,
-    fontFamily: 'Firma-SemiBold',
-    textAlign: 'center',
-    textDecorationLine: 'underline',
+    fontFamily: 'Firma-Regular',
+    textDecorationLine: 'none',
+  },
+  customPDSButtonDisabled: {
+    opacity: 0.5,
+  },
+  customPDSButtonText: {
+    color: Colors.gray,
+    fontSize: 16,
+    fontFamily: 'Firma-Regular',
+    textDecorationLine: 'none',
   },
   savedAccountsContainer: {
     width: '100%',
@@ -712,6 +727,32 @@ const styles = StyleSheet.create({
   },
   pdsButtonText: {
     color: Colors.white,
+  },
+  termsContainer: {
+    marginTop: 0,
+    paddingLeft: 15,
+  },
+  termsContainerBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingLeft: 39,
+  },
+  termsText: {
+    color: Colors.gray,
+    fontSize: 15,
+    fontFamily: 'Firma-Regular',
+    textAlign: 'left',
+    lineHeight: 21,
+  },
+  termsLink: {
+    color: Colors.lightGray,
+    fontSize: 15,
+    fontFamily: 'Firma-Bold',
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+    marginTop: 4,
   },
   
 
