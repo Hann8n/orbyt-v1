@@ -5795,10 +5795,8 @@ react-native-url-polyfill@^3.0.0:
   dependencies:
     whatwg-url-without-unicode "8.0.0-3"
 
-react-native-video-trim@^6.0.11:
-  version "6.0.11"
-  resolved "https://registry.yarnpkg.com/react-native-video-trim/-/react-native-video-trim-6.0.11.tgz#c2133e1759650df7131b295476a8f8491755fd71"
-  integrity sha512-nePmZovSIY++X/lvVRMXE+1YLbSihizfD0m1k0K/R26nzbxbXIjr5hkvIPbWF6cBbD1S0FoB5K1XmQTjNvYyhQ==
+"react-native-video-trim@file:../react-native-video-trim":
+  version "6.1.0-beta.1"
 
 react-native-video-trimmer-ui@^0.3.6:
   version "0.3.6"

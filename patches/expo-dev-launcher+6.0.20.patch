@@ -1,0 +1,46 @@
+diff --git a/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m b/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
+index 0fc0dd9..a9f6f74 100644
+--- a/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
++++ b/node_modules/expo-dev-launcher/ios/EXDevLauncherController.m
+@@ -13,7 +13,9 @@
+ #import <EXDevLauncher/EXDevLauncherManifestParser.h>
+ #import <EXDevLauncher/EXDevLauncherRCTDevSettings.h>
+ #import <EXDevLauncher/EXDevLauncherUpdatesHelper.h>
++#if __has_include(<React/RCTPackagerConnection.h>)
+ #import <EXDevLauncher/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.h>
++#endif
+ 
+ #import <EXDevLauncher/EXDevLauncherReactNativeFactory.h>
+ #import <EXDevMenu/DevClientNoOpLoadingView.h>
+@@ -335,7 +337,14 @@ - (void)navigateToLauncher
+   NSURL *url = [self devLauncherURL];
+   if (url != nil) {
+     // Connect to the websocket
+-    [[RCTPackagerConnection sharedPackagerConnection] setSocketConnectionURL:url];
++    // Check if RCTPackagerConnection is available (not available in RN 0.81.5+)
++    Class packagerConnectionClass = NSClassFromString(@"RCTPackagerConnection");
++    if (packagerConnectionClass && [packagerConnectionClass respondsToSelector:@selector(sharedPackagerConnection)]) {
++      id sharedConnection = [packagerConnectionClass performSelector:@selector(sharedPackagerConnection)];
++      if (sharedConnection && [sharedConnection respondsToSelector:@selector(setSocketConnectionURL:)]) {
++        [sharedConnection performSelector:@selector(setSocketConnectionURL:) withObject:url];
++      }
++    }
+   }
+ 
+   [self _addInitModuleObserver];
+@@ -583,7 +592,14 @@ - (void)_initAppWithUrl:(NSURL *)appUrl bundleUrl:(NSURL *)bundleUrl manifest:(E
+ #if RCT_DEV
+     // Connect to the websocket, ignore downloaded update bundles
+     if (![bundleUrl.scheme isEqualToString:@"file"]) {
+-      [[RCTPackagerConnection sharedPackagerConnection] setSocketConnectionURL:bundleUrl];
++      // Check if RCTPackagerConnection is available (not available in RN 0.81.5+)
++      Class packagerConnectionClass = NSClassFromString(@"RCTPackagerConnection");
++      if (packagerConnectionClass && [packagerConnectionClass respondsToSelector:@selector(sharedPackagerConnection)]) {
++        id sharedConnection = [packagerConnectionClass performSelector:@selector(sharedPackagerConnection)];
++        if (sharedConnection && [sharedConnection respondsToSelector:@selector(setSocketConnectionURL:)]) {
++          [sharedConnection performSelector:@selector(setSocketConnectionURL:) withObject:bundleUrl];
++        }
++      }
+     }
+     self.networkInterceptor = [[EXDevLauncherNetworkInterceptor alloc] initWithBundleUrl:bundleUrl];
+ #endif

@@ -11,6 +11,7 @@ import {
   StatusBar,
   NativeEventEmitter,
   NativeModules,
+  type EventSubscription,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -25,7 +26,9 @@ import * as ImagePicker from 'expo-image-picker';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
-  withTiming
+  withTiming,
+  useAnimatedReaction,
+  useFrameCallback
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -35,10 +38,9 @@ import { isSmallScreen, getBottomNavBarHeight } from '../../src/utils/helpers';
 import VideoProcessingService from '../../src/services/VideoProcessingService';
 import { Colors } from '../../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { logger } from '../../src/utils/logger';
 import * as Haptics from 'expo-haptics';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { showEditor, isValidFile, type Spec } from 'react-native-video-trim';
+import NativeVideoTrim, { showEditor, isValidFile, type Spec } from 'react-native-video-trim';
 import { SegmentManager, type Segment } from '../../src/utils/segmentManager';
 import { debugVideoPath } from '../../src/utils/videoPath';
 
@@ -62,13 +64,13 @@ const CreateScreen: React.FC = () => {
   const [isLoadingFromGallery, setIsLoadingFromGallery] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(16); // Default to 16 seconds
   const [isDurationSelectorExpanded, setIsDurationSelectorExpanded] = useState(false);
+  const [isTrimmerActive, setIsTrimmerActive] = useState(false);
   
   // Segment manager - single source of truth
   const segmentManagerRef = useRef<SegmentManager | null>(null);
   const [segmentUpdateTrigger, setSegmentUpdateTrigger] = useState(0);
 
   // Recording state
-  const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const segmentStartTime = useRef<number>(0);
   const cameraRef = useRef<CameraView>(null);
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
@@ -79,7 +81,8 @@ const CreateScreen: React.FC = () => {
   
   // Animated values
   const totalDurationShared = useSharedValue(0); // Total duration from segments (updated when segments change)
-  const recordingElapsed = useSharedValue(0); // Elapsed time during current recording (seconds)
+  const recordingStartTime = useSharedValue<number | null>(null); // Start time of current recording (milliseconds)
+  const recordingElapsed = useSharedValue(0); // Elapsed time during current recording (seconds) - updated continuously
   const buttonOpacity = useSharedValue(1);
   const zoomScale = useSharedValue(1);
   const baseZoom = useSharedValue(0);
@@ -92,19 +95,22 @@ const CreateScreen: React.FC = () => {
     if (!segmentManagerRef.current) {
       segmentManagerRef.current = new SegmentManager(selectedDuration);
     }
-  }, []);
+  }, [selectedDuration]);
 
   // Update max duration when selected duration changes
   useEffect(() => {
     if (segmentManagerRef.current) {
       segmentManagerRef.current.setMaxDuration(selectedDuration);
+      // Update UI to reflect changes
+      totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
+      setSegmentUpdateTrigger(prev => prev + 1);
     }
-  }, [selectedDuration]);
+  }, [selectedDuration, totalDurationShared]);
   
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
-  const trimListeners = useRef<{ onFinishTrimming?: any; onError?: any }>({});
+  const listenerSubscription = useRef<Record<string, EventSubscription>>({});
   
   // Calculate 9:16 aspect ratio dimensions
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -129,23 +135,41 @@ const CreateScreen: React.FC = () => {
   const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
 
   // Handle trimmed video from gallery
-  const handleTrimmingComplete = useCallback(async ({ outputPath, startTime, endTime }: { outputPath: string; startTime: number; endTime: number }) => {
+  const handleTrimmingComplete = useCallback(({
+    outputPath,
+    startTime,
+    endTime,
+  }: {
+    outputPath: string;
+    startTime: number;
+    endTime: number;
+  }) => {
     if (!segmentManagerRef.current) return;
 
-    // Calculate trimmed duration (all times in milliseconds)
+    // Calculate trimmed duration (all times in milliseconds, convert to seconds)
+    // Use precise values (no rounding) for validation - display is rounded separately
     const trimmedDurationSeconds = (endTime - startTime) / 1000;
-    
+
     // Validate trimmed duration doesn't exceed available time
+    // Round both to milliseconds (0.001s) for comparison to handle floating point precision
+    // All actual values remain precise - rounding only for this comparison
     const availableTime = segmentManagerRef.current.getAvailableTime();
-    if (trimmedDurationSeconds > availableTime) {
-      Alert.alert('Error', `Trimmed video (${trimmedDurationSeconds.toFixed(1)}s) exceeds available time (${availableTime.toFixed(1)}s). Please trim to a shorter duration.`);
+    const trimmedRounded = Math.round(trimmedDurationSeconds * 1000) / 1000;
+    const availableRounded = Math.round(availableTime * 1000) / 1000;
+    if (trimmedRounded > availableRounded) {
+      Alert.alert(
+        'Error',
+        `Trimmed video (${trimmedDurationSeconds.toFixed(1)}s) exceeds available time (${availableTime.toFixed(1)}s). Please trim to a shorter duration.`
+      );
       setIsLoadingFromGallery(false);
       setIsProcessing(false);
       return;
     }
-    
+
     // Add segment
-    const videoUri = outputPath.startsWith('file://') ? outputPath : `file://${outputPath}`;
+    const videoUri = outputPath.startsWith('file://')
+      ? outputPath
+      : `file://${outputPath}`;
     const newSegment: Segment = {
       duration: trimmedDurationSeconds,
       video: { uri: videoUri },
@@ -153,63 +177,125 @@ const CreateScreen: React.FC = () => {
     };
 
     if (!segmentManagerRef.current.addSegment(newSegment)) {
-      Alert.alert('Error', 'Adding this video would exceed the maximum duration');
+      Alert.alert(
+        'Error',
+        'Adding this video would exceed the maximum duration'
+      );
       setIsLoadingFromGallery(false);
       setIsProcessing(false);
       return;
     }
-    
+
+    const segmentsAfter = segmentManagerRef.current.getSegments();
     // Update UI
     totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
     setSegmentUpdateTrigger(prev => prev + 1);
     setIsLoadingFromGallery(false);
     setIsProcessing(false);
+    setIsTrimmerActive(false);
   }, [totalDurationShared]);
+
+  // Helper to stop recording without processing (for when trimmer opens)
+  const stopRecordingImmediate = useCallback(() => {
+    if (isRecordingRef.current && cameraRef.current) {
+      cameraRef.current.stopRecording();
+      // Reset recording timer shared values
+      recordingStartTime.value = null;
+      recordingElapsed.value = 0;
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      recordingPromiseRef.current = null;
+    }
+  }, [recordingStartTime]);
 
   // Set up event listeners for react-native-video-trim using Spec API
   useEffect(() => {
-    const NativeVideoTrim = NativeModules.VideoTrim as Spec;
+    const VideoTrimModule = NativeModules.VideoTrim as Spec;
     
     // Use the new Spec API if available, otherwise fall back to old architecture
-    if (NativeVideoTrim && typeof NativeVideoTrim.onFinishTrimming === 'function') {
-      trimListeners.current.onFinishTrimming = NativeVideoTrim.onFinishTrimming(handleTrimmingComplete);
-      trimListeners.current.onError = NativeVideoTrim.onError(({ message, errorCode }) => {
-        console.error('Trimming error:', message, errorCode);
-        Alert.alert('Error', message || 'Failed to trim video');
-        setIsLoadingFromGallery(false);
-        setIsProcessing(false);
+    if (VideoTrimModule && typeof VideoTrimModule.onFinishTrimming === 'function') {
+      // New Architecture - use Spec API
+      listenerSubscription.current.onLoad = VideoTrimModule.onLoad(() => {});
+
+      listenerSubscription.current.onStartTrimming = VideoTrimModule.onStartTrimming(() => {});
+
+      listenerSubscription.current.onCancelTrimming = VideoTrimModule.onCancelTrimming(
+        () => {
+          setIsLoadingFromGallery(false);
+          setIsProcessing(false);
+          setIsTrimmerActive(false);
+        }
+      );
+
+      listenerSubscription.current.onCancel = VideoTrimModule.onCancel(
+        () => {
+          setIsLoadingFromGallery(false);
+          setIsProcessing(false);
+          setIsTrimmerActive(false);
+        }
+      );
+
+      listenerSubscription.current.onHide = VideoTrimModule.onHide(() => {
+        setIsTrimmerActive(false);
       });
+
+      listenerSubscription.current.onShow = VideoTrimModule.onShow(() => {
+        stopRecordingImmediate();
+        setIsTrimmerActive(true);
+      });
+
+      listenerSubscription.current.onFinishTrimming = VideoTrimModule.onFinishTrimming(
+        handleTrimmingComplete
+      );
+
+      listenerSubscription.current.onLog = VideoTrimModule.onLog(() => {});
+
+      listenerSubscription.current.onStatistics = VideoTrimModule.onStatistics(() => {});
+
+      listenerSubscription.current.onError = VideoTrimModule.onError(
+        ({ message }) => {
+          Alert.alert('Error', message || 'Failed to trim video');
+          setIsLoadingFromGallery(false);
+          setIsProcessing(false);
+          setIsTrimmerActive(false);
+        }
+      );
     } else {
       // Fallback to old architecture
       const eventEmitter = new NativeEventEmitter(NativeModules.VideoTrim);
-      trimListeners.current.onFinishTrimming = eventEmitter.addListener(
+      listenerSubscription.current.onFinishTrimming = eventEmitter.addListener(
         'VideoTrim',
         (event: any) => {
           if (event.name === 'onFinishTrimming') {
             // Extract data from event (old architecture includes name property)
             const { name, ...data } = event;
             handleTrimmingComplete(data);
-          }
-        }
-      );
-      trimListeners.current.onError = eventEmitter.addListener(
-        'VideoTrim',
-        (event: any) => {
-          if (event.name === 'onError') {
-            console.error('Trimming error:', event.message, event.errorCode);
+          } else if (event.name === 'onError') {
             Alert.alert('Error', event.message || 'Failed to trim video');
             setIsLoadingFromGallery(false);
             setIsProcessing(false);
+            setIsTrimmerActive(false);
+          } else if (event.name === 'onCancel') {
+            setIsLoadingFromGallery(false);
+            setIsProcessing(false);
+            setIsTrimmerActive(false);
+          } else if (event.name === 'onShow') {
+            stopRecordingImmediate();
+            setIsTrimmerActive(true);
+          } else if (event.name === 'onHide') {
+            setIsTrimmerActive(false);
           }
         }
       );
     }
 
     return () => {
-      trimListeners.current.onFinishTrimming?.remove();
-      trimListeners.current.onError?.remove();
+      Object.values(listenerSubscription.current).forEach(listener => 
+        listener?.remove()
+      );
+      listenerSubscription.current = {};
     };
-  }, [handleTrimmingComplete]);
+  }, [handleTrimmingComplete, stopRecordingImmediate]);
 
   // Request camera permissions on mount
   useEffect(() => {
@@ -228,9 +314,7 @@ const CreateScreen: React.FC = () => {
       // Stop recording if active when component unmounts
       if (isRecordingRef.current && cameraRef.current) {
         cameraRef.current.stopRecording();
-        if (recordingTimer.current) {
-          clearInterval(recordingTimer.current);
-        }
+        recordingStartTime.value = null;
         isRecordingRef.current = false;
         setIsRecording(false);
       }
@@ -254,9 +338,7 @@ const CreateScreen: React.FC = () => {
         // Cleanup when screen loses focus - stop recording if active
         if (isRecordingRef.current && cameraRef.current) {
           cameraRef.current.stopRecording();
-        if (recordingTimer.current) {
-          clearInterval(recordingTimer.current);
-        }
+          recordingStartTime.value = null;
           isRecordingRef.current = false;
           setIsRecording(false);
         }
@@ -309,7 +391,18 @@ const CreateScreen: React.FC = () => {
     totalDurationShared.value = segmentManagerRef.current?.getTotalDuration() ?? 0;
   }, [segmentUpdateTrigger, totalDurationShared]);
 
-  // Progress bar: segment total + current recording elapsed
+  // Continuously update elapsed time on UI thread every frame
+  useFrameCallback((frameInfo) => {
+    'worklet';
+    if (recordingStartTime.value !== null) {
+      const now = Date.now();
+      recordingElapsed.value = (now - recordingStartTime.value) / 1000;
+    } else {
+      recordingElapsed.value = 0;
+    }
+  });
+
+  // Progress bar: completed segments + current recording elapsed
   const animatedProgressStyle = useAnimatedStyle(() => {
     'worklet';
     const currentTotal = totalDurationShared.value + recordingElapsed.value;
@@ -325,64 +418,77 @@ const CreateScreen: React.FC = () => {
     opacity: buttonOpacity.value,
   }), []);
 
-  // Animate button opacity when recording state changes
+  // Animate button opacity when recording state or max duration changes
   useEffect(() => {
-    buttonOpacity.value = withTiming(isRecording ? 0.5 : 1, { duration: 100 });
-  }, [isRecording]);
-
+    const isMaxReached = availableTime <= 0;
+    buttonOpacity.value = withTiming(isRecording || isMaxReached ? 0.5 : 1, { duration: 100 });
+  }, [isRecording, availableTime]);
 
   const stopRecording = useCallback(async () => {
-    if (cameraRef.current && isRecordingRef.current) {
-      try {
-        setIsProcessing(true);
-        
-        if (recordingTimer.current) clearInterval(recordingTimer.current);
-        recordingElapsed.value = 0; // Reset elapsed time
-        
-        cameraRef.current.stopRecording();
-        
-        if (recordingPromiseRef.current) {
-          const video = await recordingPromiseRef.current;
-          if (video && segmentManagerRef.current) {
-            // Get actual video duration from file
-            let actualDuration: number;
-            try {
-              actualDuration = await VideoProcessingService.getVideoDurationFromFile(video.uri);
-              if (actualDuration <= 0) {
-                actualDuration = (Date.now() - segmentStartTime.current) / 1000;
-              }
-            } catch (error) {
-              actualDuration = (Date.now() - segmentStartTime.current) / 1000;
-            }
-            
-            if (actualDuration > 0) {
-              const newSegment: Segment = {
-                duration: actualDuration,
-                video,
-                sourceType: 'camera',
-              };
-              
-              if (segmentManagerRef.current.addSegment(newSegment)) {
-                totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
-                setSegmentUpdateTrigger(prev => prev + 1);
-              }
-            }
-          }
-        }
-        
-        setIsProcessing(false);
-        isRecordingRef.current = false;
-        setIsRecording(false);
-        recordingPromiseRef.current = null;
-      } catch (e) {
-        setIsProcessing(false);
-        isRecordingRef.current = false;
-        setIsRecording(false);
-        recordingPromiseRef.current = null;
-        recordingElapsed.value = 0;
-      }
+    // Prevent duplicate calls - set recording ref to false immediately
+    if (!cameraRef.current || !isRecordingRef.current) {
+      return;
     }
-  }, [recordingElapsed]);
+    
+    // Mark as not recording immediately to prevent re-entry
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    
+    try {
+      setIsProcessing(true);
+      
+      // Capture elapsed time before resetting (use recording time directly)
+      const elapsedDuration = recordingElapsed.value;
+      
+      // Optimistically update total duration immediately to prevent flash
+      if (elapsedDuration > 0 && segmentManagerRef.current) {
+        totalDurationShared.value = segmentManagerRef.current.getTotalDuration() + elapsedDuration;
+      }
+      
+      // Reset recording timer shared values (after optimistic update)
+      recordingStartTime.value = null;
+      recordingElapsed.value = 0;
+      
+      cameraRef.current.stopRecording();
+      
+      if (recordingPromiseRef.current) {
+        const video = await recordingPromiseRef.current;
+        if (video && segmentManagerRef.current && elapsedDuration > 0) {
+          // Clamp elapsed duration to available time to prevent exceeding maxDuration
+          const availableTime = segmentManagerRef.current.getAvailableTime();
+          const clampedDuration = Math.min(elapsedDuration, availableTime);
+          
+          // Use the clamped duration for the segment
+          const newSegment: Segment = {
+            duration: clampedDuration,
+            video,
+            sourceType: 'camera',
+          };
+          
+          if (clampedDuration > 0 && segmentManagerRef.current.addSegment(newSegment)) {
+            // Update with actual total from segment manager (should match optimistic update)
+            totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
+            setSegmentUpdateTrigger(prev => prev + 1);
+          } else {
+            // If segment couldn't be added, revert optimistic update
+            totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
+          }
+        } else if (elapsedDuration > 0 && segmentManagerRef.current) {
+          // If video failed but we had elapsed time, revert optimistic update
+          totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
+        }
+      }
+      
+      recordingPromiseRef.current = null;
+    } catch (e) {
+      // Reset recording timer shared values on error
+      recordingStartTime.value = null;
+      recordingElapsed.value = 0;
+      recordingPromiseRef.current = null;
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [totalDurationShared, recordingStartTime]);
 
   const startRecording = useCallback(async () => {
     const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
@@ -397,8 +503,10 @@ const CreateScreen: React.FC = () => {
       
       isRecordingRef.current = true;
       setIsRecording(true);
-      segmentStartTime.current = Date.now();
-      recordingElapsed.value = 0;
+      const startTime = Date.now();
+      segmentStartTime.current = startTime;
+      recordingStartTime.value = startTime; // Set shared value for UI-thread timer
+      recordingElapsed.value = 0; // Reset elapsed time
       
       try {
         const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
@@ -407,32 +515,21 @@ const CreateScreen: React.FC = () => {
         };
         
         recordingPromiseRef.current = cameraRef.current.recordAsync(recordingOptions);
-        
-        // Update elapsed time during recording
-        recordingTimer.current = setInterval(() => {
-          const elapsed = (Date.now() - segmentStartTime.current) / 1000;
-          recordingElapsed.value = elapsed;
-
-          // Check if we've reached max duration
-          const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
-          if (currentTotal + elapsed >= maxDuration) {
-            stopRecording();
-            if (recordingTimer.current) clearInterval(recordingTimer.current);
-          }
-        }, 50);
       } catch (e) {
+        // Reset recording timer shared values on error
+        recordingStartTime.value = null;
         isRecordingRef.current = false;
         setIsRecording(false);
         recordingPromiseRef.current = null;
-        recordingElapsed.value = 0;
       }
     }
-  }, [stopRecording, microphonePermission, requestMicrophonePermission, maxDuration, recordingElapsed]);
+  }, [stopRecording, microphonePermission, requestMicrophonePermission, maxDuration, recordingStartTime]);
   
   // Handle press start - begin recording (press in to start)
   const handlePressIn = useCallback(() => {
     const currentTotal = segmentManagerRef.current?.getTotalDuration() ?? 0;
-    if (!isRecordingRef.current && !isProcessing && currentTotal < maxDuration) {
+    const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
+    if (!isRecordingRef.current && !isProcessing && currentTotal < maxDuration && availableTime > 0) {
       startRecording();
     }
   }, [isProcessing, startRecording, maxDuration]);
@@ -494,15 +591,18 @@ const CreateScreen: React.FC = () => {
           setIsLoadingFromGallery(false);
           setIsProcessing(false);
           
-          // Show editor with maxDuration constraint
-          // iOS expects Int (seconds), Android expects Double (seconds)
-          const maxDurationSeconds = Math.floor(availableTime);
+          // Show editor with dynamic maxDuration constraint
+          // Pass precise value (no rounding) - only display rounds in trimmer UI
+          // NOTE: iOS has a bug where it treats maxDuration/minDuration as seconds instead of milliseconds
+          // Android expects milliseconds, so we need to pass seconds for iOS, milliseconds for Android
+          const maxDurationSeconds = availableTime;
+          const maxDurationMs = availableTime * 1000;
+          
           showEditor(videoUri, {
-            maxDuration: Platform.OS === 'ios' ? maxDurationSeconds : availableTime,
+            maxDuration: Platform.OS === 'ios' ? maxDurationSeconds : maxDurationMs,
             saveToPhoto: false,
             openShareSheetOnFinish: false,
             removeAfterSavedToPhoto: false,
-            headerText: 'Trim Video',
             cancelButtonText: 'Cancel',
             saveButtonText: 'Done',
             trimmerColor: Colors.blurple,
@@ -512,7 +612,6 @@ const CreateScreen: React.FC = () => {
             fullScreenModalIOS: true,
           });
         } catch (error) {
-          console.error('Error opening trimmer:', error);
           Alert.alert('Error', 'Failed to open video trimmer');
           setIsLoadingFromGallery(false);
           setIsProcessing(false);
@@ -570,7 +669,8 @@ const CreateScreen: React.FC = () => {
   const deleteLastSegment = useCallback(() => {
     if (!segmentManagerRef.current) return;
     
-    if (segmentManagerRef.current.removeLastSegment()) {
+    const removedSegment = segmentManagerRef.current.removeLastSegment();
+    if (removedSegment) {
       totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
       setSegmentUpdateTrigger(prev => prev + 1);
     }
@@ -619,7 +719,6 @@ const CreateScreen: React.FC = () => {
             onPress: () => {
               segmentManagerRef.current?.clear();
               totalDurationShared.value = 0;
-              recordingElapsed.value = 0;
               setSegmentUpdateTrigger(prev => prev + 1);
               navigation.back();
             },
@@ -633,24 +732,23 @@ const CreateScreen: React.FC = () => {
   };
 
   const finishRecording = useCallback(async () => {
-    if (!segmentManagerRef.current) return;
+    if (!segmentManagerRef.current || isProcessing) {
+      return;
+    }
     
-    const currentSegments = segmentManagerRef.current.getSegments();
-    if (currentSegments.length === 0 || isProcessing) return;
-    
-    // Stop recording if active
+    // Wait for any active recording to finish
     if (isRecordingRef.current) {
       await stopRecording();
-      // Get segments again after stopping recording (may have added a new one)
-      const updatedSegments = segmentManagerRef.current.getSegments();
-      if (updatedSegments.length === 0) return;
+    }
+    
+    const finalSegments = segmentManagerRef.current.getSegments();
+    
+    if (finalSegments.length === 0) {
+      return;
     }
     
     setIsProcessing(true);
     try {
-      // Get the latest segments after potential stopRecording update
-      const finalSegments = segmentManagerRef.current.getSegments();
-      
       // If only one segment, check compatibility and process accordingly
       if (finalSegments.length === 1) {
         const segment = finalSegments[0];
@@ -669,8 +767,6 @@ const CreateScreen: React.FC = () => {
         // Standardize path first (handles iCloud downloads)
         const standardizedPath = await VideoProcessingService.standardizeVideoPath(videoPath, asset);
         
-        console.log('[create.tsx] Standardized path:', standardizedPath);
-        
         // Check if video is already compatible - skip normalization if so
         // Use standardizedPath for compatibility check since that's the path we'll actually use
         const isCompatible = await VideoProcessingService.isVideoCompatible(standardizedPath, asset);
@@ -679,13 +775,10 @@ const CreateScreen: React.FC = () => {
         if (isCompatible) {
           // Video is compatible, use standardized path directly
           finalVideoPath = standardizedPath;
-          console.log('[create.tsx] Video compatible, using standardized path');
         } else {
           // Video needs normalization
-          console.log('[create.tsx] Video needs normalization');
           const normalizedVideo = await VideoProcessingService.normalizeVideo(segment.video);
           finalVideoPath = normalizedVideo.path;
-          console.log('[create.tsx] Normalized path:', finalVideoPath);
         }
         
         // Debug: Log the final path being sent
@@ -696,9 +789,8 @@ const CreateScreen: React.FC = () => {
         let thumbnailPath: string | undefined;
         try {
           thumbnailPath = await VideoProcessingService.extractFirstFrame(finalVideoPath);
-          logger.info('Thumbnail extracted', { component: 'create.tsx', thumbnailPath });
         } catch (error) {
-          logger.warn('Failed to extract thumbnail, continuing without it', { component: 'create.tsx', error });
+          // Failed to extract thumbnail, continuing without it
         }
         
         // Only navigate if component is still mounted
@@ -715,8 +807,6 @@ const CreateScreen: React.FC = () => {
         }
       } else {
         // Multiple segments need merging - merge in background and go directly to post screen
-        console.log('[create.tsx] Multiple segments, merging in background');
-        
         // Extract thumbnail from first segment (FFmpeg runs in background thread, won't block UI)
         // Standardize the first segment's path first to ensure it's accessible
         let thumbnailPath: string | undefined;
@@ -729,10 +819,9 @@ const CreateScreen: React.FC = () => {
             // Standardize path first (handles iCloud downloads and copies to sandbox)
             const standardizedFirstPath = await VideoProcessingService.standardizeVideoPath(firstVideoPath, firstAsset);
             thumbnailPath = await VideoProcessingService.extractFirstFrame(standardizedFirstPath);
-            logger.info('Thumbnail extracted from first segment', { component: 'create.tsx', thumbnailPath });
           }
         } catch (error) {
-          logger.warn('Failed to extract thumbnail, continuing without it', { component: 'create.tsx', error });
+          // Failed to extract thumbnail, continuing without it
         }
         
         // Only navigate if component is still mounted
@@ -750,7 +839,6 @@ const CreateScreen: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('[create.tsx] Error processing video:', error);
       // Only show alert if component is still mounted
       if (isMountedRef.current) {
         Alert.alert('Error', 'Failed to process video. Please try again.');
@@ -762,20 +850,6 @@ const CreateScreen: React.FC = () => {
       }
     }
   }, [navigation, isProcessing, stopRecording]);
-
-  // Automatically proceed when max duration is reached
-  useEffect(() => {
-    if (!segmentManagerRef.current || isProcessing) return;
-    
-    const currentTotal = segmentManagerRef.current.getTotalDuration();
-    const currentSegments = segmentManagerRef.current.getSegments();
-    const lastSegmentIsFromRecording = currentSegments.length > 0 && 
-      currentSegments[currentSegments.length - 1]?.sourceType === 'camera';
-
-    if (lastSegmentIsFromRecording && currentTotal >= maxDuration) {
-      finishRecording();
-    }
-  }, [maxDuration, isProcessing, finishRecording, segmentUpdateTrigger]);
 
   // Render content based on the state of permissions and device availability
   const renderContent = () => {
@@ -805,10 +879,10 @@ const CreateScreen: React.FC = () => {
     // Normal camera content when permissions and device are available
     return (
       <>
-        {/* Camera View - only render when screen is focused */}
+        {/* Camera View - only render when screen is focused and trimmer is not active */}
         <View style={[styles.cameraContainer, { justifyContent: Platform.OS === 'ios' ? 'flex-start' : 'center' }]}>
           <StatusBar hidden={true} />
-          {isFocused && (
+          {isFocused && !isTrimmerActive && (
             <GestureDetector gesture={pinchGesture}>
               <Animated.View style={[styles.cameraPressable, Platform.OS === 'android' && { flex: 0, height: 'auto' }]}>
                 <Pressable onPress={handleDoubleTap} style={[styles.cameraPressable, Platform.OS === 'android' && { flex: 0, height: 'auto' }]}>
@@ -851,13 +925,21 @@ const CreateScreen: React.FC = () => {
             <Pressable
               onPressIn={handlePressIn}
               onPressOut={handlePressOut}
+              disabled={availableTime <= 0}
               style={styles.recordButtonContainer}
             >
-              <Animated.View style={[styles.recordButton, animatedButtonOpacityStyle]}>
+              <Animated.View style={[
+                styles.recordButton,
+                animatedButtonOpacityStyle,
+                availableTime <= 0 && styles.recordButtonDisabled
+              ]}>
                 {isLoadingFromGallery ? (
                   <Loading3FillIcon size={32} color="white" />
                 ) : (
-                  <View style={styles.captureButtonInner} />
+                  <View style={[
+                    styles.captureButtonInner,
+                    availableTime <= 0 && styles.captureButtonInnerDisabled
+                  ]} />
                 )}
               </Animated.View>
             </Pressable>
@@ -1141,11 +1223,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  recordButtonDisabled: {
+    borderColor: Colors.lightGray,
+  },
   captureButtonInner: {
     width: 74,
     height: 74,
     borderRadius: 38,
     backgroundColor: 'rgba(129, 136, 150, 0.4)',
+  },
+  captureButtonInnerDisabled: {
+    backgroundColor: 'rgba(129, 136, 150, 0.2)',
   },
 });
 
