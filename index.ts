@@ -33,5 +33,16 @@ import * as WebBrowser from 'expo-web-browser';
 // This is required for expo-auth-session to work properly
 WebBrowser.maybeCompleteAuthSession();
 
+// Enable react-native-screens early for better performance
+// This should be called before any screen components are rendered
+import { enableScreens, enableFreeze } from 'react-native-screens';
+
+// Enable native screens (uses native navigation primitives for better performance)
+enableScreens(true);
+
+// Enable screen freezing (freezes inactive screens to save memory and improve performance)
+// This is especially beneficial for apps with deep navigation stacks
+enableFreeze(true);
+
 // Import expo-router entry point LAST
 import 'expo-router/entry';
