@@ -21,7 +21,6 @@ import Animated, {
   SharedValue,
   FadeIn,
   FadeOut,
-  withTiming,
   Easing,
 } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
@@ -162,9 +161,6 @@ const EditProfileScreen: React.FC = () => {
   // Ref for color picker ScrollView to scroll to selected color
   const colorPickerScrollViewRef = useRef<ScrollView>(null);
   
-  // Animation shared value for bio focus animation
-  const aboutSectionOpacity = useSharedValue(1);
-
   // Predefined color options - just the pairings
   const predefinedColors: ProfileColorOption[] = useMemo(() => [
     // Neutral/Universal
@@ -260,8 +256,8 @@ const EditProfileScreen: React.FC = () => {
       textColor: '#575567',
     },
     {
-      backgroundColor: '#cfdae4',
-      textColor: '#a83455',
+      backgroundColor: '#cfdae7',
+      textColor: '#b61a59', // Adjusted for WCAG AA compliance (4.522:1 contrast ratio)
     },
     {
       backgroundColor: '#0e1420',
@@ -304,39 +300,41 @@ const EditProfileScreen: React.FC = () => {
       textColor: '#ff6340',
     },
     // Neon - very dark backgrounds with neon text colors (ordered by hue - reverse rainbow order, red first)
+    // All backgrounds: HSL(*, 100%, ~9%) for consistent darkness
+    // All text colors: HSL(*, ~95%, ~62%) for consistent brightness and vibrancy
     {
-      backgroundColor: '#001b41',
-      textColor: '#0090f6',
+      backgroundColor: '#00132e', // Blue
+      textColor: '#42aefa', // Blue
     },
     {
-      backgroundColor: '#330009',
-      textColor: '#fd5567',
+      backgroundColor: '#2e0005', // Red (normalized to match others)
+      textColor: '#fa4254', // Red (normalized to match others)
     },
     {
-      backgroundColor: '#1a0047',
-      textColor: '#c73bf3',
+      backgroundColor: '#11002e', // Purple
+      textColor: '#ce42fa', // Purple
     },
     {
-      backgroundColor: '#002323',
-      textColor: '#02e8c1',
+      backgroundColor: '#002e2e', // Teal
+      textColor: '#42fadb', // Teal
     },
     {
-      backgroundColor: '#001810',
-      textColor: '#05e581',
+      backgroundColor: '#002e13', // Green (adjusted for better separation from Teal)
+      textColor: '#42fa8f', // Green (adjusted for better separation from Teal)
     },
     {
-      backgroundColor: '#061d00',
-      textColor: '#4acc03',
+      backgroundColor: '#092e00', // Green Bright
+      textColor: '#83fa42', // Green Bright
     },
     {
-      backgroundColor: '#2b1900',
-      textColor: '#f6a132',
+      backgroundColor: '#2e1b00', // Gold
+      textColor: '#faad42', // Gold
     },
   ], []);
   
   // Generate shared values for all colors - create array matching predefinedColors length
   // Must create them all explicitly since hooks can't be called in loops
-  // predefinedColors has 39 items, create all shared values at top level
+  // predefinedColors has 40 items, create all shared values at top level
   const colorFlexValues: Array<{ background: SharedValue<number>; text: SharedValue<number> }> = [
     { background: useSharedValue(3), text: useSharedValue(1) }, // 0
     { background: useSharedValue(3), text: useSharedValue(1) }, // 1
@@ -377,6 +375,7 @@ const EditProfileScreen: React.FC = () => {
     { background: useSharedValue(3), text: useSharedValue(1) }, // 36
     { background: useSharedValue(3), text: useSharedValue(1) }, // 37
     { background: useSharedValue(3), text: useSharedValue(1) }, // 38
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 39
   ];
   
   // Custom color flex values (for non-preset colors)
@@ -681,28 +680,6 @@ const EditProfileScreen: React.FC = () => {
     router.back();
   }, [router]);
 
-  // Animate about section when focus changes
-  useEffect(() => {
-    if (isAboutFocused) {
-      aboutSectionOpacity.value = withTiming(1, {
-        duration: 250,
-        easing: Easing.out(Easing.ease),
-      });
-    } else {
-      aboutSectionOpacity.value = withTiming(1, {
-        duration: 200,
-        easing: Easing.in(Easing.ease),
-      });
-    }
-  }, [isAboutFocused, aboutSectionOpacity]);
-
-  // Animated style for about section
-  const aboutSectionAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: aboutSectionOpacity.value,
-    };
-  });
-
   // Get current colors for display
   const currentColors = useMemo(() => {
     if (customColors) {
@@ -868,7 +845,7 @@ const EditProfileScreen: React.FC = () => {
               <Animated.View 
                 layout={Layout.springify().duration(280)}
                 entering={FadeIn.duration(280).easing(Easing.out(Easing.ease))}
-                exiting={FadeOut.duration(220).easing(Easing.in(Easing.ease))}
+                exiting={FadeOut.duration(100).easing(Easing.in(Easing.ease))}
               >
                 {/* Username Section */}
                 <View style={styles.usernameSection}>
@@ -981,29 +958,31 @@ const EditProfileScreen: React.FC = () => {
             {/* About Section */}
             <Animated.View
               layout={Layout.springify().duration(280)}
-              entering={FadeIn.duration(280).easing(Easing.out(Easing.ease))}
               style={[
                 styles.section, 
                 isAboutFocused && styles.aboutExpandedSection,
-                aboutSectionAnimatedStyle,
               ]}
             >
-              <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8) }]}>
-                ABOUT
-              </Text>
-              <TextInput
-                style={[styles.textArea, {
-                  color: currentColors.textColor,
-                }, isAboutFocused && { flex: 1 }]}
-                value={editDescription}
-                onChangeText={setEditDescription}
-                placeholder="Tell us about yourself"
-                placeholderTextColor={hexToRGBA(currentColors.textColor, 0.30)}
-                multiline
-                onFocus={() => {
-                  setIsAboutFocused(true);
-                }}
-              />
+              <Animated.View
+                entering={FadeIn.duration(150).easing(Easing.out(Easing.ease))}
+              >
+                <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8) }]}>
+                  ABOUT
+                </Text>
+                <TextInput
+                  style={[styles.textArea, {
+                    color: currentColors.textColor,
+                  }, isAboutFocused && { flex: 1 }]}
+                  value={editDescription}
+                  onChangeText={setEditDescription}
+                  placeholder="Tell us about yourself"
+                  placeholderTextColor={hexToRGBA(currentColors.textColor, 0.30)}
+                  multiline
+                  onFocus={() => {
+                    setIsAboutFocused(true);
+                  }}
+                />
+              </Animated.View>
             </Animated.View>
           </ScrollView>
         </SafeAreaView>
