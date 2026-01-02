@@ -692,50 +692,6 @@ class ProfileCache {
   }
 
   /**
-   * Check verification status for a profile
-   * Uses cached profile data - verification data is already included in profile responses
-   */
-  static async checkVerification(handle: string): Promise<boolean> {
-    if (!handle) return false;
-    
-    // Async operations already run off the main thread - no delay needed
-    try {
-      // Get profile from cache or API
-      const profile = await this.getProfile(handle);
-      if (!profile) {
-        return false;
-      }
-      
-      // Return verification status from cached profile data
-      return profile.verification?.isVerified || false;
-    } catch (error) {
-      return false;
-    }
-  }
-  
-  /**
-   * Get verification details for a profile
-   * Uses cached profile data - verification data is already included in profile responses
-   */
-  static async getVerificationDetails(handle: string): Promise<any | null> {
-    if (!handle) return null;
-    
-    // Async operations already run off the main thread - no delay needed
-    try {
-      // Get profile from cache
-      const profile = await this.getProfile(handle);
-      if (!profile) {
-        return null;
-      }
-      
-      // Return verification data from cached profile
-      return profile.verification || null;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  /**
    * Subscribe to profile updates
    * Returns an unsubscribe function
    * Note: React Query handles cache updates automatically, this is for legacy compatibility

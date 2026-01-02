@@ -127,6 +127,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             borderColor={profileColors.textColor}
             textColor={profileColors.textColor}
             onPress={() => setShowVerificationInfo(true)}
+            verification={profileData.verification}
           />
         </>
       ) : undefined,

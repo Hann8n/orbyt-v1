@@ -1,8 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, ViewStyle } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
 import { Svg, Path, Circle, Defs, Mask } from 'react-native-svg';
-import ProfileCache, { useProfileColors } from '../../../services/cache/ProfileCache';
+import ProfileCache, { useProfile, useProfileColors } from '../../../services/cache/ProfileCache';
 
 interface VerificationBadgeProps {
   handle: string;
@@ -15,6 +14,11 @@ interface VerificationBadgeProps {
   textSize?: number; // New prop to automatically size badge based on text size
   autoPosition?: boolean; // New prop to automatically calculate positioning based on text size
   customMargin?: number; // New prop to override auto-calculated margin
+  verification?: {
+    isVerified?: boolean;
+    trustedVerifierStatus?: string;
+    status?: string;
+  }; // Optional verification data from profile - if provided, avoids separate query
 }
 
 /**
@@ -40,7 +44,8 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
   badgeType = 'auto', // Default to auto to determine based on verification status
   textSize, // New prop to automatically size badge based on text size
   autoPosition = true, // Default to true for consistent positioning
-  customMargin // New prop to override auto-calculated margin
+  customMargin, // New prop to override auto-calculated margin
+  verification // Optional verification data from profile - if provided, avoids separate query
 }) => {
   // Calculate badge size based on text size if provided, otherwise use default
   const calculateBadgeSize = () => {
@@ -97,23 +102,20 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
     return null;
   }
 
-  // Get profile data to determine verification status and type
-  const { data: profile } = useQuery({
-    queryKey: ['profile', handle.trim()],
-    queryFn: async () => {
-      return await ProfileCache.getProfile(handle.trim());
-    },
-    staleTime: 3600000, // Cache for 1 hour
-    refetchOnWindowFocus: false
-  });
+  // Get profile data using useProfile hook (uses same cache as other components)
+  // Only fetch if verification data not provided
+  const { data: profile } = useProfile(verification ? null : handle);
 
   // Get profile colors for the badge
   const { colors } = useProfileColors(handle);
 
+  // Use provided verification data or get from profile
+  const verificationData = verification || profile?.verification;
+  
   // Determine verification status and type
-  const isVerified = profile?.verification?.isVerified || false;
-  const isTrustedVerifier = profile?.verification?.trustedVerifierStatus === 'valid' || 
-                           profile?.verification?.trustedVerifierStatus === 'active';
+  const isVerified = verificationData?.isVerified || false;
+  const isTrustedVerifier = verificationData?.trustedVerifierStatus === 'valid' || 
+                           verificationData?.trustedVerifierStatus === 'active';
 
   // If not verified, don't render anything
   if (!isVerified) return null;

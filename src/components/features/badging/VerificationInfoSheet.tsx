@@ -79,7 +79,8 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   }, []);
 
   // Get profile info - use cached data if available
-  const { data: profile } = useQuery({
+  // Verification data is included in profile response, so we only need one query
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
     queryKey: ['profile', handle],
     queryFn: async () => {
       try {
@@ -96,27 +97,14 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
         return null;
       }
     },
-    enabled: visible && !!handle,
-    staleTime: 60000, // 1 minute
-    refetchOnWindowFocus: false
-  });
-
-  // Get verification details with proper typing
-  // Preload this data to get verifierDid early for issuer profile preloading
-  const { data: verification, isLoading } = useQuery<VerificationData | null, Error>({
-    queryKey: ['verification-details', handle],
-    queryFn: async () => {
-      try {
-        const result = await ProfileCache.getVerificationDetails(handle);
-        return result || null;
-      } catch (error) {
-        return null;
-      }
-    },
     enabled: !!handle, // Preload when handle is available, not just when visible
     staleTime: 60000, // 1 minute
     refetchOnWindowFocus: false
   });
+
+  // Use verification data from profile - no separate query needed
+  const verification = profile?.verification as VerificationData | null | undefined;
+  const isLoading = isProfileLoading;
 
   // Get the verifier DID from the valid verification's issuer
   const validVerification = verification?.verifications?.find(v => v.isValid);
@@ -200,6 +188,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
               badgeType="auto"
               textColor={Colors.white}
               customMargin={0}
+              verification={verification}
             />
             <Text style={[styles.headerTitle, { marginLeft: 4 }]} numberOfLines={1}>
               {isTrustedVerifier ? 'Trusted Verifier' : 'Verified'}

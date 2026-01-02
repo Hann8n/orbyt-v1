@@ -175,6 +175,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
                 handle={handle}
                 textSize={config.badgeTextSize}
                 textColor={textColor || Colors.white}
+                verification={cachedProfile?.verification}
               />
             )}
           </View>
