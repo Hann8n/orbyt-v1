@@ -277,6 +277,22 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     }
   }, [handle, onDismiss]);
 
+  // Open on Bluesky handler
+  const handleOpenOnBluesky = useCallback(async () => {
+    try {
+      const profileUrl = `https://bsky.app/profile/${handle}`;
+      const canOpen = await Linking.canOpenURL(profileUrl);
+      if (canOpen) {
+        await Linking.openURL(profileUrl);
+        onDismiss();
+      } else {
+        Alert.alert('error', 'unable to open profile. please check your internet connection.');
+      }
+    } catch (error) {
+      Alert.alert('error', 'failed to open profile on bluesky.');
+    }
+  }, [handle, onDismiss]);
+
   // Switch account handler
   const handleSwitchAccount = useCallback(() => {
     onDismiss(); // Close the menu first
@@ -386,6 +402,14 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           color: Colors.lightGray
         },
         {
+          id: 'openOnBluesky',
+          label: 'view on bluesky',
+          icon: 'external-link',
+          onPress: handleOpenOnBluesky,
+          color: Colors.lightGray,
+          rightIcon: <Icon name="outlink" size={20} color={Colors.lightGray} />
+        },
+        {
           id: 'reportOrBlock',
           label: 'report or block',
           icon: 'more-horizontal',
@@ -418,6 +442,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             onPress={option.onPress}
             disabled={isSubmitting}
             danger={option.id === 'logout'}
+            rightIcon={'rightIcon' in option ? option.rightIcon : undefined}
           />
         ))}
       </View>

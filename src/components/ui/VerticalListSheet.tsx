@@ -341,13 +341,15 @@ export const VerticalListButton: React.FC<{
   danger?: boolean;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
-}> = ({ label, onPress, icon, disabled, danger, style, textStyle }) => {
+  rightIcon?: React.ReactNode;
+}> = ({ label, onPress, icon, disabled, danger, style, textStyle, rightIcon }) => {
   return (
     <OptionsButton
       label={label}
       onPress={onPress}
       disabled={disabled}
       destructive={danger}
+      rightIcon={rightIcon}
       style={[{ marginHorizontal: 12 }, style]}
       textStyle={textStyle}
     />
