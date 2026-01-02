@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
+import React, { useCallback, useMemo, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -16,7 +16,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useInfiniteQuery, useQueryClient, useQuery } from '@tanstack/react-query';
 
 import ProfileCache, { profileKeys } from '../../../services/cache/ProfileCache';
-import { Avatar, Icon, Colors } from '../../../components/ui/UI';
+import { Avatar, Colors } from '../../../components/ui/UI';
 import { Loading3FillIcon } from '../../../components/ui/Icon';
 import { VerificationBadge } from '../badging';
 import EmptyFeed from '../feed/EmptyFeed';
@@ -197,6 +197,12 @@ const getPostDataFromNotification = (notification: any, postDataMap: Map<string,
   return rootPostUri ? postDataMap.get(rootPostUri) : null;
 };
 
+// Check if post is deleted using $type field (matches official Bluesky app)
+const isPostDeleted = (postData: any): boolean => {
+  if (!postData) return true;
+  return AtprotoService.isNotFoundPost(postData);
+};
+
 // Notification item component
 const NotificationItem: React.FC<{ 
   item: any; 
@@ -211,8 +217,7 @@ const NotificationItem: React.FC<{
   const postActionTypes = ['like', 'repost', 'like-via-repost', 'repost-via-repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'];
   const isPostAction = postActionTypes.includes(reason);
   const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : null;
-  const postUri = isPostAction ? getPostUri(item) : null;
-  const isPostDeleted = isPostAction && postUri && !postData;
+  const isDeleted = isPostAction && isPostDeleted(postData);
   const embed = postData ? getEmbed(postData) : null;
   const postKind = embed ? getPostKind(embed) : 'text';
   const thumbnail = embed ? getThumbnailByKind(embed, postKind) : null;
@@ -234,7 +239,7 @@ const NotificationItem: React.FC<{
   
   const actionText = useMemo(() => {
     // If post is deleted, show "deleted post" message
-    if (isPostDeleted) {
+    if (isDeleted) {
       const deletedActions: Record<string, string> = {
         like: 'liked deleted post',
         repost: 'reshared deleted post',
@@ -265,7 +270,7 @@ const NotificationItem: React.FC<{
       unverified: 'unverified you',
     };
     return actions[reason] || `performed action: ${reason}`;
-  }, [reason, postTypeLabel, isPostDeleted]);
+  }, [reason, postTypeLabel, isDeleted]);
   
   // Navigate to profile
   const navigateToProfile = useCallback((handle: string) => {
@@ -357,7 +362,7 @@ const NotificationItem: React.FC<{
       }
       
       // If post is deleted/missing, navigate to profile
-      if (!finalPostData) {
+      if (!finalPostData || isPostDeleted(finalPostData)) {
         if (author?.handle) navigateToProfile(author.handle);
         return;
       }
@@ -386,9 +391,78 @@ const NotificationItem: React.FC<{
     }
   };
 
+  const handleThumbnailPress = useCallback(async () => {
+    if (!isPostAction) return;
+
+    const postUri = getPostUri(item);
+    if (!postUri) return;
+
+    try {
+      let finalPostData = postData;
+      let rootPostUri = resolveRootPostUri(postUri, postDataMap) || postUri;
+      
+      // Fetch if not already available
+      if (!finalPostData) {
+        // If postUri is a repost record, fetch it first to get root post URI
+        if (postUri.includes('app.bsky.feed.repost')) {
+          try {
+            const apiClient = await AtprotoService.getApiClient();
+            if (apiClient) {
+              const { api } = apiClient;
+              const uriMatch = postUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
+              if (uriMatch) {
+                const repostRecord = await api.com.atproto.repo.getRecord({
+                  repo: uriMatch[1],
+                  collection: 'app.bsky.feed.repost',
+                  rkey: uriMatch[2],
+                });
+                if (repostRecord?.data?.value?.subject?.uri) {
+                  rootPostUri = repostRecord.data.value.subject.uri;
+                  finalPostData = await AtprotoService.getPost(rootPostUri);
+                }
+              }
+            }
+          } catch (error) {
+            // Fallback: try fetching postUri directly
+            finalPostData = await AtprotoService.getPost(postUri);
+          }
+        } else {
+          finalPostData = await AtprotoService.getPost(postUri);
+        }
+      }
+      
+      // If post is deleted/missing, navigate to profile
+      if (!finalPostData || isPostDeleted(finalPostData)) {
+        if (author?.handle) navigateToProfile(author.handle);
+        return;
+      }
+      
+      const finalEmbed = getEmbed(finalPostData);
+      const finalKind = finalEmbed ? getPostKind(finalEmbed) : 'text';
+      
+      // Always navigate to root post (for video posts, use video feed)
+      if (finalKind === 'video') {
+        navigateToVideoPost(finalPostData);
+      } else {
+        const { openPostInBluesky } = await import('../../../utils/blueskyLinks');
+        await openPostInBluesky(rootPostUri);
+      }
+    } catch (error) {
+      if (author?.handle) navigateToProfile(author.handle);
+    }
+  }, [isPostAction, item, postData, postDataMap, author?.handle, navigateToProfile, navigateToVideoPost]);
+
+  const handleAvatarPress = useCallback(() => {
+    if (author?.handle) navigateToProfile(author.handle);
+  }, [author?.handle, navigateToProfile]);
+
+  const handleNamePress = useCallback(() => {
+    if (author?.handle) navigateToProfile(author.handle);
+  }, [author?.handle, navigateToProfile]);
+
   return (
     <View style={styles.notificationItem}>
-      <Pressable onPress={() => author?.handle && navigateToProfile(author.handle)}>
+      <Pressable onPress={handleAvatarPress}>
         <Avatar
           uri={author?.avatar}
           type="profile"
@@ -399,7 +473,7 @@ const NotificationItem: React.FC<{
       </Pressable>
       <Pressable onPress={handlePress} style={styles.notificationContent}>
         <Pressable 
-          onPress={() => author?.handle && navigateToProfile(author.handle)}
+          onPress={handleNamePress}
           style={{flexDirection: 'row', alignItems: 'center'}}
         >
           <Text style={styles.authorName}>
@@ -414,7 +488,7 @@ const NotificationItem: React.FC<{
           )}
         </Pressable>
         <View style={styles.actionRow}>
-          <Text style={[styles.actionText, isPostDeleted && styles.deletedActionText]}>
+          <Text style={[styles.actionText, isDeleted && styles.deletedActionText]}>
             {actionText}
           </Text>
           {indexedAt && (
@@ -424,8 +498,8 @@ const NotificationItem: React.FC<{
           )}
         </View>
       </Pressable>
-      {isPostAction && isVideo && !isPostDeleted && (
-        <Pressable onPress={handlePress} style={styles.thumbnailContainer}>
+      {isPostAction && isVideo && !isDeleted && (
+        <Pressable onPress={handleThumbnailPress} style={styles.thumbnailContainer}>
           {thumbnail && <BlurredThumbnailBackground thumbnailUrl={thumbnail} />}
           {thumbnail ? (
             <Image

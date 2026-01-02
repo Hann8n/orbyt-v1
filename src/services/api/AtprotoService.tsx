@@ -1794,10 +1794,29 @@ class AtprotoService {
   }
 
   /**
+   * Check if a post is NotFoundPost or BlockedPost using $type field
+   */
+  static isNotFoundPost(post: any): boolean {
+    return post?.$type === 'app.bsky.feed.defs#notFoundPost';
+  }
+
+  static isBlockedPost(post: any): boolean {
+    return post?.$type === 'app.bsky.feed.defs#blockedPost';
+  }
+
+  /**
+   * Check if a post is a valid post view (not NotFoundPost or BlockedPost)
+   */
+  static isValidPost(post: any): boolean {
+    if (!post) return false;
+    return !this.isNotFoundPost(post) && !this.isBlockedPost(post);
+  }
+
+  /**
    * Batch fetch multiple posts by URI
    * Uses app.bsky.feed.getPosts which accepts up to 25 URIs at once
    * @param uris - Array of post URIs to fetch
-   * @returns Map of URI to post data
+   * @returns Map of URI to post data (includes NotFoundPost and BlockedPost objects)
    */
   static async getPosts(uris: string[]): Promise<Map<string, any>> {
     const result = new Map<string, any>();
@@ -1822,7 +1841,7 @@ class AtprotoService {
         )
       );
 
-      // Collect all posts into the map
+      // Collect all posts into the map (including NotFoundPost and BlockedPost)
       for (const response of responses) {
         for (const post of response.data.posts) {
           result.set(post.uri, post);
