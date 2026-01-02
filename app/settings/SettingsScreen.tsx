@@ -298,6 +298,13 @@ const SettingsScreen: React.FC = () => {
           onPress: () => navigation.push('/settings/app-icon'),
           showChevron: true
         }] : []),
+        ...(__DEV__ ? [{
+          id: 'route-navigator',
+          label: 'Route Navigator',
+          icon: 'information-line',
+          onPress: () => navigation.push('/settings/route-navigator'),
+          showChevron: true
+        }] : []),
         // {
         //   id: 'experimental-feeds',
         //   label: 'Experimental Feeds',
