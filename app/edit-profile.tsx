@@ -13,7 +13,17 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { Layout, useSharedValue, useAnimatedStyle, withSpring, SharedValue } from 'react-native-reanimated';
+import Animated, { 
+  Layout, 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring, 
+  SharedValue,
+  FadeIn,
+  FadeOut,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Colors, Avatar } from '../src/components/ui/UI';
@@ -157,6 +167,9 @@ const EditProfileScreen: React.FC = () => {
   // Ref for color picker ScrollView to scroll to selected color
   const colorPickerScrollViewRef = useRef<ScrollView>(null);
   
+  // Animation shared value for bio focus animation
+  const aboutSectionOpacity = useSharedValue(1);
+
   // Predefined color options
   const predefinedColors: ProfileColorOption[] = useMemo(() => [
     // Neutral/Universal
@@ -789,6 +802,28 @@ const EditProfileScreen: React.FC = () => {
     router.back();
   }, [router]);
 
+  // Animate about section when focus changes
+  useEffect(() => {
+    if (isAboutFocused) {
+      aboutSectionOpacity.value = withTiming(1, {
+        duration: 250,
+        easing: Easing.out(Easing.ease),
+      });
+    } else {
+      aboutSectionOpacity.value = withTiming(1, {
+        duration: 200,
+        easing: Easing.in(Easing.ease),
+      });
+    }
+  }, [isAboutFocused, aboutSectionOpacity]);
+
+  // Animated style for about section
+  const aboutSectionAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: aboutSectionOpacity.value,
+    };
+  });
+
   // Get current colors for display
   const currentColors = useMemo(() => {
     if (customColors) {
@@ -994,7 +1029,15 @@ const EditProfileScreen: React.FC = () => {
           >
             {/* Username & Avatar & Display Name Sections */}
             {!isAboutFocused && (
-              <Animated.View layout={Layout.springify().duration(220)}>
+              <Animated.View 
+                layout={Layout.springify({
+                  damping: 18,
+                  stiffness: 350,
+                  mass: 0.8,
+                }).duration(280)}
+                entering={FadeIn.duration(280).easing(Easing.out(Easing.ease))}
+                exiting={FadeOut.duration(220).easing(Easing.in(Easing.ease))}
+              >
                 {/* Username Section */}
                 <View style={styles.usernameSection}>
                   <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.90) }]}>
@@ -1050,26 +1093,16 @@ const EditProfileScreen: React.FC = () => {
                       </Text>
                       <Pressable 
                         style={[
-                          styles.uploadButton, 
-                          !isLiquidGlassAvailable() && {
+                          styles.uploadButton,
+                          {
                             backgroundColor: hexToRGBA(currentColors.textColor, 0.15),
                           }
                         ]}
                         onPress={handleAvatarPress} 
                       >
-                        {isLiquidGlassAvailable() && (
-                          <GlassView 
-                            style={styles.glassBackground}
-                            glassEffectStyle="clear"
-                            tintColor={hexToRGBA(currentColors.textColor, 0.15)}
-                            isInteractive
-                          />
-                        )}
-                        <View pointerEvents="none">
-                          <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
-                            Upload
-                          </Text>
-                        </View>
+                        <Text style={[styles.uploadButtonText, { color: currentColors.textColor }]}>
+                          Upload
+                        </Text>
                       </Pressable>
                     </View>
                   </View>
@@ -1115,8 +1148,17 @@ const EditProfileScreen: React.FC = () => {
 
             {/* About Section */}
             <Animated.View
-              layout={Layout.springify().duration(220)}
-              style={[styles.section, isAboutFocused && styles.aboutExpandedSection]}
+              layout={Layout.springify({
+                damping: 18,
+                stiffness: 350,
+                mass: 0.8,
+              }).duration(280)}
+              entering={FadeIn.duration(280).easing(Easing.out(Easing.ease))}
+              style={[
+                styles.section, 
+                isAboutFocused && styles.aboutExpandedSection,
+                aboutSectionAnimatedStyle,
+              ]}
             >
               <Text style={[styles.sectionTitle, { color: hexToRGBA(currentColors.textColor, 0.8) }]}>
                 ABOUT
