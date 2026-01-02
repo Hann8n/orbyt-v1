@@ -806,9 +806,20 @@ const EditProfileScreen: React.FC = () => {
       <SafeAreaView edges={['top']} style={styles.topSafeArea}>
         {/* Header */}
         <View style={styles.header}>
-          <Pressable onPress={handleDismiss} style={styles.cancelButton}>
+          <Pressable 
+            onPress={() => {
+              if (isAboutFocused) {
+                setEditDescription(profileData?.description || '');
+                setIsAboutFocused(false);
+                Keyboard.dismiss();
+              } else {
+                handleDismiss();
+              }
+            }} 
+            style={styles.cancelButton}
+          >
             <Text style={[styles.cancelButtonText, { color: Colors.white }]}>
-              Cancel
+              {isAboutFocused ? 'Back' : 'Cancel'}
             </Text>
           </Pressable>
 
