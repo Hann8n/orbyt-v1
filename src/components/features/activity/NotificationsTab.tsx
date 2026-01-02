@@ -26,6 +26,7 @@ import { formatRelativeDate } from '../../ui/RelativeDate';
 import { extractVideoThumbnail } from '../../../utils/helpers/video';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
+import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
@@ -157,41 +158,43 @@ const resolveRootPostUri = (uri: string, postDataMap: Map<string, any>): string 
   return uri;
 };
 
-// Extract root post data from notification
+// Extract post data from notification - matches Bluesky's pattern
+// Uses notification.post when available (has view embeds with thumbnails)
+// For subscribed-post, prefer fetched post (has view embed with thumbnails), fallback to record (raw embed)
 const getPostDataFromNotification = (notification: any, postDataMap: Map<string, any>) => {
-  const { uri, record, post } = notification;
-  const postUri = getPostUri(notification);
-  if (!postUri) return null;
+  const { post, record } = notification;
   
-  // Resolve to root post URI (handles repost records)
-  const rootPostUri = resolveRootPostUri(postUri, postDataMap);
-  if (!rootPostUri) return null;
-  
-  // Get root post data
-  const rootPost = postDataMap.get(rootPostUri);
-  
-  // For subscribed-post, use notification record if available (has embed data)
-  if (notification.reason === 'subscribed-post' && record) {
-    const postData = rootPost || {
-      uri,
-      cid: notification.cid,
-      author: notification.author,
-      record,
-      embed: record.embed,
-      indexedAt: notification.indexedAt,
-    };
-    // Ensure embed is set from record.embed
-    if (record.embed && postData) {
-      postData.embed = record.embed;
-    }
-    return postData;
-  }
-  
-  // For quote/mention, prefer notification post data (has embed), fallback to fetched
+  // Quote/mention notifications include post data with view embeds
   if (post) return post;
   
-  // For all others, use fetched root post
-  return rootPost;
+  // For subscribed-post, prefer fetched post data (has view embed with thumbnails)
+  // Fallback to record if fetch not available yet
+  if (notification.reason === 'subscribed-post') {
+    const postUri = getPostUri(notification);
+    if (postUri) {
+      const rootPostUri = resolveRootPostUri(postUri, postDataMap);
+      const fetchedPost = rootPostUri ? postDataMap.get(rootPostUri) : null;
+      if (fetchedPost) return fetchedPost;
+    }
+    // Fallback: use record (raw embed, no thumbnails)
+    if (record) {
+      return {
+        uri: notification.uri,
+        cid: notification.cid,
+        author: notification.author,
+        record,
+        embed: record.embed,
+        indexedAt: notification.indexedAt,
+      };
+    }
+    return null;
+  }
+  
+  // For others, get from fetched postDataMap
+  const postUri = getPostUri(notification);
+  if (!postUri) return null;
+  const rootPostUri = resolveRootPostUri(postUri, postDataMap);
+  return rootPostUri ? postDataMap.get(rootPostUri) : null;
 };
 
 // Notification item component
@@ -215,6 +218,19 @@ const NotificationItem: React.FC<{
   const thumbnail = embed ? getThumbnailByKind(embed, postKind) : null;
   const isVideo = postKind === 'video';
   const postTypeLabel = isVideo ? 'video' : 'post';
+  
+  // Debug thumbnail extraction
+  if (__DEV__ && isVideo && !thumbnail) {
+    console.log('[NotificationsTab] Video notification missing thumbnail:', {
+      reason,
+      hasPostData: !!postData,
+      hasEmbed: !!embed,
+      embedType: embed?.$type,
+      embedKeys: embed ? Object.keys(embed) : null,
+      postDataKeys: postData ? Object.keys(postData) : null,
+      recordEmbed: item.record?.embed ? Object.keys(item.record.embed) : null,
+    });
+  }
   
   const actionText = useMemo(() => {
     // If post is deleted, show "deleted post" message
@@ -310,8 +326,8 @@ const NotificationItem: React.FC<{
       let finalPostData = postData;
       let rootPostUri = resolveRootPostUri(postUri, postDataMap) || postUri;
       
-      // Fetch if not already available (except subscribed-post which has record data)
-      if (!finalPostData && reason !== 'subscribed-post') {
+      // Fetch if not already available (quote/mention have post, subscribed-post has record)
+      if (!finalPostData) {
         // If postUri is a repost record, fetch it first to get root post URI
         if (postUri.includes('app.bsky.feed.repost')) {
           try {
@@ -410,11 +426,12 @@ const NotificationItem: React.FC<{
       </Pressable>
       {isPostAction && isVideo && !isPostDeleted && (
         <Pressable onPress={handlePress} style={styles.thumbnailContainer}>
+          {thumbnail && <BlurredThumbnailBackground thumbnailUrl={thumbnail} />}
           {thumbnail ? (
             <Image
               source={{ uri: thumbnail }}
               style={styles.thumbnailVideo}
-              contentFit="cover"
+              contentFit="contain"
               cachePolicy="memory-disk"
               onError={() => {
                 // Silently fail - image just won't display
@@ -517,8 +534,10 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
     }
   }, [notifications]);
 
-  // Extract all post URIs that need to be fetched
-  // Fetch all post-related notifications to check for videos
+  // Extract post URIs that need fetching - matches Bluesky's pattern
+  // Quote/mention include post data with view embeds (thumbnails) - no fetch needed
+  // Subscribed-post has raw embed (no thumbnails) - fetch to get view embed with thumbnails
+  // Others (like/repost/reply) need fetching
   const postUrisToFetch = useMemo(() => {
     const uris = new Set<string>();
     const postActionTypes = ['like', 'repost', 'like-via-repost', 'repost-via-repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'];
@@ -526,33 +545,11 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
     for (const notification of notifications) {
       if (!postActionTypes.includes(notification.reason)) continue;
       
+      // Quote/mention include post data with view embeds - no fetch needed
+      if (notification.post) continue;
+      
       const postUri = getPostUri(notification);
-      if (!postUri) continue;
-      
-      // For notifications with post data, only fetch if video without thumbnail
-      if (notification.post) {
-        const embed = notification.post?.embed;
-        const kind = embed ? getPostKind(embed) : 'text';
-        if (kind === 'video') {
-          const thumbnail = embed ? getThumbnailByKind(embed, kind) : null;
-          if (!thumbnail) uris.add(postUri);
-        }
-        continue;
-      }
-      
-      // For subscribed-post with record data, only fetch if video without thumbnail
-      if (notification.reason === 'subscribed-post' && notification.record) {
-        const embed = notification.record?.embed;
-        const kind = embed ? getPostKind(embed) : 'text';
-        if (kind === 'video') {
-          const thumbnail = embed ? getThumbnailByKind(embed, kind) : null;
-          if (!thumbnail) uris.add(postUri);
-        }
-        continue;
-      }
-      
-      // For all others (like, repost, like-via-repost, repost-via-repost, reply), always fetch
-      uris.add(postUri);
+      if (postUri) uris.add(postUri);
     }
     
     return Array.from(uris);
@@ -738,13 +735,17 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   thumbnailContainer: {
-    justifyContent: 'flex-start',
-  },
-  thumbnailVideo: {
+    position: 'relative',
     width: 45,
     height: 80, // 9:16 aspect ratio (45/80 = 0.5625)
     borderRadius: BORDER_RADIUS.SMALL,
+    overflow: 'hidden',
     backgroundColor: Colors.darkGray,
+  },
+  thumbnailVideo: {
+    width: '100%',
+    height: '100%',
+    zIndex: 1,
   },
   authorName: {
     color: Colors.white,
