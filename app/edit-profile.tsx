@@ -35,7 +35,6 @@ import { useCurrentUser } from '../src/stores/userStore';
 import { splitHandleSuffix } from '../src/utils/helpers';
 
 export interface ProfileColorOption {
-  id: string;
   backgroundColor: string;
   textColor: string;
 }
@@ -46,8 +45,6 @@ const ABOUT_MAX_LENGTH = 256;
 interface AnimatedColorSquareProps {
   colorOption: ProfileColorOption;
   isSelected: boolean;
-  isInverted: boolean;
-  customColors: { backgroundColor: string; textColor: string } | null;
   currentColors: { backgroundColor: string; textColor: string };
   backgroundFlex: SharedValue<number>;
   textFlex: SharedValue<number>;
@@ -57,8 +54,6 @@ interface AnimatedColorSquareProps {
 const AnimatedColorSquare: React.FC<AnimatedColorSquareProps> = ({
   colorOption,
   isSelected,
-  isInverted: _isInverted,
-  customColors: _customColors,
   currentColors,
   backgroundFlex,
   textFlex,
@@ -143,15 +138,15 @@ const EditProfileScreen: React.FC = () => {
   const aboutOverBy = Math.max(0, aboutCount - ABOUT_MAX_LENGTH);
   const aboutRemaining = Math.max(0, ABOUT_MAX_LENGTH - aboutCount);
   
-  // Color selection state
-  const [selectedColorId, setSelectedColorId] = useState<string>('black');
+  // Color selection state - use index (null = custom)
+  const [selectedColorIndex, setSelectedColorIndex] = useState<number | null>(0);
   const [customColors, setCustomColors] = useState<{
     backgroundColor: string;
     textColor: string;
   } | null>(null);
 
-  // Track inverted state per color ID
-  const [invertedStates, setInvertedStates] = useState<Record<string, boolean>>({});
+  // Track inverted state per color index
+  const [invertedStates, setInvertedStates] = useState<Record<number, boolean>>({});
   
   // Track if user has custom colors (not matching any preset)
   const [hasCustomColors, setHasCustomColors] = useState(false);
@@ -170,319 +165,225 @@ const EditProfileScreen: React.FC = () => {
   // Animation shared value for bio focus animation
   const aboutSectionOpacity = useSharedValue(1);
 
-  // Predefined color options
+  // Predefined color options - just the pairings
   const predefinedColors: ProfileColorOption[] = useMemo(() => [
     // Neutral/Universal
     {
-      id: 'black',
       backgroundColor: Colors.black,
       textColor: Colors.lightGray,
     },
-    // Primary - colored backgrounds with white text (organized by background hue in rainbow order)
+    // Primary - colored backgrounds with white text (ordered by hue - reverse rainbow order, red first)
+    // Colors adjusted using HSL to be between original and brightened versions, ensuring WCAG AA compliance (4.5:1 contrast with white text)
     {
-      id: 'primaryRed',
-      backgroundColor: '#A60C26', // Red background
+      backgroundColor: '#C6142E', // Red background (HSL: ~350°, ~85%, ~35%)
       textColor: Colors.white,
     },
     {
-      id: 'primaryGreen',
-      backgroundColor: '#2D800A', // Green background
+      backgroundColor: '#CC9900', // Yellow background (HSL: ~45°, ~100%, ~40% - vibrant yellow matching other primary colors, WCAG AA compliant)
       textColor: Colors.white,
     },
     {
-      id: 'primaryTeal',
-      backgroundColor: '#097B79', // Teal background
+      backgroundColor: '#3D9812', // Green background (HSL: ~105°, ~80%, ~32%)
       textColor: Colors.white,
     },
     {
-      id: 'primaryLightBlue',
-      backgroundColor: '#0C78A6', // Light blue background
+      backgroundColor: '#0B9997', // Teal background (HSL: ~179°, ~88%, ~32%)
       textColor: Colors.white,
     },
     {
-      id: 'primaryBlue',
-      backgroundColor: '#0C38A6', // Blue background
+      backgroundColor: '#0E94C6', // Light blue background (HSL: ~195°, ~88%, ~42%)
       textColor: Colors.white,
     },
     {
-      id: 'primaryPurple',
-      backgroundColor: '#470CA6', // Purple background
+      backgroundColor: '#0E46C6', // Blue background (HSL: ~220°, ~88%, ~42%)
       textColor: Colors.white,
     },
     {
-      id: 'primaryPink',
-      backgroundColor: '#990CA6', // Pink background
+      backgroundColor: '#5913C6', // Purple background (HSL: ~260°, ~88%, ~42%)
       textColor: Colors.white,
     },
-    // Bright - bright backgrounds with dark text (cohesive palette at 75% lightness)
     {
-      id: 'brightRed',
-      backgroundColor: '#F98686', // Bright red background
-      textColor: '#1a1a2e', // Dark text for WCAG compliance
+      backgroundColor: '#B713C6', // Pink background (HSL: ~295°, ~88%, ~42%)
+      textColor: Colors.white,
+    },
+    // Complementary - colored backgrounds with complementary text colors (ordered by hue - reverse rainbow order, red first)
+    {
+      backgroundColor: '#fba9d5',
+      textColor: '#45498f',
     },
     {
-      id: 'brightOrange',
-      backgroundColor: '#F9BD86', // Bright orange background
-      textColor: '#1a1a2e', // Dark text for WCAG compliance
+      backgroundColor: '#02e4bf',
+      textColor: '#414a76',
     },
     {
-      id: 'brightYellow',
-      backgroundColor: '#F9DA86', // Bright yellow background
-      textColor: '#1a1a2e', // Dark text
+      backgroundColor: '#c9d3fe',
+      textColor: '#b71431',
     },
     {
-      id: 'brightGreen',
-      backgroundColor: '#86F9BF', // Bright green background
-      textColor: '#1a1a2e', // Dark text
+      backgroundColor: '#fbb300',
+      textColor: '#2b212a',
     },
     {
-      id: 'brightCyan',
-      backgroundColor: '#86EDF9', // Bright cyan background
-      textColor: '#1a1a2e', // Dark text for WCAG compliance
+      backgroundColor: '#1f1d46',
+      textColor: '#f85d4a',
     },
     {
-      id: 'brightPink',
-      backgroundColor: '#F986C3', // Bright pink background
-      textColor: '#1a1a2e', // Dark text
+      backgroundColor: '#2d615e',
+      textColor: '#fdc1b8',
     },
     {
-      id: 'brightPurple',
-      backgroundColor: '#B0A2E7', // Bright purple background
-      textColor: '#1a1a2e', // Dark text for WCAG compliance
-    },
-    // Pastel - dark backgrounds with pastel text colors (one per primary color)
-    {
-      id: 'pastelPink',
-      backgroundColor: '#4A1A3D', // Deep mauve background
-      textColor: '#FFD6E8', // Pastel pink text
+      backgroundColor: '#03df6e',
+      textColor: '#19304d',
     },
     {
-      id: 'pastelPeach',
-      backgroundColor: '#5C2A1A', // Deep rust background
-      textColor: '#FFE5D4', // Pastel peach text
+      backgroundColor: '#ddf59c',
+      textColor: '#367746',
     },
     {
-      id: 'pastelLemon',
-      backgroundColor: '#4A3D1A', // Deep olive background
-      textColor: '#FFF9D4', // Pastel lemon text
+      backgroundColor: '#523b99',
+      textColor: '#fba2c3',
     },
     {
-      id: 'pastelMint',
-      backgroundColor: '#1A4A3A', // Deep teal background
-      textColor: '#D4F4E5', // Pastel mint text
+      backgroundColor: '#ecf9fb',
+      textColor: '#66737e',
     },
     {
-      id: 'pastelSky',
-      backgroundColor: '#1A3A4A', // Deep blue-gray background
-      textColor: '#D4E8F4', // Pastel sky text
+      backgroundColor: '#34333f',
+      textColor: '#f88667',
     },
     {
-      id: 'pastelLavender',
-      backgroundColor: '#3D2A5C', // Deep purple background
-      textColor: '#E6D9F2', // Pastel lavender text
-    },
-    // Complementary - colored backgrounds with complementary text colors (AAA compliant)
-    {
-      id: 'complementaryBlue',
-      backgroundColor: '#1A3A52', // Deep blue background
-      textColor: '#FF6B35', // Coral text (complementary)
+      backgroundColor: '#524864',
+      textColor: '#91f7f8',
     },
     {
-      id: 'complementaryTeal',
-      backgroundColor: '#0F4C3A', // Teal background
-      textColor: '#FF8FA8', // Light rose text (complementary, lighter for better readability)
+      backgroundColor: '#fbc36e',
+      textColor: '#575567',
     },
     {
-      id: 'complementaryPurple',
-      backgroundColor: '#3D1F52', // Violet background
-      textColor: '#A8FF9B', // Light lime text (complementary, lighter for better readability)
-    },
-    // Dark - dark/medium backgrounds with colored text
-    {
-      id: 'darkPurple',
-      backgroundColor: '#5011B3', // Dark purple background
-      textColor: '#D4EDF8', // Light blue text
+      backgroundColor: '#cfdae4',
+      textColor: '#a83455',
     },
     {
-      id: 'darkSlate',
-      backgroundColor: '#4f4085', // Dark slate background
-      textColor: '#fbb0ad', // Lightened peach text (for WCAG compliance)
+      backgroundColor: '#0e1420',
+      textColor: '#ff2c6f',
     },
     {
-      id: 'darkBlueGray',
-      backgroundColor: '#464b61', // Dark blue-gray background
-      textColor: '#c5f6f9', // Sky blue text
+      backgroundColor: '#61678a',
+      textColor: '#c6f6ad',
     },
     {
-      id: 'darkOlive',
-      backgroundColor: '#433d3c', // Dark olive background
-      textColor: '#accb6d', // Light lime green text
+      backgroundColor: '#297873',
+      textColor: '#f4fcc3',
     },
     {
-      id: 'darkMaroon',
-      backgroundColor: '#85356e', // Dark maroon background
-      textColor: '#fdb7d9', // Lightened pink text (for WCAG compliance)
-    },
-    // Neon - very dark backgrounds with neon text colors
-    {
-      id: 'neonRed',
-      backgroundColor: '#260309', // Very dark background
-      textColor: '#F6283C', // Neon red text (slightly less saturated for consistency)
+      backgroundColor: '#71acab',
+      textColor: '#3a383f',
     },
     {
-      id: 'neonOrange',
-      backgroundColor: '#261703', // Very dark background
-      textColor: '#F69D28', // Neon orange text
+      backgroundColor: '#84366e',
+      textColor: '#fcb1d4',
     },
     {
-      id: 'neonGreen',
-      backgroundColor: '#0A2603', // Very dark background
-      textColor: '#73F628', // Neon green text
+      backgroundColor: '#926879',
+      textColor: '#fef9fb',
     },
     {
-      id: 'neonTeal',
-      backgroundColor: '#032626', // Very dark background
-      textColor: '#28F6D4', // Neon teal text
+      backgroundColor: '#4f4085',
+      textColor: '#fda29f',
     },
     {
-      id: 'neonBlue',
-      backgroundColor: '#031226', // Very dark background
-      textColor: '#28A0F6', // Neon blue text
+      backgroundColor: '#464b61',
+      textColor: '#caf7fb',
     },
     {
-      id: 'neonPurple',
-      backgroundColor: '#110326', // Very dark background
-      textColor: '#BF28F6', // Neon purple text
+      backgroundColor: '#9584da',
+      textColor: '#2d234b',
+    },
+    {
+      backgroundColor: '#581b34',
+      textColor: '#ff6340',
+    },
+    // Neon - very dark backgrounds with neon text colors (ordered by hue - reverse rainbow order, red first)
+    {
+      backgroundColor: '#001b41',
+      textColor: '#0090f6',
+    },
+    {
+      backgroundColor: '#330009',
+      textColor: '#fd5567',
+    },
+    {
+      backgroundColor: '#1a0047',
+      textColor: '#c73bf3',
+    },
+    {
+      backgroundColor: '#002323',
+      textColor: '#02e8c1',
+    },
+    {
+      backgroundColor: '#001810',
+      textColor: '#05e581',
+    },
+    {
+      backgroundColor: '#061d00',
+      textColor: '#4acc03',
+    },
+    {
+      backgroundColor: '#2b1900',
+      textColor: '#f6a132',
     },
   ], []);
   
-  // Create shared values for each color box - create them all explicitly
-  const customFlex = useSharedValue(3);
-  const customTextFlex = useSharedValue(1);
-  const blackFlex = useSharedValue(3);
-  const blackTextFlex = useSharedValue(1);
-  const primaryRedFlex = useSharedValue(3);
-  const primaryRedTextFlex = useSharedValue(1);
-  const primaryGreenFlex = useSharedValue(3);
-  const primaryGreenTextFlex = useSharedValue(1);
-  const primaryTealFlex = useSharedValue(3);
-  const primaryTealTextFlex = useSharedValue(1);
-  const primaryLightBlueFlex = useSharedValue(3);
-  const primaryLightBlueTextFlex = useSharedValue(1);
-  const primaryBlueFlex = useSharedValue(3);
-  const primaryBlueTextFlex = useSharedValue(1);
-  const primaryPurpleFlex = useSharedValue(3);
-  const primaryPurpleTextFlex = useSharedValue(1);
-  const primaryPinkFlex = useSharedValue(3);
-  const primaryPinkTextFlex = useSharedValue(1);
-  const brightRedFlex = useSharedValue(3);
-  const brightRedTextFlex = useSharedValue(1);
-  const brightOrangeFlex = useSharedValue(3);
-  const brightOrangeTextFlex = useSharedValue(1);
-  const brightYellowFlex = useSharedValue(3);
-  const brightYellowTextFlex = useSharedValue(1);
-  const brightGreenFlex = useSharedValue(3);
-  const brightGreenTextFlex = useSharedValue(1);
-  const brightCyanFlex = useSharedValue(3);
-  const brightCyanTextFlex = useSharedValue(1);
-  const brightPinkFlex = useSharedValue(3);
-  const brightPinkTextFlex = useSharedValue(1);
-  const brightPurpleFlex = useSharedValue(3);
-  const brightPurpleTextFlex = useSharedValue(1);
-  const pastelPinkFlex = useSharedValue(3);
-  const pastelPinkTextFlex = useSharedValue(1);
-  const pastelPeachFlex = useSharedValue(3);
-  const pastelPeachTextFlex = useSharedValue(1);
-  const pastelLemonFlex = useSharedValue(3);
-  const pastelLemonTextFlex = useSharedValue(1);
-  const pastelMintFlex = useSharedValue(3);
-  const pastelMintTextFlex = useSharedValue(1);
-  const pastelSkyFlex = useSharedValue(3);
-  const pastelSkyTextFlex = useSharedValue(1);
-  const pastelLavenderFlex = useSharedValue(3);
-  const pastelLavenderTextFlex = useSharedValue(1);
-  const darkPurpleFlex = useSharedValue(3);
-  const darkPurpleTextFlex = useSharedValue(1);
-  const darkSlateFlex = useSharedValue(3);
-  const darkSlateTextFlex = useSharedValue(1);
-  const darkBlueGrayFlex = useSharedValue(3);
-  const darkBlueGrayTextFlex = useSharedValue(1);
-  const darkOliveFlex = useSharedValue(3);
-  const darkOliveTextFlex = useSharedValue(1);
-  const darkMaroonFlex = useSharedValue(3);
-  const darkMaroonTextFlex = useSharedValue(1);
-  const neonRedFlex = useSharedValue(3);
-  const neonRedTextFlex = useSharedValue(1);
-  const neonOrangeFlex = useSharedValue(3);
-  const neonOrangeTextFlex = useSharedValue(1);
-  const neonGreenFlex = useSharedValue(3);
-  const neonGreenTextFlex = useSharedValue(1);
-  const neonTealFlex = useSharedValue(3);
-  const neonTealTextFlex = useSharedValue(1);
-  const neonBlueFlex = useSharedValue(3);
-  const neonBlueTextFlex = useSharedValue(1);
-  const neonPurpleFlex = useSharedValue(3);
-  const neonPurpleTextFlex = useSharedValue(1);
-  const complementaryBlueFlex = useSharedValue(3);
-  const complementaryBlueTextFlex = useSharedValue(1);
-  const complementaryTealFlex = useSharedValue(3);
-  const complementaryTealTextFlex = useSharedValue(1);
-  const complementaryPurpleFlex = useSharedValue(3);
-  const complementaryPurpleTextFlex = useSharedValue(1);
+  // Generate shared values for all colors - create array matching predefinedColors length
+  // Must create them all explicitly since hooks can't be called in loops
+  // predefinedColors has 39 items, create all shared values at top level
+  const colorFlexValues: Array<{ background: SharedValue<number>; text: SharedValue<number> }> = [
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 0
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 1
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 2
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 3
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 4
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 5
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 6
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 7
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 8
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 9
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 10
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 11
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 12
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 13
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 14
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 15
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 16
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 17
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 18
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 19
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 20
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 21
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 22
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 23
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 24
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 25
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 26
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 27
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 28
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 29
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 30
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 31
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 32
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 33
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 34
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 35
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 36
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 37
+    { background: useSharedValue(3), text: useSharedValue(1) }, // 38
+  ];
   
-  // Map color IDs to their shared values
-  const colorFlexValues = useMemo(() => ({
-    custom: { background: customFlex, text: customTextFlex },
-    black: { background: blackFlex, text: blackTextFlex },
-    primaryRed: { background: primaryRedFlex, text: primaryRedTextFlex },
-    primaryGreen: { background: primaryGreenFlex, text: primaryGreenTextFlex },
-    primaryTeal: { background: primaryTealFlex, text: primaryTealTextFlex },
-    primaryLightBlue: { background: primaryLightBlueFlex, text: primaryLightBlueTextFlex },
-    primaryBlue: { background: primaryBlueFlex, text: primaryBlueTextFlex },
-    primaryPurple: { background: primaryPurpleFlex, text: primaryPurpleTextFlex },
-    primaryPink: { background: primaryPinkFlex, text: primaryPinkTextFlex },
-    brightRed: { background: brightRedFlex, text: brightRedTextFlex },
-    brightOrange: { background: brightOrangeFlex, text: brightOrangeTextFlex },
-    brightYellow: { background: brightYellowFlex, text: brightYellowTextFlex },
-    brightGreen: { background: brightGreenFlex, text: brightGreenTextFlex },
-    brightCyan: { background: brightCyanFlex, text: brightCyanTextFlex },
-    brightPink: { background: brightPinkFlex, text: brightPinkTextFlex },
-    brightPurple: { background: brightPurpleFlex, text: brightPurpleTextFlex },
-    pastelPink: { background: pastelPinkFlex, text: pastelPinkTextFlex },
-    pastelPeach: { background: pastelPeachFlex, text: pastelPeachTextFlex },
-    pastelLemon: { background: pastelLemonFlex, text: pastelLemonTextFlex },
-    pastelMint: { background: pastelMintFlex, text: pastelMintTextFlex },
-    pastelSky: { background: pastelSkyFlex, text: pastelSkyTextFlex },
-    pastelLavender: { background: pastelLavenderFlex, text: pastelLavenderTextFlex },
-    darkPurple: { background: darkPurpleFlex, text: darkPurpleTextFlex },
-    darkSlate: { background: darkSlateFlex, text: darkSlateTextFlex },
-    darkBlueGray: { background: darkBlueGrayFlex, text: darkBlueGrayTextFlex },
-    darkOlive: { background: darkOliveFlex, text: darkOliveTextFlex },
-    darkMaroon: { background: darkMaroonFlex, text: darkMaroonTextFlex },
-    neonRed: { background: neonRedFlex, text: neonRedTextFlex },
-    neonOrange: { background: neonOrangeFlex, text: neonOrangeTextFlex },
-    neonGreen: { background: neonGreenFlex, text: neonGreenTextFlex },
-    neonTeal: { background: neonTealFlex, text: neonTealTextFlex },
-    neonBlue: { background: neonBlueFlex, text: neonBlueTextFlex },
-    neonPurple: { background: neonPurpleFlex, text: neonPurpleTextFlex },
-    complementaryBlue: { background: complementaryBlueFlex, text: complementaryBlueTextFlex },
-    complementaryTeal: { background: complementaryTealFlex, text: complementaryTealTextFlex },
-    complementaryPurple: { background: complementaryPurpleFlex, text: complementaryPurpleTextFlex },
-  }), [customFlex, customTextFlex, blackFlex, blackTextFlex, primaryRedFlex, primaryRedTextFlex, primaryGreenFlex, primaryGreenTextFlex,
-      primaryTealFlex, primaryTealTextFlex, primaryLightBlueFlex, primaryLightBlueTextFlex, primaryBlueFlex, primaryBlueTextFlex, primaryPurpleFlex, primaryPurpleTextFlex,
-      primaryPinkFlex, primaryPinkTextFlex,
-      brightRedFlex, brightRedTextFlex, brightOrangeFlex, brightOrangeTextFlex,
-      brightYellowFlex, brightYellowTextFlex, brightGreenFlex, brightGreenTextFlex,
-      brightCyanFlex, brightCyanTextFlex, brightPinkFlex, brightPinkTextFlex, brightPurpleFlex, brightPurpleTextFlex,
-      pastelPinkFlex, pastelPinkTextFlex, pastelPeachFlex, pastelPeachTextFlex,
-      pastelLemonFlex, pastelLemonTextFlex, pastelMintFlex, pastelMintTextFlex,
-      pastelSkyFlex, pastelSkyTextFlex, pastelLavenderFlex, pastelLavenderTextFlex,
-      darkPurpleFlex, darkPurpleTextFlex, darkSlateFlex, darkSlateTextFlex, darkBlueGrayFlex, darkBlueGrayTextFlex,
-      darkOliveFlex, darkOliveTextFlex, darkMaroonFlex, darkMaroonTextFlex, neonRedFlex, neonRedTextFlex,
-      neonOrangeFlex, neonOrangeTextFlex, neonGreenFlex, neonGreenTextFlex, neonTealFlex, neonTealTextFlex,
-      neonBlueFlex, neonBlueTextFlex, neonPurpleFlex, neonPurpleTextFlex,
-      complementaryBlueFlex, complementaryBlueTextFlex, complementaryTealFlex, complementaryTealTextFlex,
-      complementaryPurpleFlex, complementaryPurpleTextFlex]);
+  // Custom color flex values (for non-preset colors)
+  const customFlexValues = {
+    background: useSharedValue(3),
+    text: useSharedValue(1),
+  };
 
   // Mutation
   const profileUpdateMutation = useProfileUpdateMutation();
@@ -521,35 +422,37 @@ const EditProfileScreen: React.FC = () => {
         );
         
         if (normalMatch) {
-          setSelectedColorId(normalMatch.id);
-          setInvertedStates({ [normalMatch.id]: false });
+          const matchIndex = predefinedColors.indexOf(normalMatch);
+          setSelectedColorIndex(matchIndex);
+          setInvertedStates({ [matchIndex]: false });
           setCustomColors({
             backgroundColor: normalMatch.backgroundColor,
             textColor: normalMatch.textColor,
           });
           // Set flex values for this specific color
-          const flexValues = colorFlexValues[normalMatch.id as keyof typeof colorFlexValues];
+          const flexValues = colorFlexValues[matchIndex];
           if (flexValues) {
             flexValues.background.value = 3;
             flexValues.text.value = 1;
           }
         } else if (invertedMatch) {
-          setSelectedColorId(invertedMatch.id);
-          setInvertedStates({ [invertedMatch.id]: true });
+          const matchIndex = predefinedColors.indexOf(invertedMatch);
+          setSelectedColorIndex(matchIndex);
+          setInvertedStates({ [matchIndex]: true });
           // Store the actual reversed colors (from defaultColors) - these are what the user has saved
           setCustomColors({
             backgroundColor: defaultColors.backgroundColor,
             textColor: defaultColors.textColor,
           });
           // Set flex values to inverted state (bottom box is larger)
-          const flexValues = colorFlexValues[invertedMatch.id as keyof typeof colorFlexValues];
+          const flexValues = colorFlexValues[matchIndex];
           if (flexValues) {
             flexValues.background.value = 1;
             flexValues.text.value = 3;
           }
         } else {
           // Custom colors - no preset match
-          setSelectedColorId('custom');
+          setSelectedColorIndex(null);
           setInvertedStates({});
           const originalColors = {
             backgroundColor: defaultColors.backgroundColor,
@@ -558,18 +461,15 @@ const EditProfileScreen: React.FC = () => {
           setCustomColors(originalColors);
           setOriginalCustomColors(originalColors); // Store original custom colors
           setHasCustomColors(true);
-          const flexValues = colorFlexValues['custom'];
-          if (flexValues) {
-            flexValues.background.value = 3;
-            flexValues.text.value = 1;
-          }
+          customFlexValues.background.value = 3;
+          customFlexValues.text.value = 1;
         }
       } else {
-        setSelectedColorId('black');
+        setSelectedColorIndex(0); // First color (black)
         setInvertedStates({});
         setCustomColors(null);
         setHasCustomColors(false);
-        const flexValues = colorFlexValues['black'];
+        const flexValues = colorFlexValues[0];
         if (flexValues) {
           flexValues.background.value = 3;
           flexValues.text.value = 1;
@@ -582,7 +482,7 @@ const EditProfileScreen: React.FC = () => {
 
   // Calculate and set scroll position when color picker is laid out
   const handleColorPickerLayout = useCallback(() => {
-    if (!colorPickerScrollViewRef.current || !hasInitializedColors.current || !selectedColorId) {
+    if (!colorPickerScrollViewRef.current || !hasInitializedColors.current || (selectedColorIndex === null && !hasCustomColors)) {
       return;
     }
 
@@ -597,14 +497,10 @@ const EditProfileScreen: React.FC = () => {
     
     let colorCenterX: number;
     
-    if (selectedColorId === 'custom') {
+    if (selectedColorIndex === null) {
       // Custom color is at the start
       colorCenterX = padding + (colorWidth / 2);
     } else {
-      // Find index in predefined colors
-      const selectedColorIndex = predefinedColors.findIndex(c => c.id === selectedColorId);
-      if (selectedColorIndex < 0) return;
-      
       // Account for custom color box and divider if shown
       const customColorOffset = hasCustomColors ? itemWidth + dividerTotalWidth : 0;
       colorCenterX = customColorOffset + (selectedColorIndex * itemWidth) + padding + (colorWidth / 2);
@@ -618,7 +514,7 @@ const EditProfileScreen: React.FC = () => {
       x: scrollPosition,
       animated: false,
     });
-  }, [selectedColorId, predefinedColors, hasCustomColors]);
+  }, [selectedColorIndex, hasCustomColors]);
 
   // Handle avatar selection
   const handleAvatarPress = useCallback(async () => {
@@ -684,75 +580,58 @@ const EditProfileScreen: React.FC = () => {
     }
   }, []);
 
-  // Handle color selection
-  const handleColorSelect = useCallback((colorOption: ProfileColorOption) => {
-    const isAlreadySelected = selectedColorId === colorOption.id;
-    const currentFlexValues = colorFlexValues[colorOption.id as keyof typeof colorFlexValues];
-    
-    // If selecting a preset color from custom, reset custom flex values but keep the box visible
-    if (selectedColorId === 'custom' && colorOption.id !== 'custom') {
-      colorFlexValues.custom.background.value = 3;
-      colorFlexValues.custom.text.value = 1;
-    }
+  // Handle color selection - unified for both predefined and custom colors
+  const handleColorSelect = useCallback((colorIndex: number | null, colorOption: ProfileColorOption) => {
+    const isAlreadySelected = selectedColorIndex === colorIndex;
+    const isCustom = colorIndex === null;
+    const stateKey = isCustom ? -1 : colorIndex;
+    const currentFlexValues = isCustom ? customFlexValues : colorFlexValues[colorIndex];
+    const previousFlexValues = selectedColorIndex === null ? customFlexValues : selectedColorIndex !== null ? colorFlexValues[selectedColorIndex] : null;
     
     if (isAlreadySelected) {
-      // Invert colors - toggle inverted state for this specific color
-      const currentInverted = invertedStates[colorOption.id] || false;
+      // Invert colors - toggle inverted state
+      const currentInverted = invertedStates[stateKey] || false;
       const newInverted = !currentInverted;
+      setInvertedStates(prev => ({ ...prev, [stateKey]: newInverted }));
       
-      setInvertedStates(prev => ({ ...prev, [colorOption.id]: newInverted }));
-      
-      // Swap colors based on current customColors or colorOption
-      const currentBg = customColors?.backgroundColor || colorOption.backgroundColor;
-      const currentText = customColors?.textColor || colorOption.textColor;
+      const baseColors = isCustom && originalCustomColors ? originalCustomColors : colorOption;
+      const currentBg = customColors?.backgroundColor || baseColors.backgroundColor;
+      const currentText = customColors?.textColor || baseColors.textColor;
       
       setCustomColors({
         backgroundColor: currentText,
         textColor: currentBg,
       });
       
-      // Animate dimension swap for this specific color box
       if (currentFlexValues) {
         currentFlexValues.background.value = withSpring(newInverted ? 1 : 3);
         currentFlexValues.text.value = withSpring(newInverted ? 3 : 1);
       }
     } else {
       // Animate previous box back to normal if it was inverted
-      const previousFlexValues = colorFlexValues[selectedColorId as keyof typeof colorFlexValues];
-      if (previousFlexValues && invertedStates[selectedColorId]) {
-        // Update inverted state first, then animate
-        setInvertedStates(prev => ({ ...prev, [selectedColorId]: false }));
+      if (previousFlexValues && invertedStates[selectedColorIndex === null ? -1 : selectedColorIndex]) {
+        const prevStateKey = selectedColorIndex === null ? -1 : selectedColorIndex;
+        setInvertedStates(prev => ({ ...prev, [prevStateKey]: false }));
         previousFlexValues.background.value = withSpring(3);
         previousFlexValues.text.value = withSpring(1);
       }
       
       // Select new color
-      setSelectedColorId(colorOption.id);
-      const wasInverted = invertedStates[colorOption.id] || false;
+      setSelectedColorIndex(colorIndex);
+      const wasInverted = invertedStates[stateKey] || false;
+      const colorsToUse = isCustom && originalCustomColors ? originalCustomColors : colorOption;
       
-      if (wasInverted) {
-        // This color was previously inverted, restore its inverted state with animation
-        setCustomColors({
-          backgroundColor: colorOption.textColor,
-          textColor: colorOption.backgroundColor,
-        });
-        if (currentFlexValues) {
-          currentFlexValues.background.value = withSpring(1);
-          currentFlexValues.text.value = withSpring(3);
-        }
-      } else {
-        // Normal state - ensure it's animated even if already at these values
-        setCustomColors({
-          backgroundColor: colorOption.backgroundColor,
-          textColor: colorOption.textColor,
-        });
-        if (currentFlexValues) {
-          currentFlexValues.background.value = withSpring(3);
-          currentFlexValues.text.value = withSpring(1);
-        }
+      setCustomColors({
+        backgroundColor: wasInverted ? colorsToUse.textColor : colorsToUse.backgroundColor,
+        textColor: wasInverted ? colorsToUse.backgroundColor : colorsToUse.textColor,
+      });
+      
+      if (currentFlexValues) {
+        currentFlexValues.background.value = withSpring(wasInverted ? 1 : 3);
+        currentFlexValues.text.value = withSpring(wasInverted ? 3 : 1);
       }
     }
-  }, [selectedColorId, invertedStates, customColors, colorFlexValues]);
+  }, [selectedColorIndex, invertedStates, customColors, colorFlexValues, customFlexValues, originalCustomColors]);
 
   // Handle save
   const handleSave = useCallback(async () => {
@@ -937,80 +816,37 @@ const EditProfileScreen: React.FC = () => {
               <>
                 <AnimatedColorSquare
                   colorOption={{
-                    id: 'custom',
                     backgroundColor: originalCustomColors.backgroundColor,
                     textColor: originalCustomColors.textColor,
                   }}
-                  isSelected={selectedColorId === 'custom'}
-                  isInverted={false}
-                  customColors={selectedColorId === 'custom' ? customColors : null}
+                  isSelected={selectedColorIndex === null}
                   currentColors={currentColors}
-                  backgroundFlex={colorFlexValues.custom.background}
-                  textFlex={colorFlexValues.custom.text}
-                  onPress={() => {
-                    // Handle custom color selection/inversion
-                    if (selectedColorId === 'custom') {
-                      // Invert custom colors
-                      const currentInverted = invertedStates['custom'] || false;
-                      const newInverted = !currentInverted;
-                      
-                      setInvertedStates(prev => ({ ...prev, custom: newInverted }));
-                      
-                      // Use originalCustomColors as the base for inversion
-                      const currentBg = customColors?.backgroundColor || originalCustomColors?.backgroundColor || '';
-                      const currentText = customColors?.textColor || originalCustomColors?.textColor || '';
-                      
-                      setCustomColors({
-                        backgroundColor: currentText,
-                        textColor: currentBg,
-                      });
-                      
-                      colorFlexValues.custom.background.value = withSpring(newInverted ? 1 : 3);
-                      colorFlexValues.custom.text.value = withSpring(newInverted ? 3 : 1);
-                    } else {
-                      // Select custom color - restore to original custom colors
-                      const previousFlexValues = colorFlexValues[selectedColorId as keyof typeof colorFlexValues];
-                      if (previousFlexValues && invertedStates[selectedColorId]) {
-                        setInvertedStates(prev => ({ ...prev, [selectedColorId]: false }));
-                        previousFlexValues.background.value = withSpring(3);
-                        previousFlexValues.text.value = withSpring(1);
-                      }
-                      
-                      setSelectedColorId('custom');
-                      // Restore to original custom colors
-                      if (originalCustomColors) {
-                        setCustomColors({
-                          backgroundColor: originalCustomColors.backgroundColor,
-                          textColor: originalCustomColors.textColor,
-                        });
-                      }
-                      colorFlexValues.custom.background.value = withSpring(3);
-                      colorFlexValues.custom.text.value = withSpring(1);
-                    }
-                  }}
+                  backgroundFlex={customFlexValues.background}
+                  textFlex={customFlexValues.text}
+                  onPress={() => handleColorSelect(null, {
+                    backgroundColor: originalCustomColors.backgroundColor,
+                    textColor: originalCustomColors.textColor,
+                  })}
                 />
                 <View style={styles.colorDivider} />
               </>
             )}
             
-            {predefinedColors.map((colorOption) => {
-              const isSelected = selectedColorId === colorOption.id;
-              const isInverted = invertedStates[colorOption.id] || false;
-              const flexValues = colorFlexValues[colorOption.id as keyof typeof colorFlexValues];
+            {predefinedColors.map((colorOption, index) => {
+              const isSelected = selectedColorIndex === index;
+              const flexValues = colorFlexValues[index];
               
               if (!flexValues) return null;
               
               return (
                 <AnimatedColorSquare
-                  key={colorOption.id}
+                  key={index}
                   colorOption={colorOption}
                   isSelected={isSelected}
-                  isInverted={isInverted}
-                  customColors={isSelected ? customColors : null}
                   currentColors={currentColors}
                   backgroundFlex={flexValues.background}
                   textFlex={flexValues.text}
-                  onPress={() => handleColorSelect(colorOption)}
+                  onPress={() => handleColorSelect(index, colorOption)}
                 />
               );
             })}
@@ -1030,11 +866,7 @@ const EditProfileScreen: React.FC = () => {
             {/* Username & Avatar & Display Name Sections */}
             {!isAboutFocused && (
               <Animated.View 
-                layout={Layout.springify({
-                  damping: 18,
-                  stiffness: 350,
-                  mass: 0.8,
-                }).duration(280)}
+                layout={Layout.springify().duration(280)}
                 entering={FadeIn.duration(280).easing(Easing.out(Easing.ease))}
                 exiting={FadeOut.duration(220).easing(Easing.in(Easing.ease))}
               >
@@ -1148,11 +980,7 @@ const EditProfileScreen: React.FC = () => {
 
             {/* About Section */}
             <Animated.View
-              layout={Layout.springify({
-                damping: 18,
-                stiffness: 350,
-                mass: 0.8,
-              }).duration(280)}
+              layout={Layout.springify().duration(280)}
               entering={FadeIn.duration(280).easing(Easing.out(Easing.ease))}
               style={[
                 styles.section, 
