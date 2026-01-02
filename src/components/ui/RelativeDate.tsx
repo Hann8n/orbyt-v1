@@ -72,13 +72,10 @@ export const formatRelativeDate = (dateString?: string, showTime: boolean = fals
     return `${diffDays}d`;
   }
   
-  // After 1 week, use Month Day (Mar 7) for current year, MM/DD/YYYY (03/07/2023) if from previous year
-  const year = getYear(date);
-  const currentYear = getYear(now);
-
-  // If from previous year, use MM/DD/YYYY format
-  if (year < currentYear) {
-    return format(date, 'MM/dd/yyyy');
+  // After 1 week, use Month Day (Mar 7) if less than a year, MM/DD/YY (03/07/23) if over a year ago
+  // If over a year ago, use MM/DD/YY format
+  if (diffDays >= 365) {
+    return format(date, 'MM/dd/yy');
   } else {
     return format(date, 'MMM d');
   }
