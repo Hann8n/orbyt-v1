@@ -2,7 +2,7 @@ import React, { memo, useMemo, useCallback, useState, useEffect } from 'react';
 import { StatusBar, Pressable, StyleSheet } from 'react-native';
 import Animated, { type SharedValue, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
 import UniversalHeader, { HeaderContent } from './UniversalHeader';
-import { useProfile, useProfileColors } from '../../../services/cache/ProfileCache';
+import { useProfile, getProfileColors } from '../../../services/cache/ProfileCache';
 import { useProfileFlags } from '../../../stores/profileInteractionStore';
 import { useOrbytProfile } from '../../../hooks';
 import VerificationBadge from '../../features/badging/VerificationBadge';
@@ -61,10 +61,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     refetch: refetchProfile,
   } = useProfile(handle);
 
-  const { colors: profileColors } = useProfileColors(handle);
-
   // Ensure profile data is immediately available from cache to prevent flashing
   const profileData = profile || (handle ? ProfileCache.getProfileFromCacheSync(handle) : null);
+  
+  // Get colors from profile data
+  const profileColors = getProfileColors(profileData);
 
   // Block status and flags (used for avatar blur only; actions moved to ProfileScreen)
   const { flags } = useProfileFlags(profileData?.did, profileData?.handle);

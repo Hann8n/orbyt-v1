@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -6,18 +6,13 @@ import {
   StyleSheet,
   Pressable,
   Alert,
-  Switch,
   ScrollView,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { Colors } from '../../ui/UI';
 import Icon from '../../ui/Icon';
 import { ModerationService } from '../../../services/ModerationService';
 import { ModerationSettings, LabelPreference } from '../../../services/ModerationTypes';
-import { useProfile } from '../../../services/cache/ProfileCache';
-import { useChannelColors } from '../../../services/cache/ChannelCache';
-import { useCurrentUser, useAuth, useUserStoreState } from '../../../stores/userStore';
+import { useAuth, useUserStoreState } from '../../../stores/userStore';
 
 interface ModerationControlsProps {
   visible: boolean;
@@ -33,15 +28,11 @@ interface ContentTypeOption {
   preference: LabelPreference;
 }
 
-const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClose, onLogout }) => {
-  const router = useRouter();
-  const { signOut } = useAuth();
+const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
   const { agent } = useUserStoreState();
-  const logoutFunction = onLogout || signOut;
   const [settings, setSettings] = useState<ModerationSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
-  const insets = useSafeAreaInsets();
 
   // Content type options with their current preferences - simplified to match Bluesky
   const [contentOptions, setContentOptions] = useState<ContentTypeOption[]>([
@@ -136,7 +127,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
 
 
 
-  const updateContentPreference = async (contentId: string, preference: LabelPreference) => {
+  const _updateContentPreference = async (contentId: string, preference: LabelPreference) => {
     // Update the content options state
     const updatedContentOptions = contentOptions.map(option => 
       option.id === contentId ? { ...option, preference } : option
@@ -161,7 +152,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
     }
   };
 
-  const updateGeneralSetting = async (key: keyof typeof generalSettings, value: boolean) => {
+  const _updateGeneralSetting = async (key: keyof typeof generalSettings, value: boolean) => {
     // Prevent enabling sensitive content - only allow disabling
     if (key === 'adultContentEnabled' && value === true) {
       Alert.alert(
@@ -189,7 +180,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
     }
   };
 
-  const getPreferenceIcon = (preference: LabelPreference) => {
+  const _getPreferenceIcon = (preference: LabelPreference) => {
     switch (preference) {
       case 'ignore':
         return 'eye';
@@ -202,7 +193,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
     }
   };
 
-  const getPreferenceColor = (preference: LabelPreference) => {
+  const _getPreferenceColor = (preference: LabelPreference) => {
     switch (preference) {
       case 'ignore':
         return '#4CAF50';
@@ -215,7 +206,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
     }
   };
 
-  const getPreferenceLabel = (preference: LabelPreference) => {
+  const _getPreferenceLabel = (preference: LabelPreference) => {
     switch (preference) {
       case 'ignore':
         return 'Show';
@@ -228,7 +219,7 @@ const ModerationControls: React.FC<ModerationControlsProps> = ({ visible, onClos
     }
   };
 
-  const cyclePreference = (currentPreference: LabelPreference): LabelPreference => {
+  const _cyclePreference = (currentPreference: LabelPreference): LabelPreference => {
     switch (currentPreference) {
       case 'ignore':
         return 'warn';

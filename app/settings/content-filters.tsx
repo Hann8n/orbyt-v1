@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Switch, Linking } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Alert, Linking } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import ListHeader from '../../src/components/ui/ListHeader';
@@ -10,7 +10,7 @@ import feedService, { createQueryKeys } from '../../src/services/FeedService';
 import { ModerationService } from '../../src/services/ModerationService';
 import { ModerationSettings, LabelPreference } from '../../src/services/ModerationTypes';
 import { useModeration, useUserStoreState } from '../../src/stores/userStore';
-import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles, settingsActiveStyles } from './SettingsStyles';
+import { settingsButtonStyles, settingsLayoutStyles, settingsActiveStyles } from './SettingsStyles';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
 
 interface ContentTypeOption {
@@ -27,7 +27,6 @@ const ContentFiltersScreen: React.FC = () => {
   const { saveModerationSettings } = useModeration();
   const { agent, isAuthenticated } = useUserStoreState();
   const [settings, setSettings] = useState<ModerationSettings | null>(null);
-  const [loading, setLoading] = useState(true);
   const [adultContentEnabled, setAdultContentEnabled] = useState(false);
   
   // Check if agent is available
@@ -87,7 +86,6 @@ const ContentFiltersScreen: React.FC = () => {
     const { InteractionManager } = require('react-native');
     const interactionHandle = InteractionManager.runAfterInteractions(async () => {
       try {
-        setLoading(true);
         const currentSettings = await ModerationService.getModerationSettings(agent);
         setSettings(currentSettings);
         setAdultContentEnabled(currentSettings.adultContentEnabled);
@@ -97,8 +95,6 @@ const ContentFiltersScreen: React.FC = () => {
         })));
       } catch (e) {
         console.error('Error loading content filters:', e);
-      } finally {
-        setLoading(false);
       }
     });
 
@@ -208,7 +204,7 @@ const ContentFiltersScreen: React.FC = () => {
             )}
           </View>
 
-          {contentOptions.map((option, index) => {
+          {contentOptions.map((option) => {
             const isAdult = ['nsfw'].includes(option.id);
             if (isAdult && !adultContentEnabled) return null;
             return (

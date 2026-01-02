@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, memo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createQueryKeys } from '../../../services/FeedService';
@@ -7,26 +7,22 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  Dimensions,
   Share,
   Platform,
   Alert,
   Linking,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import Icon, { ShareIcon } from '../../ui/Icon';
+import Icon from '../../ui/Icon';
 import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
 import AtprotoService from '../../../services/api/AtprotoService';
-import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
 import { useAuth, useAccountManagement } from '../../../stores/userStore';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useProfileFlags } from '../../../stores/profileInteractionStore';
 
 interface ProfileMenuProps {
@@ -42,8 +38,6 @@ interface ProfileMenuProps {
 
 
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
 const ProfileMenu: React.FC<ProfileMenuProps> = ({ 
   visible, 
   onDismiss, 
@@ -55,7 +49,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   canMessage = null,
   onMessagePress
 }) => {
-  const navigation = useRouter();
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
   const { removeAccount } = useAccountManagement();
@@ -69,6 +62,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   const submenuFooterHeight = 8 + 44;
 
   // Get profile data to determine if it's the current user
+  // This includes viewer.blocking, viewer.muted, and chat fields
   const { data: profile } = useQuery({
     queryKey: createQueryKeys.profiles.detail(handle),
     queryFn: () => AtprotoService.getProfile(handle),
@@ -78,28 +72,14 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   // Store-backed flags for this profile
   const { flags, setFlags } = useProfileFlags(profile?.did, handle);
 
-  // Check block status for non-own profiles
-  const { data: blockStatus = false } = useQuery({
-    queryKey: createQueryKeys.blocks.status(profile?.did || ''),
-    queryFn: () => AtprotoService.isBlocked(profile?.did || ''),
-    enabled: visible && !!profile?.did && !isOwnProfile,
-    initialData: false
-  });
+  // Use viewer fields from getProfile response instead of separate API calls
+  // viewer.blocking is a string (URI) if blocking, null/undefined otherwise
+  // viewer.muted is a boolean or undefined
+  const isBlockedFromProfile = !!profile?.viewer?.blocking;
+  const isMutedFromProfile = !!profile?.viewer?.muted;
 
-  // Check mute status for non-own profiles
-  const { data: muteStatus = false } = useQuery({
-    queryKey: ['mutes', 'status', profile?.did || ''],
-    queryFn: async () => {
-      if (!profile?.did) return false;
-      const mutedUsers = await AtprotoService.getMutedUsersFromAPI();
-      return mutedUsers.includes(profile.did);
-    },
-    enabled: visible && !!profile?.did && !isOwnProfile,
-    initialData: false
-  });
-
-  const isBlocked = flags?.isBlocked ?? blockStatus;
-  const isMuted = flags?.isMuted ?? muteStatus;
+  const isBlocked = flags?.isBlocked ?? isBlockedFromProfile;
+  const isMuted = flags?.isMuted ?? isMutedFromProfile;
 
   // flags are derived; no syncing effects needed
 
@@ -115,7 +95,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         // Ensure submenu is closed
         safeDismiss('profile-menu-submenu');
         await AtprotoService.unblockUser(profile.did);
-        queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(profile.did) });
+        // Invalidate profile query to refetch with updated viewer.blocking
+        queryClient.invalidateQueries({ queryKey: createQueryKeys.profiles.detail(handle) });
         setFlags({ isBlocked: false });
         onDismiss();
       } else {
@@ -134,7 +115,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
               style: 'destructive',
               onPress: async () => {
                 await AtprotoService.blockUser(profile.did);
-                queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(profile.did) });
+                // Invalidate profile query to refetch with updated viewer.blocking
+                queryClient.invalidateQueries({ queryKey: createQueryKeys.profiles.detail(handle) });
                 setFlags({ isBlocked: true });
                 onDismiss();
               }
@@ -148,7 +130,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [profile?.did, isBlocked, onDismiss, queryClient]);
+  }, [profile?.did, isBlocked, onDismiss, queryClient, handle, setFlags]);
 
   // Mute/unmute handler
   const handleMuteToggle = useCallback(async () => {
@@ -161,7 +143,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       
       if (isMuted) {
         await AtprotoService.unmuteUser(profile.did);
-        queryClient.invalidateQueries({ queryKey: ['mutes', 'status', profile.did] });
+        // Invalidate profile query to refetch with updated viewer.muted
+        queryClient.invalidateQueries({ queryKey: createQueryKeys.profiles.detail(handle) });
         setFlags({ isMuted: false });
       } else {
         Alert.alert(
@@ -177,7 +160,8 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
               style: 'destructive',
               onPress: async () => {
                 await AtprotoService.muteUser(profile.did);
-                queryClient.invalidateQueries({ queryKey: ['mutes', 'status', profile.did] });
+                // Invalidate profile query to refetch with updated viewer.muted
+                queryClient.invalidateQueries({ queryKey: createQueryKeys.profiles.detail(handle) });
                 setFlags({ isMuted: true });
                 onDismiss();
               }
@@ -192,7 +176,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [profile?.did, isMuted, onDismiss, queryClient, setFlags]);
+  }, [profile?.did, isMuted, onDismiss, queryClient, setFlags, handle]);
 
   // Report handler
   const handleReport = useCallback(async () => {

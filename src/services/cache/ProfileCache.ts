@@ -1,7 +1,6 @@
 import { storage } from '../../utils/storage';
 import AtprotoService from '../api/AtprotoService';
-import { isColorDark, getStatusBarStyle, DEFAULT_PROFILE_COLORS } from '@/utils/formatting/colorUtils';
-import { AtpAgent } from '@atproto/api';
+import { getStatusBarStyle, DEFAULT_PROFILE_COLORS } from '@/utils/formatting/colorUtils';
 import { 
   useQuery, 
   useMutation,
@@ -11,6 +10,7 @@ import {
   UseQueryResult,
 } from '@tanstack/react-query';
 import { useMemo, useCallback } from 'react';
+import type { OrbytProfileRecord } from '../../types';
 
 
 export interface CachedProfile {
@@ -28,6 +28,7 @@ export interface CachedProfile {
     foregroundColor: string;
     statusBarStyle: 'light' | 'dark';
   };
+  orbytProfileRecord?: OrbytProfileRecord | null; // Full com.getorbyt.profile record
   verification?: {
     isVerified: boolean;
     verifiedBy?: string; // DID of the verifier
@@ -56,7 +57,7 @@ export const profileKeys = {
   refresh: (handle: string) => [...profileKeys.detail(handle), 'refresh', Date.now()] as const,
 } as const;
 
-// Type for profile colors returned by the hook
+// Type for profile colors
 export interface ProfileColorScheme {
   backgroundColor: string;
   foregroundColor: string;
@@ -66,6 +67,18 @@ export interface ProfileColorScheme {
   statusBarStyle: 'light' | 'dark';
 }
 
+// Helper to extract colors from profile data
+export function getProfileColors(profile: CachedProfile | null | undefined): ProfileColorScheme {
+  return {
+    backgroundColor: profile?.profileColors?.backgroundColor || '#000000',
+    foregroundColor: profile?.profileColors?.foregroundColor || '#CFD6E8',
+    textColor: profile?.profileColors?.foregroundColor || '#CFD6E8',
+    primaryColor: profile?.profileColors?.backgroundColor || '#000000',
+    secondaryColor: profile?.profileColors?.foregroundColor || '#CFD6E8',
+    statusBarStyle: profile?.profileColors?.statusBarStyle || 'light',
+  };
+}
+
 // Make cache expiry public but readonly
 export const PROFILE_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
@@ -73,30 +86,32 @@ class ProfileCache {
   private static CACHE_KEY_PREFIX = 'profile_cache_';
   private static currentUserDid: string | null = null;
   private static currentUserHandle: string | null = null;
-  
-  // Cache agents per PDS endpoint to avoid recreating them
-  private static _pdsAgentCache = new Map<string, AtpAgent>();
 
   /**
    * Transform Bsky API profile response to CachedProfile format
+   * Uses pre-fetched orbyt profile record to avoid additional API call
    */
-  private static async transformApiProfile(apiProfile: any, did?: string): Promise<CachedProfile> {
-    // Fetch colors from PDS
+  private static async transformApiProfile(
+    apiProfile: any, 
+    did?: string,
+    orbytProfileRecord?: OrbytProfileRecord | null
+  ): Promise<CachedProfile> {
     const targetDid = did || apiProfile.did;
-    let profileColors = undefined;
-    let hasCustomColors = false;
+    let record: OrbytProfileRecord | null = orbytProfileRecord ?? null;
     
-    const customColors = await this.fetchProfileColorsFromPDS(targetDid);
-    if (customColors) {
-      hasCustomColors = true;
-      profileColors = {
-        backgroundColor: customColors.backgroundColor,
-        foregroundColor: customColors.textColor,
-        statusBarStyle: getStatusBarStyle(customColors.backgroundColor)
-      };
-    } else {
-      profileColors = DEFAULT_PROFILE_COLORS;
+    // If record wasn't pre-fetched, fetch it now using listRecords (fallback for handle-based fetches)
+    if (record === undefined) {
+      const records = await AtprotoService.getProfileRecordsForDid(targetDid);
+      record = records.orbytRecord as OrbytProfileRecord | null;
     }
+    
+    // Extract colors from record - always set profileColors (defaults if no custom colors)
+    const hasCustomColors = !!(record?.colors?.backgroundColor && record?.colors?.textColor);
+    const profileColors = hasCustomColors ? {
+      backgroundColor: record!.colors!.backgroundColor,
+      foregroundColor: record!.colors!.textColor,
+      statusBarStyle: getStatusBarStyle(record!.colors!.backgroundColor)
+    } : DEFAULT_PROFILE_COLORS;
 
     // Extract relationship data from viewer
     const isFollowing = apiProfile.viewer ? !!apiProfile.viewer.following : undefined;
@@ -138,6 +153,7 @@ class ProfileCache {
       isSubscribed,
       hasCustomColors,
       profileColors,
+      orbytProfileRecord: record,
       verification,
       lastUpdated: Date.now()
     };
@@ -146,7 +162,7 @@ class ProfileCache {
   /**
    * Save profile to MMKV cache (synchronous)
    */
-  static saveProfileToCache(profile: CachedProfile, did?: string): void {
+  static saveProfileToCache(profile: CachedProfile): void {
     try {
       const didKey = `${this.CACHE_KEY_PREFIX}did_${profile.did}`;
       const handleKey = `${this.CACHE_KEY_PREFIX}${profile.handle.toLowerCase()}`;
@@ -157,45 +173,6 @@ class ProfileCache {
     } catch {
       // Silently fail
     }
-  }
-
-  /**
-   * Fetch profile colors directly from PDS
-   * Optimized to reuse cached PDS endpoint resolution and agent instances
-   */
-  private static async fetchProfileColorsFromPDS(did: string): Promise<{ backgroundColor: string; textColor: string } | null> {
-    try {
-      // Use cached PDS endpoint resolution from AtprotoService
-      const endpoint = await AtprotoService.resolvePdsEndpointForDid(did);
-      if (!endpoint) {
-        return null;
-      }
-
-      // Reuse cached agent for this PDS endpoint
-      let pdsAgent = this._pdsAgentCache.get(endpoint);
-      if (!pdsAgent) {
-        pdsAgent = new AtpAgent({ service: endpoint });
-        this._pdsAgentCache.set(endpoint, pdsAgent);
-      }
-
-      // Fetch the profile record directly (no fallback needed since we use standard rkey)
-      const response = await pdsAgent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: 'com.getorbyt.profile',
-        rkey: 'self',
-      });
-      
-      const record = response?.data?.value as any;
-      if (record?.colors?.backgroundColor && record?.colors?.textColor) {
-        return {
-          backgroundColor: record.colors.backgroundColor,
-          textColor: record.colors.textColor,
-        };
-      }
-    } catch {
-      // No custom colors or record doesn't exist
-    }
-    return null;
   }
 
   // React Query integration
@@ -296,20 +273,36 @@ class ProfileCache {
   /**
    * Get a profile by DID - simplified to use Bsky API directly
    * React Query handles caching, this just fetches and transforms
+   * Fetches profile data and both records together using listRecords
    */
   static async getProfileByDid(did: string): Promise<CachedProfile | null> {
     if (!did) return null;
     
+    // Validate that input is actually a DID (starts with "did:")
+    // If it's a handle, return null to prevent fetching with wrong method and overwriting colors
+    if (!did.startsWith('did:')) {
+      // This is a handle, not a DID - return null (caller should use getProfile with handle instead)
+      // Returning null prevents fetching with wrong identifier which would overwrite colors with defaults
+      return null;
+    }
+    
     try {
-      // Fetch profile from API using Bsky SDK
-      const apiProfile = await AtprotoService.getProfileByDid(did);
+      // Fetch profile data (for viewer/verification) and both records in parallel
+      const [apiProfile, records] = await Promise.all([
+        AtprotoService.getProfileByDid(did),
+        AtprotoService.getProfileRecordsForDid(did)
+      ]);
+      
       if (!apiProfile) return null;
 
-      // Transform API response to CachedProfile
-      const profile = await this.transformApiProfile(apiProfile, did);
-      
+      // Transform API response to CachedProfile with pre-fetched records
+      const profile = await this.transformApiProfile(
+        apiProfile, 
+        did, 
+        records.orbytRecord as OrbytProfileRecord | null
+      );
       // Save to MMKV for sync reads (placeholderData)
-      this.saveProfileToCache(profile, did);
+      this.saveProfileToCache(profile);
       
       return profile;
     } catch (error) {
@@ -361,12 +354,18 @@ class ProfileCache {
       try {
         const profiles = await AtprotoService.getProfilesInBatch(needsFetch);
         
-        // Transform and cache each profile
+        // Transform and cache each profile with records
         const cachedProfiles: CachedProfile[] = [];
         for (const profile of profiles) {
           if (profile?.handle && profile?.did) {
             try {
-              const transformed = await this.transformApiProfile(profile);
+              // Fetch records for colors
+              const records = await AtprotoService.getProfileRecordsForDid(profile.did);
+              const transformed = await this.transformApiProfile(
+                profile,
+                profile.did,
+                records.orbytRecord as OrbytProfileRecord | null
+              );
               this.saveProfileToCache(transformed);
               cachedProfiles.push(transformed);
             } catch {
@@ -426,7 +425,13 @@ class ProfileCache {
       for (const profile of profiles) {
         if (profile?.handle && profile?.did) {
           try {
-            const transformed = await this.transformApiProfile(profile);
+            // Fetch records for colors
+            const records = await AtprotoService.getProfileRecordsForDid(profile.did);
+            const transformed = await this.transformApiProfile(
+              profile,
+              profile.did,
+              records.orbytRecord as OrbytProfileRecord | null
+            );
             this.saveProfileToCache(transformed);
             results.push(transformed);
           } catch {
@@ -470,9 +475,15 @@ class ProfileCache {
       const apiProfile = await AtprotoService.getProfile(cleanHandle);
       if (!apiProfile) return null;
 
-      // Transform API response to CachedProfile
-      const profile = await this.transformApiProfile(apiProfile);
-      
+      // Fetch records in parallel with profile data (for colors)
+      const records = await AtprotoService.getProfileRecordsForDid(apiProfile.did);
+
+      // Transform API response to CachedProfile with pre-fetched records
+      const profile = await this.transformApiProfile(
+        apiProfile,
+        apiProfile.did,
+        records.orbytRecord as OrbytProfileRecord | null
+      );
       // Save to MMKV for sync reads (placeholderData)
       this.saveProfileToCache(profile);
       
@@ -519,7 +530,13 @@ class ProfileCache {
             }
             
             // Transform and save
-            const transformed = await this.transformApiProfile(profile);
+            // Fetch records for colors
+            const records = await AtprotoService.getProfileRecordsForDid(profile.did);
+            const transformed = await this.transformApiProfile(
+              profile,
+              profile.did,
+              records.orbytRecord as OrbytProfileRecord | null
+            );
             this.saveProfileToCache(transformed);
           } catch {
             // Silently handle errors
@@ -579,50 +596,6 @@ class ProfileCache {
     }
   }
   
-  /**
-   * Update the profile colors for a profile
-   */
-  static async updateProfileColors(
-    handle: string,
-    backgroundColor: string,
-    foregroundColor: string,
-    saveToRemote: boolean = true
-  ): Promise<void> {
-    if (!handle) return;
-    
-    try {
-      const cachedProfile = this.getProfileFromCacheSync(handle);
-      
-      // Skip if colors are the same and already custom
-      if (cachedProfile?.hasCustomColors && 
-          cachedProfile?.profileColors?.backgroundColor === backgroundColor && 
-          cachedProfile?.profileColors?.foregroundColor === foregroundColor) {
-        return;
-      }
-      
-      if (cachedProfile) {
-        cachedProfile.profileColors = {
-          backgroundColor,
-          foregroundColor,
-          statusBarStyle: getStatusBarStyle(backgroundColor)
-        };
-        
-        if (saveToRemote) {
-          try {
-            await AtprotoService.updateOrbytProfileColors(backgroundColor, foregroundColor);
-            cachedProfile.hasCustomColors = true;
-          } catch {
-            // Continue even if PDS save fails
-          }
-        }
-        
-        cachedProfile.lastUpdated = Date.now();
-        this.saveProfileToCache(cachedProfile);
-      }
-    } catch {
-      // Silently handle errors
-    }
-  }
 
   /**
    * Update the verification status for a profile
@@ -680,11 +653,14 @@ class ProfileCache {
         description: serverProfile.description ?? cachedProfile?.description,
         isFollowing,
         isFollowedBy,
+        // Preserve profileColors and other cached data that isn't in server response
         profileColors: cachedProfile?.profileColors,
+        hasCustomColors: cachedProfile?.hasCustomColors,
         verification: cachedProfile?.verification,
+        orbytProfileRecord: cachedProfile?.orbytProfileRecord,
+        isSubscribed: cachedProfile?.isSubscribed,
         lastUpdated: Date.now(),
       };
-
       this.saveProfileToCache(merged);
     } catch {
       // Silently handle errors
@@ -696,27 +672,10 @@ class ProfileCache {
    * Returns an unsubscribe function
    * Note: React Query handles cache updates automatically, this is for legacy compatibility
    */
-  static subscribeToProfileUpdates(handle: string, callback: () => void): () => void {
+  static subscribeToProfileUpdates(_handle: string, _callback: () => void): () => void {
     // React Query handles cache invalidation and updates automatically
     // Return no-op unsubscribe function for legacy compatibility
     return () => {};
-  }
-
-  /**
-   * Notify subscribers that a profile has been updated
-   * No-op since React Query handles cache updates automatically
-   */
-  private static notifyProfileUpdated(handle: string): void {
-    // React Query handles cache invalidation and updates automatically
-    // No custom callback system needed
-  }
-
-
-  /**
-   * Get a profile directly from the cache by DID (async wrapper for sync method)
-   */
-  private static async getProfileFromCacheByDid(did: string): Promise<CachedProfile | null> {
-    return this.getProfileFromCacheSyncByDid(did);
   }
 
   /**
@@ -847,20 +806,20 @@ class ProfileCache {
               return;
             }
 
-            // Check how many are already cached
-            const alreadyCached = handlesToPrefetch.filter(handle => {
+            // Filter out already cached profiles
+            const uncachedHandles = handlesToPrefetch.filter(handle => {
               const cached = this.getProfileFromCacheSync(handle);
-              return cached && this.isCacheValid(cached);
-            }).length;
+              return !cached || !this.isCacheValid(cached);
+            });
 
-            const needsFetching = handlesToPrefetch.length - alreadyCached;
-
-
+            if (uncachedHandles.length === 0) {
+              return;
+            }
 
             // Process handles in smaller batches to avoid overwhelming the API
             const batchSize = 5;
-            for (let i = 0; i < handlesToPrefetch.length; i += batchSize) {
-              const batch = handlesToPrefetch.slice(i, i + batchSize);
+            for (let i = 0; i < uncachedHandles.length; i += batchSize) {
+              const batch = uncachedHandles.slice(i, i + batchSize);
               
               await Promise.allSettled(batch.map(async (handle) => {
                 try {
@@ -910,8 +869,8 @@ export function useProfileByDid(did: string | null | undefined): UseQueryResult<
     refetchOnMount: false,
     refetchOnReconnect: false,
     // Use placeholderData for instant UI - reads from MMKV synchronously
-    placeholderData: (previousData) => {
-      if (previousData) return previousData;
+    // Always use cached version to ensure colors are present during refetches
+    placeholderData: () => {
       if (!did) return null;
       return ProfileCache.getProfileFromCacheSyncByDid(did);
     },
@@ -1007,47 +966,14 @@ export function useProfile(handle: string | null | undefined): UseQueryResult<Ca
     refetchOnMount: false,
     refetchOnReconnect: false,
     // Use placeholderData for instant UI - reads from MMKV synchronously
-    placeholderData: (previousData) => {
-      if (previousData) return previousData;
+    // Always use cached version to ensure colors are present during refetches
+    placeholderData: () => {
       if (!handle) return null;
       return ProfileCache.getProfileFromCacheSync(handle);
     },
   });
 }
 
-/**
- * Hook to fetch just the profile colors by handle
- */
-export function useProfileColors(handle: string | null | undefined) {
-  const { data: profile } = useProfile(handle);
-
-  // Use cached profile colors with custom colors priority
-  // Default to black and lightGray for profiles without records
-  const colors: ProfileColorScheme = {
-    backgroundColor: profile?.profileColors?.backgroundColor || '#000000',
-    foregroundColor: profile?.profileColors?.foregroundColor || '#CFD6E8',
-    textColor: profile?.profileColors?.foregroundColor || '#CFD6E8',
-    primaryColor: profile?.profileColors?.backgroundColor || '#000000',
-    secondaryColor: profile?.profileColors?.foregroundColor || '#CFD6E8',
-    statusBarStyle: profile?.profileColors?.statusBarStyle || 'light',
-  };
-  
-  return {
-    colors,
-    isLoading: !profile,
-    hasCustomColors: profile?.hasCustomColors || false,
-    getColorWithOpacity: (colorKey: keyof ProfileColorScheme, opacity: number): string => {
-      const hex = colors[colorKey];
-      if (hex.startsWith('#')) {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-      }
-      return hex;
-    }
-  };
-}
 
 
 
@@ -1128,7 +1054,7 @@ export function useFollowMutation() {
       return { previousProfile };
     },
     // If mutation fails, use context returned from onMutate to roll back
-    onError: (err, { handle }, context) => {
+    onError: (_err, { handle }, context) => {
       if (context?.previousProfile) {
         queryClient.setQueryData(profileKeys.detail(handle), context.previousProfile);
         
@@ -1152,48 +1078,6 @@ export function useFollowMutation() {
 /**
  * Hook to update profile colors with React Query integration
  */
-export function useProfileColorsMutation() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ 
-      handle, 
-      backgroundColor, 
-      foregroundColor,
-      saveToRemote = true
-    }: { 
-      handle: string, 
-      backgroundColor: string, 
-      foregroundColor: string,
-      saveToRemote?: boolean
-    }) => {
-      // Get the profile to check if we should update colors
-      const profile = await ProfileCache.getProfile(handle);
-      
-      // Check if this is a user-initiated color change
-      const isUserInitiated = saveToRemote === true;
-      
-      // Only proceed if:
-      // 1. Colors are different from current colors, OR
-      // 2. No colors exist yet, OR
-      // 3. This is a user-initiated change (from EditProfileSheet)
-      if (!profile || 
-          !profile.profileColors || 
-          profile.profileColors.backgroundColor !== backgroundColor || 
-          profile.profileColors.foregroundColor !== foregroundColor ||
-          isUserInitiated) {
-        
-        await ProfileCache.updateProfileColors(handle, backgroundColor, foregroundColor, saveToRemote);
-      }
-      
-      return { handle, backgroundColor, foregroundColor };
-    },
-    onSuccess: (_, { handle }) => {
-      // Invalidate the specific profile query to refetch with new colors
-      queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
-    },
-  });
-}
 
 /**
  * Hook to update profile information with React Query integration
@@ -1217,13 +1101,11 @@ export function useProfileUpdateMutation() {
         };
       }
     }) => {
-      // Handle custom colors separately
+      // Handle custom colors - update orbyt profile record
       if (updates.customColors) {
-        await ProfileCache.updateProfileColors(
-          handle, 
-          updates.customColors.backgroundColor, 
-          updates.customColors.textColor,
-          true // Save to PDS
+        await AtprotoService.updateOrbytProfileColors(
+          updates.customColors.backgroundColor,
+          updates.customColors.textColor
         );
       }
       
@@ -1247,7 +1129,7 @@ export function useProfileUpdateMutation() {
         }
       }
       
-      return { handle, updatedProfile };
+      return { handle, updatedProfile, updatedColors: !!updates.customColors };
     },
     onMutate: async ({ handle, updates }) => {
       await queryClient.cancelQueries({ queryKey: profileKeys.detail(handle) });
@@ -1276,7 +1158,47 @@ export function useProfileUpdateMutation() {
 
       return { previousProfile };
     },
-    onSuccess: ({ updatedProfile }, { handle, updates }) => {
+    onSuccess: ({ updatedProfile, updatedColors }, { handle, updates }) => {
+      // If colors were updated, save to cache immediately
+      if (updatedColors) {
+        const prev = queryClient.getQueryData<CachedProfile>(profileKeys.detail(handle));
+        if (prev && updates.customColors) {
+          // Update the cached profile with new colors
+          const updated: CachedProfile = {
+            ...prev,
+            hasCustomColors: true,
+            profileColors: {
+              backgroundColor: updates.customColors.backgroundColor,
+              foregroundColor: updates.customColors.textColor,
+              statusBarStyle: getStatusBarStyle(updates.customColors.backgroundColor)
+            },
+            lastUpdated: Date.now(),
+          };
+          // Save to MMKV cache
+          ProfileCache.saveProfileToCache(updated);
+          // Update React Query cache immediately - don't invalidate to avoid refetch before server has processed
+          queryClient.setQueryData(profileKeys.detail(handle), updated);
+          // Also update DID-based query if we have the DID
+          if (prev.did) {
+            queryClient.setQueryData(profileKeys.detail(`did_${prev.did}`), updated);
+          }
+          
+          // Note: We don't invalidate here because:
+          // 1. We've already saved the new colors to cache
+          // 2. We've updated React Query cache optimistically
+          // 3. The server needs time to process the update
+          // 4. Invalidating immediately would trigger a refetch that might get stale data
+          // The cache will be refreshed naturally on next navigation or manual refresh
+        } else {
+          // Fallback: invalidate to trigger refetch
+          queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
+          if (prev?.did) {
+            queryClient.invalidateQueries({ queryKey: profileKeys.detail(`did_${prev.did}`) });
+          }
+        }
+        return;
+      }
+      
       if (!updatedProfile) return; // Skip if no profile was updated
       
       // Merge server-updated fields into the query cache immediately
@@ -1294,9 +1216,13 @@ export function useProfileUpdateMutation() {
         isFollowedBy: (updatedProfile?.viewer ? !!updatedProfile.viewer.followedBy : prev.isFollowedBy),
         // Preserve custom colors flag if we updated colors
         hasCustomColors: updates.customColors ? true : prev.hasCustomColors,
+        // Explicitly preserve profileColors to prevent them from being lost
+        profileColors: prev.profileColors,
+        orbytProfileRecord: prev.orbytProfileRecord,
+        verification: prev.verification,
+        isSubscribed: prev.isSubscribed,
         lastUpdated: Date.now(),
       };
-
       queryClient.setQueryData(profileKeys.detail(handle), merged);
 
       // Also invalidate DID-based queries if we know the DID
@@ -1307,7 +1233,7 @@ export function useProfileUpdateMutation() {
       // Still invalidate to ensure freshness against server
       queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
     },
-    onError: (error, { handle }, context) => {
+    onError: (_error, { handle }, context) => {
       if (context?.previousProfile) {
         queryClient.setQueryData(profileKeys.detail(handle), context.previousProfile);
       }
@@ -1379,7 +1305,7 @@ export function prepopulateProfileCache(
       
       // Also save to MMKV for sync reads
       if (partialCachedProfile.did) {
-        ProfileCache.saveProfileToCache(partialCachedProfile as CachedProfile, partialCachedProfile.did);
+        ProfileCache.saveProfileToCache(partialCachedProfile as CachedProfile);
       }
     }
   }

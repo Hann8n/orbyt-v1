@@ -3320,6 +3320,52 @@ class AtprotoService {
   }
 
   /**
+   * Fetch both profile records (standard and custom) using listRecords in parallel
+   * This ensures both records are always fetched together
+   */
+  static async getProfileRecordsForDid(did: string): Promise<{
+    profileRecord: any | null;
+    orbytRecord: any | null;
+  }> {
+    try {
+      if (!did) return { profileRecord: null, orbytRecord: null };
+      
+      const agent = await this.getAgentForRepo(did);
+      if (!agent) return { profileRecord: null, orbytRecord: null };
+
+      // Fetch both records in parallel using listRecords
+      const [profileRecords, orbytRecords] = await Promise.all([
+        agent.api.com.atproto.repo.listRecords({
+          repo: did,
+          collection: 'app.bsky.actor.profile',
+          limit: 1,
+        }).catch((err) => {
+          console.log('[getProfileRecordsForDid] profileRecords error:', err);
+          return { data: { records: [] } };
+        }),
+        agent.api.com.atproto.repo.listRecords({
+          repo: did,
+          collection: 'com.getorbyt.profile',
+          limit: 1,
+        }).catch((err) => {
+          console.log('[getProfileRecordsForDid] orbytRecords error:', err);
+          return { data: { records: [] } };
+        })
+      ]);
+
+      const profileRecord = profileRecords?.data?.records?.[0]?.value || null;
+      const orbytRecord = orbytRecords?.data?.records?.[0]?.value || null;
+
+      return {
+        profileRecord,
+        orbytRecord,
+      };
+    } catch {
+      return { profileRecord: null, orbytRecord: null };
+    }
+  }
+
+  /**
    * Create or update the orbyt profile record with a stable rkey 'self'
    */
   static async upsertOrbytProfileRecord(update: {

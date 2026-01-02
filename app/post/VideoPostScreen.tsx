@@ -39,7 +39,7 @@ import { Colors } from '../../src/components/ui/UI';
 import AuthorItem from '../../src/components/ui/AuthorItem';
 import { isTablet, isSmallScreen } from '../../src/utils/helpers';
 import { useCurrentUser, useAccountManagement } from '../../src/stores/userStore';
-import { useProfile, useProfileColors } from '../../src/services/cache/ProfileCache';
+import { useProfile, getProfileColors } from '../../src/services/cache/ProfileCache';
 import ProfileCache from '../../src/services/cache/ProfileCache';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import VideoProcessingService from '../../src/services/VideoProcessingService';
@@ -592,10 +592,11 @@ const VideoPostScreen: React.FC = () => {
     isError: isProfileError,
   } = useProfile(currentUser?.handle || null);
 
-  const { colors: profileColors } = useProfileColors(currentUser?.handle || null);
-
   // Ensure profile data is immediately available from cache to prevent flashing
   const profileData = userProfile || (currentUser?.handle ? ProfileCache.getProfileFromCacheSync(currentUser.handle) : null);
+  
+  // Get colors from profile data
+  const profileColors = getProfileColors(profileData);
 
 
   useEffect(() => {

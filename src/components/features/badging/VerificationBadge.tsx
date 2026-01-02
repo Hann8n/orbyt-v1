@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { Svg, Path, Circle, Defs, Mask } from 'react-native-svg';
-import ProfileCache, { useProfile, useProfileColors } from '../../../services/cache/ProfileCache';
+import ProfileCache, { useProfile, getProfileColors } from '../../../services/cache/ProfileCache';
 
 interface VerificationBadgeProps {
   handle: string;
@@ -106,8 +106,8 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
   // Only fetch if verification data not provided
   const { data: profile } = useProfile(verification ? null : handle);
 
-  // Get profile colors for the badge
-  const { colors } = useProfileColors(handle);
+  // Get profile colors from profile data
+  const colors = getProfileColors(profile);
 
   // Use provided verification data or get from profile
   const verificationData = verification || profile?.verification;

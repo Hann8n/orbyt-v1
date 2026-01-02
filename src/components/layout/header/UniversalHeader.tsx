@@ -428,7 +428,7 @@ const HeaderContentComponent = memo<{
         </Pressable>
       </View>
       
-      <View style={styles.textContainer}>
+      <View style={[styles.textContainer, (!customDescription && !content.description) && { marginBottom: 0 }]}>
         <Pressable
           style={styles.titleRow}
           onPress={content.onTitlePress}

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, StatusBar, Appearance, AppState, InteractionManager, Platform } from 'react-native';
 import { Stack, Redirect, usePathname, useSegments } from 'expo-router';
 import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import * as Font from 'expo-font';
@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 // Keep local imports where they are; no file moves
 import { Colors } from '../src/components/ui/UI';
 import { useAppStore } from '../src/stores/appStore';
-import { useAuth, useAccountManagement, useUserStore } from '../src/stores/userStore';
+import { useUserStore } from '../src/stores/userStore';
 import { migrateAsyncStorageToMMKV } from '../src/utils/storage';
 import { useBookmarkStore } from '../src/stores/bookmarkStore';
 import { CommonErrorHandlers } from '../src/utils/errorHandler';
@@ -23,7 +23,6 @@ import { feedService, createQueryKeys } from '../src/services/FeedService';
 import ShareSheet from '../src/components/ui/ShareSheet';
 import CommentSection from '../src/components/features/comments/CommentSection';
 import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
-import LoginScreen from './login';
 import { useVisibilityCoreStore } from '../src/core/visibility';
 import { queryClient } from '../src/utils/queryClient';
 
@@ -163,9 +162,6 @@ export default function RootLayout() {
   
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const isAuthenticating = useUserStore(state => state.isAuthenticating);
-  const signIn = useUserStore(state => state.signIn);
-  const signOut = useUserStore(state => state.signOut);
-  const switchAccount = useUserStore(state => state.switchAccount);
   const initializeUserState = useUserStore(state => state.initializeUserState);
   const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
   const clearBookmarks = useBookmarkStore(state => state.clearBookmarks);
@@ -252,7 +248,7 @@ export default function RootLayout() {
 
   // Prefetch feed in background after app is fully ready and interactions complete
   useEffect(() => {
-    if (!appIsReady) return;
+    if (!appIsReady) return undefined;
 
     const currentUser = useUserStore.getState().currentUser;
     if (currentUser?.did) {
@@ -260,10 +256,10 @@ export default function RootLayout() {
       const interactionHandle = InteractionManager.runAfterInteractions(() => {
         // Prefetch feed in background (non-blocking)
         queryClient.prefetchInfiniteQuery({
-          queryKey: createQueryKeys.feed.infinite('following', currentUser.did),
-          queryFn: ({ pageParam }) => feedService.fetchFeed('following', currentUser.did, pageParam as string),
-          initialPageParam: null,
-          getNextPageParam: (lastPage) => lastPage.cursor,
+          queryKey: createQueryKeys.feed.infinite('following', currentUser.did ?? ''),
+          queryFn: ({ pageParam }: { pageParam: string | null }) => feedService.fetchFeed('following', currentUser.did ?? '', pageParam ?? undefined),
+          initialPageParam: null as string | null,
+          getNextPageParam: (lastPage: { cursor?: string | null }) => lastPage.cursor ?? null,
         }).catch(() => {});
       });
 
@@ -271,6 +267,7 @@ export default function RootLayout() {
         interactionHandle.cancel();
       };
     }
+    return undefined;
   }, [appIsReady]);
 
   // Determine when app is ready (fonts loaded, initialization complete, auth state determined)
@@ -304,38 +301,6 @@ export default function RootLayout() {
 
     return () => clearTimeout(timeout);
   }, [appIsReady]);
-
-  const handleLogin = async (handle: string) => {
-    try {
-      if (handle === 'oauth-success') return Promise.resolve();
-      await signIn(handle);
-      return Promise.resolve();
-    } catch (error) {
-      CommonErrorHandlers.login(error);
-      return Promise.reject(error);
-    }
-  };
-
-  const handleAccountSwitch = async (account: any) => {
-    try {
-      await switchAccount(account.did);
-      return Promise.resolve();
-    } catch (error) {
-      CommonErrorHandlers.login(error);
-      return Promise.reject(error);
-    }
-  };
-
-  const handleLogout = async (clearAllAccounts: boolean = false) => {
-    try {
-      queryClient.clear();
-      await signOut(clearAllAccounts);
-      return Promise.resolve();
-    } catch (error) {
-      CommonErrorHandlers.logout(error);
-      return Promise.reject(error);
-    }
-  };
 
   // Show nothing while loading - splash screen will be visible
   if (isInitializing || isAuthenticating || !fontsLoaded) {

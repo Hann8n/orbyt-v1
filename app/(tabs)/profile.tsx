@@ -1,25 +1,29 @@
 import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
-import { tabRefs } from '../../src/utils/tabRefs';
-import type { ScrollToTopRef } from '../../src/utils/tabRefs';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import { View, Text, StyleSheet, Pressable, Dimensions, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import AtprotoService from '../../src/services/api/AtprotoService';
 // Use plain FlashList via FeedRenderer; no adapter/converter
 import FeedRenderer from '../../src/components/features/feed/FeedRenderer';
-import EmptyFeed from '../../src/components/features/feed/EmptyFeed';
 import ProfileCache, { 
   useProfile, 
   useProfileByDid,
-  useProfileColors,
-  useProfileInvalidation,
-  profileKeys
+  getProfileColors,
+  profileKeys,
+  type CachedProfile
 } from '../../src/services/cache/ProfileCache';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Icon, { BackArrowIcon, Loading3FillIcon, FollowIcon, MutualHeartIcon, BellFilledIcon, MoreFillIcon } from '../../src/components/ui/Icon';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
-import { useCurrentUser, useAccountManagement, useUserStore, useProfileCacheSync } from '../../src/stores/userStore';
+import { useCurrentUser, useProfileCacheSync } from '../../src/stores/userStore';
+import { HeaderAction, HeaderActionButton } from '../../src/components/layout/header/UniversalHeader';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
 import { useProfileFlags } from '../../src/stores/profileInteractionStore';
 import { Colors } from '../../src/components/ui/UI';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
@@ -31,20 +35,7 @@ import { useUserSubscription, useSubscriptionStore } from '../../src/stores/subs
 import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
 import SubscriptionOptionsSheet from '../../src/components/features/profile/SubscriptionOptionsSheet';
 import ChatService from '../../src/services/ChatService';
-import { HeaderAction, HeaderActionButton } from '../../src/components/layout/header/UniversalHeader';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  interpolate,
-  interpolateColor,
-  Extrapolate,
-} from 'react-native-reanimated';
- 
-
-type RootParamList = {
-  Main: undefined;
-  AuthorProfile: { handle: string };
-};
+import { tabRefs } from '../../src/utils/tabRefs';
 
 interface ProfileScreenProps {
   onLogout: (clearAllAccounts?: boolean) => Promise<void>;
@@ -53,17 +44,28 @@ interface ProfileScreenProps {
 const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { handle: providedHandle, did: providedDid } = useLocalSearchParams<{ handle?: string; did?: string }>();
+  const rawParams = useLocalSearchParams<{ handle?: string; did?: string }>();
+  
+  // Route file is [did].tsx, but may receive handle or DID
+  // Always resolve to DID - if we get a handle, fetch profile to get DID
+  const rawIdentifier = rawParams.did || rawParams.handle;
+  const isHandle = rawIdentifier && !rawIdentifier.startsWith('did:');
+  const handleQuery = useProfile(isHandle ? rawIdentifier : null);
+  
+  // Resolve to DID: use provided DID, or DID from handle lookup, or current user DID
+  const providedDid = useMemo(() => {
+    if (!rawIdentifier) return undefined;
+    if (rawIdentifier.startsWith('did:')) return rawIdentifier;
+    if (isHandle && handleQuery.data?.did) return handleQuery.data.did;
+    return undefined;
+  }, [rawIdentifier, isHandle, handleQuery.data?.did]);
   
   // User store hooks
   const { currentUser } = useCurrentUser();
-  const { savedAccounts, switchAccount } = useAccountManagement();
   
   // Automatically sync ProfileCache with userStore
   useProfileCacheSync();
   
-  // State for the current user's handle (loaded from userStore)
-  const userHandle = currentUser?.handle || null;
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
@@ -73,66 +75,62 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   } | null>(null);
   // Use DID in route key to differentiate between own profile and author profiles
   const profileRouteKey = useMemo(() => {
-    if (providedHandle || providedDid) {
-      // Author profile: include the identifier to make route key unique
-      return `profile:${providedDid || providedHandle}`;
+    if (providedDid) {
+      return `profile:${providedDid}`;
     }
     // Own profile tab: use default key
     return 'profile:self';
-  }, [providedHandle, providedDid]);
+  }, [providedDid]);
 
   useVisibilityRouteTracker(profileRouteKey, 'profile');
   const isRouteFocused = useVisibilityRouteIsActive(profileRouteKey);
 
-  const invalidateProfile = useProfileInvalidation();
   const queryClient = useQueryClient();
 
-  // Prefer DID when provided; otherwise fall back
-  const targetDid = providedDid || (providedHandle ? null : currentUser?.did || null);
-  const targetHandle = providedHandle || userHandle;
+  // Always use DID - provided DID, or current user DID, or DID resolved from handle
+  const targetDid = providedDid || currentUser?.did || null;
   
   // Determine if we're viewing our own profile
-  const isViewingOwnProfile = !providedHandle && !providedDid;
+  const isViewingOwnProfile = !rawIdentifier;
 
-  // Fetch by DID if available, otherwise by handle
+  // Always fetch by DID (handle query is only used to resolve handle to DID)
   const didQuery = useProfileByDid(targetDid);
-  const handleQuery = useProfile(targetDid ? null : targetHandle);
 
   // Use existing ProfileCache functionality with immediate fallback for own profile
-  const cachedProfile = didQuery.data || handleQuery.data || 
-    (isViewingOwnProfile && currentUser ? {
+  // If we resolved DID from handle, use that profile data; otherwise use DID query
+  const cachedProfile: CachedProfile | null = didQuery.data || (isHandle ? handleQuery.data : null) || 
+    (isViewingOwnProfile && currentUser?.did && currentUser?.handle ? {
       did: currentUser.did,
       handle: currentUser.handle,
-      displayName: currentUser.displayName,
-      avatar: currentUser.avatar,
+      displayName: currentUser.displayName ?? undefined,
+      avatar: currentUser.avatar ?? undefined,
       description: '',
       isFollowing: false,
       isFollowedBy: false,
       lastUpdated: Date.now(),
-    } : null);
+    } as CachedProfile : null);
   
-  const refetchProfile = didQuery.refetch || handleQuery.refetch;
-  const isProfileLoading = (didQuery.isLoading || handleQuery.isLoading) && !cachedProfile;
-  const isProfileFetchError = (didQuery.isError || handleQuery.isError);
+  const refetchProfile = didQuery.refetch || (isHandle ? handleQuery.refetch : undefined);
+  const isProfileLoading = (didQuery.isLoading || (isHandle && handleQuery.isLoading)) && !cachedProfile;
+  const isProfileFetchError = (didQuery.isError || (isHandle && handleQuery.isError));
   
-  // Colors keyed by handle; if navigating by DID, use fetched handle
-  const colorsHandle = targetDid ? (cachedProfile?.handle || null) : targetHandle;
-  const { colors: profileColors } = useProfileColors(colorsHandle);
+  // Get colors from cached profile
+  const profileColors = getProfileColors(cachedProfile);
 
   // Force shimmer state for testing
   const forceShimmer = false; // Force loading state
   
   const isProfileLoadingForced = forceShimmer || 
     (isProfileLoading && !cachedProfile) || 
-    (!targetDid && !targetHandle && !providedHandle);
+    (!targetDid && !rawIdentifier);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'profile' | 'reposts' | 'likes'>('profile');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   // Ensure profile data is immediately available from cache
-  const profileData = cachedProfile || (colorsHandle ? ProfileCache.getProfileFromCacheSync(colorsHandle) : null);
-  const { flags } = useProfileFlags(profileData?.did, profileData?.handle);
+  const profileData = cachedProfile;
+  const { flags } = useProfileFlags(profileData?.did ?? undefined, profileData?.handle ?? undefined);
   const isBlocked = !!flags?.isBlocked;
   
   // Memoized query options for profile feed
@@ -140,10 +138,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     enabled: Boolean(isRouteFocused && profileData?.did),
   }), [isRouteFocused, profileData?.did]);
 
+  // Ensure profileData.did is defined for type safety
+  const profileDid = profileData?.did ?? undefined;
+
   const profileVisibilityKey = useMemo(() => {
-    const did = profileData?.did || providedDid || providedHandle || 'profile';
+    const did = profileData?.did || providedDid || 'profile';
     return `profile:${did}:${activeTab}`;
-  }, [profileData?.did, providedDid, providedHandle, activeTab]);
+  }, [profileData?.did, providedDid, activeTab]);
 
   // ProfileCache is now automatically synced via useProfileCacheSync hook
   // Colors are extracted during profile fetch in ProfileCache.ts - no need to do it here
@@ -163,18 +164,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         // Subscriptions are non-critical; ignore errors
       }
 
-      // Invalidate DID-based profile cache so useProfileByDid can refetch fresh data
+      // Explicitly refresh profile data using the same functions as initial load
+      // This ensures com.getorbyt.profile records (colors) are refetched
       if (profileData?.did) {
-        const ProfileCache = (await import('../../src/services/cache/ProfileCache')).default;
-        await ProfileCache.invalidateProfileByDid(profileData.did);
+        // Use refreshProfileByDid which calls getProfileByDid - fetches records with colors
+        await ProfileCache.refreshProfileByDid(profileData.did);
+        // Invalidate React Query cache so it picks up the refreshed data
         queryClient.invalidateQueries({ queryKey: profileKeys.detail(`did_${profileData.did}`) });
-      }
-
-      if (colorsHandle) {
-        await invalidateProfile(colorsHandle);
+      } else if (profileData?.handle) {
+        // Use refreshProfile which calls getProfile - fetches records with colors
+        await ProfileCache.refreshProfile(profileData.handle);
+        // Invalidate React Query cache so it picks up the refreshed data
+        queryClient.invalidateQueries({ queryKey: profileKeys.detail(profileData.handle.toLowerCase()) });
       }
       
-      // Always refetch profile data so header info stays in sync
+      // Always refetch profile data so React Query cache is updated
       await refetchProfile();
     } catch (error) {
       setProfileError("Failed to refresh profile.");
@@ -184,7 +188,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         setRefreshing(false);
       }, 2000);
     }
-  }, [colorsHandle, invalidateProfile, refetchProfile, profileData?.did, queryClient]);
+  }, [refetchProfile, profileData?.did, profileData?.handle, queryClient]);
 
   const handleLogout = async (clearAllAccounts: boolean = false) => {
     try {
@@ -196,13 +200,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     } catch (error) {
     } finally {
       setRefreshing(false);
-    }
-  };
-
-  const handleAccountSwitch = async (account: any) => {
-    try {
-      await refetchProfile();
-    } catch (error) {
     }
   };
 
@@ -232,8 +229,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       <Icon name="user-x" size={48} color={profileColors.textColor || '#fff'} style={styles.errorIcon} />
       <Text style={[styles.errorText, { color: profileColors.textColor || '#fff' }]}>Profile Not Found</Text>
       <Text style={styles.errorSubtext}>
-        {providedHandle ?
-          `We couldn't find a profile for @${providedHandle}` :
+        {rawIdentifier && isHandle ?
+          `We couldn't find a profile for @${rawIdentifier}` :
           profileError || "We couldn't retrieve your profile information"}
       </Text>
       <Pressable
@@ -246,7 +243,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       >
         <Text style={[styles.errorButtonText, { color: profileColors.textColor || '#fff' }]}>Try Again</Text>
       </Pressable>
-      {providedHandle && (
+      {rawIdentifier && (
         <Pressable
           style={({ pressed }) => [
             styles.errorButton,
@@ -264,7 +261,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   }, [
     profileColors.backgroundColor,
     profileColors.textColor,
-    providedHandle,
+    rawIdentifier,
+    isHandle,
     profileError,
     onRefresh,
     router,
@@ -277,30 +275,51 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const [showSubscriptionSheet, setShowSubscriptionSheet] = useState(false);
   const [canMessage, setCanMessage] = useState<boolean | null>(null);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
-  const [extractedDefaultColors, setExtractedDefaultColors] = useState<{
-    backgroundColor: string;
-    textColor: string;
-  } | null>(null);
 
   const followMutation = useFollowMutation();
   const { isSubscribed } = useUserSubscription(profileData?.did);
 
-  // Message availability
+  // Get raw profile response to access chat fields from getProfile
+  // This includes associated.chat.allowIncoming and chat.activitySubscription
+  const { data: rawProfile } = useQuery({
+    queryKey: createQueryKeys.profiles.detail(profileData?.handle || profileData?.did || ''),
+    queryFn: () => {
+      if (profileData?.did) {
+        return AtprotoService.getProfileByDid(profileData.did);
+      } else if (profileData?.handle) {
+        return AtprotoService.getProfile(profileData.handle);
+      }
+      return null;
+    },
+    enabled: !!profileData?.did && !isOwnProfileView,
+  });
+
+  // Message availability from getProfile response
+  // associated.chat.allowIncoming can be 'none', 'all', 'following', or undefined
+  const canMessageFromProfile = useMemo(() => {
+    if (!rawProfile) return false;
+    const allowIncoming = rawProfile.associated?.chat?.allowIncoming;
+    switch (allowIncoming) {
+      case 'none':
+        return false;
+      case 'all':
+        return true;
+      case 'following':
+      case undefined:
+        return Boolean(rawProfile.viewer?.followedBy);
+      default:
+        return false;
+    }
+  }, [rawProfile]);
+  
   useEffect(() => {
-    const checkAvailability = async () => {
-      if (!profileData?.did || isOwnProfileView) {
-        setCanMessage(null);
-        return;
-      }
-      try {
-        const available = await ChatService.getConversationAvailability(profileData.did);
-        setCanMessage(available);
-      } catch {
-        setCanMessage(false);
-      }
-    };
-    checkAvailability();
-  }, [profileData?.did, isOwnProfileView]);
+    if (!profileData?.did || isOwnProfileView) {
+      setCanMessage(null);
+      return;
+    }
+    // Use chat availability from getProfile response
+    setCanMessage(canMessageFromProfile ? true : false);
+  }, [profileData?.did, isOwnProfileView, canMessageFromProfile]);
 
   const handleMessagePress = useCallback(async () => {
     if (!profileData?.did) return;
@@ -316,19 +335,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   }, [profileData?.did, router]);
 
   // Default colors for edit sheet - always reflect current profile color state
-  useEffect(() => {
-    if (profileColors?.backgroundColor && profileColors?.textColor) {
-      setExtractedDefaultColors({
-        backgroundColor: profileColors.backgroundColor,
-        textColor: profileColors.textColor,
-      });
-    } else {
-      setExtractedDefaultColors({
-        backgroundColor: '#000000',
-        textColor: '#CFD6E8',
-      });
-    }
-  }, [profileColors.backgroundColor, profileColors.textColor]);
+  // Colors are now handled directly in ProfileCache, no need for separate state
 
   // Follow / unblock
   const handleFollowUnfollow = useCallback(async () => {
@@ -366,7 +373,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
 
   const overlayTop = (typeof insets?.top === 'number' ? insets.top : 0) + 5;
 
-  const showBackButton = !!(providedHandle || providedDid);
+  const showBackButton = !!rawIdentifier;
 
   // Shared scroll progress for header animation (0 = top, 1 = fully faded/dimmed)
   const headerScrollProgress = useSharedValue(0);
@@ -581,14 +588,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                 activeTab === 'profile' ? 'profile' :
                 activeTab === 'reposts' ? 'reposts' : 'likes'
               }
-              userDid={profileData?.did}
+              userDid={profileDid}
               queryOptions={queryOptions}
               headerComponent={(
                 <View style={styles.headerContainer} pointerEvents="box-none">
                   <ProfileHeader
-                    handle={colorsHandle || undefined}
+                    handle={profileData?.handle || null}
                     showBackButton={false}
-                    isOwnProfile={isOwnProfileView}
+                    isOwnProfile={!!isOwnProfileView}
                     onLogout={handleLogout}
                     onSwitchAccount={presentAccountSwitcher}
                     forceLoading={isProfileLoadingForced}
@@ -603,7 +610,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
                       key={`tab-nav-${dynamicColors?.textColor || profileColors.textColor}`}
                       tabs={tabOptions}
                       activeTab={activeTab}
-                      onTabPress={(tabId) => setActiveTab(tabId as any)}
+                      onTabPress={(tabId) => setActiveTab(tabId as 'profile' | 'reposts' | 'likes')}
                       textColor={dynamicColors ? dynamicColors.textColor : profileColors.textColor}
                       backgroundColor="transparent"
                       viewMode={viewMode}
@@ -635,11 +642,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       <ProfileMenu
         visible={showProfileMenu}
         onDismiss={() => setShowProfileMenu(false)}
-        handle={colorsHandle || ''}
-        isOwnProfile={isOwnProfileView}
+        handle={profileData?.handle || ''}
+        isOwnProfile={!!isOwnProfileView}
         onLogout={handleLogoutFromMenu}
         onSwitchAccount={presentAccountSwitcher}
-        canMessage={canMessage}
+        canMessage={canMessage === null ? undefined : canMessage === true}
         onMessagePress={handleMessagePress}
       />
 

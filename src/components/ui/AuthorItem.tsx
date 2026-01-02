@@ -9,7 +9,7 @@ import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { Colors } from './UI';
 import UI from './UI';
 
-import { useProfile, useProfileColors, useFollowMutation, prepopulateProfileCache } from '../../services/cache/ProfileCache';
+import { useProfile, getProfileColors, useFollowMutation, prepopulateProfileCache } from '../../services/cache/ProfileCache';
 import { useCurrentUser } from '../../stores/userStore';
 import { formatHandle } from '../../utils/helpers';
 import { useQueryClient } from '@tanstack/react-query';
