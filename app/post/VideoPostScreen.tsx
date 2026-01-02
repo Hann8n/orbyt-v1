@@ -1654,7 +1654,10 @@ const VideoPostScreen: React.FC = () => {
       >
         <ScrollView 
           style={styles.sheetContent}
-          contentContainerStyle={styles.sheetContentContainer}
+          contentContainerStyle={[
+            styles.sheetContentContainer,
+            { paddingBottom: 52 + insets.bottom } // Footer height (8 + 44) + safe area bottom
+          ]}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled={true}
         >
