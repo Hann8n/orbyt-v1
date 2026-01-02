@@ -15,7 +15,7 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useInfiniteQuery, useQueryClient, useQuery } from '@tanstack/react-query';
 
-import ProfileCache, { profileKeys } from '../../../services/cache/ProfileCache';
+import ProfileCache, { profileKeys, prepopulateProfileCache } from '../../../services/cache/ProfileCache';
 import { Avatar, Colors } from '../../../components/ui/UI';
 import { Loading3FillIcon } from '../../../components/ui/Icon';
 import { VerificationBadge } from '../badging';
@@ -273,9 +273,20 @@ const NotificationItem: React.FC<{
   }, [reason, postTypeLabel, isDeleted]);
   
   // Navigate to profile
-  const navigateToProfile = useCallback((handle: string) => {
+  const navigateToProfile = useCallback((handle: string, authorData?: any) => {
     const trimmed = handle.trim();
     if (!trimmed) return;
+    
+    // Pre-populate cache with available author data
+    if (authorData && queryClient) {
+      prepopulateProfileCache(queryClient, {
+        did: authorData.did,
+        handle: trimmed,
+        displayName: authorData.displayName,
+        avatar: authorData.avatar,
+      }, trimmed);
+    }
+    
     queryClient.prefetchQuery({
       queryKey: profileKeys.detail(trimmed),
       queryFn: () => ProfileCache.getProfile(trimmed),
@@ -317,13 +328,13 @@ const NotificationItem: React.FC<{
 
   const handlePress = async () => {
     if (!isPostAction) {
-      if (author?.handle) navigateToProfile(author.handle);
+      if (author?.handle) navigateToProfile(author.handle, author);
       return;
     }
 
     const postUri = getPostUri(item);
     if (!postUri) {
-      if (author?.handle) navigateToProfile(author.handle);
+      if (author?.handle) navigateToProfile(author.handle, author);
       return;
     }
 
@@ -363,7 +374,7 @@ const NotificationItem: React.FC<{
       
       // If post is deleted/missing, navigate to profile
       if (!finalPostData || isPostDeleted(finalPostData)) {
-        if (author?.handle) navigateToProfile(author.handle);
+        if (author?.handle) navigateToProfile(author.handle, author);
         return;
       }
       
@@ -387,7 +398,7 @@ const NotificationItem: React.FC<{
         await openPostInBluesky(rootPostUri);
       }
     } catch (error) {
-      if (author?.handle) navigateToProfile(author.handle);
+      if (author?.handle) navigateToProfile(author.handle, author);
     }
   };
 
@@ -433,7 +444,7 @@ const NotificationItem: React.FC<{
       
       // If post is deleted/missing, navigate to profile
       if (!finalPostData || isPostDeleted(finalPostData)) {
-        if (author?.handle) navigateToProfile(author.handle);
+        if (author?.handle) navigateToProfile(author.handle, author);
         return;
       }
       
@@ -448,7 +459,7 @@ const NotificationItem: React.FC<{
         await openPostInBluesky(rootPostUri);
       }
     } catch (error) {
-      if (author?.handle) navigateToProfile(author.handle);
+      if (author?.handle) navigateToProfile(author.handle, author);
     }
   }, [isPostAction, item, postData, postDataMap, author?.handle, navigateToProfile, navigateToVideoPost]);
 

@@ -22,6 +22,8 @@ import { VerificationBadge } from '../badging';
 import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useRouter, useSegments } from 'expo-router';
 import { useFollowContext } from '../../../context/FollowContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { prepopulateProfileCache } from '../../../services/cache/ProfileCache';
 
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -86,6 +88,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const navigation = useRouter();
   const segments = useSegments();
   const hasTabBar = Array.isArray(segments) && segments[0] === '(tabs)';
+  const queryClient = useQueryClient();
   
   // Overlay state
   const [isOverlayCollapsed, setIsOverlayCollapsed] = useState(true);
@@ -118,11 +121,22 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   );
 
   // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
-  const navigateToAuthorProfile = useCallback((rawHandle?: string | null) => {
+  const navigateToAuthorProfile = useCallback((rawHandle?: string | null, authorData?: any) => {
     const cleanHandle = (rawHandle || '').trim();
     if (!cleanHandle) return;
+    
+    // Pre-populate profile cache with available author data
+    if (authorData && queryClient) {
+      prepopulateProfileCache(queryClient, {
+        did: authorData.did,
+        handle: authorData.handle || cleanHandle,
+        displayName: authorData.displayName,
+        avatar: authorData.avatar,
+      }, cleanHandle);
+    }
+    
     navigation.push(`/profile/${cleanHandle}`);
-  }, [navigation]);
+  }, [navigation, queryClient]);
 
   // Navigation to hashtag feed
   const navigateToHashtagFeed = useCallback((hashtag: string) => {
@@ -140,7 +154,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const handleAuthorPress = useCallback(() => {
     const handle = author.handle?.trim();
     if (handle && typeof handle === 'string' && handle.trim() !== '') {
-      navigateToAuthorProfile(handle);
+      navigateToAuthorProfile(handle, author);
     }
   }, [author, navigateToAuthorProfile]);
 
@@ -148,7 +162,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const handleRepostAuthorPress = useCallback(() => {
     const handle = post.repostedBy?.handle?.trim();
     if (handle && typeof handle === 'string' && handle.trim() !== '') {
-      navigateToAuthorProfile(handle);
+      navigateToAuthorProfile(handle, post.repostedBy);
     }
   }, [post.repostedBy, navigateToAuthorProfile]);
 

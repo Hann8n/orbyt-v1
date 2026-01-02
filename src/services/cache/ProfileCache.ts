@@ -1,5 +1,4 @@
-import { storageHelpers } from '../../utils/storage';
-import { InteractionManager } from 'react-native';
+import { storage } from '../../utils/storage';
 import AtprotoService from '../api/AtprotoService';
 import { isColorDark, getStatusBarStyle, DEFAULT_PROFILE_COLORS } from '@/utils/formatting/colorUtils';
 import { AtpAgent } from '@atproto/api';
@@ -7,11 +6,11 @@ import {
   useQuery, 
   useMutation,
   useQueryClient, 
+  QueryClient,
   QueryKey,
   UseQueryResult,
-  QueryFunction
 } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 
 
 export interface CachedProfile {
@@ -74,23 +73,91 @@ class ProfileCache {
   private static CACHE_KEY_PREFIX = 'profile_cache_';
   private static currentUserDid: string | null = null;
   private static currentUserHandle: string | null = null;
-  private static memoryCache: Map<string, CachedProfile> = new Map();
-  private static DEBUG = false;
-  private static cacheUpdateCallbacks: Map<string, Set<() => void>> = new Map();
-  private static isInitialized = false;
-
-  private static initialize() {
-    if (this.isInitialized) return;
-    
-    // Don't clear cache on initialization - preserve existing cache
-    // Only initialize the flag and any necessary setup
-    this.isInitialized = true;
-    
-
-  }
-
+  
   // Cache agents per PDS endpoint to avoid recreating them
   private static _pdsAgentCache = new Map<string, AtpAgent>();
+
+  /**
+   * Transform Bsky API profile response to CachedProfile format
+   */
+  private static async transformApiProfile(apiProfile: any, did?: string): Promise<CachedProfile> {
+    // Fetch colors from PDS
+    const targetDid = did || apiProfile.did;
+    let profileColors = undefined;
+    let hasCustomColors = false;
+    
+    const customColors = await this.fetchProfileColorsFromPDS(targetDid);
+    if (customColors) {
+      hasCustomColors = true;
+      profileColors = {
+        backgroundColor: customColors.backgroundColor,
+        foregroundColor: customColors.textColor,
+        statusBarStyle: getStatusBarStyle(customColors.backgroundColor)
+      };
+    } else {
+      profileColors = DEFAULT_PROFILE_COLORS;
+    }
+
+    // Extract relationship data from viewer
+    const isFollowing = apiProfile.viewer ? !!apiProfile.viewer.following : undefined;
+    const isFollowedBy = apiProfile.viewer ? !!apiProfile.viewer.followedBy : undefined;
+    const isSubscribed = apiProfile.viewer?.activitySubscription ? true : undefined;
+
+    // Extract verification data
+    let verification: CachedProfile['verification'] = { isVerified: false };
+    if (apiProfile.verification) {
+      const isVerified = 
+        apiProfile.verification.verifiedStatus === 'valid' ||
+        apiProfile.verification.trustedVerifierStatus === 'valid' ||
+        (apiProfile.verification.verifications && 
+         apiProfile.verification.verifications.length > 0 && 
+         apiProfile.verification.verifications.some((v: any) => v.isValid));
+      
+      if (isVerified) {
+        verification = {
+          isVerified: true,
+          status: apiProfile.verification.verifiedStatus || 'valid',
+          trustedVerifierStatus: apiProfile.verification.trustedVerifierStatus || 'none',
+          verifications: apiProfile.verification.verifications || [],
+          verifiedBy: apiProfile.verification.verifications?.[0]?.issuer || 'bsky.app',
+          verifierHandle: apiProfile.verification.trustedVerifierStatus === 'valid' ? 'Verifier' : 'bsky.app',
+          verifiedAt: apiProfile.verification.verifications?.[0]?.createdAt || new Date().toISOString(),
+          isOfficial: apiProfile.verification.trustedVerifierStatus !== 'valid'
+        };
+      }
+    }
+
+    return {
+      did: apiProfile.did,
+      handle: apiProfile.handle,
+      displayName: apiProfile.displayName,
+      avatar: apiProfile.avatar,
+      description: apiProfile.description,
+      isFollowing,
+      isFollowedBy,
+      isSubscribed,
+      hasCustomColors,
+      profileColors,
+      verification,
+      lastUpdated: Date.now()
+    };
+  }
+
+  /**
+   * Save profile to MMKV cache (synchronous)
+   */
+  static saveProfileToCache(profile: CachedProfile, did?: string): void {
+    try {
+      const didKey = `${this.CACHE_KEY_PREFIX}did_${profile.did}`;
+      const handleKey = `${this.CACHE_KEY_PREFIX}${profile.handle.toLowerCase()}`;
+      
+      const profileJson = JSON.stringify(profile);
+      storage.set(didKey, profileJson);
+      storage.set(handleKey, profileJson);
+    } catch {
+      // Silently fail
+    }
+  }
 
   /**
    * Fetch profile colors directly from PDS
@@ -133,13 +200,11 @@ class ProfileCache {
 
   // React Query integration
   static getQueryKey(handle: string): QueryKey {
-    this.initialize();
     return profileKeys.detail(handle.toLowerCase());
   }
 
   // Make CACHE_EXPIRY accessible for React Query hooks
   static get cacheExpiry(): number {
-    this.initialize();
     return PROFILE_CACHE_EXPIRY;
   }
 
@@ -173,96 +238,84 @@ class ProfileCache {
 
 
   /**
-   * Get a profile from memory cache by DID synchronously (for immediate access)
-   * This prevents flashing by providing instant access to cached data
+   * Get a profile from MMKV cache by DID synchronously (for React Query placeholderData)
+   * Uses MMKV for instant synchronous reads
    */
   static getProfileFromCacheSyncByDid(did: string): CachedProfile | null {
     if (!did) return null;
     
-    this.initialize();
-    
-    // Return from memory cache immediately
-    const memoryCached = this.memoryCache.get(did);
-    if (memoryCached && this.isCacheValid(memoryCached)) {
-      return memoryCached;
+    try {
+      const cacheKey = `${this.CACHE_KEY_PREFIX}did_${did}`;
+      const cached = storage.getString(cacheKey);
+      if (cached) {
+        const profile = JSON.parse(cached) as CachedProfile;
+        if (this.isCacheValid(profile)) {
+          return profile;
+        }
+      }
+    } catch {
+      // Silently fail
     }
-    
     return null;
   }
 
   /**
-   * Get a profile from memory cache by handle synchronously (for immediate access) (legacy)
-   * This prevents flashing by providing instant access to cached data
+   * Get a profile from MMKV cache by handle synchronously (for React Query placeholderData)
+   * Uses MMKV for instant synchronous reads
    */
   static getProfileFromCacheSync(handle: string): CachedProfile | null {
     if (!handle) return null;
     
-    this.initialize();
-    
-    // Clean handle format
-    let cleanHandle = handle.trim().toLowerCase();
-    if (cleanHandle.includes('://') || cleanHandle.includes('/')) {
-      const parts = cleanHandle.split('/');
-      for (const part of parts) {
-        if (part.includes('.')) {
-          cleanHandle = part;
-          break;
+    try {
+      // Clean handle format
+      let cleanHandle = handle.trim().toLowerCase();
+      if (cleanHandle.includes('://') || cleanHandle.includes('/')) {
+        const parts = cleanHandle.split('/');
+        for (const part of parts) {
+          if (part.includes('.')) {
+            cleanHandle = part;
+            break;
+          }
         }
       }
+      
+      const cacheKey = `${this.CACHE_KEY_PREFIX}${cleanHandle}`;
+      const cached = storage.getString(cacheKey);
+      if (cached) {
+        const profile = JSON.parse(cached) as CachedProfile;
+        if (this.isCacheValid(profile)) {
+          return profile;
+        }
+      }
+    } catch {
+      // Silently fail
     }
-    
-    // Return from memory cache immediately
-    const memoryCached = this.memoryCache.get(cleanHandle);
-    if (memoryCached && this.isCacheValid(memoryCached)) {
-      return memoryCached;
-    }
-    
     return null;
   }
 
   /**
-   * Get a profile by DID, with caching and background refresh
-   * This is the preferred method as DIDs are stable identifiers
+   * Get a profile by DID - simplified to use Bsky API directly
+   * React Query handles caching, this just fetches and transforms
    */
   static async getProfileByDid(did: string): Promise<CachedProfile | null> {
     if (!did) return null;
     
-    this.initialize();
-    
     try {
-      // Check memory cache first (fastest)
-      const memoryCached = this.memoryCache.get(did);
-      if (memoryCached && this.isCacheValid(memoryCached)) {
-        return memoryCached;
-      }
+      // Fetch profile from API using Bsky SDK
+      const apiProfile = await AtprotoService.getProfileByDid(did);
+      if (!apiProfile) return null;
+
+      // Transform API response to CachedProfile
+      const profile = await this.transformApiProfile(apiProfile, did);
       
-      // Try to get from async storage
-      const cachedProfile = await this.getProfileFromCacheByDid(did);
+      // Save to MMKV for sync reads (placeholderData)
+      this.saveProfileToCache(profile, did);
       
-      // If found in cache and not expired, store in memory and return it
-      if (cachedProfile && this.isCacheValid(cachedProfile)) {
-        this.memoryCache.set(did, cachedProfile);
-        return cachedProfile;
-      }
-      
-      // Otherwise fetch fresh profile data
-      const freshProfile = await this.fetchAndCacheProfileByDid(did);
-      if (freshProfile) {
-        this.memoryCache.set(did, freshProfile);
-      }
-      return freshProfile;
+      return profile;
     } catch (error) {
-      // If there's an error fetching fresh data but we have cached data, return that
-      try {
-        const cachedProfile = await this.getProfileFromCacheByDid(did);
-        if (cachedProfile) {
-          this.memoryCache.set(did, cachedProfile);
-          return cachedProfile;
-        }
-      } catch (cacheError) {
-        return null;
-      }
-      return null;
+      // Return stale cache if available
+      const cached = this.getProfileFromCacheSyncByDid(did);
+      return cached;
     }
   }
 
@@ -279,7 +332,6 @@ class ProfileCache {
       return [];
     }
 
-    this.initialize();
 
     const uniqueHandles = Array.from(new Set(
       handles
@@ -305,26 +357,29 @@ class ProfileCache {
       return cached;
     }
 
-    // Fetch missing profiles in batch
-    try {
-      const profiles = await AtprotoService.getProfilesInBatch(needsFetch);
-      
-      // Cache each profile individually
-      const cachedProfiles: CachedProfile[] = [];
-      for (const profile of profiles) {
-        if (profile?.handle) {
-          const cachedProfile = await this.fetchAndCacheProfile(profile.handle);
-          if (cachedProfile) {
-            cachedProfiles.push(cachedProfile);
+      // Fetch missing profiles in batch
+      try {
+        const profiles = await AtprotoService.getProfilesInBatch(needsFetch);
+        
+        // Transform and cache each profile
+        const cachedProfiles: CachedProfile[] = [];
+        for (const profile of profiles) {
+          if (profile?.handle && profile?.did) {
+            try {
+              const transformed = await this.transformApiProfile(profile);
+              this.saveProfileToCache(transformed);
+              cachedProfiles.push(transformed);
+            } catch {
+              // Skip failed profiles
+            }
           }
         }
-      }
 
-      return [...cached, ...cachedProfiles];
-    } catch (error) {
-      // Return what we got from cache at least
-      return cached;
-    }
+        return [...cached, ...cachedProfiles];
+      } catch (error) {
+        // Return what we got from cache at least
+        return cached;
+      }
   }
 
   /**
@@ -369,10 +424,13 @@ class ProfileCache {
 
       const results: CachedProfile[] = [];
       for (const profile of profiles) {
-        if (profile?.handle) {
-          const cachedProfile = await this.fetchAndCacheProfile(profile.handle);
-          if (cachedProfile) {
-            results.push(cachedProfile);
+        if (profile?.handle && profile?.did) {
+          try {
+            const transformed = await this.transformApiProfile(profile);
+            this.saveProfileToCache(transformed);
+            results.push(transformed);
+          } catch {
+            // Skip failed profiles
           }
         }
       }
@@ -383,16 +441,16 @@ class ProfileCache {
     }
   }
 
+  /**
+   * Get a profile by handle - simplified to use Bsky API directly
+   * React Query handles caching, this just fetches and transforms
+   */
   static async getProfile(handle: string): Promise<CachedProfile | null> {
     if (!handle) return null;
     
-    this.initialize();
-    
     try {
-      // Ensure handle is properly formatted
+      // Normalize handle
       let cleanHandle = handle.trim().toLowerCase();
-      
-      // If handle contains a URL or protocol, extract just the handle part
       if (cleanHandle.includes('://') || cleanHandle.includes('/')) {
         const parts = cleanHandle.split('/');
         for (const part of parts) {
@@ -403,203 +461,79 @@ class ProfileCache {
         }
       }
       
-      // Special case for verifier handles which might not follow standard format
-      if (cleanHandle !== 'verifier' && cleanHandle !== 'bsky.app') {
-        // Check for valid handle format (should contain at least one dot)
-        if (!cleanHandle.includes('.')) {
-          return null;
-        }
-      }
-      
-      // Check memory cache first (fastest)
-      const memoryCached = this.memoryCache.get(cleanHandle);
-      if (memoryCached && this.isCacheValid(memoryCached)) {
-        return memoryCached;
-      }
-      
-      // Try to get from async storage
-      const cachedProfile = await this.getProfileFromCache(cleanHandle);
-      
-      // If found in cache and not expired, store in memory and return it
-      if (cachedProfile && this.isCacheValid(cachedProfile)) {
-        this.memoryCache.set(cleanHandle, cachedProfile);
-        return cachedProfile;
-      }
-      
-      // Otherwise fetch fresh profile data
-      const freshProfile = await this.fetchAndCacheProfile(cleanHandle);
-      if (freshProfile) {
-        this.memoryCache.set(cleanHandle, freshProfile);
-      }
-      return freshProfile;
-    } catch (error) {
-      // If there's an error fetching fresh data but we have cached data, return that
-      try {
-        const normalizedHandle = handle.trim().toLowerCase();
-        const cachedProfile = await this.getProfileFromCache(normalizedHandle);
-        if (cachedProfile) {
-          this.memoryCache.set(normalizedHandle, cachedProfile);
-          return cachedProfile;
-        }
-      } catch (cacheError) {
+      // Validate handle format
+      if (cleanHandle !== 'verifier' && cleanHandle !== 'bsky.app' && !cleanHandle.includes('.')) {
         return null;
       }
-      return null;
+      
+      // Fetch profile from API using Bsky SDK
+      const apiProfile = await AtprotoService.getProfile(cleanHandle);
+      if (!apiProfile) return null;
+
+      // Transform API response to CachedProfile
+      const profile = await this.transformApiProfile(apiProfile);
+      
+      // Save to MMKV for sync reads (placeholderData)
+      this.saveProfileToCache(profile);
+      
+      return profile;
+    } catch (error) {
+      // Return stale cache if available
+      const cached = this.getProfileFromCacheSync(handle);
+      return cached;
     }
   }
 
   /**
-   * Force refresh a profile by DID, ignoring the cache
-   * Useful for React Query's refetch operations
+   * Force refresh a profile by DID - just call getProfileByDid (cache is managed by React Query)
    */
   static async refreshProfileByDid(did: string): Promise<CachedProfile | null> {
-    if (!did) return null;
-    
-    // Async operations already run off the main thread - no delay needed
-    try {
-      const freshProfile = await this.fetchAndCacheProfileByDid(did);
-      this.notifyProfileUpdated(did);
-      return freshProfile;
-    } catch (error) {
-      return null;
-    }
+    return this.getProfileByDid(did);
   }
 
   /**
-   * Force refresh a profile by handle, ignoring the cache (legacy)
-   * Useful for React Query's refetch operations
+   * Force refresh a profile by handle - just call getProfile (cache is managed by React Query)
    */
   static async refreshProfile(handle: string): Promise<CachedProfile | null> {
-    if (!handle) return null;
-    
-    // Async operations already run off the main thread - no delay needed
-    try {
-      const normalizedHandle = handle.toLowerCase();
-      const freshProfile = await this.fetchAndCacheProfile(normalizedHandle);
-      this.notifyProfileUpdated(normalizedHandle);
-      return freshProfile;
-    } catch (error) {
-      return null;
-    }
+    return this.getProfile(handle);
   }
 
   /**
-   * Pre-cache a list of profiles
-   * Optimized to avoid redundant network requests
+   * Pre-cache a list of profiles from API responses
+   * Transforms and saves profiles to MMKV for instant access
    */
   static async cacheProfiles(profiles: any[]): Promise<void> {
     if (!profiles || profiles.length === 0) return;
 
-    // Use InteractionManager to defer batch operations until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
-        // Process profiles with controlled concurrency in smaller batches
-        const batchSize = 3;
-        for (let i = 0; i < profiles.length; i += batchSize) {
-          const batch = profiles.slice(i, i + batchSize);
+    try {
+      // Process profiles in parallel
+      await Promise.all(
+        profiles.map(async (profile) => {
+          if (!profile?.handle || !profile?.did) return;
           
-          await Promise.all(batch.map(async (profile) => {
-                const handle = profile.handle;
-                if (!handle) return;
-                
-                const normalizedHandle = handle.toLowerCase();
-
-                // Skip if already in memory cache and valid
-                const memoryCached = this.memoryCache.get(normalizedHandle);
-                if (memoryCached && this.isCacheValid(memoryCached)) {
-                  return;
-                }
-                
-                // Skip if already in AsyncStorage cache and valid
-                const cachedProfile = await this.getProfileFromCache(normalizedHandle);
-                if (cachedProfile && this.isCacheValid(cachedProfile)) {
-                  this.memoryCache.set(normalizedHandle, cachedProfile);
-                  return;
-                }
-
-                // Fetch colors from PDS
-                let profileColors = undefined;
-                let hasCustomColors = false;
-                
-                const customColors = await this.fetchProfileColorsFromPDS(profile.did);
-                if (customColors) {
-                  hasCustomColors = true;
-                  profileColors = {
-                    backgroundColor: customColors.backgroundColor,
-                    foregroundColor: customColors.textColor,
-                    statusBarStyle: getStatusBarStyle(customColors.backgroundColor)
-                  };
-                } else {
-                  profileColors = DEFAULT_PROFILE_COLORS;
-                }
-
-                // Get following status from viewer relationship data
-                const isFollowing = profile.viewer ? !!profile.viewer.following : undefined;
-                const isFollowedBy = profile.viewer ? !!profile.viewer.followedBy : undefined;
-                
-                // Extract verification data from profile response (already included)
-                let verification = undefined;
-                if (profile.verification) {
-                  const isVerified = 
-                    profile.verification.verifiedStatus === 'valid' ||
-                    profile.verification.trustedVerifierStatus === 'valid' ||
-                    (profile.verification.verifications && 
-                     profile.verification.verifications.length > 0 && 
-                     profile.verification.verifications.some((v: any) => v.isValid));
-                  
-                  if (isVerified) {
-                    verification = {
-                      isVerified: true,
-                      status: profile.verification.verifiedStatus || 'valid',
-                      trustedVerifierStatus: profile.verification.trustedVerifierStatus || 'none',
-                      verifications: profile.verification.verifications || [],
-                      verifiedBy: profile.verification.verifications?.[0]?.issuer || 'bsky.app',
-                      verifierHandle: profile.verification.trustedVerifierStatus === 'valid' ? 'Verifier' : 'bsky.app',
-                      verifiedAt: profile.verification.verifications?.[0]?.createdAt || new Date().toISOString(),
-                      isOfficial: profile.verification.trustedVerifierStatus !== 'valid'
-                    };
-                  } else {
-                    verification = { isVerified: false };
-                  }
-                } else {
-                  verification = { isVerified: false };
-                }
-
-                const cacheObject: CachedProfile = {
-                  did: profile.did,
-                  handle: profile.handle,
-                  displayName: profile.displayName,
-                  avatar: profile.avatar,
-                  description: profile.description,
-                  isFollowing,
-                  isFollowedBy,
-                  hasCustomColors,
-                  profileColors: profileColors ? {
-                    backgroundColor: profileColors.backgroundColor,
-                    foregroundColor: profileColors.foregroundColor,
-                    statusBarStyle: profileColors.statusBarStyle,
-                  } : undefined,
-                  verification,
-                  lastUpdated: Date.now()
-                };
-
-                // Save to both memory and persistent cache
-                this.memoryCache.set(normalizedHandle, cacheObject);
-                await storageHelpers.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cacheObject));
-                
-                // Notify subscribers of a profile update
-                this.notifyProfileUpdated(normalizedHandle);
-              }));
+          try {
+            // Check if already cached and valid
+            const cached = this.getProfileFromCacheSyncByDid(profile.did);
+            if (cached && this.isCacheValid(cached)) {
+              return;
             }
-          } catch (error) {
-            // Silently handle errors during batch caching
+            
+            // Transform and save
+            const transformed = await this.transformApiProfile(profile);
+            this.saveProfileToCache(transformed);
+          } catch {
+            // Silently handle errors
           }
-        });
+        })
+      );
+    } catch {
+      // Silently handle errors
+    }
   }
 
   /**
    * Update the following status for a profile
-   * Supports optimistic updates for React Query
+   * Updates MMKV cache - React Query handles invalidation via mutations
    */
   static async updateFollowingStatus(
     handle: string, 
@@ -608,45 +542,24 @@ class ProfileCache {
   ): Promise<void> {
     if (!handle) return;
     
-    // Use InteractionManager to defer updates until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
-        const normalizedHandle = handle.toLowerCase();
-        
-        // Check memory cache first
-        let cachedProfile = this.memoryCache.get(normalizedHandle);
-        
-        // If not in memory, check storage
-        if (!cachedProfile) {
-          cachedProfile = (await this.getProfileFromCache(normalizedHandle)) || undefined;
+    try {
+      const cachedProfile = this.getProfileFromCacheSync(handle);
+      if (cachedProfile) {
+        cachedProfile.isFollowing = isFollowing;
+        if (isFollowedBy !== undefined) {
+          cachedProfile.isFollowedBy = isFollowedBy;
         }
-        
-        if (cachedProfile) {
-          cachedProfile.isFollowing = isFollowing;
-          
-          // Only update isFollowedBy if provided
-          if (isFollowedBy !== undefined) {
-            cachedProfile.isFollowedBy = isFollowedBy;
-          }
-          
-          cachedProfile.lastUpdated = Date.now();
-          
-          // Update both memory and storage
-          this.memoryCache.set(normalizedHandle, cachedProfile);
-          await storageHelpers.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
-          
-          // Notify subscribers of a profile update
-          this.notifyProfileUpdated(normalizedHandle);
-        }
-      } catch (error) {
-        // Silently handle errors
+        cachedProfile.lastUpdated = Date.now();
+        this.saveProfileToCache(cachedProfile);
       }
-    });
+    } catch {
+      // Silently handle errors
+    }
   }
   
   /**
    * Update the subscription status for a profile
-   * Supports optimistic updates for React Query
+   * Updates MMKV cache - React Query handles invalidation via mutations
    */
   static async updateSubscriptionStatus(
     did: string,
@@ -654,54 +567,20 @@ class ProfileCache {
   ): Promise<void> {
     if (!did) return;
     
-    // Use InteractionManager to defer updates until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
-        // Find profile by DID in memory cache
-        let cachedProfile: CachedProfile | undefined;
-        let cacheKey: string | undefined;
-        
-        for (const [key, profile] of this.memoryCache.entries()) {
-          if (profile.did === did) {
-            cachedProfile = profile;
-            cacheKey = key;
-            break;
-          }
-        }
-        
-        // If not in memory, search storage
-        if (!cachedProfile) {
-          // Try to get from cache by DID directly
-          const profileByDid = await this.getProfileFromCacheByDid(did);
-          if (profileByDid) {
-            cachedProfile = profileByDid;
-            cacheKey = this.getCacheKey(profileByDid.handle.toLowerCase());
-          }
-        }
-        
-        if (cachedProfile && cacheKey) {
-          cachedProfile.isSubscribed = isSubscribed;
-          cachedProfile.lastUpdated = Date.now();
-          
-          // Update both memory and storage
-          this.memoryCache.set(cacheKey.replace('profile_', ''), cachedProfile);
-          await storageHelpers.setItem(cacheKey, JSON.stringify(cachedProfile));
-          
-          // Notify subscribers of a profile update
-          this.notifyProfileUpdated(cachedProfile.handle);
-        }
-      } catch (error) {
-        // Silently handle errors
+    try {
+      const cachedProfile = this.getProfileFromCacheSyncByDid(did);
+      if (cachedProfile) {
+        cachedProfile.isSubscribed = isSubscribed;
+        cachedProfile.lastUpdated = Date.now();
+        this.saveProfileToCache(cachedProfile);
       }
-    });
+    } catch {
+      // Silently handle errors
+    }
   }
   
   /**
    * Update the profile colors for a profile
-   * @param handle - User handle
-   * @param backgroundColor - Background color hex
-   * @param foregroundColor - Foreground/text color hex
-   * @param saveToRemote - Whether to save colors to PDS
    */
   static async updateProfileColors(
     handle: string,
@@ -711,63 +590,42 @@ class ProfileCache {
   ): Promise<void> {
     if (!handle) return;
     
-    // Use InteractionManager to defer updates until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
-        const normalizedHandle = handle.toLowerCase();
-        
-        // Check memory cache first
-        let cachedProfile = this.memoryCache.get(normalizedHandle);
-        
-        // If not in memory, check storage
-        if (!cachedProfile) {
-          cachedProfile = (await this.getProfileFromCache(normalizedHandle)) || undefined;
-        }
-        
-        // Skip update if colors are the same and already custom
-        if (cachedProfile?.hasCustomColors && 
-            cachedProfile?.profileColors?.backgroundColor === backgroundColor && 
-            cachedProfile?.profileColors?.foregroundColor === foregroundColor) {
-          return;
-        }
-        
-        if (cachedProfile) {
-          // Create a new colors object to avoid direct reference mutation
-          cachedProfile.profileColors = {
-            backgroundColor,
-            foregroundColor,
-            statusBarStyle: getStatusBarStyle(backgroundColor)
-          };
-          
-          // Persist to unified orbyt profile record
-          if (saveToRemote) {
-            try {
-              await AtprotoService.updateOrbytProfileColors(backgroundColor, foregroundColor);
-              cachedProfile.hasCustomColors = true;
-            } catch (error) {
-              // Continue even if PDS save fails
-            }
-          }
-          
-          cachedProfile.lastUpdated = Date.now();
-          
-          // Update both memory and storage
-          this.memoryCache.set(normalizedHandle, {...cachedProfile});
-          await storageHelpers.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
-          
-          // Notify subscribers of a profile update
-          this.notifyProfileUpdated(normalizedHandle);
-        }
-      } catch (error) {
-        // Silently handle errors
+    try {
+      const cachedProfile = this.getProfileFromCacheSync(handle);
+      
+      // Skip if colors are the same and already custom
+      if (cachedProfile?.hasCustomColors && 
+          cachedProfile?.profileColors?.backgroundColor === backgroundColor && 
+          cachedProfile?.profileColors?.foregroundColor === foregroundColor) {
+        return;
       }
-    });
+      
+      if (cachedProfile) {
+        cachedProfile.profileColors = {
+          backgroundColor,
+          foregroundColor,
+          statusBarStyle: getStatusBarStyle(backgroundColor)
+        };
+        
+        if (saveToRemote) {
+          try {
+            await AtprotoService.updateOrbytProfileColors(backgroundColor, foregroundColor);
+            cachedProfile.hasCustomColors = true;
+          } catch {
+            // Continue even if PDS save fails
+          }
+        }
+        
+        cachedProfile.lastUpdated = Date.now();
+        this.saveProfileToCache(cachedProfile);
+      }
+    } catch {
+      // Silently handle errors
+    }
   }
 
   /**
    * Update the verification status for a profile
-   * @param handle User handle
-   * @param verification Verification data
    */
   static async updateVerification(
     handle: string,
@@ -789,74 +647,48 @@ class ProfileCache {
   ): Promise<void> {
     if (!handle) return;
     
-    // Use InteractionManager to defer updates until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
-        const normalizedHandle = handle.toLowerCase();
-        
-        // Check memory cache first
-        let cachedProfile = this.memoryCache.get(normalizedHandle);
-        
-        // If not in memory, check storage
-        if (!cachedProfile) {
-          cachedProfile = (await this.getProfileFromCache(normalizedHandle)) || undefined;
-        }
-        
-        if (cachedProfile) {
-          cachedProfile.verification = verification;
-          cachedProfile.lastUpdated = Date.now();
-          
-          // Update both memory and storage
-          this.memoryCache.set(normalizedHandle, cachedProfile);
-          await storageHelpers.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(cachedProfile));
-          
-          // Notify subscribers of a profile update
-          this.notifyProfileUpdated(normalizedHandle);
-        }
-      } catch (error) {
-        // Silently handle errors
+    try {
+      const cachedProfile = this.getProfileFromCacheSync(handle);
+      if (cachedProfile) {
+        cachedProfile.verification = verification;
+        cachedProfile.lastUpdated = Date.now();
+        this.saveProfileToCache(cachedProfile);
       }
-    });
+    } catch {
+      // Silently handle errors
+    }
   }
 
   /**
-   * Apply a server-updated profile response into cache for a given handle
-   * Ensures UI reflects the change immediately without waiting for refetch
+   * Apply a server-updated profile response into cache
    */
   static async applyServerProfile(handle: string, serverProfile: any): Promise<void> {
     if (!handle || !serverProfile) return;
 
-    // Use InteractionManager to defer updates until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
-        const normalizedHandle = (serverProfile.handle || handle).toLowerCase();
+    try {
+      const normalizedHandle = (serverProfile.handle || handle).toLowerCase();
+      const cachedProfile = this.getProfileFromCacheSync(normalizedHandle);
 
-        // Start from existing cached profile to preserve derived fields like colors/verification if absent
-        let cachedProfile = this.memoryCache.get(normalizedHandle) || await this.getProfileFromCache(normalizedHandle);
+      const isFollowing = serverProfile.viewer ? !!serverProfile.viewer.following : cachedProfile?.isFollowing;
+      const isFollowedBy = serverProfile.viewer ? !!serverProfile.viewer.followedBy : cachedProfile?.isFollowedBy;
 
-        const isFollowing = serverProfile.viewer ? !!serverProfile.viewer.following : cachedProfile?.isFollowing;
-        const isFollowedBy = serverProfile.viewer ? !!serverProfile.viewer.followedBy : cachedProfile?.isFollowedBy;
+      const merged: CachedProfile = {
+        did: serverProfile.did || cachedProfile?.did || '',
+        handle: serverProfile.handle || cachedProfile?.handle || normalizedHandle,
+        displayName: serverProfile.displayName ?? cachedProfile?.displayName,
+        avatar: serverProfile.avatar ?? cachedProfile?.avatar,
+        description: serverProfile.description ?? cachedProfile?.description,
+        isFollowing,
+        isFollowedBy,
+        profileColors: cachedProfile?.profileColors,
+        verification: cachedProfile?.verification,
+        lastUpdated: Date.now(),
+      };
 
-        const merged: CachedProfile = {
-          did: serverProfile.did || cachedProfile?.did || '',
-          handle: serverProfile.handle || cachedProfile?.handle || normalizedHandle,
-          displayName: serverProfile.displayName ?? cachedProfile?.displayName,
-          avatar: serverProfile.avatar ?? cachedProfile?.avatar,
-          description: serverProfile.description ?? cachedProfile?.description,
-          isFollowing,
-          isFollowedBy,
-          profileColors: cachedProfile?.profileColors, // keep existing colors
-          verification: cachedProfile?.verification,   // verification already extracted during fetch
-          lastUpdated: Date.now(),
-        };
-
-        this.memoryCache.set(normalizedHandle, merged);
-        await storageHelpers.setItem(this.getCacheKey(normalizedHandle), JSON.stringify(merged));
-        this.notifyProfileUpdated(normalizedHandle);
-      } catch (error) {
-        // Silently handle errors
-      }
-    });
+      this.saveProfileToCache(merged);
+    } catch {
+      // Silently handle errors
+    }
   }
 
   /**
@@ -906,277 +738,36 @@ class ProfileCache {
   /**
    * Subscribe to profile updates
    * Returns an unsubscribe function
+   * Note: React Query handles cache updates automatically, this is for legacy compatibility
    */
   static subscribeToProfileUpdates(handle: string, callback: () => void): () => void {
-    if (!handle) return () => {};
-    
-    const normalizedHandle = handle.toLowerCase();
-    
-    if (!this.cacheUpdateCallbacks.has(normalizedHandle)) {
-      this.cacheUpdateCallbacks.set(normalizedHandle, new Set());
-    }
-    
-    const callbacks = this.cacheUpdateCallbacks.get(normalizedHandle)!;
-    callbacks.add(callback);
-    
-    return () => {
-      const callbackSet = this.cacheUpdateCallbacks.get(normalizedHandle);
-      if (callbackSet) {
-        callbackSet.delete(callback);
-        if (callbackSet.size === 0) {
-          this.cacheUpdateCallbacks.delete(normalizedHandle);
-        }
-      }
-    };
+    // React Query handles cache invalidation and updates automatically
+    // Return no-op unsubscribe function for legacy compatibility
+    return () => {};
   }
 
   /**
    * Notify subscribers that a profile has been updated
+   * No-op since React Query handles cache updates automatically
    */
   private static notifyProfileUpdated(handle: string): void {
-    const normalizedHandle = handle.toLowerCase();
-    const callbacks = this.cacheUpdateCallbacks.get(normalizedHandle);
-    
-    if (callbacks) {
-      callbacks.forEach(callback => {
-        try {
-          callback();
-        } catch (e) {
-        }
-      });
-    }
+    // React Query handles cache invalidation and updates automatically
+    // No custom callback system needed
   }
 
-  /**
-   * Fetch a profile from the API by DID and cache it
-   */
-  private static async fetchAndCacheProfileByDid(did: string): Promise<CachedProfile | null> {
-    if (!did) return null;
-    
-    // Async operations already run off the main thread - no delay needed
-    try {
-            const profile = await AtprotoService.getProfileByDid(did);
-            if (!profile) {
-              return null;
-            }
-
-            // Fetch colors from PDS
-            let profileColors = undefined;
-            let hasCustomColors = false;
-            
-            const customColors = await this.fetchProfileColorsFromPDS(did);
-            if (customColors) {
-              hasCustomColors = true;
-              profileColors = {
-                backgroundColor: customColors.backgroundColor,
-                foregroundColor: customColors.textColor,
-                statusBarStyle: isColorDark(customColors.backgroundColor) ? 'light' : 'dark'
-              };
-            } else {
-              profileColors = DEFAULT_PROFILE_COLORS;
-            }
-
-            // Get both sides of the follow relationship from viewer data
-            const isFollowing = profile.viewer ? !!profile.viewer.following : undefined;
-            const isFollowedBy = profile.viewer ? !!profile.viewer.followedBy : undefined;
-
-            const cacheObject: CachedProfile = {
-              did: profile.did,
-              handle: profile.handle,
-              displayName: profile.displayName,
-              avatar: profile.avatar,
-              description: profile.description,
-              isFollowing,
-              isFollowedBy,
-              hasCustomColors,
-              profileColors: profileColors ? {
-                backgroundColor: profileColors.backgroundColor,
-                foregroundColor: profileColors.foregroundColor,
-                statusBarStyle: profileColors.statusBarStyle,
-              } : undefined,
-              lastUpdated: Date.now()
-            };
-
-            // Extract verification data from profile response (already included)
-            if (profile.verification) {
-              const isVerified = 
-                profile.verification.verifiedStatus === 'valid' ||
-                profile.verification.trustedVerifierStatus === 'valid' ||
-                (profile.verification.verifications && 
-                 profile.verification.verifications.length > 0 && 
-                 profile.verification.verifications.some((v: any) => v.isValid));
-              
-              if (isVerified) {
-                cacheObject.verification = {
-                  isVerified: true,
-                  status: profile.verification.verifiedStatus || 'valid',
-                  trustedVerifierStatus: profile.verification.trustedVerifierStatus || 'none',
-                  verifications: profile.verification.verifications || [],
-                  verifiedBy: profile.verification.verifications?.[0]?.issuer || 'bsky.app',
-                  verifierHandle: profile.verification.trustedVerifierStatus === 'valid' ? 'Verifier' : 'bsky.app',
-                  verifiedAt: profile.verification.verifications?.[0]?.createdAt || new Date().toISOString(),
-                  isOfficial: profile.verification.trustedVerifierStatus !== 'valid'
-                };
-              } else {
-                cacheObject.verification = { isVerified: false };
-              }
-            } else {
-              cacheObject.verification = { isVerified: false };
-            }
-
-            // Update caches
-            this.memoryCache.set(did, cacheObject);
-            
-            // AsyncStorage operations are already async - no delay needed
-            await storageHelpers.setItem(
-              this.getCacheKeyByDid(did),
-              JSON.stringify(cacheObject)
-            ).catch(() => {
-              // Silently handle errors
-            });
-            
-            this.notifyProfileUpdated(did);
-            return cacheObject;
-          } catch (error) {
-            // Silently handle errors
-            return null;
-          }
-  }
 
   /**
-   * Fetch a profile from the API and cache it (legacy)
-   */
-  private static async fetchAndCacheProfile(handle: string): Promise<CachedProfile | null> {
-    if (!handle) return null;
-    
-    // Async operations already run off the main thread - no delay needed
-    try {
-      const normalizedHandle = handle.toLowerCase();
-      const profile = await AtprotoService.getProfile(handle);
-      if (!profile) {
-        return null;
-      }
-
-            // Fetch colors from PDS
-            let profileColors = undefined;
-            let hasCustomColors = false;
-            
-            const customColors = await this.fetchProfileColorsFromPDS(profile.did);
-            if (customColors) {
-              hasCustomColors = true;
-              profileColors = {
-                backgroundColor: customColors.backgroundColor,
-                foregroundColor: customColors.textColor,
-                statusBarStyle: isColorDark(customColors.backgroundColor) ? 'light' : 'dark'
-              };
-            } else {
-              profileColors = DEFAULT_PROFILE_COLORS;
-            }
-
-            // Get both sides of the follow relationship from viewer data
-            const isFollowing = profile.viewer ? !!profile.viewer.following : undefined;
-            const isFollowedBy = profile.viewer ? !!profile.viewer.followedBy : undefined;
-
-            const cacheObject: CachedProfile = {
-              did: profile.did,
-              handle: profile.handle,
-              displayName: profile.displayName,
-              avatar: profile.avatar,
-              description: profile.description,
-              isFollowing,
-              isFollowedBy,
-              hasCustomColors,
-              profileColors: profileColors ? {
-                backgroundColor: profileColors.backgroundColor,
-                foregroundColor: profileColors.foregroundColor,
-                statusBarStyle: profileColors.statusBarStyle,
-              } : undefined,
-              lastUpdated: Date.now()
-            };
-
-            // Extract verification data from profile response (already included)
-            if (profile.verification) {
-              const isVerified = 
-                profile.verification.verifiedStatus === 'valid' ||
-                profile.verification.trustedVerifierStatus === 'valid' ||
-                (profile.verification.verifications && 
-                 profile.verification.verifications.length > 0 && 
-                 profile.verification.verifications.some((v: any) => v.isValid));
-              
-              if (isVerified) {
-                cacheObject.verification = {
-                  isVerified: true,
-                  status: profile.verification.verifiedStatus || 'valid',
-                  trustedVerifierStatus: profile.verification.trustedVerifierStatus || 'none',
-                  verifications: profile.verification.verifications || [],
-                  verifiedBy: profile.verification.verifications?.[0]?.issuer || 'bsky.app',
-                  verifierHandle: profile.verification.trustedVerifierStatus === 'valid' ? 'Verifier' : 'bsky.app',
-                  verifiedAt: profile.verification.verifications?.[0]?.createdAt || new Date().toISOString(),
-                  isOfficial: profile.verification.trustedVerifierStatus !== 'valid'
-                };
-              } else {
-                cacheObject.verification = { isVerified: false };
-              }
-            } else {
-              cacheObject.verification = { isVerified: false };
-            }
-
-            // Update caches
-            this.memoryCache.set(normalizedHandle, cacheObject);
-            
-            // AsyncStorage operations are already async - no delay needed
-            await storageHelpers.setItem(
-              this.getCacheKey(normalizedHandle),
-              JSON.stringify(cacheObject)
-            ).catch(() => {
-              // Silently handle errors
-            });
-            
-            this.notifyProfileUpdated(normalizedHandle);
-            return cacheObject;
-          } catch (error) {
-            // Silently handle errors
-            return null;
-          }
-  }
-
-  /**
-   * Get a profile directly from the cache by DID
+   * Get a profile directly from the cache by DID (async wrapper for sync method)
    */
   private static async getProfileFromCacheByDid(did: string): Promise<CachedProfile | null> {
-    if (!did) return null;
-    
-    // Async operations already run off the main thread - no delay needed
-    try {
-      const cached = await storageHelpers.getItem(this.getCacheKeyByDid(did));
-      if (cached) {
-        const parsed = JSON.parse(cached) as CachedProfile;
-        return parsed;
-      }
-      return null;
-    } catch (error) {
-      return null;
-    }
+    return this.getProfileFromCacheSyncByDid(did);
   }
 
   /**
-   * Get a profile directly from the cache by handle (legacy)
+   * Get a profile directly from the cache by handle (async wrapper for sync method)
    */
   private static async getProfileFromCache(handle: string): Promise<CachedProfile | null> {
-    if (!handle) return null;
-    
-    // Async operations already run off the main thread - no delay needed
-    try {
-      const normalizedHandle = handle.toLowerCase();
-      const cached = await storageHelpers.getItem(this.getCacheKey(normalizedHandle));
-      if (cached) {
-        const parsed = JSON.parse(cached) as CachedProfile;
-        return parsed;
-      }
-      return null;
-    } catch (error) {
-      return null;
-    }
+    return this.getProfileFromCacheSync(handle);
   }
 
   /**
@@ -1204,74 +795,56 @@ class ProfileCache {
 
   /**
    * Invalidate a specific profile in the cache
-   * Useful for React Query's invalidateQueries
+   * Removes from MMKV for React Query to refetch
    */
   static async invalidateProfile(handle: string): Promise<void> {
     if (!handle) return;
     
-    // Use InteractionManager to defer updates until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
-        const normalizedHandle = handle.toLowerCase();
-        this.memoryCache.delete(normalizedHandle);
-        await storageHelpers.removeItem(this.getCacheKey(normalizedHandle));
-        
-        // Notify subscribers of a profile update
-        this.notifyProfileUpdated(normalizedHandle);
-      } catch (error) {
-        // Silently handle errors
-      }
-    });
+    try {
+      const normalizedHandle = handle.toLowerCase();
+      const cacheKey = this.getCacheKey(normalizedHandle);
+      storage.delete(cacheKey);
+    } catch (error) {
+      // Silently handle errors
+    }
   }
 
   /**
    * Invalidate a specific profile in the cache by DID
-   * Mirrors invalidateProfile(handle) but uses DID-based keys
    */
   static async invalidateProfileByDid(did: string): Promise<void> {
     if (!did) return;
     
-    // Use InteractionManager to defer updates until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
-        // Clear DID-based memory cache
-        this.memoryCache.delete(did);
-        // Clear DID-based persistent cache
-        await storageHelpers.removeItem(this.getCacheKeyByDid(did));
-        
-        // Notify subscribers of a profile update
-        this.notifyProfileUpdated(did);
-      } catch (error) {
-        // Silently handle errors
-      }
-    });
+    try {
+      const cacheKey = this.getCacheKeyByDid(did);
+      storage.delete(cacheKey);
+    } catch (error) {
+      // Silently handle errors
+    }
   }
 
   /**
-   * Clear all cached profiles - no-op since React Query handles all caching
+   * Clear all cached profiles
    */
   static async clearCache(): Promise<void> {
-    // React Query handles all caching - no custom cache to clear
-    // Memory cache is kept for immediate lookups but React Query is the source of truth
+    try {
+      const allKeys = storage.getAllKeys();
+      allKeys.forEach(key => {
+        if (key.startsWith(this.CACHE_KEY_PREFIX)) {
+          storage.delete(key);
+        }
+      });
+    } catch {
+      // Silently fail
+    }
   }
 
   /**
    * Cleanup method for app lifecycle management
-   * Called when the app goes to background to free up memory
    */
   static cleanup(): void {
-    try {
-      // Only clear memory cache to free RAM, but preserve AsyncStorage cache
-      // This allows profiles to be restored from storage when app comes back to foreground
-      this.memoryCache.clear();
-      
-      // Clear update callbacks to prevent memory leaks
-      this.cacheUpdateCallbacks.clear();
-      
-      // Don't reset initialization flag - keep it initialized
-      // Don't clear AsyncStorage cache - preserve it for app restart
-    } catch (error) {
-    }
+    // MMKV handles memory efficiently - no cleanup needed
+    // Cache persists automatically
   }
 
 
@@ -1284,9 +857,7 @@ class ProfileCache {
   static async batchPrefetchFromFeed(feedItems: any[]): Promise<void> {
     if (!feedItems || feedItems.length === 0) return;
 
-    // Use InteractionManager to defer batch operations until interactions complete
-    return InteractionManager.runAfterInteractions(async () => {
-      try {
+    try {
             // Extract all unique handles from feed items
             const uniqueHandles = new Set<string>();
             
@@ -1352,7 +923,6 @@ class ProfileCache {
           } catch (error) {
             // Silently handle errors during batch prefetch
           }
-        });
   }
 
   /**
@@ -1371,17 +941,24 @@ class ProfileCache {
 
 /**
  * Hook to fetch and subscribe to profile data by DID (preferred method)
+ * Uses placeholderData for instant UI from MMKV cache
  */
 export function useProfileByDid(did: string | null | undefined): UseQueryResult<CachedProfile | null, Error> {
   return useQuery<CachedProfile | null, Error>({
     queryKey: did ? profileKeys.detail(`did_${did}`) : ['profiles', 'detail', 'did_'],
     queryFn: async () => did ? ProfileCache.getProfileByDid(did) : null,
     enabled: !!did,
-    staleTime: PROFILE_CACHE_EXPIRY, // cache valid for 24h
-    gcTime: PROFILE_CACHE_EXPIRY * 2, // keep in garbage collection for 48h
-    refetchOnWindowFocus: false,   // avoid unnecessary refetch
-    refetchOnMount: false,         // don't refetch on mount if we have data
-    refetchOnReconnect: false,     // don't refetch on reconnect
+    staleTime: PROFILE_CACHE_EXPIRY,
+    gcTime: PROFILE_CACHE_EXPIRY * 2,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    // Use placeholderData for instant UI - reads from MMKV synchronously
+    placeholderData: (previousData) => {
+      if (previousData) return previousData;
+      if (!did) return null;
+      return ProfileCache.getProfileFromCacheSyncByDid(did);
+    },
   });
 }
 
@@ -1460,18 +1037,25 @@ export function useBatchProfilesByDid(
 }
 
 /**
- * Hook to fetch and subscribe to profile data by handle (legacy)
+ * Hook to fetch and subscribe to profile data by handle
+ * Uses placeholderData for instant UI from MMKV cache
  */
 export function useProfile(handle: string | null | undefined): UseQueryResult<CachedProfile | null, Error> {
   return useQuery<CachedProfile | null, Error>({
-    queryKey: handle ? profileKeys.detail(handle) : ['profiles', 'detail', ''],
+    queryKey: handle ? profileKeys.detail(handle.toLowerCase()) : ['profiles', 'detail', ''],
     queryFn: async () => handle ? ProfileCache.getProfile(handle) : null,
     enabled: !!handle,
-    staleTime: PROFILE_CACHE_EXPIRY, // cache valid for 24h
-    gcTime: PROFILE_CACHE_EXPIRY * 2, // keep in garbage collection for 48h
-    refetchOnWindowFocus: false,   // avoid unnecessary refetch
-    refetchOnMount: false,         // don't refetch on mount if we have data
-    refetchOnReconnect: false,     // don't refetch on reconnect
+    staleTime: PROFILE_CACHE_EXPIRY,
+    gcTime: PROFILE_CACHE_EXPIRY * 2,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    // Use placeholderData for instant UI - reads from MMKV synchronously
+    placeholderData: (previousData) => {
+      if (previousData) return previousData;
+      if (!handle) return null;
+      return ProfileCache.getProfileFromCacheSync(handle);
+    },
   });
 }
 
@@ -1785,6 +1369,64 @@ export function useProfileInvalidation() {
     await ProfileCache.invalidateProfile(handle);
     queryClient.invalidateQueries({ queryKey: profileKeys.detail(handle) });
   }, [queryClient]);
+}
+
+/**
+ * Pre-populate profile cache with partial data before navigation
+ * This allows the profile screen to show data immediately without loading state
+ * 
+ * @param queryClient - React Query client instance
+ * @param partialProfile - Partial profile data (from post.author, AuthorItem props, etc.)
+ * @param handle - Handle to use as cache key (required)
+ */
+export function prepopulateProfileCache(
+  queryClient: QueryClient,
+  partialProfile: {
+    did?: string;
+    handle?: string;
+    displayName?: string;
+    avatar?: string;
+    description?: string;
+  },
+  handle: string
+): void {
+  if (!handle || !queryClient) return;
+  
+  const cleanHandle = handle.trim().toLowerCase();
+  if (!cleanHandle) return;
+  
+  // Check if we already have cached data
+  const existing = queryClient.getQueryData<CachedProfile>(profileKeys.detail(cleanHandle));
+  
+  // Only pre-populate if we don't have existing data or if existing data is stale
+  if (!existing || (existing && Date.now() - existing.lastUpdated > PROFILE_CACHE_EXPIRY)) {
+    // Create a partial CachedProfile from the available data
+    const partialCachedProfile: Partial<CachedProfile> = {
+      did: partialProfile.did || existing?.did || '',
+      handle: cleanHandle,
+      displayName: partialProfile.displayName || existing?.displayName,
+      avatar: partialProfile.avatar || existing?.avatar,
+      description: partialProfile.description || existing?.description,
+      lastUpdated: Date.now(),
+      // Preserve existing relationship data if available
+      isFollowing: existing?.isFollowing,
+      isFollowedBy: existing?.isFollowedBy,
+      isSubscribed: existing?.isSubscribed,
+      profileColors: existing?.profileColors,
+      hasCustomColors: existing?.hasCustomColors,
+      verification: existing?.verification,
+    };
+    
+    // Only set if we have at least DID or handle
+    if (partialCachedProfile.did || partialCachedProfile.handle) {
+      queryClient.setQueryData(profileKeys.detail(cleanHandle), partialCachedProfile as CachedProfile);
+      
+      // Also save to MMKV for sync reads
+      if (partialCachedProfile.did) {
+        ProfileCache.saveProfileToCache(partialCachedProfile as CachedProfile, partialCachedProfile.did);
+      }
+    }
+  }
 }
 
 /**

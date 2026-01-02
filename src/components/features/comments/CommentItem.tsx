@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { prepopulateProfileCache } from '../../../services/cache/ProfileCache';
  
 import AtprotoService from '../../../services/api/AtprotoService';
 import { createQueryKeys } from '../../../services/FeedService';
@@ -381,12 +382,25 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const navigation = useRouter();
 
     // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
-    const navigateToAuthorProfile = useCallback((rawHandle?: string | null, rawDid?: string | null) => {
+    const navigateToAuthorProfile = useCallback((rawHandle?: string | null, rawDid?: string | null, authorData?: any) => {
       const cleanHandle = (rawHandle || '').trim();
       const cleanDid = (rawDid || '').trim();
       
       if (!cleanHandle && !cleanDid) {
         return;
+      }
+
+      // Pre-populate profile cache with available author data
+      if (queryClient && (cleanHandle || cleanDid)) {
+        const targetHandle = cleanHandle || authorData?.handle;
+        if (targetHandle) {
+          prepopulateProfileCache(queryClient, {
+            did: cleanDid || authorData?.did,
+            handle: targetHandle,
+            displayName: authorData?.displayName,
+            avatar: authorData?.avatar,
+          }, targetHandle);
+        }
       }
 
       // Always dismiss the sheet first if provided
@@ -402,11 +416,11 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       } else if (cleanHandle) {
         navigation.push(`/profile/${cleanHandle}`);
       }
-    }, [navigation, onDismiss]);
+    }, [navigation, onDismiss, queryClient]);
 
     const handleAuthorPress = useCallback(
-      (handle: string, did?: string | null) => {
-        navigateToAuthorProfile(handle, did);
+      (handle: string, did?: string | null, authorData?: any) => {
+        navigateToAuthorProfile(handle, did, authorData);
       },
       [navigateToAuthorProfile]
     );
@@ -427,15 +441,18 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
 
     const handleAuthorAvatarPress = useCallback(() => {
       let handle = null;
+      let authorData = null;
       
       if (comment?.post?.author?.handle) {
         handle = comment.post.author.handle.trim();
+        authorData = comment.post.author;
       } else if (comment?.author?.handle) {
         handle = comment.author.handle.trim();
+        authorData = comment.author;
       }
       
       if (handle && typeof handle === 'string' && handle.trim() !== '') {
-        navigateToAuthorProfile(handle);
+        navigateToAuthorProfile(handle, authorData?.did, authorData);
       }
     }, [comment?.post?.author, comment?.author, navigateToAuthorProfile]);
 
@@ -902,7 +919,12 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
             <View style={{ flex: 1, justifyContent: 'center' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
                 <Pressable
-                  onPress={() => (authorHandle || authorDid) && handleAuthorPress(authorHandle, authorDid)}
+                  onPress={() => {
+                    const authorData = comment?.post?.author || comment?.author;
+                    if (authorHandle || authorDid) {
+                      handleAuthorPress(authorHandle, authorDid, authorData);
+                    }
+                  }}
                 >
                   <Text style={{ color: Colors.white, fontSize: 16, marginBottom: 2, fontFamily: 'Firma-Bold' }}>
                     {authorName}
@@ -922,7 +944,12 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   <View style={styles.parentChyronContainer}>
                     <Text style={styles.parentChyronArrow}>→</Text>
                     <Pressable
-                      onPress={() => (parentAuthorHandle || parentAuthorDid) && handleAuthorPress(parentAuthorHandle, parentAuthorDid)}
+                      onPress={() => {
+                        const parentAuthorData = parent?.post?.author || parent?.author;
+                        if (parentAuthorHandle || parentAuthorDid) {
+                          handleAuthorPress(parentAuthorHandle, parentAuthorDid, parentAuthorData);
+                        }
+                      }}
                     >
                       <Text style={styles.parentChyronText} numberOfLines={1}>
                         {parentAuthorName}

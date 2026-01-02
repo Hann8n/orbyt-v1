@@ -9,9 +9,10 @@ import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { Colors } from './UI';
 import UI from './UI';
 
-import { useProfile, useProfileColors, useFollowMutation } from '../../services/cache/ProfileCache';
+import { useProfile, useProfileColors, useFollowMutation, prepopulateProfileCache } from '../../services/cache/ProfileCache';
 import { useCurrentUser } from '../../stores/userStore';
 import { formatHandle } from '../../utils/helpers';
+import { useQueryClient } from '@tanstack/react-query';
  
 
 interface AuthorItemProps {
@@ -68,6 +69,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   showCheckmark = false,
 }) => {
   const navigation = useRouter();
+  const queryClient = useQueryClient();
   
   // Size configuration
   const sizeConfig = {
@@ -110,6 +112,15 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
     } else if (handle) {
       const clean = handle.trim();
       if (!clean) return;
+      
+      // Pre-populate profile cache with available data
+      if (queryClient) {
+        prepopulateProfileCache(queryClient, {
+          handle: clean,
+          displayName,
+          avatar,
+        }, clean);
+      }
       
       // Navigate back first to dismiss any modal/sheet, then navigate to profile
       navigation.back();

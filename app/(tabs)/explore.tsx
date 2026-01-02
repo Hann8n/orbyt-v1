@@ -23,7 +23,7 @@ import { FlashList, FlashListRef } from '@shopify/flash-list';
 import AtprotoService from '../../src/services/api/AtprotoService';
 
 import { useRouter, useFocusEffect } from 'expo-router';
-import ProfileCache, { profileKeys, useFollowMutation } from '../../src/services/cache/ProfileCache';
+import ProfileCache, { profileKeys, useFollowMutation, prepopulateProfileCache } from '../../src/services/cache/ProfileCache';
 import ChannelCache, { useChannelColors } from '../../src/services/cache/ChannelCache';
 import type { CachedChannel } from '../../src/services/cache/ChannelCache';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -603,6 +603,16 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
                 if (profile.handle) {
                   const handle = profile.handle.trim();
                   if (handle && handle.trim()) {
+                    // Pre-populate cache with available profile data
+                    prepopulateProfileCache(queryClient, {
+                      did: profile.did,
+                      handle: handle.trim(),
+                      displayName: profile.displayName,
+                      avatar: profile.avatar,
+                      description: profile.description,
+                    }, handle.trim());
+                    
+                    // Still prefetch to get latest data, but navigation is instant
                     queryClient.prefetchQuery({
                       queryKey: profileKeys.detail(handle.trim()),
                       queryFn: () => ProfileCache.getProfile(handle.trim()),
@@ -1511,6 +1521,15 @@ const ExploreScreen: React.FC = () => {
       if (profile.handle) {
         const handle = profile.handle.trim();
         if (handle && handle.trim()) {
+          // Pre-populate cache with available profile data
+          prepopulateProfileCache(queryClient, {
+            did: profile.did,
+            handle: handle.trim(),
+            displayName: profile.displayName,
+            avatar: profile.avatar,
+            description: profile.description,
+          }, handle.trim());
+          
           queryClient.prefetchQuery({
             queryKey: profileKeys.detail(handle.trim()),
             queryFn: () => ProfileCache.getProfile(handle.trim()),
@@ -1566,6 +1585,15 @@ const ExploreScreen: React.FC = () => {
     if (profile.handle) {
       const handle = profile.handle.trim();
       if (handle && handle.trim()) {
+        // Pre-populate cache with available profile data
+        prepopulateProfileCache(queryClient, {
+          did: profile.did,
+          handle: handle.trim(),
+          displayName: profile.displayName,
+          avatar: profile.avatar,
+          description: profile.description,
+        }, handle.trim());
+        
         queryClient.prefetchQuery({
           queryKey: profileKeys.detail(handle.trim()),
           queryFn: () => ProfileCache.getProfile(handle.trim()),
@@ -2067,6 +2095,16 @@ const ExploreScreen: React.FC = () => {
                     if (profile.handle) {
                       const handle = profile.handle.trim();
                       if (handle && handle.trim()) {
+                        // Pre-populate cache with available profile data
+                        prepopulateProfileCache(queryClient, {
+                          did: profile.did,
+                          handle: handle.trim(),
+                          displayName: profile.displayName,
+                          avatar: profile.avatar,
+                          description: profile.description,
+                        }, handle.trim());
+                        
+                        // Still prefetch to get latest data, but navigation is instant
                         queryClient.prefetchQuery({
                           queryKey: profileKeys.detail(handle.trim()),
                           queryFn: () => ProfileCache.getProfile(handle.trim()),
