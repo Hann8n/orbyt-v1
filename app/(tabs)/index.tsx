@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useImperativeHandle, forwardRef, memo, useRef, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 
 import { createQueryKeys } from '../../src/services/FeedService';
 import { APP_CONSTANTS } from '../../src/utils/constants';
@@ -76,6 +77,23 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
       tabRefs.home = null;
     };
   }, [triggerRefresh]);
+
+  // Handle tab press for scroll-to-top using React Navigation's tabPress event
+  const navigation = useNavigation();
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    // @ts-ignore - tabPress event exists but types may not be complete
+    const unsubscribe = navigation.addListener?.('tabPress', () => {
+      // Only handle if this screen is focused (tab was already active)
+      if (isFocused && tabRefs.home) {
+        // Refresh and scroll to top when home tab is pressed while focused
+        tabRefs.home.refresh();
+        tabRefs.home.scrollToTop();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, isFocused]);
 
   return (
     <View style={styles.container}>

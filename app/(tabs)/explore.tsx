@@ -23,6 +23,7 @@ import { FlashList, FlashListRef } from '@shopify/flash-list';
 import AtprotoService from '../../src/services/api/AtprotoService';
 
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import ProfileCache, { profileKeys, useFollowMutation, prepopulateProfileCache } from '../../src/services/cache/ProfileCache';
 import ChannelCache, { useChannelColors } from '../../src/services/cache/ChannelCache';
 import type { CachedChannel } from '../../src/services/cache/ChannelCache';
@@ -567,7 +568,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
   isLoading?: boolean;
   onProfilePress?: (profile: Profile) => void;
 }) => {
-  const navigation = useRouter();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const currentUser = useUserStore(state => state.currentUser);
 
@@ -619,7 +620,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
                       staleTime: ProfileCache.cacheExpiry
                     }).finally(() => {
                       const target = handle.trim();
-                      if (target) { navigation.push(`/profile/${target}`); }
+                      if (target) { router.push(`/profile/${target}`); }
                     });
                   }
                 }
@@ -675,7 +676,7 @@ const ProfilesFeedRenderer = React.memo(({ searchResults, onFollow, followedUser
 
 // Channels Feed Renderer Component
 const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPress }: { searchResults: SearchResult[]; isLoading?: boolean; onChannelPress?: (channel: Channel) => void }) => {
-  const navigation = useRouter();
+  const router = useRouter();
 
   const channels = searchResults
     .filter((result): result is any => result.type === 'channel')
@@ -706,7 +707,7 @@ const ChannelsFeedRenderer = React.memo(({ searchResults, isLoading, onChannelPr
             } else {
               // Fallback to original behavior
               if (channel.uri && channel.uri.trim()) {
-                navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
+                router.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
               }
             }
           }}
@@ -902,7 +903,7 @@ const VisitHistoryList = React.memo(({
 });
 
 // Responsive Orbyt Channels Grid Component
-const OrbytChannelsGrid = React.memo(({ channels, navigation }: { channels: Channel[]; navigation: any }) => {
+const OrbytChannelsGrid = React.memo(({ channels, router }: { channels: Channel[]; router: any }) => {
   const { width: windowWidth } = useWindowDimensions();
   
   // Responsive column calculation - similar to GridFeedView
@@ -1002,7 +1003,7 @@ const OrbytChannelsGrid = React.memo(({ channels, navigation }: { channels: Chan
                 itemHeight={specialItemHeight}
                 onPress={() => {
                   if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
-                    navigation.push(`/channel/${encodeURIComponent(popularNowChannel.uri.trim())}`);
+                    router.push(`/channel/${encodeURIComponent(popularNowChannel.uri.trim())}`);
                   }
                 }}
               />
@@ -1016,7 +1017,7 @@ const OrbytChannelsGrid = React.memo(({ channels, navigation }: { channels: Chan
                 itemHeight={specialItemHeight}
                 onPress={() => {
                   if (latestChannel.uri && latestChannel.uri.trim()) {
-                    navigation.push(`/channel/${encodeURIComponent(latestChannel.uri.trim())}`);
+                    router.push(`/channel/${encodeURIComponent(latestChannel.uri.trim())}`);
                   }
                 }}
               />
@@ -1036,7 +1037,7 @@ const OrbytChannelsGrid = React.memo(({ channels, navigation }: { channels: Chan
                 itemHeight={specialItemHeight}
                 onPress={() => {
                   if (popularNowChannel.uri && popularNowChannel.uri.trim()) {
-                    navigation.push(`/channel/${encodeURIComponent(popularNowChannel.uri.trim())}`);
+                    router.push(`/channel/${encodeURIComponent(popularNowChannel.uri.trim())}`);
                   }
                 }}
               />
@@ -1050,7 +1051,7 @@ const OrbytChannelsGrid = React.memo(({ channels, navigation }: { channels: Chan
                 itemHeight={specialItemHeight}
                 onPress={() => {
                   if (latestChannel.uri && latestChannel.uri.trim()) {
-                    navigation.push(`/channel/${encodeURIComponent(latestChannel.uri.trim())}`);
+                    router.push(`/channel/${encodeURIComponent(latestChannel.uri.trim())}`);
                   }
                 }}
               />
@@ -1085,7 +1086,7 @@ const OrbytChannelsGrid = React.memo(({ channels, navigation }: { channels: Chan
                   itemWidth={itemWidth}
                   onPress={() => {
                     if (channel.uri && channel.uri.trim()) {
-                      navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
+                      router.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
                     }
                   }}
                 />
@@ -1182,7 +1183,7 @@ const ExploreScreen: React.FC = () => {
   }, []);
 
 
-  const navigation = useRouter();
+  const router = useRouter();
   const queryClient = useQueryClient();
   
   // Use the follow mutation hook for proper cache management
@@ -1537,7 +1538,7 @@ const ExploreScreen: React.FC = () => {
           }).finally(() => {
             const target = handle.trim();
             if (target) { 
-              navigation.push(`/profile/${target}`); 
+              router.push(`/profile/${target}`); 
             }
           });
         }
@@ -1545,10 +1546,10 @@ const ExploreScreen: React.FC = () => {
     } else if (item.type === 'channel') {
       const channel = item.data as Channel;
       if (channel.uri) {
-        navigation.push(`/channel/${encodeURIComponent(channel.uri)}`);
+        router.push(`/channel/${encodeURIComponent(channel.uri)}`);
       }
     }
-  }, [queryClient, navigation]);
+  }, [queryClient, router]);
 
   // Load visit history on mount - defer to avoid blocking initial render
   useEffect(() => {
@@ -1579,6 +1580,27 @@ const ExploreScreen: React.FC = () => {
     };
   }, [handleClearSearch, isSearchFocused, debouncedQuery]);
 
+  // Handle tab press for scroll-to-top using React Navigation's tabPress event
+  const navigation = useNavigation();
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    // @ts-ignore - tabPress event exists but types may not be complete
+    const unsubscribe = navigation.addListener?.('tabPress', () => {
+      // Only handle if this screen is focused (tab was already active)
+      if (isFocused && tabRefs.explore) {
+        if (tabRefs.explore.isSearchActive()) {
+          // If search is active, dismiss it
+          tabRefs.explore.dismissSearch();
+        } else {
+          // Otherwise scroll to top
+          tabRefs.explore.scrollToTop();
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, isFocused]);
+
   // Handle profile navigation with visit tracking
   const handleProfileNavigation = useCallback((profile: Profile) => {
     saveToVisitHistory('profile', profile);
@@ -1600,7 +1622,7 @@ const ExploreScreen: React.FC = () => {
           staleTime: ProfileCache.cacheExpiry
         }).finally(() => {
           const target = handle.trim();
-          if (target) { navigation.push(`/profile/${target}`); }
+          if (target) { router.push(`/profile/${target}`); }
         });
       }
     }
@@ -1610,7 +1632,7 @@ const ExploreScreen: React.FC = () => {
   const handleChannelNavigation = useCallback((channel: Channel) => {
     saveToVisitHistory('channel', channel);
     if (channel.uri) {
-      navigation.push(`/channel/${encodeURIComponent(channel.uri)}`);
+      router.push(`/channel/${encodeURIComponent(channel.uri)}`);
     }
   }, [saveToVisitHistory, navigation]);
 
@@ -2029,7 +2051,7 @@ const ExploreScreen: React.FC = () => {
                           feedService.setCurrentFeed(formattedFeed);
                           const index = formattedFeed.findIndex((v: any) => v.post.uri === videoUri);
                           const finalIndex = index >= 0 ? index : 0;
-                          navigation.push({
+                          router.push({
                             pathname: '/(modals)/feed',
                             params: {
                               initialIndex: finalIndex,
@@ -2111,7 +2133,7 @@ const ExploreScreen: React.FC = () => {
                           staleTime: ProfileCache.cacheExpiry
                         }).finally(() => {
                           const target = handle.trim();
-                          if (target) { navigation.push(`/profile/${target}`); }
+                          if (target) { router.push(`/profile/${target}`); }
                         });
                       }
                     }
@@ -2166,7 +2188,7 @@ const ExploreScreen: React.FC = () => {
                     onPress={() => {
                       if (channel.uri && channel.uri.trim()) {
                         // Navigate to channel using Expo Router
-                        navigation.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
+                        router.push(`/channel/${encodeURIComponent(channel.uri.trim())}`);
                       }
                     }}
                   />
@@ -2179,7 +2201,7 @@ const ExploreScreen: React.FC = () => {
               return <PopularChannelsLoading />;
             }
             
-            return <OrbytChannelsGrid channels={item.channels} navigation={navigation} />;
+            return <OrbytChannelsGrid channels={item.channels} router={router} />;
           }
           return null;
         }}
@@ -2291,8 +2313,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     padding: 0,
     ...(Platform.OS === 'android' && {
-      textAlignVertical: 'center',
-      includeFontPadding: false,
+      paddingVertical: 0,
     }),
   },
   clearButton: {

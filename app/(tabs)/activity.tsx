@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { tabRefs } from '../../src/utils/tabRefs';
 import type { ScrollToTopRef } from '../../src/utils/tabRefs';
 import { BORDER_RADIUS } from '../../src/utils/constants';
@@ -173,7 +174,6 @@ const ActivityScreen: React.FC = () => {
   // State to trigger indicator re-renders during scroll (doesn't affect feeds) - matches SwipeableFeedContainer
   const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
   const insets = useSafeAreaInsets();
-  const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const { notificationsCount, messagesCount } = useUnreadCount();
   
   const pages: Array<'notifications' | 'chats'> = ['notifications', 'chats'];
@@ -188,6 +188,21 @@ const ActivityScreen: React.FC = () => {
     }
     return null;
   }, []);
+
+  // Handle tab press for scroll-to-top using React Navigation's tabPress event
+  const navigation = useNavigation();
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    // @ts-ignore - tabPress event exists but types may not be complete
+    const unsubscribe = navigation.addListener?.('tabPress', () => {
+      // Only handle if this screen is focused (tab was already active)
+      if (isFocused && tabRefs.activity) {
+        tabRefs.activity.scrollToTop();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, isFocused]);
 
   // Get indicator style using PagerView's scroll progress - matches SwipeableFeedContainer exactly
   const getIndicatorStyle = useCallback((tabId: 'notifications' | 'chats') => {

@@ -13,6 +13,7 @@ import ProfileCache, {
   type CachedProfile
 } from '../../src/services/cache/ProfileCache';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import Icon, { BackArrowIcon, Loading3FillIcon, FollowIcon, MutualHeartIcon, BellFilledIcon, MoreFillIcon } from '../../src/components/ui/Icon';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { ProfileHeader, TabNavigation, TabOption } from '../../src/components/layout/header';
@@ -320,6 +321,21 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     // Use chat availability from getProfile response
     setCanMessage(canMessageFromProfile ? true : false);
   }, [profileData?.did, isOwnProfileView, canMessageFromProfile]);
+
+  // Handle tab press for scroll-to-top using React Navigation's tabPress event
+  const navigation = useNavigation();
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    // @ts-ignore - tabPress event exists but types may not be complete
+    const unsubscribe = navigation.addListener?.('tabPress', () => {
+      // Only handle if this screen is focused (tab was already active)
+      if (isFocused && tabRefs.profile) {
+        tabRefs.profile.scrollToTop();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, isFocused]);
 
   const handleMessagePress = useCallback(async () => {
     if (!profileData?.did) return;

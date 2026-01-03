@@ -8,7 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { FlashList, FlashListRef } from '@shopify/flash-list';
+import { LegendList, LegendListRef } from '@legendapp/list';
 import type { ScrollToTopRef } from '../../../utils/tabRefs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AtprotoService from '../../../services/api/AtprotoService';
@@ -61,6 +61,9 @@ const NotificationDivider = () => (
 
 // Post kind type
 type PostKind = 'video' | 'image' | 'external' | 'record' | 'text';
+
+// Notification types that relate to posts (memoized for performance)
+const POST_ACTION_TYPES = ['like', 'repost', 'like-via-repost', 'repost-via-repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'] as const;
 
 // Helper to get embed from post data (handles different structures)
 const getEmbed = (postData: any) => postData?.embed || postData?.record?.embed;
@@ -203,57 +206,88 @@ const isPostDeleted = (postData: any): boolean => {
   return AtprotoService.isNotFoundPost(postData);
 };
 
-// Notification item component
-const NotificationItem: React.FC<{ 
+// Fetch post data, handling repost records
+const fetchPostData = async (postUri: string, existingPostData: any, postDataMap: Map<string, any>): Promise<{ postData: any; rootPostUri: string } | null> => {
+  if (existingPostData) {
+    const rootPostUri = resolveRootPostUri(postUri, postDataMap) || postUri;
+    return { postData: existingPostData, rootPostUri };
+  }
+
+  let rootPostUri = resolveRootPostUri(postUri, postDataMap) || postUri;
+  
+  // If postUri is a repost record, fetch it first to get root post URI
+  if (postUri.includes('app.bsky.feed.repost')) {
+    try {
+      const apiClient = await AtprotoService.getApiClient();
+      if (apiClient) {
+        const { api } = apiClient;
+        const uriMatch = postUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
+        if (uriMatch) {
+          const repostRecord = await api.com.atproto.repo.getRecord({
+            repo: uriMatch[1],
+            collection: 'app.bsky.feed.repost',
+            rkey: uriMatch[2],
+          });
+          if (repostRecord?.data?.value?.subject?.uri) {
+            rootPostUri = repostRecord.data.value.subject.uri;
+            const postData = await AtprotoService.getPost(rootPostUri);
+            return { postData, rootPostUri };
+          }
+        }
+      }
+    } catch {
+      // Fallback: try fetching postUri directly
+    }
+  }
+  
+  const postData = await AtprotoService.getPost(postUri);
+  return { postData, rootPostUri };
+};
+
+// Notification item component - memoized for performance
+const NotificationItem = React.memo<{ 
   item: any; 
   navigation: any; 
-  queryClient: any;
+  queryClient: any; 
   postDataMap: Map<string, any>;
-}> = ({ item, navigation, queryClient, postDataMap }) => {
+}>(({ item, navigation, queryClient, postDataMap }) => {
   const { reason, author, indexedAt, uri } = item;
   const { presentCommentSection } = useGlobalCommentSection();
   
   // All notification types that relate to posts
-  const postActionTypes = ['like', 'repost', 'like-via-repost', 'repost-via-repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'];
-  const isPostAction = postActionTypes.includes(reason);
+  const isPostAction = POST_ACTION_TYPES.includes(reason as any);
   const postData = isPostAction ? getPostDataFromNotification(item, postDataMap) : null;
-  const isDeleted = isPostAction && isPostDeleted(postData);
   const embed = postData ? getEmbed(postData) : null;
   const postKind = embed ? getPostKind(embed) : 'text';
   const thumbnail = embed ? getThumbnailByKind(embed, postKind) : null;
   const isVideo = postKind === 'video';
   const postTypeLabel = isVideo ? 'video' : 'post';
   
-  // Debug thumbnail extraction
-  if (__DEV__ && isVideo && !thumbnail) {
-    console.log('[NotificationsTab] Video notification missing thumbnail:', {
-      reason,
-      hasPostData: !!postData,
-      hasEmbed: !!embed,
-      embedType: embed?.$type,
-      embedKeys: embed ? Object.keys(embed) : null,
-      postDataKeys: postData ? Object.keys(postData) : null,
-      recordEmbed: item.record?.embed ? Object.keys(item.record.embed) : null,
-    });
-  }
+  // Check if post might be a video (for reserving space before post data loads)
+  // Check notification record embed as a hint - this helps prevent layout shifts
+  const mightBeVideo = isPostAction && !postData && (() => {
+    const recordEmbed = item.record?.embed;
+    if (!recordEmbed) return false;
+    
+    const embedType = recordEmbed.$type;
+    // Check for video embed types
+    if (embedType === 'app.bsky.embed.video' || embedType === 'app.bsky.embed.video#view') {
+      return true;
+    }
+    // Check for recordWithMedia that might contain video
+    if (embedType === 'app.bsky.embed.recordWithMedia') {
+      const mediaType = recordEmbed.media?.$type;
+      return mediaType === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video#view';
+    }
+    return false;
+  })();
+  
+  // Always reserve space for thumbnail if it's a post action and either:
+  // 1. It's confirmed to be a video, OR
+  // 2. Post data hasn't loaded yet but record embed suggests it might be a video
+  const shouldShowThumbnailContainer = isPostAction && (isVideo || mightBeVideo);
   
   const actionText = useMemo(() => {
-    // If post is deleted, show "deleted post" message
-    if (isDeleted) {
-      const deletedActions: Record<string, string> = {
-        like: 'liked deleted post',
-        repost: 'reshared deleted post',
-        'like-via-repost': 'liked deleted post',
-        'repost-via-repost': 'reshared deleted post',
-        reply: 'left a comment on deleted post',
-        quote: 'quoted deleted post',
-        mention: 'mentioned you in deleted post',
-        post: 'created a deleted post',
-        'subscribed-post': 'created a deleted post',
-      };
-      return deletedActions[reason] || `performed action on deleted post: ${reason}`;
-    }
-    
     const actions: Record<string, string> = {
       like: `liked your ${postTypeLabel}`,
       repost: `reshared your ${postTypeLabel}`,
@@ -270,7 +304,7 @@ const NotificationItem: React.FC<{
       unverified: 'unverified you',
     };
     return actions[reason] || `performed action: ${reason}`;
-  }, [reason, postTypeLabel, isDeleted]);
+  }, [reason, postTypeLabel]);
   
   // Navigate to profile
   const navigateToProfile = useCallback((handle: string, authorData?: any) => {
@@ -339,41 +373,16 @@ const NotificationItem: React.FC<{
     }
 
     try {
-      let finalPostData = postData;
-      let rootPostUri = resolveRootPostUri(postUri, postDataMap) || postUri;
-      
-      // Fetch if not already available (quote/mention have post, subscribed-post has record)
-      if (!finalPostData) {
-        // If postUri is a repost record, fetch it first to get root post URI
-        if (postUri.includes('app.bsky.feed.repost')) {
-          try {
-            const apiClient = await AtprotoService.getApiClient();
-            if (apiClient) {
-              const { api } = apiClient;
-              const uriMatch = postUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
-              if (uriMatch) {
-                const repostRecord = await api.com.atproto.repo.getRecord({
-                  repo: uriMatch[1],
-                  collection: 'app.bsky.feed.repost',
-                  rkey: uriMatch[2],
-                });
-                if (repostRecord?.data?.value?.subject?.uri) {
-                  rootPostUri = repostRecord.data.value.subject.uri;
-                  finalPostData = await AtprotoService.getPost(rootPostUri);
-                }
-              }
-            }
-          } catch (error) {
-            // Fallback: try fetching postUri directly
-            finalPostData = await AtprotoService.getPost(postUri);
-          }
-        } else {
-          finalPostData = await AtprotoService.getPost(postUri);
-        }
+      const result = await fetchPostData(postUri, postData, postDataMap);
+      if (!result) {
+        if (author?.handle) navigateToProfile(author.handle, author);
+        return;
       }
       
-      // If post is deleted/missing, navigate to profile
-      if (!finalPostData || isPostDeleted(finalPostData)) {
+      const { postData: finalPostData, rootPostUri } = result;
+      
+      // If post is missing, navigate to profile
+      if (!finalPostData) {
         if (author?.handle) navigateToProfile(author.handle, author);
         return;
       }
@@ -397,7 +406,7 @@ const NotificationItem: React.FC<{
         const { openPostInBluesky } = await import('../../../utils/blueskyLinks');
         await openPostInBluesky(rootPostUri);
       }
-    } catch (error) {
+    } catch {
       if (author?.handle) navigateToProfile(author.handle, author);
     }
   };
@@ -409,41 +418,16 @@ const NotificationItem: React.FC<{
     if (!postUri) return;
 
     try {
-      let finalPostData = postData;
-      let rootPostUri = resolveRootPostUri(postUri, postDataMap) || postUri;
-      
-      // Fetch if not already available
-      if (!finalPostData) {
-        // If postUri is a repost record, fetch it first to get root post URI
-        if (postUri.includes('app.bsky.feed.repost')) {
-          try {
-            const apiClient = await AtprotoService.getApiClient();
-            if (apiClient) {
-              const { api } = apiClient;
-              const uriMatch = postUri.match(/at:\/\/([^/]+)\/app\.bsky\.feed\.repost\/(.+)/);
-              if (uriMatch) {
-                const repostRecord = await api.com.atproto.repo.getRecord({
-                  repo: uriMatch[1],
-                  collection: 'app.bsky.feed.repost',
-                  rkey: uriMatch[2],
-                });
-                if (repostRecord?.data?.value?.subject?.uri) {
-                  rootPostUri = repostRecord.data.value.subject.uri;
-                  finalPostData = await AtprotoService.getPost(rootPostUri);
-                }
-              }
-            }
-          } catch (error) {
-            // Fallback: try fetching postUri directly
-            finalPostData = await AtprotoService.getPost(postUri);
-          }
-        } else {
-          finalPostData = await AtprotoService.getPost(postUri);
-        }
+      const result = await fetchPostData(postUri, postData, postDataMap);
+      if (!result) {
+        if (author?.handle) navigateToProfile(author.handle, author);
+        return;
       }
       
-      // If post is deleted/missing, navigate to profile
-      if (!finalPostData || isPostDeleted(finalPostData)) {
+      const { postData: finalPostData, rootPostUri } = result;
+      
+      // If post is missing, navigate to profile
+      if (!finalPostData) {
         if (author?.handle) navigateToProfile(author.handle, author);
         return;
       }
@@ -458,7 +442,7 @@ const NotificationItem: React.FC<{
         const { openPostInBluesky } = await import('../../../utils/blueskyLinks');
         await openPostInBluesky(rootPostUri);
       }
-    } catch (error) {
+    } catch {
       if (author?.handle) navigateToProfile(author.handle, author);
     }
   }, [isPostAction, item, postData, postDataMap, author?.handle, navigateToProfile, navigateToVideoPost]);
@@ -499,7 +483,7 @@ const NotificationItem: React.FC<{
           )}
         </Pressable>
         <View style={styles.actionRow}>
-          <Text style={[styles.actionText, isDeleted && styles.deletedActionText]}>
+          <Text style={styles.actionText}>
             {actionText}
           </Text>
           {indexedAt && (
@@ -509,38 +493,48 @@ const NotificationItem: React.FC<{
           )}
         </View>
       </Pressable>
-      {isPostAction && isVideo && !isDeleted && (
+      {shouldShowThumbnailContainer && (
         <Pressable onPress={handleThumbnailPress} style={styles.thumbnailContainer}>
-          {thumbnail && <BlurredThumbnailBackground thumbnailUrl={thumbnail} />}
           {thumbnail ? (
-            <Image
-              source={{ uri: thumbnail }}
-              style={styles.thumbnailVideo}
-              contentFit="contain"
-              cachePolicy="memory-disk"
-              onError={() => {
-                // Silently fail - image just won't display
-                if (__DEV__) {
-                  console.log('Thumbnail failed to load:', thumbnail);
-                }
-              }}
-            />
+            <>
+              <BlurredThumbnailBackground thumbnailUrl={thumbnail} />
+              <Image
+                source={{ uri: thumbnail }}
+                style={styles.thumbnailVideo}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+                onError={() => {
+                  // Silently fail - image just won't display
+                }}
+              />
+            </>
           ) : (
-            <View style={styles.thumbnailVideo} />
+            <View style={styles.thumbnailPlaceholder} />
           )}
         </Pressable>
       )}
     </View>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison for memo - return true if props are equal (skip re-render)
+  if (prevProps.item.uri !== nextProps.item.uri) return false;
+  if (prevProps.item.indexedAt !== nextProps.item.indexedAt) return false;
+  if (prevProps.postDataMap !== nextProps.postDataMap) {
+    // Only re-render if postDataMap changed AND it affects this item
+    const prevPostData = getPostDataFromNotification(prevProps.item, prevProps.postDataMap);
+    const nextPostData = getPostDataFromNotification(nextProps.item, nextProps.postDataMap);
+    if (prevPostData !== nextPostData) return false;
+  }
+  return true; // Props are equal, skip re-render
+});
 
 const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
-  const flashListRef = useRef<FlashListRef<any>>(null);
+  const legendListRef = useRef<LegendListRef<any>>(null);
 
   // Expose scrollToTop method
   useImperativeHandle(ref, () => ({
     scrollToTop: () => {
-      flashListRef.current?.scrollToTop({ animated: true });
+      legendListRef.current?.scrollToOffset({ offset: 0, animated: true });
     },
   }), []);
   const navigation = useRouter();
@@ -582,22 +576,14 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
     hasNextPage,
     isLoading,
     isError,
-    error,
     refetch,
     isRefetching,
     isFetchingNextPage,
   } = useInfiniteQuery({
     queryKey: ['notifications', 'all'],
     queryFn: async ({ pageParam }) => {
-      try {
-        const response = await AtprotoService.listNotifications(pageParam as string | null);
-        return response;
-      } catch (error) {
-        if (__DEV__) {
-          console.error('[NotificationsTab] Error fetching notifications:', error);
-        }
-        throw error; // Re-throw so React Query can handle it
-      }
+      const response = await AtprotoService.listNotifications(pageParam as string | null);
+      return response;
     },
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.cursor,
@@ -606,18 +592,19 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
   });
 
   // Flatten notifications from all pages
-  const notifications = useMemo(() => {
+  const allNotifications = useMemo(() => {
     return data?.pages.flatMap(page => page.notifications) || [];
   }, [data]);
   
   // Batch prefetch all author profiles for better performance
   useEffect(() => {
-    if (notifications.length > 0) {
+    if (allNotifications.length > 0) {
       // Extract all unique profiles from notifications and batch prefetch them
-      ProfileCache.batchPrefetchFromFeed(notifications).catch(error => {
+      ProfileCache.batchPrefetchFromFeed(allNotifications).catch(() => {
+        // Silently fail - prefetch is not critical
       });
     }
-  }, [notifications]);
+  }, [allNotifications]);
 
   // Extract post URIs that need fetching - matches Bluesky's pattern
   // Quote/mention include post data with view embeds (thumbnails) - no fetch needed
@@ -625,10 +612,9 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
   // Others (like/repost/reply) need fetching
   const postUrisToFetch = useMemo(() => {
     const uris = new Set<string>();
-    const postActionTypes = ['like', 'repost', 'like-via-repost', 'repost-via-repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'];
     
-    for (const notification of notifications) {
-      if (!postActionTypes.includes(notification.reason)) continue;
+    for (const notification of allNotifications) {
+      if (!POST_ACTION_TYPES.includes(notification.reason as any)) continue;
       
       // Quote/mention include post data with view embeds - no fetch needed
       if (notification.post) continue;
@@ -638,7 +624,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
     }
     
     return Array.from(uris);
-  }, [notifications]);
+  }, [allNotifications]);
 
   // Batch fetch all posts, automatically resolving repost records to root posts
   const { data: postDataMap = new Map() } = useQuery({
@@ -713,20 +699,112 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
     gcTime: 10 * 60 * 1000,
   });
 
+  // Filter out notifications about deleted posts - use stable reference
+  const notifications = useMemo(() => {
+    if (postDataMap.size === 0) {
+      // If postDataMap is empty, return all notifications (posts haven't loaded yet)
+      return allNotifications;
+    }
+    
+    return allNotifications.filter(notification => {
+      const isPostAction = POST_ACTION_TYPES.includes(notification.reason as any);
+      if (!isPostAction) return true; // Keep non-post notifications
+      
+      const postData = getPostDataFromNotification(notification, postDataMap);
+      // Filter out if post is deleted
+      return !isPostDeleted(postData);
+    });
+  }, [allNotifications, postDataMap]);
+
+  // Use stable reference for postDataMap to prevent unnecessary re-renders
+  const postDataMapRef = useRef(postDataMap);
+  useEffect(() => {
+    postDataMapRef.current = postDataMap;
+  }, [postDataMap]);
+
   const renderNotificationContent = useCallback(({ item }: { item: any }) => {
     return (
       <NotificationItem 
         item={item} 
         navigation={navigation} 
         queryClient={queryClient}
-        postDataMap={postDataMap}
+        postDataMap={postDataMapRef.current}
       />
     );
-  }, [navigation, queryClient, postDataMap]);
+  }, [navigation, queryClient]);
 
   const keyExtractor = useCallback((item: any) => {
     return item.uri || `notification-${item.indexedAt || Math.random()}`;
   }, []);
+
+  // Get item type for better recycling optimization - optimized to check record embed first
+  const getItemType = useCallback((item: any): string => {
+    const isPostAction = POST_ACTION_TYPES.includes(item.reason as any);
+    if (!isPostAction) return 'non-post';
+    
+    // Check record embed first (faster, no map lookup needed)
+    const recordEmbed = item.record?.embed;
+    if (recordEmbed) {
+      const embedType = recordEmbed.$type;
+      if (embedType === 'app.bsky.embed.video' || embedType === 'app.bsky.embed.video#view') {
+        return 'post-video';
+      }
+      if (embedType === 'app.bsky.embed.recordWithMedia') {
+        const mediaType = recordEmbed.media?.$type;
+        if (mediaType === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video#view') {
+          return 'post-video';
+        }
+      }
+    }
+    
+    // Fallback to post data if available
+    const postData = getPostDataFromNotification(item, postDataMap);
+    if (postData) {
+      const embed = getEmbed(postData);
+      const postKind = embed ? getPostKind(embed) : 'text';
+      return postKind === 'video' ? 'post-video' : 'post-text';
+    }
+    
+    return 'post-loading';
+  }, [postDataMap]);
+
+  // Estimate item size for better initial rendering - optimized to check record embed first
+  const getEstimatedItemSize = useCallback((index: number, item: any): number => {
+    // Base size: padding (24px) + avatar (50px) + text content (~40px) = ~114px
+    const baseSize = 114;
+    
+    // Check if item has video thumbnail - use record embed first (faster, no map lookup)
+    const isPostAction = POST_ACTION_TYPES.includes(item.reason as any);
+    
+    if (isPostAction) {
+      // Check record embed first (no map lookup needed, faster)
+      const recordEmbed = item.record?.embed;
+      if (recordEmbed) {
+        const embedType = recordEmbed.$type;
+        if (embedType === 'app.bsky.embed.video' || embedType === 'app.bsky.embed.video#view') {
+          return baseSize + 80;
+        }
+        if (embedType === 'app.bsky.embed.recordWithMedia') {
+          const mediaType = recordEmbed.media?.$type;
+          if (mediaType === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video#view') {
+            return baseSize + 80;
+          }
+        }
+      }
+      
+      // Fallback to post data if available
+      const postData = getPostDataFromNotification(item, postDataMap);
+      if (postData) {
+        const embed = getEmbed(postData);
+        const postKind = embed ? getPostKind(embed) : 'text';
+        if (postKind === 'video') {
+          return baseSize + 80;
+        }
+      }
+    }
+    
+    return baseSize;
+  }, [postDataMap]);
 
   if (isError) {
     return (
@@ -749,8 +827,8 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
   }
 
   return (
-    <FlashList
-      ref={flashListRef}
+    <LegendList
+      ref={legendListRef}
       style={styles.listContainer}
       contentContainerStyle={{
         paddingHorizontal: 15,
@@ -760,13 +838,21 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
       renderItem={renderNotificationContent}
       keyExtractor={keyExtractor}
       ItemSeparatorComponent={NotificationDivider}
+      recycleItems={true}
+      getItemType={getItemType}
+      getEstimatedItemSize={getEstimatedItemSize}
+      extraData={notifications.length}
+      drawDistance={200}
+      initialContainerPoolRatio={4}
+      estimatedItemSize={130}
       refreshControl={
         <RefreshControl
           refreshing={isRefetching && !isFetchingNextPage}
           onRefresh={async () => {
             try {
               await refetch();
-            } catch (error) {
+            } catch {
+              // Silently fail - error is handled by React Query
             }
           }}
           tintColor={Colors.white}
@@ -832,6 +918,11 @@ const styles = StyleSheet.create({
     height: '100%',
     zIndex: 1,
   },
+  thumbnailPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: Colors.darkGray,
+  },
   authorName: {
     color: Colors.white,
     fontSize: 18,
@@ -848,10 +939,6 @@ const styles = StyleSheet.create({
     color: Colors.mutedGray,
     fontSize: 16,
     fontFamily: 'Firma-Medium',
-  },
-  deletedActionText: {
-    opacity: 0.6,
-    fontStyle: 'italic',
   },
   timeText: {
     color: Colors.gray,
