@@ -335,7 +335,7 @@ const SettingsScreen: React.FC = () => {
           label: 'Support',
           onPress: () => handleOpenEmail('support@getorbyt.com'),
           showChevron: true
-        }
+        },
       ]
     },
     {

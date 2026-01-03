@@ -26,6 +26,8 @@ export { default as CustomPDSInputSheet } from './CustomPDSInputSheet';
 export { default as SessionDiagnosticsTool } from './SessionDiagnosticsTool';
 export { default as BlurredThumbnailBackground } from './BlurredThumbnailBackground';
 export { OptionsButton } from './OptionsButton';
+export { ErrorBoundary } from './ErrorBoundary';
+export { QueryErrorBoundary } from './QueryErrorBoundary';
 
 // Default export for the entire UI system
 export { default as UI } from './UI'; 

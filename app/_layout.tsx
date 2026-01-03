@@ -25,6 +25,7 @@ import CommentSection from '../src/components/features/comments/CommentSection';
 import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
 import { useVisibilityCoreStore } from '../src/core/visibility';
 import { queryClient } from '../src/utils/queryClient';
+import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -309,61 +310,63 @@ export default function RootLayout() {
 
   return (
     <AppProviders>
-      <ProtectedRoute>
-        <View style={styles.rootView} onLayout={onLayoutRootView}>
-          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} hidden={false} />
-          {!isAuthenticated && (
-            <LinearGradient
-              colors={['transparent', Colors.black]}
-              style={[styles.bottomGradient, { height: 45 + insets.bottom }]}
-              pointerEvents="none"
+      <QueryErrorBoundary level="root">
+        <ProtectedRoute>
+          <View style={styles.rootView} onLayout={onLayoutRootView}>
+            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} hidden={false} />
+            {!isAuthenticated && (
+              <LinearGradient
+                colors={['transparent', Colors.black]}
+                style={[styles.bottomGradient, { height: 45 + insets.bottom }]}
+                pointerEvents="none"
+              />
+            )}
+            <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(modals)" options={{ headerShown: false }} />
+            <Stack.Screen name="login" options={{ headerShown: false }} />
+            <Stack.Screen 
+              name="oauth/callback" 
+              options={{ 
+                headerShown: false,
+                animation: 'none',
+                gestureEnabled: false,
+              }} 
             />
-          )}
-          <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="(modals)" options={{ headerShown: false }} />
-          <Stack.Screen name="login" options={{ headerShown: false }} />
-          <Stack.Screen 
-            name="oauth/callback" 
-            options={{ 
-              headerShown: false,
-              animation: 'none',
-              gestureEnabled: false,
-            }} 
-          />
-          <Stack.Screen name="video-editor" options={{ headerShown: false }} />
-          <Stack.Screen name="video-processing" options={{ headerShown: false }} />
-          <Stack.Screen 
-            name="post/[id]" 
-            options={{ 
-              headerShown: false,
-              animation: 'fade',
-              gestureEnabled: false,
-            }} 
-          />
-          <Stack.Screen name="channel/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="profile/[did]" options={{ headerShown: false }} />
-          <Stack.Screen name="chat" options={{ headerShown: false }} />
-          <Stack.Screen 
-            name="settings" 
-            options={{ 
-              headerShown: false,
-              presentation: 'modal',
-              animation: 'slide_from_bottom'
-            }} 
-          />
-          <Stack.Screen 
-            name="edit-profile" 
-            options={{ 
-              headerShown: false,
-              presentation: 'modal',
-              animation: 'slide_from_bottom'
-            }} 
-          />
-          </Stack>
-          {isAuthenticated && <GlobalModals />}
-        </View>
-      </ProtectedRoute>
+            <Stack.Screen name="video-editor" options={{ headerShown: false }} />
+            <Stack.Screen name="video-processing" options={{ headerShown: false }} />
+            <Stack.Screen 
+              name="post/[id]" 
+              options={{ 
+                headerShown: false,
+                animation: 'fade',
+                gestureEnabled: false,
+              }} 
+            />
+            <Stack.Screen name="channel/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="profile/[did]" options={{ headerShown: false }} />
+            <Stack.Screen name="chat" options={{ headerShown: false }} />
+            <Stack.Screen 
+              name="settings" 
+              options={{ 
+                headerShown: false,
+                presentation: 'modal',
+                animation: 'slide_from_bottom'
+              }} 
+            />
+            <Stack.Screen 
+              name="edit-profile" 
+              options={{ 
+                headerShown: false,
+                presentation: 'modal',
+                animation: 'slide_from_bottom'
+              }} 
+            />
+            </Stack>
+            {isAuthenticated && <GlobalModals />}
+          </View>
+        </ProtectedRoute>
+      </QueryErrorBoundary>
     </AppProviders>
   );
 }
