@@ -1,22 +1,19 @@
-import React, { useRef, useCallback, useEffect, useState, useMemo, useLayoutEffect, memo, forwardRef, useImperativeHandle } from 'react';
+import { useRef, useCallback, useEffect, useState, useMemo, useLayoutEffect, memo, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
   StatusBar,
-  Animated as RNAnimated,
   Pressable,
 } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
 import { SvgXml } from 'react-native-svg';
 import { Colors } from '../../ui/UI';
 import FeedRenderer from './FeedRenderer';
-import { useSubscribedChannels } from '../../../hooks/useSubscribedChannels';
 import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVisibilityTabIsActive } from '../../../core/visibility';
@@ -33,9 +30,7 @@ const FEED_LABELS: { [key: string]: string } = {
   'your-mix': 'your mix',
 };
 
-const ADD_SQUARE_LINE_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='3 3 18 18'><title>add_square_line</title><g id="add_square_line" fill='none' fill-rule='evenodd'><path fill='#f3f5fe' d='M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm16 0H5v14h14zm-7 2a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H8a1 1 0 1 1 0-2h3V8a1 1 0 0 1 1-1'/></g></svg>`;
-
-const ADD_SQUARE_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='3 3 18 18'><title>add_square_fill</title><g id="add_square_fill" fill='none' fill-rule='evenodd'><path fill='#f3f5fe' d='M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm4 7a1 1 0 0 1 1-1h3V8a1 1 0 1 1 2 0v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H8a1 1 0 0 1-1-1'/></g></svg>`;
+const CAMERA_2_FILL_ICON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='1 2 22 20'><defs><mask id='plusMask'><rect x='1' y='2' width='22' height='20' fill='white'/><g transform='translate(12, 12.5) scale(0.5) translate(-12, -12)'><path fill='black' d='M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4h4a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4v4a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-4H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2h4z'/></g></mask></defs><g fill='none'><path fill='#f3f5fe' d='M14.793 3a1.5 1.5 0 0 1 .95.34l.11.1L17.415 5H20a2 2 0 0 1 1.995 1.85L22 7v12a2 2 0 0 1-1.85 1.995L20 21H4a2 2 0 0 1-1.995-1.85L2 19V7a2 2 0 0 1 1.85-1.995L4 5h2.586l1.56-1.56a1.5 1.5 0 0 1 .913-.433L9.207 3z' mask='url(#plusMask)'/></g></svg>`;
 
 interface FeedPagerProps {
   initialFeed?: FeedOption;
@@ -58,11 +53,9 @@ const FeedPager = memo(forwardRef<ScrollToTopRef, FeedPagerProps>(({
   const pagerViewRef = useRef<PagerView>(null);
   // Refs to FeedRenderer instances, keyed by feedOption
   const feedRendererRefs = useRef<{ [key: string]: ListFeedViewRef | null }>({});
-  const { subscribedChannels } = useSubscribedChannels();
   const insets = useSafeAreaInsets();
   const isTabActive = useVisibilityTabIsActive('index');
   const router = useRouter();
-  const navigation = useNavigation();
   const { nativeTabsEnabled } = useFeedSettings();
 
   // Memoized screen dimensions handling
@@ -86,7 +79,6 @@ const FeedPager = memo(forwardRef<ScrollToTopRef, FeedPagerProps>(({
   // State for current feed
   const [currentFeedIndex, setCurrentFeedIndex] = useState(0);
   const [feedRetries, setFeedRetries] = useState<{ [key in FeedOption]?: number }>({});
-  const [isCreateButtonPressed, setIsCreateButtonPressed] = useState(false);
 
   // Animation values for feed bar visibility and transitions - using Reanimated for UI thread
   const feedBarOpacity = useSharedValue(1);
@@ -251,8 +243,7 @@ const FeedPager = memo(forwardRef<ScrollToTopRef, FeedPagerProps>(({
   }, [animateFeedBar, feedOptions.length]);
 
   // Handle scroll state changes from PagerView
-  const handlePageScrollStateChanged = useCallback((event: any) => {
-    const state = event.nativeEvent.pageScrollState;
+  const handlePageScrollStateChanged = useCallback(() => {
     // Feed bar stays visible, no special handling needed
   }, []);
 
@@ -402,12 +393,10 @@ const FeedPager = memo(forwardRef<ScrollToTopRef, FeedPagerProps>(({
           {nativeTabsEnabled && (
             <Pressable
               onPress={() => router.push('/create')}
-              onPressIn={() => setIsCreateButtonPressed(true)}
-              onPressOut={() => setIsCreateButtonPressed(false)}
               style={styles.createButton}
             >
               <SvgXml 
-                xml={isCreateButtonPressed ? ADD_SQUARE_FILL_ICON_SVG : ADD_SQUARE_LINE_ICON_SVG} 
+                xml={CAMERA_2_FILL_ICON_SVG} 
                 width={24} 
                 height={24} 
               />
