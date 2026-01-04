@@ -5,7 +5,7 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../utils/helpers';
+import { getBottomNavBarHeight } from '../../utils/helpers';
 import { HomeIcon, ExploreIcon, NotificationIcon, UserIcon } from './Icon';
 import { Colors, Avatar } from './UI';
 import { useUnreadCount } from '../../hooks/useUnreadCount';
@@ -119,7 +119,6 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const isSmallDevice = isSmallScreen() || isTablet();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const { hasUnread } = useUnreadCount();
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
@@ -259,7 +258,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
         pointerEvents="none"
       />
       <View style={[styles.tabBar, { 
-        paddingTop: (isSmallDevice ? 2 : 6) + 3,
+        paddingTop: 9,
         paddingBottom: (typeof insets?.bottom === 'number' ? insets.bottom : 0) + 3,
       }]}>
         {/* Left tabs */}
@@ -344,15 +343,15 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     flex: 1,
     paddingHorizontal: 16,
+    gap: 48,
   },
   tabsGroup: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    gap: 48,
   },
   tab: {
     alignItems: 'center',
@@ -364,7 +363,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44,
-    marginHorizontal: 20,
     // Create tab width is set dynamically based on captureSize
   },
   tabPressed: {
