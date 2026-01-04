@@ -16,7 +16,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { scheduleOnUI, scheduleOnRN } from 'react-native-worklets';
-import { useSafeAreaFrame, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaFrame } from 'react-native-safe-area-context';
 import { useEvent } from 'expo';
 import { type VideoPlayer } from 'expo-video';
 import { formatTime } from '../../../utils/helpers';
@@ -47,7 +47,6 @@ export const VideoScrubber = React.memo(({
   }
 
   const { width: screenWidth } = useSafeAreaFrame();
-  const insets = useSafeAreaInsets();
   const setScrubbingState = useUIStore((state) => state.setVisibility);
   const currentTimeSV = useSharedValue(0);
   const durationSV = useSharedValue(0);
@@ -107,7 +106,7 @@ export const VideoScrubber = React.memo(({
   }, [player, currentTimeSV, seekProgressSV]);
 
   // Read-only duration sync - never affects player
-  const { status: playerStatus } = useEvent(player || null, 'statusChange', { status: player?.status ?? 'idle' });
+  const { status: playerStatus } = useEvent(player as any, 'statusChange', { status: player?.status ?? 'idle' });
   
   useEffect(() => {
     if (!player || !active) return;

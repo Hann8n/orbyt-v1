@@ -6,7 +6,6 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  Dimensions,
   useWindowDimensions,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -25,15 +24,8 @@ import { useFollowContext } from '../../../context/FollowContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { prepopulateProfileCache } from '../../../services/cache/ProfileCache';
 
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
 // Use any type for post
 type Post = any;
-
-type RootStackParamList = {
-  AuthorProfile: { handle: string };
-};
 
 export interface VideoOverlayUIProps {
   post: Post;
@@ -65,7 +57,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   sourceFeed,
   onLike,
   onRepost,
-  onSourcePress,
   isLiked = false,
   isReposted = false,
   likeCount = 0,
@@ -82,7 +73,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const isSmallScreenDevice = isSmallScreen();
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const { presentShareSheet } = useGlobalShareSheet();
   const { presentCommentSection } = useGlobalCommentSection();
   const navigation = useRouter();
@@ -199,7 +190,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     };
   }, [width]);
   
-  const { contentPadding, actionIconSize, smallIconSize, authorAvatarSize, repostAvatarSize } = uiCalculations;
+  const { contentPadding, actionIconSize, authorAvatarSize } = uiCalculations;
 
   // Memoize icon rendering to prevent unnecessary recreations
   const renderLikeIcon = useCallback(() => (
@@ -235,14 +226,6 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       />
     </Animated.View>
   ), [repostAnimatedStyle, isTabletDevice, actionIconSize, isReposted]);
-
-  // Memoize static icons to prevent recreation
-  const repostIcon = useMemo(() => (
-    <RefreshFillIcon 
-      size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} 
-      color={isReposted ? Colors.INTERACTIVE.REPOST.ACTIVE : Colors.INTERACTIVE.REPOST.INACTIVE} 
-    />
-  ), [isTabletDevice, actionIconSize, isReposted]);
 
   const commentIcon = useMemo(() => (
     <ChatFillIcon size={isTabletDevice ? Math.max(actionIconSize, 34) : actionIconSize} color={Colors.INTERACTIVE.COMMENT} />

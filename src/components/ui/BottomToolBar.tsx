@@ -3,7 +3,6 @@ import {
   View,
   Pressable,
   StyleSheet,
-  Platform,
   Text,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +11,6 @@ import * as Haptics from 'expo-haptics';
 import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../../utils/helpers';
 import Icon from './Icon';
 import { Colors } from './UI';
-import { BORDER_RADIUS } from '../../utils/constants';
 
 interface BottomToolBarProps {
   mode: 'create' | 'edit';

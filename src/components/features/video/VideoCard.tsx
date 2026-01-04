@@ -23,7 +23,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, withSequence, withDelay, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSequence, withDelay, Easing } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
@@ -32,14 +32,12 @@ import { Colors } from '../../ui/UI';
 import { Loading3FillIcon, HeartFillIcon } from '../../ui/Icon';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 import { extractVideoUrl, extractVideoThumbnail, createVideoSource } from '../../../utils/helpers/video';
-import { isSmallScreen, isTablet } from '../../../utils/helpers';
 import VideoOverlayUI from './VideoOverlayUI';
 import { useFocusEffect } from 'expo-router';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { usePostInteractionStore } from '../../../stores/postInteractionStore';
 import { useProfile } from '../../../services/cache/ProfileCache';
 import { getChannelBySlug } from '../../../utils/orbytChannels';
-import { useUIStore } from '../../../stores/uiStore';
 import { VideoScrubber } from './VideoScrubber';
 
 // Use any type for post
@@ -83,7 +81,6 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     height, 
     moderationDecision, 
     shouldDisablePlayback = false, 
-    isPlaying: shouldPlay = false,
     showOverlay = true,
     feedOption,
     sourceFeed,
@@ -198,7 +195,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
         return 'This video may contain sensitive content';
       }
       // Split comma-separated labels, remove "content" from each label, and join with "&"
-      const labels = reason.split(',').map(l => {
+      const labels = reason.split(',').map((l: string) => {
         // Remove "content" or "Content" from the end of each label
         return l.trim().replace(/\s+[Cc]ontent\s*$/, '').trim();
       });

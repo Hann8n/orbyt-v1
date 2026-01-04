@@ -1,10 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type VideoPlayer } from 'expo-video';
 import { useUIStore } from '../../../stores/uiStore';
-import { getBottomNavBarHeight } from '../../../utils/helpers';
 import { VideoScrubber } from './VideoScrubber';
 
 // Simple registry for active video player (module-level to avoid re-renders)
@@ -31,7 +29,6 @@ export const GlobalVideoScrubber: React.FC = () => {
     return null;
   }
 
-  const insets = useSafeAreaInsets();
   const isVideoVisible = useUIStore((state) => state.visibility.isVideoVisible ?? false);
   const [activePlayer, setActivePlayer] = useState<VideoPlayer | null>(activePlayerRef);
   const seekingAnimationSV = useSharedValue(0);
@@ -53,8 +50,6 @@ export const GlobalVideoScrubber: React.FC = () => {
       seekingAnimationSV.value = 0;
     }
   }, [isVideoVisible, seekingAnimationSV]);
-
-  const bottomNavBarHeight = useMemo(() => getBottomNavBarHeight(insets), [insets]);
 
   if (!activePlayer || !isVideoVisible) {
     return null;
