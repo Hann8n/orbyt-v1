@@ -1772,7 +1772,7 @@ const ExploreScreen: React.FC = () => {
               isInteractive
             />
           )}
-          <View style={styles.searchBarContent} pointerEvents="none">
+          <View style={styles.searchBarContent} pointerEvents="box-none">
             <View style={styles.searchIconContainer}>
               <SearchIcon size={24} color={Colors.black} style={{ transform: [{ scale: 1.2 }, { scaleX: -1 }] }} />
             </View>
