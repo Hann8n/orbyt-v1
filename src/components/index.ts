@@ -17,7 +17,7 @@ export { default as RelativeDate } from './ui/RelativeDate';
 // Feature Components
 export { default as ListFeedView } from './features/feed/ListFeedView';
 export { default as GridFeedView } from './features/feed/GridFeedView';
-export { default as SwipeableFeedContainer } from './features/feed/SwipeableFeedContainer';
+export { default as FeedPager } from './features/feed/FeedPager';
 export { default as EmptyFeed } from './features/feed/EmptyFeed';
 export { default as MemoizedVideoItem } from './features/feed/VideoItem';
 

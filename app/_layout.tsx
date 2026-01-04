@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, StatusBar, Appearance, AppState, InteractionManager, Platform } from 'react-native';
-import { Stack, Redirect, usePathname, useSegments } from 'expo-router';
+import { Stack, useSegments } from 'expo-router';
 import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -26,6 +26,7 @@ import GlobalAccountSwitcher from '../src/components/ui/GlobalAccountSwitcher';
 import { useVisibilityCoreStore } from '../src/core/visibility';
 import { queryClient } from '../src/utils/queryClient';
 import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
+import { SessionProvider, useSession } from '../src/context/SessionProvider';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -82,41 +83,83 @@ const GlobalModals: React.FC = () => {
   );
 };
 
-// Route protection component - redirects unauthenticated users to login
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// RootNavigator - handles route protection using Stack.Protected
+function RootNavigator() {
+  const { session } = useSession();
+  const insets = useSafeAreaInsets();
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
-  const segments = useSegments();
-  const pathname = usePathname();
 
-  // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/advanced-login', '/oauth/callback'];
-  const isPublicRoute = pathname ? publicRoutes.some(route => pathname.startsWith(route)) : false;
+  return (
+    <View style={styles.rootView}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} hidden={false} />
+      {!isAuthenticated && (
+        <LinearGradient
+          colors={['transparent', Colors.black]}
+          style={[styles.bottomGradient, { height: 45 + insets.bottom }]}
+          pointerEvents="none"
+        />
+      )}
+      <Stack screenOptions={{ headerShown: false }}>
+        {/* Protected routes - require authentication */}
+        <Stack.Protected guard={!!session}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(modals)" />
+          <Stack.Screen 
+            name="create" 
+            options={{ 
+              animation: 'fade',
+              animationDuration: 200,
+            }} 
+          />
+          <Stack.Screen name="video-editor" />
+          <Stack.Screen name="video-processing" />
+          <Stack.Screen name="video-trimmer" />
+          <Stack.Screen 
+            name="post/[id]" 
+            options={{ 
+              animation: 'fade',
+              gestureEnabled: false,
+            }} 
+          />
+          <Stack.Screen name="channel/[id]" />
+          <Stack.Screen name="profile/[did]" />
+          <Stack.Screen name="chat" />
+          <Stack.Screen 
+            name="settings" 
+            options={{ 
+              presentation: 'modal',
+              animation: 'slide_from_bottom'
+            }} 
+          />
+          <Stack.Screen 
+            name="edit-profile" 
+            options={{ 
+              presentation: 'modal',
+              animation: 'slide_from_bottom'
+            }} 
+          />
+        </Stack.Protected>
 
-  // Redirect authenticated users away from login pages
-  if (isAuthenticated && pathname && (pathname === '/login' || pathname === '/advanced-login')) {
-    return <Redirect href="/(tabs)" />;
-  }
+        {/* Public routes - accessible without authentication */}
+        <Stack.Protected guard={!session}>
+          <Stack.Screen name="login" />
+          <Stack.Screen name="advanced-login" />
+        </Stack.Protected>
 
-  // Check if current route is protected
-  // Protected routes include: (tabs), (modals), settings, edit-profile, video-editor, etc.
-  // Exclude: index (root), login, advanced-login, oauth/callback
-  // If pathname is undefined or segments are empty, allow (initial load - index.tsx will handle redirect)
-  const firstSegment = segments[0];
-  const isProtectedRoute = pathname && 
-    !isPublicRoute && 
-    segments.length > 0 && 
-    firstSegment !== 'index' &&
-    firstSegment !== 'login' &&
-    firstSegment !== 'advanced-login' &&
-    !pathname.startsWith('/oauth/');
-
-  // Redirect to login if trying to access protected route while not authenticated
-  if (!isAuthenticated && isProtectedRoute) {
-    return <Redirect href="/login" />;
-  }
-
-  return <>{children}</>;
-};
+        {/* Always accessible routes */}
+        <Stack.Screen 
+          name="oauth/callback" 
+          options={{ 
+            animation: 'none',
+            gestureEnabled: false,
+          }} 
+        />
+        <Stack.Screen name="index" />
+      </Stack>
+      {isAuthenticated && <GlobalModals />}
+    </View>
+  );
+}
 
 // Visibility hook for inline logic - tracks app state and active tab
 const useVisibilityTracking = () => {
@@ -156,13 +199,11 @@ export default function RootLayout() {
   // Use individual selectors to prevent unnecessary re-renders
   const fontsLoaded = useAppStore(state => state.fontsLoaded);
   const setFontsLoaded = useAppStore(state => state.setFontsLoaded);
-  const insets = useSafeAreaInsets();
   
   // Inline visibility tracking
   useVisibilityTracking();
   
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
-  const isAuthenticating = useUserStore(state => state.isAuthenticating);
   const initializeUserState = useUserStore(state => state.initializeUserState);
   const loadBookmarks = useBookmarkStore(state => state.loadBookmarks);
   const clearBookmarks = useBookmarkStore(state => state.clearBookmarks);
@@ -271,102 +312,43 @@ export default function RootLayout() {
     return undefined;
   }, [appIsReady]);
 
-  // Determine when app is ready (fonts loaded, initialization complete, auth state determined)
+  // Determine when app is ready (fonts loaded, initialization complete)
   useEffect(() => {
-    const checkAppReady = () => {
-      // App is ready when fonts are loaded, initialization is complete, and auth state is determined
-      if (fontsLoaded && !isInitializing && !isAuthenticating) {
-        setAppIsReady(true);
-      }
-    };
-    checkAppReady();
-  }, [fontsLoaded, isInitializing, isAuthenticating]);
+    if (fontsLoaded && !isInitializing) {
+      setAppIsReady(true);
+    }
+  }, [fontsLoaded, isInitializing]);
 
-  // Hide splash screen when app is ready and layout is complete
-  const onLayoutRootView = useCallback(async () => {
+  // Hide splash screen when app is ready
+  useEffect(() => {
     if (appIsReady) {
-      await SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch(() => {
+        // Ignore errors - splash screen might already be hidden
+      });
     }
   }, [appIsReady]);
 
   // Timeout fallback to ensure splash screen doesn't stay forever
   useEffect(() => {
-    const timeout = setTimeout(async () => {
-      if (!appIsReady) {
-        // Force app ready state and hide splash after 5 seconds as fallback
-        // This ensures the app always renders even if something goes wrong
-        setAppIsReady(true);
-        await SplashScreen.hideAsync();
-      }
+    const timeout = setTimeout(() => {
+      setAppIsReady(true);
     }, 5000);
 
     return () => clearTimeout(timeout);
-  }, [appIsReady]);
+  }, []);
 
-  // Show nothing while loading - splash screen will be visible
-  if (isInitializing || isAuthenticating || !fontsLoaded) {
+  // Show nothing while loading fonts and initializing - splash screen will be visible
+  if (isInitializing || !fontsLoaded) {
     return null;
   }
 
   return (
     <AppProviders>
-      <QueryErrorBoundary level="root">
-        <ProtectedRoute>
-          <View style={styles.rootView} onLayout={onLayoutRootView}>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={Platform.OS === 'android'} hidden={false} />
-            {!isAuthenticated && (
-              <LinearGradient
-                colors={['transparent', Colors.black]}
-                style={[styles.bottomGradient, { height: 45 + insets.bottom }]}
-                pointerEvents="none"
-              />
-            )}
-            <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="(modals)" options={{ headerShown: false }} />
-            <Stack.Screen name="login" options={{ headerShown: false }} />
-            <Stack.Screen 
-              name="oauth/callback" 
-              options={{ 
-                headerShown: false,
-                animation: 'none',
-                gestureEnabled: false,
-              }} 
-            />
-            <Stack.Screen name="video-editor" options={{ headerShown: false }} />
-            <Stack.Screen name="video-processing" options={{ headerShown: false }} />
-            <Stack.Screen 
-              name="post/[id]" 
-              options={{ 
-                headerShown: false,
-                animation: 'fade',
-                gestureEnabled: false,
-              }} 
-            />
-            <Stack.Screen name="channel/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="profile/[did]" options={{ headerShown: false }} />
-            <Stack.Screen name="chat" options={{ headerShown: false }} />
-            <Stack.Screen 
-              name="settings" 
-              options={{ 
-                headerShown: false,
-                presentation: 'modal',
-                animation: 'slide_from_bottom'
-              }} 
-            />
-            <Stack.Screen 
-              name="edit-profile" 
-              options={{ 
-                headerShown: false,
-                presentation: 'modal',
-                animation: 'slide_from_bottom'
-              }} 
-            />
-            </Stack>
-            {isAuthenticated && <GlobalModals />}
-          </View>
-        </ProtectedRoute>
-      </QueryErrorBoundary>
+      <SessionProvider>
+        <QueryErrorBoundary level="root">
+          <RootNavigator />
+        </QueryErrorBoundary>
+      </SessionProvider>
     </AppProviders>
   );
 }

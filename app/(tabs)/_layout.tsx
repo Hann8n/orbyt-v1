@@ -1,205 +1,84 @@
-import React, { useMemo } from 'react';
+import { View, StyleSheet, Platform } from 'react-native';
 import { Tabs } from 'expo-router';
-import { View, Pressable } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useWindowDimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
 
-import { Colors, Avatar } from '../../src/components/ui/UI';
-import Icon, { HomeIcon, ExploreIcon, NotificationIcon, UserIcon } from '../../src/components/ui/Icon';
-import { isSmallScreen, isTablet } from '../../src/utils/helpers';
-import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
-import { useUnreadCount } from '../../src/hooks/useUnreadCount';
-import { NotificationIndicator } from '../../src/components/ui/NotificationIndicator';
-import { useUserStore } from '../../src/stores/userStore';
+import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { useProfile } from '../../src/services/cache/ProfileCache';
-import { tabRefs } from '../../src/utils/tabRefs';
-
-// Move ProfileTabIcon outside component to prevent recreation on every render
-const ProfileTabIcon = React.memo(({ color, focused, tabIconSize }: { color: string; focused: boolean; tabIconSize: number }) => {
-  // Use specific selectors to prevent unnecessary re-renders
-  const currentUserHandle = useUserStore((state) => state.currentUser?.handle);
-  const savedAccountsLength = useUserStore((state) => state.savedAccounts.length);
-  const { data: profileData } = useProfile(currentUserHandle);
-
-  const hasMultipleAccounts = savedAccountsLength > 1;
-
-  return (
-    <>
-      {!hasMultipleAccounts ? (
-        <UserIcon size={tabIconSize} color={color} />
-      ) : (
-        <View style={{ position: 'relative' }}>
-          <Avatar
-            uri={profileData?.avatar}
-            type="profile"
-            size={tabIconSize}
-            showRing={true}
-            profileColors={profileData?.profileColors ? {
-              backgroundColor: profileData.profileColors.backgroundColor,
-              textColor: profileData.profileColors.foregroundColor || color,
-              foregroundColor: profileData.profileColors.foregroundColor || color,
-            } : undefined}
-            ringColor={profileData?.profileColors?.foregroundColor || color}
-          />
-          {!focused && (
-            <View
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                borderRadius: tabIconSize / 2,
-                backgroundColor: 'rgba(128, 128, 128, 0.5)',
-              }}
-            />
-          )}
-        </View>
-      )}
-    </>
-  );
-});
-
-ProfileTabIcon.displayName = 'ProfileTabIcon';
-
-// Move CaptureIcon outside component to prevent recreation
-const CaptureIcon = React.memo(({ captureSize, captureInner }: { captureSize: number; captureInner: number }) => {
-  return (
-    <View style={{
-      width: captureSize,
-      height: captureSize,
-      borderRadius: captureSize / 2,
-      borderWidth: 1.5,
-      borderColor: Colors.white,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: 'transparent',
-    }}>
-      <View style={{
-        width: captureInner,
-        height: captureInner,
-        borderRadius: captureInner / 2,
-        backgroundColor: '#fff',
-      }} />
-    </View>
-  );
-});
-
-CaptureIcon.displayName = 'CaptureIcon';
+import { Colors } from '../../src/components/ui/UI';
+import CustomBottomTabBar from '../../src/components/ui/CustomBottomTabBar';
 
 export default function TabsLayout() {
-  const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const isSmallDevice = isSmallScreen() || isTablet();
-  const { hasUnread } = useUnreadCount();
-  const { presentAccountSwitcher } = useGlobalAccountSwitcher();
+  const currentUserHandle = useUserStore(state => state.currentUser?.handle);
+  const { data: profileData } = useProfile(currentUserHandle);
+  const { nativeTabsEnabled } = useFeedSettings();
+  
+  // Native tabs: use light color from user colors
+  const nativeTintColor = profileData?.profileColors?.lighterColor || profileData?.profileColors?.foregroundColor || Colors.white;
+  
+  // Custom JavaScript tabs: use white
+  const customTintColor = Colors.white;
+  const customInactiveTintColor = 'rgba(243, 245, 254, 0.60)'; // Colors.white at 60% opacity
 
-  const tabIconSize = useMemo(() => Math.round(Math.max(26, Math.min(36, width * 0.085))), [width]);
-  const captureSize = useMemo(() => Math.round(tabIconSize * 1.15), [tabIconSize]);
-  const captureInner = useMemo(() => Math.round(captureSize * 0.82), [captureSize]);
+  // Check iOS version for role="search" support (iOS 16+)
+  const iosVersion = Platform.OS === 'ios' ? parseFloat(Platform.Version as string) : 0;
+  const supportsSearchRole = iosVersion >= 16.0;
 
-  // Memoize screenOptions to prevent React Navigation from thinking props changed
-  const screenOptions = useMemo(() => {
-    return ({ route }: { route: any }) => ({
-      headerShown: false,
-      tabBarHideOnKeyboard: true,
-      tabBarShowLabel: false,
-      tabBarStyle: route.name === 'create' ? {
-        display: 'none' as const,
-      } : {
-        backgroundColor: (route.name === 'explore' || route.name === 'activity') ? Colors.black : 'transparent',
-        paddingTop: isSmallDevice ? 2 : 6,
-        paddingBottom: typeof insets?.bottom === 'number' ? insets.bottom : 0,
-        shadowOpacity: 0,
-        borderTopWidth: 0,
-        elevation: 0,
-        position: 'absolute' as const,
-        borderColor: 'transparent',
-      },
-      tabBarBackground: () => (
-        <LinearGradient
-          colors={['transparent', 'rgba(0, 0, 0, 0.30)']}
-          style={{ flex: 1 }}
-          pointerEvents="none"
-        />
-      ),
-      tabBarActiveTintColor: '#fff',
-      tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.70)',
-      tabBarButton: (props: any) => {
-        // Handle create tab - no special behavior
-        if (route.name === 'create') {
-          return <Pressable {...props} />;
-        }
+  // Experimental: Use native tabs if enabled
+  if (nativeTabsEnabled) {
+    return (
+      <NativeTabs tintColor={nativeTintColor}>
+        <NativeTabs.Trigger name="index">
+          <Icon src={require('../../src/assets/tab-icons/png/home_5_fill.png')} />
+          <Label hidden />
+        </NativeTabs.Trigger>
+        
+        <NativeTabs.Trigger name="explore">
+          <Icon src={require('../../src/assets/tab-icons/png/search_2_fill.png')} />
+          <Label hidden />
+        </NativeTabs.Trigger>
+        
+        <NativeTabs.Trigger name="activity">
+          <Icon src={require('../../src/assets/tab-icons/png/flash_fill.png')} />
+          <Label hidden />
+        </NativeTabs.Trigger>
+        
+        <NativeTabs.Trigger name="profile">
+          <Icon src={require('../../src/assets/tab-icons/png/user_3_fill.png')} />
+          <Label hidden />
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    );
+  }
 
-        // Handle profile tab - special long press for account switcher
-        if (route.name === 'profile') {
-          return (
-            <Pressable
-              {...props}
-              onLongPress={presentAccountSwitcher}
-              delayLongPress={400}
-            />
-          );
-        }
-
-        // Handle other tabs - let React Navigation handle navigation
-        // Custom behaviors (refresh, dismiss search, focus search) are handled via tabPress events in screens
-        return (
-          <Pressable
-            {...props}
-            onLongPress={() => {
-              // Long press on explore tab focuses search
-              if (route.name === 'explore' && tabRefs.explore) {
-                tabRefs.explore.focusSearch();
-              }
-            }}
-            delayLongPress={400}
-          />
-        );
-      },
-      tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => {
-        switch (route.name) {
-          case 'index':
-            return <HomeIcon size={tabIconSize} color={color} />;
-          case 'explore':
-            return <ExploreIcon size={tabIconSize} color={color} style={{ transform: [{ scaleX: -1 }] }} />;
-          case 'activity':
-            return (
-              <View style={{ position: 'relative' }}>
-                <NotificationIcon size={tabIconSize} color={color} />
-                <NotificationIndicator 
-                  hasUnread={hasUnread} 
-                  size="small" 
-                  position="top-right" 
-                />
-              </View>
-            );
-          case 'create':
-            return <CaptureIcon captureSize={captureSize} captureInner={captureInner} />;
-          case 'profile':
-            return <ProfileTabIcon color={color} focused={focused} tabIconSize={tabIconSize} />;
-          default:
-            return <Icon name="home" size={tabIconSize} color={color} />;
-        }
-      },
-    });
-  }, [isSmallDevice, insets.bottom, tabIconSize, captureSize, captureInner, hasUnread, presentAccountSwitcher]);
-
+  // Use Expo Router's Tabs component with custom tabBar for optimized routing
   return (
-    <Tabs
-      screenOptions={screenOptions}
+    <View style={styles.container}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: { display: 'none' }, // Hide default tab bar, we use custom one
+        }}
+        tabBar={(props) => (
+          <CustomBottomTabBar 
+            {...props}
+            tintColor={customTintColor} 
+            inactiveTintColor={customInactiveTintColor} 
+          />
+        )}
       >
-        <Tabs.Screen name="index" options={{ title: 'Home' }} />
-        <Tabs.Screen name="explore" options={{ title: 'Explore' }} />
-        <Tabs.Screen name="create" options={{ title: 'Create' }} />
-        <Tabs.Screen name="activity" options={{ title: 'Activity' }} />
-        <Tabs.Screen 
-          name="profile" 
-          options={{ 
-            title: 'Profile',
-          }} 
-        />
+        <Tabs.Screen name="index" options={{ href: '/(tabs)/' }} />
+        <Tabs.Screen name="explore" />
+        <Tabs.Screen name="activity" />
+        <Tabs.Screen name="profile" />
+        <Tabs.Screen name="search" options={{ href: null }} />
       </Tabs>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.black,
+  },
+});

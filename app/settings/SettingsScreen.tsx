@@ -29,6 +29,7 @@ import { useChannelColors } from '../../src/services/cache/ChannelCache';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileCache from '../../src/services/cache/ProfileCache';
 import ChannelCache from '../../src/services/cache/ChannelCache';
+import { isLiquidGlassAvailable } from 'expo-glass-effect';
  
 
 
@@ -41,10 +42,11 @@ const SettingsScreen: React.FC = () => {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExperimentalFeedsEnabled, setIsExperimentalFeedsEnabled] = useState(true);
+  const [isNativeTabsEnabled, setIsNativeTabsEnabled] = useState(false);
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
   const insets = useSafeAreaInsets();
-  const { getExperimentalFeedsEnabled, setExperimentalFeedsEnabled } = useFeedSettings();
+  const { getExperimentalFeedsEnabled, setExperimentalFeedsEnabled, getNativeTabsEnabled, setNativeTabsEnabled } = useFeedSettings();
   const { currentUser } = useCurrentUser();
   const { isDeveloper } = useUserStore();
   const { savedAccounts } = useAccountManagement();
@@ -53,14 +55,16 @@ const SettingsScreen: React.FC = () => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const enabled = await getExperimentalFeedsEnabled();
-        setIsExperimentalFeedsEnabled(enabled);
+        const experimentalFeedsEnabled = await getExperimentalFeedsEnabled();
+        const nativeTabsEnabled = await getNativeTabsEnabled();
+        setIsExperimentalFeedsEnabled(experimentalFeedsEnabled);
+        setIsNativeTabsEnabled(nativeTabsEnabled);
       } catch (error) {
         console.error('Error loading settings:', error);
       }
     };
     loadSettings();
-  }, []);
+  }, [getExperimentalFeedsEnabled, getNativeTabsEnabled]);
 
   const handleLogout = async () => {
     if (isSubmitting) return;
@@ -167,6 +171,21 @@ const SettingsScreen: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['unifiedSearch'] });
     } catch (error) {
       console.error('error saving experimental feeds setting:', error);
+      Alert.alert('error', 'failed to save setting. please try again.');
+    }
+  };
+
+  const handleToggleNativeTabs = async (value: boolean) => {
+    // Optimistically update UI immediately
+    const previousValue = isNativeTabsEnabled;
+    setIsNativeTabsEnabled(value);
+    
+    try {
+      await setNativeTabsEnabled(value);
+    } catch (error) {
+      // Revert on error
+      setIsNativeTabsEnabled(previousValue);
+      console.error('error saving native tabs setting:', error);
       Alert.alert('error', 'failed to save setting. please try again.');
     }
   };
@@ -322,6 +341,10 @@ const SettingsScreen: React.FC = () => {
       ]
     },
     {
+      title: 'Labs',
+      items: []
+    },
+    {
       title: 'Troubleshooting',
       items: [
         {
@@ -366,7 +389,7 @@ const SettingsScreen: React.FC = () => {
       items: [
         {
           id: 'switch-account',
-          label: savedAccounts.length > 1 ? 'Switch account' : 'Network sign in',
+          label: savedAccounts.length > 1 ? 'Switch account' : 'Add an account',
           icon: 'user',
           onPress: () => {
             navigation.back();
@@ -421,7 +444,7 @@ const SettingsScreen: React.FC = () => {
       });
     });
 
-    if (section.title === 'App Settings') {
+    if (section.title === 'Labs') {
       listData.push({
         kind: 'toggle',
         id: 'experimental-feeds',
@@ -430,6 +453,16 @@ const SettingsScreen: React.FC = () => {
         value: isExperimentalFeedsEnabled,
         onValueChange: handleToggleExperimentalFeeds,
       });
+      if (isLiquidGlassAvailable()) {
+        listData.push({
+          kind: 'toggle',
+          id: 'native-tabs',
+          label: 'New tabs layout',
+          subtitle: 'Adds support for liquid glass',
+          value: isNativeTabsEnabled,
+          onValueChange: handleToggleNativeTabs,
+        });
+      }
     }
   });
 

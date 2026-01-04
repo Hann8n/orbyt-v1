@@ -84,7 +84,10 @@ const FollowingScreen: React.FC = () => {
           while (rootNav?.getParent?.()) {
             rootNav = rootNav.getParent();
           }
-          navigation.push(`/profile/${target}`);
+          navigation.push({
+            pathname: '/profile/[did]',
+            params: { did: target }
+          });
         }
       });
     }

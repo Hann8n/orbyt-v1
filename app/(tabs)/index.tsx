@@ -5,7 +5,7 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 
 import { createQueryKeys } from '../../src/services/FeedService';
 import { APP_CONSTANTS } from '../../src/utils/constants';
-import { SwipeableFeedContainer } from '../../src/components';
+import { FeedPager } from '../../src/components';
 import { HomeScreenRef, FeedOption } from '../../src/types';
 import { useVisibilityRouteTracker } from '../../src/hooks';
 import { Colors } from '../../src/components/ui/UI';
@@ -58,8 +58,8 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
     setCurrentFeed(newFeed);
   }, []);
 
-  // Ref for SwipeableFeedContainer to forward scrollToTop
-  const swipeableFeedRef = useRef<ScrollToTopRef>(null);
+  // Ref for FeedPager to forward scrollToTop
+  const feedPagerRef = useRef<ScrollToTopRef>(null);
 
   // Expose refresh method to parent components
   useImperativeHandle(ref, () => ({
@@ -70,7 +70,7 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
   // Store home screen ref in tabRefs for tab navigation
   useEffect(() => {
     tabRefs.home = {
-      scrollToTop: () => swipeableFeedRef.current?.scrollToTop(),
+      scrollToTop: () => feedPagerRef.current?.scrollToTop(),
       refresh: triggerRefresh,
     };
     return () => {
@@ -97,8 +97,8 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
 
   return (
     <View style={styles.container}>
-      <SwipeableFeedContainer
-        ref={swipeableFeedRef}
+      <FeedPager
+        ref={feedPagerRef}
         initialFeed={currentFeed}
         onFeedChange={handleFeedChange}
         isRefreshing={isRefreshing}

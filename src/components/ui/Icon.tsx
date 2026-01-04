@@ -1603,8 +1603,11 @@ const Icon: React.FC<IconProps> = ({
       return <AtLineIcon size={size} color={color} style={style} />;
     }
 
-    if (name === 'explore' || name === 'search') {
+    if (name === 'explore') {
       return <ExploreIcon size={size} color={color} style={style} />;
+    }
+    if (name === 'search') {
+      return <SearchIcon size={size} color={color} style={style} />;
     }
 
     // Explicit mapping of remaining names to local SVGs only

@@ -78,10 +78,12 @@ export default function ChannelManagementScreen() {
 
   const handleViewChannel = useCallback(() => {
     if (selectedChannel?.uri) {
-      const encodedUri = encodeURIComponent(selectedChannel.uri);
       setIsSheetVisible(false);
       setSelectedChannel(null);
-      navigation.push(`/channel/${encodedUri}`);
+      navigation.push({
+        pathname: '/channel/[id]',
+        params: { id: selectedChannel.uri }
+      });
     }
   }, [selectedChannel, navigation]);
 
@@ -113,7 +115,7 @@ export default function ChannelManagementScreen() {
   const handleExplorePress = useCallback(() => {
     navigation.back();
     setTimeout(() => {
-      navigation.push('/explore');
+      navigation.push('/(tabs)/explore');
     }, 100);
   }, [navigation]);
 

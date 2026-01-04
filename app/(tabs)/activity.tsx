@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import { Colors } from '../../src/components/ui/UI';
 import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
@@ -171,7 +173,7 @@ const ActivitySwipePager = ({
 
 const ActivityScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'notifications' | 'chats'>('notifications');
-  // State to trigger indicator re-renders during scroll (doesn't affect feeds) - matches SwipeableFeedContainer
+  // State to trigger indicator re-renders during scroll (doesn't affect feeds) - matches FeedPager
   const [indicatorScrollProgress, setIndicatorScrollProgress] = useState(0);
   const insets = useSafeAreaInsets();
   const { notificationsCount, messagesCount } = useUnreadCount();
@@ -204,15 +206,15 @@ const ActivityScreen: React.FC = () => {
     return unsubscribe;
   }, [navigation, isFocused]);
 
-  // Get indicator style using PagerView's scroll progress - matches SwipeableFeedContainer exactly
+  // Get indicator style using PagerView's scroll progress - matches FeedPager exactly
   const getIndicatorStyle = useCallback((tabId: 'notifications' | 'chats') => {
     const tabIndex = pages.indexOf(tabId);
     const isActive = tabId === activeTab;
     
-    // Use state directly for smooth real-time updates during scroll (not ref) - matches SwipeableFeedContainer
+    // Use state directly for smooth real-time updates during scroll (not ref) - matches FeedPager
     const baseProgress = indicatorScrollProgress;
 
-    // Calculate opacity based on distance from current position - matches SwipeableFeedContainer
+    // Calculate opacity based on distance from current position - matches FeedPager
     let opacity = 0.75; // Default inactive opacity
     if (isActive) {
       opacity = 1;
@@ -240,9 +242,20 @@ const ActivityScreen: React.FC = () => {
     setActiveTab(tabId);
   }, []);
 
+  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
+
+      {!useLiquidGlass && (
+        <LinearGradient
+          colors={['transparent', 'rgba(0, 0, 0, 0.5)', 'rgba(0, 0, 0, 0.8)']}
+          locations={[0, 0.5, 1]}
+          style={[styles.bottomGradient, { bottom: 0, height: 75 + insets.bottom }]}
+          pointerEvents="none"
+        />
+      )}
 
       {/* Header with animated tab indicators */}
       <View style={[styles.headerSection, { paddingTop: insets.top }]}>
@@ -295,6 +308,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.black,
+  },
+  bottomGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 1,
   },
   headerSection: {
     backgroundColor: Colors.black,

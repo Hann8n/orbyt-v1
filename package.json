@@ -101,7 +101,9 @@
     "patch-package": "^8.0.0",
     "pod-install": "^1.0.7",
     "prop-types": "^15.8.1",
-    "serve": "^14.2.4"
+    "puppeteer": "^24.34.0",
+    "serve": "^14.2.4",
+    "sharp": "^0.34.5"
   },
   "private": true,
   "resolutions": {

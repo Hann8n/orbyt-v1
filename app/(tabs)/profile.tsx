@@ -344,7 +344,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       const conversation = await ChatService.createConversation({
         recipientDid: profileData.did,
       });
-      router.push(`/chat/${conversation.id}`);
+      router.push({
+        pathname: '/chat/[id]',
+        params: { id: conversation.id }
+      });
     } catch {
       router.push('/chat');
     }

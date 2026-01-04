@@ -71,6 +71,9 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       if (onLogin) {
         await onLogin('oauth-success');
       }
+      
+      // Navigate after signing in - Stack.Protected will handle routing
+      router.replace('/(tabs)');
     } catch (error) {
       // Don't show errors for user cancellation
       if (isUserCancellation(error)) {
@@ -109,6 +112,9 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       if (onLogin) {
         await onLogin('oauth-success');
       }
+      
+      // Navigate after signing in - Stack.Protected will handle routing
+      router.replace('/(tabs)');
     } catch (error) {
       // Don't show errors for user cancellation
       if (isUserCancellation(error)) {
@@ -185,6 +191,9 @@ export default function LoginScreen({ onLogin, onAccountSwitch }: LoginScreenPro
       if (onAccountSwitch) {
         await onAccountSwitch(account);
       }
+      
+      // Navigate after switching account - Stack.Protected will handle routing
+      router.replace('/(tabs)');
     } catch (error) {
       setIsLoading(false);
       const errorMessage = error instanceof Error ? error.message : 'Account switch failed';

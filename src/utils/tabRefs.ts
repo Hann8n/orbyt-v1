@@ -9,9 +9,9 @@ export interface HomeRef extends ScrollToTopRef {
 
 export interface ExploreRef {
   scrollToTop: () => void;
-  focusSearch: () => void;
   dismissSearch: () => void;
   isSearchActive: () => boolean;
+  focusSearch?: () => void;
 }
 
 export const tabRefs = {

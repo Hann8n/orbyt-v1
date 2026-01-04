@@ -27,6 +27,7 @@ export interface CachedProfile {
     backgroundColor: string;
     foregroundColor: string;
     statusBarStyle: 'light' | 'dark';
+    lighterColor?: string; // Pre-calculated lighter color for performance
   };
   orbytProfileRecord?: OrbytProfileRecord | null; // Full com.getorbyt.profile record
   verification?: {
@@ -65,6 +66,20 @@ export interface ProfileColorScheme {
   primaryColor: string;
   secondaryColor: string;
   statusBarStyle: 'light' | 'dark';
+}
+
+// Helper to calculate brightness of a color
+function getBrightness(hex: string): number {
+  const color = hex.replace('#', '');
+  const r = parseInt(color.substring(0, 2), 16);
+  const g = parseInt(color.substring(2, 4), 16);
+  const b = parseInt(color.substring(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000;
+}
+
+// Helper to get the lighter color between two colors
+function getLighterColor(color1: string, color2: string): string {
+  return getBrightness(color1) > getBrightness(color2) ? color1 : color2;
 }
 
 // Helper to extract colors from profile data
@@ -107,11 +122,19 @@ class ProfileCache {
     
     // Extract colors from record - always set profileColors (defaults if no custom colors)
     const hasCustomColors = !!(record?.colors?.backgroundColor && record?.colors?.textColor);
-    const profileColors = hasCustomColors ? {
+    const baseColors = hasCustomColors ? {
       backgroundColor: record!.colors!.backgroundColor,
       foregroundColor: record!.colors!.textColor,
       statusBarStyle: getStatusBarStyle(record!.colors!.backgroundColor)
     } : DEFAULT_PROFILE_COLORS;
+    
+    // Calculate lighter color once for performance
+    const lighterColor = getLighterColor(baseColors.backgroundColor, baseColors.foregroundColor);
+    
+    const profileColors = {
+      ...baseColors,
+      lighterColor
+    };
 
     // Extract relationship data from viewer
     const isFollowing = apiProfile.viewer ? !!apiProfile.viewer.following : undefined;
@@ -1148,7 +1171,8 @@ export function useProfileUpdateMutation() {
             profileColors: {
               backgroundColor: updates.customColors.backgroundColor,
               foregroundColor: updates.customColors.textColor,
-              statusBarStyle: getStatusBarStyle(updates.customColors.backgroundColor)
+              statusBarStyle: getStatusBarStyle(updates.customColors.backgroundColor),
+              lighterColor: getLighterColor(updates.customColors.backgroundColor, updates.customColors.textColor)
             }
           } : {}),
           lastUpdated: Date.now(),
@@ -1170,7 +1194,8 @@ export function useProfileUpdateMutation() {
             profileColors: {
               backgroundColor: updates.customColors.backgroundColor,
               foregroundColor: updates.customColors.textColor,
-              statusBarStyle: getStatusBarStyle(updates.customColors.backgroundColor)
+              statusBarStyle: getStatusBarStyle(updates.customColors.backgroundColor),
+              lighterColor: getLighterColor(updates.customColors.backgroundColor, updates.customColors.textColor)
             },
             lastUpdated: Date.now(),
           };

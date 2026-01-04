@@ -408,13 +408,17 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
 
       // Navigate to profile using Expo Router - prefer DID if available, otherwise use handle
       if (cleanDid) {
-        // Use DID in path and handle as query param if available
-        const url = cleanHandle 
-          ? `/profile/${cleanDid}?handle=${encodeURIComponent(cleanHandle)}`
-          : `/profile/${cleanDid}`;
-        navigation.push(url);
+        navigation.push({
+          pathname: '/profile/[did]',
+          params: cleanHandle 
+            ? { did: cleanDid, handle: cleanHandle }
+            : { did: cleanDid }
+        });
       } else if (cleanHandle) {
-        navigation.push(`/profile/${cleanHandle}`);
+        navigation.push({
+          pathname: '/profile/[did]',
+          params: { did: cleanHandle }
+        });
       }
     }, [navigation, onDismiss, queryClient]);
 

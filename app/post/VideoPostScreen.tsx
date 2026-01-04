@@ -1178,6 +1178,17 @@ const VideoPostScreen: React.FC = () => {
     }, [])
   );
 
+  // Ensure StatusBar is re-enabled when component unmounts or loses focus
+  useFocusEffect(
+    useCallback(() => {
+      // StatusBar is hidden while this screen is focused
+      return () => {
+        // Re-enable StatusBar when leaving this screen
+        StatusBar.setHidden(false, 'fade');
+      };
+    }, [])
+  );
+
 
   // Resolved video path info
   const [videoPathInfo, setVideoPathInfo] = useState<VideoPathInfo | null>(null);

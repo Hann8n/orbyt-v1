@@ -8,7 +8,6 @@ import { BackArrowIcon } from '../../src/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/components/ui/UI';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
-import { hashtagToChannelSlug } from '../../src/utils/orbytChannels';
 
 const FeedScreen: React.FC = memo(() => {
   const navigation = useRouter();
@@ -56,14 +55,10 @@ const FeedScreen: React.FC = memo(() => {
   // Orbyt channel hashtags start with "orbyt-channel-" or "orbyt-"
   const isOrbytChannelHashtag = hashtag ? (hashtag.startsWith('orbyt-channel-') || hashtag.startsWith('orbyt-')) : false;
 
-  // Memoized close handler
+  // Memoized close handler - use dismissTo for reliable modal dismissal
   const handleClose = useCallback(() => {
-    // Try navigation.back() first, fallback to replace if it fails
-    try {
-      navigation.back();
-    } catch (error) {
-      navigation.replace('/(tabs)');
-    }
+    // Use dismissTo to dismiss modal stack back to tabs
+    navigation.dismissTo?.('/(tabs)') || navigation.back();
   }, [navigation]);
 
   return (
