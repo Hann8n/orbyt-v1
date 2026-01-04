@@ -10,13 +10,13 @@ if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
 }
 
-// Icon names and their base sizes - increased from 24 to 28 for larger icons
+// Icon names and their base sizes - standard iOS tab bar icon size is 25x25 points
 const icons = [
-  { name: 'home_5_fill', baseSize: 28 },
+  { name: 'home_5_fill', baseSize: 26 },
   { name: 'search_2_fill', baseSize: 28 },
-  { name: 'flash_fill', baseSize: 28 },
-  { name: 'user_3_fill', baseSize: 28 },
-  { name: 'world_2_fill', baseSize: 28 },
+  { name: 'flash_fill', baseSize: 25 },
+  { name: 'user_3_fill', baseSize: 25 },
+  { name: 'world_2_fill', baseSize: 25 },
 ];
 
 // Resolution multipliers for high-DPI displays
@@ -60,7 +60,7 @@ async function convertSvgToPng(iconName, baseSize) {
 }
 
 async function main() {
-  console.log('Converting SVG icons to high-resolution PNGs at larger size...\n');
+  console.log('Converting SVG icons to high-resolution PNGs at standard tab bar size...\n');
   
   for (const icon of icons) {
     await convertSvgToPng(icon.name, icon.baseSize);

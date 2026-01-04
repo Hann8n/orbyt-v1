@@ -58,6 +58,7 @@ export const Colors = {
   // Green Shades
   lightGreen: '#00FFA3', // Bright mint green
   darkGreen: '#021C14', // New dark green
+  badgeGreen: '#00B894', // Slightly darker green for badges and indicators
   
   // Red Shades
   lightRed: '#FF6B9D', // Pink-red

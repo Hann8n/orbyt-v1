@@ -1,16 +1,18 @@
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
-import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+import { NativeTabs, Icon, Label, Badge } from 'expo-router/unstable-native-tabs';
 
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { useProfile } from '../../src/services/cache/ProfileCache';
 import { Colors } from '../../src/components/ui/UI';
 import CustomBottomTabBar from '../../src/components/ui/CustomBottomTabBar';
+import { useUnreadCount } from '../../src/hooks/useUnreadCount';
 
 export default function TabsLayout() {
   const currentUserHandle = useUserStore(state => state.currentUser?.handle);
   const { data: profileData } = useProfile(currentUserHandle);
   const { nativeTabsEnabled } = useFeedSettings();
+  const { totalUnreadCount } = useUnreadCount();
   
   // Native tabs: use light color from user colors
   const nativeTintColor = profileData?.profileColors?.lighterColor || profileData?.profileColors?.foregroundColor || Colors.white;
@@ -19,32 +21,31 @@ export default function TabsLayout() {
   const customTintColor = Colors.white;
   const customInactiveTintColor = 'rgba(243, 245, 254, 0.60)'; // Colors.white at 60% opacity
 
-  // Check iOS version for role="search" support (iOS 16+)
-  const iosVersion = Platform.OS === 'ios' ? parseFloat(Platform.Version as string) : 0;
-  const supportsSearchRole = iosVersion >= 16.0;
-
   // Experimental: Use native tabs if enabled
   if (nativeTabsEnabled) {
     return (
-      <NativeTabs tintColor={nativeTintColor}>
+      <NativeTabs tintColor={nativeTintColor} badgeBackgroundColor={Colors.badgeGreen}>
         <NativeTabs.Trigger name="index">
           <Icon src={require('../../src/assets/tab-icons/png/home_5_fill.png')} />
-          <Label hidden />
+          <Label>Home</Label>
         </NativeTabs.Trigger>
         
-        <NativeTabs.Trigger name="explore">
+        <NativeTabs.Trigger name="explore" role="search">
           <Icon src={require('../../src/assets/tab-icons/png/search_2_fill.png')} />
-          <Label hidden />
+          <Label>Explore</Label>
         </NativeTabs.Trigger>
         
         <NativeTabs.Trigger name="activity">
           <Icon src={require('../../src/assets/tab-icons/png/flash_fill.png')} />
-          <Label hidden />
+          <Label>Activity</Label>
+          {totalUnreadCount > 0 && (
+            <Badge>{totalUnreadCount > 99 ? '99+' : totalUnreadCount.toString()}</Badge>
+          )}
         </NativeTabs.Trigger>
         
         <NativeTabs.Trigger name="profile">
           <Icon src={require('../../src/assets/tab-icons/png/user_3_fill.png')} />
-          <Label hidden />
+          <Label>Profile</Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     );

@@ -279,7 +279,7 @@ const ActivityScreen: React.FC = () => {
                       width: 12,
                       height: 12,
                       borderRadius: 6,
-                      backgroundColor: Colors.green,
+                      backgroundColor: Colors.badgeGreen,
                       borderWidth: 2,
                       borderColor: Colors.black,
                     }} />
