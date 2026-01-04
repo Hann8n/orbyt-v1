@@ -1,16 +1,12 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useLayoutEffect } from 'react';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { tabRefs } from '../../src/utils/tabRefs';
-import type { ScrollToTopRef } from '../../src/utils/tabRefs';
-import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
   Text,
   StyleSheet,
   StatusBar,
   Platform,
-  Dimensions,
-  Animated,
   Pressable,
 } from 'react-native';
 import PagerView from 'react-native-pager-view';
@@ -19,11 +15,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import { Colors } from '../../src/components/ui/UI';
-import { getBottomNavBarHeight, isSmallScreen, isTablet } from '../../src/utils/helpers';
 import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
 import ChatsTab from '../../src/components/features/activity/ChatsTab';
 import { useUnreadCount } from '../../src/hooks/useUnreadCount';
-import { NotificationIndicator } from '../../src/components/ui/NotificationIndicator';
 
 // Tab labels
 const TAB_LABELS: { [key: string]: string } = {
@@ -271,7 +265,7 @@ const ActivityScreen: React.FC = () => {
                   <Text style={getIndicatorStyle(tabId)}>
                     {TAB_LABELS[tabId] || tabId}
                   </Text>
-                  {(tabId === 'notifications' ? notificationsCount > 0 : messagesCount > 0) && (
+                  {(tabId === 'notifications' ? Number(notificationsCount) > 0 : Number(messagesCount) > 0) && (
                     <View style={{
                       position: 'absolute',
                       top: 0,

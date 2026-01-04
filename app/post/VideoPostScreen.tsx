@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BORDER_RADIUS } from '../../src/utils/constants';
 import {
   View,
@@ -12,7 +12,6 @@ import {
   KeyboardAvoidingView,
   TextInput,
   Modal,
-  FlatList,
   StatusBar,
   Keyboard,
 } from 'react-native';
@@ -21,31 +20,24 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useVideoPlayer, VideoView, VideoPlayer } from 'expo-video';
-import { useEvent } from 'expo';
-import { File, Directory, Paths } from 'expo-file-system';
-import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Avatar } from '../../src/components/ui/UI';
-import { VerificationBadge } from '../../src/components/features/badging';
-import Icon, { BackArrowIcon, ChevronDownIcon, Loading3FillIcon, DownSmallFillIcon } from '../../src/components/ui/Icon';
+import Icon, { BackArrowIcon, Loading3FillIcon, DownSmallFillIcon } from '../../src/components/ui/Icon';
 import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnailBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextOverlay } from '../../src/types';
 import { resolveVideoPath, debugVideoPath, VideoPathInfo } from '../../src/utils/videoPath';
 
 import { Colors } from '../../src/components/ui/UI';
-import AuthorItem from '../../src/components/ui/AuthorItem';
 import { isTablet, isSmallScreen } from '../../src/utils/helpers';
-import { useCurrentUser, useAccountManagement } from '../../src/stores/userStore';
-import { useProfile, getProfileColors } from '../../src/services/cache/ProfileCache';
+import { useCurrentUser } from '../../src/stores/userStore';
 import ProfileCache from '../../src/services/cache/ProfileCache';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import VideoProcessingService from '../../src/services/VideoProcessingService';
 import { logger } from '../../src/utils/logger';
 import { useVideoPostDraftStore } from '../../src/stores/videoPostDraftStore';
-import { SavedAccount } from '../../src/stores/userStore';
 import { getPostableChannels, shouldShowChannelSlash, OrbytChannel, extractFeedSlug, getChannelAvatarUri } from '../../src/utils/orbytChannels';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
 import { useRichTextSearchTrigger, RichTextSearchModal } from '../../src/components/ui/usersearch';
@@ -53,7 +45,7 @@ import { useRichText, formatRichTextForDisplay } from '../../src/hooks/useRichTe
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16; // 9:16 aspect ratio for video cards
-const VIDEO_WIDTH = SCREEN_WIDTH * 0.33; // Slightly smaller preview
+const VIDEO_WIDTH = 150; // Fixed preview width
 
 // Reusable video preview component to avoid duplication
 const VideoPreviewContent: React.FC<{
@@ -99,7 +91,7 @@ const VideoPreviewContent: React.FC<{
             {
               left: overlay.position.x,
               top: overlay.position.y,
-              transform: [{ scale: overlay.scale }]
+              transform: [{ scaleX: overlay.scale ?? 1 }, { scaleY: overlay.scale ?? 1 }] as any
             }
           ]}
         >
@@ -278,7 +270,7 @@ const PostButton: React.FC<{
   buttonStyle?: 'landscape' | 'portrait';
   width?: number;
 }> = ({ onPress, isPosting, isCompressing, uploadProgress, buttonStyle = 'portrait', width }) => {
-  const buttonWidth = width || SCREEN_WIDTH * 0.6;
+  const buttonWidth = buttonStyle === 'landscape' ? '100%' : (width || SCREEN_WIDTH * 0.6);
   const glassStyle = buttonStyle === 'landscape' ? styles.landscapePostButtonGlass : styles.floatingPostButtonGlass;
   const hostStyle = buttonStyle === 'landscape' ? styles.landscapePostButtonHost : styles.floatingPostButtonHost;
   const disabledStyle = buttonStyle === 'landscape' ? styles.landscapePostButtonDisabled : styles.floatingPostButtonDisabled;
@@ -340,13 +332,12 @@ const DescriptionInputModal: React.FC<{
   visible: boolean;
   description: string;
   formattedRichText: Array<{ text: string; isSemiBold: boolean }>;
-  descriptionSelection: { start: number; end: number };
   setDescription: (text: string) => void;
   setDescriptionSelection: (selection: { start: number; end: number }) => void;
   onClose: () => void;
   richTextSearchModalProps: any;
   insets: { top: number };
-}> = ({ visible, description, formattedRichText, descriptionSelection, setDescription, setDescriptionSelection, onClose, richTextSearchModalProps, insets }) => (
+}> = ({ visible, description, formattedRichText, setDescription, setDescriptionSelection, onClose, richTextSearchModalProps, insets }) => (
   <Modal
     visible={visible}
     transparent={true}
@@ -443,7 +434,7 @@ const COMMENT_FILTERS = [
 const VideoPostScreen: React.FC = () => {
   const params = useLocalSearchParams();
   
-  // Video path is already standardized when it arrives from create.tsx or video-processing.tsx
+  // Video path is already standardized when it arrives from create.tsx
   // OR segments are provided for background merging
   const videoPath = params.videoPath as string;
   const segmentsParam = params.segments as string | undefined;
@@ -465,15 +456,12 @@ const VideoPostScreen: React.FC = () => {
   const [description, setDescription] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const playerRef = useRef<VideoPlayer | null>(null);
   
   // Background merging state
   const [isMerging, setIsMerging] = useState(false);
-  const [mergingProgress, setMergingProgress] = useState(0);
   const [mergedVideoPath, setMergedVideoPath] = useState<string | null>(null);
-  const [mergingError, setMergingError] = useState<string | null>(null);
 
   // Content warning state
   const [selectedContentWarnings, setSelectedContentWarnings] = useState<string[]>([]);
@@ -491,55 +479,18 @@ const VideoPostScreen: React.FC = () => {
   const [showContentWarningsSheet, setShowContentWarningsSheet] = useState(false);
   const [showCommentSettingsSheet, setShowCommentSettingsSheet] = useState(false);
   const [showChannelSelectionSheet, setShowChannelSelectionSheet] = useState(false);
-  const [showVideoInfoSheet, setShowVideoInfoSheet] = useState(false);
-  
   
   // Full-screen description input modal state
   const [showDescriptionInputModal, setShowDescriptionInputModal] = useState(false);
   const [videoLoading, setVideoLoading] = useState(true);
   const [videoError, setVideoError] = useState<string | null>(null);
-  // Store video dimensions for aspect ratio
-  const [videoDimensions, setVideoDimensions] = useState({ 
-    width: 360, 
-    height: 640 
-  });
-  const [videoVolume, setVideoVolume] = useState(1);
   
   // Rich text search state (for @ mentions and # hashtags)
   const [descriptionSelection, setDescriptionSelection] = useState({ start: 0, end: 0 });
 
-  // Video size and compression state
-  const [videoSizeInfo, setVideoSizeInfo] = useState<{
-    isValid: boolean;
-    sizeMB: number;
-    maxSizeMB: number;
-    needsCompression: boolean;
-  } | null>(null);
-
-  // Enhanced video information state
-  const [videoInfo, setVideoInfo] = useState<{
-    originalInfo: any;
-    compressionOptions: Array<{
-      level: string;
-      label: string;
-      estimatedSize: string;
-      quality: string;
-      uploadTime: string;
-    }>;
-    recommendedLevel: string;
-  } | null>(null);
-
   // Compression state
-  const [compressionStats, setCompressionStats] = useState<{
-    originalSize: string;
-    compressedSize: string;
-    compressionRatio: number;
-    sizeReduction: string;
-  } | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressedVideoPath, setCompressedVideoPath] = useState<string | null>(null);
-  const [compressionProgress, setCompressionProgress] = useState(0);
-  const [wasAutoCompressed, setWasAutoCompressed] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   // User store hooks
@@ -581,23 +532,6 @@ const VideoPostScreen: React.FC = () => {
       setDescriptionSelection(e.nativeEvent.selection);
     },
   });
-
-  // User profile state - using userStore
-  const userHandle = currentUser?.handle || null;
-
-  // Use ProfileCache hooks for user profile data (using DID)
-  const {
-    data: userProfile,
-    isLoading: isProfileLoading,
-    isError: isProfileError,
-  } = useProfile(currentUser?.handle || null);
-
-  // Ensure profile data is immediately available from cache to prevent flashing
-  const profileData = userProfile || (currentUser?.handle ? ProfileCache.getProfileFromCacheSync(currentUser.handle) : null);
-  
-  // Get colors from profile data
-  const profileColors = getProfileColors(profileData);
-
 
   useEffect(() => {
     // Set current user handle in ProfileCache when userStore changes
@@ -662,8 +596,6 @@ const VideoPostScreen: React.FC = () => {
     const mergeSegments = async () => {
       try {
         setIsMerging(true);
-        setMergingError(null);
-        setMergingProgress(0);
         
         // Parse segments from params
         const segments = JSON.parse(segmentsParam);
@@ -683,11 +615,8 @@ const VideoPostScreen: React.FC = () => {
         // Merge segments in background using InteractionManager
         const { InteractionManager } = require('react-native');
         await InteractionManager.runAfterInteractions(async () => {
-          setMergingProgress(25);
-          
           const mergedVideo = await VideoProcessingService.mergeSegments(processingSegments);
           
-          setMergingProgress(100);
           setMergedVideoPath(mergedVideo.path);
           setIsMerging(false);
           
@@ -698,7 +627,6 @@ const VideoPostScreen: React.FC = () => {
         });
       } catch (error: any) {
         logger.error('Background merging failed', error, { component: 'VideoPostScreen' });
-        setMergingError(error.message || 'Failed to merge video segments');
         setIsMerging(false);
         Alert.alert(
           'Merging Failed',
@@ -729,33 +657,18 @@ const VideoPostScreen: React.FC = () => {
     const interactionHandle = InteractionManager.runAfterInteractions(async () => {
       try {
         setIsCompressing(true);
-        setCompressionProgress(0);
         
         // Automatically check upload limits and compress if needed
         // This uses WhatsApp-like automatic compression in the background
         const result = await VideoProcessingService.checkAndCompressVideoForUpload(
           activeVideoPath,
           undefined, // assetId not available here, path is already standardized
-          (progress) => {
-            setCompressionProgress(progress);
-          }
+          () => {}
         );
 
           // Update state based on compression result
           if (result.wasCompressed) {
             setCompressedVideoPath(result.processedVideo.path);
-            setWasAutoCompressed(true);
-            
-            // Get compression statistics
-            const stats = await VideoProcessingService.getCompressionStats(
-              activeVideoPath,
-              result.processedVideo.path
-            );
-            setCompressionStats(stats);
-            
-            // Update video size info
-            const newSizeInfo = await VideoProcessingService.checkVideoSize(result.processedVideo.path);
-            setVideoSizeInfo(newSizeInfo);
             
             logger.info('Video automatically compressed', {
               component: 'VideoPostScreen',
@@ -763,27 +676,11 @@ const VideoPostScreen: React.FC = () => {
               compressedSize: result.compressedSize,
               reduction: `${((1 - result.compressedSize / result.originalSize) * 100).toFixed(1)}%`,
             });
-          } else {
-            // Video didn't need compression, just check size info
-            const sizeInfo = await VideoProcessingService.checkVideoSize(activeVideoPath);
-            setVideoSizeInfo(sizeInfo);
-            
-            // Get comprehensive video information
-            const compressionInfo = await VideoProcessingService.getCompressionInfo(activeVideoPath);
-            setVideoInfo(compressionInfo);
           }
         } catch (error) {
           console.error('Error checking and compressing video:', error);
-          // Fallback: just check video size without compression
-          try {
-            const sizeInfo = await VideoProcessingService.checkVideoSize(activeVideoPath);
-            setVideoSizeInfo(sizeInfo);
-          } catch (fallbackError) {
-            console.error('Error in fallback video size check:', fallbackError);
-          }
         } finally {
           setIsCompressing(false);
-          setCompressionProgress(0);
         }
       });
 
@@ -792,49 +689,7 @@ const VideoPostScreen: React.FC = () => {
     };
   }, [videoPath]);
 
-  // Manual compress video (fallback if automatic compression didn't work)
-  const compressVideo = async () => {
-    if (!activeVideoPath || isCompressing || isMerging) return;
-    
-    setIsCompressing(true);
-    setCompressionProgress(0);
-    try {
-      // Use automatic compression (WhatsApp-like) with progress callback
-      const compressedVideo = await VideoProcessingService.compressVideoAuto(
-        activeVideoPath,
-        undefined,
-        (progress) => {
-          setCompressionProgress(progress);
-        }
-      );
-      setCompressedVideoPath(compressedVideo.path);
-      setWasAutoCompressed(true);
-      
-      // Get compression statistics
-      const stats = await VideoProcessingService.getCompressionStats(activeVideoPath, compressedVideo.path);
-      setCompressionStats(stats);
-      
-      // Update video size info
-      const newSizeInfo = await VideoProcessingService.checkVideoSize(compressedVideo.path);
-      setVideoSizeInfo(newSizeInfo);
-      
-    } catch (error) {
-        Alert.alert('compression error', 'failed to compress video. please try again.');
-    } finally {
-      setIsCompressing(false);
-      setCompressionProgress(0);
-    }
-  };
-
   // removed legacy expo-av handlers (not used with expo-video)
-
-
-  const formatTime = (milliseconds: number) => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-  };
 
   // Use RichText API hook for formatting
   const [richText] = useRichText(description);
@@ -853,11 +708,6 @@ const VideoPostScreen: React.FC = () => {
   };
 
   // Helper functions to get selected labels for display
-  const getSelectedChannelLabel = () => {
-    if (!selectedChannel) return 'Pick a channel';
-    return selectedChannel.displayName.toLowerCase();
-  };
-
   const getSelectedCommentFilterLabel = () => {
     if (!commentFilter) return 'Choose who can comment';
     const filter = COMMENT_FILTERS.find(f => f.id === commentFilter);
@@ -1138,25 +988,6 @@ const VideoPostScreen: React.FC = () => {
     }
   };
 
-
-  // Fade audio utility
-  const fadeVolume = (from: number, to: number, duration: number = 300) => {
-    const steps = 10;
-    const stepTime = duration / steps;
-    let current = from;
-    const step = (to - from) / steps;
-    let count = 0;
-    const interval = setInterval(() => {
-      current += step;
-      setVideoVolume(Math.max(0, Math.min(1, current)));
-      count++;
-      if (count >= steps) {
-        setVideoVolume(to);
-        clearInterval(interval);
-      }
-    }, stepTime);
-  };
-
   // Snapshot current play state to avoid dependency loop
   const isPlayingSnapshotRef = useRef(false);
   useEffect(() => {
@@ -1178,16 +1009,6 @@ const VideoPostScreen: React.FC = () => {
     }, [])
   );
 
-  // Ensure StatusBar is re-enabled when component unmounts or loses focus
-  useFocusEffect(
-    useCallback(() => {
-      // StatusBar is hidden while this screen is focused
-      return () => {
-        // Re-enable StatusBar when leaving this screen
-        StatusBar.setHidden(false, 'fade');
-      };
-    }, [])
-  );
 
 
   // Resolved video path info
@@ -1237,7 +1058,7 @@ const VideoPostScreen: React.FC = () => {
   // Simple video player - auto-plays when source is set
   const player = useVideoPlayer(videoUri ? { uri: videoUri } : null, (p) => {
     p.loop = true;
-    p.volume = videoVolume;
+    p.volume = 1;
     playerRef.current = p;
   });
 
@@ -1249,27 +1070,12 @@ const VideoPostScreen: React.FC = () => {
     });
   }, [player, videoUri]);
 
-  // Track playback progress
-  useEffect(() => {
-    if (!player) return;
-    const interval = setInterval(() => {
-      setCurrentTime(player.currentTime || 0);
-    }, 100);
-    return () => clearInterval(interval);
-  }, [player]);
-
   // Sync play/pause state
   useEffect(() => {
     if (!player) return;
     isPlaying ? player.play() : player.pause();
   }, [player, isPlaying]);
 
-  // Update volume when videoVolume changes
-  useEffect(() => {
-    if (player) {
-      player.volume = videoVolume;
-    }
-  }, [player, videoVolume]);
 
   // Handle keyboard visibility for input spacing
   useEffect(() => {
@@ -1297,7 +1103,7 @@ const VideoPostScreen: React.FC = () => {
     }
   }, [showDescriptionInputModal]);
 
-  // Calculate container size based on 9:16 aspect ratio
+  // Fixed container size with 9:16 aspect ratio
   const containerWidth = VIDEO_WIDTH;
   const containerHeight = containerWidth / ASPECT_RATIO;
 
@@ -1320,119 +1126,9 @@ const VideoPostScreen: React.FC = () => {
     return () => sub?.remove();
   }, []);
 
-  // Layout for landscape mode
-  if (orientation === 'landscape' && isTablet()) {
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <StatusBar hidden={true} />
-        <LinearGradient
-          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)', 'transparent']}
-          locations={[0, 0.7, 1]}
-          style={[styles.statusBarGradient, { height: isSmallDevice ? 54 : insets.top + 60 }]}
-          pointerEvents="none"
-        />
-        {/* Header */}
-        <Animated.View 
-          style={[
-            styles.headerButton, 
-            { 
-              top: isSmallDevice ? 5 : insets.top + 4,
-              left: 4,
-            },
-            headerFadeAnimatedStyle
-          ]}
-        >
-          <Pressable 
-            onPress={handleCancel}
-            style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <BackArrowIcon size={32} color={Colors.white} />
-          </Pressable>
-        </Animated.View>
-        <Animated.View 
-          style={[
-            styles.headerButton, 
-            { 
-              top: isSmallDevice ? 5 : insets.top + 4,
-              right: 4,
-              left: undefined,
-            },
-            headerFadeAnimatedStyle
-          ]}
-        >
-          <Pressable 
-            onPress={handleDownload}
-            disabled={isDownloading || isMerging || !activeVideoPath}
-            style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-          >
-            {isDownloading ? (
-              <Loading3FillIcon size={32} color={Colors.white} />
-            ) : (
-              <Icon name="save" size={32} color={Colors.white} />
-            )}
-          </Pressable>
-        </Animated.View>
-        <Animated.View style={[styles.landscapeContainer, fadeAnimatedStyle]}>
-          {/* Left: Info Side */}
-          <View style={styles.landscapeInfoSide}>
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 40 }]}>
-              <DescriptionPreview
-                description={description}
-                formattedRichText={formattedRichText}
-                onPress={() => setShowDescriptionInputModal(true)}
-              />
-              <ChannelSelector
-                selectedChannel={selectedChannel}
-                onPress={() => setShowChannelSelectionSheet(true)}
-              />
-              <CommentFilterSelector
-                commentFilter={commentFilter}
-                getSelectedCommentFilterLabel={getSelectedCommentFilterLabel}
-                onPress={() => setShowCommentSettingsSheet(true)}
-              />
-              <ContentWarningSelector
-                selectedContentWarnings={selectedContentWarnings}
-                otherWarning={otherWarning}
-                getSelectedContentWarningsLabel={getSelectedContentWarningsLabel}
-                onPress={() => setShowContentWarningsSheet(true)}
-              />
-              <View style={[styles.landscapePostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-                <PostButton
-                  onPress={handlePost}
-                  isPosting={isPosting}
-                  isCompressing={isCompressing}
-                  uploadProgress={uploadProgress}
-                  buttonStyle="landscape"
-                  width={SCREEN_WIDTH * 0.6}
-                />
-              </View>
-            </ScrollView>
-          </View>
-          {/* Right: Video Preview Side */}
-          <View style={styles.landscapeVideoSide}>
-            <View style={styles.previewSection}>
-              <VideoPreviewContent
-                thumbnailPath={thumbnailPath}
-                videoUri={videoUri}
-                player={player}
-                videoLoading={videoLoading}
-                isMerging={isMerging}
-                videoError={videoError}
-                textOverlays={textOverlays}
-                containerStyle={{ width: '100%', aspectRatio: ASPECT_RATIO, maxHeight: '90%' }}
-              />
-            </View>
-          </View>
-        </Animated.View>
-
-      </SafeAreaView>
-    );
-  }
-
-  // ... existing portrait layout ...
-
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+  // Render header (StatusBar, LinearGradient, header buttons) - shared between portrait and landscape
+  const renderHeader = () => (
+    <>
       <StatusBar hidden={true} />
       <LinearGradient
         colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.1)', 'transparent']}
@@ -1440,7 +1136,6 @@ const VideoPostScreen: React.FC = () => {
         style={[styles.statusBarGradient, { height: isSmallDevice ? 54 : insets.top + 60 }]}
         pointerEvents="none"
       />
-      {/* Header */}
       <Animated.View 
         style={[
           styles.headerButton, 
@@ -1481,6 +1176,253 @@ const VideoPostScreen: React.FC = () => {
           )}
         </Pressable>
       </Animated.View>
+    </>
+  );
+
+
+  // Render all modals/sheets - shared between portrait and landscape
+  const renderModals = () => (
+    <>
+      <DescriptionInputModal
+        visible={showDescriptionInputModal}
+        description={description}
+        formattedRichText={formattedRichText}
+        setDescription={setDescription}
+        setDescriptionSelection={setDescriptionSelection}
+        onClose={() => setShowDescriptionInputModal(false)}
+        richTextSearchModalProps={richTextSearchModalProps}
+        insets={insets}
+      />
+
+      <VerticalListSheet
+        visible={showContentWarningsSheet}
+        onDismiss={() => setShowContentWarningsSheet(false)}
+        title={getSelectedContentWarningsLabel()}
+        name="post-content-warnings-sheet"
+        detents={['auto']}
+        showCancelButton={true}
+        cancelButtonText="Close"
+      >
+        <View style={styles.sheetContent}>
+          {CONTENT_WARNINGS.map(warning => (
+            <Pressable
+              key={warning.id}
+              style={styles.sheetOptionRow}
+              onPress={() => toggleContentWarning(warning.id)}
+            >
+              <Text style={styles.sheetOptionText}>{warning.label.toLowerCase()}</Text>
+              <View style={[
+                styles.checkbox,
+                selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
+              ]}>
+                {selectedContentWarnings.includes(warning.id) && (
+                  <Icon name="checkmark" size={16} color={Colors.black} />
+                )}
+              </View>
+            </Pressable>
+          ))}
+          <Pressable
+            style={styles.sheetOptionRow}
+            onPress={() => setShowContentWarningInput(!showContentWarningInput)}
+          >
+            <Text style={styles.sheetOptionText}>other warning</Text>
+            <View style={[
+              styles.checkbox,
+              showContentWarningInput && styles.checkboxSelected
+            ]}>
+              {showContentWarningInput && (
+                <Icon name="checkmark" size={16} color={Colors.black} />
+              )}
+            </View>
+          </Pressable>
+          {showContentWarningInput && (
+            <View style={[styles.sheetInputContainer, isKeyboardVisible && styles.sheetInputContainerKeyboard]}>
+              <TextInput
+                style={styles.otherWarningInput}
+                placeholder="specify content warning"
+                placeholderTextColor={Colors.lightGray}
+                value={otherWarning}
+                onChangeText={setOtherWarning}
+                autoFocus={true}
+                returnKeyType="done"
+              />
+            </View>
+          )}
+        </View>
+      </VerticalListSheet>
+
+      <VerticalListSheet
+        visible={showCommentSettingsSheet}
+        onDismiss={() => setShowCommentSettingsSheet(false)}
+        title={getSelectedCommentFilterLabel()}
+        name="post-comment-settings-sheet"
+        detents={['auto']}
+        showCancelButton={true}
+        cancelButtonText="Close"
+      >
+        <View style={styles.sheetContent}>
+          {COMMENT_FILTERS.map(filter => (
+            <VerticalListButton
+              key={filter.id}
+              label={filter.label.toLowerCase()}
+              onPress={() => {
+                setCommentFilter(filter.id);
+                setShowCommentSettingsSheet(false);
+              }}
+              disabled={commentFilter === filter.id}
+            />
+          ))}
+        </View>
+      </VerticalListSheet>
+
+      <VerticalListSheet
+        visible={showChannelSelectionSheet}
+        onDismiss={() => setShowChannelSelectionSheet(false)}
+        title="Pick a channel"
+        name="post-channel-selection-sheet"
+        detents={['auto']}
+        showCancelButton={true}
+        cancelButtonText="Close"
+        titleSize={26}
+        hideCloseButton={true}
+      >
+        <ScrollView 
+          style={styles.sheetContent}
+          contentContainerStyle={[
+            styles.sheetContentContainer,
+            { paddingBottom: 52 + insets.bottom }
+          ]}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled={true}
+        >
+          <VerticalListButton
+            label="none"
+            onPress={() => {
+              setSelectedChannel(null);
+              setShowChannelSelectionSheet(false);
+            }}
+            disabled={selectedChannel === null}
+          />
+          {getPostableChannels().map(channel => (
+            <Pressable
+              key={channel.slug}
+              style={styles.channelListButton}
+              onPress={() => {
+                setSelectedChannel(channel);
+                setShowChannelSelectionSheet(false);
+              }}
+              disabled={selectedChannel?.slug === channel.slug}
+            >
+              <View style={styles.listButtonContent}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {shouldShowChannelSlash(channel.uri) && (
+                    <Text style={[
+                      styles.channelListButtonText, 
+                      styles.orbytSlash, 
+                      { 
+                        color: channel.channelColor || '#FFD700',
+                        fontFamily: 'Firma-SemiBold'
+                      }
+                    ]}>/</Text>
+                  )}
+                  <Text style={[styles.channelListButtonText, { fontFamily: 'Firma-Bold' }]}>
+                    {channel.displayName.toLowerCase()}
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </VerticalListSheet>
+    </>
+  );
+
+  // Layout for landscape mode
+  if (orientation === 'landscape' && isTablet()) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+        <StatusBar hidden={true} />
+        <Animated.View style={[styles.landscapeContainer, fadeAnimatedStyle]}>
+          {/* Left: Info Side */}
+          <View style={styles.landscapeInfoSide}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.landscapeInfoScroll, { paddingBottom: 40 }]}>
+              {/* Header Buttons */}
+              <View style={styles.landscapeButtonsContainer}>
+                <Pressable 
+                  onPress={handleCancel}
+                  style={styles.landscapeHeaderButton}
+                >
+                  <BackArrowIcon size={32} color={Colors.white} />
+                </Pressable>
+                <Pressable 
+                  onPress={handleDownload}
+                  disabled={isDownloading || isMerging || !activeVideoPath}
+                  style={styles.landscapeHeaderButton}
+                >
+                  {isDownloading ? (
+                    <Loading3FillIcon size={30} color={Colors.white} />
+                  ) : (
+                    <Icon name="save" size={30} color={Colors.white} />
+                  )}
+                </Pressable>
+              </View>
+              <DescriptionPreview
+                description={description}
+                formattedRichText={formattedRichText}
+                onPress={() => setShowDescriptionInputModal(true)}
+              />
+              <ChannelSelector
+                selectedChannel={selectedChannel}
+                onPress={() => setShowChannelSelectionSheet(true)}
+                showRing={false}
+              />
+              <CommentFilterSelector
+                commentFilter={commentFilter}
+                getSelectedCommentFilterLabel={getSelectedCommentFilterLabel}
+                onPress={() => setShowCommentSettingsSheet(true)}
+              />
+              <ContentWarningSelector
+                selectedContentWarnings={selectedContentWarnings}
+                otherWarning={otherWarning}
+                getSelectedContentWarningsLabel={getSelectedContentWarningsLabel}
+                onPress={() => setShowContentWarningsSheet(true)}
+              />
+              <View style={[styles.landscapePostButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+                <PostButton
+                  onPress={handlePost}
+                  isPosting={isPosting}
+                  isCompressing={isCompressing}
+                  uploadProgress={uploadProgress}
+                  buttonStyle="landscape"
+                />
+              </View>
+            </ScrollView>
+          </View>
+          {/* Right: Video Preview Side */}
+          <View style={styles.landscapeVideoSide}>
+            <View style={styles.previewSection}>
+              <VideoPreviewContent
+                thumbnailPath={thumbnailPath}
+                videoUri={videoUri}
+                player={player}
+                videoLoading={videoLoading}
+                isMerging={isMerging}
+                videoError={videoError}
+                textOverlays={textOverlays}
+                containerStyle={{ width: '100%', aspectRatio: ASPECT_RATIO, maxHeight: '90%' }}
+              />
+            </View>
+          </View>
+        </Animated.View>
+        {renderModals()}
+      </SafeAreaView>
+    );
+  }
+
+  // Portrait layout
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      {renderHeader()}
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
@@ -1555,163 +1497,7 @@ const VideoPostScreen: React.FC = () => {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Description Input Modal */}
-      <DescriptionInputModal
-        visible={showDescriptionInputModal}
-        description={description}
-        formattedRichText={formattedRichText}
-        descriptionSelection={descriptionSelection}
-        setDescription={setDescription}
-        setDescriptionSelection={setDescriptionSelection}
-        onClose={() => setShowDescriptionInputModal(false)}
-        richTextSearchModalProps={richTextSearchModalProps}
-        insets={insets}
-      />
-
-      {/* Content Warnings Sheet */}
-      <VerticalListSheet
-        visible={showContentWarningsSheet}
-        onDismiss={() => setShowContentWarningsSheet(false)}
-        title={getSelectedContentWarningsLabel()}
-        name="post-content-warnings-sheet"
-        detents={['auto']}
-        showCancelButton={true}
-        cancelButtonText="Close"
-      >
-        <View style={styles.sheetContent}>
-          {CONTENT_WARNINGS.map(warning => (
-            <Pressable
-              key={warning.id}
-              style={styles.sheetOptionRow}
-              onPress={() => toggleContentWarning(warning.id)}
-            >
-              <Text style={styles.sheetOptionText}>{warning.label.toLowerCase()}</Text>
-              <View style={[
-                styles.checkbox,
-                selectedContentWarnings.includes(warning.id) && styles.checkboxSelected
-              ]}>
-                {selectedContentWarnings.includes(warning.id) && (
-                  <Icon name="checkmark" size={16} color={Colors.black} />
-                )}
-              </View>
-            </Pressable>
-          ))}
-          <Pressable
-            style={styles.sheetOptionRow}
-            onPress={() => setShowContentWarningInput(!showContentWarningInput)}
-          >
-            <Text style={styles.sheetOptionText}>other warning</Text>
-            <View style={[
-              styles.checkbox,
-              showContentWarningInput && styles.checkboxSelected
-            ]}>
-              {showContentWarningInput && (
-                <Icon name="checkmark" size={16} color={Colors.black} />
-              )}
-            </View>
-          </Pressable>
-          {showContentWarningInput && (
-            <View style={[styles.sheetInputContainer, isKeyboardVisible && styles.sheetInputContainerKeyboard]}>
-              <TextInput
-                style={styles.otherWarningInput}
-                placeholder="specify content warning"
-                placeholderTextColor={Colors.lightGray}
-                value={otherWarning}
-                onChangeText={setOtherWarning}
-                autoFocus={true}
-                returnKeyType="done"
-              />
-            </View>
-          )}
-        </View>
-      </VerticalListSheet>
-
-      {/* Comment Settings Sheet */}
-      <VerticalListSheet
-        visible={showCommentSettingsSheet}
-        onDismiss={() => setShowCommentSettingsSheet(false)}
-        title={getSelectedCommentFilterLabel()}
-        name="post-comment-settings-sheet"
-        detents={['auto']}
-        showCancelButton={true}
-        cancelButtonText="Close"
-      >
-        <View style={styles.sheetContent}>
-          {COMMENT_FILTERS.map(filter => (
-            <VerticalListButton
-              key={filter.id}
-              label={filter.label.toLowerCase()}
-              onPress={() => {
-                setCommentFilter(filter.id);
-                setShowCommentSettingsSheet(false);
-              }}
-              disabled={commentFilter === filter.id}
-            />
-          ))}
-        </View>
-      </VerticalListSheet>
-
-      {/* Channel Selection Sheet */}
-      <VerticalListSheet
-        visible={showChannelSelectionSheet}
-        onDismiss={() => setShowChannelSelectionSheet(false)}
-        title="Pick a channel"
-        name="post-channel-selection-sheet"
-        detents={['auto']}
-        showCancelButton={true}
-        cancelButtonText="Close"
-        titleSize={26}
-        hideCloseButton={true}
-      >
-        <ScrollView 
-          style={styles.sheetContent}
-          contentContainerStyle={[
-            styles.sheetContentContainer,
-            { paddingBottom: 52 + insets.bottom } // Footer height (8 + 44) + safe area bottom
-          ]}
-          showsVerticalScrollIndicator={false}
-          nestedScrollEnabled={true}
-        >
-          <VerticalListButton
-            label="none"
-            onPress={() => {
-              setSelectedChannel(null);
-              setShowChannelSelectionSheet(false);
-            }}
-            disabled={selectedChannel === null}
-          />
-          {getPostableChannels().map(channel => (
-            <Pressable
-              key={channel.slug}
-              style={styles.channelListButton}
-              onPress={() => {
-                setSelectedChannel(channel);
-                setShowChannelSelectionSheet(false);
-              }}
-              disabled={selectedChannel?.slug === channel.slug}
-            >
-              <View style={styles.listButtonContent}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  {shouldShowChannelSlash(channel.uri) && (
-                    <Text style={[
-                      styles.channelListButtonText, 
-                      styles.orbytSlash, 
-                      { 
-                        color: channel.channelColor || '#FFD700',
-                        fontFamily: 'Firma-SemiBold'
-                      }
-                    ]}>/</Text>
-                  )}
-                  <Text style={[styles.channelListButtonText, { fontFamily: 'Firma-Bold' }]}>
-                    {channel.displayName.toLowerCase()}
-                  </Text>
-                </View>
-              </View>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </VerticalListSheet>
-
+      {renderModals()}
     </SafeAreaView>
   );
 };
@@ -2106,21 +1892,32 @@ const styles = StyleSheet.create({
   landscapeContainer: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
   },
   landscapeInfoSide: {
     flex: 1,
     padding: 20,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
     justifyContent: 'flex-start',
     minWidth: 0,
+  },
+  landscapeButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  landscapeHeaderButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   landscapeInfoScroll: {
     paddingBottom: 80,
   },
   landscapeVideoSide: {
     flex: 1,
-    backgroundColor: Colors.darkGray,
+    backgroundColor: Colors.black,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 0,
@@ -2141,6 +1938,8 @@ const styles = StyleSheet.create({
   },
   landscapePostButtonContainer: {
     marginTop: 24,
+    width: '100%',
+    alignItems: 'center',
   },
   landscapePostButtonHost: {
     height: 60,

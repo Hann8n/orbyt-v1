@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   StatusBar,
+  AppState,
   NativeEventEmitter,
   NativeModules,
   type EventSubscription,
@@ -33,7 +34,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Icon, { CloseFillIcon, Loading3FillIcon, ArrowRightFillIcon } from '../src/components/ui/Icon';
 import BottomToolBar from '../src/components/ui/BottomToolBar';
-import { isSmallScreen, getBottomNavBarHeight } from '../src/utils/helpers';
+import { isSmallScreen, isTablet, getBottomNavBarHeight } from '../src/utils/helpers';
 import { Colors } from '../src/components/ui/UI';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -111,26 +112,41 @@ const CreateScreen: React.FC = () => {
   const listenerSubscription = useRef<Record<string, EventSubscription>>({});
   const { isDeveloper } = useUserStore();
   
-  // Calculate 9:16 aspect ratio dimensions
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  // Track screen dimensions for camera updates on orientation change
+  const [screenDims, setScreenDims] = useState(() => Dimensions.get('window'));
   
-  // Use existing utility to check if small screen (9:16)
+  useEffect(() => {
+    const onChange = ({ window }: { window: { width: number; height: number; scale: number; fontScale: number } }) => {
+      setScreenDims(window);
+    };
+    const subscription = Dimensions.addEventListener('change', onChange);
+    return () => subscription?.remove();
+  }, []);
+  
+  // Calculate dimensions from tracked state
+  const screenWidth = screenDims.width;
+  const screenHeight = screenDims.height;
+  
+  // Use existing utility to check if small screen or tablet
   const isSmallDevice = isSmallScreen();
+  const isTabletDevice = isTablet();
   
-  // For small screens, use full screen; otherwise use available space between safe areas
-  const availableHeight = isSmallDevice 
+  // Camera key changes on dimension/orientation change to fix camera preview
+  const cameraKey = `${Math.round(screenWidth)}x${Math.round(screenHeight)}-${isFrontCamera ? 'front' : 'back'}`;
+  
+  // For small screens and tablets, use full screen; otherwise use available space between safe areas
+  const availableHeight = (isSmallDevice || isTabletDevice)
     ? screenHeight 
     : screenHeight - insets.top - bottomNavBarHeight;
   
-  // If small screen, use full screen; otherwise maintain 9:16 aspect ratio
-  const cameraHeight = isSmallDevice 
+  // If small screen or tablet, use full screen; otherwise maintain 9:16 aspect ratio
+  const cameraHeight = (isSmallDevice || isTabletDevice)
     ? screenHeight 
     : Math.min((screenWidth * 16) / 9, availableHeight);
   const cameraWidth = screenWidth; // Use full width
 
   // Derived values from segment manager
   const maxDuration = selectedDuration;
-  const totalDuration = segmentManagerRef.current?.getTotalDuration() ?? 0;
   const availableTime = segmentManagerRef.current?.getAvailableTime() ?? 0;
 
   // Handle trimmed video from gallery
@@ -185,7 +201,6 @@ const CreateScreen: React.FC = () => {
       return;
     }
 
-    const segmentsAfter = segmentManagerRef.current.getSegments();
     // Update UI
     totalDurationShared.value = segmentManagerRef.current.getTotalDuration();
     setSegmentUpdateTrigger(prev => prev + 1);
@@ -326,6 +341,24 @@ const CreateScreen: React.FC = () => {
   }, []);
 
 
+  // Keep status bar hidden even when app returns from background
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        // Ensure status bar is hidden when app becomes active
+        StatusBar.setHidden(true, 'none');
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+      // Re-enable StatusBar when component unmounts
+      StatusBar.setHidden(false, 'fade');
+    };
+  }, []);
+
   // Reset processing state when screen comes back into focus (user navigated back)
   useFocusEffect(
     useCallback(() => {
@@ -343,8 +376,6 @@ const CreateScreen: React.FC = () => {
         }
         // Ensure flashlight is turned off when leaving the create screen
         setFlash('off');
-        // Re-enable StatusBar when leaving this screen
-        StatusBar.setHidden(false, 'fade');
       };
     }, [])
   );
@@ -393,7 +424,7 @@ const CreateScreen: React.FC = () => {
   }, [segmentUpdateTrigger, totalDurationShared]);
 
   // Continuously update elapsed time on UI thread every frame
-  useFrameCallback((frameInfo) => {
+  useFrameCallback(() => {
     'worklet';
     if (recordingStartTime.value !== null) {
       const now = Date.now();
@@ -828,18 +859,22 @@ const CreateScreen: React.FC = () => {
     return (
       <>
         {/* Camera View - only render when screen is focused and trimmer is not active */}
-        <View style={[styles.cameraContainer, { justifyContent: Platform.OS === 'ios' ? 'flex-start' : 'center' }]}>
-          <StatusBar hidden={true} />
+        <View style={[styles.cameraContainer, { 
+          justifyContent: isTabletDevice ? 'center' : (Platform.OS === 'ios' ? 'flex-start' : 'center')
+        }]}>
           {isFocused && !isTrimmerActive && (
             <GestureDetector gesture={pinchGesture}>
               <Animated.View style={[styles.cameraPressable, Platform.OS === 'android' && { flex: 0, height: 'auto' }]}>
                 <Pressable onPress={handleDoubleTap} style={[styles.cameraPressable, Platform.OS === 'android' && { flex: 0, height: 'auto' }]}>
                   <CameraView
+                    key={cameraKey}
                     ref={cameraRef}
                     style={[styles.camera, { 
                       width: cameraWidth, 
                       height: cameraHeight,
-                      marginTop: Platform.OS === 'ios' ? (isSmallDevice ? 0 : insets.top) : 0,
+                      marginTop: isTabletDevice 
+                        ? 0 
+                        : (Platform.OS === 'ios' ? (isSmallDevice ? 0 : insets.top) : 0),
                     }]}
                     facing={isFrontCamera ? 'front' : 'back'}
                     mode="video"
@@ -855,7 +890,9 @@ const CreateScreen: React.FC = () => {
           
           {/* Progress Bar - overlays on top of camera */}
           <View style={[styles.progressBarOverlay, { 
-            height: isSmallDevice ? 54 : insets.top // 10 (top) + 44 (button height) = 54
+            height: (isSmallDevice || isTabletDevice) 
+              ? (isSmallDevice ? 49 : insets.top + 48) // Extends to bottom of header (5px top + 44px button for small, or insets.top + 4px + 44px for others)
+              : insets.top // iOS: extend to top of video, Android: just status bar
           }]}>
             <View style={styles.combinedProgressBarContainer}>
               <Animated.View
@@ -899,6 +936,7 @@ const CreateScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <StatusBar hidden={true} />
       <Pressable
         style={[styles.backButton, { 
           top: isSmallDevice ? 5 : insets.top + 4,
@@ -1087,6 +1125,7 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: Colors.blurple,
     borderRadius: 0,
+    minHeight: 4, // Ensure minimum visible height on tablets
   },
   backButton: {
     position: 'absolute',

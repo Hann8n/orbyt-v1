@@ -12,6 +12,8 @@ import {
   PanResponder,
   Keyboard,
   KeyboardAvoidingView,
+  StatusBar,
+  AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -790,8 +792,25 @@ const VideoEditorScreen: React.FC = () => {
 
   const isSmallDevice = isSmallScreen();
 
+  // Keep status bar hidden even when app returns from background
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        StatusBar.setHidden(true, 'none');
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+      StatusBar.setHidden(false, 'fade');
+    };
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar hidden={true} />
       {/* Header buttons - matches create screen */}
       <Pressable 
         style={({ pressed }) => [

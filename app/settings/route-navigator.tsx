@@ -63,7 +63,6 @@ const AVAILABLE_ROUTES = [
   
   // Video - fullscreen
   { path: '/video-editor', label: 'Video Editor', type: 'fullscreen' as RouteType },
-  { path: '/video-processing', label: 'Video Processing', type: 'fullscreen' as RouteType },
   { path: '/video-trimmer', label: 'Video Trimmer', type: 'fullscreen' as RouteType },
 ];
 
