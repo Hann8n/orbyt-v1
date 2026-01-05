@@ -73,7 +73,7 @@ interface FeedRendererProps {
   
   // Debug flag
   forceError?: boolean;
-  ListComponent?: any; // Optional custom list component for integration with collapsible tabs
+  ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component for integration with collapsible tabs
   visibilityKey?: string;
   shouldPrefetch?: boolean;
   targetScrollIndex?: number | null; // Initial index to scroll to when opening feed

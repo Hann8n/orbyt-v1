@@ -8,6 +8,7 @@ import { AtprotoCore } from '../core';
 import type {
   NotificationsResponse,
   PutActivitySubscriptionOutput,
+  ProfileView,
 } from '../types';
 
 export class NotificationService {
@@ -90,7 +91,7 @@ export class NotificationService {
   static async putActivitySubscription(
     did: string,
     preferences: { post: boolean; reply: boolean } = { post: true, reply: true },
-  ): Promise<{ subject: string; activitySubscription?: any }> {
+  ): Promise<PutActivitySubscriptionOutput> {
     try {
       const { api } = await AtprotoCore.getApiClient();
       
@@ -151,7 +152,7 @@ export class NotificationService {
    * @param cursor - Pagination cursor
    * @returns Promise with list of subscribed profiles
    */
-  static async listActivitySubscriptions(cursor?: string): Promise<{ cursor?: string; subscriptions: any[] }> {
+  static async listActivitySubscriptions(cursor?: string): Promise<{ cursor?: string; subscriptions: ProfileView[] }> {
     try {
       const { api } = await AtprotoCore.getApiClient();
       
@@ -159,7 +160,7 @@ export class NotificationService {
         throw new Error('No API client available');
       }
 
-      const params: any = {};
+      const params: { cursor?: string } = {};
       if (cursor) {
         params.cursor = cursor;
       }
@@ -185,7 +186,7 @@ export class NotificationService {
     try {
       // Fetch all subscriptions and check if this DID is in the list
       const { subscriptions } = await this.listActivitySubscriptions();
-      return subscriptions.some((sub: any) => sub.did === did);
+      return subscriptions.some((sub) => sub.did === did);
     } catch (error) {
       logger.error('Error checking subscription status', error, { component: 'NotificationService', did });
       return false;

@@ -57,7 +57,9 @@ import type {
   ProfileRecord,
   OrbytProfileRecord,
   RepostView,
+  CreateRecordResponse,
 } from './types';
+import type { SubscribedChannel } from '../../stores/userStore';
 import {
   isThreadViewPost,
   isNotFoundPost as checkIsNotFoundPost,
@@ -380,7 +382,7 @@ class AtprotoService {
     contentWarnings?: string[],
     commentFilter?: 'all' | 'followers' | 'mentioned' | 'none',
     feedSlug?: string
-  ): Promise<any> {
+  ): Promise<CreateRecordResponse> {
     return FeedService.createVideoPost(text, videoPath, contentWarnings, commentFilter, feedSlug);
   }
 
@@ -396,7 +398,7 @@ class AtprotoService {
    * Upload a video file to Bluesky
    * Delegates to RepoService
    */
-  static async uploadVideo(videoPath: string): Promise<any> {
+  static async uploadVideo(videoPath: string): Promise<{ ref: { $link: string }; mimeType: string; size: number }> {
     return RepoService.uploadVideo(videoPath);
   }
 
@@ -460,12 +462,12 @@ class AtprotoService {
 
         // Process replies if they exist, passing current post as parent
         if (post.replies && Array.isArray(post.replies)) {
-          result.replies = post.replies
-            .map((reply: unknown) => {
+          result.replies = (post.replies as ThreadPost[])
+            .map((reply: ThreadPost) => {
               // Type guard to ensure it's a valid ThreadPost
-              if (isThreadViewPost(reply as ThreadPost)) return processThreadViewPost(reply as ThreadPost, result);
-              if (checkIsNotFoundPost(reply as ThreadPost)) return null;
-              if (checkIsBlockedPost(reply as ThreadPost)) return null;
+              if (isThreadViewPost(reply)) return processThreadViewPost(reply, result);
+              if (checkIsNotFoundPost(reply)) return null;
+              if (checkIsBlockedPost(reply)) return null;
               return null;
             })
             .filter((reply): reply is Comment => reply !== null);
@@ -480,12 +482,12 @@ class AtprotoService {
       
       // Process replies at the root level (top-level comments have no parent)
       if (isThreadViewPost(thread) && thread.replies) {
-        comments = thread.replies
-          .map((reply: unknown) => {
+        comments = (thread.replies as ThreadPost[])
+          .map((reply: ThreadPost) => {
             // Type guard to ensure it's a valid ThreadPost
-            if (isThreadViewPost(reply as ThreadPost)) return processThreadViewPost(reply as ThreadPost, null);
-            if (checkIsNotFoundPost(reply as ThreadPost)) return null;
-            if (checkIsBlockedPost(reply as ThreadPost)) return null;
+            if (isThreadViewPost(reply)) return processThreadViewPost(reply, null);
+            if (checkIsNotFoundPost(reply)) return null;
+            if (checkIsBlockedPost(reply)) return null;
             return null;
           })
           .filter((reply): reply is Comment => reply !== null);
@@ -658,8 +660,8 @@ class AtprotoService {
    * @param uris - Array of post URIs to fetch
    * @returns Map of URI to post data (includes NotFoundPost and BlockedPost objects)
    */
-  static async getPosts(uris: string[]): Promise<Map<string, any>> {
-    const result = new Map<string, any>();
+  static async getPosts(uris: string[]): Promise<Map<string, PostView | NotFoundPost | BlockedPost>> {
+    const result = new Map<string, PostView | NotFoundPost | BlockedPost>();
     if (!uris.length) return result;
 
     try {
@@ -1153,12 +1155,14 @@ class AtprotoService {
       
       // Extract contentMode from API response (may be at feed.contentMode or feed.view?.contentMode)
       // If contentMode is missing, derive it from isExperimental flag
-      const processedFeeds = allFeeds.map((feed: any) => {
-        let contentMode = feed.contentMode || feed.view?.contentMode;
+      const processedFeeds = allFeeds.map((feed: GeneratorView) => {
+        let contentMode = (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).contentMode || 
+                         (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).view?.contentMode;
         
         // Fallback: if contentMode is missing but isExperimental exists, derive it
-        if (!contentMode && feed.isExperimental !== undefined) {
-          contentMode = feed.isExperimental 
+        const feedWithExperimental = feed as unknown as { isExperimental?: boolean };
+        if (!contentMode && feedWithExperimental.isExperimental !== undefined) {
+          contentMode = feedWithExperimental.isExperimental 
             ? undefined // Non-video feed (no contentMode set)
             : 'app.bsky.feed.defs#contentModeVideo'; // Video-only feed
         }
@@ -1168,7 +1172,7 @@ class AtprotoService {
           ...feed,
           contentMode, // Preserve contentMode at top level for easy access
           isExperimental: !isVideoOnly
-        };
+        } as GeneratorView & { contentMode?: string; isExperimental: boolean };
       });
       
       return processedFeeds;
@@ -1195,12 +1199,14 @@ class AtprotoService {
       
       // Extract contentMode from API response (may be at feed.contentMode or feed.view?.contentMode)
       // If contentMode is missing, derive it from isExperimental flag
-      const processedFeeds = allFeeds.map((feed: any) => {
-        let contentMode = feed.contentMode || feed.view?.contentMode;
+      const processedFeeds = allFeeds.map((feed: GeneratorView) => {
+        let contentMode = (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).contentMode || 
+                         (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).view?.contentMode;
         
         // Fallback: if contentMode is missing but isExperimental exists, derive it
-        if (!contentMode && feed.isExperimental !== undefined) {
-          contentMode = feed.isExperimental 
+        const feedWithExperimental = feed as unknown as { isExperimental?: boolean };
+        if (!contentMode && feedWithExperimental.isExperimental !== undefined) {
+          contentMode = feedWithExperimental.isExperimental 
             ? undefined // Non-video feed (no contentMode set)
             : 'app.bsky.feed.defs#contentModeVideo'; // Video-only feed
         }
@@ -1210,7 +1216,7 @@ class AtprotoService {
           ...feed,
           contentMode, // Preserve contentMode at top level for easy access
           isExperimental: !isVideoOnly
-        };
+        } as GeneratorView & { contentMode?: string; isExperimental: boolean };
       });
       
       return processedFeeds;
@@ -1603,7 +1609,7 @@ class AtprotoService {
   /**
    * Deduplicate posts based on URI and CID
    */
-  private static deduplicatePosts(posts: any[]): any[] {
+  private static deduplicatePosts(posts: ExtendedFeedViewPost[]): ExtendedFeedViewPost[] {
     const seenUris = new Set<string>();
     const seenCids = new Set<string>();
     
@@ -1767,7 +1773,7 @@ class AtprotoService {
       try {
         const { useUserStore } = await import('../../stores/userStore');
         const channels = useUserStore.getState().subscribedChannels || [];
-        const allUris = channels.map((c: any) => c.uri).filter(Boolean);
+        const allUris = channels.map((c: SubscribedChannel) => c.uri).filter(Boolean);
         // Filter out built-in channels
         const BUILT_IN_CHANNELS = ['following', 'your-mix'];
         subscribedChannels = allUris.filter((uri: string) => !BUILT_IN_CHANNELS.includes(uri));
@@ -1830,7 +1836,7 @@ class AtprotoService {
   static async putActivitySubscription(
     did: string,
     preferences: { post: boolean; reply: boolean } = { post: true, reply: true },
-  ): Promise<{ subject: string; activitySubscription?: any }> {
+  ): Promise<PutActivitySubscriptionOutput> {
     return NotificationService.putActivitySubscription(did, preferences);
   }
 
@@ -1846,7 +1852,7 @@ class AtprotoService {
    * List all activity subscriptions (users you're subscribed to)
    * Delegates to NotificationService
    */
-  static async listActivitySubscriptions(cursor?: string): Promise<{ cursor?: string; subscriptions: any[] }> {
+  static async listActivitySubscriptions(cursor?: string): Promise<{ cursor?: string; subscriptions: ProfileView[] }> {
     return NotificationService.listActivitySubscriptions(cursor);
   }
 
@@ -1862,7 +1868,7 @@ class AtprotoService {
    * Get static channels from the web API
    * Delegates to FeedService
    */
-  static async getStaticChannels(limit: number = 10): Promise<any[]> {
+  static async getStaticChannels(limit: number = 10): Promise<(GeneratorView & { isExperimental: boolean; contentMode?: string })[]> {
     return FeedService.getStaticChannels(limit);
   }
 

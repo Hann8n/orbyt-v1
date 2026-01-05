@@ -7,6 +7,10 @@ import {
   Pressable,
   Dimensions,
   ScrollView,
+  type ViewStyle,
+  type ImageStyle,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useWindowDimensions } from 'react-native';
@@ -37,9 +41,9 @@ const VideoGridItem: React.FC<{
   item: FeedItem;
   index: number;
   onPress: (index: number) => void;
-  style?: any;
-  itemStyle?: any;
-  thumbnailStyle?: any;
+  style?: ViewStyle;
+  itemStyle?: ViewStyle;
+  thumbnailStyle?: ImageStyle;
 }> = React.memo(({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
   const thumbnailUrl = extractVideoThumbnail(item.post.embed);
   const shouldBlur = !!item.moderationDecision?.blur;
@@ -93,7 +97,7 @@ interface GridFeedViewProps {
   isError?: boolean;
   error?: Error | null;
   onRetry?: () => void;
-  ListComponent?: any; // Optional custom list component
+  ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component
   onVerticalScroll?: (scrollY: number) => void;
 }
 
@@ -239,7 +243,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
 
   // Combine scroll handlers for infinite scroll and header scroll progress updates
   const handleScroll = useCallback(
-    (event: any) => {
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (onVerticalScroll && event?.nativeEvent?.contentOffset) {
         onVerticalScroll(event.nativeEvent.contentOffset.y || 0);
       }
@@ -291,7 +295,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
       ) : (
         // Grid content: Use FlashList with header inside
         (() => {
-          const ListEl: any = ListComponent || FlashList;
+          const ListEl: React.ComponentType<unknown> = ListComponent || FlashList;
           // Only attach ref if using FlashList (not custom ListComponent)
           const listProps = ListComponent ? {} : { ref: flashListRef };
           return (

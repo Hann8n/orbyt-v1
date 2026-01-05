@@ -70,7 +70,7 @@ interface MembersListViewProps {
   isVisible?: boolean;
   onRefresh?: () => void;
   isRefreshing?: boolean;
-  ListComponent?: any; // Optional custom list component
+  ListComponent?: React.ComponentType<unknown> | null; // Optional custom list component
 }
 
 const MembersListView: React.FC<MembersListViewProps> = ({
@@ -122,7 +122,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
       );
       
       return {
-        members: response.following.map((follow: any) => ({
+        members: response.following.map((follow) => ({
           did: follow.did,
           handle: follow.handle,
           displayName: follow.displayName,
@@ -142,7 +142,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
 
   // Flatten all members from all pages
   const members = useMemo(() => {
-    return data?.pages.flatMap((page: any) => page.members) || [];
+    return data?.pages.flatMap((page) => page.members) || [];
   }, [data]);
 
   // Follow mutation
@@ -153,12 +153,12 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     },
     onMutate: async ({ member }) => {
       // Optimistically update the UI
-      queryClient.setQueryData(['channelMembers', channelUri], (oldData: any) => {
+      queryClient.setQueryData<{ pages: Array<{ members: Member[]; cursor: string | null }> }>(['channelMembers', channelUri], (oldData) => {
         if (!oldData) return oldData;
         
         return {
           ...oldData,
-          pages: oldData.pages.map((page: any) => ({
+          pages: oldData.pages.map((page) => ({
             ...page,
             members: page.members.map((m: Member) => 
               m.did === member.did 
@@ -192,12 +192,12 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     },
     onMutate: async ({ member }) => {
       // Optimistically update the UI
-      queryClient.setQueryData(['channelMembers', channelUri], (oldData: any) => {
+      queryClient.setQueryData<{ pages: Array<{ members: Member[]; cursor: string | null }> }>(['channelMembers', channelUri], (oldData) => {
         if (!oldData) return oldData;
         
         return {
           ...oldData,
-          pages: oldData.pages.map((page: any) => ({
+          pages: oldData.pages.map((page) => ({
             ...page,
             members: page.members.map((m: Member) => 
               m.did === member.did 
@@ -389,7 +389,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     );
   }
 
-  const ListEl: any = ListComponent || FlashList;
+  const ListEl: React.ComponentType<unknown> = ListComponent || FlashList;
 
   return (
     <View style={[styles.container, { backgroundColor }]}> 

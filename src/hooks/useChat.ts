@@ -11,14 +11,14 @@ import { useUserStore } from '../stores/userStore';
 const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
 
 // Types from ChatService
-import type { ProfileViewBasic } from '../services/ChatService';
+import type { ProfileViewBasic, Conversation as ChatServiceConversation, MessageView, DeletedMessageView, MessageAndReactionView, Facet, RecordEmbed, ReactionView } from '../services/ChatService';
 
 export interface Conversation {
   id: string;
   rev: string;
   members: ProfileViewBasic[];
-  lastMessage?: any;
-  lastReaction?: any;
+  lastMessage?: MessageView | DeletedMessageView;
+  lastReaction?: MessageAndReactionView;
   muted: boolean;
   status: string;
   unreadCount: number;
@@ -32,9 +32,9 @@ export interface Message {
   id: string;
   rev: string;
   text: string;
-  facets?: any[];
-  embed?: any;
-  reactions?: any[];
+  facets?: Facet[];
+  embed?: RecordEmbed;
+  reactions?: ReactionView[];
   sender: { did: string; handle: string; displayName?: string; avatar?: string };
   sentAt: string;
   conversationId: string;
@@ -65,19 +65,22 @@ export function useConversations() {
       });
 
       return {
-        conversations: (response.data?.convos || []).map((conv: any) => ({
-          id: conv.id,
-          rev: conv.rev,
-          members: conv.members || [],
-          lastMessage: conv.lastMessage,
-          lastReaction: conv.lastReaction,
-          muted: conv.muted || false,
-          status: conv.status || 'active',
-          unreadCount: conv.unreadCount || 0,
-          createdAt: conv.createdAt,
-          lastMessageText: conv.lastMessage?.text || conv.lastMessage?.message?.text,
-          lastMessageCreatedAt: conv.lastMessage?.sentAt || conv.lastMessage?.createdAt,
-        })),
+        conversations: (response.data?.convos || []).map((conv) => {
+          const lastMsg = conv.lastMessage;
+          return {
+            id: conv.id,
+            rev: conv.rev,
+            members: conv.members || [],
+            lastMessage: lastMsg,
+            lastReaction: conv.lastReaction,
+            muted: conv.muted || false,
+            status: conv.status || 'active',
+            unreadCount: conv.unreadCount || 0,
+            createdAt: (conv as { createdAt?: string }).createdAt || new Date().toISOString(),
+            lastMessageText: lastMsg && 'text' in lastMsg ? lastMsg.text : undefined,
+            lastMessageCreatedAt: lastMsg && 'sentAt' in lastMsg ? lastMsg.sentAt : undefined,
+          };
+        }),
         cursor: response.data?.cursor || null,
       };
     },
@@ -107,12 +110,12 @@ export function useConversation(conversationId: string | null | undefined) {
         headers: { 'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat` },
       });
 
-      const conv: any = response.data?.convo || response.data;
+      const conv: ChatServiceConversation = (response.data?.convo || response.data) as ChatServiceConversation;
       const lastMsg = conv.lastMessage;
       return {
         id: conv.id,
         rev: conv.rev,
-        members: (conv.members || []).map((m: any) => 
+        members: (conv.members || []).map((m: ProfileViewBasic) => 
           m.handle === 'missing.invalid' 
             ? { ...m, displayName: 'Account Deleted', avatar: undefined }
             : m
@@ -122,9 +125,9 @@ export function useConversation(conversationId: string | null | undefined) {
         muted: conv.muted || false,
         status: conv.status || 'active',
         unreadCount: conv.unreadCount || 0,
-        createdAt: conv.createdAt,
-        lastMessageText: lastMsg?.text || lastMsg?.message?.text,
-        lastMessageCreatedAt: lastMsg?.sentAt || lastMsg?.createdAt,
+        createdAt: conv.createdAt || new Date().toISOString(),
+        lastMessageText: lastMsg && 'text' in lastMsg ? lastMsg.text : undefined,
+        lastMessageCreatedAt: lastMsg && 'sentAt' in lastMsg ? lastMsg.sentAt : undefined,
       };
     },
     enabled: isAuthenticated && !!agent && !!conversationId,
@@ -154,16 +157,38 @@ export function useMessages(conversationId: string | null | undefined, options?:
         headers: { 'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat` },
       });
 
-      const logs: any[] = (response.data as any)?.logs || (response.data as any)?.messages || [];
+      type MessageLogItem = {
+        id?: string;
+        rev?: string;
+        text?: string;
+        message?: {
+          text?: string;
+          sender?: { did?: string; handle?: string; displayName?: string; avatar?: string };
+          facets?: Facet[];
+          embed?: RecordEmbed;
+          reactions?: ReactionView[];
+          sentAt?: string;
+        };
+        sender?: { did?: string; handle?: string; displayName?: string; avatar?: string };
+        facets?: Facet[];
+        embed?: RecordEmbed;
+        reactions?: ReactionView[];
+        sentAt?: string;
+        createdAt?: string;
+        convoId?: string;
+        conversationId?: string;
+      };
+      
+      const logs: MessageLogItem[] = (response.data as { logs?: MessageLogItem[]; messages?: MessageLogItem[] })?.logs || (response.data as { logs?: MessageLogItem[]; messages?: MessageLogItem[] })?.messages || [];
       const currentUserDid = currentUser?.did;
 
       return {
-        messages: logs.map((msg: any) => {
+        messages: logs.map((msg) => {
           const sender = msg.sender || msg.message?.sender;
           const senderDid = sender?.did;
           return {
-            id: msg.id,
-            rev: msg.rev,
+            id: msg.id || '',
+            rev: msg.rev || '',
             text: msg.text || msg.message?.text || '',
             facets: msg.facets || msg.message?.facets,
             embed: msg.embed || msg.message?.embed,
@@ -171,12 +196,12 @@ export function useMessages(conversationId: string | null | undefined, options?:
             sender: sender?.handle === 'missing.invalid'
               ? { ...sender, displayName: 'Deleted account', avatar: undefined }
               : sender,
-            sentAt: msg.sentAt || msg.message?.sentAt,
+            sentAt: msg.sentAt || msg.message?.sentAt || '',
             conversationId: msg.convoId || msg.conversationId || conversationId,
             sent: senderDid === currentUserDid,
             received: senderDid !== currentUserDid,
-            createdAt: msg.sentAt || msg.message?.sentAt || msg.createdAt,
-            senderDid,
+            createdAt: msg.sentAt || msg.message?.sentAt || msg.createdAt || '',
+            senderDid: senderDid || '',
           };
         }),
         cursor: response.data?.cursor || null,
@@ -230,12 +255,12 @@ export function useSendMessage() {
     mutationFn: async ({ conversationId, text, facets, embed }: { 
       conversationId: string; 
       text: string; 
-      facets?: any[]; 
-      embed?: any;
+      facets?: Facet[]; 
+      embed?: RecordEmbed;
     }) => {
       if (!agent) throw new Error('No agent available');
       
-      const messageData: any = { text };
+      const messageData: { text: string; facets?: Facet[]; embed?: RecordEmbed } = { text };
       if (facets) messageData.facets = facets;
       if (embed) messageData.embed = embed;
 
@@ -400,7 +425,7 @@ export function useMarkConversationAsRead() {
         headers: { 'atproto-proxy': `${CHAT_SERVICE_DID}#bsky_chat` },
       });
 
-      const latestMessageId = (messagesResponse.data as any)?.logs?.[0]?.id;
+      const latestMessageId = ((messagesResponse.data as { logs?: Array<{ id?: string }> })?.logs?.[0]?.id) || undefined;
       if (latestMessageId) {
         await agent.api.chat.bsky.convo.updateRead({
           convoId: conversationId,

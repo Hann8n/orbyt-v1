@@ -7,6 +7,7 @@ import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
 import type {
   ProfileViewBasic,
+  ProfileView,
   FollowersResponse,
   FollowingResponse,
 } from '../types';
@@ -332,7 +333,7 @@ export class GraphService {
       const response = await api.app.bsky.graph.getBlocks({
         limit: 100
       });
-      return response.data.blocks?.map((block: any) => block.did) || [];
+      return response.data.blocks?.map((block: ProfileView) => block.did) || [];
     } catch (error: unknown) {
       return [];
     }
@@ -349,7 +350,7 @@ export class GraphService {
       const response = await api.app.bsky.graph.getMutes({
         limit: 100
       });
-      return response.data.mutes?.map((mute: any) => mute.did) || [];
+      return response.data.mutes?.map((mute: ProfileView) => mute.did) || [];
     } catch (error: unknown) {
       return [];
     }

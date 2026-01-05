@@ -1,11 +1,11 @@
 import { IMessage } from 'react-native-gifted-chat';
-import { Message, ProfileViewBasic, ReactionView } from '../services/ChatService';
+import { Message, ProfileViewBasic, ReactionView, RecordEmbed } from '../services/ChatService';
 import { formatHandle } from './helpers';
 
 // Extend IMessage to include reactions and embed
 export interface ChatMessage extends IMessage {
   reactions?: ReactionView[];
-  embed?: any;
+  embed?: RecordEmbed;
 }
 
 /**

@@ -11,6 +11,7 @@ import type {
   GetRecordOutput,
   ListRecordsOutput,
 } from '../types';
+import type { SubscribedChannel } from '../../../stores/userStore';
 
 export class RepoService {
   /**
@@ -18,7 +19,7 @@ export class RepoService {
    * @param videoPath - Path to the video file
    * @returns Blob reference for the uploaded video
    */
-  static async uploadVideo(videoPath: string): Promise<any> {
+  static async uploadVideo(videoPath: string): Promise<{ ref: { $link: string }; mimeType: string; size: number }> {
     try {
       await AtprotoCore.ensureSession();
       
@@ -251,7 +252,7 @@ export class RepoService {
       try {
         const { useUserStore } = await import('../../../stores/userStore');
         const channels = useUserStore.getState().subscribedChannels || [];
-        const allUris = channels.map((c: any) => c.uri).filter(Boolean);
+        const allUris = channels.map((c: SubscribedChannel) => c.uri).filter(Boolean);
         // Filter out built-in channels
         const BUILT_IN_CHANNELS = ['following', 'your-mix'];
         subscribedChannels = allUris.filter((uri: string) => !BUILT_IN_CHANNELS.includes(uri));

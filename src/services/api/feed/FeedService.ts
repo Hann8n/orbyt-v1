@@ -18,6 +18,8 @@ import type {
   FeedViewPost,
   PostView,
   ThreadPost,
+  NotFoundPost,
+  BlockedPost,
   Comment,
   CommentsResponse,
   LikesResponse,
@@ -31,6 +33,7 @@ import type {
   GetActorLikesOutput,
   RepostView,
   GeneratorView,
+  CreateRecordResponse,
 } from '../types';
 import {
   isThreadViewPost,
@@ -347,7 +350,7 @@ export class FeedService {
     const richText = new RichText({ text: text || '' });
     await richText.detectFacets(api);
     
-    const postRecord: any = {
+    const postRecord: PostRecord = {
       $type: 'app.bsky.feed.post',
       text: richText.text,
       createdAt: new Date().toISOString(),
@@ -418,7 +421,7 @@ export class FeedService {
     contentWarnings?: string[],
     commentFilter?: 'all' | 'followers' | 'mentioned' | 'none',
     feedSlug?: string
-  ): Promise<any> {
+  ): Promise<CreateRecordResponse> {
     await AtprotoCore.ensureSession();
     
     try {
@@ -865,12 +868,12 @@ export class FeedService {
 
         // Process replies if they exist, passing current post as parent
         if (post.replies && Array.isArray(post.replies)) {
-          result.replies = post.replies
-            .map((reply: unknown) => {
+          result.replies = (post.replies as ThreadPost[])
+            .map((reply: ThreadPost) => {
               // Type guard to ensure it's a valid ThreadPost
-              if (isThreadViewPost(reply as ThreadPost)) return processThreadViewPost(reply as ThreadPost, result);
-              if (checkIsNotFoundPost(reply as ThreadPost)) return null;
-              if (checkIsBlockedPost(reply as ThreadPost)) return null;
+              if (isThreadViewPost(reply)) return processThreadViewPost(reply, result);
+              if (checkIsNotFoundPost(reply)) return null;
+              if (checkIsBlockedPost(reply)) return null;
               return null;
             })
             .filter((reply): reply is Comment => reply !== null);
@@ -885,12 +888,12 @@ export class FeedService {
       
       // Process replies at the root level (top-level comments have no parent)
       if (isThreadViewPost(thread) && thread.replies) {
-        comments = thread.replies
-          .map((reply: unknown) => {
+        comments = (thread.replies as ThreadPost[])
+          .map((reply: ThreadPost) => {
             // Type guard to ensure it's a valid ThreadPost
-            if (isThreadViewPost(reply as ThreadPost)) return processThreadViewPost(reply as ThreadPost, null);
-            if (checkIsNotFoundPost(reply as ThreadPost)) return null;
-            if (checkIsBlockedPost(reply as ThreadPost)) return null;
+            if (isThreadViewPost(reply)) return processThreadViewPost(reply, null);
+            if (checkIsNotFoundPost(reply)) return null;
+            if (checkIsBlockedPost(reply)) return null;
             return null;
           })
           .filter((reply): reply is Comment => reply !== null);
@@ -959,8 +962,8 @@ export class FeedService {
    * @param uris - Array of post URIs to fetch
    * @returns Map of URI to post data (includes NotFoundPost and BlockedPost objects)
    */
-  static async getPosts(uris: string[]): Promise<Map<string, any>> {
-    const result = new Map<string, any>();
+  static async getPosts(uris: string[]): Promise<Map<string, PostView | NotFoundPost | BlockedPost>> {
+    const result = new Map<string, PostView | NotFoundPost | BlockedPost>();
     if (!uris.length) return result;
 
     try {
@@ -1643,7 +1646,7 @@ export class FeedService {
     try {
       await AtprotoCore.ensureSession();
 
-      const collected: any[] = [];
+      const collected: ExtendedFeedViewPost[] = [];
       let nextCursor: string | null = cursor || null;
       let safetyCounter = 0;
 
@@ -1651,7 +1654,7 @@ export class FeedService {
       while (collected.length < limit && safetyCounter < 10) {
         safetyCounter++;
 
-        const params: any = {
+        const params: { actor: string; limit: number; cursor?: string; filter: AuthorFilter } = {
           actor,
           limit: Math.min(100, Math.max(limit, 50)),
           ...(nextCursor ? { cursor: nextCursor } : {}),
@@ -1659,22 +1662,22 @@ export class FeedService {
           filter: 'posts_no_replies' as AuthorFilter,
         };
 
-        let response: any;
+        let response: { data?: GetAuthorFeedOutput };
         try {
           const { api } = await AtprotoCore.getApiClient();
           response = await api.app.bsky.feed.getAuthorFeed(params);
-        } catch (err: any) {
+        } catch (err: unknown) {
           break;
         }
 
-        const feedChunk: any[] = response?.data?.feed || [];
+        const feedChunk: ExtendedFeedViewPost[] = (response?.data?.feed || []) as ExtendedFeedViewPost[];
         if (feedChunk.length === 0) {
           nextCursor = null;
           break;
         }
 
         // Keep only items that are reposts
-        const reposts = feedChunk.filter((item: any) =>
+        const reposts = feedChunk.filter((item: ExtendedFeedViewPost) =>
           item?.reason?.$type && String(item.reason.$type).includes('reasonRepost')
         );
 
@@ -1712,7 +1715,7 @@ export class FeedService {
   /**
    * Deduplicate posts based on URI and CID
    */
-  private static deduplicatePosts(posts: any[]): any[] {
+  private static deduplicatePosts(posts: ExtendedFeedViewPost[]): ExtendedFeedViewPost[] {
     const seenUris = new Set<string>();
     const seenCids = new Set<string>();
     
@@ -1757,12 +1760,14 @@ export class FeedService {
       
       // Extract contentMode from API response (may be at feed.contentMode or feed.view?.contentMode)
       // If contentMode is missing, derive it from isExperimental flag
-      const processedFeeds = allFeeds.map((feed: any) => {
-        let contentMode = feed.contentMode || feed.view?.contentMode;
+      const processedFeeds = allFeeds.map((feed: GeneratorView) => {
+        let contentMode = (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).contentMode || 
+                         (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).view?.contentMode;
         
         // Fallback: if contentMode is missing but isExperimental exists, derive it
-        if (!contentMode && feed.isExperimental !== undefined) {
-          contentMode = feed.isExperimental 
+        const feedWithExperimental = feed as unknown as { isExperimental?: boolean };
+        if (!contentMode && feedWithExperimental.isExperimental !== undefined) {
+          contentMode = feedWithExperimental.isExperimental 
             ? undefined // Non-video feed (no contentMode set)
             : 'app.bsky.feed.defs#contentModeVideo'; // Video-only feed
         }
@@ -1772,7 +1777,7 @@ export class FeedService {
           ...feed,
           contentMode, // Preserve contentMode at top level for easy access
           isExperimental: !isVideoOnly
-        };
+        } as GeneratorView & { contentMode?: string; isExperimental: boolean };
       });
       
       return processedFeeds;
@@ -1799,12 +1804,14 @@ export class FeedService {
       
       // Extract contentMode from API response (may be at feed.contentMode or feed.view?.contentMode)
       // If contentMode is missing, derive it from isExperimental flag
-      const processedFeeds = allFeeds.map((feed: any) => {
-        let contentMode = feed.contentMode || feed.view?.contentMode;
+      const processedFeeds = allFeeds.map((feed: GeneratorView) => {
+        let contentMode = (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).contentMode || 
+                         (feed as unknown as { contentMode?: string; view?: { contentMode?: string } }).view?.contentMode;
         
         // Fallback: if contentMode is missing but isExperimental exists, derive it
-        if (!contentMode && feed.isExperimental !== undefined) {
-          contentMode = feed.isExperimental 
+        const feedWithExperimental = feed as unknown as { isExperimental?: boolean };
+        if (!contentMode && feedWithExperimental.isExperimental !== undefined) {
+          contentMode = feedWithExperimental.isExperimental 
             ? undefined // Non-video feed (no contentMode set)
             : 'app.bsky.feed.defs#contentModeVideo'; // Video-only feed
         }
@@ -1814,7 +1821,7 @@ export class FeedService {
           ...feed,
           contentMode, // Preserve contentMode at top level for easy access
           isExperimental: !isVideoOnly
-        };
+        } as GeneratorView & { contentMode?: string; isExperimental: boolean };
       });
       
       return processedFeeds;
@@ -1828,7 +1835,7 @@ export class FeedService {
    * @param limit - Number of channels to return
    * @returns Array of feed generator objects
    */
-  static async getStaticChannels(limit: number = 10): Promise<any[]> {
+  static async getStaticChannels(limit: number = 10): Promise<(GeneratorView & { isExperimental: boolean; contentMode?: string })[]> {
     try {
       const { StaticChannelsService } = await import('../../APIService');
       const channelDids = await StaticChannelsService.getChannels();
@@ -1861,7 +1868,7 @@ export class FeedService {
       );
 
       // Filter out null results and return up to the limit
-      return feedGenerators.filter(Boolean).slice(0, limit);
+      return feedGenerators.filter((feed): feed is GeneratorView & { isExperimental: boolean; contentMode?: string } => feed !== null).slice(0, limit);
     } catch (error: unknown) {
       return [];
     }

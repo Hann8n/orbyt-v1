@@ -57,7 +57,7 @@ export interface Comment {
     embed?: {
       $type: string;
       images?: {
-        image: any;
+        image: string | { $type: string; ref: { $link: string } };
         alt: string;
       }[];
     };
@@ -382,7 +382,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const navigation = useRouter();
 
     // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
-    const navigateToAuthorProfile = useCallback((rawHandle?: string | null, rawDid?: string | null, authorData?: any) => {
+    const navigateToAuthorProfile = useCallback((rawHandle?: string | null, rawDid?: string | null, authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }) => {
       const cleanHandle = (rawHandle || '').trim();
       const cleanDid = (rawDid || '').trim();
       
@@ -423,7 +423,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     }, [navigation, onDismiss, queryClient]);
 
     const handleAuthorPress = useCallback(
-      (handle: string, did?: string | null, authorData?: any) => {
+      (handle: string, did?: string | null, authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }) => {
         navigateToAuthorProfile(handle, did, authorData);
       },
       [navigateToAuthorProfile]
@@ -725,7 +725,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
 
     // Shimmer Image Component
 
-    const LinkThumbnail: React.FC<{ external: { uri: string; thumb?: any; title?: string; description?: string } }> = React.memo(({ external }) => {
+    const LinkThumbnail: React.FC<{ external: { uri: string; thumb?: string | { ref: { $link: string } }; title?: string; description?: string } }> = React.memo(({ external }) => {
       if (!external?.uri || !/^https?:\/\//.test(external.uri)) return null;
       
       let thumbUrl: string | undefined = undefined;
@@ -772,11 +772,13 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const renderImages = (hasText: boolean) => {
       const embed = getCommentEmbed(comment);
       
-      const isExternalEmbed = (e: any): e is { $type: string; external: { uri: string; thumb?: any; description?: string; title?: string } } => {
-        return e && typeof e === 'object' && (e.$type === 'app.bsky.embed.external' || e.$type === 'app.bsky.embed.external#view') && !!e.external;
+      const isExternalEmbed = (e: unknown): e is { $type: string; external: { uri: string; thumb?: string | { ref: { $link: string } }; description?: string; title?: string } } => {
+        if (!e || typeof e !== 'object') return false;
+        const obj = e as { $type?: unknown; external?: unknown };
+        return (obj.$type === 'app.bsky.embed.external' || obj.$type === 'app.bsky.embed.external#view') && !!obj.external;
       };
       
-      let external: { uri: string; thumb?: any; description?: string; title?: string } | undefined = undefined;
+      let external: { uri: string; thumb?: string | { ref: { $link: string } }; description?: string; title?: string } | undefined = undefined;
       if (isExternalEmbed(embed)) {
         external = embed.external;
       }
@@ -825,8 +827,10 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       
       let embedImages: { alt: string; thumb: string; fullsize: string; aspectRatio?: { width: number; height: number } }[] = [];
       const isImagesEmbed = embed?.$type === 'app.bsky.embed.images' || embed?.$type === 'app.bsky.embed.images#view';
-      if (isImagesEmbed && Array.isArray((embed as any).images)) {
-        embedImages = ((embed as any).images).filter((img: any) => img && (img.thumb || img.fullsize));
+      if (isImagesEmbed && Array.isArray((embed as { images?: unknown[] }).images)) {
+        embedImages = ((embed as { images: unknown[] }).images).filter((img: unknown): img is { thumb?: string; fullsize?: string; alt?: string; aspectRatio?: { width: number; height: number } } => 
+          typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img)
+        ) as { alt: string; thumb: string; fullsize: string; aspectRatio?: { width: number; height: number } }[];
       }
       if (!embedImages || embedImages.length === 0) {
         return null;
@@ -834,17 +838,17 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       
       const getImageLayoutStyle = (index: number, totalImages: number) => {
         if (totalImages === 1) {
-          return { width: '100%' as any, maxHeight: 300 };
+          return { width: '100%' as const, maxHeight: 300 };
         } else if (totalImages === 2) {
-          return { width: '49%' as any, maxHeight: 200 };
+          return { width: '49%' as const, maxHeight: 200 };
         } else if (totalImages === 3) {
           if (index === 0) {
-            return { width: '100%' as any, maxHeight: 180 };
+            return { width: '100%' as const, maxHeight: 180 };
           } else {
-            return { width: '49%' as any, maxHeight: 120 };
+            return { width: '49%' as const, maxHeight: 120 };
           }
         } else {
-          return { width: '49%' as any, maxHeight: 120 };
+          return { width: '49%' as const, maxHeight: 120 };
         }
       };
       

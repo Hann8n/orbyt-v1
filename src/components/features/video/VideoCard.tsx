@@ -541,7 +541,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     }, [heartScale, heartOpacity, heartPositionX, heartPositionY]);
 
     // Enhanced tap handler with double tap detection
-    const handleVideoTap = useCallback((event: any) => {
+    const handleVideoTap = useCallback((event: import('react-native').NativeSyntheticEvent<{ locationX: number; locationY: number }>) => {
       const now = Date.now();
       const x = event.nativeEvent?.locationX ?? cardHeight / 2;
       const y = event.nativeEvent?.locationY ?? cardHeight / 2;

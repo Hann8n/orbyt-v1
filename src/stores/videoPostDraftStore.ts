@@ -4,12 +4,12 @@ interface VideoPostDraft {
   videoPath: string | null;
   segments: string | null;
   thumbnailPath: string | null;
-  textOverlays: any[];
+  textOverlays: import('../types').TextOverlay[];
   description: string;
   selectedContentWarnings: string[];
   otherWarning: string;
   commentFilter: string | null;
-  selectedChannel: any | null;
+  selectedChannel: import('../stores/userStore').SubscribedChannel | null;
 }
 
 interface VideoPostDraftState {

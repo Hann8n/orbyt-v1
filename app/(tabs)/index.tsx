@@ -113,6 +113,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.black,
+    // Prevent white lines at edges when scrolling under tab bar
+    overflow: 'hidden',
   },
 });
 

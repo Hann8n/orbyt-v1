@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, StyleSheet, Alert, Text, Pressable, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { GiftedChat } from 'react-native-gifted-chat';
+import type { ComposerProps, SendProps, InputToolbarProps, MessageProps, DayProps } from 'react-native-gifted-chat';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -301,7 +302,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   };
 
 
-  const renderComposer = useCallback((props: any) => {
+  const renderComposer = useCallback((props: ComposerProps) => {
     return (
       <View style={styles.inputWrapper}>
         <TextInput
@@ -321,7 +322,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     );
   }, []);
 
-  const renderSend = useCallback((props: any) => {
+  const renderSend = useCallback((props: SendProps<ChatMessage>) => {
     const hasText = props.text && props.text.trim().length > 0;
     const isDisabled = !hasText || sendMessageMutation.isPending;
     const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
@@ -337,7 +338,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
             pressed && { opacity: 0.7 }
           ]}
           onPress={() => {
-            if (props.text && props.text.trim() && !sendMessageMutation.isPending) {
+            if (props.text && props.text.trim() && !sendMessageMutation.isPending && props.onSend) {
               // Create the message object that GiftedChat expects
               const message: ChatMessage = {
                 _id: Math.random().toString(36).substr(2, 9),
@@ -349,7 +350,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
                   avatar: currentUser?.avatar,
                 },
               };
-              props.onSend([message]);
+              props.onSend([message], true);
             }
           }}
           disabled={isDisabled}
@@ -396,7 +397,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     );
   }, [currentUserId, currentUser, sendMessageMutation.isPending]);
 
-  const renderInputToolbar = useCallback((props: any) => {
+  const renderInputToolbar = useCallback((props: InputToolbarProps<ChatMessage>) => {
     // Only show accept/reject buttons if conversation status is not "accepted" (using API status directly)
     // AND the current user is the recipient (didn't initiate the conversation)
     const showAcceptReject = conversationData?.status !== 'accepted' && !currentUserInitiated;
@@ -482,20 +483,20 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     return null;
   }, [otherUser, otherUserProfile, otherUserDid]);
 
-  const renderDay = useCallback((dayProps: any) => {
-    const date = dayProps.currentMessage?.createdAt;
+  const renderDay = useCallback((props: DayProps) => {
+    const date = props.createdAt;
     if (!date) return null;
     
     return (
       <View style={styles.daySeparator}>
         <View style={styles.daySeparatorLine} />
-        <Text style={styles.daySeparatorText}>{formatDate(date)}</Text>
+        <Text style={styles.daySeparatorText}>{formatDate(date instanceof Date ? date : new Date(date))}</Text>
         <View style={styles.daySeparatorLine} />
       </View>
     );
   }, []);
 
-  const renderMessage = useCallback((props: any) => {
+  const renderMessage = useCallback((props: MessageProps<ChatMessage>) => {
     const message = props.currentMessage;
     const hasEmbed = message.embed?.record;
     const isCurrentUser = message.user._id === currentUserId;

@@ -7,6 +7,7 @@ import {
   StatusBar,
   Animated as RNAnimated,
   Pressable,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -180,7 +181,7 @@ const SwipeableFeedContainer = memo(forwardRef<ScrollToTopRef, SwipeableFeedCont
 
 
   // Handle page change from PagerView - final confirmation after transition completes
-  const handlePageSelected = useCallback((event: any) => {
+  const handlePageSelected = useCallback((event: NativeSyntheticEvent<{ position: number }>) => {
     if (!hasAppliedInitialIndexRef.current) return;
     
     const nextIndex = event.nativeEvent.position;
@@ -221,7 +222,7 @@ const SwipeableFeedContainer = memo(forwardRef<ScrollToTopRef, SwipeableFeedCont
   }, [feedOptions]);
 
   // Handle page scroll from PagerView - update visibility and indicator immediately during scroll
-  const handlePageScroll = useCallback((event: any) => {
+  const handlePageScroll = useCallback((event: NativeSyntheticEvent<{ position: number; offset: number }>) => {
     const { position, offset } = event.nativeEvent;
     const progress = position + offset;
     const roundedPosition = Math.round(progress);
@@ -244,7 +245,7 @@ const SwipeableFeedContainer = memo(forwardRef<ScrollToTopRef, SwipeableFeedCont
   }, [animateFeedBar, feedOptions.length]);
 
   // Handle scroll state changes from PagerView
-  const handlePageScrollStateChanged = useCallback((event: any) => {
+  const handlePageScrollStateChanged = useCallback((event: NativeSyntheticEvent<{ pageScrollState: 'idle' | 'dragging' | 'settling' }>) => {
     const state = event.nativeEvent.pageScrollState;
     // Feed bar stays visible, no special handling needed
   }, []);

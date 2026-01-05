@@ -64,7 +64,19 @@ interface CommentRecord {
       tag?: string;
     }>;
   }>;
-  embed?: any;
+  embed?: {
+    $type: string;
+    images?: Array<{
+      image: string | { $type: string; ref: { $link: string } };
+      alt: string;
+    }>;
+    external?: {
+      uri: string;
+      thumb?: string | { ref: { $link: string } };
+      title?: string;
+      description?: string;
+    };
+  };
 }
 
 // Re-export types from CommentItem
@@ -372,7 +384,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     fetchNextPage: fetchNextCommentsPage,
     hasNextPage: hasNextCommentsPage,
     isFetchingNextPage: isFetchingNextCommentsPage,
-  } = useInfiniteQuery<{ comments: any[]; cursor: string | null }, Error>({
+  } = useInfiniteQuery<{ comments: Comment[]; cursor: string | null }, Error>({
     queryKey: queryKeys.comments.byPost(post?.uri || ''),
     queryFn: ({ pageParam }) => AtprotoService.getComments(post?.uri || '', pageParam as string | null),
     getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
@@ -382,7 +394,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   });
 
   const comments = useMemo(
-    () => commentsPages?.pages.flatMap((p) => (p as any).comments) ?? [],
+    () => commentsPages?.pages.flatMap((p) => p.comments) ?? [],
     [commentsPages]
   );
 
@@ -450,7 +462,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     fetchNextPage: fetchNextLikesPage,
     hasNextPage: hasNextLikesPage,
     isFetchingNextPage: isFetchingNextLikesPage,
-  } = useInfiniteQuery<{ likes: any[]; cursor: string | null }, Error>({
+  } = useInfiniteQuery<{ likes: Like[]; cursor: string | null }, Error>({
     queryKey: queryKeys.likes.byPost(post?.uri || ''),
     queryFn: ({ pageParam }) => AtprotoService.getLikes(post?.uri || '', pageParam as string | null),
     getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
@@ -459,7 +471,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   });
 
   const likes = useMemo(
-    () => likesPages?.pages.flatMap((p) => (p as any).likes) ?? [],
+    () => likesPages?.pages.flatMap((p) => p.likes) ?? [],
     [likesPages]
   );
 
@@ -645,7 +657,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     setIsInputFocused(false);
   }, []);
 
-  const handleDetentChange = useCallback((e: any) => {
+  const handleDetentChange = useCallback((e: { nativeEvent: { index: number } }) => {
     if (isInputFocused && e.nativeEvent.index === 0) {
       sheetRef.current?.resize(1);
     }
@@ -700,7 +712,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           <TabNavigation
             tabs={tabOptions}
             activeTab={activeTab}
-            onTabPress={handleTabPress as any}
+            onTabPress={handleTabPress}
             textColor={Colors.white}
             backgroundColor="transparent"
             variant="comments"

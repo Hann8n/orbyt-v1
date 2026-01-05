@@ -114,7 +114,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   );
 
   // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
-  const navigateToAuthorProfile = useCallback((rawHandle?: string | null, authorData?: any) => {
+  const navigateToAuthorProfile = useCallback((rawHandle?: string | null, authorData?: { did?: string; handle?: string; displayName?: string; avatar?: string }) => {
     const cleanHandle = (rawHandle || '').trim();
     if (!cleanHandle) return;
     
@@ -167,7 +167,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       authorDid: post.author?.did || '',
       authorName: post.author?.displayName,
       authorHandle: post.author?.handle,
-      feedOption: feedOption as any,
+      feedOption: feedOption,
       sourceFeed,
     });
   }, [post.uri, post.cid, post.author, feedOption, sourceFeed, presentShareSheet]);
@@ -216,7 +216,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
       transform: [
         { rotate: rotateStr },
         { scale: repostScale.value },
-      ] as any,
+      ],
     };
   });
 

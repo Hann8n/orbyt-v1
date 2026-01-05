@@ -29,7 +29,22 @@ import { queryKeys } from '../utils/queryKeys';
 
 // Lazy import feedService to avoid circular dependency
 // FeedService imports useUserStore, so we import it dynamically when needed
-let feedService: any = null;
+// Using a minimal interface type to avoid importing React Query types here
+let feedService: { 
+  createInfiniteQuery: (
+    feedOption: string, 
+    userDid?: string, 
+    queryOptions?: Record<string, unknown>
+  ) => {
+    data?: { pages: Array<{ feed: unknown[]; cursor: string | null }>; pageParams: unknown[] };
+    isLoading: boolean;
+    isFetching: boolean;
+    fetchNextPage: () => Promise<unknown>;
+    hasNextPage: boolean;
+    refetch: () => Promise<unknown>;
+    [key: string]: unknown; // Allow other useInfiniteQuery properties
+  }
+} | null = null;
 const getFeedService = () => {
   if (!feedService) {
     feedService = require('../services/FeedService').feedService;
@@ -109,9 +124,9 @@ interface UserState {
   
   // Account management
   switchAccount: (did: string, onComplete?: () => void) => Promise<void>;
-  addAccount: (oauthSession: OAuthSession, profileData?: any, originalIdentifier?: string) => Promise<void>;
+  addAccount: (oauthSession: OAuthSession, profileData?: { displayName?: string; avatar?: string; handle?: string; did?: string }, originalIdentifier?: string) => Promise<void>;
   removeAccount: (did: string) => Promise<void>;
-  updateAccountProfile: (did: string, profileData: any) => Promise<void>;
+  updateAccountProfile: (did: string, profileData: { displayName?: string; avatar?: string; handle?: string }) => Promise<void>;
   
   // Channel subscription management
   subscribeToChannel: (channelData: {
@@ -161,7 +176,7 @@ interface UserState {
   clearAllCaches: () => Promise<void>;
   
   // Moderation integration
-  getModerationOpts: () => Promise<any>;
+  getModerationOpts: () => Promise<import('../services/ModerationTypes').ModerationOpts>;
   
   // Session management
   checkSessionHealth: () => Promise<boolean>;
@@ -569,7 +584,7 @@ export const useUserStore = create<UserState>()(
         }
       },
       
-      addAccount: async (oauthSession: OAuthSession, profileData?: any, originalIdentifier?: string) => {
+      addAccount: async (oauthSession: OAuthSession, profileData?: { displayName?: string; avatar?: string; handle?: string; did?: string }, originalIdentifier?: string) => {
         try {
           const accounts = get().savedAccounts;
           
@@ -654,7 +669,7 @@ export const useUserStore = create<UserState>()(
         }
       },
       
-      updateAccountProfile: async (did: string, profileData: any) => {
+      updateAccountProfile: async (did: string, profileData: { displayName?: string; avatar?: string; handle?: string }) => {
         try {
           
           const accounts = get().savedAccounts.map(acc => 
@@ -1278,7 +1293,7 @@ export const useUserStore = create<UserState>()(
           const normalized = Array.isArray(accounts) ? accounts : [];
           
           // Migration: Convert old accounts with pdsUrl to new originalIdentifier format
-          const migratedAccounts = normalized.map((account: any) => {
+          const migratedAccounts = normalized.map((account: SavedAccount & { pdsUrl?: string }) => {
             if (account.pdsUrl && !account.originalIdentifier) {
               // For backward compatibility, use handle as originalIdentifier (most common case)
               return {
@@ -1441,7 +1456,7 @@ export const useUserStore = create<UserState>()(
                 cursor,
               });
               
-              const members = response.data.items.map((item: any) => item.subject.did);
+              const members = response.data.items.map((item: { subject: { did: string } }) => item.subject.did);
               allMembers.push(...members);
               cursor = response.data.cursor;
             } catch (error) {
@@ -1682,7 +1697,7 @@ export const useModeration = () => {
   
   return {
     getModerationOpts,
-    moderatePost: async (post: any, context?: 'contentList' | 'contentView' | 'avatar' | 'banner') => {
+    moderatePost: async (post: import('../services/api/types').ExtendedFeedViewPost | import('../services/api/types').ExtendedPostView, context?: 'contentList' | 'contentView' | 'avatar' | 'banner') => {
       return ModerationService.moderatePost(post, context || 'contentList', agent);
     },
     moderateProfile: ModerationService.moderateProfile,
@@ -1690,7 +1705,7 @@ export const useModeration = () => {
     getModerationSettings: async () => {
       return ModerationService.getModerationSettings(agent);
     },
-    saveModerationSettings: async (settings: any) => {
+    saveModerationSettings: async (settings: import('../services/ModerationTypes').ModerationSettings) => {
       if (!agent) {
         throw new Error('No agent available. Please ensure you are logged in.');
       }

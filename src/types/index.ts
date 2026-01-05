@@ -3,6 +3,8 @@
  * Organized by namespace convention
  */
 
+import type React from 'react';
+
 // ============================================================================
 // UI Component Types
 // ============================================================================
@@ -43,10 +45,10 @@ export interface ListFeedViewProps {
   isRefreshing?: boolean;
   isProfileLoading?: boolean;
   onScrubbingChange?: (isScrubbing: boolean) => void;
-  onScroll?: (event: { nativeEvent: any }) => void;
+  onScroll?: (event: { nativeEvent: import('react-native').NativeScrollEvent }) => void;
   onVerticalScroll?: (scrollY: number) => void;
   forceError?: boolean;
-  ListComponent?: any;
+  ListComponent?: React.ComponentType<unknown> | null;
   visibilityKey?: string;
   targetScrollIndex?: number | null;
   dataUpdatedAt?: number;
@@ -176,7 +178,7 @@ export interface FeedItem {
 export interface AppError {
   message: string;
   code?: string;
-  details?: any;
+  details?: unknown;
 }
 
 // ============================================================================
