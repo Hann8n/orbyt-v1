@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { BackArrowIcon } from './Icon';
+import { useRouter } from 'expo-router';
+import { BackArrowIcon } from './Icon';
 import CloseButton from './CloseButton';
 import { Colors } from './UI';
 
@@ -38,7 +39,11 @@ const ListHeader: React.FC<ListHeaderProps> = ({
   style,
   titleIndent = false,
 }) => {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+  
+  const handleBackPress = onBackPress || (() => router.back());
+  const handleClosePress = onClosePress || (() => router.back());
 
   const containerStyle = [
     styles.container,
@@ -67,7 +72,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
         <View style={[styles.rightSection, styles.sheetRightSection]}>
           {right ?? (
             showCloseButton ? (
-              <CloseButton onPress={onClosePress || (() => {})} />
+              <CloseButton onPress={handleClosePress} />
             ) : (
               <View style={styles.rightSpacer} />
             )
@@ -84,7 +89,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
         <View style={styles.stackedLeftRow}>
           {left ?? (
             showBackButton ? (
-              <Pressable onPress={onBackPress}>
+              <Pressable onPress={handleBackPress}>
                 <BackArrowIcon size={28} color={textColor} />
               </Pressable>
             ) : null

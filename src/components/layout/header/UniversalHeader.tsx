@@ -392,18 +392,18 @@ const HeaderContentComponent = memo<{
   backgroundColor: string;
   customDescription?: React.ReactNode;
 }>(({ content, textColor, backgroundColor, customDescription }) => {
-  const navigation = useRouter();
+  const router = useRouter();
 
   const navigateToAuthorProfile = useCallback((handle: string) => {
     const clean = handle.trim();
     // Require a dot to resemble a valid Bluesky handle (e.g., name.bsky.social)
     if (!clean || !clean.includes('.')) return;
     
-    navigation.push(`/profile/${clean}`);
-  }, [navigation]);
+    router.push(`/profile/${clean}`);
+  }, [router]);
 
   const navigateToHashtagFeed = useCallback((hashtag: string) => {
-    navigation.push({
+    router.push({
       pathname: '/(modals)/feed',
       params: {
         feedOption: `hashtag:${hashtag}`,
@@ -411,7 +411,7 @@ const HeaderContentComponent = memo<{
         searchQuery: `#${hashtag}`,
       }
     });
-  }, [navigation]);
+  }, [router]);
 
   // Don't render empty content
   if (!content.title && !content.avatar && !content.customTitle) {
@@ -526,16 +526,16 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   reserveTopForOverlayButtons = false,
   contentScrollProgress,
 }) => {
-  const navigation = useRouter();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const handleBackPress = useCallback(() => {
     if (onBackPress) {
       onBackPress();
     } else {
-      navigation.back();
+      router.back();
     }
-  }, [onBackPress, navigation]);
+  }, [onBackPress, router]);
 
   const headerStyle = useMemo(() => {
     const baseTopPadding = 12;

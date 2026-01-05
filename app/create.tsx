@@ -106,7 +106,7 @@ const CreateScreen: React.FC = () => {
     }
   }, [selectedDuration, totalDurationShared]);
   
-  const navigation = useRouter();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const listenerSubscription = useRef<Record<string, EventSubscription>>({});
@@ -757,14 +757,14 @@ const CreateScreen: React.FC = () => {
               segmentManagerRef.current?.clear();
               totalDurationShared.value = 0;
               setSegmentUpdateTrigger(prev => prev + 1);
-              navigation.back();
+              router.back();
             },
           },
         ]
       );
     } else {
       // No recordings, just navigate back
-      navigation.back();
+      router.back();
     }
   };
 
@@ -793,14 +793,14 @@ const CreateScreen: React.FC = () => {
       if (isDeveloper) {
         // For developers: pass segments to video-editor (same as post screen)
         if (videoSegments.length === 1) {
-          navigation.push({
+          router.push({
             pathname: '/video-editor',
             params: {
               videoPath: videoSegments[0].video.uri,
             }
           });
         } else {
-          navigation.push({
+          router.push({
             pathname: '/video-editor',
             params: {
               segments: JSON.stringify(videoSegments),
@@ -810,7 +810,7 @@ const CreateScreen: React.FC = () => {
       } else {
         // For non-developers: pass segments to post screen (same as before)
         if (videoSegments.length === 1) {
-          navigation.push({
+          router.push({
             pathname: '/post/[id]',
             params: {
               id: 'new',
@@ -818,7 +818,7 @@ const CreateScreen: React.FC = () => {
             }
           });
         } else {
-          navigation.push({
+          router.push({
             pathname: '/post/[id]',
             params: {
               id: 'new',
@@ -828,7 +828,7 @@ const CreateScreen: React.FC = () => {
         }
       }
     }
-  }, [navigation, isProcessing, stopRecording, isDeveloper]);
+  }, [router, isProcessing, stopRecording, isDeveloper]);
 
   // Render content based on the state of permissions and device availability
   const renderContent = () => {

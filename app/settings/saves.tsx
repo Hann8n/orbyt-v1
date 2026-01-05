@@ -7,7 +7,7 @@ import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
 
 const SavesScreen: React.FC = () => {
-  const navigation = useRouter();
+  const router = useRouter();
   const { currentUser } = useCurrentUser();
 
   return (
@@ -16,7 +16,7 @@ const SavesScreen: React.FC = () => {
         mode="sheet"
         title="Your saves"
         showCloseButton
-        onClosePress={() => navigation.back()}
+        onClosePress={() => router.back()}
         applySafeAreaTop={false}
         style={{ marginHorizontal: -5 }}
       />

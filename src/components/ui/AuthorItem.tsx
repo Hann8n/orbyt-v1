@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { BORDER_RADIUS } from '../../utils/constants';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -9,8 +9,7 @@ import { hexToRGBA } from '../../utils/formatting/colorUtils';
 import { Colors } from './UI';
 import UI from './UI';
 
-import { useProfile, getProfileColors, useFollowMutation, prepopulateProfileCache } from '../../services/cache/ProfileCache';
-import { useCurrentUser } from '../../stores/userStore';
+import { useProfile, useFollowMutation, prepopulateProfileCache } from '../../services/cache/ProfileCache';
 import { formatHandle } from '../../utils/helpers';
 import { useQueryClient } from '@tanstack/react-query';
  
@@ -52,15 +51,10 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   showArrow = true,
   onPress,
   style,
-  showDate = false,
-  date,
   showFollowButton = false,
   isFollowing = false,
   onFollowPress,
   nameFontWeight = 'Firma-Bold',
-  handleFontWeight = 'Firma-SemiBold',
-  handleColor,
-  hideHandleLine,
   hideDisplayName,
   showRing,
   customFontSize,
@@ -68,7 +62,7 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
   onDeletePress,
   showCheckmark = false,
 }) => {
-  const navigation = useRouter();
+  const router = useRouter();
   const queryClient = useQueryClient();
   
   // Size configuration
@@ -123,9 +117,9 @@ const AuthorItem: React.FC<AuthorItemProps> = ({
       }
       
       // Navigate back first to dismiss any modal/sheet, then navigate to profile
-      navigation.back();
+      router.back();
       setTimeout(() => {
-        navigation.push(`/profile/${clean}`);
+        router.push(`/profile/${clean}`);
       }, 100);
     }
   };

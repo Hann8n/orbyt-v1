@@ -23,7 +23,7 @@ interface ContentTypeOption {
 }
 
 const ContentFiltersScreen: React.FC = () => {
-  const navigation = useRouter();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { saveModerationSettings } = useModeration();
   const { agent, isAuthenticated, currentUser } = useUserStoreState();
@@ -177,7 +177,7 @@ const ContentFiltersScreen: React.FC = () => {
         mode="sheet"
         title="Content filters"
         showCloseButton
-        onClosePress={() => navigation.back()}
+        onClosePress={() => router.back()}
         applySafeAreaTop={false}
         style={{ marginHorizontal: -5 }}
       />

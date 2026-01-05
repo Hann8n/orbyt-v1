@@ -469,7 +469,7 @@ const VideoPostScreen: React.FC = () => {
   }, [thumbnailPath]);
   
   const textOverlays = (params.textOverlays as any) || [];
-  const navigation = useRouter();
+  const router = useRouter();
   
   // Draft store
   const { setDraft, clearDraft, getDraft } = useVideoPostDraftStore();
@@ -655,7 +655,7 @@ const VideoPostScreen: React.FC = () => {
           [
             {
               text: 'Go Back',
-              onPress: () => navigation.back(),
+              onPress: () => router.back(),
             }
           ]
         );
@@ -663,7 +663,7 @@ const VideoPostScreen: React.FC = () => {
     };
     
     mergeSegments();
-  }, [segmentsParam, mergedVideoPath, navigation]);
+  }, [segmentsParam, mergedVideoPath, router]);
 
   // Determine the active video path (merged > provided > null)
   const activeVideoPath = mergedVideoPath || videoPath;
@@ -866,7 +866,7 @@ const VideoPostScreen: React.FC = () => {
       clearDraft();
       
       // Close the current screen and navigate back to main
-      navigation.replace('/(tabs)');
+      router.replace('/(tabs)');
       
     } catch (error: any) {
       logger.error('Video post upload failed', error, {
@@ -939,7 +939,7 @@ const VideoPostScreen: React.FC = () => {
   };
 
   const handleCancel = () => {
-    navigation.back();
+    router.back();
   };
 
   const handleDownload = async () => {

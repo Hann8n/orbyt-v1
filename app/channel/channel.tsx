@@ -22,12 +22,12 @@ import Icon, { Loading3FillIcon, BackArrowIcon } from '../../src/components/ui/I
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 import { isOrbytChannel, getChannelByUri, channelToHashtag } from '../../src/utils/orbytChannels';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { useSharedValue } from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 
 interface ChannelScreenProps {}
 
 const Channel: React.FC<ChannelScreenProps> = memo(() => {
-  const navigation = useRouter();
+  const router = useRouter();
   const params = useLocalSearchParams();
   useVisibilityRouteTracker('channel');
   const isRouteFocused = useVisibilityRouteIsActive('channel');
@@ -193,8 +193,8 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
 
   // Handle back press
   const handleBackPress = useCallback(() => {
-    navigation.back();
-  }, [navigation]);
+    router.back();
+  }, [router]);
 
   // Handle refresh - refreshes both channel metadata and feed
   // FeedRenderer will handle feed refresh automatically when isRefreshing is true
@@ -215,7 +215,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
   }, [refetchChannel]);
 
   // Handle position change for scroll tracking
-  const handlePositionChange = useCallback((position: number) => {
+  const handlePositionChange = useCallback(() => {
   }, []);
 
 
@@ -236,7 +236,7 @@ const Channel: React.FC<ChannelScreenProps> = memo(() => {
       </Pressable>
       <Pressable
         style={[styles.errorButton, styles.secondaryButton, { borderColor: (channelColors.textColor || '#fff') + '44' }]}
-        onPress={() => navigation.back()}
+        onPress={() => router.back()}
       >
         <Text style={[styles.errorButtonText, { color: channelColors.textColor || '#fff' }]}>Go Back</Text>
       </Pressable>

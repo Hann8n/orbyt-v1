@@ -10,7 +10,7 @@ import { Colors } from '../../src/components/ui/UI';
 import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src/hooks';
 
 const FeedScreen: React.FC = memo(() => {
-  const navigation = useRouter();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   useVisibilityRouteTracker('feed-modal');
@@ -58,12 +58,12 @@ const FeedScreen: React.FC = memo(() => {
   // Memoized close handler - use dismissTo for reliable modal dismissal
   const handleClose = useCallback(() => {
     // Use dismissTo to dismiss modal stack back to tabs
-    if (navigation.dismissTo) {
-      navigation.dismissTo('/(tabs)');
+    if (router.dismissTo) {
+      router.dismissTo('/(tabs)');
     } else {
-      navigation.back();
+      router.back();
     }
-  }, [navigation]);
+  }, [router]);
 
   return (
     <View style={styles.container}>

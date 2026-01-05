@@ -1,13 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setAppIcon } from '@mozzius/expo-dynamic-app-icon';
 
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
-import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
+import { settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
 
 type AppIconKey = 'orBYTE' | null;
@@ -33,8 +32,7 @@ const ICON_OPTIONS: {
 ];
 
 const AppIconSettingsScreen: React.FC = () => {
-  const navigation = useRouter();
-  const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSelectIcon = useCallback(
@@ -64,7 +62,7 @@ const AppIconSettingsScreen: React.FC = () => {
         mode="sheet"
         title="App icon"
         showCloseButton
-        onClosePress={() => navigation.back()}
+        onClosePress={() => router.back()}
         applySafeAreaTop={Platform.OS === 'android'}
         style={{ marginHorizontal: -5 }}
         backgroundColor={Colors.black}

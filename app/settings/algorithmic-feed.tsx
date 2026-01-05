@@ -56,7 +56,7 @@ const FEED_OPTIONS: FeedProviderOption[] = [
 ];
 
 const AlgorithmicFeedScreen: React.FC = () => {
-  const navigation = useRouter();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { algorithmicFeedProvider, setAlgorithmicFeedProvider } = useAlgorithmicFeedProvider();
   const [selectedUri, setSelectedUri] = useState<string | null>(algorithmicFeedProvider);
@@ -142,12 +142,12 @@ const AlgorithmicFeedScreen: React.FC = () => {
     if (selectedChannel?.uri) {
       setIsSheetVisible(false);
       setSelectedChannel(null);
-      navigation.push({
+      router.push({
         pathname: '/channel/[id]',
         params: { id: selectedChannel.uri }
       });
     }
-  }, [selectedChannel, navigation]);
+  }, [selectedChannel, router]);
 
   const handleUnsubscribe = useCallback(async () => {
     if (!selectedChannel?.uri) return;
@@ -205,11 +205,11 @@ const AlgorithmicFeedScreen: React.FC = () => {
   }, [channels, subscribeToChannel, unsubscribeFromChannel]);
 
   const handleExplorePress = useCallback(() => {
-    navigation.back();
+    router.back();
     setTimeout(() => {
-      navigation.push('/(tabs)/explore');
+      router.push('/(tabs)/explore');
     }, 100);
-  }, [navigation]);
+  }, [router]);
 
   return (
     <View style={settingsLayoutStyles.container}>
@@ -217,7 +217,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
         mode="sheet"
         title="Your mix"
         showCloseButton
-        onClosePress={() => navigation.back()}
+        onClosePress={() => router.back()}
         applySafeAreaTop={false}
         style={{ marginHorizontal: -5 }}
       />

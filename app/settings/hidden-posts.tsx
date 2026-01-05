@@ -24,7 +24,7 @@ interface HiddenPost {
 }
 
 const HiddenPostsScreen: React.FC = () => {
-  const navigation = useRouter();
+  const router = useRouter();
   const { agent, currentUser } = useUserStoreState();
   const { settings: moderationSettings } = useModerationSettings(currentUser?.did ?? undefined);
   const [hiddenPosts, setHiddenPosts] = useState<HiddenPost[]>([]);
@@ -143,7 +143,7 @@ const HiddenPostsScreen: React.FC = () => {
           mode="sheet"
           title="hidden posts"
           showCloseButton
-          onClosePress={() => navigation.back()}
+          onClosePress={() => router.back()}
           applySafeAreaTop={false}
           style={{ marginHorizontal: -5 }}
         />
@@ -161,7 +161,7 @@ const HiddenPostsScreen: React.FC = () => {
         mode="sheet"
         title="hidden posts"
         showCloseButton
-        onClosePress={() => navigation.back()}
+        onClosePress={() => router.back()}
         applySafeAreaTop={false}
         style={{ marginHorizontal: -5 }}
       />

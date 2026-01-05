@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, View, Text, StyleSheet, Pressable, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,7 +7,6 @@ import { useSubscribedChannels } from '../../src/hooks/useSubscribedChannels';
 import { Colors } from '../../src/components/ui/UI';
 import { Avatar, Icon } from '../../src/components/ui/UI';
 import { BORDER_RADIUS } from '../../src/utils/constants';
-import { hexToRGBA } from '../../src/utils/formatting/colorUtils';
 import ListHeader from '../../src/components/ui/ListHeader';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
 import { isOrbytChannel, getChannelByUri, getChannelAvatarUri, shouldShowChannelSlash } from '../../src/utils/orbytChannels';
@@ -25,7 +24,7 @@ interface ChannelUser {
 }
 
 export default function ChannelManagementScreen() {
-  const navigation = useRouter();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   
   const {
@@ -80,12 +79,12 @@ export default function ChannelManagementScreen() {
     if (selectedChannel?.uri) {
       setIsSheetVisible(false);
       setSelectedChannel(null);
-      navigation.push({
+      router.push({
         pathname: '/channel/[id]',
         params: { id: selectedChannel.uri }
       });
     }
-  }, [selectedChannel, navigation]);
+  }, [selectedChannel, router]);
 
   const handleUnsubscribe = useCallback(async () => {
     if (!selectedChannel?.uri) return;
@@ -113,11 +112,11 @@ export default function ChannelManagementScreen() {
   }, [selectedChannel, unsubscribeFromChannel]);
 
   const handleExplorePress = useCallback(() => {
-    navigation.back();
+    router.back();
     setTimeout(() => {
-      navigation.push('/(tabs)/explore');
+      router.push('/(tabs)/explore');
     }, 100);
-  }, [navigation]);
+  }, [router]);
 
   const renderChannelItem = useCallback(({ item }: { 
     item: ChannelUser; 
@@ -184,14 +183,12 @@ export default function ChannelManagementScreen() {
         mode="sheet"
         title="channels"
         showCloseButton
-        onClosePress={() => navigation.back()}
+        onClosePress={() => router.back()}
         applySafeAreaTop={false}
         style={{ marginHorizontal: -5 }}
       />
     </View>
-  ), [navigation]);
-
-  const sheetTitle = displayedTitle || 'Channel Options';
+  ), [router]);
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.black }]}>

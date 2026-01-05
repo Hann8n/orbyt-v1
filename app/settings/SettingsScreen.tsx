@@ -28,7 +28,7 @@ import ChannelCache from '../../src/services/cache/ChannelCache';
 declare let window: any;
 
 const SettingsScreen: React.FC = () => {
-  const navigation = useRouter();
+  const router = useRouter();
   const onLogout = useAuth().signOut;
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -231,21 +231,21 @@ const SettingsScreen: React.FC = () => {
           id: 'followers',
           label: 'Your followers',
           icon: 'users',
-          onPress: () => navigation.push('/settings/followers'),
+          onPress: () => router.push('/settings/followers'),
           showChevron: false
         },
         {
           id: 'following',
           label: 'People you follow',
           icon: 'user-plus',
-          onPress: () => navigation.push('/settings/following'),
+          onPress: () => router.push('/settings/following'),
           showChevron: false
         },
         {
           id: 'saves',
           label: 'Your saves',
           icon: 'bookmark',
-          onPress: () => navigation.push('/settings/saves'),
+          onPress: () => router.push('/settings/saves'),
           showChevron: false
         }
       ]
@@ -268,13 +268,13 @@ const SettingsScreen: React.FC = () => {
         {
           id: 'blocked-users',
           label: 'Blocked accounts',
-          onPress: () => navigation.push('/settings/blocked'),
+          onPress: () => router.push('/settings/blocked'),
           showChevron: false
         },
         {
           id: 'muted-users',
           label: 'Muted accounts',
-          onPress: () => navigation.push('/settings/muted'),
+          onPress: () => router.push('/settings/muted'),
           showChevron: false
         },
       ]
@@ -286,28 +286,28 @@ const SettingsScreen: React.FC = () => {
           id: 'content-filters',
           label: 'Content filters',
           icon: 'filter',
-          onPress: () => navigation.push('/settings/content-filters'),
+          onPress: () => router.push('/settings/content-filters'),
           showChevron: true
         },
         {
           id: 'algorithmic-feed',
           label: 'Your mix',
           icon: 'sparkles',
-          onPress: () => navigation.push('/settings/algorithmic-feed'),
+          onPress: () => router.push('/settings/algorithmic-feed'),
           showChevron: true
         },
         ...(isDeveloper ? [{
           id: 'app-icon',
           label: 'App icon',
           icon: 'device-tv',
-          onPress: () => navigation.push('/settings/app-icon'),
+          onPress: () => router.push('/settings/app-icon'),
           showChevron: true
         }] : []),
         ...(__DEV__ ? [{
           id: 'route-navigator',
           label: 'Route Navigator',
           icon: 'information-line',
-          onPress: () => navigation.push('/settings/route-navigator'),
+          onPress: () => router.push('/settings/route-navigator'),
           showChevron: true
         }] : []),
         // {
@@ -378,7 +378,7 @@ const SettingsScreen: React.FC = () => {
           label: savedAccounts.length > 1 ? 'Switch account' : 'Add an account',
           icon: 'user',
           onPress: () => {
-            navigation.back();
+            router.back();
             // Ensure modal close animation completes before presenting account switcher
             // Account switcher will show "Add Account" options by default if only one account
             setTimeout(() => presentAccountSwitcher(), 350);
@@ -463,7 +463,7 @@ const SettingsScreen: React.FC = () => {
         mode="sheet"
         title="Settings"
         showCloseButton
-        onClosePress={() => navigation.back()}
+        onClosePress={() => router.back()}
         applySafeAreaTop={Platform.OS === 'android'}
         backgroundColor={Colors.black}
         titleIndent={true}

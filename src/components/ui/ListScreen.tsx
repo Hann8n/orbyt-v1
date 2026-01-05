@@ -68,7 +68,7 @@ const ListScreen: React.FC<ListScreenProps> = ({
   onUserPress,
   onActionPress,
 }) => {
-  const navigation = useRouter();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [actionUsers, setActionUsers] = useState<Set<string>>(new Set());
   const followMutation = useFollowMutation();
@@ -198,11 +198,11 @@ const ListScreen: React.FC<ListScreenProps> = ({
       mode="sheet"
       title={title}
       showCloseButton
-              onClosePress={() => navigation.back()}
+              onClosePress={() => router.back()}
       applySafeAreaTop={false}
       style={{ marginHorizontal: -5 }}
     />
-  ), [title, navigation]);
+  ), [title, router]);
 
   if (isLoading) {
     return (
