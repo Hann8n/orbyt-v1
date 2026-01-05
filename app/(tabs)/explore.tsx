@@ -1145,15 +1145,11 @@ const ExploreScreen: React.FC = () => {
 
   // Debounce search query
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchQuery) {
-        setDebouncedQuery(searchQuery);
-      } else {
-        setDebouncedQuery('');
-      }
+    const timeoutId = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
     }, 500);
 
-    return () => clearTimeout(delayDebounceFn);
+    return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
   // Search feed option
@@ -1432,11 +1428,12 @@ const ExploreScreen: React.FC = () => {
 
   const handleClearSearch = () => {
     setSearchQuery('');
+    setDebouncedQuery(''); // Clear immediately
     setIsSearchFocused(false);
     searchInputRef.current?.blur();
-    // Animate out
-    searchProgress.value = withTiming(0, { duration: 200 });
-    contentOpacity.value = withTiming(1, { duration: 200 });
+    // Instant clear - no animation delay
+    searchProgress.value = 0;
+    contentOpacity.value = 1;
   };
 
   const isSearching = isSearchFocused || debouncedQuery.length > 0;
@@ -1791,7 +1788,6 @@ const ExploreScreen: React.FC = () => {
               keyboardAppearance="dark"
               returnKeyType="search"
               textAlignVertical="center"
-              pointerEvents="none"
               {...(Platform.OS === 'android' && { includeFontPadding: false })}
             />
           </View>
