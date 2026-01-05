@@ -1,2 +1,0 @@
-# This file ensures the .well-known directory is tracked by git
-# Some hosting platforms ignore empty directories
