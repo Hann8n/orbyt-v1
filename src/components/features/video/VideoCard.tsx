@@ -177,6 +177,8 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const videoSource = createVideoSource(videoUrl);
     
     // Create expo-video player with setup callback
+    // expo-video's useVideoPlayer automatically handles player lifecycle and cleanup
+    // It reuses players efficiently when components are recycled by FlashList
     const player = useVideoPlayer(videoSource, (player) => {
       player.loop = true;
       player.muted = false;
@@ -391,13 +393,22 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     // Control playback based on shouldPlayVideo
     // Drive play/pause directly from our own visibility logic, per Expo docs:
     // https://docs.expo.dev/versions/latest/sdk/video/#usage
+    // Optimized: Direct calls without requestAnimationFrame wrapper (callbacks are already immediate)
+    const prevShouldPlayRef = useRef(shouldPlayVideo);
     useEffect(() => {
       if (!player) return;
 
-      if (shouldPlayVideo) {
-        player.play();
-      } else {
-        player.pause();
+      // Only update if state actually changed to avoid unnecessary calls
+      if (shouldPlayVideo !== prevShouldPlayRef.current) {
+        prevShouldPlayRef.current = shouldPlayVideo;
+        
+        // Direct play/pause calls - no RAF wrapper needed since visibility callbacks are immediate
+        // expo-video's play/pause are synchronous and optimized
+        if (shouldPlayVideo) {
+          player.play();
+        } else {
+          player.pause();
+        }
       }
     }, [shouldPlayVideo, player]);
 
@@ -773,7 +784,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
                 post={postView}
                 isVisible={isVisible}
                 isModal={isModal}
-                feedOption={feedOption}
+                feedOption={feedOption as 'following' | 'discover' | undefined}
                 sourceFeed={sourceFeed}
                 onLike={handleLike}
                 onRepost={handleRepost}

@@ -3,28 +3,32 @@
  * Updated for unified snapping system
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 
 import VideoCard, { VideoCardRef } from '../video/VideoCard';
 import { extractVideoEmbedAndUrl } from '../../../utils/helpers/video';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
+import type { ExtendedPostView, ExtendedFeedViewPost } from '../../../services/api/types';
 import { Colors } from '../../ui/UI';
+
+// VideoCard's Post type
+type VideoCardPost = ExtendedPostView | ExtendedFeedViewPost;
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Types
-export interface Post {
-  embed?: any;
+// Post can be ExtendedPostView, ExtendedFeedViewPost, or the simplified post structure from FeedItem
+export type Post = ExtendedPostView | ExtendedFeedViewPost | {
   uri: string;
-  cid?: string;
+  cid: string;
+  embed?: unknown;
   author?: {
     avatar?: string;
     displayName?: string;
     handle?: string;
   };
-  moderationDecision?: ModerationDecision;
-}
+};
 
 export interface FeedItem {
   post: Post;
@@ -62,8 +66,11 @@ const VideoItem: React.FC<VideoItemProps> = ({
   const { videoEmbed, videoUrl } = extractVideoEmbedAndUrl(post);
   const hasVideo = !!videoUrl;
 
-  // Simplified styles - no memoization needed for simple style objects
-  const containerStyle = [styles.videoContainer, { height: itemHeight, marginVertical: 3 }];
+  // Memoize container style to prevent recreation on every render
+  const containerStyle = useMemo(
+    () => [styles.videoContainer, { height: itemHeight, marginVertical: 3 }],
+    [itemHeight]
+  );
 
   // Early return if no video
   if (!hasVideo) {
@@ -77,13 +84,13 @@ const VideoItem: React.FC<VideoItemProps> = ({
     <View style={containerStyle}>
       <VideoCard
         ref={videoRef}
-        post={{ ...post, embed: videoEmbed }}
+        post={{ ...post, embed: videoEmbed } as VideoCardPost}
         isVisible={isVisible}
         shouldDisablePlayback={!allowPlayback}
         height={itemHeight}
         moderationDecision={moderationDecision}
         showOverlay={true}
-        feedOption={feedOption as any}
+        feedOption={feedOption}
         sourceFeed={feedItem?.sourceFeed}
         isModal={isModal}
       />
@@ -119,10 +126,25 @@ const areEqual = (prevProps: VideoItemProps, nextProps: VideoItemProps) => {
   }
 
   // Compare post URI and CID (stable identifiers)
-  if (
-    prevProps.post?.uri !== nextProps.post?.uri ||
-    prevProps.post?.cid !== nextProps.post?.cid
-  ) {
+  // Handle ExtendedPostView (has uri directly), ExtendedFeedViewPost (has post.uri), or simplified post structure
+  const getPostUri = (post: Post): string | undefined => {
+    if ('uri' in post) return post.uri;
+    if ('post' in post && typeof post.post === 'object' && post.post !== null && 'uri' in post.post) {
+      return (post.post as { uri: string }).uri;
+    }
+    return undefined;
+  };
+  
+  const getPostCid = (post: Post): string | undefined => {
+    if ('cid' in post) return post.cid;
+    if ('post' in post && typeof post.post === 'object' && post.post !== null && 'cid' in post.post) {
+      return (post.post as { cid: string }).cid;
+    }
+    return undefined;
+  };
+  
+  if (getPostUri(prevProps.post) !== getPostUri(nextProps.post) || 
+      getPostCid(prevProps.post) !== getPostCid(nextProps.post)) {
     return false;
   }
 

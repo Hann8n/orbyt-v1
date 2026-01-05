@@ -466,8 +466,23 @@ const areEqual = (prevProps: FeedRendererProps, nextProps: FeedRendererProps) =>
   if (prevProps.forceError !== nextProps.forceError) return false;
   if (prevProps.shouldPrefetch !== nextProps.shouldPrefetch) return false;
   
-  // Shallow comparison for query options
-  if (JSON.stringify(prevProps.queryOptions) !== JSON.stringify(nextProps.queryOptions)) return false;
+  // Shallow comparison for query options - check each property individually
+  const prevQueryOpts = prevProps.queryOptions;
+  const nextQueryOpts = nextProps.queryOptions;
+  
+  // Handle undefined/null cases
+  if (!prevQueryOpts && !nextQueryOpts) {
+    // Both undefined/null - equal
+  } else if (!prevQueryOpts || !nextQueryOpts) {
+    return false; // One is undefined, other is not
+  } else {
+    // Both defined - compare properties
+    if (prevQueryOpts.enabled !== nextQueryOpts.enabled) return false;
+    if (prevQueryOpts.staleTime !== nextQueryOpts.staleTime) return false;
+    if (prevQueryOpts.cacheTime !== nextQueryOpts.cacheTime) return false;
+    if (prevQueryOpts.refetchOnWindowFocus !== nextQueryOpts.refetchOnWindowFocus) return false;
+    if (prevQueryOpts.refetchOnMount !== nextQueryOpts.refetchOnMount) return false;
+  }
   
   return true;
 };

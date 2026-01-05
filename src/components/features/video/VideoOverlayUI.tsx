@@ -21,10 +21,12 @@ import { VerificationBadge } from '../badging';
 import { useGlobalShareSheet, useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useRouter, useSegments } from 'expo-router';
 import { useFollowContext } from '../../../context/FollowContext';
+import { useTabBarHeight } from '../../../context/TabBarContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { prepopulateProfileCache } from '../../../services/cache/ProfileCache';
-import type { ExtendedPostView } from '../../../services/api/types';
-import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
+import type { ExtendedPostView, PostRecord } from '../../../services/api/types';
+import type { RichTextFacet } from '../../../utils/richTextParser';
+import { useFeedSettings } from '../../../stores/userStore';
 
 // Use proper API types
 type Post = ExtendedPostView;
@@ -33,7 +35,7 @@ export interface VideoOverlayUIProps {
   post: Post;
   isVisible: boolean;
   isModal?: boolean;
-  feedOption?: string;
+  feedOption?: 'following' | 'discover';
   sourceFeed?: string;
   onLike?: () => void;
   onRepost?: () => void;
@@ -74,7 +76,13 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
   const isTabletDevice = isTablet();
   const isSmallScreenDevice = isSmallScreen();
   const insets = useSafeAreaInsets();
-  const bottomNavBarHeight = getBottomNavBarHeight(insets);
+  const measuredTabBarHeight = useTabBarHeight();
+  const calculatedBottomNavBarHeight = getBottomNavBarHeight(insets);
+  // Use measured height if available, otherwise fall back to calculated height
+  const baseBottomNavBarHeight = measuredTabBarHeight ?? calculatedBottomNavBarHeight;
+  const { nativeTabsEnabled } = useFeedSettings();
+  // Add extra height when using native tabs (native tabs are slightly taller)
+  const bottomNavBarHeight = nativeTabsEnabled ? baseBottomNavBarHeight + 10 : baseBottomNavBarHeight;
   const { width } = useWindowDimensions();
   const { presentShareSheet } = useGlobalShareSheet();
   const { presentCommentSection } = useGlobalCommentSection();
@@ -88,7 +96,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Memoize expensive calculations to prevent rerenders
   const author = useMemo(() => post.author || {}, [post.author]);
-  const record = useMemo(() => post.record || {}, [post.record]);
+  const record = useMemo(() => post.record as PostRecord | undefined, [post.record]);
   const profilePicUrl = useMemo(() => 
     author.avatar && author.avatar.startsWith('http')
       ? author.avatar
@@ -109,8 +117,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
 
   // Heuristic to detect long text without layout measurement
   const hasLongText = useMemo(
-    () => typeof record.text === 'string' && record.text.length > 140,
-    [record.text]
+    () => typeof record?.text === 'string' && record.text.length > 140,
+    [record?.text]
   );
 
   // Modal-aware navigation to AuthorProfile (works inside FeedModal or regular screens)
@@ -185,10 +193,8 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
     return {
       contentPadding: Math.round(Math.max(8, Math.min(14, width * 0.025))),
       actionIconSize: Math.round(Math.max(28, Math.min(40, width * 0.085))),
-      smallIconSize: Math.max(14, Math.min(20, Math.round(width * 0.05))),
       // No ring offset needed since overlay avatars don't use rings by default
       authorAvatarSize: Math.round(Math.max(46, Math.min(64, width * 0.12))),
-      repostAvatarSize: Math.round(Math.max(20, Math.min(28, width * 0.06))),
     };
   }, [width]);
   
@@ -335,14 +341,14 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     : styles.repostIndicatorText,
                   { opacity: 0.8 }
                 ]}>
-                  {`reposted by ${formatHandle(post.repostedBy?.handle)}`}
+                  {`reposted by ${formatHandle(post.repostedBy?.handle || '')}`}
                 </Text>
               </Pressable>
             </View>
           )}
           
           {/* Description container */}
-          {record.text && (
+          {record?.text && (
             <View style={styles.descriptionContainer}>
               {hasLongText ? (
                 <Pressable onPress={toggleCollapsed}>
@@ -352,7 +358,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                     numberOfLines={isOverlayCollapsed ? 2 : undefined}
                     onAuthorPress={navigateToAuthorProfile}
                     onHashtagPress={navigateToHashtagFeed}
-                    facets={record.facets}
+                    facets={record.facets as RichTextFacet[] | undefined}
                   />
                 </Pressable>
               ) : (
@@ -361,7 +367,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                   style={styles.descriptionText}
                   onAuthorPress={navigateToAuthorProfile}
                   onHashtagPress={navigateToHashtagFeed}
-                  facets={record.facets}
+                  facets={record.facets as RichTextFacet[] | undefined}
                 />
               )}
             </View>
@@ -533,7 +539,7 @@ const VideoOverlayUI: React.FC<VideoOverlayUIProps> = ({
                 totalLikes: likeCount,
                 totalComments: post.replyCount || 0,
                 isLiked,
-                postedAt: post.record?.createdAt || post.indexedAt,
+                postedAt: (post.record?.createdAt || post.indexedAt) as string | undefined,
                 onToggleLike: onLike,
                 isLikePending,
               });
@@ -632,9 +638,6 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.SMALL,
     marginBottom: 0,
     alignSelf: 'flex-start',
-  },
-  repostAvatar: {
-    marginRight: 6,
   },
   descriptionContainer: {
     marginBottom: 6,

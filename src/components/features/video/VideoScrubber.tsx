@@ -16,12 +16,15 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { scheduleOnUI, scheduleOnRN } from 'react-native-worklets';
-import { useSafeAreaFrame } from 'react-native-safe-area-context';
+import { useSafeAreaFrame, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEvent } from 'expo';
 import { type VideoPlayer } from 'expo-video';
-import { formatTime } from '../../../utils/helpers';
+import { useSegments } from 'expo-router';
+import { formatTime, isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers';
 import { Colors } from '../../ui/UI';
 import { useUIStore } from '../../../stores/uiStore';
+import { useTabBarHeight } from '../../../context/TabBarContext';
+import { useFeedSettings } from '../../../stores/userStore';
 
 interface VideoScrubberProps {
   active: boolean;
@@ -47,6 +50,17 @@ export const VideoScrubber = React.memo(({
   }
 
   const { width: screenWidth } = useSafeAreaFrame();
+  const insets = useSafeAreaInsets();
+  const segments = useSegments();
+  const isTabletDevice = isTablet();
+  const isSmallScreenDevice = isSmallScreen();
+  const measuredTabBarHeight = useTabBarHeight();
+  const calculatedBottomNavBarHeight = getBottomNavBarHeight(insets);
+  const bottomNavBarHeight = measuredTabBarHeight ?? calculatedBottomNavBarHeight;
+  const hasTabBar = Array.isArray(segments) && segments[0] === '(tabs)';
+  const isModal = !hasTabBar;
+  const { nativeTabsEnabled } = useFeedSettings();
+  
   const setScrubbingState = useUIStore((state) => state.setVisibility);
   const currentTimeSV = useSharedValue(0);
   const durationSV = useSharedValue(0);
@@ -224,8 +238,6 @@ export const VideoScrubber = React.memo(({
   // Lightweight gesture handler - purely UI, never blocks or interferes with playback
   const scrubPanGesture = useMemo(() => {
     const gesture = Gesture.Pan()
-      .activeOffsetX([-10, 10])
-      .failOffsetY([-10, 10])
       .onStart(() => {
         'worklet';
         // Only update local UI state - never affects playback
@@ -347,6 +359,20 @@ export const VideoScrubber = React.memo(({
     };
   });
 
+  // Calculate bottom offset using same logic as VideoOverlayUI
+  // Add extra height when using native tabs
+  const scrubberBottomOffset = useMemo(() => {
+    if (isModal) {
+      return 0;
+    }
+    if (hasTabBar && (isSmallScreenDevice || isTabletDevice)) {
+      const baseHeight = bottomNavBarHeight;
+      // Add extra padding when native tabs are enabled (native tabs are slightly taller)
+      return nativeTabsEnabled ? baseHeight + 10 : baseHeight;
+    }
+    return 0;
+  }, [isModal, hasTabBar, isSmallScreenDevice, isTabletDevice, bottomNavBarHeight, nativeTabsEnabled]);
+
   return (
     <>
       <Animated.View
@@ -355,7 +381,7 @@ export const VideoScrubber = React.memo(({
           {
             left: 0,
             right: 0,
-            bottom: scrubberTotalHeight + 5, // Position above scrubber bar at bottom of card
+            bottom: scrubberTotalHeight + 5 + scrubberBottomOffset, // Position above scrubber bar at bottom of card
           },
           timeStyle,
         ]}
@@ -372,8 +398,11 @@ export const VideoScrubber = React.memo(({
       </Animated.View>
 
       <GestureDetector gesture={scrubPanGesture}>
-        <Animated.View style={[styles.scrubberContainer, { bottom: 0 }, scrubberOpacityStyle]}>
-          <View style={styles.trackContainer}>
+        <Animated.View 
+          style={[styles.scrubberContainer, { bottom: scrubberBottomOffset }, scrubberOpacityStyle]}
+          pointerEvents="box-none" // Allow taps to pass through to overlay buttons underneath
+        >
+          <View style={styles.trackContainer} pointerEvents="auto">
             <Animated.View
               style={[
                 styles.track,

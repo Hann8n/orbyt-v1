@@ -6,13 +6,10 @@ import {
   Text,
   StyleSheet,
   StatusBar,
-  Platform,
   Pressable,
 } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import { Colors } from '../../src/components/ui/UI';
 import NotificationsTab from '../../src/components/features/activity/NotificationsTab';
@@ -236,20 +233,10 @@ const ActivityScreen: React.FC = () => {
     setActiveTab(tabId);
   }, []);
 
-  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
 
-      {!useLiquidGlass && (
-        <LinearGradient
-          colors={['transparent', 'rgba(0, 0, 0, 0.5)', 'rgba(0, 0, 0, 0.8)']}
-          locations={[0, 0.5, 1]}
-          style={[styles.bottomGradient, { bottom: 0, height: 75 + insets.bottom }]}
-          pointerEvents="none"
-        />
-      )}
 
       {/* Header with animated tab indicators */}
       <View style={[styles.headerSection, { paddingTop: insets.top }]}>
@@ -303,12 +290,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
     overflow: 'hidden',
-  },
-  bottomGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 1,
   },
   headerSection: {
     backgroundColor: Colors.black,

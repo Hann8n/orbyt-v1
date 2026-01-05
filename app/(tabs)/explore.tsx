@@ -1082,8 +1082,13 @@ const ExploreScreen: React.FC = () => {
   const followMutation = useFollowMutation();
   const insets = useSafeAreaInsets();
   
-  // Get experimental feeds setting
-  const { experimentalFeedsEnabled } = useFeedSettings();
+  // Get experimental feeds setting and native tabs setting
+  const { experimentalFeedsEnabled, nativeTabsEnabled } = useFeedSettings();
+  
+  // Calculate bottom padding - add extra when native tabs are enabled for better coverage
+  const bottomPadding = nativeTabsEnabled 
+    ? getBottomNavBarHeight(insets) + 10 
+    : getBottomNavBarHeight(insets);
 
   // Handle follow toggle with persistent cache
   const handleFollow = useCallback((profile: Profile) => {
@@ -1728,8 +1733,6 @@ const ExploreScreen: React.FC = () => {
 
   const listData: any[] = suggestionsList;
 
-  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
-
   return (
     <View style={[styles.container, Platform.OS === 'android' ? { paddingTop: 0 } : null]}>
       <StatusBar barStyle="light-content" backgroundColor={'transparent'} translucent={true} />
@@ -1740,14 +1743,6 @@ const ExploreScreen: React.FC = () => {
         />
       )}
 
-      {!useLiquidGlass && (
-        <LinearGradient
-          colors={['transparent', 'rgba(0, 0, 0, 0.5)', 'rgba(0, 0, 0, 0.8)']}
-          locations={[0, 0.5, 1]}
-          style={[styles.bottomGradient, { bottom: 0, height: 75 + insets.bottom }]}
-          pointerEvents="none"
-        />
-      )}
       
       {/* Search Bar */}
       <Pressable
@@ -2143,7 +2138,7 @@ const ExploreScreen: React.FC = () => {
         contentContainerStyle={[
           styles.listContainer, 
           { 
-            paddingBottom: getBottomNavBarHeight(insets)
+            paddingBottom: bottomPadding
           }
         ]}
         showsVerticalScrollIndicator={false}
@@ -2193,12 +2188,6 @@ const styles = StyleSheet.create({
     right: 0,
     height: 100,
     zIndex: 5,
-  },
-  bottomGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 1,
   },
   topSafeOverlay: {
     position: 'absolute',

@@ -27,6 +27,7 @@ import { useVisibilityCoreStore } from '../src/core/visibility';
 import { queryClient } from '../src/utils/queryClient';
 import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
 import { SessionProvider, useSession } from '../src/context/SessionProvider';
+import { TabBarProvider } from '../src/context/TabBarContext';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -64,7 +65,9 @@ const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={styles.gestureHandler}>
           <KeyboardProvider>
-            {children}
+            <TabBarProvider>
+              {children}
+            </TabBarProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>

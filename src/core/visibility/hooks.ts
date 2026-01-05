@@ -1,16 +1,16 @@
-import { useCallback, useMemo, useState, useRef, useEffect } from 'react';
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import type { ViewabilityConfig, ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 
 import { useVisibilityCoreStore } from './visibilityStore';
 
 /**
- * Optimized viewability config for FlashList
- * Uses native FlashList viewability tracking for best performance
- * Lower threshold for faster detection
+ * Optimized viewability config for FlashList 2.0
+ * Leverages FlashList's native viewability tracking (runs on native thread)
+ * Lower threshold for faster detection on older devices
  */
 const DEFAULT_VIEWABILITY_CONFIG: ViewabilityConfig = {
-  itemVisiblePercentThreshold: 50,
+  itemVisiblePercentThreshold: 40, // Reduced from 50% for faster detection
   minimumViewTime: 0, // No delay - detect immediately
   waitForInteraction: false,
 };
@@ -23,14 +23,19 @@ interface FeedVisibilityOptions {
 interface FeedVisibilityResult {
   onViewableItemsChanged: ({ viewableItems }: { viewableItems: ViewToken[] }) => void;
   viewabilityConfig: ViewabilityConfig;
-  activeItemIndex: number;
+  activeItemIndexRef: React.MutableRefObject<number>; // Ref for direct access to active index
+  extraData: number; // Counter that increments when active item changes (for FlashList extraData prop)
   canPlay: boolean;
   isVideoVisible: (index: number) => boolean;
 }
 
 /**
- * Lean visibility hook using FlashList's native viewability
- * Tracks only the centered item index - minimal state updates
+ * Simplified visibility hook leveraging FlashList 2.0's native viewability
+ * 
+ * Key optimizations:
+ * - FlashList's onViewableItemsChanged runs on native thread (already optimized)
+ * - Uses ref for immediate synchronous access
+ * - Uses extraData counter to trigger FlashList re-renders (cleaner than state)
  */
 export function useFeedVisibility({
   isActive,
@@ -41,28 +46,17 @@ export function useFeedVisibility({
   const activeRoute = useVisibilityCoreStore((state) => state.activeRoute);
   const isForeground = appState === 'active';
   // Video can play if: feed is active AND app is foreground AND (tab is active OR route is active)
-  // Tab/route tracking persists even when inactive, so videos resume immediately when they become active again
-  // For tab screens: activeTab !== null (e.g., 'index', 'explore')
-  // For stacked screens (modals, profiles, channels): activeRoute !== null (e.g., 'feed-modal', 'profile:self')
   const canPlay = isActive && isForeground && (activeTab !== null || activeRoute !== null);
 
-  // Track only the centered item index - minimal state
-  // Keep tracking even when feed is inactive so we can resume playback immediately
-  const [activeItemIndex, setActiveItemIndex] = useState<number>(-1);
+  // Ref for immediate synchronous access (no React state delay)
   const activeItemIndexRef = useRef<number>(-1);
-  // Throttle viewability updates to reduce state changes during scroll
-  const viewabilityUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
-  // Update ref when state changes
-  activeItemIndexRef.current = activeItemIndex;
+  // Counter that increments when active item changes - used for FlashList's extraData prop
+  const [extraDataCounter, setExtraDataCounter] = useState(0);
 
+  // FlashList's onViewableItemsChanged runs on native thread - already optimized
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      // Always track viewable items, even when feed is inactive
-      // This allows us to resume playback immediately when feed becomes active again
-
       // Find the most visible item (highest viewable percent)
-      // If no percent available, use the first viewable item
       let bestItem: ViewToken | null = null;
       let bestPercent = -1;
       let firstViewable: ViewToken | null = null;
@@ -73,7 +67,6 @@ export function useFeedVisibility({
         const item = token.item as any;
         if (item?.endCard) continue;
 
-        // Track first viewable item as fallback
         if (!firstViewable) {
           firstViewable = token;
         }
@@ -86,42 +79,32 @@ export function useFeedVisibility({
         }
       }
 
-      // Use best item if we found one with percent, otherwise use first viewable
       const selectedItem = bestItem || firstViewable;
       const nextIndex = typeof selectedItem?.index === 'number' ? selectedItem.index : -1;
       
-      // Only update state if index changed (use ref to avoid callback recreation)
-      // Update even when feed is inactive to maintain tracking
+      // Only process if index changed
       if (nextIndex !== activeItemIndexRef.current) {
-        // Update ref immediately for synchronous access
+        // Update ref immediately (source of truth - no delay)
         activeItemIndexRef.current = nextIndex;
-        
-        // Clear any pending update
-        if (viewabilityUpdateTimeoutRef.current) {
-          clearTimeout(viewabilityUpdateTimeoutRef.current);
-        }
-        
-        // Batch state update to reduce re-renders during rapid scrolling
-        // Use requestAnimationFrame to batch with other updates
-        viewabilityUpdateTimeoutRef.current = setTimeout(() => {
-          setActiveItemIndex(nextIndex);
-          viewabilityUpdateTimeoutRef.current = null;
-        }, 0); // Batch in next tick to avoid blocking scroll thread
+        // Increment counter to trigger FlashList re-render via extraData
+        setExtraDataCounter((prev) => prev + 1);
       }
     },
-    [] // No dependencies - callback is stable and always tracks viewability
+    [] // Stable callback - FlashList handles optimization
   );
 
   const memoizedConfig = useMemo(() => viewabilityConfig ?? DEFAULT_VIEWABILITY_CONFIG, [viewabilityConfig]);
 
+  // Use ref for immediate synchronous checks
   const isVideoVisible = useCallback((index: number) => {
-    return index === activeItemIndex;
-  }, [activeItemIndex]);
+    return index === activeItemIndexRef.current;
+  }, []);
 
   return {
     onViewableItemsChanged,
     viewabilityConfig: memoizedConfig,
-    activeItemIndex,
+    activeItemIndexRef,
+    extraData: extraDataCounter,
     canPlay,
     isVideoVisible,
   };
@@ -138,7 +121,7 @@ export function useVisibilityOverlay(_isBlocking: boolean) {
  * Track when a route becomes active/inactive
  * Updates visibility store so videos can pause/resume based on route focus
  */
-export function useVisibilityRouteTracker(routeKey: string, tabKey?: string) {
+export function useVisibilityRouteTracker(routeKey: string, _tabKey?: string) {
   const setActiveRoute = useVisibilityCoreStore((state) => state.setActiveRoute);
   const isFocused = useIsFocused();
 
@@ -160,6 +143,7 @@ export function useVisibilityRouteTracker(routeKey: string, tabKey?: string) {
       if (currentRoute === routeKey) {
         setActiveRoute(null);
       }
+      return undefined;
     }
   }, [isFocused, routeKey, setActiveRoute]);
 }

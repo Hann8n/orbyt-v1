@@ -1,6 +1,7 @@
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { NativeTabs, Icon, Label, Badge } from 'expo-router/unstable-native-tabs';
+import { isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { useProfile } from '../../src/services/cache/ProfileCache';
@@ -21,23 +22,30 @@ export default function TabsLayout() {
   const customTintColor = Colors.white;
   const customInactiveTintColor = 'rgba(243, 245, 254, 0.60)'; // Colors.white at 60% opacity
 
+  // Check if liquid glass is available (needed for role="search" on newer iOS versions)
+  const useLiquidGlass = Platform.OS === 'ios' && isLiquidGlassAvailable();
+
   // Experimental: Use native tabs if enabled
   if (nativeTabsEnabled) {
     return (
-      <NativeTabs tintColor={nativeTintColor} badgeBackgroundColor={Colors.badgeGreen}>
+      <NativeTabs 
+        tintColor={nativeTintColor}
+        badgeBackgroundColor={Colors.badgeGreen}
+        disableTransparentOnScrollEdge={true}
+      >
         <NativeTabs.Trigger name="index">
           <Icon src={require('../../src/assets/tab-icons/png/home_5_fill.png')} />
-          <Label hidden />
+          <Label hidden={useLiquidGlass}>Home</Label>
         </NativeTabs.Trigger>
         
-        <NativeTabs.Trigger name="explore" role="search">
+        <NativeTabs.Trigger name="explore" {...(useLiquidGlass && { role: 'search' })}>
           <Icon src={require('../../src/assets/tab-icons/png/search_2_fill.png')} />
-          <Label hidden />
+          <Label hidden={useLiquidGlass}>Explore</Label>
         </NativeTabs.Trigger>
         
         <NativeTabs.Trigger name="activity">
           <Icon src={require('../../src/assets/tab-icons/png/flash_fill.png')} />
-          <Label hidden />
+          <Label hidden={useLiquidGlass}>Activity</Label>
           {totalUnreadCount > 0 && (
             <Badge>{totalUnreadCount > 99 ? '99+' : totalUnreadCount.toString()}</Badge>
           )}
@@ -45,7 +53,7 @@ export default function TabsLayout() {
         
         <NativeTabs.Trigger name="profile">
           <Icon src={require('../../src/assets/tab-icons/png/user_3_fill.png')} />
-          <Label hidden />
+          <Label hidden={useLiquidGlass}>Profile</Label>
         </NativeTabs.Trigger>
       </NativeTabs>
     );

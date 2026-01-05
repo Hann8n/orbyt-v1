@@ -29,7 +29,6 @@ import { useChannelColors } from '../../src/services/cache/ChannelCache';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileCache from '../../src/services/cache/ProfileCache';
 import ChannelCache from '../../src/services/cache/ChannelCache';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
  
 
 
@@ -453,16 +452,14 @@ const SettingsScreen: React.FC = () => {
         value: isExperimentalFeedsEnabled,
         onValueChange: handleToggleExperimentalFeeds,
       });
-      if (isLiquidGlassAvailable()) {
-        listData.push({
-          kind: 'toggle',
-          id: 'native-tabs',
-          label: 'New tabs layout',
-          subtitle: 'Adds support for liquid glass',
-          value: isNativeTabsEnabled,
-          onValueChange: handleToggleNativeTabs,
-        });
-      }
+      listData.push({
+        kind: 'toggle',
+        id: 'native-tabs',
+        label: 'New tabs layout',
+        subtitle: 'Use native navigation bar',
+        value: isNativeTabsEnabled,
+        onValueChange: handleToggleNativeTabs,
+      });
     }
   });
 

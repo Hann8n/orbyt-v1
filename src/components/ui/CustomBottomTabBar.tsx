@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useCallback, useRef } from 'react';
-import { View, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Pressable, useWindowDimensions, LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
@@ -14,6 +14,7 @@ import { useGlobalAccountSwitcher } from '../../hooks/useGlobalModals';
 import { useUserStore } from '../../stores/userStore';
 import { useProfile } from '../../services/cache/ProfileCache';
 import { tabRefs } from '../../utils/tabRefs';
+import { useSetTabBarHeight } from '../../context/TabBarContext';
 
 interface TabConfig {
   name: string;
@@ -122,6 +123,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
   const bottomNavBarHeight = getBottomNavBarHeight(insets);
   const { hasUnread } = useUnreadCount();
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
+  const setTabBarHeight = useSetTabBarHeight();
 
   const tabIconSize = useMemo(() => Math.round(Math.max(26, Math.min(36, width * 0.085))), [width]);
   const captureSize = useMemo(() => Math.round(tabIconSize * 1.15), [tabIconSize]);
@@ -130,8 +132,16 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
   // Add extra height to make tab bar slightly taller
   const tabBarHeight = useMemo(() => bottomNavBarHeight + 6, [bottomNavBarHeight]);
 
+  // Measure actual tab bar height and update context
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const { height } = event.nativeEvent.layout;
+    if (height > 0) {
+      setTabBarHeight(height);
+    }
+  }, [setTabBarHeight]);
+
   // Responsive gap: smaller for thinner phones, larger for iPad
-  const tabGap = useMemo(() => width < 450 ? 28 : 48, [width]);
+  const tabGap = useMemo(() => width < 450 ? 35 : 40, [width]);
 
   // Get active route name from navigation state (optimized)
   const activeRouteName = useMemo(() => {
@@ -269,21 +279,24 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
   };
 
   return (
-    <View style={[
-      styles.container, 
-      { 
-        height: tabBarHeight,
-        backgroundColor: isExploreOrActivityActive ? Colors.black : 'transparent',
-      }
-    ]}>
+    <View 
+      style={[
+        styles.container, 
+        { 
+          height: tabBarHeight,
+          backgroundColor: isExploreOrActivityActive ? Colors.black : 'transparent',
+        }
+      ]}
+      onLayout={handleLayout}
+    >
       <LinearGradient
         colors={['transparent', 'rgba(0, 0, 0, 0.30)']}
         style={styles.gradient}
         pointerEvents="none"
       />
       <View style={[styles.tabBar, { 
-        paddingTop: 9,
-        paddingBottom: (typeof insets?.bottom === 'number' ? insets.bottom : 0) + 3,
+        paddingTop: 12,
+        paddingBottom: (typeof insets?.bottom === 'number' ? insets.bottom : 0) + 6,
         gap: tabGap,
       }]}>
         {/* Left tabs */}
@@ -373,7 +386,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   tabsGroup: {
     flexDirection: 'row',
