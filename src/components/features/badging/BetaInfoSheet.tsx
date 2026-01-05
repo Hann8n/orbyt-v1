@@ -8,6 +8,8 @@ import { Colors } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import Icon from '../../ui/Icon';
+import CloseButton from '../../ui/CloseButton';
+import CancelButton from '../../ui/CancelButton';
 import BetaBadge from './BetaBadge';
 import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
 
@@ -49,12 +51,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
           Beta User
         </Text>
       </View>
-      <Pressable 
-        style={styles.closeButton} 
-        onPress={onDismiss}
-      >
-        <Icon name="close" size={20} color={Colors.white} />
-      </Pressable>
+      <CloseButton onPress={onDismiss} />
     </View>
   );
 
@@ -73,9 +70,7 @@ const BetaInfoSheet: React.FC<BetaInfoSheetProps> = ({ visible, handle, joinDate
             <View 
               style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
             > 
-              <Pressable style={styles.cancelButton} onPress={onDismiss}>
-                <Text style={styles.cancelButtonText}>Close</Text>
-              </Pressable>
+              <CancelButton onPress={onDismiss} text="Close" />
             </View>
           </KeyboardAwareFooter>
         </View>
@@ -126,12 +121,6 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     fontFamily: 'Firma-Bold',
   },
-  closeButton: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   infoContainer: {
     marginBottom: 20,
     paddingHorizontal: 15,
@@ -162,25 +151,6 @@ const styles = StyleSheet.create({
   cancelContainer: {
     alignItems: 'center',
     paddingTop: 8,
-  },
-  cancelButton: {
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    minHeight: 44,
-    borderWidth: 0,
-    borderColor: 'transparent',
-  },
-  cancelButtonText: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
   },
 });
 

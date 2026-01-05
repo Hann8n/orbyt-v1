@@ -1,15 +1,12 @@
 import { storageHelpers } from '../../utils/storage';
 import { InteractionManager } from 'react-native';
 import AtprotoService from '../api/AtprotoService';
-import { extractColorsFromImage, isColorDark, darkenColor } from '../../utils/formatting/colorUtils';
-import ImageColors from 'react-native-image-colors';
+import { extractColorsFromImage, darkenColor } from '../../utils/formatting/colorUtils';
 import { 
   useQuery, 
   useMutation,
   useQueryClient, 
-  QueryKey,
-  UseQueryResult,
-  QueryFunction
+  UseQueryResult
 } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { Colors } from '../../components/ui/UI';
@@ -64,7 +61,6 @@ export const channelKeys = {
 class ChannelCache {
   private static memoryCache = new Map<string, CachedChannel>();
   private static subscribers = new Map<string, Set<() => void>>();
-  private static DEBUG = false;
 
   // Cache expiration time (1 hour)
   private static CACHE_EXPIRY = 60 * 60 * 1000;
@@ -258,12 +254,10 @@ class ChannelCache {
 
 
             let channelColors = undefined;
-            // Robust avatar extraction
+            // Robust avatar extraction - all properties are on channel.view
             const avatarUrl =
               channel.view?.avatar ||
-              channel.avatar ||
               channel.view?.creator?.avatar ||
-              (channel.creator && channel.creator.avatar) ||
               undefined;
             if (avatarUrl) {
               try {
@@ -309,18 +303,21 @@ class ChannelCache {
             //   isExperimental
             // });
 
-            const channelUri = channel.view?.uri || channel.uri;
+            const channelUri = channel.view?.uri;
+            if (!channelUri) {
+              return null;
+            }
             const cacheObject: CachedChannel = {
               uri: channelUri,
-              cid: channel.view?.cid || channel.cid,
-              did: channel.view?.did || channel.did,
-              creator: channel.view?.creator || channel.creator,
-              displayName: channel.view?.displayName || channel.displayName,
-              description: channel.view?.description || channel.description,
+              cid: channel.view?.cid,
+              did: channel.view?.did,
+              creator: channel.view?.creator,
+              displayName: channel.view?.displayName,
+              description: channel.view?.description,
               avatar: avatarUrl, // Use the avatarUrl variable directly
-              likeCount: channel.view?.likeCount || channel.likeCount,
+              likeCount: channel.view?.likeCount,
               subscriberCount,
-              indexedAt: channel.view?.indexedAt || channel.indexedAt,
+              indexedAt: channel.view?.indexedAt,
               isExperimental, // Add experimental flag
               isOrbytChannel: isOrbytChannel(channelUri), // Check if this is an Orbyt channel
               channelColors: channelColors ? {
@@ -363,7 +360,7 @@ class ChannelCache {
   static async updateChannelColors(
     uri: string,
     backgroundColor: string,
-    foregroundColor: string,
+    _foregroundColor: string,
     accentColor?: string
   ): Promise<void> {
     if (!uri) return;
@@ -525,14 +522,6 @@ class ChannelCache {
             if (urisToPrefetch.length === 0) {
               return;
             }
-
-            // Check how many are already cached
-            const alreadyCached = urisToPrefetch.filter(uri => {
-              const cached = this.getChannelFromCacheSync(uri);
-              return cached && this.isCacheValid(cached);
-            }).length;
-
-            const needsFetching = urisToPrefetch.length - alreadyCached;
 
             // Process URIs in smaller batches to avoid overwhelming the API
             const batchSize = 5;
@@ -729,7 +718,7 @@ export function useChannelColors(uriOrFeed: string | null | undefined) {
         statusBarStyle: 'light' as const,
       },
       isLoading: false,
-      getColorWithOpacity: (colorKey: keyof ChannelColorScheme, opacity: number): string => {
+      getColorWithOpacity: (_colorKey: keyof ChannelColorScheme, opacity: number): string => {
         const hex = '#000000';
         if (hex.startsWith('#')) {
           const r = parseInt(hex.slice(1, 3), 16);

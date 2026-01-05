@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon, { BackArrowIcon, CloseFillIcon } from './Icon';
+import Icon, { BackArrowIcon } from './Icon';
+import CloseButton from './CloseButton';
 import { Colors } from './UI';
 
 export type ListHeaderMode = 'sheet' | 'root' | 'stacked';
@@ -66,9 +67,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
         <View style={[styles.rightSection, styles.sheetRightSection]}>
           {right ?? (
             showCloseButton ? (
-              <Pressable onPress={onClosePress}>
-                <CloseFillIcon size={20} color={Colors.white} />
-              </Pressable>
+              <CloseButton onPress={onClosePress || (() => {})} />
             ) : (
               <View style={styles.rightSpacer} />
             )
@@ -96,9 +95,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
         </View>
         <View style={styles.rightSection}>
           {right ?? (showCloseButton ? (
-            <Pressable onPress={onClosePress}>
-              <CloseFillIcon size={20} color={textColor} />
-            </Pressable>
+            <CloseButton onPress={onClosePress || (() => {})} />
           ) : (
             <View style={styles.rightSpacer} />
           ))}
@@ -124,9 +121,7 @@ const ListHeader: React.FC<ListHeaderProps> = ({
       <Text style={titleStyle} numberOfLines={1}>{title}</Text>
       <View style={styles.rightSection}>
         {right ?? (showCloseButton ? (
-          <Pressable onPress={onClosePress}>
-            <CloseFillIcon size={20} color={textColor} />
-          </Pressable>
+          <CloseButton onPress={onClosePress || (() => {})} />
         ) : (
           <View style={styles.rightSpacer} />
         ))}
@@ -197,12 +192,6 @@ const styles = StyleSheet.create({
   rightSpacer: {
     width: 40,
     height: 40,
-  },
-  sheetCloseButton: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   title: {
     flex: 1,

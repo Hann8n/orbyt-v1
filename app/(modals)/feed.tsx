@@ -58,7 +58,11 @@ const FeedScreen: React.FC = memo(() => {
   // Memoized close handler - use dismissTo for reliable modal dismissal
   const handleClose = useCallback(() => {
     // Use dismissTo to dismiss modal stack back to tabs
-    navigation.dismissTo?.('/(tabs)') || navigation.back();
+    if (navigation.dismissTo) {
+      navigation.dismissTo('/(tabs)');
+    } else {
+      navigation.back();
+    }
   }, [navigation]);
 
   return (

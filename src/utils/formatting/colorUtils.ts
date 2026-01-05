@@ -32,6 +32,25 @@ export const isColorDark = (hex: string): boolean => {
 };
 
 /**
+ * Inverts a hex color
+ * @param hex Hex color string
+ * @returns Inverted hex color string
+ */
+export const invertColor = (hex: string): string => {
+  const color = hex.replace('#', '');
+  const r = parseInt(color.substring(0, 2), 16);
+  const g = parseInt(color.substring(2, 4), 16);
+  const b = parseInt(color.substring(4, 6), 16);
+  
+  // Invert each component
+  const invertedR = (255 - r).toString(16).padStart(2, '0');
+  const invertedG = (255 - g).toString(16).padStart(2, '0');
+  const invertedB = (255 - b).toString(16).padStart(2, '0');
+  
+  return `#${invertedR}${invertedG}${invertedB}`;
+};
+
+/**
  * Darkens a color by a specified amount (0-1)
  * @param hex Hex color string
  * @param amount Amount to darken (0 = no change, 1 = black)

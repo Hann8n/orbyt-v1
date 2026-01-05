@@ -5,7 +5,6 @@ import { queryKeys } from '../../../utils/queryKeys';
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   Share,
   Platform,
@@ -18,6 +17,8 @@ import Icon from '../../ui/Icon';
 import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { Colors } from '../../ui/UI';
+import CloseButton from '../../ui/CloseButton';
+import CancelButton from '../../ui/CancelButton';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import VerticalListSheet, { VerticalListButton } from '../../ui/VerticalListSheet';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
@@ -456,23 +457,13 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
             <Text style={styles.headerTitle} numberOfLines={1}>
               Report or Block
             </Text>
-            <Pressable 
-              style={styles.closeButton} 
-              onPress={() => safeDismiss('profile-menu-submenu')}
-            >
-              <Icon name="close" size={20} color={Colors.white} />
-            </Pressable>
+            <CloseButton onPress={() => safeDismiss('profile-menu-submenu')} />
           </View>
         }
         footer={
           <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={insets.bottom} style={{ backgroundColor: Colors.black }}>
             <View style={[styles.cancelContainer, { backgroundColor: Colors.black }]}>
-            <Pressable 
-              style={styles.cancelButton} 
-              onPress={() => safeDismiss('profile-menu-submenu')} 
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </Pressable>
+            <CancelButton onPress={() => safeDismiss('profile-menu-submenu')} />
             </View>
           </KeyboardAwareFooter>
         }
@@ -553,32 +544,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Bold',
     flex: 1,
   },
-  closeButton: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   cancelContainer: {
     alignItems: 'center',
     paddingTop: 8,
-  },
-  cancelButton: {
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 0,
-    borderColor: 'transparent',
-  },
-  cancelButtonText: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
   },
 });
 

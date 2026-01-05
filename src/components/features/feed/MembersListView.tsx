@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
@@ -6,11 +6,9 @@ import {
   StyleSheet,
   Pressable,
   RefreshControl,
-  Dimensions,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar, Icon } from '../../ui/UI';
@@ -24,7 +22,6 @@ import { isCurrentUser } from '../../../stores/profileInteractionStore';
 import { useUserStore } from '../../../stores/userStore';
  
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Loading placeholder component for member items
 const MemberItemShimmer = () => (
@@ -86,7 +83,6 @@ const MembersListView: React.FC<MembersListViewProps> = ({
   ListComponent,
 }) => {
   const navigation = useRouter();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const currentUser = useUserStore(state => state.currentUser);
 
@@ -127,7 +123,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
           handle: follow.handle,
           displayName: follow.displayName,
           avatar: follow.avatar,
-          description: follow.description,
+          description: ('description' in follow && typeof follow.description === 'string' ? follow.description : undefined),
           viewer: follow.viewer,
           isFollowing: !!follow.viewer?.following,
         })),
@@ -169,7 +165,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
         };
       });
     },
-    onError: (_, __, context) => {
+    onError: () => {
       // Revert optimistic update on error
       refetch();
     },
@@ -208,7 +204,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
         };
       });
     },
-    onError: (_, __, context) => {
+    onError: () => {
       // Revert optimistic update on error
       refetch();
     },
@@ -284,10 +280,6 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     // This helps prevent the list from getting stuck
   }, []);
 
-  // Handle scroll to top
-  const handleScrollToTop = useCallback(() => {
-    // This helps when user scrolls to top
-  }, []);
 
   // FlashList does not require manual ref handling for scroll-to-top here
 
@@ -389,7 +381,7 @@ const MembersListView: React.FC<MembersListViewProps> = ({
     );
   }
 
-  const ListEl: React.ComponentType<unknown> = ListComponent || FlashList;
+  const ListEl = ListComponent || FlashList;
 
   return (
     <View style={[styles.container, { backgroundColor }]}> 

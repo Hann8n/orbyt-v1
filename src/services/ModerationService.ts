@@ -1,7 +1,16 @@
-import { ModerationSettings, ModerationDecision, ModerationOpts as BlueskyModerationOpts } from './ModerationTypes';
+import { ModerationSettings, ModerationDecision } from './ModerationTypes';
 import { logger } from '../utils/logger';
 import { queryClient } from '../utils/queryClient';
 import { queryKeys } from '../utils/queryKeys';
+import type { Agent } from '@atproto/api';
+import type { 
+  ProfileView, 
+  ProfileViewDetailed, 
+  Notification,
+  ActorPreferences,
+  GetPreferencesOutput
+} from './api/types';
+import type { ExtendedPostView, ExtendedFeedViewPost } from './api/types';
 
 /**
  * Moderation Service for Bluesky content filtering
@@ -9,7 +18,6 @@ import { queryKeys } from '../utils/queryKeys';
  */
 export class ModerationService {
   private static currentSettings: ModerationSettings | null = null;
-  private static currentModerationOpts: BlueskyModerationOpts | null = null;
   private static moderationCache = new Map<string, ModerationDecision>();
 
   /**
@@ -44,21 +52,20 @@ export class ModerationService {
    */
   static clearModerationSettings(): void {
     this.currentSettings = null;
-    this.currentModerationOpts = null;
     this.moderationCache.clear();
   }
 
   /**
    * Moderate a profile (simplified implementation)
    */
-  static async moderateProfile(profile: any, context: 'profileList' | 'profileView' | 'avatar' | 'banner' = 'profileList'): Promise<ModerationDecision> {
+  static async moderateProfile(_profile: ProfileView | ProfileViewDetailed, _context: 'profileList' | 'profileView' | 'avatar' | 'banner' = 'profileList'): Promise<ModerationDecision> {
     return { filter: false, blur: false, informs: [] };
   }
 
   /**
    * Moderate a notification (simplified implementation)
    */
-  static async moderateNotification(notification: any): Promise<ModerationDecision> {
+  static async moderateNotification(_notification: Notification): Promise<ModerationDecision> {
     return { filter: false, blur: false, informs: [] };
   }
 
@@ -67,7 +74,7 @@ export class ModerationService {
    * Used by React Query hook for account-scoped caching
    * @deprecated Use useModerationSettings() hook instead for React Query integration
    */
-  static async fetchModerationSettings(agent?: any): Promise<ModerationSettings> {
+  static async fetchModerationSettings(agent?: Agent): Promise<ModerationSettings> {
     // If no agent, return safe defaults (fail-safe)
     if (!agent) {
       logger.warn('No agent provided for moderation settings, using safe defaults', { component: 'ModerationService' });
@@ -77,12 +84,8 @@ export class ModerationService {
     try {
       // Fetch preferences from API
       const response = await agent.api.app.bsky.actor.getPreferences();
-      const preferences = response.data?.preferences || [];
-      
-      if (!Array.isArray(preferences)) {
-        logger.warn('Invalid preferences format from API', { component: 'ModerationService' });
-        return this.createSafeDefaultSettings();
-      }
+      const output = response.data as GetPreferencesOutput;
+      const preferences = (Array.isArray(output?.preferences) ? output.preferences : []) as unknown as ActorPreferences[];
 
       const settings = this.convertPreferencesToSettings(preferences);
       
@@ -99,7 +102,7 @@ export class ModerationService {
    * Fails safe: returns strict defaults if API fails
    * @deprecated Use useModerationSettings() hook instead for React Query integration
    */
-  static async getModerationSettings(agent?: any): Promise<ModerationSettings> {
+  static async getModerationSettings(agent?: Agent): Promise<ModerationSettings> {
     // Return cached settings if available (for backward compatibility)
     if (this.currentSettings) {
       return this.currentSettings;
@@ -115,17 +118,18 @@ export class ModerationService {
   /**
    * Save moderation settings to the API
    */
-  static async saveModerationSettings(settings: ModerationSettings, agent?: any, userDid?: string): Promise<void> {
+  static async saveModerationSettings(settings: ModerationSettings, agent?: Agent, userDid?: string): Promise<void> {
     try {
       if (!agent) {
         throw new Error('No agent provided. Cannot save moderation settings.');
       }
 
       // Fetch existing preferences first to preserve all preference types
-      let existingPreferences: any[] = [];
+      let existingPreferences: ActorPreferences[] = [];
       try {
         const response = await agent.api.app.bsky.actor.getPreferences();
-        existingPreferences = response.data?.preferences || [];
+        const output = response.data as GetPreferencesOutput;
+        existingPreferences = (Array.isArray(output?.preferences) ? output.preferences : []) as unknown as ActorPreferences[];
       } catch (error) {
         logger.warn('Could not fetch existing preferences before saving', { error, component: 'ModerationService' });
       }
@@ -134,11 +138,10 @@ export class ModerationService {
       const preferences = this.convertSettingsToPreferences(settings, existingPreferences);
 
       // Save all preferences to the API
-      await agent.api.app.bsky.actor.putPreferences({ preferences });
+      await agent.api.app.bsky.actor.putPreferences({ preferences: preferences as any });
       
       // Update cached settings after successful save (for backward compatibility)
       this.currentSettings = settings;
-      this.currentModerationOpts = null;
       
       // Clear moderation decisions cache so posts are re-evaluated with new settings
       this.clearModerationCache();
@@ -165,7 +168,7 @@ export class ModerationService {
   /**
    * Sync moderation settings from the API
    */
-  static async syncModerationSettings(agent?: any): Promise<void> {
+  static async syncModerationSettings(agent?: Agent): Promise<void> {
     try {
       if (!agent) {
         logger.warn('No agent provided for sync, skipping', { component: 'ModerationService' });
@@ -173,7 +176,8 @@ export class ModerationService {
       }
 
       const response = await agent.api.app.bsky.actor.getPreferences();
-      const preferences = response.data?.preferences || [];
+      const output = response.data as GetPreferencesOutput;
+      const preferences = (Array.isArray(output?.preferences) ? output.preferences : []) as unknown as ActorPreferences[];
       const settings = this.convertPreferencesToSettings(preferences);
       this.currentSettings = settings;
       
@@ -190,15 +194,16 @@ export class ModerationService {
    * Fail-safe: defaults to hiding sensitive content if moderation fails
    */
   static async moderatePost(
-    post: any, 
-    context: 'contentList' | 'contentView' | 'avatar' | 'banner' = 'contentList', 
-    agent?: any
+    post: ExtendedFeedViewPost | ExtendedPostView, 
+    _context: 'contentList' | 'contentView' | 'avatar' | 'banner' = 'contentList', 
+    agent?: Agent
   ): Promise<ModerationDecision> {
-    if (!post || !post.post) {
+    const postView = 'post' in post ? post.post : post;
+    if (!postView) {
       return { filter: false, blur: false, informs: [] };
     }
 
-    const uri = post.post.uri;
+    const uri = postView.uri;
     if (!uri) {
       return { filter: false, blur: false, informs: [] };
     }
@@ -221,8 +226,10 @@ export class ModerationService {
       const settings = await this.getModerationSettings(agent);
       
       // Get labels from post
-      const labels = post.post.labels || post.labels || [];
-      const text = post.post.text?.toLowerCase() || '';
+      const labels = postView.labels || [];
+      const text = (typeof postView.record === 'object' && postView.record && 'text' in postView.record && typeof postView.record.text === 'string') 
+        ? postView.record.text.toLowerCase() 
+        : '';
 
       const decision: ModerationDecision = {
         filter: false,
@@ -301,11 +308,11 @@ export class ModerationService {
    * Fail-safe: filters out posts if moderation fails
    */
   static async batchModeratePosts(
-    posts: any[], 
+    posts: (ExtendedFeedViewPost | ExtendedPostView)[], 
     context: 'contentList' | 'contentView' | 'avatar' | 'banner' = 'contentList', 
-    agent?: any
+    agent?: Agent
   ): Promise<{
-    filteredPosts: any[];
+    filteredPosts: (ExtendedFeedViewPost | ExtendedPostView)[];
     moderationDecisions: Map<string, ModerationDecision>;
     stats: {
       total: number;
@@ -323,16 +330,14 @@ export class ModerationService {
     }
 
     // Pre-fetch settings once for all posts (more efficient)
-    let settings: ModerationSettings;
     try {
-      settings = await this.getModerationSettings(agent);
+      await this.getModerationSettings(agent);
     } catch (error) {
       logger.error('Failed to load moderation settings for batch moderation, using safe defaults', error, { component: 'ModerationService' });
-      settings = this.createSafeDefaultSettings();
     }
 
     const moderationDecisions = new Map<string, ModerationDecision>();
-    const filteredPosts: any[] = [];
+    const filteredPosts: (ExtendedFeedViewPost | ExtendedPostView)[] = [];
     let filteredCount = 0;
     let blurredCount = 0;
     let allowedCount = 0;
@@ -341,18 +346,16 @@ export class ModerationService {
     for (const post of posts) {
       try {
         const decision = await this.moderatePost(post, context, agent);
-        const postUri = post?.post?.uri;
+        const postUri = ('post' in post && post.post?.uri) || ('uri' in post ? post.uri : undefined);
         
         if (postUri) {
           moderationDecisions.set(postUri, decision);
           
           // Attach the moderation decision to the post
-          if (post.post) {
-            post.post.moderationDecision = decision;
+          if ('post' in post && post.post) {
+            (post.post as any).moderationDecision = decision;
           }
-          if (post) {
-            post.moderationDecision = decision;
-          }
+          (post as any).moderationDecision = decision;
         }
         
         // Apply filtering based on decision
@@ -368,10 +371,11 @@ export class ModerationService {
         }
       } catch (error) {
         // Fail-safe: if moderation fails for a post, filter it out (don't show)
+        const postUri = ('post' in post && post.post?.uri) || ('uri' in post ? post.uri : undefined);
         logger.warn('Error moderating post in batch, filtering out', { 
           error, 
           component: 'ModerationService',
-          uri: post?.post?.uri?.substring(0, 50)
+          uri: postUri?.substring(0, 50)
         });
         filteredCount++;
         // Don't include the post in filteredPosts (fail-safe)
@@ -394,20 +398,29 @@ export class ModerationService {
    * Basic fail-safe filtering: filter out posts with sensitive labels
    * Used when moderation service is unavailable
    */
-  static filterSensitiveByLabels(posts: any[]): any[] {
+  static filterSensitiveByLabels(posts: (ExtendedFeedViewPost | ExtendedPostView)[]): (ExtendedFeedViewPost | ExtendedPostView)[] {
     if (!posts || posts.length === 0) {
       return [];
     }
 
     const sensitiveLabels = ['nsfw', 'porn', 'sexual', 'suggestive', 'nudity', 'gore', 'graphic-media'];
     
-    return posts.filter((post: any) => {
-      const labels = post?.post?.labels || post?.labels || [];
-      const hasSensitiveLabel = labels.some((label: any) => {
-        const val = label?.val || label?.value || label;
-        if (typeof val !== 'string') return false;
-        const lowerVal = val.toLowerCase();
-        return sensitiveLabels.some(sensitive => lowerVal.includes(sensitive));
+    return posts.filter((post) => {
+      const postView = 'post' in post ? post.post : post;
+      const labels = postView?.labels || [];
+      const hasSensitiveLabel = labels.some((label: unknown) => {
+        if (typeof label === 'string') {
+          const lowerLabel = label.toLowerCase();
+          return sensitiveLabels.some(sensitive => lowerLabel.includes(sensitive));
+        }
+        if (label && typeof label === 'object') {
+          const val = ('val' in label && typeof label.val === 'string' ? label.val : null) || 
+                      ('value' in label && typeof label.value === 'string' ? label.value : null);
+          if (val) {
+            return sensitiveLabels.some(sensitive => val.toLowerCase().includes(sensitive));
+          }
+        }
+        return false;
       });
       return !hasSensitiveLabel;
     });
@@ -417,7 +430,7 @@ export class ModerationService {
    * Unified content detection method
    * Detects content type based on labels and text
    */
-  private static detectContentType(type: 'nsfw' | 'suggestive' | 'nudity' | 'gore', text: string, labels: any[]): string | null {
+  private static detectContentType(type: 'nsfw' | 'suggestive' | 'nudity' | 'gore', text: string, labels: Array<string | { val?: string; value?: string }>): string | null {
     if (!labels || !Array.isArray(labels)) {
       labels = [];
     }
@@ -445,8 +458,14 @@ export class ModerationService {
     
     // Check labels
     const hasLabel = labels.some(label => {
-      const labelVal = label?.val || label?.value || label;
-      if (typeof labelVal !== 'string') return false;
+      let labelVal: string | null = null;
+      if (typeof label === 'string') {
+        labelVal = label;
+      } else if (label && typeof label === 'object') {
+        labelVal = ('val' in label && typeof label.val === 'string' ? label.val : null) || 
+                   ('value' in label && typeof label.value === 'string' ? label.value : null);
+      }
+      if (!labelVal) return false;
       
       const lowerVal = labelVal.toLowerCase();
       return config.labelValues.some(val => 
@@ -454,8 +473,8 @@ export class ModerationService {
       );
     });
 
-    // Check keywords in text
-    const hasKeyword = config.keywords.some(keyword => text.includes(keyword));
+    // Check keywords in text (text is always a string at this point)
+    const hasKeyword = typeof text === 'string' && config.keywords.some(keyword => text.includes(keyword));
 
     return (hasLabel || hasKeyword) ? type : null;
   }
@@ -490,7 +509,7 @@ export class ModerationService {
   /**
    * Convert API preferences to ModerationSettings
    */
-  private static convertPreferencesToSettings(preferences: any[]): ModerationSettings {
+  private static convertPreferencesToSettings(preferences: ActorPreferences[]): ModerationSettings {
     const settings = this.createSafeDefaultSettings();
     
     if (!preferences || !Array.isArray(preferences)) {
@@ -498,44 +517,57 @@ export class ModerationService {
     }
     
     for (const pref of preferences) {
-      if (!pref || !pref.$type) {
+      if (!pref || typeof pref !== 'object' || !('$type' in pref) || typeof pref.$type !== 'string') {
         continue;
       }
       
       switch (pref.$type) {
-        case 'app.bsky.actor.defs#adultContentPref':
-          if (typeof pref.enabled === 'boolean') {
-            settings.adultContentEnabled = pref.enabled;
+        case 'app.bsky.actor.defs#adultContentPref': {
+          const adultPref = pref as any;
+          if ('enabled' in adultPref && typeof adultPref.enabled === 'boolean') {
+            settings.adultContentEnabled = adultPref.enabled;
           }
           break;
+        }
           
-        case 'app.bsky.actor.defs#contentLabelPref':
-          if (pref.label && typeof pref.visibility === 'string') {
-            const validVisibility = ['hide', 'warn', 'ignore'].includes(pref.visibility) 
-              ? pref.visibility as 'hide' | 'warn' | 'ignore'
+        case 'app.bsky.actor.defs#contentLabelPref': {
+          const labelPref = pref as any;
+          if ('label' in labelPref && typeof labelPref.label === 'string' && 'visibility' in labelPref && typeof labelPref.visibility === 'string') {
+            const validVisibility = ['hide', 'warn', 'ignore'].includes(labelPref.visibility) 
+              ? labelPref.visibility as 'hide' | 'warn' | 'ignore'
               : 'hide'; // Fail-safe: default to hide
-            settings.labels[pref.label] = validVisibility;
+            settings.labels[labelPref.label] = validVisibility;
           }
           break;
+        }
           
-        case 'app.bsky.actor.defs#hiddenPostsPref':
-          if (pref.items && Array.isArray(pref.items)) {
-            settings.hiddenPosts = pref.items
-              .map((item: any) => item.uri || '')
+        case 'app.bsky.actor.defs#hiddenPostsPref': {
+          const hiddenPref = pref as any;
+          if ('items' in hiddenPref && Array.isArray(hiddenPref.items)) {
+            settings.hiddenPosts = hiddenPref.items
+              .map((item: unknown) => (item && typeof item === 'object' && 'uri' in item && typeof item.uri === 'string' ? item.uri : ''))
               .filter(Boolean);
           }
           break;
+        }
           
-        case 'app.bsky.actor.defs#labelersPref':
-          if (pref.labelers && Array.isArray(pref.labelers)) {
-            settings.labelers = pref.labelers
-              .map((labeler: any) => ({
-                did: labeler.did || '',
-                labels: labeler.labels || {}
-              }))
-              .filter((l: any) => l.did);
+        case 'app.bsky.actor.defs#labelersPref': {
+          const labelersPref = pref as any;
+          if ('labelers' in labelersPref && Array.isArray(labelersPref.labelers)) {
+            settings.labelers = labelersPref.labelers
+              .map((labeler: unknown) => {
+                if (labeler && typeof labeler === 'object' && 'did' in labeler && typeof labeler.did === 'string') {
+                  return {
+                    did: labeler.did,
+                    labels: ('labels' in labeler && typeof labeler.labels === 'object' && labeler.labels ? labeler.labels as Record<string, string> : {})
+                  };
+                }
+                return null;
+              })
+              .filter((l: any): l is { did: string; labels: Record<string, string> } => l !== null);
           }
           break;
+        }
           
         // Other preference types are preserved but not parsed
         default:
@@ -552,14 +584,14 @@ export class ModerationService {
    */
   private static convertSettingsToPreferences(
     settings: ModerationSettings,
-    existingPreferences: any[]
-  ): any[] {
+    existingPreferences: ActorPreferences[]
+  ): ActorPreferences[] {
     const managedLabels = new Set(['nsfw', 'suggestive', 'nudity', 'gore']);
-    const preservedPreferences: any[] = [];
+    const preservedPreferences: ActorPreferences[] = [];
     
     // Preserve non-managed preferences
     for (const pref of existingPreferences || []) {
-      if (!pref || !pref.$type) {
+      if (!pref || typeof pref !== 'object' || !('$type' in pref) || typeof pref.$type !== 'string') {
         continue;
       }
       
@@ -568,7 +600,8 @@ export class ModerationService {
         continue;
       } else if (pref.$type === 'app.bsky.actor.defs#contentLabelPref') {
         // Only preserve content label prefs we don't manage
-        if (pref.label && !managedLabels.has(pref.label)) {
+        const labelPref = pref as any;
+        if ('label' in labelPref && typeof labelPref.label === 'string' && !managedLabels.has(labelPref.label)) {
           preservedPreferences.push(pref);
         }
       } else {
@@ -578,13 +611,13 @@ export class ModerationService {
     }
     
     // Build preferences array
-    const preferences: any[] = [];
+    const preferences: ActorPreferences[] = [];
     
     // Add adult content preference
     preferences.push({
       $type: 'app.bsky.actor.defs#adultContentPref',
       enabled: settings.adultContentEnabled || false
-    });
+    } as unknown as ActorPreferences);
     
     // Add content label preferences for labels we manage
     const labelKeys = ['nsfw', 'suggestive', 'nudity', 'gore'];
@@ -594,7 +627,7 @@ export class ModerationService {
         $type: 'app.bsky.actor.defs#contentLabelPref',
         label: labelKey,
         visibility: visibility
-      });
+      } as unknown as ActorPreferences);
     }
     
     // Add all preserved preferences

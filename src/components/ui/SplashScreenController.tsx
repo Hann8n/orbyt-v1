@@ -23,6 +23,7 @@ export function SplashScreenController() {
       
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [isLoading, fontsLoaded]);
 
   return null;

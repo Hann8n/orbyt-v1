@@ -24,6 +24,7 @@ import Animated, {
   useAnimatedStyle,
   interpolate,
   Extrapolate,
+  runOnUI,
 } from 'react-native-reanimated';
 import { useProfileFlags } from '../../src/stores/profileInteractionStore';
 import { Colors } from '../../src/components/ui/UI';
@@ -32,7 +33,7 @@ import { useVisibilityRouteTracker, useVisibilityRouteIsActive } from '../../src
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFollowMutation } from '../../src/services/cache/ProfileCache';
 import { createQueryKeys } from '../../src/services/FeedService';
-import { useUserSubscription, useSubscriptionStore } from '../../src/stores/subscriptionStore';
+import { useSubscriptionStore } from '../../src/stores/subscriptionStore';
 import ProfileMenu from '../../src/components/features/profile/ProfileMenu';
 import SubscriptionOptionsSheet from '../../src/components/features/profile/SubscriptionOptionsSheet';
 import ChatService from '../../src/services/ChatService';
@@ -278,7 +279,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
 
   const followMutation = useFollowMutation();
-  const { isSubscribed } = useUserSubscription(profileData?.did);
+  
+  // Read subscription state from store (for cross-component sharing)
+  const isSubscribed = useSubscriptionStore((state) => 
+    profileData?.did ? state.isSubscribed(profileData.did) : false
+  );
+  
+  // Read follow state directly from profileData (React Query cache - single source of truth)
+  const isFollowing = profileData?.isFollowing ?? false;
 
   // Get raw profile response to access chat fields from getProfile
   // This includes associated.chat.allowIncoming and chat.activitySubscription
@@ -366,15 +374,30 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
         queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(profileData.did) });
         return;
       }
-      const isCurrentlyFollowing = !!profileData.isFollowing;
+      
+      const newFollowingState = !isFollowing;
+      
+      // Update React Query cache IMMEDIATELY (synchronous, instant UI update)
+      // This is the source of truth the component reads from
+      const handleKey = profileKeys.detail(profileData.handle);
+      const didKey = profileKeys.detail(`did_${profileData.did}`);
+      
+      queryClient.setQueryData<CachedProfile>(handleKey, (old) => 
+        old ? { ...old, isFollowing: newFollowingState } : old
+      );
+      queryClient.setQueryData<CachedProfile>(didKey, (old) => 
+        old ? { ...old, isFollowing: newFollowingState } : old
+      );
+      
+      // Trigger mutation (which will also update cache in onMutate and handle errors)
       followMutation.mutate({
         handle: profileData.handle,
-        isFollowing: !isCurrentlyFollowing,
+        isFollowing: newFollowingState,
       });
     } catch {
       // no-op
     }
-  }, [profileData, isBlocked, followMutation, queryClient]);
+  }, [profileData, isBlocked, followMutation, queryClient, isFollowing]);
 
   const handleMenuPress = useCallback(() => {
     if (isOwnProfileView) {
@@ -397,21 +420,25 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Shared scroll progress for header animation (0 = top, 1 = fully faded/dimmed)
   const headerScrollProgress = useSharedValue(0);
 
+  // Update scroll progress on UI thread (worklet directive required for runOnUI)
   const handleVerticalScroll = useCallback(
     (scrollY: number) => {
-      // Map first 250px of scroll into 0 -> 1 progress (more gradual)
-      const clamped = Math.max(0, Math.min(1, scrollY / 250));
-      headerScrollProgress.value = clamped;
+      runOnUI((y: number) => {
+        'worklet';
+        // Map first 250px of scroll into 0 -> 1 progress
+        headerScrollProgress.value = Math.max(0, Math.min(1, y / 250));
+      })(scrollY);
     },
-    [headerScrollProgress],
+    [],
   );
 
+  // Animated styles automatically run on UI thread (worklet directive optional in Reanimated 4)
   const overlayAnimatedStyle = useAnimatedStyle(() => {
     const progress = headerScrollProgress.value;
-    // Smooth fade: start fading at 30%, complete fade by 80% for smoother transition
-    const opacity = interpolate(progress, [0, 0.3, 0.8], [1, 1, 0.02], Extrapolate.CLAMP);
+    // Smooth fade: start fading at 30%, complete fade by 80%
+    const opacity = interpolate(progress, [0, 0.3, 0.8], [1, 1, 0], Extrapolate.CLAMP);
     return { opacity };
-  }, [headerScrollProgress]);
+  });
 
   // Back icon color: gradually transition from header text color to white based on scroll
   const baseBackTextColor = useMemo(
@@ -422,16 +449,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
   // Animated opacity for text-colored icon (fades out on scroll)
   const backIconPrimaryStyle = useAnimatedStyle(() => {
     const progress = headerScrollProgress.value;
-    const opacity = interpolate(progress, [0, 1], [1, 0], Extrapolate.CLAMP);
-    return { opacity };
-  }, []);
+    return { opacity: interpolate(progress, [0, 1], [1, 0], Extrapolate.CLAMP) };
+  });
 
   // Animated opacity for white icon (fades in on scroll)
   const backIconSecondaryStyle = useAnimatedStyle(() => {
     const progress = headerScrollProgress.value;
-    const opacity = interpolate(progress, [0, 1], [0, 1], Extrapolate.CLAMP);
-    return { opacity };
-  }, []);
+    return { opacity: interpolate(progress, [0, 1], [0, 1], Extrapolate.CLAMP) };
+  });
 
   // Build header actions exactly as original ProfileHeader customActions
   const headerActions: HeaderAction[] = useMemo(() => {
@@ -448,7 +473,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
       ];
     }
 
-    const isFollowing = !!profileData.isFollowing;
     const isFollowedBy = !!profileData.isFollowedBy;
 
     let label = isBlocked ? 'Unblock' : 'follow';
@@ -504,6 +528,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
           const store = useSubscriptionStore.getState();
           const currentlySubscribed = store.isSubscribed(did);
 
+          // Store methods already update optimistically (set state before API call)
           // Single tap behavior:
           // - If not subscribed, turn on post notifications only (post: true, reply: false)
           // - If subscribed, clear both states (unsubscribe from all activity)
@@ -529,6 +554,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = memo(({ onLogout }) => {
     isBlocked,
     handleFollowUnfollow,
     isSubscribed,
+    isFollowing,
     dynamicColors,
     profileColors.backgroundColor,
     profileColors.textColor,

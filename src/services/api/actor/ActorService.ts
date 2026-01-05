@@ -422,7 +422,7 @@ export class ActorService {
     await AtprotoCore.ensureSession();
     try {
       const { api } = await AtprotoCore.getApiClient();
-      await api.app.bsky.actor.putPreferences(preferences);
+      await api.app.bsky.actor.putPreferences({ preferences: Array.isArray(preferences) ? preferences : [preferences] });
       return true;
     } catch (error: unknown) {
       return false;

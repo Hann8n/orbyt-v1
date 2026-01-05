@@ -5,24 +5,21 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
-  Platform,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { format, parseISO, isValid } from 'date-fns';
 import ProfileCache from '../../../services/cache/ProfileCache';
 import { Colors } from '../../ui/UI';
 import AtprotoService from '../../../services/api/AtprotoService';
 import { useRouter } from 'expo-router';
-import { Avatar } from '../../ui/UI';
-import Icon, { Loading3FillIcon } from '../../ui/Icon';
+import { Loading3FillIcon } from '../../ui/Icon';
+import CloseButton from '../../ui/CloseButton';
+import CancelButton from '../../ui/CancelButton';
 import KeyboardAwareFooter from '../../../utils/truesheet/KeyboardAwareFooter';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
 import VerificationBadge from './VerificationBadge';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 
 // Import AuthorItem directly - preload to avoid size calculation issues
 import AuthorItem from '../../ui/AuthorItem';
@@ -73,10 +70,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   
   // Calculate footer height as constant: cancelContainer paddingTop (20) + button minHeight (44)
   const footerHeight = 20 + 44;
-
-  const shouldUseGlass = useMemo(() => {
-    return false; // Disabled for consistent black background
-  }, []);
 
   // Get profile info - use cached data if available
   // Verification data is included in profile response, so we only need one query
@@ -139,9 +132,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
 
   // Determine verification status using cache fields
   const isTrustedVerifier = verification?.trustedVerifierStatus === 'valid' || verification?.trustedVerifierStatus === 'active';
-  const isVerified =
-    verification?.status === 'valid' ||
-    verification?.isVerified ||
     (verification?.verifications && verification.verifications.length > 0 && verification.verifications.some(v => v.isValid));
 
   // Handle bottom sheet visibility
@@ -167,12 +157,7 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
             <View 
               style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
             > 
-              <Pressable 
-                style={styles.cancelButton} 
-                onPress={onDismiss}
-              >
-                <Text style={styles.cancelButtonText}>Close</Text>
-              </Pressable>
+              <CancelButton onPress={onDismiss} text="Close" />
             </View>
           </KeyboardAwareFooter>
         </View>
@@ -188,18 +173,13 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
               badgeType="auto"
               textColor={Colors.white}
               customMargin={0}
-              verification={verification}
+              verification={verification || undefined}
             />
             <Text style={[styles.headerTitle, { marginLeft: 4 }]} numberOfLines={1}>
               {isTrustedVerifier ? 'Trusted Verifier' : 'Verified'}
             </Text>
           </View>
-          <Pressable 
-            style={styles.closeButton} 
-            onPress={onDismiss}
-          >
-            <Icon name="close" size={20} color={Colors.white} />
-          </Pressable>
+          <CloseButton onPress={onDismiss} />
         </View>
 
         {isLoading ? (
@@ -247,12 +227,6 @@ const VerificationInfoSheet: React.FC<VerificationInfoSheetProps> = ({
   // Render verified account info
   function renderVerifiedAccountContent() {
     // Get verification details from the first valid verification in the array
-    const verificationInfo = validVerification || verification?.verifications?.[0];
-    
-    // Determine issuer information
-    const issuerDid = verifierDid;
-    const issuerCreatedAt = verificationInfo?.createdAt || verification?.verifiedAt;
-    
     // Get verifier handle from profile or verification data
     const actualIssuerHandle = issuerProfile?.handle || verification?.verifierHandle;
     
@@ -351,12 +325,6 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     fontFamily: 'Firma-Bold',
   },
-  closeButton: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   loadingIndicator: {
     marginVertical: 40,
     alignSelf: 'center',
@@ -453,25 +421,6 @@ const styles = StyleSheet.create({
   cancelContainer: {
     alignItems: 'center',
     paddingTop: 20,
-  },
-  cancelButton: {
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    minHeight: 44,
-    borderWidth: 0,
-    borderColor: 'transparent'
-  },
-  cancelButtonText: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
   },
 });
 

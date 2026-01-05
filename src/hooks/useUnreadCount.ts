@@ -5,6 +5,7 @@ import { useChatStore } from '../stores/chatStore';
 import { useUserStore } from '../stores/userStore';
 import { QUERY_CONSTANTS } from '../utils/constants';
 import { queryKeys } from '../utils/queryKeys';
+import type { Notification } from '../services/api/types';
 
 export const useUnreadCount = () => {
   const { updateFromConversations } = useChatStore();
@@ -12,7 +13,7 @@ export const useUnreadCount = () => {
   
   const queryOptions = {
     enabled: isAuthenticated,
-    refetchInterval: isAuthenticated ? 30000 : false,
+    refetchInterval: (isAuthenticated ? 30000 : false) as number | false,
     staleTime: QUERY_CONSTANTS.STALE_TIME_MEDIUM, // 1 minute - unread counts change moderately
   };
   
@@ -21,7 +22,7 @@ export const useUnreadCount = () => {
     queryKey: queryKeys.notifications.count(),
     queryFn: async () => {
       const response = await AtprotoService.listNotifications(null, 100);
-      return response.notifications.filter((n: any) => !n.isRead).length;
+      return response.notifications.filter((n: Notification) => !n.isRead).length;
     },
     ...queryOptions,
   });

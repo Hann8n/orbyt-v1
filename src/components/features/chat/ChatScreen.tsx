@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, StyleSheet, Alert, Text, Pressable, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { GiftedChat } from 'react-native-gifted-chat';
 import type { ComposerProps, SendProps, InputToolbarProps, MessageProps, DayProps } from 'react-native-gifted-chat';
@@ -7,14 +7,13 @@ import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Animated as RNAnimated } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { format, isToday, isYesterday, parseISO } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 import { Colors, Avatar } from '../../ui/UI';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { formatHandle } from '../../../utils/helpers';
 import Icon, { BackArrowIcon, Loading3FillIcon } from '../../ui/Icon';
-import { Conversation } from '../../../services/ChatService';
 import { useChatStore } from '../../../stores/chatStore';
 import { ChatMessage } from '../../../utils/chatHelpers';
 import { useCurrentUser } from '../../../stores/userStore';
@@ -32,7 +31,7 @@ interface ChatScreenProps {
   recipientDid?: string;
 }
 
-export default function ChatScreen({ conversationId, recipientDid }: ChatScreenProps) {
+export default function ChatScreen({ conversationId, recipientDid: _recipientDid }: ChatScreenProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -67,7 +66,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   const {
     data: conversationData,
     isLoading: isLoadingConversation,
-    error: conversationError,
+    error: _conversationError,
   } = useQuery({
     queryKey: ['conversation', conversationId],
     queryFn: () => ChatService.getConversation(conversationId),
@@ -78,7 +77,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   const {
     data: messagesData,
     isLoading,
-    error,
+    error: _error,
     refetch: refetchMessages,
   } = useQuery({
     queryKey: queryKeys.chat.messages.infinite(conversationId),
@@ -117,7 +116,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         refetchType: 'active'
       });
     },
-    onError: (error: any) => {
+    onError: (_error: any) => {
       // Remove optimistic message on error
       if (optimisticMessageIdRef.current) {
         setMessages((previousMessages) =>
@@ -141,7 +140,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     messages,
     setMessages,
     currentUserId,
-    currentUser: currentUser ? { handle: currentUser.handle, avatar: currentUser.avatar } : undefined,
+    currentUser: currentUser ? { handle: currentUser.handle ?? undefined, avatar: currentUser.avatar } : undefined,
   });
 
   // Accept conversation mutation
@@ -161,7 +160,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
         refetchType: 'active'
       });
     },
-    onError: (error: any) => {
+    onError: (_error: any) => {
       Alert.alert('Error', 'Failed to accept conversation');
     },
   });
@@ -180,14 +179,14 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       });
       router.back();
     },
-    onError: (error: any) => {
+    onError: (_error: any) => {
       Alert.alert('Error', 'Failed to reject conversation');
     },
   });
 
   // Get the other user DID from conversation members
   const otherUserDid = useMemo(() => {
-    return otherUser?.did || null;
+    return otherUser?.did;
   }, [otherUser]);
 
   // Check if current user initiated the conversation by checking if they sent the first message
@@ -247,7 +246,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
 
   // Mark conversation as read when user views the chat screen
   useEffect(() => {
-    if (conversationId && isUserReady && messagesData?.messages?.length > 0) {
+    if (conversationId && isUserReady && messagesData?.messages && messagesData.messages.length > 0) {
       // Mark conversation as read when user opens the chat
       ChatService.markConversationAsRead(conversationId)
         .then(() => {
@@ -261,7 +260,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
             refetchType: 'active'
           });
         })
-        .catch((error) => {
+        .catch((_error) => {
           // Non-critical operation, just log the error
         });
     }
@@ -286,7 +285,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     setSelectedMessageId(null); // Hide the emoji bar
   }, [handleReactionToggle]);
 
-  const handleReactionPress = useCallback((messageId: string, emoji: string, isCurrentUserReacted: boolean) => {
+  const handleReactionPress = useCallback((messageId: string, emoji: string, _isCurrentUserReacted: boolean) => {
     handleReactionToggle(emoji, messageId);
   }, [handleReactionToggle]);
 
@@ -461,7 +460,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
               style={styles.avatar}
             />
           </View>
-          {props.renderComposer && props.renderComposer(props)}
+          {props.renderComposer && props.renderComposer(props as any)}
           {props.renderSend && props.renderSend(props)}
         </View>
       </View>
@@ -508,7 +507,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     const isSelected = selectedMessageId === String(message._id);
     
     // For messages with embeds, render custom layout with proper alignment
-    if (hasEmbed) {
+    if (hasEmbed && message.embed?.record) {
       return (
         <View 
           style={[
@@ -718,7 +717,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     );
   }
 
-  if (error) {
+  if (_error) {
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>

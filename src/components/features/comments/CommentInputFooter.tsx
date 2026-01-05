@@ -23,7 +23,7 @@ interface CommentInputFooterProps {
   } | null;
   isPosting?: boolean;
   maxLength?: number;
-  inputRef?: React.RefObject<TextInput>;
+  inputRef?: React.RefObject<TextInput | null>;
   currentUserAvatar?: string | null;
   userSearchModalProps?: any;
   mentionInputProps?: any;
@@ -61,7 +61,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
         <View style={styles.inputRow}>
           <View style={styles.avatarContainer}>
             <UI.Avatar
-              uri={currentUserAvatar}
+              uri={currentUserAvatar ?? undefined}
               type="profile"
               size={42}
               style={styles.avatar}

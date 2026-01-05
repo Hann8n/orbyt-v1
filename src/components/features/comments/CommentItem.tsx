@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Alert,
   Linking,
-  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
@@ -33,53 +32,11 @@ import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
 import RelativeDate from '../../ui/RelativeDate';
 import { useCommentStore } from '../../../stores/commentStore';
 import { useUserStore } from '../../../stores/userStore';
+import type { Comment } from '../../../services/api/types';
 
-export interface Comment {
-  uri: string;
-  cid?: string;
-  author?: {
-    did?: string;
-    displayName?: string;
-    handle?: string;
-    avatar?: string;
-  };
-  post?: Comment;
-  record?: {
-    text: string;
-    facets?: Array<{
-      index: { byteStart: number; byteEnd: number };
-      features: Array<{
-        $type: string;
-        uri?: string;
-        tag?: string;
-      }>;
-    }>;
-    embed?: {
-      $type: string;
-      images?: {
-        image: string | { $type: string; ref: { $link: string } };
-        alt: string;
-      }[];
-    };
-  };
-  indexedAt?: string;
-  viewer?: {
-    like?: string;
-  };
-  likeCount?: number;
-  replies?: Comment[];
-  replyCount?: number;
+// Extend API Comment type with UI-specific properties
+export interface UIComment extends Comment {
   isExpanded?: boolean;
-  embed?: {
-    $type: string;
-    images?: {
-      alt: string;
-      thumb: string;
-      fullsize: string;
-      aspectRatio?: { width: number; height: number };
-    }[];
-  };
-  parent?: Comment; // Parent comment for threading context
 }
 
 export interface Like {
@@ -105,33 +62,31 @@ interface CommentItemProps {
   onLayoutChange?: () => void;
 }
 
-// Helper functions
+// Helper functions - API Comment type has properties directly on comment, not nested in post
 function getCommentUri(c: Comment) {
-  return c?.uri || c?.post?.uri;
+  return c?.uri;
 }
 function getCommentCid(c: Comment) {
-  return c?.cid || c?.post?.cid;
+  return c?.cid;
 }
 function getCommentViewerLike(c: Comment) {
-  return c?.viewer?.like || c?.post?.viewer?.like;
+  return c?.viewer?.like;
 }
 function getCommentLikeCount(c: Comment) {
-  return (c?.post?.likeCount ?? c?.likeCount ?? 0) as number;
+  return c?.likeCount ?? 0;
 }
 function getCommentText(c: Comment) {
-  return c?.post?.record?.text || c?.record?.text || '';
+  return (c?.record as { text?: string })?.text || '';
 }
 function getCommentFacets(c: Comment) {
-  return c?.post?.record?.facets || c?.record?.facets;
+  return (c?.record as { facets?: unknown })?.facets;
 }
 function getCommentEmbed(c: Comment) {
-  return c?.post?.record?.embed || c?.record?.embed || c?.embed || c?.post?.embed;
+  return (c?.record as { embed?: unknown })?.embed;
 }
 
 const CommentItem: React.FC<CommentItemProps> = React.memo(
-  ({ comment, onDismiss, onReplyPress, rootUri, rootCid, level = 0, onImagePress, highlightUri, onLayoutChange }) => {
-    const viewer = comment?.viewer || comment?.post?.viewer || {};
-    const stats = comment?.post || comment;
+  ({ comment, onDismiss, onReplyPress, rootUri, rootCid: _rootCid, level = 0, onImagePress, highlightUri, onLayoutChange: _onLayoutChange }) => {
     
     const uri = getCommentUri(comment);
     const cid = getCommentCid(comment);
@@ -213,7 +168,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
         // Delay highlight start by 500ms to allow comment section to appear
         const delayTimeout = setTimeout(() => {
           // Smooth fade in with ease-out curve for natural feel
-          highlightOpacity.value = withTiming(1, { 
+          highlightOpacity.value = withTiming(1, {
             duration: 450,
             easing: Easing.out(Easing.cubic),
           });
@@ -228,6 +183,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
         
         return () => clearTimeout(delayTimeout);
       }
+      return undefined;
     }, [shouldHighlight, highlightOpacity]);
     
     const highlightStyle = useAnimatedStyle(() => ({
@@ -237,12 +193,10 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const authorName = useMemo(
       () =>
         formatHandle(
-          comment?.post?.author?.handle ||
           comment?.author?.handle ||
           ''
         ) || 'Unknown',
       [
-        comment?.post?.author?.handle,
         comment?.author?.handle,
       ]
     );
@@ -250,21 +204,20 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const authorHandle = useMemo(
       () =>
         formatHandle(
-          comment?.post?.author?.handle ||
           comment?.author?.handle ||
           ''
         ),
-      [comment?.post?.author?.handle, comment?.author?.handle]
+      [comment?.author?.handle]
     );
     
     const authorDid = useMemo(
-      () => comment?.post?.author?.did || comment?.author?.did || null,
-      [comment?.post?.author?.did, comment?.author?.did]
+      () => comment?.author?.did || null,
+      [comment?.author?.did]
     );
     
     const authorAvatar = useMemo(
-      () => comment?.post?.author?.avatar || comment?.author?.avatar || 'https://via.placeholder.com/40',
-      [comment?.post?.author?.avatar, comment?.author?.avatar]
+      () => comment?.author?.avatar || 'https://via.placeholder.com/40',
+      [comment?.author?.avatar]
     );
     
     const commentText = useMemo(
@@ -280,17 +233,17 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     const parent = comment?.parent;
     const parentAuthorName = useMemo(() => {
       if (!parent) return null;
-      return formatHandle(parent?.post?.author?.handle || parent?.author?.handle || '') || 'Unknown';
+      return formatHandle(parent?.author?.handle || '') || 'Unknown';
     }, [parent]);
     
     const parentAuthorHandle = useMemo(() => {
       if (!parent) return null;
-      return formatHandle(parent?.post?.author?.handle || parent?.author?.handle || '');
+      return formatHandle(parent?.author?.handle || '');
     }, [parent]);
     
     const parentAuthorDid = useMemo(() => {
       if (!parent) return null;
-      return parent?.post?.author?.did || parent?.author?.did || null;
+      return parent?.author?.did || null;
     }, [parent]);
 
     // Animated styles for heart
@@ -447,18 +400,20 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       let handle = null;
       let authorData = null;
       
-      if (comment?.post?.author?.handle) {
-        handle = comment.post.author.handle.trim();
-        authorData = comment.post.author;
-      } else if (comment?.author?.handle) {
+      if (comment?.author?.handle) {
         handle = comment.author.handle.trim();
         authorData = comment.author;
       }
       
       if (handle && typeof handle === 'string' && handle.trim() !== '') {
-        navigateToAuthorProfile(handle, authorData?.did, authorData);
+        navigateToAuthorProfile(handle, authorData?.did, authorData ? {
+          did: authorData.did,
+          handle: authorData.handle,
+          displayName: authorData.displayName,
+          avatar: authorData.avatar,
+        } : undefined);
       }
-    }, [comment?.post?.author, comment?.author, navigateToAuthorProfile]);
+    }, [comment?.author, navigateToAuthorProfile]);
 
     const handleReplyPress = useCallback(() => {
       if (authorName && uri && cid) {
@@ -480,7 +435,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
     }, [authorName, uri, cid, level, queryClient, onReplyPress, comment]);
 
     // Check if comment belongs to current user
-    const commentAuthorDid = comment?.post?.author?.did || comment?.author?.did;
+    const commentAuthorDid = comment?.author?.did;
     const isCurrentUserComment = currentUser?.did && commentAuthorDid === currentUser.did;
 
     // Handle long press to show post actions
@@ -721,19 +676,12 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       }
     }, [uri, cid, isCurrentUserComment, rootUri, queryClient, level, comment?.parent, authorName]);
 
-    const BLUESKY_CDN = 'https://cdn.bsky.app/img/feed_thumbnail/plain/';
+    // BLUESKY_CDN constant removed - not used
 
     // Shimmer Image Component
 
     const LinkThumbnail: React.FC<{ external: { uri: string; thumb?: string | { ref: { $link: string } }; title?: string; description?: string } }> = React.memo(({ external }) => {
       if (!external?.uri || !/^https?:\/\//.test(external.uri)) return null;
-      
-      let thumbUrl: string | undefined = undefined;
-      if (external.thumb && typeof external.thumb === 'object' && external.thumb.ref && external.thumb.ref.$link) {
-        thumbUrl = `${BLUESKY_CDN}${external.thumb.ref.$link}@jpeg`;
-      } else if (typeof external.thumb === 'string') {
-        thumbUrl = external.thumb;
-      }
       
       const handlePress = () => {
         if (external.uri) {
@@ -826,8 +774,9 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
       }
       
       let embedImages: { alt: string; thumb: string; fullsize: string; aspectRatio?: { width: number; height: number } }[] = [];
-      const isImagesEmbed = embed?.$type === 'app.bsky.embed.images' || embed?.$type === 'app.bsky.embed.images#view';
-      if (isImagesEmbed && Array.isArray((embed as { images?: unknown[] }).images)) {
+      const embedObj = embed as { $type?: string; images?: unknown[] } | undefined;
+      const isImagesEmbed = embedObj?.$type === 'app.bsky.embed.images' || embedObj?.$type === 'app.bsky.embed.images#view';
+      if (isImagesEmbed && Array.isArray(embedObj?.images)) {
         embedImages = ((embed as { images: unknown[] }).images).filter((img: unknown): img is { thumb?: string; fullsize?: string; alt?: string; aspectRatio?: { width: number; height: number } } => 
           typeof img === 'object' && img !== null && ('thumb' in img || 'fullsize' in img)
         ) as { alt: string; thumb: string; fullsize: string; aspectRatio?: { width: number; height: number } }[];
@@ -940,7 +889,7 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
               <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
                 <Pressable
                   onPress={() => {
-                    const authorData = comment?.post?.author || comment?.author;
+                    const authorData = comment?.author;
                     if (authorHandle || authorDid) {
                       handleAuthorPress(authorHandle, authorDid, authorData);
                     }
@@ -965,9 +914,9 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                     <Text style={styles.parentChyronArrow}>→</Text>
                     <Pressable
                       onPress={() => {
-                        const parentAuthorData = parent?.post?.author || parent?.author;
-                        if (parentAuthorHandle || parentAuthorDid) {
-                          handleAuthorPress(parentAuthorHandle, parentAuthorDid, parentAuthorData);
+                        const parentAuthorData = parent?.author;
+                        if (parentAuthorHandle && typeof parentAuthorHandle === 'string') {
+                          handleAuthorPress(parentAuthorHandle, parentAuthorDid ?? undefined, parentAuthorData);
                         }
                       }}
                     >
@@ -985,13 +934,13 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                   style={{ color: Colors.lightGray, fontSize: 15, marginTop: 2, fontFamily: 'Firma-Regular' }}
                   onAuthorPress={handleAuthorPress}
                   onHashtagPress={handleHashtagPress}
-                  facets={facets}
+                  facets={facets as import('../../../utils/richTextParser').RichTextFacet[] | undefined}
                 />
               ) : null}
               {renderImages(!!commentText)}
               <View style={styles.commentMetaContainer}>
                 <RelativeDate
-                  dateString={comment?.indexedAt || comment?.post?.indexedAt}
+                  dateString={comment?.indexedAt}
                   style={styles.commentTimestamp}
                 />
                 <Pressable onPress={handleReplyPress} style={styles.replyButton}>

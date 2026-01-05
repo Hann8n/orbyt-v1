@@ -38,7 +38,8 @@ import AtprotoService from '../../src/services/api/AtprotoService';
 import VideoProcessingService from '../../src/services/VideoProcessingService';
 import { logger } from '../../src/utils/logger';
 import { useVideoPostDraftStore } from '../../src/stores/videoPostDraftStore';
-import { getPostableChannels, shouldShowChannelSlash, OrbytChannel, extractFeedSlug, getChannelAvatarUri } from '../../src/utils/orbytChannels';
+import { getPostableChannels, shouldShowChannelSlash, OrbytChannel, extractFeedSlug, getChannelAvatarUri, getChannelByUri } from '../../src/utils/orbytChannels';
+import type { SubscribedChannel } from '../../src/stores/userStore';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
 import { useRichTextSearchTrigger, RichTextSearchModal } from '../../src/components/ui/usersearch';
 import { useRichText, formatRichTextForDisplay } from '../../src/hooks/useRichText';
@@ -46,6 +47,18 @@ import { useRichText, formatRichTextForDisplay } from '../../src/hooks/useRichTe
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ASPECT_RATIO = 9 / 16; // 9:16 aspect ratio for video cards
 const VIDEO_WIDTH = 150; // Fixed preview width
+
+// Convert OrbytChannel to SubscribedChannel for draft storage
+function orbytChannelToSubscribedChannel(channel: OrbytChannel): SubscribedChannel {
+  return {
+    uri: channel.uri,
+    displayName: channel.displayName,
+    description: channel.description,
+    avatar: undefined, // OrbytChannel doesn't have avatar, will be resolved via getChannelAvatarUri
+    isOrbytChannel: true,
+    subscribedAt: Date.now(),
+  };
+}
 
 // Reusable video preview component to avoid duplication
 const VideoPreviewContent: React.FC<{
@@ -143,7 +156,7 @@ const DescriptionPreview: React.FC<{
 
 // Reusable channel selector component
 const ChannelSelector: React.FC<{
-  selectedChannel: OrbytChannel | null;
+  selectedChannel: SubscribedChannel | null;
   onPress: () => void;
   showRing?: boolean;
 }> = ({ selectedChannel, onPress, showRing = false }) => (
@@ -179,16 +192,19 @@ const ChannelSelector: React.FC<{
         </View>
       ) : (
         <View style={styles.channelSelectorNameContainer}>
-          {shouldShowChannelSlash(selectedChannel.uri) && (
-            <Text style={[
-              styles.channelSelectorName, 
-              styles.orbytSlash, 
-              { 
-                color: selectedChannel.channelColor || '#FFD700',
-                fontFamily: 'Firma-SemiBold'
-              }
-            ]}>/</Text>
-          )}
+          {(() => {
+            const orbytChannel = getChannelByUri(selectedChannel.uri);
+            return shouldShowChannelSlash(selectedChannel.uri) && (
+              <Text style={[
+                styles.channelSelectorName, 
+                styles.orbytSlash, 
+                { 
+                  color: orbytChannel?.channelColor || '#FFD700',
+                  fontFamily: 'Firma-SemiBold'
+                }
+              ]}>/</Text>
+            );
+          })()}
           <Text style={[styles.channelSelectorName, { fontFamily: 'Firma-Bold' }]}>
             {selectedChannel.displayName.toLowerCase()}
           </Text>
@@ -478,7 +494,7 @@ const VideoPostScreen: React.FC = () => {
   const [commentFilter, setCommentFilter] = useState<string | null>(null);
 
   // Channel selection state
-  const [selectedChannel, setSelectedChannel] = useState<OrbytChannel | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<SubscribedChannel | null>(null);
   
   // Sheet visibility state
   const [showContentWarningsSheet, setShowContentWarningsSheet] = useState(false);
@@ -796,7 +812,7 @@ const VideoPostScreen: React.FC = () => {
         allContentWarnings,
         otherWarning: otherWarning.trim() || null,
         commentFilter,
-        selectedChannel: selectedChannel ? { uri: selectedChannel.uri, slug: selectedChannel.slug } : null
+        selectedChannel: selectedChannel ? { uri: selectedChannel.uri, slug: extractFeedSlug(selectedChannel.uri) || undefined } : null
       });
       
       // Simulate upload progress with realistic stages
@@ -813,7 +829,7 @@ const VideoPostScreen: React.FC = () => {
       
       // Extract slug from channel URI to ensure it matches what the backend expects
       const channelSlug = selectedChannel 
-        ? (extractFeedSlug(selectedChannel.uri) || selectedChannel.slug)
+        ? extractFeedSlug(selectedChannel.uri) || undefined
         : undefined;
 
       logger.debug('Calling createVideoPost', {
@@ -1313,35 +1329,38 @@ const VideoPostScreen: React.FC = () => {
             }}
             disabled={selectedChannel === null}
           />
-          {getPostableChannels().map(channel => (
-            <Pressable
-              key={channel.slug}
-              style={styles.channelListButton}
-              onPress={() => {
-                setSelectedChannel(channel);
-                setShowChannelSelectionSheet(false);
-              }}
-              disabled={selectedChannel?.slug === channel.slug}
-            >
-              <View style={styles.listButtonContent}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  {shouldShowChannelSlash(channel.uri) && (
-                    <Text style={[
-                      styles.channelListButtonText, 
-                      styles.orbytSlash, 
-                      { 
-                        color: channel.channelColor || '#FFD700',
-                        fontFamily: 'Firma-SemiBold'
-                      }
-                    ]}>/</Text>
-                  )}
-                  <Text style={[styles.channelListButtonText, { fontFamily: 'Firma-Bold' }]}>
-                    {channel.displayName.toLowerCase()}
-                  </Text>
+          {getPostableChannels().map(channel => {
+            const channelUri = channel.uri;
+            return (
+              <Pressable
+                key={channel.slug}
+                style={styles.channelListButton}
+                onPress={() => {
+                  setSelectedChannel(orbytChannelToSubscribedChannel(channel));
+                  setShowChannelSelectionSheet(false);
+                }}
+                disabled={selectedChannel?.uri === channelUri}
+              >
+                <View style={styles.listButtonContent}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {shouldShowChannelSlash(channel.uri) && (
+                      <Text style={[
+                        styles.channelListButtonText, 
+                        styles.orbytSlash, 
+                        { 
+                          color: channel.channelColor || '#FFD700',
+                          fontFamily: 'Firma-SemiBold'
+                        }
+                      ]}>/</Text>
+                    )}
+                    <Text style={[styles.channelListButtonText, { fontFamily: 'Firma-Bold' }]}>
+                      {channel.displayName.toLowerCase()}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            </Pressable>
-          ))}
+              </Pressable>
+            );
+          })}
         </ScrollView>
       </VerticalListSheet>
     </>

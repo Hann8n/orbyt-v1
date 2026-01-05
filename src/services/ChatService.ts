@@ -1,5 +1,5 @@
-import { AtProtoOAuthService } from './auth/OAuthService';
 import { Agent } from '@atproto/api';
+import type { ConvoView, MessageView as APIMessageView } from './api/types';
 
 const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
 
@@ -154,10 +154,7 @@ export interface MuteConversationParams {
 }
 
 class ChatService {
-  private oauthService: AtProtoOAuthService;
-
   constructor() {
-    this.oauthService = AtProtoOAuthService.getInstance();
   }
 
   private async getAgent(): Promise<Agent> {
@@ -197,7 +194,7 @@ class ChatService {
       }
 
       return await this.mapConversationFromAPI(response.data.convo || response.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -226,7 +223,7 @@ class ChatService {
       }
 
       return await this.mapConversationFromAPI(response.data.convo);
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -235,7 +232,7 @@ class ChatService {
    * Get conversation activity log
    * API: chat.bsky.convo.getLog
    */
-  async getConversationLog(cursor?: string): Promise<{ logs: any[]; cursor: string | null }> {
+  async getConversationLog(cursor?: string): Promise<{ logs: unknown[]; cursor: string | null }> {
     try {
       const agent = await this.getAgent();
       
@@ -259,7 +256,7 @@ class ChatService {
         logs: data.logs || [], 
         cursor: data.cursor || null 
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -275,7 +272,11 @@ class ChatService {
       const agent = await this.getAgent();
       
       
-      const messageData: any = {
+      const messageData: {
+        text: string;
+        facets?: Facet[];
+        embed?: RecordEmbed;
+      } = {
         text: params.text,
       };
 
@@ -303,7 +304,7 @@ class ChatService {
       }
 
       return await this.mapMessageFromAPI(response.data as any);
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -331,7 +332,7 @@ class ChatService {
       if (!response.data) {
         throw new Error('Failed to delete message');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -360,7 +361,7 @@ class ChatService {
       if (!response.data) {
         throw new Error('Failed to add reaction');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -387,7 +388,7 @@ class ChatService {
       if (!response.data) {
         throw new Error('Failed to remove reaction');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -400,7 +401,7 @@ class ChatService {
    */
   async beginConversation(members: string[]): Promise<Conversation> {
     try {
-      const agent = await this.getAgent();
+      await this.getAgent();
       const { useUserStore } = await import('../stores/userStore');
       const userStore = useUserStore.getState();
       const currentUserDid = userStore.currentUser?.did;
@@ -420,7 +421,7 @@ class ChatService {
       }
       
       return conversation;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -447,7 +448,7 @@ class ChatService {
       if (!response.data) {
         throw new Error('Failed to accept conversation');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -474,7 +475,7 @@ class ChatService {
       if (!response.data) {
         throw new Error('Failed to leave conversation');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -513,7 +514,7 @@ class ChatService {
           throw new Error('Failed to unmute conversation');
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -539,7 +540,7 @@ class ChatService {
       if (!response.data) {
         throw new Error('Failed to update read status');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -577,7 +578,7 @@ class ChatService {
         conversations, 
         cursor: json.cursor || null 
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -616,7 +617,7 @@ class ChatService {
         messages, 
         cursor: json.cursor || null 
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -642,7 +643,7 @@ class ChatService {
       }
       
       return newConvo;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   }
@@ -722,25 +723,20 @@ class ChatService {
 
   // Data mapping methods
 
-  private mapConversationFromAPI = async (apiConv: any): Promise<Conversation> => {
-    const { useUserStore } = await import('../stores/userStore');
-    const userStore = useUserStore.getState();
-    const currentUserDid = userStore.currentUser?.did;
-    
-    
+  private mapConversationFromAPI = async (apiConv: ConvoView & { createdAt?: string }): Promise<Conversation> => {
     // Properly map members - they should be an array of objects with did, handle, displayName, etc.
     const members = Array.isArray(apiConv.members)
-      ? apiConv.members.map((member: any) => {
-          if (!member) return member;
+      ? apiConv.members.map((member) => {
+          if (!member) return member as ProfileViewBasic;
           // Normalize deleted accounts coming through as missing.invalid
           if (member.handle === 'missing.invalid') {
             return {
               ...member,
               displayName: 'Account Deleted',
               avatar: undefined,
-            };
+            } as ProfileViewBasic;
           }
-          return member;
+          return member as ProfileViewBasic;
         })
       : [];
     
@@ -748,50 +744,70 @@ class ChatService {
       id: apiConv.id,
       rev: apiConv.rev,
       members: members,
-      lastMessage: apiConv.lastMessage,
-      lastReaction: apiConv.lastReaction,
+      lastMessage: apiConv.lastMessage as MessageView | DeletedMessageView | undefined,
+      lastReaction: apiConv.lastReaction as MessageAndReactionView | undefined,
       muted: apiConv.muted || false,
       status: apiConv.status || 'active',
       unreadCount: apiConv.unreadCount || 0,
-      createdAt: apiConv.createdAt,
+      createdAt: apiConv.createdAt || new Date().toISOString(),
       // Additional properties for UI compatibility
-      lastMessageText: apiConv.lastMessage?.text || apiConv.lastMessage?.message?.text,
-      lastMessageCreatedAt: apiConv.lastMessage?.sentAt || apiConv.lastMessage?.createdAt,
+      lastMessageText: (() => {
+        const msg = apiConv.lastMessage;
+        if (!msg) return undefined;
+        if ('deleted' in msg && msg.deleted) return undefined;
+        if ('text' in msg) return msg.text as string;
+        return undefined;
+      })(),
+      lastMessageCreatedAt: (() => {
+        const msg = apiConv.lastMessage;
+        if (!msg) return undefined;
+        if ('sentAt' in msg) return msg.sentAt as string;
+        if ('createdAt' in msg) return msg.createdAt as string;
+        return undefined;
+      })(),
     };
   };
 
-  private mapMessageFromAPI = async (apiMsg: any): Promise<Message> => {
+  private mapMessageFromAPI = async (apiMsg: APIMessageView): Promise<Message> => {
     const { useUserStore } = await import('../stores/userStore');
     const userStore = useUserStore.getState();
-    const currentUserDid = userStore.currentUser?.did;
+    const currentUserDid = userStore.currentUser?.did || '';
+    
+    // Check if it's a MessageView (has text) or DeletedMessageView
+    const isMessageView = 'text' in apiMsg && typeof (apiMsg as any).text === 'string';
+    const msg = apiMsg as any;
+    const sender = msg.sender || {};
+    const senderDid = sender.did || '';
+    const sentAt = msg.sentAt || '';
     
     return {
       id: apiMsg.id,
       rev: apiMsg.rev,
-      text: apiMsg.text || apiMsg.message?.text || '',
-      facets: apiMsg.facets || apiMsg.message?.facets,
-      embed: apiMsg.embed || apiMsg.message?.embed,
-      reactions: apiMsg.reactions || apiMsg.message?.reactions,
-      sender: (() => {
-        const s = apiMsg.sender || apiMsg.message?.sender;
-        if (!s) return s;
-        // Normalize deleted accounts coming through as missing.invalid
-        if (s.handle === 'missing.invalid') {
-          return {
-            ...s,
-            displayName: 'Deleted account',
-            avatar: undefined,
-          };
-        }
-        return s;
-      })(),
-      sentAt: apiMsg.sentAt || apiMsg.message?.sentAt,
-      conversationId: apiMsg.convoId || apiMsg.conversationId,
-      sent: (apiMsg.sender?.did || apiMsg.message?.sender?.did) === currentUserDid,
-      received: (apiMsg.sender?.did || apiMsg.message?.sender?.did) !== currentUserDid,
-      // Additional properties for UI compatibility
-      createdAt: apiMsg.sentAt || apiMsg.message?.sentAt || apiMsg.createdAt,
-      senderDid: apiMsg.sender?.did || apiMsg.message?.sender?.did,
+      text: isMessageView ? (msg.text || '') : '',
+      facets: isMessageView ? (msg.facets as Facet[] | undefined) : undefined,
+      embed: isMessageView && msg.embed && msg.embed.$type === 'app.bsky.embed.record' ? (msg.embed as RecordEmbed) : undefined,
+      reactions: isMessageView && Array.isArray(msg.reactions) ? msg.reactions.map((r: any) => ({
+        value: r.value || '',
+        sender: {
+          did: r.sender?.did || '',
+          handle: r.sender?.handle || '',
+          displayName: r.sender?.displayName,
+          avatar: r.sender?.avatar,
+        },
+        createdAt: r.createdAt || '',
+      })) : undefined,
+      sender: {
+        did: senderDid,
+        handle: sender.handle || '',
+        displayName: sender.displayName,
+        avatar: sender.avatar,
+      },
+      sentAt,
+      conversationId: msg.convoId || msg.conversationId || '',
+      sent: senderDid === currentUserDid,
+      received: senderDid !== currentUserDid,
+      createdAt: sentAt,
+      senderDid,
     };
   };
 }

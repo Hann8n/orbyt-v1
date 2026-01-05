@@ -6,7 +6,6 @@
  */
 
 import { useRef, useEffect, useMemo } from 'react';
-import { InteractionManager } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useUserStore } from '../stores/userStore';
@@ -133,7 +132,7 @@ export function useFeed(
 
   // Create optimized infinite query with centralized configuration
   // When effectiveUserDid changes, React Query treats this as a new query and fetches fresh data
-  const query = feedService.createInfiniteQuery(feedOption, effectiveUserDid, {
+  const query = feedService.createInfiniteQuery(feedOption, effectiveUserDid ?? undefined, {
     enabled: queryEnabled,
     staleTime: FEED_CONFIG.STALE_TIME,
     gcTime: FEED_CONFIG.GC_TIME,
@@ -208,7 +207,7 @@ export function useFeed(
     isFetching: query.isFetching, // React Query's built-in fetching state (includes refetching)
     isFetchingNextPage: query.isFetchingNextPage,
     hasNextPage: query.hasNextPage ?? false,
-    isProfileFeed,
+    isProfileFeed: Boolean(isProfileFeed),
     isPaused: query.isPaused ?? false,
     dataUpdatedAt: query.dataUpdatedAt ?? 0,
     
@@ -229,7 +228,7 @@ export function useSearchFeed(
   hasNextPage?: boolean,
   isFetchingNextPage?: boolean,
   fetchNextPage?: () => void,
-  options: UseFeedOptions = {}
+  _options: UseFeedOptions = {}
 ) {
   // Get search feed from global state
   const feed = feedService.getCurrentFeed();

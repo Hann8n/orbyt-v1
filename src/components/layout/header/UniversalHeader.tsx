@@ -2,9 +2,8 @@ declare let window: any;
 
 import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
-import { View, StyleSheet, Pressable, Text, Platform } from 'react-native';
-import { Image, ImageBackground } from 'expo-image';
-import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { View, StyleSheet, Pressable, Text } from 'react-native';
+import { ImageBackground } from 'expo-image';
 import Animated, { type SharedValue, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { hexToRGBA } from '../../../utils/formatting/colorUtils';
 import { Avatar } from '../../ui/UI';
 import { Colors } from '../../ui/UI';
-import { isSmallScreen, isTablet, splitHandleSuffix } from '../../../utils/helpers';
+import { splitHandleSuffix } from '../../../utils/helpers';
 import { TextWithLinks } from '../../ui/TextWithLinks';
 import type { RichTextFacet } from '../../../utils/richTextParser';
 
@@ -93,43 +92,37 @@ const ActionButton = memo<{
   backgroundColor: string;
   size?: 'small' | 'medium' | 'large';
 }>(({ action, textColor, backgroundColor, size = 'medium' }) => {
-  const shouldUseGlass = useMemo(() => {
-    // Only target Edit / Follow / Mutuals-like actions / Message actions / Subscription actions
-    const label = (action.label || '').toLowerCase();
-    const isEdit = action.id === 'edit' || label.includes('edit');
-    const isFollowStates = action.id === 'follow' || label === 'follow' || label === 'following' || label === 'mutuals';
-    const isMessage = action.id === 'message' || label === 'message';
-    const isSubscription = action.id === 'subscription';
-    return isLiquidGlassAvailable() && (isEdit || isFollowStates || isMessage || isSubscription);
-  }, [action.id, action.label]);
-
-  const getButtonStyle = useCallback(() => {
-    // Check if this is a following state (Following, Mutuals, etc.), save button in edit mode, or active subscription
+  const hasFilledBackground = useMemo(() => {
     const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
-    const isIconOnlyFollowingState = (action.id === 'follow' && !action.label); // Icon-only Following/Mutuals
+    const isIconOnlyFollowingState = (action.id === 'follow' && !action.label);
     const isSaveButton = action.id === 'save';
     const isActiveSubscription = action.id === 'subscription' && action.active;
+    return isFollowingState || isIconOnlyFollowingState || isSaveButton || isActiveSubscription;
+  }, [action.label, action.id, action.active]);
+
+  // Freeze hasFilledBackground when press starts to prevent flash during async state updates
+  const frozenHasFilledBackgroundRef = useRef<boolean | null>(null);
+
+  const getButtonStyle = useCallback((pressed: boolean = false, frozenValue: boolean | null = null) => {
     const label = (action.label || '').toLowerCase();
     const isEdit = action.id === 'edit' || label.includes('edit');
     const isFollowButton = action.id === 'follow' || label === 'follow' || label === 'following' || label === 'mutuals';
     const isSubscribeButton = action.id === 'subscription';
     
-    const baseStyle = shouldUseGlass
-      ? {
-          // With glass, make inner touchable transparent and let GlassView render visuals
-          backgroundColor: 'transparent',
-          borderColor: 'transparent',
-          ...((isEdit || isFollowButton || isSubscribeButton) && { borderWidth: 0 }),
-        }
-      : {
-          backgroundColor: (isFollowingState || isIconOnlyFollowingState || isSaveButton || isActiveSubscription) ? textColor : hexToRGBA(textColor, 0.2),
-          borderColor: (isFollowingState || isIconOnlyFollowingState || isSaveButton || isActiveSubscription) ? textColor : hexToRGBA(textColor, 0.3),
-          ...((isEdit || isFollowButton || isSubscribeButton) && { borderWidth: 0 }),
-        };
+    // Use frozen value if provided (during press), otherwise use current value
+    const baselineFilled = frozenValue !== null ? frozenValue : hasFilledBackground;
+    // When pressed, show opposite state by inverting baseline; when not pressed, use current value
+    const showFilledState = pressed ? !baselineFilled : hasFilledBackground;
+    
+    const baseStyle = {
+      backgroundColor: showFilledState ? textColor : hexToRGBA(textColor, 0.2),
+      borderColor: showFilledState ? textColor : hexToRGBA(textColor, 0.3),
+      ...((isEdit || isFollowButton || isSubscribeButton) && { borderWidth: 0 }),
+    };
 
     switch (action.variant) {
       case 'danger':
-        return { ...baseStyle, backgroundColor: hexToRGBA('#ff4444', 0.2) };
+        return { ...baseStyle, backgroundColor: pressed ? hexToRGBA('#ff4444', 0.4) : hexToRGBA('#ff4444', 0.2) };
       case 'secondary':
         return { 
           backgroundColor: 'transparent',
@@ -138,9 +131,32 @@ const ActionButton = memo<{
       default:
         return baseStyle;
     }
-  }, [action.variant, textColor, action.label, action.id, shouldUseGlass, action.active]);
+  }, [action.variant, textColor, backgroundColor, action.label, action.id, hasFilledBackground]);
+
+  const getContentColor = useCallback((pressed: boolean = false, frozenValue: boolean | null = null) => {
+    // Use frozen value if provided (during press), otherwise use current value
+    const baselineFilled = frozenValue !== null ? frozenValue : hasFilledBackground;
+    // When pressed, show opposite state by inverting baseline
+    const showFilledState = pressed ? !baselineFilled : hasFilledBackground;
+    return showFilledState ? backgroundColor : textColor;
+  }, [textColor, backgroundColor, hasFilledBackground]);
 
   const getButtonSize = useCallback(() => {
+    const isFollowButton = action.id === 'follow';
+    
+    // Follow button with label should match the combined width of following + gap + subscribed buttons
+    // Following button: 50px, gap: 8px, subscribed button: 50px = 108px total
+    if (isFollowButton && action.label) {
+      switch (size) {
+        case 'small':
+          return { width: 84, height: 32, borderRadius: 100 }; // 40 + 8 + 40
+        case 'large':
+          return { width: 120, height: 48, borderRadius: 100 }; // 56 + 8 + 56
+        default:
+          return { width: 108, height: 44, borderRadius: 100 }; // 50 + 8 + 50
+      }
+    }
+    
     // Icon-only buttons should be circular/pill-shaped
     if (!action.label) {
       switch (size) {
@@ -161,86 +177,87 @@ const ActionButton = memo<{
       default:
         return { paddingHorizontal: 16, paddingVertical: 8, minWidth: 90, height: 44 };
     }
-  }, [size, action.label]);
+  }, [size, action.label, action.id]);
 
-  const content = action.loading ? (
-    <Loading3FillIcon 
-      size={24} 
-      color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
-    />
-  ) : action.label ? (
-    <View style={styles.actionContent} pointerEvents="none">
-      <Text style={[styles.actionText, { 
-        color: (action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor,
-        fontFamily: (action.variant === 'secondary' || action.id === 'save') ? 'Firma-Bold' : 'Firma-SemiBold'
-      }]}>
-        {action.label}
-      </Text>
-      {action.customIcon ? (
-        action.customIcon
-      ) : action.icon ? (
-        <Icon 
-          name={action.icon} 
-          size={16} 
-          color={(action.label === 'Following' || action.label === 'Mutuals' || action.id === 'save') ? backgroundColor : textColor} 
-          strokeWidth={2.5} 
+  const renderContent = useCallback((pressed: boolean, frozenValue: boolean | null = null) => {
+    const contentColor = getContentColor(pressed, frozenValue);
+    
+    if (action.loading) {
+      return (
+        <Loading3FillIcon 
+          size={24} 
+          color={contentColor} 
         />
-      ) : null}
-    </View>
-  ) : (
+      );
+    }
+    
+    if (action.label) {
+      return (
+        <View style={styles.actionContent} pointerEvents="none">
+          <Text style={[styles.actionText, { 
+            color: contentColor,
+            fontFamily: (action.variant === 'secondary' || action.id === 'save') ? 'Firma-Bold' : 'Firma-SemiBold'
+          }]}>
+            {action.label}
+          </Text>
+          {action.customIcon ? (
+            React.isValidElement(action.customIcon) && action.customIcon.props && typeof action.customIcon.props === 'object' && 'color' in action.customIcon.props
+              ? React.cloneElement(action.customIcon as React.ReactElement<any>, { color: contentColor })
+              : action.customIcon
+          ) : action.icon ? (
+            <Icon 
+              name={action.icon} 
+              size={16} 
+              color={contentColor} 
+              strokeWidth={2.5} 
+            />
+          ) : null}
+        </View>
+      );
+    }
+    
     // Icon-only button
-    <View style={styles.iconOnlyContent} pointerEvents="none">
-      {action.customIcon ? (
-        action.customIcon
-      ) : action.icon ? (
-        <Icon 
-          name={action.icon} 
-          size={20} 
-          color={(action.id === 'follow' && !action.label) ? backgroundColor : textColor} 
-          strokeWidth={2.5} 
-        />
-      ) : null}
-    </View>
-  );
-
-  if (shouldUseGlass) {
-    const isFollowingState = action.label === 'Following' || action.label === 'Mutuals';
-    const isIconOnlyFollowingState = (action.id === 'follow' && !action.label); // Icon-only Following/Mutuals
-    const isMessageButton = action.id === 'message';
-    const isSubscriptionButton = action.id === 'subscription';
-    const isActiveSubscription = isSubscriptionButton && action.active;
-    // Use the text color hue for glass tint but at reduced opacity so it feels softer/less vibrant
-    const glassTint = (isFollowingState || isIconOnlyFollowingState || isActiveSubscription)
-      ? hexToRGBA(textColor, 0.45)
-      : hexToRGBA(textColor, 0.18);
     return (
-      <Pressable
-        style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
-        onPress={action.onPress}
-        onLongPress={action.onLongPress}
-        delayLongPress={action.delayLongPress}
-        disabled={action.disabled || action.loading}
-      >
-        <GlassView
-          style={[styles.glassBackground]}
-          glassEffectStyle="clear"
-          tintColor={glassTint}
-          isInteractive
-        />
-        {content}
-      </Pressable>
+      <View style={styles.iconOnlyContent} pointerEvents="none">
+        {action.customIcon ? (
+          React.isValidElement(action.customIcon) && action.customIcon.props && typeof action.customIcon.props === 'object' && 'color' in action.customIcon.props
+            ? React.cloneElement(action.customIcon as React.ReactElement<any>, { color: contentColor })
+            : action.customIcon
+        ) : action.icon ? (
+          <Icon 
+            name={action.icon} 
+            size={20} 
+            color={contentColor} 
+            strokeWidth={2.5} 
+          />
+        ) : null}
+      </View>
     );
-  }
+  }, [action, getContentColor]);
 
   return (
     <Pressable
-      style={[styles.actionButton, getButtonStyle(), getButtonSize()]}
+      style={({ pressed }) => {
+        const frozenValue = frozenHasFilledBackgroundRef.current;
+        return [styles.actionButton, getButtonStyle(pressed, frozenValue), getButtonSize()];
+      }}
+      onPressIn={() => {
+        // Freeze the current state when press starts
+        frozenHasFilledBackgroundRef.current = hasFilledBackground ?? false;
+      }}
+      onPressOut={() => {
+        // Clear frozen value when press ends
+        frozenHasFilledBackgroundRef.current = null;
+      }}
       onPress={action.onPress}
       onLongPress={action.onLongPress}
       delayLongPress={action.delayLongPress}
       disabled={action.disabled || action.loading}
     >
-      {content}
+      {({ pressed }) => {
+        const frozenValue = frozenHasFilledBackgroundRef.current;
+        return renderContent(pressed, frozenValue);
+      }}
     </Pressable>
   );
 });
@@ -330,9 +347,8 @@ const CustomActionLayout = memo<{
 const InlineTitleWithBadges: React.FC<{
   title: string;
   titleStyle: any;
-  color: string;
   badges?: React.ReactNode[];
-}> = ({ title, titleStyle, color, badges = [] }) => {
+}> = ({ title, titleStyle, badges = [] }) => {
   const [lines, setLines] = React.useState<Array<{ x: number; y: number; width: number; height: number }>>([]);
 
   const handleTextLayout = useCallback((e: any) => {
@@ -374,10 +390,8 @@ const HeaderContentComponent = memo<{
   content: HeaderContent;
   textColor: string;
   backgroundColor: string;
-  isLoading?: boolean;
-  skeleton?: React.ReactNode;
   customDescription?: React.ReactNode;
-}>(({ content, textColor, backgroundColor, isLoading, skeleton, customDescription }) => {
+}>(({ content, textColor, backgroundColor, customDescription }) => {
   const navigation = useRouter();
 
   const navigateToAuthorProfile = useCallback((handle: string) => {
@@ -446,7 +460,6 @@ const HeaderContentComponent = memo<{
               <InlineTitleWithBadges 
                 title={content.title}
                 titleStyle={[styles.title, { color: textColor }]}
-                color={textColor}
                 badges={[content.badge as React.ReactNode]}
               />
             )}
@@ -502,8 +515,6 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
   backgroundColor = '#000',
   textColor = '#fff',
   backgroundImage,
-  isLoading = false,
-  skeleton,
   children,
   style,
   contentStyle,
@@ -517,7 +528,6 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
 }) => {
   const navigation = useRouter();
   const insets = useSafeAreaInsets();
-  const isSmallDevice = isSmallScreen() || isTablet();
 
   const handleBackPress = useCallback(() => {
     if (onBackPress) {
@@ -710,8 +720,6 @@ const UniversalHeader: React.FC<UniversalHeaderProps> = ({
           content={content}
           textColor={textColor}
           backgroundColor={backgroundColor}
-          isLoading={isLoading}
-          skeleton={skeleton}
           customDescription={customDescription}
         />
 
@@ -791,14 +799,10 @@ const styles = StyleSheet.create({
     elevation: 2,
     alignSelf: 'center',
   },
-  glassBackground: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BORDER_RADIUS.FULL,
-  },
   actionContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   iconOnlyContent: {
     alignItems: 'center',

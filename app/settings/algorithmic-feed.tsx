@@ -2,13 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import ListHeader from '../../src/components/ui/ListHeader';
 import Icon, { Loading3FillIcon, PlusIcon } from '../../src/components/ui/Icon';
 import { Colors, Avatar } from '../../src/components/ui/UI';
 import { useAlgorithmicFeedProvider, ALGORITHMIC_FEED_PROVIDERS } from '../../src/stores/userStore';
-import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
+import { settingsLayoutStyles } from './SettingsStyles';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
 import { useSubscribedChannels } from '../../src/hooks/useSubscribedChannels';
 import VerticalListSheet, { VerticalListButton } from '../../src/components/ui/VerticalListSheet';
@@ -59,7 +58,6 @@ const FEED_OPTIONS: FeedProviderOption[] = [
 const AlgorithmicFeedScreen: React.FC = () => {
   const navigation = useRouter();
   const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
   const { algorithmicFeedProvider, setAlgorithmicFeedProvider } = useAlgorithmicFeedProvider();
   const [selectedUri, setSelectedUri] = useState<string | null>(algorithmicFeedProvider);
   const [isSaving, setIsSaving] = useState(false);
@@ -189,7 +187,7 @@ const AlgorithmicFeedScreen: React.FC = () => {
       } else {
         await subscribeToChannel({
           uri: channel.uri,
-          displayName: channel.displayName,
+          displayName: channel.displayName || channel.handle || 'Untitled Channel',
           description: channel.description,
           avatar: channel.avatar,
         });

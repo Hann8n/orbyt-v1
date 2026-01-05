@@ -28,6 +28,8 @@ import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 import { queryKeys } from '../../../utils/queryKeys';
+import type { Notification, PostView, ExtendedPostView, ExtendedFeedViewPost, VideoView, RecordWithMediaView } from '../../../services/api/types';
+import type { FeedItemWithModeration } from '../../../services/api/types';
 
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
@@ -67,20 +69,29 @@ type PostKind = 'video' | 'image' | 'external' | 'record' | 'text';
 const POST_ACTION_TYPES = ['like', 'repost', 'like-via-repost', 'repost-via-repost', 'reply', 'quote', 'mention', 'post', 'subscribed-post'] as const;
 
 // Helper to get embed from post data (handles different structures)
-const getEmbed = (postData: any) => postData?.embed || postData?.record?.embed;
+const getEmbed = (postData: PostView | ExtendedPostView | ExtendedFeedViewPost | { embed?: unknown; record?: { embed?: unknown } } | null | undefined) => {
+  if (!postData) return undefined;
+  if ('embed' in postData && postData.embed) return postData.embed;
+  if ('record' in postData && postData.record && typeof postData.record === 'object' && 'embed' in postData.record) {
+    return (postData.record as { embed?: unknown }).embed;
+  }
+  return undefined;
+};
 
 // Determine post kind from embed
-const getPostKind = (embed: any): PostKind => {
-  if (!embed) return 'text';
+const getPostKind = (embed: unknown): PostKind => {
+  if (!embed || typeof embed !== 'object') return 'text';
   
-  const type = embed.$type;
+  const embedObj = embed as { $type?: string };
+  const type = embedObj.$type;
   
   if (type === 'app.bsky.embed.video' || type === 'app.bsky.embed.video#view') {
     return 'video';
   }
   
   if (type === 'app.bsky.embed.recordWithMedia#view') {
-    const mediaType = embed.media?.$type;
+    const recordWithMedia = embed as RecordWithMediaView;
+    const mediaType = recordWithMedia.media?.$type;
     if (mediaType === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video#view') {
       return 'video';
     }
@@ -105,12 +116,14 @@ const getPostKind = (embed: any): PostKind => {
 };
 
 // Get thumbnail based on post kind (only for videos)
-const getThumbnailByKind = (embed: any, kind: PostKind): string | null => {
-  if (!embed) return null;
+const getThumbnailByKind = (embed: unknown, kind: PostKind): string | null => {
+  if (!embed || typeof embed !== 'object') return null;
+  
+  const embedObj = embed as { $type?: string; thumbnail?: string; media?: { thumbnail?: string }; record?: { embeds?: unknown[]; value?: { embed?: unknown } } };
   
   // For record embeds, check if it's a nested video
   if (kind === 'record') {
-    const nestedEmbed = embed.record?.embeds?.[0] || embed.record?.value?.embed;
+    const nestedEmbed = embedObj.record?.embeds?.[0] || (embedObj.record?.value as { embed?: unknown } | undefined)?.embed;
     if (nestedEmbed) {
       const nestedKind = getPostKind(nestedEmbed);
       if (nestedKind === 'video') {
@@ -122,11 +135,16 @@ const getThumbnailByKind = (embed: any, kind: PostKind): string | null => {
   
   if (kind !== 'video') return null;
   
-  if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
-    return embed.thumbnail || extractVideoThumbnail(embed) || null;
+  if (embedObj.$type === 'app.bsky.embed.video' || embedObj.$type === 'app.bsky.embed.video#view') {
+    const videoEmbed = embed as VideoView;
+    return videoEmbed.thumbnail || extractVideoThumbnail(embed) || null;
   }
-  if (embed.$type === 'app.bsky.embed.recordWithMedia#view' && embed.media) {
-    return embed.media.thumbnail || extractVideoThumbnail(embed) || null;
+  if (embedObj.$type === 'app.bsky.embed.recordWithMedia#view' && embedObj.media) {
+    const recordWithMedia = embed as RecordWithMediaView;
+    const mediaEmbed = recordWithMedia.media;
+    if (mediaEmbed && ('thumbnail' in mediaEmbed)) {
+      return (mediaEmbed as VideoView).thumbnail || extractVideoThumbnail(embed) || null;
+    }
   }
   
   return null;
@@ -134,11 +152,13 @@ const getThumbnailByKind = (embed: any, kind: PostKind): string | null => {
 
 // Get the root post URI from any notification
 // Handles all notification types uniformly by extracting the relevant URI
-const getPostUri = (notification: any): string | null => {
-  const { uri, post, record } = notification;
+const getPostUri = (notification: Notification): string | null => {
+  const uri = 'uri' in notification ? notification.uri : undefined;
+  const post = 'post' in notification ? (notification as Notification & { post?: PostView }).post : undefined;
+  const record = 'record' in notification ? (notification as Notification & { record?: { embed?: unknown; reply?: { root?: { uri?: string } }; subject?: { uri?: string } } }).record : undefined;
   
   // subscribed-post: uri is the post URI
-  if (notification.reason === 'subscribed-post') return uri;
+  if (notification.reason === 'subscribed-post') return uri || null;
   
   // reply: root post is in record.reply.root.uri
   if (record?.reply?.root?.uri) return record.reply.root.uri;
@@ -153,11 +173,12 @@ const getPostUri = (notification: any): string | null => {
 };
 
 // Resolve a URI to the root post URI (handles repost records automatically)
-const resolveRootPostUri = (uri: string, postDataMap: Map<string, any>): string | null => {
-  // If it's a repost record URI, extract the root post URI from it
+// Note: This function just checks the pattern - actual resolution happens in fetchPostData
+const resolveRootPostUri = (uri: string, _postDataMap: Map<string, PostView | ExtendedPostView | ExtendedFeedViewPost>): string | null => {
+  // If it's a repost record URI, we can't resolve it from PostView alone
+  // The actual resolution happens in fetchPostData by fetching the record
   if (uri.includes('app.bsky.feed.repost')) {
-    const repostRecord = postDataMap.get(uri);
-    return repostRecord?.record?.subject?.uri || null;
+    return null; // Will be resolved in fetchPostData
   }
   return uri;
 };
@@ -165,8 +186,10 @@ const resolveRootPostUri = (uri: string, postDataMap: Map<string, any>): string 
 // Extract post data from notification - matches Bluesky's pattern
 // Uses notification.post when available (has view embeds with thumbnails)
 // For subscribed-post, prefer fetched post (has view embed with thumbnails), fallback to record (raw embed)
-const getPostDataFromNotification = (notification: any, postDataMap: Map<string, any>) => {
-  const { post, record } = notification;
+const getPostDataFromNotification = (notification: Notification, postDataMap: Map<string, PostView | ExtendedPostView | ExtendedFeedViewPost>): PostView | ExtendedPostView | ExtendedFeedViewPost | null => {
+  // Check if notification has post property (for quote/mention notifications)
+  const post = 'post' in notification ? (notification as Notification & { post?: PostView }).post : undefined;
+  const record = 'record' in notification ? (notification as Notification & { record?: { embed?: unknown; reply?: { root?: { uri?: string } }; subject?: { uri?: string } } }).record : undefined;
   
   // Quote/mention notifications include post data with view embeds
   if (post) return post;
@@ -185,11 +208,11 @@ const getPostDataFromNotification = (notification: any, postDataMap: Map<string,
       return {
         uri: notification.uri,
         cid: notification.cid,
-        author: notification.author,
-        record,
-        embed: record.embed,
+        author: notification.author as PostView['author'],
+        record: record as PostView['record'],
+        embed: record.embed as PostView['embed'],
         indexedAt: notification.indexedAt,
-      };
+      } as PostView;
     }
     return null;
   }
@@ -198,17 +221,17 @@ const getPostDataFromNotification = (notification: any, postDataMap: Map<string,
   const postUri = getPostUri(notification);
   if (!postUri) return null;
   const rootPostUri = resolveRootPostUri(postUri, postDataMap);
-  return rootPostUri ? postDataMap.get(rootPostUri) : null;
+  return rootPostUri ? (postDataMap.get(rootPostUri) ?? null) : null;
 };
 
 // Check if post is deleted using $type field (matches official Bluesky app)
-const isPostDeleted = (postData: any): boolean => {
+const isPostDeleted = (postData: PostView | ExtendedPostView | ExtendedFeedViewPost | null | undefined): boolean => {
   if (!postData) return true;
   return AtprotoService.isNotFoundPost(postData);
 };
 
 // Fetch post data, handling repost records
-const fetchPostData = async (postUri: string, existingPostData: any, postDataMap: Map<string, any>): Promise<{ postData: any; rootPostUri: string } | null> => {
+const fetchPostData = async (postUri: string, existingPostData: PostView | ExtendedPostView | ExtendedFeedViewPost | null | undefined, postDataMap: Map<string, PostView | ExtendedPostView | ExtendedFeedViewPost>): Promise<{ postData: PostView | ExtendedPostView | ExtendedFeedViewPost; rootPostUri: string } | null> => {
   if (existingPostData) {
     const rootPostUri = resolveRootPostUri(postUri, postDataMap) || postUri;
     return { postData: existingPostData, rootPostUri };
@@ -229,10 +252,13 @@ const fetchPostData = async (postUri: string, existingPostData: any, postDataMap
             collection: 'app.bsky.feed.repost',
             rkey: uriMatch[2],
           });
-          if (repostRecord?.data?.value?.subject?.uri) {
-            rootPostUri = repostRecord.data.value.subject.uri;
+          const repostValue = repostRecord?.data?.value as { subject?: { uri?: string } } | undefined;
+          if (repostValue?.subject?.uri) {
+            rootPostUri = repostValue.subject.uri;
             const postData = await AtprotoService.getPost(rootPostUri);
-            return { postData, rootPostUri };
+            if (postData) {
+              return { postData, rootPostUri };
+            }
           }
         }
       }
@@ -242,15 +268,16 @@ const fetchPostData = async (postUri: string, existingPostData: any, postDataMap
   }
   
   const postData = await AtprotoService.getPost(postUri);
+  if (!postData) return null;
   return { postData, rootPostUri };
 };
 
 // Notification item component - memoized for performance
 const NotificationItem = React.memo<{ 
-  item: any; 
-  navigation: any; 
-  queryClient: any; 
-  postDataMap: Map<string, any>;
+  item: Notification; 
+  navigation: ReturnType<typeof useRouter>; 
+  queryClient: ReturnType<typeof useQueryClient>; 
+  postDataMap: Map<string, PostView | ExtendedPostView | ExtendedFeedViewPost>;
 }>(({ item, navigation, queryClient, postDataMap }) => {
   const { reason, author, indexedAt, uri } = item;
   const { presentCommentSection } = useGlobalCommentSection();
@@ -268,16 +295,17 @@ const NotificationItem = React.memo<{
   // Check notification record embed as a hint - this helps prevent layout shifts
   const mightBeVideo = isPostAction && !postData && (() => {
     const recordEmbed = item.record?.embed;
-    if (!recordEmbed) return false;
+    if (!recordEmbed || typeof recordEmbed !== 'object') return false;
     
-    const embedType = recordEmbed.$type;
+    const embedObj = recordEmbed as { $type?: string; media?: { $type?: string } };
+    const embedType = embedObj.$type;
     // Check for video embed types
     if (embedType === 'app.bsky.embed.video' || embedType === 'app.bsky.embed.video#view') {
       return true;
     }
     // Check for recordWithMedia that might contain video
-    if (embedType === 'app.bsky.embed.recordWithMedia') {
-      const mediaType = recordEmbed.media?.$type;
+    if (embedType === 'app.bsky.embed.recordWithMedia' || embedType === 'app.bsky.embed.recordWithMedia#view') {
+      const mediaType = embedObj.media?.$type;
       return mediaType === 'app.bsky.embed.video' || mediaType === 'app.bsky.embed.video#view';
     }
     return false;
@@ -308,7 +336,7 @@ const NotificationItem = React.memo<{
   }, [reason, postTypeLabel]);
   
   // Navigate to profile
-  const navigateToProfile = useCallback((handle: string, authorData?: any) => {
+  const navigateToProfile = useCallback((handle: string, authorData?: { did?: string; displayName?: string; avatar?: string }) => {
     const trimmed = handle.trim();
     if (!trimmed) return;
     
@@ -330,23 +358,24 @@ const NotificationItem = React.memo<{
   }, [navigation, queryClient]);
   
   // Navigate to video post in feed
-  const navigateToVideoPost = useCallback((postData: any) => {
+  const navigateToVideoPost = useCallback((postData: PostView | ExtendedPostView | ExtendedFeedViewPost) => {
     const embed = getEmbed(postData);
+    const postView = postData as PostView;
     feedService.setCurrentFeed([{
       post: {
-        uri: postData.uri || item.uri,
-        cid: postData.cid || item.cid,
-        author: postData.author || author,
-        record: postData.record || item.record,
-        embed,
-        replyCount: postData.replyCount || 0,
-        repostCount: postData.repostCount || 0,
-        likeCount: postData.likeCount || 0,
-        indexedAt: postData.indexedAt || indexedAt || item.indexedAt,
+        uri: postView.uri || item.uri,
+        cid: postView.cid || item.cid,
+        author: postView.author || author,
+        record: postView.record || (item.record as PostView['record']),
+        embed: embed as PostView['embed'],
+        replyCount: postView.replyCount || 0,
+        repostCount: postView.repostCount || 0,
+        likeCount: postView.likeCount || 0,
+        indexedAt: postView.indexedAt || indexedAt || item.indexedAt,
       },
-      uniqueKey: postData.uri || item.uri,
-      moderationDecision: postData.moderationDecision,
-    }]);
+      uniqueKey: postView.uri || item.uri,
+      moderationDecision: 'moderationDecision' in postData ? (postData as FeedItemWithModeration).moderationDecision : undefined,
+    } as FeedItemWithModeration]);
     navigation.push({
       pathname: '/(modals)/feed',
       params: {
@@ -529,8 +558,8 @@ const NotificationItem = React.memo<{
   return true; // Props are equal, skip re-render
 });
 
-const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
-  const legendListRef = useRef<LegendListRef<any>>(null);
+const NotificationsTab = forwardRef<ScrollToTopRef>((_props, ref) => {
+  const legendListRef = useRef<LegendListRef>(null);
 
   // Expose scrollToTop method
   useImperativeHandle(ref, () => ({
@@ -624,7 +653,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
       if (!POST_ACTION_TYPES.includes(notification.reason as any)) continue;
       
       // Quote/mention include post data with view embeds - no fetch needed
-      if (notification.post) continue;
+      if ('post' in notification && (notification as Notification & { post?: PostView }).post) continue;
       
       const postUri = getPostUri(notification);
       if (postUri) uris.add(postUri);
@@ -676,13 +705,15 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
                 rkey: uriMatch[2],
               });
               
+              const repostValue = repostRecord?.data?.value as { subject?: { uri?: string } } | undefined;
+              
               result.set(repostUri, {
                 record: repostRecord.data.value,
                 uri: repostUri,
-              });
+              } as PostView);
               
-              if (repostRecord?.data?.value?.subject?.uri) {
-                rootPostUris.push(repostRecord.data.value.subject.uri);
+              if (repostValue?.subject?.uri) {
+                rootPostUris.push(repostValue.subject.uri);
               }
             } catch (error) {
               // Silently fail for individual repost records
@@ -776,7 +807,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
   }, [postDataMap]);
 
   // Estimate item size for better initial rendering - optimized to check record embed first
-  const getEstimatedItemSize = useCallback((index: number, item: any): number => {
+  const getEstimatedItemSize = useCallback((_index: number, item: any): number => {
     // Base size: padding (24px) + avatar (50px) + text content (~40px) = ~114px
     const baseSize = 114;
     

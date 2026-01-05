@@ -9,7 +9,6 @@ import AtprotoService from '../../../services/api/AtprotoService';
 import { Avatar } from '../../ui/UI';
 import { VerificationBadge } from '../badging';
 import { useRouter } from 'expo-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import ProfileCache, { useFollowMutation } from '../../../services/cache/ProfileCache';
 import { formatHandle } from '../../../utils/helpers';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -56,7 +55,6 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
   feedOption
 }) => {
   const navigation = useRouter();
-  const queryClient = useQueryClient();
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
   const insets = useSafeAreaInsets();
 
@@ -74,7 +72,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     return 'nothing here yet...';
   };
 
-  const { data: suggestedAccounts, isLoading: isLoadingSuggestions } = useQuery({
+  const { data: suggestedAccounts } = useQuery({
     queryKey: ['suggestedAccounts', 5],
     queryFn: () => AtprotoService.getSuggestedAccounts(5),
     enabled: shouldShowSuggestions,
@@ -315,7 +313,7 @@ const EmptyFeed: React.FC<EmptyFeedProps> = ({
     <View 
       style={[
         styles.emptyContainer,
-        viewableAreaHeight && { height: viewableAreaHeight },
+        viewableAreaHeight ? { height: viewableAreaHeight } : undefined,
       ]}
     >
       <View style={[styles.contentContainer, shouldOffsetTop && { paddingTop: topThirdOffset }]}>

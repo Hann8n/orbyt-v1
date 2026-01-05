@@ -11,7 +11,6 @@ import {
   Share,
   Platform,
   Alert,
-  Dimensions,
   ScrollView,
   FlatList,
   TextInput,
@@ -21,8 +20,9 @@ import { safeDismiss, safePresent } from '../../utils/truesheet/trueSheetUtils';
 import KeyboardAwareFooter from '../../utils/truesheet/KeyboardAwareFooter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon, { Loading3FillIcon } from './Icon';
+import CloseButton from './CloseButton';
+import CancelButton from './CancelButton';
 import AtprotoService from '../../services/api/AtprotoService';
-import ProfileCache from '../../services/cache/ProfileCache';
 import { Colors } from './UI';
 import { Avatar } from './UI';
 import { hexToRGBA } from '../../utils/formatting/colorUtils';
@@ -58,15 +58,11 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   // Always render the TrueSheet component, but only show content when there's data
   const { postUri, postCid, authorDid, authorName, authorHandle } = data || {};
   const queryClient = useQueryClient();
-  const SCREEN_WIDTH = Dimensions.get('window').width;
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [isBlocked, setIsBlocked] = useState<boolean>(false);
   const [isCurrentUser, setIsCurrentUser] = useState<boolean>(false);
   const [showConversationPicker, setShowConversationPicker] = useState<boolean>(false);
   const [currentUserDid, setCurrentUserDid] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
-  const [isBookmarkPending, setIsBookmarkPending] = useState<boolean>(false);
   const searchInputRef = useRef<TextInput | null>(null);
   const sheetRef = useRef<TrueSheet>(null);
   
@@ -101,14 +97,6 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     }
   }, [authorDid, currentUser?.did]);
 
-  const { data: blockStatus = false } = useQuery({
-    queryKey: queryKeys.blocks.status(authorDid),
-    queryFn: () => AtprotoService.isBlocked(authorDid),
-    enabled: !!authorDid && !isCurrentUser,
-    initialData: false,
-    staleTime: QUERY_CONSTANTS.STALE_TIME_MEDIUM, // 1 minute - for moderately changing data
-  });
-
   // Handle dismiss from TrueSheet - fires when sheet is dismissed by any means
   const handleDismiss = useCallback(() => {
     // Clear the data state - skip dismiss since we're already in onDismiss callback
@@ -126,122 +114,59 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     // onDismiss (handleDismiss) will handle the overlay clearing
   }, []);
 
-
-
-  // Update isBlocked state when blockStatus changes
-  useEffect(() => {
-    setIsBlocked(blockStatus);
-  }, [blockStatus]);
-
-
-
-  // Block/unblock or mute chat handler
-  const handleBlockToggle = useCallback(async () => {
-    try {
-      setIsSubmitting(true);
-      
-      // For current user, handle mute chat functionality instead of block
-      if (isCurrentUser) {
-        Alert.alert(
-          'mute chats',
-          'do you want to mute all comments for this post?',
-          [
-            {
-              text: 'cancel',
-              style: 'cancel'
-            },
-            {
-              text: 'mute',
-              onPress: async () => {
-                try {
-                  const success = await AtprotoService.mutePostComments(postUri);
-                  if (success) {
-                    Alert.alert('success', 'comments have been muted for this post.');
-                  } else {
-                    Alert.alert('error', 'failed to mute comments. please try again.');
-                  }
-                } catch (error) {
-                  Alert.alert('error', 'failed to mute comments. please try again.');
-                }
-              }
-            }
-          ]
-        );
-        return;
-      }
-      
-      // Regular block/unblock flow for other users' content
-      if (isBlocked) {
-        await AtprotoService.unblockUser(authorDid);
-        queryClient.invalidateQueries({ 
-          queryKey: queryKeys.blocks.status(authorDid),
-          refetchType: 'active'
-        });
-        setIsBlocked(false);
-      } else {
-        Alert.alert(
-          'block user',
-          'are you sure you want to block this user? they will not be able to see your posts or interact with you.',
-          [
-            {
-              text: 'cancel',
-              style: 'cancel'
-            },
-            {
-              text: 'block',
-              style: 'destructive',
-              onPress: async () => {
-                await AtprotoService.blockUser(authorDid);
-                queryClient.invalidateQueries({ 
-          queryKey: queryKeys.blocks.status(authorDid),
-          refetchType: 'active'
-        });
-                setIsBlocked(true);
-              }
-            }
-          ]
-        );
-      }
-    } catch (error) {
-      Alert.alert('error', 'failed to update block status. please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [authorDid, isBlocked, dismissSheet, queryClient, isCurrentUser, postUri]);
-
-
-  // Bookmark handler - optimistic update
-  const handleBookmark = useCallback(async () => {
-    if (!postUri || !postCid || isBookmarkPending) return;
+  // Bookmark handler - instant optimistic update
+  const handleBookmark = useCallback(() => {
+    if (!postUri) return;
     
     const newIsBookmarked = !isBookmarked;
-    setIsBookmarkPending(true);
     
-    // Optimistic update - update UI immediately
+    // Instant optimistic update - no waiting
     if (newIsBookmarked) {
-      addBookmark(postUri, { uri: postUri, cid: postCid });
+      // Use postCid if available, otherwise use empty string (will be fetched in background)
+      addBookmark(postUri, { uri: postUri, cid: postCid || '' });
     } else {
       removeBookmark(postUri);
     }
     
-    try {
-      if (newIsBookmarked) {
-        await AtprotoService.createBookmark(postUri, postCid);
-      } else {
-        await AtprotoService.deleteBookmark(postUri);
+    // Perform API call in background without blocking
+    (async () => {
+      try {
+        // Get CID if missing (only for API call)
+        let cid = postCid;
+        if (!cid) {
+          try {
+            const post = await AtprotoService.getPost(postUri);
+            cid = post?.cid || '';
+          } catch {
+            cid = '';
+          }
+        }
+        
+        if (!cid) {
+          // If we still don't have CID, try to revert
+          if (newIsBookmarked) {
+            removeBookmark(postUri);
+          } else {
+            addBookmark(postUri, { uri: postUri, cid: '' });
+          }
+          return;
+        }
+        
+        if (newIsBookmarked) {
+          await AtprotoService.createBookmark(postUri, cid);
+        } else {
+          await AtprotoService.deleteBookmark(postUri);
+        }
+      } catch (error) {
+        // Revert optimistic update on error
+        if (newIsBookmarked) {
+          removeBookmark(postUri);
+        } else {
+          addBookmark(postUri, { uri: postUri, cid: postCid || '' });
+        }
       }
-    } catch (error) {
-      // Revert optimistic update on error
-      if (newIsBookmarked) {
-        removeBookmark(postUri);
-      } else {
-        addBookmark(postUri, { uri: postUri, cid: postCid });
-      }
-      Alert.alert('error', 'failed to update bookmark. please try again.');
-    } finally {
-      setIsBookmarkPending(false);
-    }
-  }, [postUri, postCid, isBookmarked, isBookmarkPending, addBookmark, removeBookmark]);
+    })();
+  }, [postUri, postCid, isBookmarked, addBookmark, removeBookmark]);
 
   // Report or delete post handler
   const handleReportOrDelete = useCallback(() => {
@@ -259,24 +184,35 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
             text: 'delete',
             style: 'destructive',
             onPress: async () => {
-              setIsSubmitting(true);
+              if (!postUri) return;
+              
+              // Optimistic update - dismiss sheet immediately
+              dismissSheet();
+              
+              // Invalidate queries immediately for responsive UI
+              queryClient.invalidateQueries({ 
+                queryKey: queryKeys.feed.all,
+                refetchType: 'active'
+              });
+              
+              // Perform deletion in background
               try {
                 const success = await AtprotoService.deletePost(postUri);
-                if (success) {
-                  Alert.alert('success', 'your post has been deleted.');
-                  // Invalidate any related queries to refresh feeds
+                if (!success) {
+                  // Re-invalidate on error to ensure UI is correct
                   queryClient.invalidateQueries({ 
                     queryKey: queryKeys.feed.all,
                     refetchType: 'active'
                   });
-                  dismissSheet();
-                } else {
                   Alert.alert('error', 'failed to delete post. please try again.');
                 }
               } catch (error) {
+                // Re-invalidate on error to ensure UI is correct
+                queryClient.invalidateQueries({ 
+                  queryKey: queryKeys.feed.all,
+                  refetchType: 'active'
+                });
                 Alert.alert('error', 'failed to delete post. please try again.');
-              } finally {
-                setIsSubmitting(false);
               }
             }
           }
@@ -325,26 +261,39 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   const reportContent = useCallback(async (
     reasonType: 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other'
   ) => {
-    setIsSubmitting(true);
+    if (!postUri) return;
+    
+    // Optimistic update - mark as reported immediately and dismiss
+    const { useReportedPostsStore } = await import('../../stores/reportedPostsStore');
+    const store = useReportedPostsStore.getState();
+    store.reportPost(postUri);
+    dismissSheet();
+    
+    // Show success message immediately
+    Alert.alert('thank you', 'this content has been reported for review.');
+    
+    // Perform report in background
     try {
       const success = await AtprotoService.reportContent(postUri, reasonType);
-      if (success) {
-        // Mark post as reported to trigger animated removal from feed
-        const { useReportedPostsStore } = await import('../../stores/reportedPostsStore');
-        useReportedPostsStore.getState().reportPost(postUri);
-        Alert.alert('thank you', 'this content has been reported for review.');
-      } else {
+      if (!success) {
+        // Revert optimistic update on error - remove from reported set
+        const newSet = new Set(store.reportedPostUris);
+        newSet.delete(postUri);
+        store.reportedPostUris = newSet;
         Alert.alert('error', 'failed to submit report. please try again.');
       }
     } catch (error) {
+      // Revert optimistic update on error - remove from reported set
+      const newSet = new Set(store.reportedPostUris);
+      newSet.delete(postUri);
+      store.reportedPostUris = newSet;
       Alert.alert('error', 'failed to submit report. please try again.');
-    } finally {
-      setIsSubmitting(false);
     }
   }, [postUri, dismissSheet]);
 
   // Share link handler
   const handleShare = useCallback(async () => {
+    if (!postUri) return;
     try {
       // Convert AT URI to a web URL using the utility function
       const shareUrl = convertAtUriToBlueskyUrl(postUri);
@@ -409,11 +358,9 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     const conversationDids = new Set(conversations.flatMap(c => c.members.map(m => m.did)));
     const newProfiles = searchResults
       .filter(p => !conversationDids.has(p.did))
-      .sort((a, b) => {
+      .sort((_a, b) => {
         // Sort by canBeMessaged status (enabled first)
-        const aEnabled = canBeMessaged(a);
-        const bEnabled = canBeMessaged(b);
-        return bEnabled ? 1 : -1;
+        return canBeMessaged(b) ? 1 : -1;
       });
     
     return [...conversationMatches, ...newProfiles];
@@ -435,44 +382,60 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
 
   // Send video to selected conversation or create one with new profile
   const handleSendToConversation = useCallback(async (item: any) => {
-    if (!postUri || !postCid) {
+    if (!postUri) {
       Alert.alert('error', 'missing post information.');
       return;
     }
 
-    try {
-      setIsSubmitting(true);
+    // Optimistic update - dismiss sheet immediately
+    setShowConversationPicker(false);
+    dismissSheet();
+    Alert.alert('sent', 'video sent successfully.');
 
-      // Check if item is a conversation or a new profile
-      let conversationId = item.id;
-      if (!conversationId) {
-        // New profile - create conversation first
-        const convo = await ChatService.createConversation({ recipientDid: item.did });
-        conversationId = convo.id;
+    // Perform send in background
+    (async () => {
+      try {
+        // Get CID if missing
+        let cid = postCid;
+        if (!cid) {
+          try {
+            const post = await AtprotoService.getPost(postUri);
+            cid = post?.cid || '';
+          } catch {
+            cid = '';
+          }
+        }
+
+        if (!cid) {
+          Alert.alert('error', 'unable to send post. missing post information.');
+          return;
+        }
+
+        // Check if item is a conversation or a new profile
+        let conversationId = item.id;
+        if (!conversationId) {
+          // New profile - create conversation first
+          const convo = await ChatService.createConversation({ recipientDid: item.did });
+          conversationId = convo.id;
+        }
+
+        const embed: RecordEmbed = {
+          $type: 'app.bsky.embed.record',
+          record: {
+            uri: postUri,
+            cid,
+          },
+        };
+
+        await ChatService.sendMessage({
+          conversationId,
+          text: '',
+          embed: embed,
+        });
+      } catch (error: any) {
+        Alert.alert('error', error.message || 'failed to send video. please try again.');
       }
-
-      const embed: RecordEmbed = {
-        $type: 'app.bsky.embed.record',
-        record: {
-          uri: postUri,
-          cid: postCid,
-        },
-      };
-
-      await ChatService.sendMessage({
-        conversationId,
-        text: '',
-        embed: embed,
-      });
-
-      Alert.alert('sent', 'video sent successfully.');
-      setShowConversationPicker(false);
-      dismissSheet();
-    } catch (error: any) {
-      Alert.alert('error', error.message || 'failed to send video. please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    })();
   }, [postUri, postCid, dismissSheet]);
 
   // Get menu options based on current state
@@ -499,13 +462,13 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
         label: isBookmarked ? 'Saved' : 'Save',
         icon: 'bookmark-fill',
         onPress: handleBookmark,
-        color: isBookmarked ? Colors.darkYellow : Colors.yellow,
-        buttonColor: isBookmarked ? Colors.yellow : Colors.darkYellow
+        color: Colors.yellow,
+        buttonColor: Colors.darkYellow
       },
       {
         id: 'report',
         label: isCurrentUser ? 'Delete' : 'Report',
-        icon: 'report',
+        icon: isCurrentUser ? 'delete-2-fill' : 'report',
         onPress: async () => handleReportOrDelete(),
         color: Colors.red,
         buttonColor: Colors.darkRed
@@ -526,12 +489,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       <Text style={styles.headerTitle} numberOfLines={1}>
         post by {authorHandle ? formatHandle(authorHandle) : authorName}
       </Text>
-      <Pressable 
-        style={styles.closeButton} 
-        onPress={dismissSheet}
-      >
-        <Icon name="close" size={20} color={Colors.white} />
-      </Pressable>
+      <CloseButton onPress={dismissSheet} />
     </View>
   ) : undefined;
 
@@ -566,20 +524,14 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       header={headerComponent}
       footer={
         showConversationPicker
-          ? null
+          ? undefined
           : (
             <View style={{ backgroundColor: Colors.black, paddingBottom: insets.bottom }}>
               <KeyboardAwareFooter hideOnKeyboard={true} bottomPadding={0} style={{ backgroundColor: Colors.black }}>
                 <View 
                   style={[styles.cancelContainer, { backgroundColor: Colors.black }]}
                 > 
-                  <Pressable 
-                    style={styles.cancelButton} 
-                    onPress={dismissSheet} 
-                    disabled={isSubmitting}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </Pressable>
+                  <CancelButton onPress={dismissSheet} />
                 </View>
               </KeyboardAwareFooter>
             </View>
@@ -636,7 +588,7 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                     <Pressable
                       style={[styles.conversationItem, isDisabled && styles.disabledItem]}
                       onPress={() => handleSendToConversation(item)}
-                      disabled={isSubmitting || isDisabled}
+                      disabled={isDisabled}
                     >
                       <Avatar
                         uri={profile.avatar}
@@ -678,23 +630,28 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
               horizontal 
               showsHorizontalScrollIndicator={false}
               showsVerticalScrollIndicator={false}
-              scrollEnabled={true}
               alwaysBounceHorizontal={true}
               alwaysBounceVertical={false}
-              bounces={false}
-              contentContainerStyle={[styles.optionsContainer, { gap: fixedSpacing, paddingLeft: 20, paddingRight: 20 }]}
+              bounces={true}
+              contentContainerStyle={[styles.optionsContainer, { gap: fixedSpacing, paddingLeft: 20 }]}
             >
               {menuOptions.map((option) => (
                 <View key={option.id} style={styles.optionWrapper}>
-                  <Pressable 
-                    style={[
-                      styles.option,
-                      { backgroundColor: option.buttonColor, borderColor: hexToRGBA(option.color, 0.28) }
-                    ]}
-                    onPress={option.onPress}
-                    disabled={isSubmitting || (option.id === 'bookmark' && isBookmarkPending)}
-                  >
-                    <Icon name={option.icon} size={45} color={option.color} />
+                  <Pressable onPress={option.onPress}>
+                    {({ pressed }) => {
+                      const isSwapped = (option.id === 'bookmark' && isBookmarked) || pressed;
+                      const iconColor = isSwapped ? option.buttonColor : option.color;
+                      const backgroundColor = isSwapped ? option.color : option.buttonColor;
+                      
+                      return (
+                        <View style={[
+                          styles.option,
+                          { backgroundColor, borderColor: hexToRGBA(option.color, 0.28) }
+                        ]}>
+                          <Icon name={option.icon} size={45} color={iconColor} />
+                        </View>
+                      );
+                    }}
                   </Pressable>
                   <Text style={styles.optionText}>{option.label}</Text>
                 </View>
@@ -743,13 +700,6 @@ const styles = StyleSheet.create({
     marginLeft: -12,
     marginRight: -12,
   },
-  closeButton: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   divider: {
     height: 1,
     backgroundColor: Colors.gray,
@@ -796,31 +746,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
   },
-  cancelButton: {
-    backgroundColor: hexToRGBA(Colors.gray, 0.12),
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    minHeight: 44,
-    borderWidth: 0,
-    borderColor: 'transparent'
-  },
-  cancelButtonText: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
-  },
   optionText: {
     color: Colors.lightGray,
     fontSize: 15,
     marginTop: 12,
     textAlign: 'center',
     fontFamily: 'Firma-Medium',
+  },
+  optionDisabled: {
+    opacity: 0.5,
+  },
+  optionTextDisabled: {
+    opacity: 0.5,
   },
   pickerContainer: {
     flex: 1,

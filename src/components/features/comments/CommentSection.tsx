@@ -7,7 +7,6 @@ import {
   Alert,
   Modal,
   TextInput,
-  Linking,
   LayoutAnimation,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -16,8 +15,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
-  Easing,
 } from 'react-native-reanimated';
 import { FlashList, ListRenderItem, FlashListRef } from '@shopify/flash-list';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
@@ -37,50 +34,25 @@ import { useReportedPostsStore } from '../../../stores/reportedPostsStore';
 import { useGlobalCommentSection, useGlobalShareSheet } from '../../../hooks/useGlobalModals';
 
 import TabNavigation, { TabOption } from '../../layout/header/TabNavigation';
-import UI, { Colors } from '../../ui/UI';
+import { Colors } from '../../ui/UI';
 import { HeartFillIcon, MoreFillIcon, CloseFillIcon, Loading3FillIcon } from '../../ui/Icon';
 import RelativeDate from '../../ui/RelativeDate';
 import AuthorItem from '../../ui/AuthorItem';
-import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
-import { VerificationBadge } from '../badging';
 import { useUserSearchTrigger } from '../../ui/usersearch';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { formatNumber, formatHandle } from '../../../utils/helpers';
 import CommentInputFooter from './CommentInputFooter';
 import CommentItem from './CommentItem';
-import type { Comment, Like } from './CommentItem';
+import type { Comment, Like } from '../../../services/api/types';
 
 /**
  * Types (kept compatible with your current usage)
  */
 
-interface CommentRecord {
-  text: string;
-  facets?: Array<{
-    index: { byteStart: number; byteEnd: number };
-    features: Array<{
-      $type: string;
-      uri?: string;
-      tag?: string;
-    }>;
-  }>;
-  embed?: {
-    $type: string;
-    images?: Array<{
-      image: string | { $type: string; ref: { $link: string } };
-      alt: string;
-    }>;
-    external?: {
-      uri: string;
-      thumb?: string | { ref: { $link: string } };
-      title?: string;
-      description?: string;
-    };
-  };
-}
+// CommentRecord interface removed - using Comment type from API instead
 
-// Re-export types from CommentItem
-export type { Comment, Like } from './CommentItem';
+// Re-export types from API
+export type { Comment, Like } from '../../../services/api/types';
 
 interface Post {
   uri: string;
@@ -172,9 +144,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   }, []);
 
   const handleReplyPress = useCallback((comment: Comment) => {
-    const uri = comment?.uri || comment?.post?.uri;
-    const cid = comment?.cid || comment?.post?.cid;
-    const authorName = formatHandle(comment?.post?.author?.handle || comment?.author?.handle || '') || 'Unknown';
+    const uri = comment?.uri;
+    const cid = comment?.cid;
+    const authorName = formatHandle(comment?.author?.handle || '') || 'Unknown';
 
     if (!uri || !cid) return;
 
@@ -408,7 +380,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     const addComments = (commentList: Comment[], parentComment?: Comment) => {
       commentList.forEach((c: Comment) => {
         if (c && typeof c === 'object') {
-          const commentUri = c?.uri || c?.post?.uri;
+          const commentUri = c?.uri;
           // Filter out deleted and reported comments
           if (commentUri && (deletedComments.has(commentUri) || reportedPostUris.has(commentUri))) {
             return;
@@ -479,7 +451,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     if (!scrollToCommentUri || !flattenedComments.length || commentsLoading || !commentsListRef.current) return;
 
     const idx = flattenedComments.findIndex((c) => {
-      const uri = c?.uri || c?.post?.uri;
+      const uri = c?.uri;
       return uri === scrollToCommentUri;
     });
 
@@ -602,8 +574,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
   const renderLikeItem = useCallback<ListRenderItem<Like>>(({ item }) => <LikeRow like={item} />, []);
 
-  const commentKeyExtractor = useCallback((item: Comment) => item?.uri || item?.post?.uri || item?.cid || Math.random().toString(36), []);
-  const likeKeyExtractor = useCallback((item: Like) => item.uri || `${item.actor.did}-${item.createdAt}`, []);
+  const commentKeyExtractor = useCallback((item: Comment) => item?.uri || item?.cid || Math.random().toString(36), []);
+  const likeKeyExtractor = useCallback((item: Like) => `${item.actor.did}-${item.createdAt}`, []);
 
   const CommentsEmptyComponent = useMemo(
     () =>

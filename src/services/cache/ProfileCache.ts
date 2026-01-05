@@ -1054,41 +1054,69 @@ export function useFollowMutation() {
     },
     // When mutate is called:
     onMutate: async ({ handle, isFollowing, isFollowedBy }) => {
-      // Cancel any outgoing refetches
+      // Cancel any outgoing refetches for both handle and DID-based queries
       await queryClient.cancelQueries({ queryKey: profileKeys.detail(handle) });
       
-      // Snapshot the previous value
+      // Snapshot the previous values FIRST (before async operations)
       const previousProfile = queryClient.getQueryData<CachedProfile>(profileKeys.detail(handle));
+      const did = previousProfile?.did;
       
-      // Optimistically update to the new value
+      // Update follow store IMMEDIATELY (synchronously) before any async work
+      if (did) {
+        updateFollowState(did, handle, isFollowing);
+        await queryClient.cancelQueries({ queryKey: profileKeys.detail(`did_${did}`) });
+      }
+      
+      // Get profile to find DID if not in cache (fallback)
+      const profile = did ? previousProfile : (await ProfileCache.getProfile(handle).catch(() => null));
+      const resolvedDid = did || profile?.did;
+      
+      if (resolvedDid && !did) {
+        await queryClient.cancelQueries({ queryKey: profileKeys.detail(`did_${resolvedDid}`) });
+        // Update store if we just got the DID
+        updateFollowState(resolvedDid, handle, isFollowing);
+      }
+      
+      const previousProfileByDid = resolvedDid ? queryClient.getQueryData<CachedProfile>(profileKeys.detail(`did_${resolvedDid}`)) : null;
+      
+      // Optimistically update React Query cache
+      // Note: This may be redundant if called from profile screen (which updates cache in button handler),
+      // but it's needed for other places that use this mutation (e.g., explore screen)
       if (previousProfile) {
         queryClient.setQueryData(profileKeys.detail(handle), {
           ...previousProfile,
           isFollowing,
           ...(isFollowedBy !== undefined ? { isFollowedBy } : {})
         });
-        
-          // Also optimistically update follow store
-          if (previousProfile.did) {
-            updateFollowState(previousProfile.did, handle, isFollowing);
-          }
       }
       
-      return { previousProfile };
+      if (previousProfileByDid) {
+        queryClient.setQueryData(profileKeys.detail(`did_${resolvedDid}`), {
+          ...previousProfileByDid,
+          isFollowing,
+          ...(isFollowedBy !== undefined ? { isFollowedBy } : {})
+        });
+      }
+      
+      return { previousProfile, previousProfileByDid, did: resolvedDid };
     },
     // If mutation fails, use context returned from onMutate to roll back
     onError: (_err, { handle }, context) => {
       if (context?.previousProfile) {
         queryClient.setQueryData(profileKeys.detail(handle), context.previousProfile);
-        
-          // Revert follow store state
-          if (context.previousProfile.did) {
-            updateFollowState(
-              context.previousProfile.did,
-              handle,
-              context.previousProfile.isFollowing ?? false
-            );
-          }
+      }
+      
+      if (context?.did && context?.previousProfileByDid) {
+        queryClient.setQueryData(profileKeys.detail(`did_${context.did}`), context.previousProfileByDid);
+      }
+      
+      // Revert follow store state
+      if (context?.did && context?.previousProfile) {
+        updateFollowState(
+          context.did,
+          handle,
+          context.previousProfile.isFollowing ?? false
+        );
       }
     },
     // Always refetch after error or success to ensure cache consistency

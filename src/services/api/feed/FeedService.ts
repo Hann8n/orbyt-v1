@@ -547,13 +547,14 @@ export class FeedService {
       }
 
       // Create the post with video embed
+      // data.blob from upload response is compatible with BlobRef
       const postRecord: PostRecord = {
         $type: 'app.bsky.feed.post',
         text: richText.text,
         createdAt: new Date().toISOString(),
         embed: {
           $type: 'app.bsky.embed.video',
-          video: data.blob,
+          video: data.blob as unknown as import('@atproto/lexicon').BlobRef,
           aspectRatio
         },
         tags: tags,
@@ -1593,7 +1594,7 @@ export class FeedService {
       });
       
       // Flatten and merge all feeds, preserving source feed information
-      let allPosts = feedResults.flatMap(result => 
+      let allPosts: (ExtendedFeedViewPost & { sourceFeed: string })[] = feedResults.flatMap(result => 
         result.posts.map(post => ({
           ...post,
           sourceFeed: result.feedUri
@@ -1601,7 +1602,7 @@ export class FeedService {
       );
       
       // Remove duplicates
-      allPosts = this.deduplicatePosts(allPosts);
+      allPosts = this.deduplicatePosts(allPosts) as (ExtendedFeedViewPost & { sourceFeed: string })[];
       
       // Sort chronologically
       allPosts.sort((a, b) => {

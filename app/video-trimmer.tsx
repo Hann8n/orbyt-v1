@@ -17,11 +17,14 @@ const VideoTrimmerScreen: React.FC = () => {
     currentDuration?: string;
   }>();
   const router = useRouter();
-  const listeners = useRef<{ onFinishTrimming?: any; onError?: any }>({});
+  const listeners = useRef<{ 
+    onFinishTrimming?: import('react-native').EmitterSubscription | (() => void) | { remove: () => void };
+    onError?: import('react-native').EmitterSubscription | (() => void) | { remove: () => void };
+  }>({});
   const hasOpenedEditor = useRef(false);
   const setPendingTrim = useVideoTrimStore(state => state.setPendingTrim);
 
-  const handleTrimmingComplete = useCallback(async ({ outputPath, startTime, endTime, duration }: { outputPath: string; startTime: number; endTime: number; duration: number }) => {
+  const handleTrimmingComplete = useCallback(async ({ outputPath, duration }: { outputPath: string; startTime: number; endTime: number; duration: number }) => {
     try {
       // Convert milliseconds to seconds
       const trimmedDuration = duration / 1000;
@@ -52,32 +55,32 @@ const VideoTrimmerScreen: React.FC = () => {
 
   // Set up event listeners for react-native-video-trim using Spec API
   useEffect(() => {
-    const NativeVideoTrim = NativeModules.VideoTrim as Spec;
+    const NativeVideoTrim = NativeModules.VideoTrim as unknown as Spec & Partial<import('react-native').NativeModule>;
     
     // Use the new Spec API if available, otherwise fall back to old architecture
     if (NativeVideoTrim && typeof NativeVideoTrim.onFinishTrimming === 'function') {
       listeners.current.onFinishTrimming = NativeVideoTrim.onFinishTrimming(handleTrimmingComplete);
-      listeners.current.onError = NativeVideoTrim.onError(({ message, errorCode }) => {
+      listeners.current.onError = NativeVideoTrim.onError(({ message, errorCode }: { message?: string; errorCode?: string }) => {
         console.error('Trimming error:', message, errorCode);
         Alert.alert('Error', message || 'Failed to trim video');
         router.back();
       });
     } else {
       // Fallback to old architecture
-      const eventEmitter = new NativeEventEmitter(NativeVideoTrim);
+      const eventEmitter = new NativeEventEmitter(NativeVideoTrim as import('react-native').NativeModule);
       listeners.current.onFinishTrimming = eventEmitter.addListener(
         'VideoTrim',
-        (event: any) => {
+        (event: { name?: string; [key: string]: unknown }) => {
           if (event.name === 'onFinishTrimming') {
             // Extract data from event (old architecture includes name property)
             const { name, ...data } = event;
-            handleTrimmingComplete(data);
+            handleTrimmingComplete(data as Parameters<typeof handleTrimmingComplete>[0]);
           }
         }
       );
       listeners.current.onError = eventEmitter.addListener(
         'VideoTrim',
-        (event: any) => {
+        (event: { name?: string; message?: string; errorCode?: string }) => {
           if (event.name === 'onError') {
             console.error('Trimming error:', event.message, event.errorCode);
             Alert.alert('Error', event.message || 'Failed to trim video');
@@ -88,8 +91,16 @@ const VideoTrimmerScreen: React.FC = () => {
     }
 
     return () => {
-      listeners.current.onFinishTrimming?.remove();
-      listeners.current.onError?.remove();
+      if (listeners.current.onFinishTrimming && 'remove' in listeners.current.onFinishTrimming) {
+        listeners.current.onFinishTrimming.remove();
+      } else if (typeof listeners.current.onFinishTrimming === 'function') {
+        listeners.current.onFinishTrimming();
+      }
+      if (listeners.current.onError && 'remove' in listeners.current.onError) {
+        listeners.current.onError.remove();
+      } else if (typeof listeners.current.onError === 'function') {
+        listeners.current.onError();
+      }
     };
   }, [handleTrimmingComplete, router]);
 

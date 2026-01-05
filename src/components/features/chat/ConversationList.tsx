@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -50,8 +50,8 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
     
     if (hasEmbed && lastMessage.embed?.record?.uri) {
       // Check if post is already cached in React Query
-      const cachedPost = queryClient.getQueryData(['embedded-post', lastMessage.embed.record.uri]);
-      if (cachedPost && isVideoPost(cachedPost)) {
+      const cachedPost = queryClient.getQueryData<PostView>(['embedded-post', lastMessage.embed.record.uri]);
+      if (cachedPost && 'uri' in cachedPost && 'cid' in cachedPost && isVideoPost(cachedPost)) {
         return 'sent a video';
       }
       // If not cached, default to "sent a post" (will update when post loads)

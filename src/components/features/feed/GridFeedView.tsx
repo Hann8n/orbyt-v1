@@ -1,8 +1,7 @@
-import React, { useState, useCallback, useMemo, memo, forwardRef, useImperativeHandle, useRef } from 'react';
+import React, { useCallback, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import {
   View,
-  Text,
   StyleSheet,
   Pressable,
   Dimensions,
@@ -16,23 +15,15 @@ import { Image } from 'expo-image';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import type { ListFeedViewRef } from '../../../types';
-import { useQuery } from '@tanstack/react-query';
-import { Colors, Avatar } from '../../ui/UI';
-import Icon from '../../ui/Icon';
-import { extractVideoUrl, extractVideoThumbnail } from '../../../utils/helpers/video';
-import ProfileCache from '../../../services/cache/ProfileCache';
-import ChannelCache from '../../../services/cache/ChannelCache';
-import { useProfile } from '../../../services/cache/ProfileCache';
-import { useChannelColors } from '../../../services/cache/ChannelCache';
-import { useCurrentUser } from '../../../stores/userStore';
+import { Colors } from '../../ui/UI';
+import { extractVideoThumbnail } from '../../../utils/helpers/video';
 import { feedService } from '../../../services/FeedService';
 import { BlurView } from 'expo-blur';
 import { QUERY_CONSTANTS } from '../../../utils/constants';
 import { FeedItem } from '../../../types';
-import { isTablet, isSmallScreen, getBottomNavBarHeight } from '../../../utils/helpers';
+import { isTablet, getBottomNavBarHeight } from '../../../utils/helpers';
 import EmptyFeed from './EmptyFeed';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
 
@@ -41,7 +32,7 @@ const VideoGridItem: React.FC<{
   item: FeedItem;
   index: number;
   onPress: (index: number) => void;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
   itemStyle?: ViewStyle;
   thumbnailStyle?: ImageStyle;
 }> = React.memo(({ item, index, onPress, style, itemStyle, thumbnailStyle }) => {
@@ -107,16 +98,16 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
   refreshControl,
   backgroundColor = '#000',
   secondaryColor = '#fff',
-  isProfileLoading = false,
+  isProfileLoading: _isProfileLoading = false,
   isProfileFeed = false,
   feedOption,
   userDid,
   onLoadMore,
-  isFetchingNextPage = false,
+  isFetchingNextPage: _isFetchingNextPage = false,
   hasNextPage = false,
   onGridItemPress,
   isError = false,
-  error,
+  error: _error,
   onRetry,
   ListComponent,
   onVerticalScroll,
@@ -125,7 +116,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
   const navigation = useRouter();
 
   // Determine if this is a header feed (profile, channel, etc.)
-  const isHeaderFeed = (
+  const isHeaderFeed: boolean = Boolean(
     feedOption === 'profile' ||
     feedOption === 'likes' ||
     feedOption === 'reposts' ||
@@ -134,7 +125,6 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
 
   // Initialize infinite scroll hook with cursor-based loading
   // Infinite scroll functionality removed - should be handled by parent component
-  const onScroll = () => {};
 
   // Refs for scrolling
   const scrollViewRef = useRef<ScrollView>(null);
@@ -200,7 +190,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
         onGridItemPress(index);
         return;
       }
-      feedService.setCurrentFeed(feed);
+      feedService.setCurrentFeed(feed as unknown as import('../../../services/api/types').ExtendedFeedViewPost[]);
              navigation.push({
           pathname: '/(modals)/feed',
           params: {
@@ -295,7 +285,7 @@ const GridFeedView = forwardRef<ListFeedViewRef, GridFeedViewProps>(({
       ) : (
         // Grid content: Use FlashList with header inside
         (() => {
-          const ListEl: React.ComponentType<unknown> = ListComponent || FlashList;
+          const ListEl = ListComponent || FlashList;
           // Only attach ref if using FlashList (not custom ListComponent)
           const listProps = ListComponent ? {} : { ref: flashListRef };
           return (

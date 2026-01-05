@@ -13,6 +13,8 @@ import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../utils/truesheet/trueSheetUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
+import CloseButton from './CloseButton';
+import CancelButton from './CancelButton';
 import { Colors } from './UI';
 import { OptionsButton } from './OptionsButton';
 
@@ -133,16 +135,11 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
         {title}
       </Text>
       {hideCloseButton ? (
-        <View style={styles.closeButton} />
+        <View style={styles.closeButtonSpacer} />
       ) : customHeaderButton ? (
         customHeaderButton
       ) : (
-        <Pressable 
-          style={styles.closeButton} 
-          onPress={onDismiss}
-        >
-          <Icon name="close" size={20} color={Colors.white} />
-        </Pressable>
+        <CloseButton onPress={onDismiss} />
       )}
     </View>
   );
@@ -164,12 +161,7 @@ const VerticalListSheet: React.FC<VerticalListSheetProps> = ({
             <View 
               style={[styles.cancelContainer, { backgroundColor: Colors.black, paddingTop: footerTopPadding ?? 8 }]}
             >
-              <Pressable 
-                style={styles.cancelButton} 
-                onPress={onDismiss} 
-              >
-                <Text style={styles.cancelButtonText}>{cancelButtonText}</Text>
-              </Pressable>
+              <CancelButton onPress={onDismiss} text={cancelButtonText} />
             </View>
           </View>
         ) : undefined
@@ -212,11 +204,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Firma-Bold',
     flex: 1,
   },
-  closeButton: {
+  closeButtonSpacer: {
     width: 30,
     height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   descriptionContainer: {
     marginTop: 4,
@@ -236,25 +226,6 @@ const styles = StyleSheet.create({
   cancelContainer: {
     alignItems: 'center',
     paddingTop: 8,
-  },
-  cancelButton: {
-    backgroundColor: Colors.darkGray,
-    borderRadius: BORDER_RADIUS.FULL,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    minHeight: 44,
-    borderWidth: 0,
-    borderColor: 'transparent',
-  },
-  cancelButtonText: {
-    color: Colors.lightGray,
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    fontFamily: 'Firma-SemiBold',
   },
   listButton: {
     borderRadius: BORDER_RADIUS.LARGE,

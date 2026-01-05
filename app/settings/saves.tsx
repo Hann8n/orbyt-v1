@@ -22,7 +22,7 @@ const SavesScreen: React.FC = () => {
       />
       <FeedRenderer
         feedOption="bookmarks"
-        userDid={currentUser?.did}
+        userDid={currentUser?.did ?? undefined}
         viewMode="grid"
         isVisible={true}
       />
