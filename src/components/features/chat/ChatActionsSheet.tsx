@@ -7,6 +7,7 @@ import { Loading3FillIcon } from '../../ui/Icon';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { formatHandle } from '../../../utils/helpers';
 import ChatService from '../../../services/ChatService';
+import { queryKeys } from '../../../utils/queryKeys';
 
 interface ChatActionsSheetProps {
   visible: boolean;
@@ -39,8 +40,14 @@ export default function ChatActionsSheet({
   const acceptConversationMutation = useMutation({
     mutationFn: () => ChatService.acceptConversation(conversationId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.conversations.detail(conversationId),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.conversations.list(),
+        refetchType: 'active'
+      });
       setIsLoading(null);
       Alert.alert('Success', 'Conversation accepted');
     },
@@ -54,7 +61,10 @@ export default function ChatActionsSheet({
   const leaveConversationMutation = useMutation({
     mutationFn: () => ChatService.leaveConversation(conversationId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.conversations.list(),
+        refetchType: 'active'
+      });
       setIsLoading(null);
       onDismiss();
       Alert.alert('Success', 'You have left the conversation');
@@ -72,8 +82,14 @@ export default function ChatActionsSheet({
       muted,
     }),
     onSuccess: (_, muted) => {
-      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.conversations.detail(conversationId),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.conversations.list(),
+        refetchType: 'active'
+      });
       setIsLoading(null);
       Alert.alert('Success', `Conversation ${muted ? 'muted' : 'unmuted'}`);
     },

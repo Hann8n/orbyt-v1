@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useCallback, useRef } from 'react';
 import { View, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -130,6 +130,9 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
   // Add extra height to make tab bar slightly taller
   const tabBarHeight = useMemo(() => bottomNavBarHeight + 6, [bottomNavBarHeight]);
 
+  // Responsive gap: smaller for thinner phones, larger for iPad
+  const tabGap = useMemo(() => width < 450 ? 28 : 48, [width]);
+
   // Get active route name from navigation state (optimized)
   const activeRouteName = useMemo(() => {
     if (!state || !state.routes || state.index === undefined) {
@@ -139,51 +142,77 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
     return route?.name || '';
   }, [state]);
 
-  const handleTabPress = (tab: TabConfig) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  // Debounce refs for rapid tab switching
+  const lastPressTimeRef = useRef<number>(0);
+  const pendingHapticRef = useRef<boolean>(false);
+
+  const isTabActive = useCallback((tab: TabConfig): boolean => {
+    return activeRouteName === tab.routeName;
+  }, [activeRouteName]);
+
+  const handleTabPress = useCallback((tab: TabConfig) => {
+    const now = Date.now();
+    const timeSinceLastPress = now - lastPressTimeRef.current;
+    lastPressTimeRef.current = now;
+
+    // Debounce rapid presses (throttle to 100ms minimum)
+    if (timeSinceLastPress < 100) {
+      return;
+    }
+
+    // Trigger haptics asynchronously (non-blocking)
+    if (!pendingHapticRef.current) {
+      pendingHapticRef.current = true;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).finally(() => {
+        pendingHapticRef.current = false;
+      });
+    }
     
     // Check if this tab is already active using navigation state (faster than segments)
-    const isActive = isTabActive(tab);
+    const isActive = activeRouteName === tab.routeName;
     
     if (isActive) {
       // Tab is already active - trigger scroll-to-top and other tab-specific actions
-      switch (tab.iconType) {
-        case 'home':
-          // Home tab: refresh and scroll to top
-          if (tabRefs.home) {
-            tabRefs.home.refresh?.();
-            tabRefs.home.scrollToTop();
-          }
-          break;
-        case 'explore':
-          // Explore tab: dismiss search if active, otherwise scroll to top
-          if (tabRefs.explore) {
-            if (tabRefs.explore.isSearchActive?.()) {
-              tabRefs.explore.dismissSearch?.();
-            } else {
-              tabRefs.explore.scrollToTop();
+      // Use requestAnimationFrame to defer heavy operations off the main thread
+      requestAnimationFrame(() => {
+        switch (tab.iconType) {
+          case 'home':
+            // Home tab: refresh and scroll to top
+            if (tabRefs.home) {
+              tabRefs.home.refresh?.();
+              tabRefs.home.scrollToTop();
             }
-          }
-          break;
-        case 'activity':
-          // Activity tab: scroll to top
-          if (tabRefs.activity) {
-            tabRefs.activity.scrollToTop();
-          }
-          break;
-        case 'profile':
-          // Profile tab: scroll to top
-          if (tabRefs.profile) {
-            tabRefs.profile.scrollToTop();
-          }
-          break;
-        case 'create':
-          // Create tab: navigate to root route using router
-          router.push('/create');
-          break;
-      }
+            break;
+          case 'explore':
+            // Explore tab: dismiss search if active, otherwise scroll to top
+            if (tabRefs.explore) {
+              if (tabRefs.explore.isSearchActive?.()) {
+                tabRefs.explore.dismissSearch?.();
+              } else {
+                tabRefs.explore.scrollToTop();
+              }
+            }
+            break;
+          case 'activity':
+            // Activity tab: scroll to top
+            if (tabRefs.activity) {
+              tabRefs.activity.scrollToTop();
+            }
+            break;
+          case 'profile':
+            // Profile tab: scroll to top
+            if (tabRefs.profile) {
+              tabRefs.profile.scrollToTop();
+            }
+            break;
+          case 'create':
+            // Create tab: navigate to root route using router
+            router.push('/create');
+            break;
+        }
+      });
     } else {
-      // Tab is not active - check if it's create (root route) or a tab route
+      // Tab is not active - navigate immediately (React Navigation handles this efficiently)
       if (tab.iconType === 'create') {
         router.push('/create');
       } else {
@@ -192,9 +221,9 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
         navigation.navigate(tab.routeName);
       }
     }
-  };
+  }, [activeRouteName, navigation, router]);
 
-  const handleLongPress = (tab: TabConfig) => {
+  const handleLongPress = useCallback((tab: TabConfig) => {
     if (tab.iconType === 'profile') {
       presentAccountSwitcher();
     } else if (tab.iconType === 'explore') {
@@ -204,12 +233,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
       }
     }
     // Create tab doesn't have long press behavior
-  };
-
-  const isTabActive = (tab: TabConfig): boolean => {
-    // Use navigation state for tab routes (faster and more reliable)
-    return activeRouteName === tab.routeName;
-  };
+  }, [presentAccountSwitcher]);
 
   // Check if we're on explore or activity page for black background
   const isExploreOrActivityActive = useMemo(() => {
@@ -260,9 +284,10 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
       <View style={[styles.tabBar, { 
         paddingTop: 9,
         paddingBottom: (typeof insets?.bottom === 'number' ? insets.bottom : 0) + 3,
+        gap: tabGap,
       }]}>
         {/* Left tabs */}
-        <View style={styles.tabsGroup}>
+        <View style={[styles.tabsGroup, { gap: tabGap }]}>
           {LEFT_TABS.map((tab) => {
             const isActive = isTabActive(tab);
 
@@ -273,6 +298,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
                   styles.tab,
                   pressed && styles.tabPressed,
                 ]}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 onPress={() => handleTabPress(tab)}
                 onLongPress={() => handleLongPress(tab)}
                 delayLongPress={400}
@@ -290,13 +316,14 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
             { width: captureSize },
             pressed && styles.tabPressed,
           ]}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           onPress={() => handleTabPress(CREATE_TAB)}
         >
           {renderTabIcon(CREATE_TAB, false)}
         </Pressable>
 
         {/* Right tabs */}
-        <View style={styles.tabsGroup}>
+        <View style={[styles.tabsGroup, { gap: tabGap }]}>
           {RIGHT_TABS.map((tab) => {
             const isActive = isTabActive(tab);
 
@@ -307,6 +334,7 @@ const CustomBottomTabBar: React.FC<CustomBottomTabBarProps> = ({
                   styles.tab,
                   pressed && styles.tabPressed,
                 ]}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 onPress={() => handleTabPress(tab)}
                 onLongPress={() => handleLongPress(tab)}
                 delayLongPress={400}
@@ -345,13 +373,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    paddingHorizontal: 16,
-    gap: 48,
+    paddingHorizontal: 20,
   },
   tabsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 48,
   },
   tab: {
     alignItems: 'center',

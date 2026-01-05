@@ -17,7 +17,8 @@ export const storage = new MMKV({
  * Should be called once on app initialization
  * Follows official MMKV migration pattern: https://github.com/mrousavy/react-native-mmkv/blob/main/docs/MIGRATE_FROM_ASYNC_STORAGE.md
  * 
- * TODO: Remove `hasMigratedFromAsyncStorage` after a while (when everyone has migrated)
+ * Note: The `hasMigratedFromAsyncStorage` flag can be removed in a future version
+ * once all users have migrated from AsyncStorage to MMKV.
  */
 const MIGRATION_FLAG_KEY = 'hasMigratedFromAsyncStorage';
 
@@ -32,7 +33,7 @@ export async function migrateAsyncStorageToMMKV(): Promise<void> {
     }
 
     logger.info('Migrating from AsyncStorage -> MMKV...');
-    const start = global.performance?.now() ?? Date.now();
+    const start = Date.now();
 
     const keys = await AsyncStorage.getAllKeys();
     if (keys.length === 0) {
@@ -67,7 +68,7 @@ export async function migrateAsyncStorageToMMKV(): Promise<void> {
     // Mark migration as complete
     storage.set(MIGRATION_FLAG_KEY, true);
 
-    const end = global.performance?.now() ?? Date.now();
+    const end = Date.now();
     const duration = end - start;
     logger.info(`Migrated ${migratedCount} keys from AsyncStorage -> MMKV in ${duration.toFixed(2)}ms`);
   } catch (error) {

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { BORDER_RADIUS } from '../../../utils/constants';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createQueryKeys } from '../../../services/FeedService';
+import { queryKeys } from '../../../utils/queryKeys';
 import {
   View,
   Text,
@@ -64,7 +64,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
   // Get profile data to determine if it's the current user
   // This includes viewer.blocking, viewer.muted, and chat fields
   const { data: profile } = useQuery({
-    queryKey: createQueryKeys.profiles.detail(handle),
+    queryKey: queryKeys.profiles.detail(handle),
     queryFn: () => AtprotoService.getProfile(handle),
     enabled: visible && !!handle,
   });
@@ -96,7 +96,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         safeDismiss('profile-menu-submenu');
         await AtprotoService.unblockUser(profile.did);
         // Invalidate profile query to refetch with updated viewer.blocking
-        queryClient.invalidateQueries({ queryKey: createQueryKeys.profiles.detail(handle) });
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.profiles.detail(handle),
+          refetchType: 'active'
+        });
         setFlags({ isBlocked: false });
         onDismiss();
       } else {
@@ -116,7 +119,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
               onPress: async () => {
                 await AtprotoService.blockUser(profile.did);
                 // Invalidate profile query to refetch with updated viewer.blocking
-                queryClient.invalidateQueries({ queryKey: createQueryKeys.profiles.detail(handle) });
+                queryClient.invalidateQueries({ 
+          queryKey: queryKeys.profiles.detail(handle),
+          refetchType: 'active'
+        });
                 setFlags({ isBlocked: true });
                 onDismiss();
               }
@@ -144,7 +150,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
       if (isMuted) {
         await AtprotoService.unmuteUser(profile.did);
         // Invalidate profile query to refetch with updated viewer.muted
-        queryClient.invalidateQueries({ queryKey: createQueryKeys.profiles.detail(handle) });
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.profiles.detail(handle),
+          refetchType: 'active'
+        });
         setFlags({ isMuted: false });
       } else {
         Alert.alert(
@@ -161,7 +170,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
               onPress: async () => {
                 await AtprotoService.muteUser(profile.did);
                 // Invalidate profile query to refetch with updated viewer.muted
-                queryClient.invalidateQueries({ queryKey: createQueryKeys.profiles.detail(handle) });
+                queryClient.invalidateQueries({ 
+          queryKey: queryKeys.profiles.detail(handle),
+          refetchType: 'active'
+        });
                 setFlags({ isMuted: true });
                 onDismiss();
               }

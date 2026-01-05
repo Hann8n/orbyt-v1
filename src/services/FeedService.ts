@@ -10,6 +10,12 @@ import type { ModerationDecision } from './ModerationTypes';
 import { ModerationService } from './ModerationService';
 import { logger } from '../utils/logger';
 import { useUserStore } from '../stores/userStore';
+import { QUERY_CONSTANTS } from '../utils/constants';
+import { queryKeys } from '../utils/queryKeys';
+import type {
+  ExtendedFeedViewPost,
+  FeedResponse,
+} from './api/types';
 
 // Import AtprotoService with error handling for circular dependency issues
 let AtprotoService: any = null;
@@ -31,51 +37,17 @@ const CACHE_CONFIG = {
   GC_TIME: 10 * 60 * 1000,     // 10 minutes
 } as const;
 
-// Types
-export interface Post {
-  embed?: {
-    $type: string;
-    mime?: string;
-    playlist?: string | string[];
-    media?: {
-      $type: string;
-      playlist?: string | string[];
-    };
-  };
-  uri: string;
-  cid: string;
-  author?: {
-    avatar?: string;
-    displayName?: string;
-    handle?: string;
-  };
-  repostedBy?: {
-    avatar?: string;
-    displayName?: string;
-    handle?: string;
-  };
-  moderationDecision?: ModerationDecision;
-}
+// Re-export API types for convenience
+export type { ExtendedFeedViewPost as FeedItem, ExtendedPostView as Post } from './api/types';
 
-export interface FeedItem {
-  post: Post;
-  uniqueKey?: string;
-  reason?: {
-    $type?: string;
-    by?: {
-      avatar?: string;
-      displayName?: string;
-      handle?: string;
-    };
-  };
+// Type alias for feed items with moderation (used by feed service)
+export type FeedItemWithModeration = ExtendedFeedViewPost & {
   moderationDecision?: ModerationDecision;
   sourceFeed?: string;
-}
+};
 
-export interface APIResponse {
-  feed: FeedItem[];
-  cursor: string | null;
-}
+// API Response type matching AtprotoService return types
+export type APIResponse = FeedResponse;
 
 export type FeedOption = 'profile' | 'following' | 'likes' | 'reposts' | 'search' | 'hashtag' | string;
 
@@ -85,7 +57,7 @@ const FEED_CONFIG = {
   maxPostsPerFetch: 50,
   maxSubscribedChannels: 50,
   defaultLimit: 50,
-  staleTime: 10 * 60 * 1000, // 10 minutes - increased to reduce unnecessary refreshes
+  staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
   cacheTime: 60 * 60 * 1000, // 60 minutes - increased to better preserve video cache
 } as const;
 
@@ -647,7 +619,7 @@ class FeedService {
     const queryClient = useQueryClient();
     
     return useInfiniteQuery({
-      queryKey: createQueryKeys.feed.infinite(feedOption, userDid),
+      queryKey: queryKeys.feed.infinite(feedOption, userDid),
       queryFn: async ({ pageParam }) => {
         // Fetch feed data
         const feedData = await this.fetchFeed(feedOption, userDid, pageParam as string);

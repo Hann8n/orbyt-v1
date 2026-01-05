@@ -4,6 +4,7 @@ import ChatService from '../services/ChatService';
 import { ChatMessage } from '../utils/chatHelpers';
 import { ReactionView } from '../services/ChatService';
 import { formatHandle } from '../utils/helpers';
+import { queryKeys } from '../utils/queryKeys';
 
 interface UseMessageReactionsProps {
   conversationId: string;
@@ -35,7 +36,10 @@ export function useMessageReactions({
         reactionValue: emoji,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.messages.byConversation(conversationId),
+        refetchType: 'active'
+      });
     },
     onError: () => {
       // Don't show alert for reactions - they're non-critical
@@ -51,7 +55,10 @@ export function useMessageReactions({
         reactionValue: emoji,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.messages.byConversation(conversationId),
+        refetchType: 'active'
+      });
     },
     onError: () => {
       // Don't show alert for reactions - they're non-critical

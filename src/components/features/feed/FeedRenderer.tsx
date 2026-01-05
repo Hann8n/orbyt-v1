@@ -15,26 +15,17 @@ import { useFeed, useSearchFeed } from '../../../hooks/useFeed';
 import type { ModerationDecision } from '../../../services/ModerationTypes';
 import { Colors } from '../../ui/UI';
 import { feedService } from '../../../services/FeedService';
-import { APP_CONSTANTS } from '../../../utils/constants';
+import { APP_CONSTANTS, QUERY_CONSTANTS } from '../../../utils/constants';
 import type { ListFeedViewRef } from '../../../types';
 import { FollowProvider } from '../../../context/FollowContext';
+import type {
+  ExtendedFeedViewPost as FeedItem,
+  ExtendedPostView as Post,
+  FeedItemWithModeration,
+} from '../../../services/api/types';
 
-// Types
-export interface Post {
-  embed?: any;
-  uri: string;
-  author?: {
-    avatar?: string;
-    displayName?: string;
-    handle?: string;
-  };
-  moderationDecision?: ModerationDecision;
-}
-
-export interface FeedItem {
-  post: Post;
-  sourceFeed?: string;
-}
+// Re-export types for component usage
+export type { FeedItem, Post };
 
 // Main Feed Renderer Props
 interface FeedRendererProps {
@@ -133,7 +124,7 @@ const FeedRenderer = memo(forwardRef<ListFeedViewRef, FeedRendererProps>(({
 
     return {
       enabled: computedEnabled,
-      staleTime: 10 * 60 * 1000, // 10 minutes
+      staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
       ...restOptions,
     };
   }, [queryOptions, isSearchFeed, isVisible, shouldPrefetch, feedOption]);

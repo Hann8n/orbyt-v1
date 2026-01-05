@@ -10,8 +10,8 @@ import { useUserStore } from '../stores/userStore';
 
 const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
 
-// Types from Bluesky API
-import type { ProfileViewBasic } from '../types/chat';
+// Types from ChatService
+import type { ProfileViewBasic } from '../services/ChatService';
 
 export interface Conversation {
   id: string;

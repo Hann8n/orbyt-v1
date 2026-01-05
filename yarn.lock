@@ -2316,11 +2316,11 @@
     nullthrows "^1.1.1"
 
 "@react-navigation/bottom-tabs@^7.4.0":
-  version "7.8.11"
-  resolved "https://registry.npmjs.org/@react-navigation/bottom-tabs/-/bottom-tabs-7.8.11.tgz"
-  integrity sha512-lUc8cYpez3uVi7IlqKgIBpLEEkYiL4LkZnpstDsb0OSRxW8VjVYVrH29AqKU7n1svk++vffJvv3EeW+IgxkJtg==
+  version "7.9.0"
+  resolved "https://registry.yarnpkg.com/@react-navigation/bottom-tabs/-/bottom-tabs-7.9.0.tgz#b546adb0cedd72a1f0179e00b74039b3c8abb6bd"
+  integrity sha512-024FWdHp3ZsE5rP8tmGI4vh+1z3wg8u8E9Frep8eeGoYo1h9rQhvgofQDGxknmrKsb7t8o8Dim+IZSvl57cPFQ==
   dependencies:
-    "@react-navigation/elements" "^2.9.1"
+    "@react-navigation/elements" "^2.9.3"
     color "^4.2.3"
     sf-symbols-typescript "^2.1.0"
 
@@ -2338,7 +2338,7 @@
     use-latest-callback "^0.2.4"
     use-sync-external-store "^1.5.0"
 
-"@react-navigation/elements@^2.9.1", "@react-navigation/elements@^2.9.3":
+"@react-navigation/elements@^2.9.3":
   version "2.9.3"
   resolved "https://registry.yarnpkg.com/@react-navigation/elements/-/elements-2.9.3.tgz#505ae38af347a0bc5326155318a3d9a54e2071e3"
   integrity sha512-3+eyvWiVPIEf6tN9UdduhOEHcTuNe3R5WovgiVkfH9+jApHMTZDc2loePTpY/i2HDJhObhhChpJzO6BVjrpdYQ==
@@ -4123,7 +4123,7 @@ expo-navigation-bar@~5.0.8:
     debug "^4.3.2"
     react-native-is-edge-to-edge "^1.2.1"
 
-expo-router@~6.0.21:
+expo-router@latest:
   version "6.0.21"
   resolved "https://registry.yarnpkg.com/expo-router/-/expo-router-6.0.21.tgz#5920269224c7817f23a55df43ea01d1f7cba9172"
   integrity sha512-wjTUjrnWj6gRYjaYl1kYfcRnNE4ZAQ0kz0+sQf6/mzBd/OU6pnOdD7WrdAW3pTTpm52Q8sMoeX98tNQEddg2uA==

@@ -25,6 +25,7 @@ import { ModerationService } from '../services/ModerationService';
 import { isOrbytChannel } from '../utils/orbytChannels';
 import { queryClient } from '../utils/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
+import { queryKeys } from '../utils/queryKeys';
 
 // Lazy import feedService to avoid circular dependency
 // FeedService imports useUserStore, so we import it dynamically when needed
@@ -986,8 +987,12 @@ export const useUserStore = create<UserState>()(
           } catch {}
           
           // Remove all cached your-mix queries and refetch with new provider
-          queryClient.removeQueries({ queryKey: ['feed', 'your-mix'] });
-          queryClient.invalidateQueries({ queryKey: ['feed', 'your-mix'] });
+          const currentUserDid = get().currentUser?.did;
+          queryClient.removeQueries({ queryKey: queryKeys.feed.byUser('your-mix', currentUserDid) });
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.feed.byUser('your-mix', currentUserDid),
+            refetchType: 'active'
+          });
         } catch (error) {
           logger.error('Error setting algorithmic feed provider', error, { component: 'userStore' });
           throw error;

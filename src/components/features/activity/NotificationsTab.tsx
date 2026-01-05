@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
-import { BORDER_RADIUS } from '../../../utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import { extractVideoThumbnail } from '../../../utils/helpers/video';
 import { useGlobalCommentSection } from '../../../hooks/useGlobalModals';
 import { useUserStore } from '../../../stores/userStore';
 import BlurredThumbnailBackground from '../../ui/BlurredThumbnailBackground';
+import { queryKeys } from '../../../utils/queryKeys';
 
 // Import radar.gif for empty notifications state
 const RadarGif = require('../../../assets/radar.gif');
@@ -559,12 +560,18 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
       AtprotoService.updateNotificationSeen()
         .then(() => {
           // Invalidate unread count query after successfully marking as seen
-          queryClient.invalidateQueries({ queryKey: ['notifications-count'] });
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.notifications.count(),
+            refetchType: 'active'
+          });
         })
         .catch(() => {
           // Silently fail - seen status update is not critical
           // Still try to refresh the count in case it changed
-          queryClient.invalidateQueries({ queryKey: ['notifications-count'] });
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.notifications.count(),
+            refetchType: 'active'
+          });
         });
     }, [queryClient])
   );
@@ -580,14 +587,14 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
     isRefetching,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['notifications', 'all'],
+    queryKey: queryKeys.notifications.list(),
     queryFn: async ({ pageParam }) => {
       const response = await AtprotoService.listNotifications(pageParam as string | null);
       return response;
     },
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.cursor,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: QUERY_CONSTANTS.STALE_TIME_MEDIUM, // 1 minute - for moderately changing data
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -695,7 +702,7 @@ const NotificationsTab = forwardRef<ScrollToTopRef>((props, ref) => {
       return result;
     },
     enabled: postUrisToFetch.length > 0,
-    staleTime: 5 * 60 * 1000,
+    staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
     gcTime: 10 * 60 * 1000,
   });
 

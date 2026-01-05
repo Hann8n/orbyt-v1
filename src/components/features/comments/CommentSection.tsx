@@ -28,7 +28,7 @@ import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { safeDismiss, safePresent } from '../../../utils/truesheet/trueSheetUtils';
 
 import AtprotoService from '../../../services/api/AtprotoService';
-import { createQueryKeys } from '../../../services/FeedService';
+import { queryKeys } from '../../../utils/queryKeys';
 import { useProfile } from '../../../services/cache/ProfileCache';
 import { useUserStore } from '../../../stores/userStore';
 import { usePostInteractionStore } from '../../../stores/postInteractionStore';
@@ -373,7 +373,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     hasNextPage: hasNextCommentsPage,
     isFetchingNextPage: isFetchingNextCommentsPage,
   } = useInfiniteQuery<{ comments: any[]; cursor: string | null }, Error>({
-    queryKey: createQueryKeys.comments.byPost(post?.uri || ''),
+    queryKey: queryKeys.comments.byPost(post?.uri || ''),
     queryFn: ({ pageParam }) => AtprotoService.getComments(post?.uri || '', pageParam as string | null),
     getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
     initialPageParam: null,
@@ -451,7 +451,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     hasNextPage: hasNextLikesPage,
     isFetchingNextPage: isFetchingNextLikesPage,
   } = useInfiniteQuery<{ likes: any[]; cursor: string | null }, Error>({
-    queryKey: createQueryKeys.likes.byPost(post?.uri || ''),
+    queryKey: queryKeys.likes.byPost(post?.uri || ''),
     queryFn: ({ pageParam }) => AtprotoService.getLikes(post?.uri || '', pageParam as string | null),
     getNextPageParam: (lastPage) => lastPage?.cursor ?? undefined,
     initialPageParam: null,
@@ -504,7 +504,10 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       setNewCommentText('');
       setReplyContext(null);
 
-      queryClient.invalidateQueries({ queryKey: createQueryKeys.comments.byPost(post.uri) });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.comments.byPost(post.uri),
+        refetchType: 'active'
+      });
 
       setTimeout(() => inputRef.current?.focus?.(), 100);
     } catch {

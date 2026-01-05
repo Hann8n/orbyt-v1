@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { RichText as RichTextAPI } from '@atproto/api';
+import { logger } from '../utils/logger';
 
 /**
  * Hook to process text into RichText instance and handle facet resolution
@@ -32,7 +33,7 @@ export function useRichText(text: string): [RichTextAPI, boolean] {
         rt.detectFacetsWithoutResolution();
         setRichText(rt);
       } catch (error) {
-        console.error('Error detecting facets:', error);
+        logger.error('Error detecting facets', error, { component: 'useRichText' });
         // Keep the unresolved version if detection fails
       } finally {
         setIsResolving(false);

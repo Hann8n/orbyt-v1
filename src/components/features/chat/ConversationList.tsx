@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 
 import { Colors } from '../../ui/UI';
-import { BORDER_RADIUS } from '../../../utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { Avatar } from '../../ui/UI';
 import { Conversation } from '../../../services/ChatService';
 import ChatService from '../../../services/ChatService';
@@ -15,6 +15,9 @@ import Icon, { Loading3FillIcon } from '../../ui/Icon';
 import { useChatStore } from '../../../stores/chatStore';
 import { useCurrentUser } from '../../../stores/userStore';
 import EmptyFeed from '../feed/EmptyFeed';
+import type { PostView } from '../../../services/api/types';
+import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
+import { queryKeys } from '../../../utils/queryKeys';
 
 interface ConversationListProps {
   onConversationPress?: (conversation: Conversation) => void;
@@ -27,16 +30,10 @@ const ConversationDivider = () => (
 );
 
 // Helper function to check if a post is a video post
-const isVideoPost = (post: any): boolean => {
+const isVideoPost = (post: PostView): boolean => {
   const embed = post?.embed;
   if (!embed) return false;
-  
-  if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
-    return true;
-  } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-    return embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view';
-  }
-  return false;
+  return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
 };
 
 export default function ConversationList({ onConversationPress, bottomNavBarHeight = 0 }: ConversationListProps) {
@@ -74,7 +71,7 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
     error,
     refetch,
   } = useQuery({
-    queryKey: ['conversations'],
+    queryKey: queryKeys.chat.conversations.list(),
     queryFn: async () => {
       const result = await ChatService.getConversations();
       // Update chat store with conversations (includes latest messages)
@@ -84,7 +81,7 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
       return result;
     },
     refetchInterval: 30000, // Poll every 30 seconds
-    staleTime: 10000, // Consider stale after 10 seconds for faster updates
+    staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT, // 10 seconds - for frequently changing data
   });
 
   const conversations = conversationsData?.conversations || [];
@@ -93,7 +90,10 @@ export default function ConversationList({ onConversationPress, bottomNavBarHeig
     setRefreshing(true);
     await refetch();
     // Also invalidate the conversations-count cache to update bottom bar indicator
-    queryClient.invalidateQueries({ queryKey: ['conversations-count'] });
+    queryClient.invalidateQueries({ 
+      queryKey: queryKeys.chat.conversations.count(),
+      refetchType: 'active'
+    });
     setRefreshing(false);
   };
 

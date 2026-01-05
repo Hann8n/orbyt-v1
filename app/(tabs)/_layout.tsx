@@ -27,17 +27,17 @@ export default function TabsLayout() {
       <NativeTabs tintColor={nativeTintColor} badgeBackgroundColor={Colors.badgeGreen}>
         <NativeTabs.Trigger name="index">
           <Icon src={require('../../src/assets/tab-icons/png/home_5_fill.png')} />
-          <Label>Home</Label>
+          <Label hidden />
         </NativeTabs.Trigger>
         
         <NativeTabs.Trigger name="explore" role="search">
           <Icon src={require('../../src/assets/tab-icons/png/search_2_fill.png')} />
-          <Label>Explore</Label>
+          <Label hidden />
         </NativeTabs.Trigger>
         
         <NativeTabs.Trigger name="activity">
           <Icon src={require('../../src/assets/tab-icons/png/flash_fill.png')} />
-          <Label>Activity</Label>
+          <Label hidden />
           {totalUnreadCount > 0 && (
             <Badge>{totalUnreadCount > 99 ? '99+' : totalUnreadCount.toString()}</Badge>
           )}
@@ -45,7 +45,7 @@ export default function TabsLayout() {
         
         <NativeTabs.Trigger name="profile">
           <Icon src={require('../../src/assets/tab-icons/png/user_3_fill.png')} />
-          <Label>Profile</Label>
+          <Label hidden />
         </NativeTabs.Trigger>
       </NativeTabs>
     );
@@ -71,7 +71,6 @@ export default function TabsLayout() {
         <Tabs.Screen name="explore" />
         <Tabs.Screen name="activity" />
         <Tabs.Screen name="profile" />
-        <Tabs.Screen name="search" options={{ href: null }} />
       </Tabs>
     </View>
   );

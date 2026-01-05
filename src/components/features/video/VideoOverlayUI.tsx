@@ -23,9 +23,11 @@ import { useRouter, useSegments } from 'expo-router';
 import { useFollowContext } from '../../../context/FollowContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { prepopulateProfileCache } from '../../../services/cache/ProfileCache';
+import type { ExtendedPostView } from '../../../services/api/types';
+import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
 
-// Use any type for post
-type Post = any;
+// Use proper API types
+type Post = ExtendedPostView;
 
 export interface VideoOverlayUIProps {
   post: Post;

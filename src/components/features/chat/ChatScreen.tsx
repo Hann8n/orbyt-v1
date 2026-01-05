@@ -24,6 +24,7 @@ import MessageReactions from './MessageReactions';
 import ChatActionsSheet from './ChatActionsSheet';
 import EmbeddedPostCard from './EmbeddedPostCard';
 import EmptyFeed from '../feed/EmptyFeed';
+import { queryKeys } from '../../../utils/queryKeys';
 
 interface ChatScreenProps {
   conversationId: string;
@@ -79,7 +80,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
     error,
     refetch: refetchMessages,
   } = useQuery({
-    queryKey: ['messages', conversationId],
+    queryKey: queryKeys.chat.messages.infinite(conversationId),
     queryFn: async () => {
       const result = await ChatService.getMessages(conversationId);
       // Update store cache with fresh messages
@@ -102,9 +103,18 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       // Clear optimistic message ID on success
       optimisticMessageIdRef.current = null;
       // Refetch messages and conversations
-      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      queryClient.invalidateQueries({ queryKey: ['conversations-count'] });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.messages.byConversation(conversationId),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.conversations.list(),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.conversations.count(),
+        refetchType: 'active'
+      });
     },
     onError: (error: any) => {
       // Remove optimistic message on error
@@ -137,9 +147,18 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   const acceptConversationMutation = useMutation({
     mutationFn: () => ChatService.acceptConversation(conversationId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      queryClient.invalidateQueries({ queryKey: ['conversations-count'] });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.conversations.detail(conversationId),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.conversations.list(),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.conversations.count(),
+        refetchType: 'active'
+      });
     },
     onError: (error: any) => {
       Alert.alert('Error', 'Failed to accept conversation');
@@ -150,8 +169,14 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
   const rejectConversationMutation = useMutation({
     mutationFn: () => ChatService.leaveConversation(conversationId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      queryClient.invalidateQueries({ queryKey: ['conversations-count'] });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.conversations.list(),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.chat.conversations.count(),
+        refetchType: 'active'
+      });
       router.back();
     },
     onError: (error: any) => {
@@ -226,8 +251,14 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       ChatService.markConversationAsRead(conversationId)
         .then(() => {
           // Invalidate conversations cache to update unread counts
-          queryClient.invalidateQueries({ queryKey: ['conversations'] });
-          queryClient.invalidateQueries({ queryKey: ['conversations-count'] });
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.chat.conversations.list(),
+            refetchType: 'active'
+          });
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.chat.conversations.count(),
+            refetchType: 'active'
+          });
         })
         .catch((error) => {
           // Non-critical operation, just log the error

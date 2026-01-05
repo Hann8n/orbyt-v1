@@ -10,7 +10,7 @@ import React, {
 import { useRecyclingState } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useEvent } from 'expo';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { useVideoPlayer, VideoView as ExpoVideoView } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 
 import { BORDER_RADIUS } from '../../../utils/constants';
@@ -39,9 +39,13 @@ import { usePostInteractionStore } from '../../../stores/postInteractionStore';
 import { useProfile } from '../../../services/cache/ProfileCache';
 import { getChannelBySlug } from '../../../utils/orbytChannels';
 import { VideoScrubber } from './VideoScrubber';
+import { logger } from '../../../utils/logger';
+import type { ExtendedPostView, ExtendedFeedViewPost, VideoView } from '../../../services/api/types';
+import type { ModerationDecision } from '../../../services/ModerationTypes';
+import { isVideoEmbed } from '../../../services/api/types';
 
-// Use any type for post
-type Post = any;
+// Use proper API types - normalize to always work with ExtendedPostView
+type Post = ExtendedPostView | ExtendedFeedViewPost;
 
 // Types
 export interface VideoCardRef {
@@ -64,7 +68,7 @@ export interface VideoCardProps {
   height?: number;
   shouldDisablePlayback?: boolean;
   isPlaying?: boolean;
-  moderationDecision?: any;
+  moderationDecision?: ModerationDecision;
   // Overlay props
   showOverlay?: boolean;
   feedOption?: string;
@@ -90,22 +94,27 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const { presentCommentSection } = useGlobalCommentSection();
     const { updatePostInteraction, getPostInteraction } = usePostInteractionStore();
     
+    // Normalize post - extract ExtendedPostView from ExtendedFeedViewPost if needed
+    const postView: ExtendedPostView = React.useMemo(() => {
+      return 'post' in post ? post.post : post;
+    }, [post]);
+    
     // Enhanced video state management with automatic recycling
     // Scope by post URI + feedOption so playback state doesn't leak across different feeds
     // Only track userPaused - derive hasError directly from playerStatus to avoid duplication
     const [videoState, setVideoState] = useRecyclingState({
       userPaused: false,
-    }, [post.uri, feedOption]); // Auto-resets when post.uri or feed context changes
+    }, [postView.uri, feedOption]); // Auto-resets when post.uri or feed context changes
 
     // Get persisted interaction state from store
-    const persistedInteraction = getPostInteraction(post.uri, {
-      isLiked: !!post.viewer?.like,
-      likeCount: post.likeCount || 0,
-      repostCount: post.repostCount || 0,
-      isReposted: !!post.viewer?.repost,
+    const persistedInteraction = getPostInteraction(postView.uri, {
+      isLiked: !!postView.viewer?.like,
+      likeCount: postView.likeCount || 0,
+      repostCount: postView.repostCount || 0,
+      isReposted: !!postView.viewer?.repost,
       isBookmarked: false, // Bookmarks are now handled in share sheet
-      likeUri: post.viewer?.like,
-      repostUri: post.viewer?.repost,
+      likeUri: postView.viewer?.like,
+      repostUri: postView.viewer?.repost,
     });
 
     // Overlay state - using recycling state for automatic reset, but initialize from store
@@ -113,17 +122,17 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       isLikePending: false,
       isRepostPending: false,
       ...persistedInteraction,
-    }, [post.uri, feedOption]); // Auto-resets when post.uri or feed context changes
+    }, [postView.uri, feedOption]); // Auto-resets when post.uri or feed context changes
 
     // Lightweight follow state per post, hoisted out of overlay
-    const { data: cachedProfile } = useProfile(post.author?.handle);
+    const { data: cachedProfile } = useProfile(postView.author?.handle);
     const isFollowing = cachedProfile?.isFollowing ?? false;
     const hasProfile = !!cachedProfile;
 
     // Extract channel slug from post tags - simple match, no lookups
     const channelSlug = React.useMemo(() => {
-      const record = (post as any)?.record || {};
-      const tags = record?.tags || (post as any)?.tags || [];
+      const record = postView.record as { tags?: string[] };
+      const tags = record?.tags || [];
       if (!Array.isArray(tags) || tags.length === 0) {
         return null;
       }
@@ -134,7 +143,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
         return null;
       }
       return channelTag.replace(/^orbyt-channel-/, '') || null;
-    }, [post]);
+    }, [postView]);
 
     // Get channel URI for navigation (only lookup needed for routing)
     const channelUri = React.useMemo(() => {
@@ -152,13 +161,15 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const heartPositionY = useSharedValue(0);
 
     // Get video URL and thumbnail using shared utilities
-    const videoUrl = extractVideoUrl(post.embed);
-    const posterUrl = extractVideoThumbnail(post.embed);
+    const videoUrl = extractVideoUrl(postView.embed);
+    const posterUrl = extractVideoThumbnail(postView.embed);
     
     // Track dimensions
     const { width, height: screenHeight } = Dimensions.get('window');
     // Use provided height or calculate based on 9:16 aspect ratio if post has aspectRatio
-    const postAspectRatio = post.embed?.aspectRatio;
+    const embed = postView.embed;
+    const videoEmbed = embed && isVideoEmbed(embed) ? embed as VideoView : null;
+    const postAspectRatio = videoEmbed?.aspectRatio;
     const defaultAspectRatio = postAspectRatio ? postAspectRatio.width / postAspectRatio.height : 16/9;
     const cardHeight = height || width * defaultAspectRatio;
 
@@ -182,7 +193,11 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     const [userChoseToView, setUserChoseToView] = useState(false);
     
     // Get moderation decision and derive all blur states in one place
-    const decision = moderationDecision || post?.moderationDecision || post?.post?.moderationDecision;
+    // Support both ExtendedPostView and ExtendedFeedViewPost  
+    const decision: ModerationDecision | undefined = moderationDecision || 
+      ('moderationDecision' in post && post.moderationDecision && typeof post.moderationDecision === 'object' && 'blur' in post.moderationDecision 
+        ? post.moderationDecision as ModerationDecision 
+        : undefined);
     const shouldBlur = decision?.blur || false;
     const shouldShowContent = !shouldBlur || userChoseToView;
     const isBlurred = shouldBlur && !shouldShowContent;
@@ -216,7 +231,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     useEffect(() => {
       setUserChoseToView(false);
       // No need to reset videoState - handled automatically by useRecyclingState
-    }, [post?.uri]);
+    }, [postView.uri]);
 
     // Animated style for heart animation - runs on UI thread
     const heartAnimatedStyle = useAnimatedStyle(() => {
@@ -365,13 +380,13 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       if (!player) return;
       
       if (playerStatus === 'readyToPlay') {
-        onVideoStatus?.(post.uri, 'loaded');
+        onVideoStatus?.(postView.uri, 'loaded');
       } else if (playerStatus === 'loading') {
-        onVideoStatus?.(post.uri, 'loading');
+        onVideoStatus?.(postView.uri, 'loading');
       } else if (playerStatus === 'error') {
-        onVideoStatus?.(post.uri, 'error');
+        onVideoStatus?.(postView.uri, 'error');
       }
-    }, [playerStatus, player, post.uri, onVideoStatus]);
+    }, [playerStatus, player, postView.uri, onVideoStatus]);
 
     // Control playback based on shouldPlayVideo
     // Drive play/pause directly from our own visibility logic, per Expo docs:
@@ -405,10 +420,10 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       
       try {
         if (!overlayState.isLiked) {
-          const likeUri = await AtprotoService.likePost(post.uri, post.cid);
+          const likeUri = await AtprotoService.likePost(postView.uri, postView.cid);
           setOverlayState(prev => ({ ...prev, likeUri }));
           // Persist to store
-          updatePostInteraction(post.uri, {
+          updatePostInteraction(postView.uri, {
             isLiked: true,
             likeCount: newLikeCount,
             likeUri,
@@ -418,14 +433,14 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
           await AtprotoService.deleteLike(overlayState.likeUri);
           setOverlayState(prev => ({ ...prev, likeUri: undefined }));
           // Persist to store
-          updatePostInteraction(post.uri, {
+          updatePostInteraction(postView.uri, {
             isLiked: false,
             likeCount: newLikeCount,
             likeUri: undefined,
           });
         }
       } catch (error) {
-        console.error('Like action failed:', error);
+        logger.error('Like action failed', error, { component: 'VideoCard', action: 'handleLike' });
         // Revert optimistic update
         setOverlayState(prev => ({
           ...prev,
@@ -435,7 +450,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       } finally {
         setOverlayState(prev => ({ ...prev, isLikePending: false }));
       }
-    }, [overlayState.isLikePending, overlayState.isLiked, overlayState.likeCount, overlayState.likeUri, post.uri, post.cid, setOverlayState, updatePostInteraction]);
+    }, [overlayState.isLikePending, overlayState.isLiked, overlayState.likeCount, overlayState.likeUri, postView.uri, postView.cid, setOverlayState, updatePostInteraction]);
 
     // Like-only handler for double tap (doesn't unlike)
     const handleLikeOnly = useCallback(async () => {
@@ -455,16 +470,16 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       }));
       
       try {
-        const likeUri = await AtprotoService.likePost(post.uri, post.cid);
+        const likeUri = await AtprotoService.likePost(postView.uri, postView.cid);
         setOverlayState(prev => ({ ...prev, likeUri }));
         // Persist to store
-        updatePostInteraction(post.uri, {
+        updatePostInteraction(postView.uri, {
           isLiked: true,
           likeCount: newLikeCount,
           likeUri,
         });
       } catch (error) {
-        console.error('Like action failed:', error);
+        logger.error('Like action failed', error, { component: 'VideoCard', action: 'handleLike' });
         // Revert optimistic update
         setOverlayState(prev => ({
           ...prev,
@@ -474,7 +489,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       } finally {
         setOverlayState(prev => ({ ...prev, isLikePending: false }));
       }
-    }, [overlayState.isLiked, overlayState.isLikePending, overlayState.likeCount, post.uri, post.cid, setOverlayState, updatePostInteraction]);
+    }, [overlayState.isLiked, overlayState.isLikePending, overlayState.likeCount, postView.uri, postView.cid, setOverlayState, updatePostInteraction]);
 
     // Double tap to like animation - runs on UI thread with Reanimated
     // Heartbeat pattern: quick beat, slight dip, second beat, then fade out
@@ -580,9 +595,9 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       presentCommentSection({
         post,
         totalLikes: overlayState.likeCount,
-        totalComments: post.replyCount || 0,
+        totalComments: postView.replyCount || 0,
         isLiked: overlayState.isLiked,
-        postedAt: post.record?.createdAt || post.indexedAt,
+        postedAt: (postView.record as { createdAt?: string })?.createdAt || postView.indexedAt,
         onToggleLike: handleLike,
         isLikePending: overlayState.isLikePending,
       });
@@ -615,10 +630,10 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       
       try {
         if (!overlayState.isReposted) {
-          const repostUri = await AtprotoService.repostPost(post.uri, post.cid);
+          const repostUri = await AtprotoService.repostPost(postView.uri, postView.cid);
           setOverlayState(prev => ({ ...prev, repostUri }));
           // Persist to store
-          updatePostInteraction(post.uri, {
+          updatePostInteraction(postView.uri, {
             isReposted: true,
             repostCount: newRepostCount,
             repostUri,
@@ -628,14 +643,14 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
           await AtprotoService.deleteRepost(overlayState.repostUri);
           setOverlayState(prev => ({ ...prev, repostUri: undefined }));
           // Persist to store
-          updatePostInteraction(post.uri, {
+          updatePostInteraction(postView.uri, {
             isReposted: false,
             repostCount: newRepostCount,
             repostUri: undefined,
           });
         }
       } catch (error) {
-        console.error('Repost action failed:', error);
+        logger.error('Repost action failed', error, { component: 'VideoCard', action: 'handleRepost' });
         // Revert optimistic update
         setOverlayState(prev => ({
           ...prev,
@@ -645,7 +660,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
       } finally {
         setOverlayState(prev => ({ ...prev, isRepostPending: false }));
       }
-    }, [overlayState.isRepostPending, overlayState.isReposted, overlayState.repostCount, overlayState.repostUri, post.uri, post.cid, setOverlayState, updatePostInteraction]);
+    }, [overlayState.isRepostPending, overlayState.isReposted, overlayState.repostCount, overlayState.repostUri, postView.uri, postView.cid, setOverlayState, updatePostInteraction]);
 
     const navigation = useRouter();
     
@@ -667,11 +682,11 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
     // Video Status Reporting - use post URI for simple tracking
     useEffect(() => {
       if (shouldPlayVideo) {
-        onVideoStatus?.(post.uri, 'playing');
+        onVideoStatus?.(postView.uri, 'playing');
       } else {
-        onVideoStatus?.(post.uri, 'paused');
+        onVideoStatus?.(postView.uri, 'paused');
       }
-    }, [shouldPlayVideo, post.uri, onVideoStatus]);
+    }, [shouldPlayVideo, postView.uri, onVideoStatus]);
 
     // Scrubber for iOS only - overlays the video
     const seekingAnimationSV = useSharedValue(0);
@@ -700,7 +715,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
             {/* Video Player - expo-video VideoView */}
             {/* Always render VideoView when source is available (no content warning) to start loading earlier for faster playback */}
             {!!videoSource && !(hasWarning && !shouldShowContent) && player && (
-              <VideoView
+              <ExpoVideoView
                 player={player}
                 style={styles.videoPlayer}
                 contentFit="contain"
@@ -755,7 +770,7 @@ const VideoCard = memo(forwardRef<VideoCardRef, VideoCardProps>(
             {/* Keep overlay mounted to prevent jank when switching videos */}
             {showOverlay && (
               <VideoOverlayUI
-                post={post}
+                post={postView}
                 isVisible={isVisible}
                 isModal={isModal}
                 feedOption={feedOption}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import ListScreen from '../../src/components/ui/ListScreen';
 import AtprotoService from '../../src/services/api/AtprotoService';
+import { logger } from '../../src/utils/logger';
 
 interface MutedUser {
   did: string;
@@ -50,7 +51,7 @@ const MutedUsersScreen: React.FC = () => {
       const users = await Promise.all(userPromises);
       setMutedUsers(users);
     } catch (error) {
-      console.error('Error loading muted users:', error);
+      logger.error('Error loading muted users', error, { component: 'MutedUsersScreen', action: 'loadMutedUsers' });
     } finally {
       setLoading(false);
     }
@@ -61,10 +62,10 @@ const MutedUsersScreen: React.FC = () => {
       setUnmutingUsers(prev => new Set(prev).add(user.did));
       // Note: unmuteUser is not implemented yet in AtprotoService
       // await AtprotoService.unmuteUser(user.did);
-      console.log('Unmute functionality not implemented yet');
+      logger.info('Unmute functionality not implemented yet', { component: 'MutedUsersScreen' });
       setMutedUsers(prev => prev.filter(mutedUser => mutedUser.did !== user.did));
     } catch (error) {
-      console.error('Error unmuting user:', error);
+      logger.error('Error unmuting user', error, { component: 'MutedUsersScreen', action: 'handleUnmuteUser', userDid: user.did });
     } finally {
       setUnmutingUsers(prev => {
         const newSet = new Set(prev);

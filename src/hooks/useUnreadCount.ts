@@ -3,6 +3,8 @@ import AtprotoService from '../services/api/AtprotoService';
 import ChatService from '../services/ChatService';
 import { useChatStore } from '../stores/chatStore';
 import { useUserStore } from '../stores/userStore';
+import { QUERY_CONSTANTS } from '../utils/constants';
+import { queryKeys } from '../utils/queryKeys';
 
 export const useUnreadCount = () => {
   const { updateFromConversations } = useChatStore();
@@ -11,12 +13,12 @@ export const useUnreadCount = () => {
   const queryOptions = {
     enabled: isAuthenticated,
     refetchInterval: isAuthenticated ? 30000 : false,
-    staleTime: 60000,
+    staleTime: QUERY_CONSTANTS.STALE_TIME_MEDIUM, // 1 minute - unread counts change moderately
   };
   
   // Get unread notifications count
   const { data: notificationsData } = useQuery({
-    queryKey: ['notifications-count'],
+    queryKey: queryKeys.notifications.count(),
     queryFn: async () => {
       const response = await AtprotoService.listNotifications(null, 100);
       return response.notifications.filter((n: any) => !n.isRead).length;
@@ -26,7 +28,7 @@ export const useUnreadCount = () => {
 
   // Get unread messages count
   const { data: messagesData } = useQuery({
-    queryKey: ['conversations-count'],
+    queryKey: queryKeys.chat.conversations.count(),
     queryFn: async () => {
       const response = await ChatService.getConversations();
       if (response.conversations) {

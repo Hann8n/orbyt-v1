@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
-import { createQueryKeys } from '../../services/FeedService';
+import { queryKeys } from '../../utils/queryKeys';
 import AtprotoService from '../../services/api/AtprotoService';
 import { Avatar } from './UI';
 import AuthorItem from './AuthorItem';
@@ -114,10 +114,10 @@ export function UserSearchModal({
     { profiles: UserProfile[]; cursor: string | null },
     Error,
     InfiniteData<{ profiles: UserProfile[]; cursor: string | null }, string | null>,
-    ReturnType<typeof createQueryKeys.search.profiles>,
+    ReturnType<typeof queryKeys.search.profiles>,
     string | null
   >({
-    queryKey: createQueryKeys.search.profiles(searchQuery),
+    queryKey: queryKeys.search.profiles(searchQuery),
     queryFn: async ({ pageParam }) => {
       return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
     },
@@ -197,10 +197,10 @@ export function RichTextSearchModal({
     { profiles: UserProfile[]; cursor: string | null },
     Error,
     InfiniteData<{ profiles: UserProfile[]; cursor: string | null }, string | null>,
-    ReturnType<typeof createQueryKeys.search.profiles>,
+    ReturnType<typeof queryKeys.search.profiles>,
     string | null
   >({
-    queryKey: createQueryKeys.search.profiles(searchQuery),
+    queryKey: queryKeys.search.profiles(searchQuery),
     queryFn: async ({ pageParam }) => {
       return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
     },

@@ -1655,7 +1655,7 @@ const Icon: React.FC<IconProps> = ({
     // Icon not found - return null silently to avoid console spam
     return null;
   } catch (err) {
-    console.error(`Error rendering icon ${name}:`, err);
+    logger.error(`Error rendering icon ${name}`, err, { component: 'Icon', iconName: name });
     return null;
   }
 };

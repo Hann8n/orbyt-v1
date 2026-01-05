@@ -10,6 +10,7 @@ import { InteractionManager } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { feedService, FeedOption, FeedItem } from '../services/FeedService';
 import { useUserStore } from '../stores/userStore';
+import { queryKeys } from '../utils/queryKeys';
 
 // Optimized feed configuration for smooth performance
 export const FEED_CONFIG = {
@@ -101,12 +102,14 @@ export function useFeed(
       // Only invalidate user-specific feeds (following, your-mix) to preserve other feeds
       // The query key change (via effectiveUserDid) will automatically trigger a new fetch for the new user
       queryClient.invalidateQueries({ 
-        queryKey: ['feed', 'following'],
-        exact: false 
+        queryKey: queryKeys.feed.byUser('following', currentDid),
+        exact: false,
+        refetchType: 'active'
       });
       queryClient.invalidateQueries({ 
-        queryKey: ['feed', 'your-mix'],
-        exact: false 
+        queryKey: queryKeys.feed.byUser('your-mix', currentDid),
+        exact: false,
+        refetchType: 'active'
       });
       
       // Update ref to track the new DID

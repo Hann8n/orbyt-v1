@@ -5,6 +5,7 @@
 
 // Image.resolveAssetSource replaced with expo-asset
 import { extractColorsFromImage } from './formatting/colorUtils';
+import { logger } from './logger';
 
 /**
  * App color palette - colors that match the app's aesthetic
@@ -184,7 +185,7 @@ export async function initializeChannelColors(): Promise<void> {
         channel.channelColor = generatedColor;
       } catch (error) {
         // Silently fail - keep existing color
-        console.warn(`Failed to generate color for channel ${channel.slug}:`, error);
+        logger.warn(`Failed to generate color for channel ${channel.slug}`, { component: 'orbytChannels', channelSlug: channel.slug, error });
       }
     }
   }

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { BORDER_RADIUS } from '../../utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../utils/constants';
 import { useQuery, useQueryClient, useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
-import { createQueryKeys } from '../../services/FeedService';
+import { queryKeys } from '../../utils/queryKeys';
 import { convertAtUriToBlueskyUrl } from '../../utils/blueskyLinks';
 import {
   View,
@@ -102,10 +102,11 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
   }, [authorDid, currentUser?.did]);
 
   const { data: blockStatus = false } = useQuery({
-    queryKey: createQueryKeys.blocks.status(authorDid),
+    queryKey: queryKeys.blocks.status(authorDid),
     queryFn: () => AtprotoService.isBlocked(authorDid),
     enabled: !!authorDid && !isCurrentUser,
-    initialData: false
+    initialData: false,
+    staleTime: QUERY_CONSTANTS.STALE_TIME_MEDIUM, // 1 minute - for moderately changing data
   });
 
   // Handle dismiss from TrueSheet - fires when sheet is dismissed by any means
@@ -172,7 +173,10 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
       // Regular block/unblock flow for other users' content
       if (isBlocked) {
         await AtprotoService.unblockUser(authorDid);
-        queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(authorDid) });
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.blocks.status(authorDid),
+          refetchType: 'active'
+        });
         setIsBlocked(false);
       } else {
         Alert.alert(
@@ -188,7 +192,10 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
               style: 'destructive',
               onPress: async () => {
                 await AtprotoService.blockUser(authorDid);
-                queryClient.invalidateQueries({ queryKey: createQueryKeys.blocks.status(authorDid) });
+                queryClient.invalidateQueries({ 
+          queryKey: queryKeys.blocks.status(authorDid),
+          refetchType: 'active'
+        });
                 setIsBlocked(true);
               }
             }
@@ -258,7 +265,10 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
                 if (success) {
                   Alert.alert('success', 'your post has been deleted.');
                   // Invalidate any related queries to refresh feeds
-                  queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
+                  queryClient.invalidateQueries({ 
+                    queryKey: queryKeys.feed.all,
+                    refetchType: 'active'
+                  });
                   dismissSheet();
                 } else {
                   Alert.alert('error', 'failed to delete post. please try again.');
@@ -350,9 +360,10 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
 
   // Fetch conversations for send picker
   const { data: conversationsData, isLoading: conversationsLoading } = useQuery({
-    queryKey: ['conversations'],
+    queryKey: queryKeys.chat.conversations.list(),
     queryFn: () => ChatService.getConversations(),
     enabled: showConversationPicker,
+    staleTime: QUERY_CONSTANTS.STALE_TIME_SHORT,
   });
 
   const conversations = conversationsData?.conversations || [];
@@ -362,10 +373,10 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
     { profiles: any[]; cursor: string | null },
     Error,
     InfiniteData<{ profiles: any[]; cursor: string | null }, string | null>,
-    ReturnType<typeof createQueryKeys.search.profiles>,
+    ReturnType<typeof queryKeys.search.profiles>,
     string | null
   >({
-    queryKey: createQueryKeys.search.profiles(searchQuery),
+    queryKey: queryKeys.search.profiles(searchQuery),
     queryFn: async ({ pageParam }) => {
       return AtprotoService.searchProfilesPaginated(searchQuery, pageParam as string | null);
     },

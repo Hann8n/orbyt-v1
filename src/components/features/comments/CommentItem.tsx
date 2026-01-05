@@ -23,7 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { prepopulateProfileCache } from '../../../services/cache/ProfileCache';
  
 import AtprotoService from '../../../services/api/AtprotoService';
-import { createQueryKeys } from '../../../services/FeedService';
+import { queryKeys } from '../../../utils/queryKeys';
 import { formatNumber, formatHandle } from '../../../utils/helpers';
 import { Colors } from '../../ui/UI';
 import UI from '../../ui/UI';
@@ -520,7 +520,10 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                 try {
                   await AtprotoService.repostPost(uri, cid);
                   Alert.alert('Success', `${postType.charAt(0).toUpperCase() + postType.slice(1)} reposted successfully.`);
-                  queryClient.invalidateQueries({ queryKey: createQueryKeys.comments.byPost(rootUri || '') });
+                  queryClient.invalidateQueries({ 
+                    queryKey: queryKeys.comments.byPost(rootUri || ''),
+                    refetchType: 'active'
+                  });
                 } catch (error) {
                   Alert.alert('Error', `Failed to repost ${postType}. Please try again.`);
                 }
@@ -549,8 +552,14 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                             // Mark as deleted in store for immediate UI update
                             markCommentAsDeleted(uri);
                             Alert.alert('Success', `${capitalizedPostType} deleted successfully.`);
-                            queryClient.invalidateQueries({ queryKey: createQueryKeys.comments.byPost(rootUri || '') });
-                            queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
+                            queryClient.invalidateQueries({ 
+                    queryKey: queryKeys.comments.byPost(rootUri || ''),
+                    refetchType: 'active'
+                  });
+                            queryClient.invalidateQueries({ 
+                              queryKey: queryKeys.feed.all,
+                              refetchType: 'active'
+                            });
                           } else {
                             Alert.alert('Error', `Failed to delete ${postType}. Please try again.`);
                           }
@@ -581,7 +590,10 @@ const CommentItem: React.FC<CommentItemProps> = React.memo(
                 try {
                   await AtprotoService.repostPost(uri, cid);
                   Alert.alert('Success', `${postType.charAt(0).toUpperCase() + postType.slice(1)} reposted successfully.`);
-                  queryClient.invalidateQueries({ queryKey: createQueryKeys.comments.byPost(rootUri || '') });
+                  queryClient.invalidateQueries({ 
+                    queryKey: queryKeys.comments.byPost(rootUri || ''),
+                    refetchType: 'active'
+                  });
                 } catch (error) {
                   Alert.alert('Error', `Failed to repost ${postType}. Please try again.`);
                 }

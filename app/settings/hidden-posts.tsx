@@ -9,6 +9,7 @@ import { Colors, Avatar } from '../../src/components/ui/UI';
 import { ModerationService } from '../../src/services/ModerationService';
 import AtprotoService from '../../src/services/api/AtprotoService';
 import { useUserStoreState } from '../../src/stores/userStore';
+import { logger } from '../../src/utils/logger';
 
 interface HiddenPost {
   id: string;
@@ -57,7 +58,7 @@ const HiddenPostsScreen: React.FC = () => {
       
       setHiddenPosts(postObjects);
     } catch (error) {
-      console.error('Error loading hidden posts:', error);
+      logger.error('Error loading hidden posts', error, { component: 'HiddenPostsScreen', action: 'loadHiddenPosts' });
     } finally {
       setLoading(false);
     }
@@ -77,7 +78,7 @@ const HiddenPostsScreen: React.FC = () => {
         setHiddenPosts(prev => prev.filter(post => post.id !== postId));
       }
     } catch (error) {
-      console.error('Error unhiding post:', error);
+      logger.error('Error unhiding post', error, { component: 'HiddenPostsScreen', action: 'handleUnhidePost', postId });
     } finally {
       setUnhidingPosts(prev => {
         const newSet = new Set(prev);

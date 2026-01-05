@@ -290,15 +290,14 @@ export function extractAssetId(asset: any): string | null {
 export function debugVideoPath(label: string, path: string, asset?: any): void {
   if (!DEBUG) return;
   
-  console.log(`[VideoPath Debug] ${label}`);
-  console.log(`  Input path: ${path?.substring(0, 100) || 'null'}`);
-  console.log(`  Has file:// prefix: ${path?.startsWith('file://')}`);
-  console.log(`  Has fragment: ${path?.includes('#')}`);
-  console.log(`  Asset ID: ${extractAssetId(asset) || 'none'}`);
-  
-  if (asset) {
-    console.log(`  Asset type: ${typeof asset}`);
-    console.log(`  Asset keys: ${Object.keys(asset).join(', ')}`);
-  }
+  logger.debug(`VideoPath Debug: ${label}`, {
+    component: 'videoPath',
+    path: path?.substring(0, 100) || 'null',
+    hasFilePrefix: path?.startsWith('file://'),
+    hasFragment: path?.includes('#'),
+    assetId: extractAssetId(asset) || 'none',
+    assetType: asset ? typeof asset : undefined,
+    assetKeys: asset ? Object.keys(asset).join(', ') : undefined,
+  });
 }
 

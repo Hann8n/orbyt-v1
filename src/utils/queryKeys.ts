@@ -17,7 +17,7 @@ const feedsBase = ['feeds'] as const;
 const searchBase = ['search'] as const;
 
 export const queryKeys = {
-  // Feed queries
+  // Feed queries (merged from FeedService)
   feed: {
     all: feedBase,
     byOption: (feedOption: string) => [...feedBase, feedOption] as const,
@@ -26,7 +26,9 @@ export const queryKeys = {
         ? [...feedBase, feedOption, userDid] as const
         : [...feedBase, feedOption] as const,
     infinite: (feedOption: string, userDid?: string) => 
-      [...feedBase, feedOption, ...(userDid ? [userDid] : []), 'infinite'] as const,
+      [...queryKeys.feed.byUser(feedOption, userDid), 'infinite'] as const,
+    batch: (feedOption: string, userDid?: string) => 
+      [...queryKeys.feed.byUser(feedOption, userDid), 'batch'] as const,
     search: (query: string) => [...feedBase, 'search', query] as const,
   },
 
@@ -56,15 +58,18 @@ export const queryKeys = {
       [...chatBase, 'availability', userDid] as const,
   },
 
-  // Profile queries
+  // Profile queries (merged from ProfileCache and FeedService)
   profiles: {
     all: profilesBase,
     detail: (handle: string) => [...profilesBase, 'detail', handle] as const,
     byDid: (did: string) => [...profilesBase, 'did', did] as const,
+    lists: () => [...profilesBase, 'list'] as const,
     list: (filters?: string) => 
       filters 
         ? [...profilesBase, 'list', { filters }] as const
         : [...profilesBase, 'list'] as const,
+    details: () => [...profilesBase, 'detail'] as const,
+    refresh: (handle: string) => [...profilesBase, 'detail', handle, 'refresh', Date.now()] as const,
   },
 
   // Orbyt profile queries
@@ -74,18 +79,20 @@ export const queryKeys = {
     current: () => [...orbytProfileBase, 'current'] as const,
   },
 
-  // Comment queries
+  // Comment queries (merged from FeedService)
   comments: {
     all: commentsBase,
     byPost: (postUri: string) => [...commentsBase, postUri] as const,
-    infinite: (postUri: string) => 
-      [...commentsBase, postUri, 'infinite'] as const,
+    infinite: () => [...commentsBase, 'infinite'] as const,
+    infiniteByPost: (postUri: string) => [...commentsBase, 'infinite', postUri] as const,
   },
 
-  // Like queries
+  // Like queries (merged from FeedService)
   likes: {
     all: likesBase,
     byPost: (postUri: string) => [...likesBase, postUri] as const,
+    infinite: () => [...likesBase, 'infinite'] as const,
+    infiniteByPost: (postUri: string) => [...queryKeys.likes.infinite(), postUri] as const,
   },
 
   // Block/Mute queries
@@ -98,12 +105,13 @@ export const queryKeys = {
     status: (did: string) => [...mutesBase, did] as const,
   },
 
-  // Feed discovery queries
+  // Feed discovery queries (merged from FeedService)
   feeds: {
     all: feedsBase,
     search: (query: string) => [...feedsBase, 'search', query] as const,
-    detail: (uri: string) => [...feedsBase, 'detail', uri] as const,
-    infinite: (uri: string) => [...feedsBase, 'detail', uri, 'infinite'] as const,
+    details: () => [...feedsBase, 'detail'] as const,
+    detail: (uri: string) => [...queryKeys.feeds.details(), uri] as const,
+    infinite: (uri: string) => [...queryKeys.feeds.detail(uri), 'infinite'] as const,
   },
 
   // Search queries
@@ -112,5 +120,23 @@ export const queryKeys = {
     unified: (query: string) => [...searchBase, 'unified', query] as const,
     profiles: (query: string) => [...searchBase, 'profiles', query] as const,
     feeds: (query: string) => [...searchBase, 'feeds', query] as const,
+  },
+
+  // Notification queries
+  notifications: {
+    all: ['notifications'] as const,
+    count: () => [...queryKeys.notifications.all, 'count'] as const,
+    lists: () => [...queryKeys.notifications.all, 'list'] as const,
+    list: (cursor?: string) => 
+      cursor 
+        ? [...queryKeys.notifications.lists(), cursor] as const
+        : [...queryKeys.notifications.lists()] as const,
+  },
+
+  // Channel queries (merged from ChannelCache)
+  channels: {
+    all: ['channels'] as const,
+    detail: (uri: string) => [...queryKeys.channels.all, 'detail', uri] as const,
+    colors: (uri: string) => [...queryKeys.channels.all, 'colors', uri] as const,
   },
 } as const;

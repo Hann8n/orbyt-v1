@@ -20,9 +20,14 @@ export const BORDER_RADIUS = {
 // Query Constants
 export const QUERY_CONSTANTS = {
   RETRY_COUNT: 1,
-  STALE_TIME: 5 * 60 * 1000, // 5 minutes
+  STALE_TIME: 5 * 60 * 1000, // 5 minutes - default for most queries
   GC_TIME: 30 * 60 * 1000, // 30 minutes
   END_REACHED_THRESHOLD: 0.8,
+  // Granular stale times for different data types
+  STALE_TIME_SHORT: 10 * 1000, // 10 seconds - for frequently changing data (chat, notifications)
+  STALE_TIME_MEDIUM: 60 * 1000, // 1 minute - for moderately changing data (unread counts)
+  STALE_TIME_LONG: 10 * 60 * 1000, // 10 minutes - for slowly changing data (feeds, profiles)
+  STALE_TIME_VERY_LONG: 60 * 60 * 1000, // 1 hour - for rarely changing data (static content)
 } as const;
 
 // Viewability Constants - unified strategy using viewport coverage

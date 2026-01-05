@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 
-import { BORDER_RADIUS } from '../../../utils/constants';
+import { BORDER_RADIUS, QUERY_CONSTANTS } from '../../../utils/constants';
 import { Colors } from '../../ui/UI';
 import { Avatar } from '../../ui/UI';
 import { TextWithAuthorLinks } from '../../ui/TextWithLinks';
@@ -19,6 +19,8 @@ import { openPostInBluesky } from '../../../utils/blueskyLinks';
 import MessageReactions from './MessageReactions';
 import { ReactionView } from '../../../services/ChatService';
 import { formatHandle } from '../../../utils/helpers';
+import type { PostView } from '../../../services/api/types';
+import { isVideoEmbed, isVideoEmbedInMedia } from '../../../services/api/types';
 
 interface EmbeddedPostCardProps {
   postUri: string;
@@ -55,7 +57,7 @@ export default function EmbeddedPostCard({
   const { data: post, isLoading } = useQuery({
     queryKey: ['embedded-post', postUri],
     queryFn: () => AtprotoService.getPost(postUri),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: QUERY_CONSTANTS.STALE_TIME_LONG, // 10 minutes - for slowly changing data
   });
 
   // Get moderation decision
@@ -73,20 +75,14 @@ export default function EmbeddedPostCard({
 
 
   // Check if post has video content
-  const isVideoPost = (post: any) => {
+  const isVideoPost = (post: PostView) => {
     const embed = post?.embed;
     if (!embed) return false;
-    
-    if (embed.$type === 'app.bsky.embed.video' || embed.$type === 'app.bsky.embed.video#view') {
-      return true;
-    } else if (embed.$type === 'app.bsky.embed.recordWithMedia#view') {
-      return embed.media?.$type === 'app.bsky.embed.video' || embed.media?.$type === 'app.bsky.embed.video#view';
-    }
-    return false;
+    return isVideoEmbed(embed) || isVideoEmbedInMedia(embed);
   };
 
   // Check if post has image content
-  const isImagePost = (post: any) => {
+  const isImagePost = (post: PostView) => {
     const embed = post?.embed;
     if (!embed) return false;
     
@@ -99,7 +95,7 @@ export default function EmbeddedPostCard({
   };
 
   // Check if post has external link content
-  const isExternalLinkPost = (post: any) => {
+  const isExternalLinkPost = (post: PostView) => {
     const embed = post?.embed;
     if (!embed) return false;
     
@@ -107,7 +103,7 @@ export default function EmbeddedPostCard({
   };
 
   // Check if post has quoted post content
-  const isQuotedPost = (post: any) => {
+  const isQuotedPost = (post: PostView) => {
     const embed = post?.embed;
     if (!embed) return false;
     
@@ -115,7 +111,7 @@ export default function EmbeddedPostCard({
   };
 
   // Get thumbnail for any post type
-  const getPostThumbnail = (post: any) => {
+  const getPostThumbnail = (post: PostView) => {
     const embed = post?.embed;
     if (!embed) return null;
     
@@ -146,15 +142,16 @@ export default function EmbeddedPostCard({
   };
 
   // Get post text content
-  const getPostText = (post: any) => {
-    const text = post?.record?.text || '';
+  const getPostText = (post: PostView) => {
+    const record = post.record as { text?: string };
+    const text = record?.text || '';
     if (!text) return null;
     
     return text;
   };
 
   // Get external link info
-  const getExternalLinkInfo = (post: any) => {
+  const getExternalLinkInfo = (post: PostView) => {
     const embed = post?.embed;
     if (!embed || (embed.$type !== 'app.bsky.embed.external' && embed.$type !== 'app.bsky.embed.external#view')) {
       return null;
@@ -169,7 +166,7 @@ export default function EmbeddedPostCard({
   };
 
   // Get quoted post info
-  const getQuotedPostInfo = (post: any) => {
+  const getQuotedPostInfo = (post: PostView) => {
     const embed = post?.embed;
     if (!embed || (embed.$type !== 'app.bsky.embed.record' && embed.$type !== 'app.bsky.embed.record#view')) {
       return null;
@@ -209,7 +206,7 @@ export default function EmbeddedPostCard({
           const videoPosts = await Promise.all(
             embedUris.map(async (embedUri) => {
               // Try to get from cache first
-              const cachedPost = queryClient.getQueryData(['embedded-post', embedUri]) as any;
+              const cachedPost = queryClient.getQueryData<PostView>(['embedded-post', embedUri]);
               
               let postData = cachedPost;
               
