@@ -90,7 +90,7 @@ export interface DeepLinkRoute {
  * Supports:
  * - AT Protocol URIs (at://did:plc:.../app.bsky.feed.post/...)
  * - Bluesky web URLs (https://bsky.app/profile/.../post/...)
- * - Orbyt custom URLs (com.getorbyt://... or https://getorbyt.com/...)
+ * - Orbyt custom URLs (orbyt://... or https://getorbyt.com/...)
  * - Profile URLs (https://bsky.app/profile/...)
  * - Channel URIs (at://did:plc:.../app.bsky.feed.generator/...)
  * 
@@ -106,9 +106,9 @@ export const parseDeepLink = (url: string): DeepLinkRoute | null => {
       return parseAtUri(url);
     }
 
-    // Handle custom scheme URLs (com.getorbyt://...)
-    if (url.startsWith('com.getorbyt://') || url.startsWith('com.getorbyt:')) {
-      const path = url.replace(/^com\.getorbyt:\/\//, '').replace(/^com\.getorbyt:/, '');
+    // Handle custom scheme URLs (orbyt://...)
+    if (url.startsWith('orbyt://') || url.startsWith('orbyt:')) {
+      const path = url.replace(/^orbyt:\/\//, '').replace(/^orbyt:/, '');
       return parsePath(path);
     }
 

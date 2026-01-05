@@ -28,7 +28,7 @@
         "applinks:*.orbyt.video"
       ]
     },
-    "scheme": "com.getorbyt",
+    "scheme": "orbyt",
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/AppIcons/android/orbyt_icon_adaptive_foreground.png",
@@ -74,7 +74,7 @@
           "action": "VIEW",
           "data": [
             {
-              "scheme": "com.getorbyt"
+              "scheme": "orbyt"
             }
           ],
           "category": [

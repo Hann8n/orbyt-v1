@@ -1,0 +1,9 @@
+# Force Content-Type for apple-app-site-association
+<Files "apple-app-site-association">
+    Header set Content-Type "application/json"
+</Files>
+
+# Force Content-Type for assetlinks.json
+<Files "assetlinks.json">
+    Header set Content-Type "application/json"
+</Files>
