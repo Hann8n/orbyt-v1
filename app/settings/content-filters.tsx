@@ -7,11 +7,12 @@ import Icon from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import UI from '../../src/components/ui/UI';
 import feedService, { createQueryKeys } from '../../src/services/FeedService';
-import { ModerationService } from '../../src/services/ModerationService';
+import { ModerationService } from '../../src/services/api/moderation/ContentFilterService';
 import { ModerationSettings, LabelPreference } from '../../src/services/ModerationTypes';
 import { useModeration, useUserStoreState } from '../../src/stores/userStore';
 import { settingsButtonStyles, settingsLayoutStyles, settingsActiveStyles } from './SettingsStyles';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
+import { useModerationSettings } from '../../src/hooks/useModerationSettings';
 
 interface ContentTypeOption {
   id: string;
@@ -25,13 +26,16 @@ const ContentFiltersScreen: React.FC = () => {
   const navigation = useRouter();
   const queryClient = useQueryClient();
   const { saveModerationSettings } = useModeration();
-  const { agent, isAuthenticated } = useUserStoreState();
+  const { agent, isAuthenticated, currentUser } = useUserStoreState();
+  
+  // Use React Query hook for moderation settings (account-scoped)
+  const { settings: moderationSettings } = useModerationSettings(currentUser?.did ?? undefined);
+  
   const [settings, setSettings] = useState<ModerationSettings | null>(null);
   const [adultContentEnabled, setAdultContentEnabled] = useState(false);
   
   // Check if agent is available
   useEffect(() => {
-    
     if (!isAuthenticated || !agent) {
       Alert.alert(
         'Authentication Required',
@@ -40,6 +44,14 @@ const ContentFiltersScreen: React.FC = () => {
       );
     }
   }, [agent, isAuthenticated]);
+  
+  // Update local state when React Query settings change
+  useEffect(() => {
+    if (moderationSettings) {
+      setSettings(moderationSettings);
+      setAdultContentEnabled(moderationSettings.adultContentEnabled);
+    }
+  }, [moderationSettings]);
 
   const [contentOptions, setContentOptions] = useState<ContentTypeOption[]>([
     {
@@ -72,36 +84,15 @@ const ContentFiltersScreen: React.FC = () => {
     }
   ]);
 
+  // Update content options when settings change
   useEffect(() => {
-    // Prime UI immediately from cached settings for accurate initial state
-    const cached = ModerationService.getCachedModerationSettings();
-    setSettings(cached);
-    setAdultContentEnabled(cached.adultContentEnabled);
-    setContentOptions(prev => prev.map(option => ({
-      ...option,
-      preference: cached.labels[option.id] || option.preference
-    })));
-
-    // Then refresh from API after interactions complete to avoid blocking UI
-    const { InteractionManager } = require('react-native');
-    const interactionHandle = InteractionManager.runAfterInteractions(async () => {
-      try {
-        const currentSettings = await ModerationService.getModerationSettings(agent);
-        setSettings(currentSettings);
-        setAdultContentEnabled(currentSettings.adultContentEnabled);
-        setContentOptions(prev => prev.map(option => ({
-          ...option,
-          preference: currentSettings.labels[option.id] || option.preference
-        })));
-      } catch (e) {
-        console.error('Error loading content filters:', e);
-      }
-    });
-
-    return () => {
-      interactionHandle.cancel();
-    };
-  }, [agent]);
+    if (settings) {
+      setContentOptions(prev => prev.map(option => ({
+        ...option,
+        preference: settings.labels[option.id] || option.preference
+      })));
+    }
+  }, [settings]);
 
   const updateContentPreference = async (contentId: string, preference: LabelPreference) => {
     
@@ -131,6 +122,7 @@ const ContentFiltersScreen: React.FC = () => {
         ModerationService.clearModerationCache();
         feedService.clearCurrentFeed();
         queryClient.invalidateQueries({ queryKey: createQueryKeys.feed.all });
+        // React Query cache for moderation settings is invalidated by saveModerationSettings
 
       }
     } catch (e) {

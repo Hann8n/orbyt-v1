@@ -1,6 +1,5 @@
 import { AtpAgent } from '@atproto/api';
 import { storageHelpers } from '../../utils/storage';
-import { StaticChannelsService } from '../APIService';
 import { logger } from '../../utils/logger';
 import { AtprotoCore } from './core';
 import { FeedService } from './feed/FeedService';
@@ -17,7 +16,6 @@ import type {
   MessagesResponse,
   ConversationsResponse,
   ThreadPost,
-  AuthorFilter,
   FeedType,
   ApiClient,
   Session,
@@ -33,11 +31,9 @@ import type {
   FeedGeneratorResponse,
   VideoSearchResponse,
   PostView,
-  FeedViewPost,
   ProfileView,
   ProfileViewBasic,
   ProfileViewDetailed,
-  MessageView as Message,
   NotFoundPost,
   BlockedPost,
   Like,
@@ -47,12 +43,7 @@ import type {
   PostRecord,
   ActorPreferences,
   FeedGeneratorOutput,
-  GetAuthorFeedOutput,
-  GetFeedOutput,
-  GetActorLikesOutput,
   GetRecordOutput,
-  ListRecordsOutput,
-  GetPreferencesOutput,
   PutActivitySubscriptionOutput,
   ProfileRecord,
   OrbytProfileRecord,
@@ -80,13 +71,6 @@ class AtprotoService {
   // Request deduplication cache to prevent multiple identical API calls
   private static _requestCache = new Map<string, { promise: Promise<unknown>; timestamp: number }>();
   private static readonly REQUEST_CACHE_TTL = 2000; // 2 second deduplication window
-  
-  /**
-   * Initialize supporting services
-   */
-  static async initializeServices(): Promise<void> {
-    // Services initialized as needed
-  }
   
   /**
    * Deduplicate API requests to prevent multiple identical calls
@@ -904,87 +888,18 @@ class AtprotoService {
    * @param labelerDid - Optional DID of the labeler to receive the report (default: uses Bluesky's moderation)
    * @returns A boolean indicating whether the report was successfully submitted
    */
+  /**
+   * Report content - delegates to ModerationService
+   * @deprecated This method duplicates ModerationService.reportContent(). Use ModerationService directly.
+   */
   static async reportContent(
     uri: string, 
     reasonType: string | 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other',
     reason?: string,
     _labelerDid?: string
   ): Promise<boolean> {
-    try {
-      await this.ensureSession();
-      
-      // For posts, we need the CID in addition to URI for proper reporting
-      let cid: string | undefined;
-      let subject: { $type?: string; uri?: string; cid?: string; did?: string } = {};
-      
-      // Convert simple reason types to full namespace format if needed
-      let fullReasonType = reasonType;
-      if (!reasonType.includes('#')) {
-        // Map simple reason types to full namespace format
-        const reasonMap: Record<string, string> = {
-          'spam': 'com.atproto.moderation.defs#reasonSpam',
-          'violation': 'com.atproto.moderation.defs#reasonViolation',
-          'misleading': 'com.atproto.moderation.defs#reasonMisleading',
-          'sexual': 'com.atproto.moderation.defs#reasonSexual',
-          'rude': 'com.atproto.moderation.defs#reasonRude',
-          'other': 'com.atproto.moderation.defs#reasonOther'
-        };
-        fullReasonType = reasonMap[reasonType] || 'com.atproto.moderation.defs#reasonOther';
-      }
-      
-      // Determine if we're reporting a post or user
-      if (uri.includes('app.bsky.feed.post')) {
-        try {
-          // Try to get the post to extract its CID
-          const { api } = await this.getApiClient();
-          const postResponse = await api.app.bsky.feed.getPostThread({ 
-            uri,
-            depth: 0
-          });
-          
-          const thread = postResponse.data.thread;
-          
-          // Type guard for ThreadViewPost
-          if (thread && 
-              thread.$type === 'app.bsky.feed.defs#threadViewPost' && 
-              'post' in thread && 
-              thread.post?.cid) {
-            cid = thread.post.cid;
-          }
-        } catch (err) {
-        }
-        
-        // Set the subject for a post
-        subject = {
-          $type: 'com.atproto.repo.strongRef' as const,
-          uri,
-          ...(cid && { cid })
-        };
-      } else if (uri.startsWith('did:')) {
-        // We're reporting a user
-        subject = { $type: 'com.atproto.admin.defs#repoRef' as const, did: uri };
-      } else {
-        // Default to repo strongRef for other content types
-        subject = {
-          $type: 'com.atproto.repo.strongRef' as const,
-          uri
-        };
-      }
-      
-      // Get the API client
-      const { api } = await this.getApiClient();
-      
-      // Create the moderation report
-      await api.com.atproto.moderation.createReport({
-        reasonType: fullReasonType,
-        subject: subject as { $type: string; uri?: string; cid?: string; did?: string },
-        reason
-      });
-      
-      return true;
-    } catch (error: unknown) {
-      return false;
-    }
+    // Delegate to the dedicated moderation service to avoid duplication
+    return ModerationService.reportContent(uri, reasonType, reason, _labelerDid);
   }
 
   /**
@@ -1039,12 +954,6 @@ class AtprotoService {
     }
   }
 
-  /**
-   * Clear all caches - no-op since React Query handles all caching
-   */
-  static clearAllCaches(): void {
-    // React Query handles all caching - no custom cache to clear
-  }
 
 
 
@@ -1552,15 +1461,15 @@ class AtprotoService {
       });
       
       // Flatten and merge all feeds, preserving source feed information
-      let allPosts = feedResults.flatMap(result => 
+      let allPosts: (ExtendedFeedViewPost & { sourceFeed: string })[] = feedResults.flatMap(result => 
         result.posts.map(post => ({
           ...post,
           sourceFeed: result.feedUri
-        }))
+        } as ExtendedFeedViewPost & { sourceFeed: string }))
       );
       
       // Remove duplicates
-      allPosts = this.deduplicatePosts(allPosts);
+      allPosts = this.deduplicatePosts(allPosts) as (ExtendedFeedViewPost & { sourceFeed: string })[];
       
       // Sort chronologically
       allPosts.sort((a, b) => {
@@ -1609,7 +1518,7 @@ class AtprotoService {
   /**
    * Deduplicate posts based on URI and CID
    */
-  private static deduplicatePosts(posts: ExtendedFeedViewPost[]): ExtendedFeedViewPost[] {
+  private static deduplicatePosts<T extends ExtendedFeedViewPost>(posts: T[]): T[] {
     const seenUris = new Set<string>();
     const seenCids = new Set<string>();
     

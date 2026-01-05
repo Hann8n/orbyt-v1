@@ -5,14 +5,12 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Alert,
   ScrollView,
 } from 'react-native';
 import { Colors } from '../../ui/UI';
 import Icon from '../../ui/Icon';
-import { ModerationService } from '../../../services/ModerationService';
-import { ModerationSettings, LabelPreference } from '../../../services/ModerationTypes';
-import { useAuth, useUserStoreState } from '../../../stores/userStore';
+import { useUserStoreState } from '../../../stores/userStore';
+import { useModerationSettings } from '../../../hooks/useModerationSettings';
 
 interface ModerationControlsProps {
   visible: boolean;
@@ -20,215 +18,31 @@ interface ModerationControlsProps {
   onLogout?: (clearAllAccounts?: boolean) => Promise<void>;
 }
 
-interface ContentTypeOption {
-  id: string;
-  label: string;
-  description: string;
-  icon: string;
-  preference: LabelPreference;
-}
-
 const ModerationControls: React.FC<ModerationControlsProps> = ({ visible }) => {
-  const { agent } = useUserStoreState();
-  const [settings, setSettings] = useState<ModerationSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { currentUser } = useUserStoreState();
+  
+  // Use React Query hook for moderation settings (account-scoped)
+  const { isLoading: isLoadingSettings } = useModerationSettings(currentUser?.did ?? undefined);
+  
+  const [loading, setLoading] = useState(isLoadingSettings);
   const [stats, setStats] = useState<any>(null);
-
-  // Content type options with their current preferences - simplified to match Bluesky
-  const [contentOptions, setContentOptions] = useState<ContentTypeOption[]>([
-    {
-      id: 'porn',
-      label: 'Adult Content',
-      description: 'Sexual content and pornography',
-      icon: '',
-      preference: 'hide'
-    },
-    {
-      id: 'sexual',
-      label: 'Sexual Content',
-      description: 'Sexual themes and suggestive content',
-      icon: '',
-      preference: 'warn'
-    },
-    {
-      id: 'nudity',
-      label: 'Nudity',
-      description: 'Nude or partially nude content',
-      icon: '',
-      preference: 'warn'
-    },
-    {
-      id: 'graphic-media',
-      label: 'Graphic Media',
-      description: 'Violent or graphic content',
-      icon: '',
-      preference: 'warn'
-    }
-  ]);
-
-  // General moderation settings
-  const [generalSettings, setGeneralSettings] = useState({
-    hideSensitiveContent: true,
-    hideAdultContent: true,
-    hideViolence: true,
-    hideSpam: true,
-    hideMisleading: true,
-    showContentWarnings: true,
-    autoExpandContentWarnings: false,
-    adultContentEnabled: false,
-  });
 
   useEffect(() => {
     if (visible) {
-      loadSettings();
       loadStats();
     }
   }, [visible]);
+
+  // Update loading state when React Query loading state changes
+  useEffect(() => {
+    setLoading(isLoadingSettings);
+  }, [isLoadingSettings]);
 
   const loadStats = async () => {
     try {
       // Stats feature is not currently implemented
       setStats(null);
     } catch (error) {
-    }
-  };
-
-  const loadSettings = async () => {
-    try {
-      setLoading(true);
-      const currentSettings = await ModerationService.getModerationSettings(agent);
-      setSettings(currentSettings);
-      
-      // Update general settings
-      setGeneralSettings({
-        hideSensitiveContent: currentSettings.hideSensitiveContent,
-        hideAdultContent: currentSettings.hideAdultContent,
-        hideViolence: currentSettings.hideViolence,
-        hideSpam: currentSettings.hideSpam,
-        hideMisleading: currentSettings.hideMisleading,
-        showContentWarnings: currentSettings.showContentWarnings,
-        autoExpandContentWarnings: currentSettings.autoExpandContentWarnings,
-        adultContentEnabled: currentSettings.adultContentEnabled,
-      });
-
-      // Update content options with current label preferences
-      const updatedContentOptions = contentOptions.map(option => ({
-        ...option,
-        preference: currentSettings.labels[option.id] || option.preference
-      }));
-      
-      setContentOptions(updatedContentOptions);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to load moderation settings');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-
-  const _updateContentPreference = async (contentId: string, preference: LabelPreference) => {
-    // Update the content options state
-    const updatedContentOptions = contentOptions.map(option => 
-      option.id === contentId ? { ...option, preference } : option
-    );
-    setContentOptions(updatedContentOptions);
-    
-    // Auto-save the changes
-    try {
-      if (settings) {
-        const updatedSettings: ModerationSettings = {
-          ...settings,
-          labels: {
-            ...settings.labels,
-            [contentId]: preference
-          }
-        };
-        
-        await ModerationService.saveModerationSettings(updatedSettings, agent);
-        setSettings(updatedSettings);
-      }
-    } catch (error) {
-    }
-  };
-
-  const _updateGeneralSetting = async (key: keyof typeof generalSettings, value: boolean) => {
-    // Prevent enabling sensitive content - only allow disabling
-    if (key === 'adultContentEnabled' && value === true) {
-      Alert.alert(
-        'Cannot Enable Sensitive Content',
-        'Sensitive content can only be disabled from this app. To enable it, please use the Bluesky web app or official Bluesky app.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-    
-    setGeneralSettings(prev => ({ ...prev, [key]: value }));
-    
-    // Auto-save the changes
-    try {
-      if (settings) {
-        const updatedSettings: ModerationSettings = {
-          ...settings,
-          [key]: value
-        };
-        
-        await ModerationService.saveModerationSettings(updatedSettings, agent);
-        setSettings(updatedSettings);
-      }
-    } catch (error) {
-    }
-  };
-
-  const _getPreferenceIcon = (preference: LabelPreference) => {
-    switch (preference) {
-      case 'ignore':
-        return 'eye';
-      case 'warn':
-        return 'eye-off';
-      case 'hide':
-        return 'warning-box';
-      default:
-        return 'eye-off';
-    }
-  };
-
-  const _getPreferenceColor = (preference: LabelPreference) => {
-    switch (preference) {
-      case 'ignore':
-        return '#4CAF50';
-      case 'warn':
-        return '#FF9800';
-      case 'hide':
-        return '#F44336';
-      default:
-        return '#666';
-    }
-  };
-
-  const _getPreferenceLabel = (preference: LabelPreference) => {
-    switch (preference) {
-      case 'ignore':
-        return 'Show';
-      case 'warn':
-        return 'Warn';
-      case 'hide':
-        return 'Hide';
-      default:
-        return 'Warn';
-    }
-  };
-
-  const _cyclePreference = (currentPreference: LabelPreference): LabelPreference => {
-    switch (currentPreference) {
-      case 'ignore':
-        return 'warn';
-      case 'warn':
-        return 'hide';
-      case 'hide':
-        return 'ignore';
-      default:
-        return 'warn';
     }
   };
 

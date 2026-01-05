@@ -7,7 +7,7 @@
 
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import type { ModerationDecision } from './ModerationTypes';
-import { ModerationService } from './ModerationService';
+import { ModerationService } from './api/moderation/ContentFilterService';
 import { logger } from '../utils/logger';
 import { useUserStore } from '../stores/userStore';
 import { QUERY_CONSTANTS } from '../utils/constants';
@@ -31,11 +31,6 @@ try {
   };
 }
 
-// React Query handles all caching - these are just for reference
-const CACHE_CONFIG = {
-  STALE_TIME: 5 * 60 * 1000,   // 5 minutes
-  GC_TIME: 10 * 60 * 1000,     // 10 minutes
-} as const;
 
 // Re-export API types for convenience
 export type { ExtendedFeedViewPost as FeedItem, ExtendedPostView as Post } from './api/types';
@@ -66,13 +61,13 @@ const FEED_CONFIG = {
  * React Query handles all feed caching via useInfiniteQuery
  */
 class SearchFeedState {
-  private searchResults: FeedItem[] = [];
+  private searchResults: ExtendedFeedViewPost[] = [];
 
-  setSearchResults(feed: FeedItem[]) {
+  setSearchResults(feed: ExtendedFeedViewPost[]) {
     this.searchResults = feed;
   }
 
-  getSearchResults(): FeedItem[] {
+  getSearchResults(): ExtendedFeedViewPost[] {
     return this.searchResults;
   }
 
@@ -148,7 +143,7 @@ class FeedService {
   /**
    * Helper function to merge, deduplicate, and sort posts chronologically
    */
-  private mergeAndDeduplicatePosts(posts: FeedItem[], limit: number): FeedItem[] {
+  private mergeAndDeduplicatePosts(posts: ExtendedFeedViewPost[], limit: number): ExtendedFeedViewPost[] {
     // Remove duplicates
     const seen = new Set<string>();
     const uniquePosts = posts.filter(post => {
@@ -406,9 +401,9 @@ class FeedService {
                   sourceCursor,
                   itemsPerFeed,
                   source.sort || 'latest'
-                ).then(hashtagResponse => ({
+                ).then((hashtagResponse: { videos?: ExtendedFeedViewPost[]; cursor?: string | null }) => ({
                   feed: hashtagResponse.videos || [],
-                  cursor: hashtagResponse.cursor,
+                  cursor: hashtagResponse.cursor || null,
                   sourceUri: source.uri,
                   success: true,
                 }))
@@ -419,7 +414,7 @@ class FeedService {
                   true, // filter videos only
                   itemsPerFeed,
                   'custom'
-                ).then(feedResponse => ({
+                ).then((feedResponse: { feed?: ExtendedFeedViewPost[]; cursor?: string | null }) => ({
                   feed: feedResponse?.feed || [],
                   cursor: feedResponse?.cursor || null,
                   sourceUri: source.uri,
@@ -488,9 +483,9 @@ class FeedService {
             AtprotoService.searchPopularFeeds(searchQuery, 15)
           ]);
 
-          const feedItems: FeedItem[] = [];
+          const feedItems: ExtendedFeedViewPost[] = [];
           
-          profilesResponse.profiles.forEach(profile => {
+          profilesResponse.profiles.forEach((profile: any) => {
             feedItems.push({
               post: {
                 uri: `at://${profile.did}/profile`,
@@ -507,7 +502,7 @@ class FeedService {
             });
           });
 
-          channelsResponse.forEach(channel => {
+          channelsResponse.forEach((channel: any) => {
             feedItems.push({
               post: {
                 uri: channel.uri,
@@ -583,15 +578,16 @@ class FeedService {
       // Apply moderation to the fetched posts
       if (response && response.feed && response.feed.length > 0) {
         try {
-          // Get agent from userStore to pass to moderation
-          const agent = useUserStore.getState().agent;
+          // Get agent and currentUser from userStore to pass to moderation
+          const { agent, currentUser } = useUserStore.getState();
           
           if (!agent) {
             logger.warn('No agent available for moderation, applying basic label-based filtering', { component: 'FeedService' });
             // Fail-safe: filter out posts with sensitive labels when no agent
             response.feed = ModerationService.filterSensitiveByLabels(response.feed);
           } else {
-            const moderatedFeed = await ModerationService.batchModeratePosts(response.feed, 'contentList', agent);
+            // Pass userDid to use React Query cache for faster moderation
+            const moderatedFeed = await ModerationService.batchModeratePosts(response.feed, 'contentList', agent, currentUser?.did ?? undefined);
             response.feed = moderatedFeed.filteredPosts;
           }
         } catch (error) {

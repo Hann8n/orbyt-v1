@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useImperativeHandle, forwardRef, memo, useRef, useEffect } from 'react';
+import { useState, useCallback, useImperativeHandle, forwardRef, memo, useRef, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -15,7 +15,7 @@ import { useUserStore } from '../../src/stores/userStore';
 
 interface HomeScreenProps {}
 
-const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) => {
+const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((_props, ref) => {
   // Home screen always defaults to 'your-mix'
   // Built-in channels ('following' and 'your-mix') are not in subscribedChannels,
   // so we always default to 'your-mix' directly
@@ -33,12 +33,12 @@ const HomeScreen = memo(forwardRef<HomeScreenRef, HomeScreenProps>((props, ref) 
     // Use invalidateQueries with refetchType to ensure it refetches active queries
     // This is more reliable than refetchQueries for inactive queries
     queryClient.invalidateQueries({ 
-      queryKey: createQueryKeys.feed.infinite('following', userDid),
+      queryKey: createQueryKeys.feed.infinite('following', userDid ?? undefined),
       exact: false,
       refetchType: 'active' // Only refetch active queries
     });
     queryClient.invalidateQueries({ 
-      queryKey: createQueryKeys.feed.infinite('your-mix', userDid),
+      queryKey: createQueryKeys.feed.infinite('your-mix', userDid ?? undefined),
       exact: false,
       refetchType: 'active' // Only refetch active queries
     });

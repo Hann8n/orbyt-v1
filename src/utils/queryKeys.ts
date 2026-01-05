@@ -15,6 +15,7 @@ const blocksBase = ['blocks'] as const;
 const mutesBase = ['mutes'] as const;
 const feedsBase = ['feeds'] as const;
 const searchBase = ['search'] as const;
+const moderationBase = ['moderation'] as const;
 
 export const queryKeys = {
   // Feed queries (merged from FeedService)
@@ -138,5 +139,11 @@ export const queryKeys = {
     all: ['channels'] as const,
     detail: (uri: string) => [...queryKeys.channels.all, 'detail', uri] as const,
     colors: (uri: string) => [...queryKeys.channels.all, 'colors', uri] as const,
+  },
+
+  // Moderation settings queries
+  moderation: {
+    all: moderationBase,
+    byUser: (did: string) => [...moderationBase, did] as const,
   },
 } as const;

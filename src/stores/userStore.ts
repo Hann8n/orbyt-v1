@@ -4,7 +4,7 @@
  * Centralizes all user-related state using DIDs as primary identifiers
  * Integrates with @atproto/oauth-client-expo for OAuth session management
  */
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 // Note: Using individual selectors instead of shallow comparison for better performance
@@ -12,45 +12,21 @@ import { storageAdapter, storageHelpers } from '../utils/storage';
 import * as SecureStore from 'expo-secure-store';
 import { InteractionManager } from 'react-native';
 import { Agent } from '@atproto/api';
-import { ExpoOAuthClient } from '@atproto/oauth-client-expo';
 import { AtProtoOAuthService, OAuthSession } from '../services/auth';
-import ProfileCache, { CachedProfile } from '../services/cache/ProfileCache';
-import ChannelCache from '../services/cache/ChannelCache';
+import ProfileCache from '../services/cache/ProfileCache';
 import { AtprotoService } from '../services/api/AtprotoService';
-import { isUserCancellation, getErrorMessage, shouldShowError } from '../utils/errorHandler';
+import { isUserCancellation, getErrorMessage } from '../utils/errorHandler';
 import { analyzeOAuthError } from '../utils/oauthErrorHandler';
 import { logger } from '../utils/logger';
 
-import { ModerationService } from '../services/ModerationService';
+import { ModerationService } from '../services/api/moderation/ContentFilterService';
+import type { OrbytProfileRecord } from '../services/api/types';
 import { isOrbytChannel } from '../utils/orbytChannels';
 import { queryClient } from '../utils/queryClient';
 import { usePostInteractionStore } from './postInteractionStore';
 import { queryKeys } from '../utils/queryKeys';
 
-// Lazy import feedService to avoid circular dependency
-// FeedService imports useUserStore, so we import it dynamically when needed
-// Using a minimal interface type to avoid importing React Query types here
-let feedService: { 
-  createInfiniteQuery: (
-    feedOption: string, 
-    userDid?: string, 
-    queryOptions?: Record<string, unknown>
-  ) => {
-    data?: { pages: Array<{ feed: unknown[]; cursor: string | null }>; pageParams: unknown[] };
-    isLoading: boolean;
-    isFetching: boolean;
-    fetchNextPage: () => Promise<unknown>;
-    hasNextPage: boolean;
-    refetch: () => Promise<unknown>;
-    [key: string]: unknown; // Allow other useInfiniteQuery properties
-  }
-} | null = null;
-const getFeedService = () => {
-  if (!feedService) {
-    feedService = require('../services/FeedService').feedService;
-  }
-  return feedService;
-};
+// Note: FeedService is no longer needed here - React Query handles all feed caching
 
 // Account types
 export interface SavedAccount {
@@ -77,12 +53,13 @@ export interface SubscribedChannel {
 // User state types - DID-centric design
 interface UserState {
   // Current user information - DID is the primary identifier
+  // Uses API structure directly: ProfileView uses string | undefined for optional fields
   currentUser: {
     did: string | null; // Primary identifier - immutable
     handle: string | null; // Display identifier - can change
-    displayName: string | null;
-    avatar: string | null;
-    originalIdentifier: string | null; // The identifier used during initial authentication
+    displayName?: string; // Matches ProfileView.displayName (string | undefined)
+    avatar?: string; // Matches ProfileView.avatar (string | undefined)
+    originalIdentifier: string; // The identifier used during initial authentication
   } | null;
   
   // Authentication state
@@ -97,7 +74,7 @@ interface UserState {
   
   // Session state - following @atproto/oauth-client-expo patterns
   oauthSession: OAuthSession | null;
-  agent: Agent | null;
+  agent?: Agent; // Matches API expectations (Agent | undefined)
   
   // User-specific settings - scoped by DID
   experimentalFeedsEnabled: boolean;
@@ -175,9 +152,6 @@ interface UserState {
   invalidateAllUserData: () => Promise<void>;
   clearAllCaches: () => Promise<void>;
   
-  // Moderation integration
-  getModerationOpts: () => Promise<import('../services/ModerationTypes').ModerationOpts>;
-  
   // Session management
   checkSessionHealth: () => Promise<boolean>;
   checkAccountSessionValidity: (did: string) => Promise<boolean>;
@@ -244,7 +218,7 @@ export const useUserStore = create<UserState>()(
       savedAccounts: [],
       activeAccountDid: null,
       oauthSession: null,
-      agent: null,
+      agent: undefined,
       
       // Feed settings
       experimentalFeedsEnabled: true,
@@ -289,7 +263,7 @@ export const useUserStore = create<UserState>()(
             displayName: userProfile.displayName || userProfile.handle,
             avatar: userProfile.avatar,
             lastUsed: Date.now(),
-            originalIdentifier: identifier
+            originalIdentifier: identifier || session.sub
           };
           
           // Update saved accounts list
@@ -304,8 +278,8 @@ export const useUserStore = create<UserState>()(
             currentUser: {
               did: session.sub,
               handle: userProfile.handle,
-              displayName: userProfile.displayName || userProfile.handle,
-              avatar: userProfile.avatar,
+              displayName: userProfile.displayName, // Use API structure directly
+              avatar: userProfile.avatar, // Use API structure directly
               originalIdentifier: identifier
             },
             isAuthenticated: true,
@@ -324,7 +298,7 @@ export const useUserStore = create<UserState>()(
           try {
             await AtprotoService.initOrbytProfileIfNeeded();
           } catch (error) {
-            logger.debug('Failed to initialize orbyt profile', error);
+            logger.debug('Failed to initialize orbyt profile', { component: 'userStore', error });
           }
           
         } catch (error) {
@@ -371,7 +345,7 @@ export const useUserStore = create<UserState>()(
             isAuthenticating: false,
             authError: null,
             oauthSession: null,
-            agent: null,
+            agent: undefined, // Use undefined to match API expectations
             activeAccountDid: null,
             savedAccounts: clearAllAccounts ? [] : get().savedAccounts,
             subscribedChannels: [],
@@ -406,15 +380,15 @@ export const useUserStore = create<UserState>()(
           // Get original identifier from account
           const accounts = get().savedAccounts;
           const account = accounts.find(acc => acc.did === did);
-          const originalIdentifier = account?.originalIdentifier || did;
+          const originalIdentifier = account?.originalIdentifier ?? did;
           
           // Update state
           set({
             currentUser: {
               did: session.sub,
               handle: userProfile.handle,
-              displayName: userProfile.displayName || userProfile.handle,
-              avatar: userProfile.avatar,
+              displayName: userProfile.displayName, // Use API structure directly
+              avatar: userProfile.avatar, // Use API structure directly
               originalIdentifier: originalIdentifier,
             },
             isAuthenticated: true,
@@ -459,7 +433,7 @@ export const useUserStore = create<UserState>()(
               isAuthenticated: false,
               currentUser: null,
               oauthSession: null,
-              agent: null,
+              agent: undefined,
               activeAccountDid: null,
             });
             throw new Error('oauth_reauth_required');
@@ -473,7 +447,7 @@ export const useUserStore = create<UserState>()(
             authError: errorMessage,
             currentUser: null,
             oauthSession: null,
-            agent: null,
+            agent: undefined,
             activeAccountDid: null,
           });
           throw error;
@@ -549,7 +523,6 @@ export const useUserStore = create<UserState>()(
             queryClient.invalidateQueries();
             
           } catch (restoreErr) {
-            const restoreMsg = restoreErr instanceof Error ? restoreErr.message : '';
             logger.error('Session restoration failed for account switch', restoreErr, { component: 'userStore', did });
             
             // Use universal OAuth error analysis
@@ -560,7 +533,7 @@ export const useUserStore = create<UserState>()(
               isAuthenticated: false,
               currentUser: null,
               oauthSession: null,
-              agent: null,
+              agent: undefined,
               isSwitchingAccount: false,
               activeAccountDid: null,
             });
@@ -598,7 +571,7 @@ export const useUserStore = create<UserState>()(
             id: oauthSession.did, // Use DID directly as account ID
             handle: profileData?.handle || oauthSession.did,
             did: oauthSession.did,
-            displayName: profileData?.displayName || null,
+            displayName: profileData?.displayName,
             avatar: profileData?.avatar,
             lastUsed: Date.now(),
             originalIdentifier: accountOriginalIdentifier,
@@ -691,8 +664,8 @@ export const useUserStore = create<UserState>()(
             set(state => ({
               currentUser: state.currentUser ? {
                 ...state.currentUser,
-                displayName: profileData.displayName || state.currentUser.displayName,
-                avatar: profileData.avatar || state.currentUser.avatar,
+                displayName: profileData.displayName ?? state.currentUser.displayName,
+                avatar: profileData.avatar ?? state.currentUser.avatar,
                 handle: profileData.handle || state.currentUser.handle,
               } : null
             }));
@@ -1003,11 +976,13 @@ export const useUserStore = create<UserState>()(
           
           // Remove all cached your-mix queries and refetch with new provider
           const currentUserDid = get().currentUser?.did;
-          queryClient.removeQueries({ queryKey: queryKeys.feed.byUser('your-mix', currentUserDid) });
-          queryClient.invalidateQueries({ 
-            queryKey: queryKeys.feed.byUser('your-mix', currentUserDid),
-            refetchType: 'active'
-          });
+          if (currentUserDid) {
+            queryClient.removeQueries({ queryKey: queryKeys.feed.byUser('your-mix', currentUserDid) });
+            queryClient.invalidateQueries({ 
+              queryKey: queryKeys.feed.byUser('your-mix', currentUserDid),
+              refetchType: 'active'
+            });
+          }
         } catch (error) {
           logger.error('Error setting algorithmic feed provider', error, { component: 'userStore' });
           throw error;
@@ -1041,10 +1016,6 @@ export const useUserStore = create<UserState>()(
           // Clear all caches
           await get().clearAllCaches();
           
-          // Clear current feed
-          // feedService.clearCurrentFeed(); // This line is removed
-          // feedService.clearFeedCache(); // This line is removed
-          
         } catch (error) {
           logger.error('Error invalidating user data', error, { component: 'userStore' });
         }
@@ -1054,9 +1025,6 @@ export const useUserStore = create<UserState>()(
         try {
           // Clear React Query cache (single source of truth for all data)
           queryClient.clear();
-          
-          // Clear search results state
-          getFeedService().clearCurrentFeed();
           
           // Clear post interaction cache
           usePostInteractionStore.getState().clearInteractions();
@@ -1069,23 +1037,13 @@ export const useUserStore = create<UserState>()(
           const { useProfileInteractionStore } = await import('./profileInteractionStore');
           useProfileInteractionStore.getState().clearAll();
           
+          ModerationService.clearModerationCache();
+          
           // Note: All data caching is now handled by React Query
           // Custom caches (ProfileCache, ChannelCache, AtprotoService) have been removed
           
         } catch (error) {
           logger.error('Error clearing caches', error, { component: 'userStore' });
-        }
-      },
-      
-      // Moderation integration
-      getModerationOpts: async () => {
-        try {
-          const moderationSettings = await ModerationService.getModerationSettings(get().agent);
-          return moderationSettings;
-        } catch (error) {
-          logger.error('Error getting moderation options, returning safe defaults', error, { component: 'userStore' });
-          // Return safe defaults instead of empty object
-          return ModerationService.getCachedModerationSettings();
         }
       },
       
@@ -1102,10 +1060,12 @@ export const useUserStore = create<UserState>()(
           let isHealthy = false;
           
           try {
-            if (get().agent && get().currentUser?.did) {
+            const agent = get().agent;
+            const userDid = get().currentUser?.did;
+            if (agent && userDid) {
               // Try to make a simple API call to verify the session is still valid
-              await get().agent!.api.app.bsky.actor.getProfile({
-                actor: get().currentUser!.did
+              await agent.api.app.bsky.actor.getProfile({
+                actor: userDid
               });
               isHealthy = true;
             }
@@ -1121,14 +1081,13 @@ export const useUserStore = create<UserState>()(
               isAuthenticated: false,
               currentUser: null,
               oauthSession: null,
-              agent: null,
+              agent: undefined,
               activeAccountDid: null,
             });
           }
           
           return isHealthy;
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
           logger.error('Session health check failed', error, { component: 'userStore' });
           return false;
         }
@@ -1154,7 +1113,6 @@ export const useUserStore = create<UserState>()(
             return false;
           }
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
           logger.error('Account session validity check failed', error, { component: 'userStore' });
           return false;
         }
@@ -1181,7 +1139,7 @@ export const useUserStore = create<UserState>()(
             isAuthenticated: false,
             currentUser: null,
             oauthSession: null,
-            agent: null,
+            agent: undefined,
             activeAccountDid: null,
           });
           
@@ -1189,7 +1147,6 @@ export const useUserStore = create<UserState>()(
           await get().clearAllCaches();
           
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
           logger.error('Failed to clear corrupted sessions', error, { component: 'userStore' });
           
           // Still try to reset the state even if other cleanup fails
@@ -1197,7 +1154,7 @@ export const useUserStore = create<UserState>()(
             isAuthenticated: false,
             currentUser: null,
             oauthSession: null,
-            agent: null,
+            agent: undefined,
             activeAccountDid: null,
           });
         }
@@ -1233,8 +1190,7 @@ export const useUserStore = create<UserState>()(
               await get().restoreSession(activeAccountDid);
               sessionRestored = true;
             } catch (oauthError) {
-              const errorMessage = oauthError instanceof Error ? oauthError.message : 'OAuth session restoration failed';
-              
+              // Session restoration failed - will be handled below
             }
             
             // If no session could be restored, clear the active account
@@ -1243,7 +1199,7 @@ export const useUserStore = create<UserState>()(
                 isAuthenticated: false,
                 currentUser: null,
                 oauthSession: null,
-                agent: null,
+                agent: undefined,
                 activeAccountDid: null,
               });
             } else {
@@ -1273,7 +1229,7 @@ export const useUserStore = create<UserState>()(
             isAuthenticated: false,
             currentUser: null,
             oauthSession: null,
-            agent: null,
+            agent: undefined,
             activeAccountDid: null,
           });
         }
@@ -1323,7 +1279,8 @@ export const useUserStore = create<UserState>()(
           let algorithmicFeedProvider: string | null = null;
           try {
             const record = await AtprotoService.getOrbytProfileRecordForDid(did);
-            const remoteProvider = record?.algorithmicFeedProvider;
+            // Use API structure directly - OrbytProfileRecord.algorithmicFeedProvider is string | null | undefined
+            const remoteProvider = (record as OrbytProfileRecord)?.algorithmicFeedProvider;
             
             // If profile record has a value, use it (even if null)
             if (remoteProvider !== undefined) {
@@ -1344,11 +1301,15 @@ export const useUserStore = create<UserState>()(
             algorithmicFeedProvider = await get().getAlgorithmicFeedProvider();
           }
           
-          // Sync moderation settings with Bluesky API (this will also cache them)
-          await ModerationService.syncModerationSettings(get().agent);
+          const currentUser = get().currentUser;
+          const agent = get().agent;
+          const moderationSettings = await ModerationService.fetchModerationSettings(agent);
           
-          // Load user-specific moderation settings (will use cached if available)
-          const moderationSettings = await ModerationService.getModerationSettings(get().agent);
+          if (currentUser?.did) {
+            const { queryClient } = await import('../utils/queryClient');
+            const { queryKeys } = await import('../utils/queryKeys');
+            queryClient.setQueryData(queryKeys.moderation.byUser(currentUser.did), moderationSettings);
+          }
           
           // Update state with user-specific settings
           set({ 
@@ -1376,13 +1337,12 @@ export const useUserStore = create<UserState>()(
 
           // Always check and clean profile record, even if we have local channels
           // This ensures built-ins are removed from the profile record
-          let profileRecordHasBuiltIns = false;
           try {
             const record = await AtprotoService.getOrbytProfileRecordForDid(did);
-            const remoteUris: string[] = Array.isArray(record?.subscribedChannels) ? record.subscribedChannels : [];
-            
-            // Check if profile record has built-ins
-            profileRecordHasBuiltIns = remoteUris.some(uri => BUILT_IN_CHANNELS.includes(uri));
+            // Use API structure directly - OrbytProfileRecord.subscribedChannels is string[] | undefined
+            const remoteUris: string[] = Array.isArray((record as OrbytProfileRecord)?.subscribedChannels) 
+              ? (record as OrbytProfileRecord).subscribedChannels! 
+              : [];
             
             // Record-first backfill: if no local channels, load from Orbyt profile record
             if ((!savedChannels || savedChannels.length === 0) && remoteUris.length > 0) {
@@ -1692,30 +1652,23 @@ export const useProfilePrecache = () => {
 
 // Hook for moderation functionality
 export const useModeration = () => {
-  const getModerationOpts = useUserStore(state => state.getModerationOpts);
   const agent = useUserStore(state => state.agent);
+  const currentUser = useUserStore(state => state.currentUser);
   
   return {
-    getModerationOpts,
     moderatePost: async (post: import('../services/api/types').ExtendedFeedViewPost | import('../services/api/types').ExtendedPostView, context?: 'contentList' | 'contentView' | 'avatar' | 'banner') => {
       return ModerationService.moderatePost(post, context || 'contentList', agent);
     },
     moderateProfile: ModerationService.moderateProfile,
     moderateNotification: ModerationService.moderateNotification,
     getModerationSettings: async () => {
-      return ModerationService.getModerationSettings(agent);
+      return ModerationService.fetchModerationSettings(agent);
     },
     saveModerationSettings: async (settings: import('../services/ModerationTypes').ModerationSettings) => {
       if (!agent) {
         throw new Error('No agent available. Please ensure you are logged in.');
       }
-      return ModerationService.saveModerationSettings(settings, agent);
-    },
-    syncModerationSettings: async () => {
-      if (!agent) {
-        throw new Error('No agent available. Please ensure you are logged in.');
-      }
-      return ModerationService.syncModerationSettings(agent);
+      return ModerationService.saveModerationSettings(settings, agent, currentUser?.did ?? undefined);
     },
     clearModerationCache: ModerationService.clearModerationCache,
   };

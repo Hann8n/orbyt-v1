@@ -6,26 +6,18 @@ import {
   Alert,
   Platform,
   ScrollView,
-  Share,
   Linking,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../../src/components/ui/Icon';
 import { Colors } from '../../src/components/ui/UI';
 import ListHeader from '../../src/components/ui/ListHeader';
 import { OptionsButton } from '../../src/components/ui/OptionsButton';
 import { useFeedSettings, useAuth, useCurrentUser, useUserStore, useAccountManagement } from '../../src/stores/userStore';
-import { settingsButtonStyles, settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
+import { settingsTextStyles, settingsLayoutStyles } from './SettingsStyles';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { AtprotoService } from '../../src/services/api/AtprotoService';
-import { ModerationService } from '../../src/services/ModerationService';
-import { ModerationSettings, LabelPreference } from '../../src/services/ModerationTypes';
-import { CommonErrorHandlers } from '../../src/utils/errorHandler';
-import { useProfile } from '../../src/services/cache/ProfileCache';
-import { useChannelColors } from '../../src/services/cache/ChannelCache';
 import { useGlobalAccountSwitcher } from '../../src/hooks/useGlobalModals';
 import ProfileCache from '../../src/services/cache/ProfileCache';
 import ChannelCache from '../../src/services/cache/ChannelCache';
@@ -44,7 +36,6 @@ const SettingsScreen: React.FC = () => {
   const [isNativeTabsEnabled, setIsNativeTabsEnabled] = useState(false);
   const [isProfileLinkCopied, setIsProfileLinkCopied] = useState(false);
   const { presentAccountSwitcher } = useGlobalAccountSwitcher();
-  const insets = useSafeAreaInsets();
   const { getExperimentalFeedsEnabled, setExperimentalFeedsEnabled, getNativeTabsEnabled, setNativeTabsEnabled } = useFeedSettings();
   const { currentUser } = useCurrentUser();
   const { isDeveloper } = useUserStore();
@@ -132,10 +123,6 @@ const SettingsScreen: React.FC = () => {
         },
       ]
     );
-  };
-
-  const handlePlaceholderAction = (action: string) => {
-    Alert.alert('coming soon', `${action.toLowerCase()} will be available in a future update.`);
   };
 
   const handleCopyProfileLink = async () => {

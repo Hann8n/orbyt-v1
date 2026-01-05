@@ -49,7 +49,7 @@ import { formatHandle } from '../../src/utils/helpers';
 import BlurredThumbnailBackground from '../../src/components/ui/BlurredThumbnailBackground';
 import { HeaderService, useHeaders } from '../../src/services/APIService';
 import { useFeed } from '../../src/hooks/useFeed';
-import { ModerationService } from '../../src/services/ModerationService';
+import { ModerationService } from '../../src/services/api/moderation/ContentFilterService';
 import { useUserStore, useFeedSettings } from '../../src/stores/userStore';
 import { isCurrentUser } from '../../src/stores/profileInteractionStore';
 import { useFollowStore } from '../../src/stores/followStore';
@@ -1643,20 +1643,21 @@ const ExploreScreen: React.FC = () => {
       // Apply moderation to spotlight videos
       if (feed.length > 0) {
         try {
-          // Get agent from userStore to pass to moderation
-          const { agent } = useUserStore.getState();
+          // Get agent and currentUser from userStore to pass to moderation
+          const { agent, currentUser } = useUserStore.getState();
           
           if (!agent) {
             // Fail-safe: filter out posts with sensitive labels when no agent
-            feed = ModerationService.filterSensitiveByLabels(feed);
+            feed = ModerationService.filterSensitiveByLabels(feed) as typeof feed;
           } else {
-            const moderationResult = await ModerationService.batchModeratePosts(feed, 'contentList', agent);
-            feed = moderationResult.filteredPosts;
+            // Pass userDid to use React Query cache for faster moderation
+            const moderationResult = await ModerationService.batchModeratePosts(feed, 'contentList', agent, currentUser?.did ?? undefined);
+            feed = moderationResult.filteredPosts as typeof feed;
           }
         } catch (error) {
           // Fail-safe: filter out posts with sensitive labels if moderation fails
           logger.error('Error applying moderation to spotlight videos, applying basic filtering', error, { component: 'explore' });
-          feed = ModerationService.filterSensitiveByLabels(feed);
+          feed = ModerationService.filterSensitiveByLabels(feed) as typeof feed;
         }
       }
       

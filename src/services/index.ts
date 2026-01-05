@@ -18,7 +18,7 @@ export { default as ProfileCache } from './cache/ProfileCache';
 // Storage Services
 
 // Other Services
-export { ModerationService } from './ModerationService';
+export { ModerationService } from './api/moderation/ContentFilterService';
 export { default as VideoProcessingService } from './VideoProcessingService';
 export { default as VideoEditingService } from './VideoEditingService';
 

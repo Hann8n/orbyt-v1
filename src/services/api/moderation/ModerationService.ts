@@ -3,7 +3,6 @@
  * Handles all moderation-related API operations including content reporting
  */
 
-import { logger } from '../../../utils/logger';
 import { AtprotoCore } from '../core';
 
 export class ModerationService {
