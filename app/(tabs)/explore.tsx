@@ -1770,6 +1770,7 @@ const ExploreScreen: React.FC = () => {
             </View>
             <TextInput
               ref={searchInputRef}
+              nativeID="explore-search-input"
               style={styles.searchInput}
               placeholder="search"
               placeholderTextColor={Colors.gray}
@@ -1785,9 +1786,13 @@ const ExploreScreen: React.FC = () => {
               onSubmitEditing={() => {}}
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="off"
+              textContentType="none"
+              importantForAutofill="no"
               keyboardAppearance="dark"
               returnKeyType="search"
               textAlignVertical="center"
+              caretHidden={false}
               {...(Platform.OS === 'android' && { includeFontPadding: false })}
             />
           </View>

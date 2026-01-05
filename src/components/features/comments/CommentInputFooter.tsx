@@ -70,6 +70,7 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
           <View style={styles.inputWrapper}>
             <TextInput
               {...mentionInputProps}
+              nativeID="comment-input"
               value={value}
               onChangeText={onChangeText}
               selection={inputSelection}
@@ -86,7 +87,11 @@ const CommentInputFooter: React.FC<CommentInputFooterProps> = ({
               blurOnSubmit={false}
               autoCorrect={true}
               autoCapitalize="sentences"
+              autoComplete="off"
+              textContentType="none"
+              importantForAutofill="no"
               textAlignVertical="top"
+              caretHidden={false}
               onFocus={onFocus}
               onBlur={onBlur}
             />

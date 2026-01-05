@@ -935,6 +935,7 @@ const EditProfileScreen: React.FC = () => {
                     DISPLAY NAME
                   </Text>
                   <TextInput
+                    nativeID="edit-profile-display-name-input"
                     style={[styles.largeInput, {
                       color: currentColors.textColor,
                       backgroundColor: 'transparent',
@@ -946,6 +947,10 @@ const EditProfileScreen: React.FC = () => {
                     placeholderTextColor={hexToRGBA(currentColors.textColor, 0.30)}
                     scrollEnabled
                     maxLength={65}
+                    autoComplete="name"
+                    textContentType="name"
+                    importantForAutofill="yes"
+                    caretHidden={false}
                   />
                 </View>
               </Animated.View>
@@ -970,6 +975,7 @@ const EditProfileScreen: React.FC = () => {
                   ABOUT
                 </Text>
                 <TextInput
+                  nativeID="edit-profile-about-input"
                   style={[styles.textArea, {
                     color: currentColors.textColor,
                   }, isAboutFocused && { flex: 1 }]}
@@ -978,6 +984,10 @@ const EditProfileScreen: React.FC = () => {
                   placeholder="Tell us about yourself"
                   placeholderTextColor={hexToRGBA(currentColors.textColor, 0.30)}
                   multiline
+                  autoComplete="off"
+                  textContentType="none"
+                  importantForAutofill="no"
+                  caretHidden={false}
                   onFocus={() => {
                     setIsAboutFocused(true);
                   }}

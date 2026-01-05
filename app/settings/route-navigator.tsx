@@ -136,11 +136,16 @@ export default function RouteNavigatorScreen() {
       <View style={styles.searchContainer}>
         <Icon name="search" size={20} color={Colors.gray} />
         <TextInput
+          nativeID="route-navigator-search-input"
           style={styles.searchInput}
           placeholder="Search routes..."
           placeholderTextColor={Colors.gray}
           value={searchQuery}
           onChangeText={setSearchQuery}
+          autoComplete="off"
+          textContentType="none"
+          importantForAutofill="no"
+          caretHidden={false}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
@@ -174,6 +179,7 @@ export default function RouteNavigatorScreen() {
                 {route.requiresParam && (
                   <View style={styles.paramContainer}>
                     <TextInput
+                      nativeID={`route-param-input-${route.path.replace(/[^a-zA-Z0-9]/g, '-')}`}
                       style={styles.paramInput}
                       placeholder={route.paramPlaceholder || `Enter ${route.paramKey}`}
                       placeholderTextColor={Colors.gray}
@@ -181,6 +187,10 @@ export default function RouteNavigatorScreen() {
                       onChangeText={(value) => updateParamInput(route.path, value)}
                       autoCapitalize="none"
                       autoCorrect={false}
+                      autoComplete="off"
+                      textContentType="none"
+                      importantForAutofill="no"
+                      caretHidden={false}
                     />
                   </View>
                 )}

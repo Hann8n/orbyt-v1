@@ -114,6 +114,7 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
         <View style={styles.inputContainer}>
           <Icon name="at" size={28} color={Colors.black} style={styles.inputIcon} />
           <TextInput
+            nativeID="pds-username-input"
             style={styles.input}
             placeholder="username"
             placeholderTextColor={Colors.gray}
@@ -124,9 +125,13 @@ const CustomPDSInputSheet: React.FC<CustomPDSInputSheetProps> = ({
             }}
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="username"
+            textContentType="username"
+            importantForAutofill="yes"
             returnKeyType="go"
             onSubmitEditing={handleUsernameLogin}
             editable={!isAddingAccount && !isValidatingPds}
+            caretHidden={false}
             autoFocus
           />
         </View>

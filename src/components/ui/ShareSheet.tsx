@@ -603,11 +603,16 @@ const ShareSheet: React.FC<ShareSheetProps> = () => {
             </View>
             <TextInput
               ref={searchInputRef}
+              nativeID="share-sheet-search-input"
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search people"
               placeholderTextColor={Colors.lightGray}
               style={styles.searchInput}
+              autoComplete="off"
+              textContentType="none"
+              importantForAutofill="no"
+              caretHidden={false}
               autoFocus={true}
             />
             {conversationsLoading ? (

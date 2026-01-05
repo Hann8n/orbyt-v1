@@ -307,6 +307,7 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
       <View style={styles.inputWrapper}>
         <TextInput
           {...props.textInputProps}
+          nativeID="chat-input"
           style={styles.textInput}
           placeholder="Type a message..."
           placeholderTextColor={Colors.gray}
@@ -316,7 +317,11 @@ export default function ChatScreen({ conversationId, recipientDid }: ChatScreenP
           blurOnSubmit={false}
           autoCorrect={true}
           autoCapitalize="sentences"
+          autoComplete="off"
+          textContentType="none"
+          importantForAutofill="no"
           textAlignVertical="top"
+          caretHidden={false}
         />
       </View>
     );

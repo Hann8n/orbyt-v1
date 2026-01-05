@@ -112,6 +112,7 @@ export default function AdvancedLoginScreen() {
           <View style={styles.inputContainer}>
             <Icon name="at" size={28} color={Colors.black} style={styles.inputIcon} />
             <TextInput
+              nativeID="advanced-login-username-input"
               style={styles.input}
               placeholder="username"
               placeholderTextColor={Colors.gray}
@@ -122,9 +123,13 @@ export default function AdvancedLoginScreen() {
               }}
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="username"
+              textContentType="username"
+              importantForAutofill="yes"
               returnKeyType="go"
               onSubmitEditing={handleUsernameLogin}
               editable={!isAddingAccount && !isValidatingPds}
+              caretHidden={false}
               autoFocus
             />
           </View>

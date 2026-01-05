@@ -629,9 +629,10 @@ interface InputProps {
   error?: string;
   icon?: string;
   onIconPress?: () => void;
+  nativeID?: string;
 }
 
-export const Input: React.FC<InputProps> = ({
+export const Input: React.FC<InputProps> = React.memo(({
   value,
   onChangeText,
   placeholder,
@@ -646,7 +647,25 @@ export const Input: React.FC<InputProps> = ({
   error,
   icon,
   onIconPress,
+  nativeID,
 }) => {
+  // Determine textContentType and autoComplete based on keyboardType
+  const textContentType = secureTextEntry 
+    ? 'password' 
+    : keyboardType === 'email-address' 
+    ? 'emailAddress' 
+    : keyboardType === 'phone-pad'
+    ? 'telephoneNumber'
+    : 'none';
+  
+  const autoComplete = secureTextEntry
+    ? 'password'
+    : keyboardType === 'email-address'
+    ? 'email'
+    : keyboardType === 'phone-pad'
+    ? 'tel'
+    : 'off';
+
   return (
     <View style={[styles.inputContainer, style]}>
       <View style={styles.inputWrapper}>
@@ -662,6 +681,7 @@ export const Input: React.FC<InputProps> = ({
           </Pressable>
         )}
         <TextInput
+          nativeID={nativeID}
           style={[
             styles.input,
             textStyle,
@@ -670,13 +690,17 @@ export const Input: React.FC<InputProps> = ({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-                     placeholderTextColor={Colors.lightGray}
+          placeholderTextColor={Colors.lightGray}
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
           autoCorrect={autoCorrect}
+          autoComplete={autoComplete}
+          textContentType={textContentType}
+          importantForAutofill="yes"
           multiline={multiline}
           numberOfLines={numberOfLines}
+          caretHidden={false}
         />
       </View>
       {error && (
@@ -684,7 +708,7 @@ export const Input: React.FC<InputProps> = ({
       )}
     </View>
   );
-};
+});
 
 // Loading Component
 interface LoadingProps {

@@ -174,6 +174,7 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
       >
         <TextInput
           ref={textInputRef}
+          nativeID={`video-editor-text-overlay-${overlay.id}`}
           style={[
             styles.textOverlayInput,
             {
@@ -189,6 +190,10 @@ const EditableTextOverlay: React.FC<EditableTextOverlayProps> = ({
           multiline
           autoFocus
           blurOnSubmit={false}
+          autoComplete="off"
+          textContentType="none"
+          importantForAutofill="no"
+          caretHidden={false}
         />
       </View>
     );

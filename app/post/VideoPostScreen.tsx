@@ -373,6 +373,7 @@ const DescriptionInputModal: React.FC<{
           >
             <View style={styles.descriptionInputContainer}>
               <TextInput
+                nativeID="video-post-description-input"
                 value={description}
                 onChangeText={setDescription}
                 onSelectionChange={(e) => {
@@ -389,6 +390,10 @@ const DescriptionInputModal: React.FC<{
                 returnKeyType="default"
                 selectionColor={Colors.lightGray}
                 cursorColor={Colors.lightGray}
+                autoComplete="off"
+                textContentType="none"
+                importantForAutofill="no"
+                caretHidden={false}
               />
               {description && (
                 <View style={styles.descriptionInputOverlay} pointerEvents="none">
@@ -1238,6 +1243,7 @@ const VideoPostScreen: React.FC = () => {
           {showContentWarningInput && (
             <View style={[styles.sheetInputContainer, isKeyboardVisible && styles.sheetInputContainerKeyboard]}>
               <TextInput
+                nativeID="video-post-warning-input"
                 style={styles.otherWarningInput}
                 placeholder="specify content warning"
                 placeholderTextColor={Colors.lightGray}
@@ -1245,6 +1251,10 @@ const VideoPostScreen: React.FC = () => {
                 onChangeText={setOtherWarning}
                 autoFocus={true}
                 returnKeyType="done"
+                autoComplete="off"
+                textContentType="none"
+                importantForAutofill="no"
+                caretHidden={false}
               />
             </View>
           )}
