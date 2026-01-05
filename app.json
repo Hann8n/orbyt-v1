@@ -20,7 +20,13 @@
         "LSApplicationQueriesSchemes": [
           "mailto"
         ]
-      }
+      },
+      "associatedDomains": [
+        "applinks:getorbyt.com",
+        "applinks:*.getorbyt.com",
+        "applinks:orbyt.video",
+        "applinks:*.orbyt.video"
+      ]
     },
     "scheme": "com.getorbyt",
     "android": {
@@ -32,6 +38,50 @@
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "getorbyt.com",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "*.getorbyt.com",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "orbyt.video",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "*.orbyt.video",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "com.getorbyt"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "web": {

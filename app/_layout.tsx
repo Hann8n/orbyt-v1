@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, StatusBar, Appearance, AppState, InteractionManager, Platform } from 'react-native';
-import { Stack, useSegments } from 'expo-router';
+import { Stack, useSegments, useRouter, usePathname } from 'expo-router';
 import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -8,6 +8,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import * as NavigationBar from 'expo-navigation-bar';
+import * as Linking from 'expo-linking';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 import { setVideoCacheSizeAsync } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,6 +29,7 @@ import { queryClient } from '../src/utils/queryClient';
 import { QueryErrorBoundary } from '../src/components/ui/QueryErrorBoundary';
 import { SessionProvider, useSession } from '../src/context/SessionProvider';
 import { TabBarProvider } from '../src/context/TabBarContext';
+import { parseDeepLink } from '../src/utils/blueskyLinks';
 
 // Configure Reanimated logger to disable strict mode warnings
 configureReanimatedLogger({
@@ -86,6 +88,54 @@ const GlobalModals: React.FC = () => {
   );
 };
 
+// Deep link handler component
+function DeepLinkHandler() {
+  const router = useRouter();
+  const isAuthenticated = useUserStore(state => state.isAuthenticated);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Handle initial deep link when app opens
+    const handleInitialURL = async () => {
+      try {
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl) {
+          const route = parseDeepLink(initialUrl);
+          if (route) {
+            // Small delay to ensure navigation is ready
+            setTimeout(() => {
+              router.push(route.href as any);
+            }, 500);
+          }
+        }
+      } catch (error) {
+        console.warn('Error handling initial URL:', error);
+      }
+    };
+
+    // Handle deep links while app is running
+    const handleURL = (event: { url: string }) => {
+      const route = parseDeepLink(event.url);
+      if (route) {
+        router.push(route.href as any);
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleURL);
+    
+    // Check for initial URL
+    handleInitialURL();
+
+    return () => {
+      subscription.remove();
+    };
+  }, [router, isAuthenticated]);
+
+  return null;
+}
+
 // RootNavigator - handles route protection using Stack.Protected
 function RootNavigator() {
   const { session } = useSession();
@@ -102,6 +152,7 @@ function RootNavigator() {
           pointerEvents="none"
         />
       )}
+      <DeepLinkHandler />
       <Stack screenOptions={{ headerShown: false }}>
         {/* Protected routes - require authentication */}
         <Stack.Protected guard={!!session}>
